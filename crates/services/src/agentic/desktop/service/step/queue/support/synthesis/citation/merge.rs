@@ -8,7 +8,9 @@ pub(crate) fn merged_story_sources(
     pending: &PendingSearchCompletion,
 ) -> Vec<PendingSearchReadSummary> {
     let query_contract = synthesis_query_contract(pending);
-    let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
+    let retrieval_contract = pending.retrieval_contract.as_ref();
+    let headline_lookup_mode =
+        retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources,
@@ -181,7 +183,40 @@ pub(crate) fn merged_story_sources(
 
 pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) -> usize {
     let query_contract = synthesis_query_contract(pending);
-    let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
+    let retrieval_contract = pending.retrieval_contract.as_ref();
+    let headline_lookup_mode =
+        retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
+    let locality_scope = explicit_query_scope_hint(&query_contract).or_else(|| {
+        retrieval_contract_requires_runtime_locality(retrieval_contract, &query_contract)
+            .then(|| effective_locality_scope_hint(None))
+            .flatten()
+    });
+    let required_local_business_sources =
+        retrieval_contract_required_story_count(retrieval_contract, &query_contract)
+            .max(1)
+            .max(pending.min_sources.max(1) as usize);
+    let local_business_target_sources =
+        if retrieval_contract_entity_diversity_required(retrieval_contract, &query_contract) {
+            let target_names = merged_local_business_target_names(
+                &pending.attempted_urls,
+                &pending.successful_reads,
+                locality_scope.as_deref(),
+                required_local_business_sources,
+            );
+            if target_names.is_empty() {
+                Vec::new()
+            } else {
+                selected_local_business_target_sources(
+                    &query_contract,
+                    &target_names,
+                    &pending.successful_reads,
+                    locality_scope.as_deref(),
+                    required_local_business_sources,
+                )
+            }
+        } else {
+            Vec::new()
+        };
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources,
@@ -205,13 +240,20 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
         }
         true
     };
-    let has_constraint_objective = projection.has_constraint_objective();
+    let has_constraint_objective = projection.has_constraint_objective() && !headline_lookup_mode;
     let envelope_constraints = &projection.constraints;
     let envelope_policy = ResolutionPolicy::default();
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
 
     let mut grounded_urls: BTreeSet<String> = BTreeSet::new();
+
+    for source in local_business_target_sources {
+        let trimmed = source.url.trim();
+        if source_url_allowed(trimmed) {
+            grounded_urls.insert(trimmed.to_string());
+        }
+    }
 
     for source in &pending.successful_reads {
         let trimmed = source.url.trim();

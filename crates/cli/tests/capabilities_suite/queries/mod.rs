@@ -5,6 +5,7 @@ mod create_a_new_folder_on_my_desktop_called_project_some_number;
 mod download_and_install_vlc_media_player;
 mod draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it;
 mod find_all_pdf_files_on_my_computer_modified_in_the_last_week;
+mod find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus;
 mod move_all_png_files_from_downloads_into_a_new_folder_called_images;
 mod multiply_247_by_38;
 mod open_calculator_app;
@@ -33,6 +34,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         set_timer_15_minutes::case(),
         schedule_my_computer_to_shut_down_at_11_pm_tonight::case(),
         draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it::case(),
+        find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus::case(),
         compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop::case(),
         create_a_new_folder_on_my_desktop_called_project_some_number::case(),
         download_and_install_vlc_media_player::case(),

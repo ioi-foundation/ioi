@@ -2,14 +2,17 @@ use anyhow::Result;
 use ioi_types::app::agentic::WebSource;
 use regex::Regex;
 use scraper::{Html, Selector};
+use serde_json::Value;
 use std::collections::HashSet;
 use std::time::Duration;
 use url::Url;
 
+use super::google_news::resolve_google_news_article_url;
 use super::transport::fetch_html_http_fallback;
 use super::urls::{
-    build_bing_news_rss_url, build_google_news_rss_url, is_search_engine_host,
-    normalize_bing_search_href, normalize_google_search_href, normalize_search_href,
+    build_bing_news_rss_url, build_bing_search_rss_url, build_google_news_rss_url,
+    build_google_news_top_stories_rss_url, is_search_engine_host, normalize_bing_search_href,
+    normalize_brave_search_href, normalize_google_search_href, normalize_search_href,
 };
 use super::util::{
     compact_ws, domain_for_url, normalize_url_for_id, source_id_for_url, text_content,
@@ -97,39 +100,6 @@ pub(crate) fn parse_ddg_sources_from_html(html: &str, limit: usize) -> Vec<WebSo
         }
     }
 
-    // Fallback: grab anchors globally.
-    if out.is_empty() {
-        let Ok(anchor_sel) = Selector::parse("a[href]") else {
-            return out;
-        };
-        for a in document.select(&anchor_sel) {
-            if out.len() >= limit {
-                break;
-            }
-            let href = a.value().attr("href").unwrap_or("").trim();
-            let Some(final_url) = normalize_search_href(href) else {
-                continue;
-            };
-            if seen.contains(&final_url) {
-                continue;
-            }
-            seen.insert(final_url.clone());
-
-            let title_raw = compact_ws(&text_content(a));
-            let title = title_raw.trim();
-            let title_opt = (!title.is_empty()).then(|| title.to_string());
-
-            out.push(WebSource {
-                source_id: source_id_for_url(&final_url),
-                rank: Some(out.len() as u32 + 1),
-                url: final_url.clone(),
-                title: title_opt,
-                snippet: None,
-                domain: domain_for_url(&final_url),
-            });
-        }
-    }
-
     out
 }
 
@@ -209,38 +179,6 @@ pub(crate) fn parse_google_sources_from_html(html: &str, limit: usize) -> Vec<We
         }
     }
 
-    if out.is_empty() {
-        let Ok(anchor_sel) = Selector::parse("a[href]") else {
-            return out;
-        };
-        for anchor in document.select(&anchor_sel) {
-            if out.len() >= limit {
-                break;
-            }
-            let href = anchor.value().attr("href").unwrap_or("").trim();
-            let Some(final_url) = normalize_google_search_href(href) else {
-                continue;
-            };
-            if is_search_engine_host(&final_url) || seen.contains(&final_url) {
-                continue;
-            }
-            let title_raw = compact_ws(&text_content(anchor));
-            let title = title_raw.trim();
-            if title.is_empty() {
-                continue;
-            }
-            seen.insert(final_url.clone());
-            out.push(WebSource {
-                source_id: source_id_for_url(&final_url),
-                rank: Some(out.len() as u32 + 1),
-                url: final_url.clone(),
-                title: Some(title.to_string()),
-                snippet: None,
-                domain: domain_for_url(&final_url),
-            });
-        }
-    }
-
     out
 }
 
@@ -266,7 +204,7 @@ pub(crate) fn parse_bing_sources_from_html(html: &str, limit: usize) -> Vec<WebS
                 let Ok(title_sel) = Selector::parse(title_sel_str) else {
                     continue;
                 };
-                if let Some(anchor) = container.select(&title_sel).next() {
+                for anchor in container.select(&title_sel) {
                     let href = anchor.value().attr("href").unwrap_or("").trim();
                     let Some(final_url) = normalize_bing_search_href(href) else {
                         continue;
@@ -293,6 +231,9 @@ pub(crate) fn parse_bing_sources_from_html(html: &str, limit: usize) -> Vec<WebS
                     chosen = Some((final_url, title_opt, snippet_opt));
                     break;
                 }
+                if chosen.is_some() {
+                    break;
+                }
             }
 
             let Some((final_url, title_opt, snippet_opt)) = chosen else {
@@ -313,39 +254,435 @@ pub(crate) fn parse_bing_sources_from_html(html: &str, limit: usize) -> Vec<WebS
         }
     }
 
-    if out.is_empty() {
-        let Ok(anchor_sel) = Selector::parse("a[href]") else {
-            return out;
+    out
+}
+
+pub(crate) fn parse_brave_sources_from_html(html: &str, limit: usize) -> Vec<WebSource> {
+    let document = Html::parse_document(html);
+    let container_selectors = [
+        "div[data-type=\"web\"]",
+        "div.snippet[data-type=\"web\"]",
+        "div.snippet",
+    ];
+    let title_selectors = ["a.svelte-14r20fy.l1[href]", "div.title a[href]", "a[href]"];
+    let snippet_selector =
+        Selector::parse("div.generic-snippet div.content, div.generic-snippet, p");
+
+    let mut out: Vec<WebSource> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+
+    for container_sel_str in container_selectors {
+        let Ok(container_sel) = Selector::parse(container_sel_str) else {
+            continue;
         };
-        for anchor in document.select(&anchor_sel) {
+        for container in document.select(&container_sel) {
             if out.len() >= limit {
                 break;
             }
-            let href = anchor.value().attr("href").unwrap_or("").trim();
-            let Some(final_url) = normalize_bing_search_href(href) else {
+
+            let mut chosen: Option<(String, Option<String>, Option<String>)> = None;
+            for title_sel_str in title_selectors {
+                let Ok(title_sel) = Selector::parse(title_sel_str) else {
+                    continue;
+                };
+                for anchor in container.select(&title_sel) {
+                    let href = anchor.value().attr("href").unwrap_or("").trim();
+                    let Some(final_url) = normalize_brave_search_href(href) else {
+                        continue;
+                    };
+                    if is_search_engine_host(&final_url) || seen.contains(&final_url) {
+                        continue;
+                    }
+                    let title_raw = compact_ws(&text_content(anchor));
+                    let title = title_raw.trim();
+                    if title.is_empty() {
+                        continue;
+                    }
+                    let title_opt = Some(title.to_string());
+                    let snippet_opt = snippet_selector
+                        .as_ref()
+                        .ok()
+                        .and_then(|sel| {
+                            container.select(sel).next().map(|value| {
+                                let raw = compact_ws(&text_content(value));
+                                raw.trim().to_string()
+                            })
+                        })
+                        .filter(|snippet| !snippet.trim().is_empty());
+                    chosen = Some((final_url, title_opt, snippet_opt));
+                    break;
+                }
+                if chosen.is_some() {
+                    break;
+                }
+            }
+
+            let Some((final_url, title_opt, snippet_opt)) = chosen else {
                 continue;
             };
-            if is_search_engine_host(&final_url) || seen.contains(&final_url) {
-                continue;
-            }
-            let title_raw = compact_ws(&text_content(anchor));
-            let title = title_raw.trim();
-            if title.is_empty() {
-                continue;
-            }
             seen.insert(final_url.clone());
             out.push(WebSource {
                 source_id: source_id_for_url(&final_url),
                 rank: Some(out.len() as u32 + 1),
                 url: final_url.clone(),
-                title: Some(title.to_string()),
-                snippet: None,
+                title: title_opt,
+                snippet: snippet_opt,
                 domain: domain_for_url(&final_url),
             });
+        }
+        if !out.is_empty() {
+            break;
         }
     }
 
     out
+}
+
+fn extract_document_title(document: &Html) -> Option<String> {
+    let selector = Selector::parse("title").ok()?;
+    let title = document
+        .select(&selector)
+        .next()
+        .map(text_content)
+        .map(|raw| compact_ws(&raw))?;
+    let trimmed = title.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
+}
+
+fn extract_meta_content(document: &Html, selectors: &[&str]) -> Option<String> {
+    for selector_raw in selectors {
+        let Ok(selector) = Selector::parse(selector_raw) else {
+            continue;
+        };
+        let Some(value) = document
+            .select(&selector)
+            .next()
+            .and_then(|meta| meta.value().attr("content"))
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        return Some(value.to_string());
+    }
+
+    None
+}
+
+fn extract_meta_title(document: &Html) -> Option<String> {
+    extract_meta_content(
+        document,
+        &[
+            "meta[property=\"og:title\"]",
+            "meta[name=\"twitter:title\"]",
+            "meta[name=\"title\"]",
+        ],
+    )
+}
+
+fn extract_meta_description(document: &Html) -> Option<String> {
+    extract_meta_content(
+        document,
+        &[
+            "meta[name=\"description\"]",
+            "meta[property=\"og:description\"]",
+            "meta[name=\"twitter:description\"]",
+        ],
+    )
+}
+
+fn absolute_same_host_url(base_url: &str, href: &str) -> Option<String> {
+    let base = Url::parse(base_url.trim()).ok()?;
+    let mut joined = base.join(href.trim()).ok()?;
+    if !matches!(joined.scheme(), "http" | "https") {
+        return None;
+    }
+    if base.host_str()?.trim().to_ascii_lowercase()
+        != joined.host_str()?.trim().to_ascii_lowercase()
+    {
+        return None;
+    }
+    joined.set_fragment(None);
+    Some(joined.to_string())
+}
+
+fn page_context_snippet(page_url: &str, html: &str) -> Option<String> {
+    let page = parse_generic_page_source_from_html(page_url, html)?;
+    let mut parts = Vec::new();
+    if let Some(title) = page.title.filter(|value| !value.trim().is_empty()) {
+        parts.push(title);
+    }
+    if let Some(snippet) = page.snippet.filter(|value| !value.trim().is_empty()) {
+        parts.push(snippet);
+    }
+    (!parts.is_empty()).then(|| parts.join(" | "))
+}
+
+fn json_ld_blocks(document: &Html) -> Vec<String> {
+    let Ok(selector) = Selector::parse("script[type=\"application/ld+json\"]") else {
+        return Vec::new();
+    };
+    document
+        .select(&selector)
+        .map(text_content)
+        .map(|raw| compact_ws(&raw))
+        .filter(|raw| !raw.trim().is_empty())
+        .collect()
+}
+
+fn collect_item_list_elements(value: &Value, out: &mut Vec<Value>) {
+    match value {
+        Value::Array(items) => {
+            for item in items {
+                collect_item_list_elements(item, out);
+            }
+        }
+        Value::Object(map) => {
+            let type_matches = map
+                .get("@type")
+                .map(|kind| match kind {
+                    Value::String(raw) => raw.eq_ignore_ascii_case("ItemList"),
+                    Value::Array(values) => values.iter().any(|value| {
+                        value
+                            .as_str()
+                            .map(|raw| raw.eq_ignore_ascii_case("ItemList"))
+                            .unwrap_or(false)
+                    }),
+                    _ => false,
+                })
+                .unwrap_or(false);
+            if type_matches {
+                if let Some(elements) = map.get("itemListElement") {
+                    collect_item_list_elements(elements, out);
+                }
+            } else if map.contains_key("position") || map.contains_key("item") {
+                out.push(value.clone());
+            } else if let Some(graph) = map.get("@graph") {
+                collect_item_list_elements(graph, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn item_list_sources_from_json_ld(page_url: &str, html: &str, limit: usize) -> Vec<WebSource> {
+    let document = Html::parse_document(html);
+    let page_context = page_context_snippet(page_url, html);
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    let mut elements = Vec::new();
+    for raw in json_ld_blocks(&document) {
+        if let Ok(value) = serde_json::from_str::<Value>(&raw) {
+            collect_item_list_elements(&value, &mut elements);
+        }
+    }
+
+    for element in elements {
+        if out.len() >= limit {
+            break;
+        }
+        let item = element.get("item").unwrap_or(&element);
+        let raw_url = item
+            .get("url")
+            .or_else(|| item.get("@id"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let Some(final_url) = absolute_same_host_url(page_url, raw_url) else {
+            continue;
+        };
+        let url_key = normalize_url_for_id(&final_url);
+        if !seen.insert(url_key) {
+            continue;
+        }
+
+        let title = item
+            .get("name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_string());
+        if title.is_none() {
+            continue;
+        }
+
+        let rating = item
+            .get("aggregateRating")
+            .and_then(Value::as_object)
+            .and_then(|rating| {
+                let value = rating.get("ratingValue")?.as_f64()?;
+                let reviews = rating
+                    .get("reviewCount")
+                    .and_then(|count| count.as_u64())
+                    .map(|count| format!("{count} reviews"));
+                Some(match reviews {
+                    Some(review_text) => format!("{value:.1} rating from {review_text}"),
+                    None => format!("{value:.1} rating"),
+                })
+            });
+        let price_range = item
+            .get("priceRange")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| format!("price range {value}"));
+        let mut snippet_parts = Vec::new();
+        if let Some(context) = page_context.clone() {
+            snippet_parts.push(context);
+        }
+        if let Some(rating) = rating {
+            snippet_parts.push(rating);
+        }
+        if let Some(price_range) = price_range {
+            snippet_parts.push(price_range);
+        }
+        let snippet = (!snippet_parts.is_empty()).then(|| snippet_parts.join(" | "));
+
+        out.push(WebSource {
+            source_id: source_id_for_url(&final_url),
+            rank: Some(out.len() as u32 + 1),
+            url: final_url.clone(),
+            title,
+            snippet,
+            domain: domain_for_url(&final_url),
+        });
+    }
+
+    out
+}
+
+pub(crate) fn parse_json_ld_item_list_sources_from_html(
+    page_url: &str,
+    html: &str,
+    limit: usize,
+) -> Vec<WebSource> {
+    item_list_sources_from_json_ld(page_url, html, limit)
+}
+
+pub(crate) fn parse_same_host_child_collection_sources_from_html(
+    page_url: &str,
+    html: &str,
+    limit: usize,
+) -> Vec<WebSource> {
+    let document = Html::parse_document(html);
+    let page_context = page_context_snippet(page_url, html);
+    let Ok(base_url) = Url::parse(page_url.trim()) else {
+        return Vec::new();
+    };
+    let base_depth = base_url
+        .path_segments()
+        .map(|segments| {
+            segments
+                .filter(|segment| !segment.trim().is_empty())
+                .count()
+        })
+        .unwrap_or(0);
+    let Ok(selector) = Selector::parse("a[href]") else {
+        return Vec::new();
+    };
+
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    for anchor in document.select(&selector) {
+        if out.len() >= limit {
+            break;
+        }
+        let href = anchor.value().attr("href").unwrap_or_default();
+        let Some(final_url) = absolute_same_host_url(page_url, href) else {
+            continue;
+        };
+        if final_url == page_url {
+            continue;
+        }
+        let Ok(parsed_url) = Url::parse(&final_url) else {
+            continue;
+        };
+        let depth = parsed_url
+            .path_segments()
+            .map(|segments| {
+                segments
+                    .filter(|segment| !segment.trim().is_empty())
+                    .count()
+            })
+            .unwrap_or(0);
+        if depth != base_depth + 1 {
+            continue;
+        }
+        let Some(last_segment) = parsed_url.path_segments().and_then(|segments| {
+            segments
+                .filter(|segment| !segment.trim().is_empty())
+                .next_back()
+        }) else {
+            continue;
+        };
+        if last_segment.ends_with('-') || last_segment.chars().any(|ch| ch.is_ascii_digit()) {
+            continue;
+        }
+
+        let title_raw = compact_ws(&text_content(anchor));
+        let title = title_raw.trim();
+        if title.is_empty() {
+            continue;
+        }
+        let title_token_count = title
+            .split_whitespace()
+            .filter(|token| !token.trim().is_empty())
+            .count();
+        if title_token_count == 0 || title_token_count > 4 {
+            continue;
+        }
+
+        let url_key = normalize_url_for_id(&final_url);
+        if !seen.insert(url_key) {
+            continue;
+        }
+
+        out.push(WebSource {
+            source_id: source_id_for_url(&final_url),
+            rank: Some(out.len() as u32 + 1),
+            url: final_url.clone(),
+            title: Some(title.to_string()),
+            snippet: page_context.clone(),
+            domain: domain_for_url(&final_url),
+        });
+    }
+
+    out
+}
+
+pub(crate) fn parse_local_business_directory_item_list_sources_from_html(
+    page_url: &str,
+    html: &str,
+    limit: usize,
+) -> Vec<WebSource> {
+    parse_json_ld_item_list_sources_from_html(page_url, html, limit)
+}
+
+pub(crate) fn parse_local_business_directory_category_sources_from_html(
+    page_url: &str,
+    html: &str,
+    limit: usize,
+) -> Vec<WebSource> {
+    parse_same_host_child_collection_sources_from_html(page_url, html, limit)
+}
+
+pub(crate) fn parse_generic_page_source_from_html(page_url: &str, html: &str) -> Option<WebSource> {
+    let document = Html::parse_document(html);
+    let title = extract_document_title(&document).or_else(|| extract_meta_title(&document));
+    let snippet = extract_meta_description(&document);
+    if title.as_deref().unwrap_or_default().trim().is_empty()
+        && snippet.as_deref().unwrap_or_default().trim().is_empty()
+    {
+        return None;
+    }
+
+    Some(WebSource {
+        source_id: source_id_for_url(page_url),
+        rank: Some(1),
+        url: page_url.to_string(),
+        title,
+        snippet,
+        domain: domain_for_url(page_url),
+    })
 }
 
 fn decode_rss_text(raw: &str) -> String {
@@ -480,29 +817,13 @@ fn sanitize_rss_http_url(raw: &str) -> Option<String> {
 }
 
 async fn resolve_google_news_rss_item_url(client: &reqwest::Client, url: &str) -> Option<String> {
-    let trimmed = url.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-
-    let response = tokio::time::timeout(Duration::from_millis(2_500), client.get(trimmed).send())
-        .await
-        .ok()
-        .and_then(|result| result.ok())?;
-    let resolved = response.url().as_str().trim().to_string();
-    if resolved.is_empty()
-        || (!resolved.starts_with("http://") && !resolved.starts_with("https://"))
-    {
-        return None;
-    }
-
-    let resolved_host = Url::parse(&resolved)
-        .ok()
-        .and_then(|parsed| parsed.host_str().map(|host| host.to_ascii_lowercase()));
-    if resolved_host.as_deref() == Some("news.google.com") {
-        return None;
-    }
-    Some(resolved)
+    tokio::time::timeout(
+        Duration::from_millis(2_500),
+        resolve_google_news_article_url(client, url.trim()),
+    )
+    .await
+    .ok()
+    .flatten()
 }
 
 async fn resolve_google_news_rss_sources(
@@ -644,11 +965,29 @@ pub(crate) async fn fetch_google_news_rss_sources(
     Ok(resolve_google_news_rss_sources(parsed, limit).await)
 }
 
+pub(crate) async fn fetch_google_news_top_stories_rss_sources(
+    limit: usize,
+) -> Result<Vec<WebSource>> {
+    let rss_url = build_google_news_top_stories_rss_url();
+    let rss_xml = fetch_html_http_fallback(&rss_url).await?;
+    let parsed = parse_google_news_sources_from_rss(&rss_xml, limit);
+    Ok(resolve_google_news_rss_sources(parsed, limit).await)
+}
+
 pub(crate) async fn fetch_bing_news_rss_sources(
     query: &str,
     limit: usize,
 ) -> Result<Vec<WebSource>> {
     let rss_url = build_bing_news_rss_url(query);
+    let rss_xml = fetch_html_http_fallback(&rss_url).await?;
+    Ok(parse_bing_news_sources_from_rss(&rss_xml, limit))
+}
+
+pub(crate) async fn fetch_bing_search_rss_sources(
+    query: &str,
+    limit: usize,
+) -> Result<Vec<WebSource>> {
+    let rss_url = build_bing_search_rss_url(query);
     let rss_xml = fetch_html_http_fallback(&rss_url).await?;
     Ok(parse_bing_news_sources_from_rss(&rss_xml, limit))
 }

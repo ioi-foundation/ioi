@@ -22,43 +22,17 @@ pub(super) fn apply_web_research_followups(
                 let query = search_query_from_url(&url)
                     .filter(|value| !value.trim().is_empty())
                     .unwrap_or_else(|| agent_state.goal.clone());
-                let extract_params = serde_jcs::to_vec(&json!({}))
-                    .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-                agent_state.execution_queue.push(ActionRequest {
-                    target: ActionTarget::BrowserInspect,
-                    params: extract_params,
-                    context: ActionContext {
-                        agent_id: "desktop_agent".to_string(),
-                        session_id: Some(session_id),
-                        window_id: None,
-                    },
-                    nonce: agent_state.step_count as u64 + 1,
-                });
-                let query_contract = {
-                    let trimmed_goal = agent_state.goal.trim();
-                    if trimmed_goal.is_empty() {
-                        query.clone()
-                    } else {
-                        trimmed_goal.to_string()
-                    }
-                };
-                let min_sources = web_pipeline_min_sources(&query_contract);
-                agent_state.pending_search_completion = Some(PendingSearchCompletion {
-                    query,
-                    query_contract,
-                    url: url.clone(),
-                    started_step: step_index,
-                    started_at_ms: web_pipeline_now_ms(),
-                    deadline_ms: 0,
-                    candidate_urls: Vec::new(),
-                    candidate_source_hints: Vec::new(),
-                    attempted_urls: vec![url],
-                    blocked_urls: Vec::new(),
-                    successful_reads: Vec::new(),
-                    min_sources,
-                });
+                let queued = queue_web_search_bootstrap(agent_state, session_id, &query)?;
+                verification_checks
+                    .push(format!("web_search_bootstrap_from_browser_serp={}", queued));
+                if queued {
+                    let note = "Search-engine browser navigation was converted into deterministic web__search bootstrap."
+                        .to_string();
+                    *history_entry = Some(note.clone());
+                    *action_output = Some(note);
+                }
                 log::info!(
-                    "Search intent detected after browser__navigate. Queued browser__snapshot for deterministic completion."
+                    "Search intent detected after browser__navigate. Queued deterministic web__search bootstrap."
                 );
             }
         }

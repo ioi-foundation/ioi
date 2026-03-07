@@ -21,9 +21,9 @@ use ioi_types::app::wallet_network::{
     MailConnectorTlsMode, MailboxTotalCountProvenance,
 };
 use ioi_types::error::TransactionError;
-use lettre::message::{Mailbox, header::ContentType};
-use lettre::Address;
+use lettre::message::{header::ContentType, Mailbox};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
+use lettre::Address;
 use lettre::{Message, SmtpTransport, Transport};
 
 pub(crate) struct ImapSmtpMailProviderClient;
@@ -222,8 +222,8 @@ impl MailProviderClient for ImapSmtpMailProviderClient {
             .body(body.to_string())
             .map_err(|e| TransactionError::Invalid(format!("smtp message build failed: {}", e)))?;
         let selected_endpoint = select_smtp_delivery_endpoint(&config.smtp, credentials)?;
-        let sent_id = send_via_smtp_endpoint(&selected_endpoint, credentials, &message).map_err(
-            |error| {
+        let sent_id =
+            send_via_smtp_endpoint(&selected_endpoint, credentials, &message).map_err(|error| {
                 TransactionError::Invalid(format!(
                     "smtp send failed for '{}': {}:{} ({}) => {}",
                     to,
@@ -232,8 +232,7 @@ impl MailProviderClient for ImapSmtpMailProviderClient {
                     smtp_tls_mode_label(selected_endpoint.tls_mode),
                     error
                 ))
-            },
-        )?;
+            })?;
         Ok(bound_text(&sent_id, 128))
     }
 
@@ -320,9 +319,10 @@ impl MailProviderClient for ImapSmtpMailProviderClient {
 }
 
 fn smtp_from_mailbox(config: &MailConnectorConfig) -> Result<Mailbox, TransactionError> {
-    let address: Address = config.account_email.parse().map_err(|e| {
-        TransactionError::Invalid(format!("smtp from address is invalid: {}", e))
-    })?;
+    let address: Address = config
+        .account_email
+        .parse()
+        .map_err(|e| TransactionError::Invalid(format!("smtp from address is invalid: {}", e)))?;
     let display_name = config
         .sender_display_name
         .as_ref()
@@ -534,7 +534,9 @@ fn send_via_smtp_endpoint(
         smtp_builder = smtp_builder.authentication(vec![Mechanism::Xoauth2]);
     }
     let smtp_transport = smtp_builder.build();
-    let response = smtp_transport.send(message).map_err(|err| err.to_string())?;
+    let response = smtp_transport
+        .send(message)
+        .map_err(|err| err.to_string())?;
     Ok(response
         .first_word()
         .map(str::trim)

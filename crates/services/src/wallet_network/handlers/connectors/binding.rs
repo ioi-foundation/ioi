@@ -114,7 +114,8 @@ fn find_existing_binding(
             continue;
         }
 
-        let Some(channel) = load_typed::<SessionChannelRecord>(state, &channel_key(&lease.channel_id))?
+        let Some(channel) =
+            load_typed::<SessionChannelRecord>(state, &channel_key(&lease.channel_id))?
         else {
             continue;
         };
@@ -207,14 +208,25 @@ pub(crate) fn mail_connector_ensure_binding(
 
     let active_revocation_epoch = load_revocation_epoch(state)?;
     let channel_expires_at_ms = now_ms.saturating_add(CHANNEL_TTL_MS);
-    let lease_expires_at_ms = now_ms.saturating_add(normalize_requested_lease_ttl_ms(params.lease_ttl_ms));
+    let lease_expires_at_ms =
+        now_ms.saturating_add(normalize_requested_lease_ttl_ms(params.lease_ttl_ms));
 
     let mut selected = None;
     for attempt in 0u8..=16u8 {
-        let channel_id =
-            derive_seeded_id(b"mail_connector_binding.channel", &params.request_id, &audience, &mailbox, attempt)?;
-        let lease_id =
-            derive_seeded_id(b"mail_connector_binding.lease", &params.request_id, &audience, &mailbox, attempt)?;
+        let channel_id = derive_seeded_id(
+            b"mail_connector_binding.channel",
+            &params.request_id,
+            &audience,
+            &mailbox,
+            attempt,
+        )?;
+        let lease_id = derive_seeded_id(
+            b"mail_connector_binding.lease",
+            &params.request_id,
+            &audience,
+            &mailbox,
+            attempt,
+        )?;
         let channel_exists = state.get(&channel_key(&channel_id))?.is_some();
         let lease_exists = state.get(&lease_key(&channel_id, &lease_id))?.is_some();
         if !channel_exists && !lease_exists {

@@ -2,26 +2,42 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    action_has_hard_error_class, contains_any, has_cec_receipt, has_cec_stage,
-    has_contract_failure_evidence, has_tool_with_token, is_retry_blocked_terminal,
-    is_timeout_terminal, truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase,
-    RunObservation,
+    action_has_hard_error_class, environment_bool, environment_u64, environment_value,
+    has_any_tool_name, has_cec_receipt, has_cec_stage, has_contract_failure_evidence,
+    is_retry_blocked_terminal, is_timeout_terminal, observation_has_any_tool_name,
+    observation_has_tool_name, observation_has_tool_namespace, truncate_chars, ExecutionProfile,
+    LocalCheck, LocalJudgeResult, QueryCase, RunObservation, ToolNamespace,
 };
+
+const CASE_ID: &str = "create_a_new_folder_on_my_desktop_called_project_some_number";
+const EXPECTED_FIXTURE_MODE: &str = "desktop_project_create_fixture_v1";
+const CREATE_TOOL_NAMES: [&str; 3] =
+    ["filesystem__create_directory", "sys__exec", "sys__exec_session"];
+const VERIFICATION_TOOL_NAMES: [&str; 3] =
+    ["filesystem__list_directory", "sys__exec", "sys__exec_session"];
+const DISALLOWED_MUTATING_TOOL_NAMES: [&str; 6] = [
+    "filesystem__write_file",
+    "filesystem__patch",
+    "filesystem__delete_path",
+    "filesystem__move_path",
+    "filesystem__copy_path",
+    "filesystem__create_zip",
+];
 
 #[derive(Debug, Clone, Serialize)]
 struct EnvironmentEvidenceReceipt {
     key: &'static str,
     observed_value: String,
-    probe_source: &'static str,
+    probe_source: String,
     timestamp_ms: u64,
     satisfied: bool,
 }
 
 pub fn case() -> QueryCase {
     QueryCase {
-        id: "create_a_new_folder_on_my_desktop_called_project_some_number",
+        id: CASE_ID,
         query: "Create a new folder on my desktop called \"Project_{RUN_UNIQUE_NUM}\"",
-        success_definition: "Create a new desktop folder named Project <number> using command/filesystem execution, verify existence with runtime receipts, and complete without contract failures.",
+        success_definition: "Create the requested desktop folder inside the isolated temp-home Desktop fixture, verify the created directory with runtime environment receipts, and complete without contract failures.",
         seeded_intent_id: "command.exec",
         intent_scope: IntentScopeProfile::CommandExecution,
         seed_resolved_intent: true,
@@ -37,155 +53,232 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
+    let fixture_mode =
+        environment_value(obs, "env_receipt::desktop_project_fixture_mode").unwrap_or_default();
+    let fixture_probe_source =
+        environment_value(obs, "env_receipt::desktop_project_fixture_probe_source")
+            .unwrap_or_default();
+    let fixture_timestamp_ms =
+        environment_u64(obs, "env_receipt::desktop_project_fixture_timestamp_ms")
+            .unwrap_or(obs.run_timestamp_ms);
+    let fixture_satisfied =
+        environment_bool(obs, "env_receipt::desktop_project_fixture_satisfied").unwrap_or(false);
+    let expected_absent_satisfied =
+        environment_bool(obs, "env_receipt::desktop_project_expected_absent_satisfied")
+            .unwrap_or(false);
+
+    let expected_path =
+        environment_value(obs, "env_receipt::desktop_project_expected_path").unwrap_or_default();
+    let observed_path =
+        environment_value(obs, "env_receipt::desktop_project_observed_path").unwrap_or_default();
+    let created_probe_source =
+        environment_value(obs, "env_receipt::desktop_project_created_probe_source")
+            .unwrap_or_default();
+    let created_timestamp_ms =
+        environment_u64(obs, "env_receipt::desktop_project_created_timestamp_ms")
+            .unwrap_or(obs.run_timestamp_ms);
+    let created_satisfied =
+        environment_bool(obs, "env_receipt::desktop_project_created_satisfied").unwrap_or(false);
+
+    let desktop_entries =
+        environment_value(obs, "env_receipt::desktop_project_desktop_entries").unwrap_or_default();
+    let desktop_entries_probe_source =
+        environment_value(obs, "env_receipt::desktop_project_desktop_entries_probe_source")
+            .unwrap_or_default();
+    let desktop_entries_timestamp_ms =
+        environment_u64(obs, "env_receipt::desktop_project_desktop_entries_timestamp_ms")
+            .unwrap_or(obs.run_timestamp_ms);
+    let desktop_entries_satisfied =
+        environment_bool(obs, "env_receipt::desktop_project_desktop_entries_satisfied")
+            .unwrap_or(false);
+    let scope_satisfied =
+        environment_bool(obs, "env_receipt::desktop_project_scope_satisfied").unwrap_or(false);
+
+    let cleanup_probe_source =
+        environment_value(obs, "env_receipt::desktop_project_cleanup_probe_source")
+            .unwrap_or_default();
+    let cleanup_timestamp_ms =
+        environment_u64(obs, "env_receipt::desktop_project_cleanup_timestamp_ms")
+            .unwrap_or(obs.run_timestamp_ms);
+    let cleanup_satisfied =
+        environment_bool(obs, "env_receipt::desktop_project_cleanup_satisfied").unwrap_or(false);
+
     let create_action_count = obs
         .action_evidence
         .iter()
-        .filter(|entry| is_desktop_project_create_success(entry))
+        .filter(|entry| is_completed_action(entry, &CREATE_TOOL_NAMES))
         .count();
-    let create_action_failures = obs
-        .action_evidence
+    let successful_command_history_count = obs
+        .command_history_evidence
         .iter()
-        .filter(|entry| is_desktop_project_create_failure(entry))
+        .filter(|entry| entry.exit_code == 0 && !entry.command.trim().is_empty())
         .count();
     let verification_action_count = obs
         .action_evidence
         .iter()
-        .filter(|entry| is_postcreate_verification_signal(entry))
+        .filter(|entry| is_completed_action(entry, &VERIFICATION_TOOL_NAMES))
         .count();
-
-    let mut evidence_segments = Vec::<String>::new();
-    evidence_segments.push(obs.final_reply.clone());
-    evidence_segments.extend(obs.event_excerpt.iter().cloned());
-    evidence_segments.extend(obs.action_evidence.iter().map(|entry| {
-        format!(
-            "{} {} {}",
-            entry.tool_name, entry.agent_status, entry.output_excerpt
-        )
-    }));
-
-    let desktop_path_hits = evidence_segments
+    let create_action_failures = obs
+        .action_evidence
         .iter()
-        .filter(|segment| contains_desktop_path_token(segment))
-        .count();
-    let project_number_hits = evidence_segments
-        .iter()
-        .filter(|segment| contains_project_number_token(segment))
+        .filter(|entry| is_failed_action(entry, &CREATE_TOOL_NAMES))
         .count();
 
-    let action_path_seen = has_create_path_tool(&obs.action_tools);
-    let routing_path_seen = has_create_path_tool(&obs.routing_tools);
-    let any_contract_failure_marker = has_contract_failure_evidence(obs);
-    let paused_retry_blocked = is_retry_blocked_terminal(obs);
+    let action_path_seen = has_any_tool_name(&obs.action_tools, &CREATE_TOOL_NAMES);
+    let routing_path_seen = has_any_tool_name(&obs.routing_tools, &CREATE_TOOL_NAMES);
+    let remote_path_seen = observation_has_tool_namespace(obs, ToolNamespace::Web)
+        || observation_has_tool_namespace(obs, ToolNamespace::Browser)
+        || observation_has_tool_name(obs, "net__fetch");
+    let install_path_seen = observation_has_tool_name(obs, "sys__install_package");
+    let disallowed_mutation_seen =
+        observation_has_any_tool_name(obs, &DISALLOWED_MUTATING_TOOL_NAMES);
+    let tool_and_route_path_evidence_present = action_path_seen
+        && routing_path_seen
+        && !remote_path_seen
+        && !install_path_seen
+        && !disallowed_mutation_seen;
 
     let cec_discovery_seen = has_cec_stage(obs, "discovery", Some(true));
     let cec_provider_selection_seen = has_cec_stage(obs, "provider_selection", Some(true));
     let cec_execution_seen = has_cec_stage(obs, "execution", Some(true));
     let cec_verification_seen = has_cec_stage(obs, "verification", Some(true));
-    let cec_phase_receipts_present = cec_discovery_seen
-        && cec_provider_selection_seen
-        && cec_execution_seen
-        && cec_verification_seen;
     let cec_postcondition_seen =
         has_cec_receipt(obs, "execution", "execution_artifact", Some(true))
             || has_cec_receipt(obs, "verification", "verification_commit", Some(true))
             || has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
+    let cec_phase_receipts_present = cec_discovery_seen
+        && cec_provider_selection_seen
+        && cec_execution_seen
+        && cec_verification_seen;
     let postcondition_verification_evidence_present =
-        cec_postcondition_seen || verification_action_count > 0;
-    let target_path_and_name_evidence_present = desktop_path_hits > 0 && project_number_hits > 0;
+        cec_postcondition_seen || verification_action_count > 0 || created_satisfied;
+
+    let any_contract_failure_marker = has_contract_failure_evidence(obs);
+    let paused_retry_blocked = is_retry_blocked_terminal(obs);
     let timeout_terminal = is_timeout_terminal(obs);
+
+    let objective_specific_folder_creation_evidence_present = fixture_mode
+        .eq_ignore_ascii_case(EXPECTED_FIXTURE_MODE)
+        && fixture_satisfied
+        && expected_absent_satisfied
+        && !expected_path.trim().is_empty()
+        && expected_path.eq_ignore_ascii_case(&observed_path)
+        && created_satisfied
+        && desktop_entries_satisfied
+        && scope_satisfied
+        && (create_action_count > 0 || successful_command_history_count > 0)
+        && create_action_failures == 0;
+
     let timeout_after_verified_execution = timeout_terminal
-        && create_action_count > 0
-        && create_action_failures == 0
-        && target_path_and_name_evidence_present
-        && action_path_seen
-        && routing_path_seen
+        && objective_specific_folder_creation_evidence_present
         && cec_phase_receipts_present
         && postcondition_verification_evidence_present
         && !any_contract_failure_marker;
 
-    let completion_channel_present = (obs.completed
-        && (create_action_count > 0 || !obs.final_reply.trim().is_empty()))
-        || (paused_retry_blocked && create_action_count > 0 && !any_contract_failure_marker)
+    let completion_evidence_present = (obs.completed
+        && !obs.failed
+        && (objective_specific_folder_creation_evidence_present || cec_postcondition_seen))
+        || (paused_retry_blocked
+            && objective_specific_folder_creation_evidence_present
+            && !any_contract_failure_marker)
         || timeout_after_verified_execution;
-    let reply_target_acknowledged = reply_acknowledges_target(&obs.final_reply);
 
     let environment_receipts = build_environment_receipts(
-        obs,
-        desktop_path_hits,
-        project_number_hits,
-        create_action_count,
-        create_action_failures,
-        cec_phase_receipts_present,
-        postcondition_verification_evidence_present,
+        fixture_mode,
+        fixture_probe_source,
+        fixture_timestamp_ms,
+        fixture_satisfied,
+        expected_absent_satisfied,
+        expected_path,
+        observed_path,
+        created_probe_source,
+        created_timestamp_ms,
+        created_satisfied,
+        desktop_entries,
+        desktop_entries_probe_source,
+        desktop_entries_timestamp_ms,
+        desktop_entries_satisfied,
+        scope_satisfied,
+        cleanup_probe_source,
+        cleanup_timestamp_ms,
+        cleanup_satisfied,
     );
     let environment_receipts_satisfied =
         environment_receipts.iter().all(|receipt| receipt.satisfied);
 
     let independent_channel_count = [
-        create_action_count > 0,
-        action_path_seen && routing_path_seen,
+        completion_evidence_present,
+        objective_specific_folder_creation_evidence_present,
+        tool_and_route_path_evidence_present,
         cec_phase_receipts_present,
         postcondition_verification_evidence_present,
-        reply_target_acknowledged,
+        environment_receipts_satisfied,
+        !any_contract_failure_marker,
     ]
     .into_iter()
     .filter(|flag| *flag)
     .count();
     let independent_runtime_evidence_channels_present =
-        create_action_count > 0 && independent_channel_count >= 3;
+        objective_specific_folder_creation_evidence_present && independent_channel_count >= 5;
 
     let checks = vec![
         LocalCheck::new(
             "completion_evidence_present",
-            completion_channel_present,
+            completion_evidence_present,
             format!(
-                "status={} completed={} paused_retry_blocked={} timeout_terminal={} timeout_after_verified_execution={} reply_len={} create_action_count={}",
+                "status={} completed={} failed={} paused_retry_blocked={} timeout_terminal={} timeout_after_verified_execution={}",
                 obs.final_status,
                 obs.completed,
+                obs.failed,
                 paused_retry_blocked,
                 timeout_terminal,
-                timeout_after_verified_execution,
-                obs.final_reply.chars().count(),
-                create_action_count
+                timeout_after_verified_execution
             ),
         ),
         LocalCheck::new(
             "objective_specific_folder_creation_evidence_present",
-            create_action_count > 0 && target_path_and_name_evidence_present,
+            objective_specific_folder_creation_evidence_present,
             format!(
-                "create_action_count={} desktop_path_hits={} project_number_hits={} action_evidence_samples={:?}",
+                "create_action_count={} successful_command_history_count={} create_action_failures={} expected_absent_satisfied={} created_satisfied={} desktop_entries_satisfied={} scope_satisfied={}",
                 create_action_count,
-                desktop_path_hits,
-                project_number_hits,
-                obs.action_evidence.iter().take(3).collect::<Vec<_>>()
+                successful_command_history_count,
+                create_action_failures,
+                expected_absent_satisfied,
+                created_satisfied,
+                desktop_entries_satisfied,
+                scope_satisfied
             ),
         ),
         LocalCheck::new(
             "tool_and_route_path_evidence_present",
-            action_path_seen && routing_path_seen,
+            tool_and_route_path_evidence_present,
             format!(
-                "action_tools={:?} routing_tools={:?}",
-                obs.action_tools, obs.routing_tools
+                "action_tools={:?} routing_tools={:?} workload_tools={:?} remote_path_seen={} install_path_seen={} disallowed_mutation_seen={}",
+                obs.action_tools,
+                obs.routing_tools,
+                obs.workload_tools,
+                remote_path_seen,
+                install_path_seen,
+                disallowed_mutation_seen
             ),
         ),
         LocalCheck::new(
             "cec_phase_receipts_present",
             cec_phase_receipts_present,
             format!(
-                "discovery={} provider_selection={} execution={} verification={} verification_checks={:?}",
+                "discovery={} provider_selection={} execution={} verification={}",
                 cec_discovery_seen,
                 cec_provider_selection_seen,
                 cec_execution_seen,
-                cec_verification_seen,
-                obs.verification_checks
+                cec_verification_seen
             ),
         ),
         LocalCheck::new(
             "postcondition_verification_evidence_present",
             postcondition_verification_evidence_present,
             format!(
-                "cec_postcondition_seen={} verification_action_count={} verification_checks={:?}",
-                cec_postcondition_seen, verification_action_count, obs.verification_checks
+                "cec_postcondition_seen={} verification_action_count={} created_satisfied={}",
+                cec_postcondition_seen, verification_action_count, created_satisfied
             ),
         ),
         LocalCheck::new(
@@ -208,8 +301,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "independent_runtime_evidence_channels_present",
             independent_runtime_evidence_channels_present,
             format!(
-                "independent_channel_count={} create_action_count={} reply_target_acknowledged={}",
-                independent_channel_count, create_action_count, reply_target_acknowledged
+                "independent_channel_count={} objective_specific_folder_creation_evidence_present={}",
+                independent_channel_count, objective_specific_folder_creation_evidence_present
             ),
         ),
     ];
@@ -217,218 +310,89 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     LocalJudgeResult::from_checks(checks)
 }
 
-fn is_desktop_project_create_success(entry: &super::super::types::ActionEvidence) -> bool {
-    let tool = entry.tool_name.to_ascii_lowercase();
-    let output = entry.output_excerpt.to_ascii_lowercase();
-    let fs_create_success = tool == "filesystem__create_directory"
+fn is_completed_action(
+    entry: &super::super::types::ActionEvidence,
+    allowed_tool_names: &[&str],
+) -> bool {
+    allowed_tool_names
+        .iter()
+        .any(|tool_name| entry.tool_name.eq_ignore_ascii_case(tool_name))
         && entry.agent_status.eq_ignore_ascii_case("completed")
-        && output.contains("created directory");
-    let sys_exec_create_success =
-        tool.contains("sys__exec") && command_history_indicates_directory_create_success(&output);
-    let create_path_tool = fs_create_success || sys_exec_create_success;
-    let create_marker = contains_any(
-        &output,
-        &[
-            "created directory",
-            "created folder",
-            "mkdir",
-            "new-item",
-            "install -d",
-            "create directory",
-            "create folder",
-        ],
-    );
-
-    create_path_tool
-        && (create_marker || sys_exec_create_success)
-        && contains_desktop_path_token(&output)
-        && contains_project_number_token(&output)
+        && !action_has_hard_error_class(entry)
 }
 
-fn is_desktop_project_create_failure(entry: &super::super::types::ActionEvidence) -> bool {
-    let tool = entry.tool_name.to_ascii_lowercase();
-    if tool != "filesystem__create_directory" && !tool.contains("sys__exec") {
-        return false;
-    }
-    let output = entry.output_excerpt.to_ascii_lowercase();
-    let sys_exec_nonzero_exit = tool.contains("sys__exec")
-        && output.contains("\"exit_code\":")
-        && !output.contains("\"exit_code\":0");
-    entry.agent_status.eq_ignore_ascii_case("failed")
-        || sys_exec_nonzero_exit
-        || action_has_hard_error_class(entry)
-        || entry
-            .output_excerpt
-            .to_ascii_lowercase()
-            .contains("create directory failed")
+fn is_failed_action(
+    entry: &super::super::types::ActionEvidence,
+    allowed_tool_names: &[&str],
+) -> bool {
+    allowed_tool_names
+        .iter()
+        .any(|tool_name| entry.tool_name.eq_ignore_ascii_case(tool_name))
+        && (entry.agent_status.eq_ignore_ascii_case("failed") || action_has_hard_error_class(entry))
 }
 
-fn is_postcreate_verification_signal(entry: &super::super::types::ActionEvidence) -> bool {
-    if !entry.agent_status.eq_ignore_ascii_case("completed") {
-        return false;
-    }
-    let tool = entry.tool_name.to_ascii_lowercase();
-    let output = entry.output_excerpt.to_ascii_lowercase();
-    let verification_tool = tool == "filesystem__list_directory"
-        || tool == "filesystem__read_file"
-        || tool.contains("sys__exec");
-    if !verification_tool {
-        return false;
-    }
-    let verification_marker = contains_any(
-        &output,
-        &[
-            "test -d",
-            "ls ",
-            "find ",
-            "stat ",
-            "get-childitem",
-            "stdout:",
-            "exists",
-            "[dir]",
-            "verification",
-        ],
-    );
-
-    verification_marker
-        && contains_project_number_token(&output)
-        && (contains_desktop_path_token(&output) || output.contains("[dir] project"))
-}
-
-fn command_history_indicates_directory_create_success(output_lower: &str) -> bool {
-    output_lower.contains("command_history:")
-        && output_lower.contains("\"exit_code\":0")
-        && contains_any(
-            output_lower,
-            &[
-                "\"command\":\"mkdir",
-                "\"command\":\"new-item",
-                "\"command\":\"md ",
-                "\"command\":\"install -d",
-            ],
-        )
-}
-
-fn reply_acknowledges_target(reply: &str) -> bool {
-    let lower = reply.to_ascii_lowercase();
-    contains_project_number_token(&lower)
-        && contains_any(&lower, &["created", "folder", "directory", "desktop"])
-}
-
-fn has_create_path_tool(tools: &[String]) -> bool {
-    has_tool_with_token(tools, "filesystem__create_directory")
-        || has_tool_with_token(tools, "filesystem__list_directory")
-        || has_tool_with_token(tools, "sys__exec")
-}
-
+#[allow(clippy::too_many_arguments)]
 fn build_environment_receipts(
-    obs: &RunObservation,
-    desktop_path_hits: usize,
-    project_number_hits: usize,
-    create_action_count: usize,
-    create_action_failures: usize,
-    cec_phase_receipts_present: bool,
-    postcondition_verification_evidence_present: bool,
+    fixture_mode: String,
+    fixture_probe_source: String,
+    fixture_timestamp_ms: u64,
+    fixture_satisfied: bool,
+    expected_absent_satisfied: bool,
+    expected_path: String,
+    observed_path: String,
+    created_probe_source: String,
+    created_timestamp_ms: u64,
+    created_satisfied: bool,
+    desktop_entries: String,
+    desktop_entries_probe_source: String,
+    desktop_entries_timestamp_ms: u64,
+    desktop_entries_satisfied: bool,
+    scope_satisfied: bool,
+    cleanup_probe_source: String,
+    cleanup_timestamp_ms: u64,
+    cleanup_satisfied: bool,
 ) -> Vec<EnvironmentEvidenceReceipt> {
     vec![
         EnvironmentEvidenceReceipt {
-            key: "desktop_path_observed",
-            observed_value: format!("desktop_path_hits={}", desktop_path_hits),
-            probe_source: "KernelEvent::AgentActionResult.output_excerpt + event_excerpt",
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: desktop_path_hits > 0,
+            key: "desktop_project_fixture_mode_observed",
+            observed_value: fixture_mode.clone(),
+            probe_source: fixture_probe_source,
+            timestamp_ms: fixture_timestamp_ms,
+            satisfied: fixture_mode.eq_ignore_ascii_case(EXPECTED_FIXTURE_MODE)
+                && fixture_satisfied
+                && expected_absent_satisfied,
         },
         EnvironmentEvidenceReceipt {
-            key: "project_folder_name_observed",
-            observed_value: format!("project_number_hits={}", project_number_hits),
-            probe_source: "KernelEvent::AgentActionResult.output_excerpt + final_reply",
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: project_number_hits > 0,
+            key: "desktop_project_expected_path_observed",
+            observed_value: expected_path.clone(),
+            probe_source: "harness.desktop_project_create_fixture".to_string(),
+            timestamp_ms: fixture_timestamp_ms,
+            satisfied: !expected_path.trim().is_empty(),
         },
         EnvironmentEvidenceReceipt {
-            key: "directory_creation_execution_observed",
-            observed_value: format!(
-                "create_action_count={} create_action_failures={}",
-                create_action_count, create_action_failures
-            ),
-            probe_source:
-                "KernelEvent::AgentActionResult(tool=filesystem__create_directory|sys__exec)",
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: create_action_count > 0 && create_action_failures == 0,
+            key: "desktop_project_created_observed",
+            observed_value: observed_path,
+            probe_source: created_probe_source,
+            timestamp_ms: created_timestamp_ms,
+            satisfied: created_satisfied,
         },
         EnvironmentEvidenceReceipt {
-            key: "cec_phase_receipts_observed",
-            observed_value: format!(
-                "cec_phase_receipts_present={} cec_receipts_count={}",
-                cec_phase_receipts_present,
-                obs.cec_receipts.len()
-            ),
-            probe_source: "RunObservation.cec_receipts",
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: cec_phase_receipts_present,
+            key: "desktop_project_desktop_entries_observed",
+            observed_value: desktop_entries,
+            probe_source: desktop_entries_probe_source,
+            timestamp_ms: desktop_entries_timestamp_ms,
+            satisfied: desktop_entries_satisfied && scope_satisfied,
         },
         EnvironmentEvidenceReceipt {
-            key: "postcondition_verification_observed",
-            observed_value: format!(
-                "postcondition_verification_evidence_present={}",
-                postcondition_verification_evidence_present
-            ),
-            probe_source: "RunObservation.cec_receipts + AgentActionResult verification actions",
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: postcondition_verification_evidence_present,
+            key: "desktop_project_cleanup_observed",
+            observed_value: format!("cleanup_satisfied={}", cleanup_satisfied),
+            probe_source: cleanup_probe_source,
+            timestamp_ms: cleanup_timestamp_ms,
+            satisfied: cleanup_satisfied,
         },
     ]
 }
 
 fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
     serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
-}
-
-fn contains_desktop_path_token(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    lower.contains("/desktop/")
-        || lower.contains("\\desktop\\")
-        || lower.contains("~/desktop")
-        || lower.contains("$home/desktop")
-        || lower.contains("/desktop")
-        || lower.contains("\\desktop")
-}
-
-fn contains_project_number_token(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    let bytes = lower.as_bytes();
-    let needle = b"project";
-    if bytes.len() < needle.len() {
-        return false;
-    }
-
-    let mut idx = 0usize;
-    while idx + needle.len() <= bytes.len() {
-        if &bytes[idx..idx + needle.len()] != needle {
-            idx = idx.saturating_add(1);
-            continue;
-        }
-
-        let has_left_boundary = idx == 0 || !bytes[idx - 1].is_ascii_alphanumeric();
-        if !has_left_boundary {
-            idx = idx.saturating_add(1);
-            continue;
-        }
-
-        let mut cursor = idx + needle.len();
-        while cursor < bytes.len() {
-            let ch = bytes[cursor];
-            if ch.is_ascii_digit() {
-                return true;
-            }
-            if ch.is_ascii_alphabetic() {
-                break;
-            }
-            cursor = cursor.saturating_add(1);
-        }
-
-        idx = idx.saturating_add(needle.len());
-    }
-
-    false
 }

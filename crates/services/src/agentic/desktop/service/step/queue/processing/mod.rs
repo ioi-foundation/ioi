@@ -49,6 +49,7 @@ use self::completion::{
 };
 use self::failure::{apply_queue_failure_policies, QueueFailureHandlingOutcome};
 use self::routing::{is_web_research_scope, resolve_queue_routing_context as resolve_routing};
+pub(crate) use self::web_pipeline::maybe_handle_web_search as handle_web_search_result;
 use self::web_pipeline::{
     maybe_handle_browser_snapshot, maybe_handle_web_read, maybe_handle_web_search,
 };

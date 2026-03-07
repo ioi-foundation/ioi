@@ -566,6 +566,8 @@ mod tests {
     fn network_url_uses_tool_argument_when_present() {
         let tool = AgentTool::WebSearch {
             query: "internet of intelligence".to_string(),
+            query_contract: None,
+            retrieval_contract: None,
             limit: None,
             url: None,
         };
@@ -580,6 +582,8 @@ mod tests {
     fn network_url_falls_back_to_web_search_serp_url() {
         let tool = AgentTool::WebSearch {
             query: "internet of intelligence".to_string(),
+            query_contract: None,
+            retrieval_contract: None,
             limit: Some(5),
             url: None,
         };

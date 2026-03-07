@@ -77,6 +77,8 @@ fn browser_navigate_target_maps_to_browser_interact_scope() {
 fn web_search_target_maps_to_web_retrieve_scope() {
     let tool = AgentTool::WebSearch {
         query: "internet of intelligence".to_string(),
+        query_contract: None,
+        retrieval_contract: None,
         limit: None,
         url: None,
     };
@@ -360,6 +362,8 @@ fn pii_egress_specs_cover_known_egress_tools() {
     ));
     assert!(is_expected_egress_tool_exhaustive(&AgentTool::WebSearch {
         query: "internet of intelligence".to_string(),
+        query_contract: None,
+        retrieval_contract: None,
         limit: None,
         url: Some("https://duckduckgo.com/?q=internet+of+intelligence".to_string()),
     }));
@@ -416,6 +420,8 @@ fn pii_egress_specs_cover_known_egress_tools() {
 
     let web_search_specs = AgentTool::WebSearch {
         query: "internet of intelligence".to_string(),
+        query_contract: None,
+        retrieval_contract: None,
         limit: None,
         url: Some("https://duckduckgo.com/?q=internet+of+intelligence".to_string()),
     }

@@ -1,8 +1,8 @@
 use super::*;
 
-const CEC_CONTRACT_VERSION: &str = "cec.v0.4";
+const CEC_CONTRACT_VERSION: &str = "cec.v0.5";
 
-pub(super) fn emit_execution_contract_receipt_event(
+pub(crate) fn emit_execution_contract_receipt_event_with_observation(
     service: &DesktopAgentService,
     session_id: [u8; 32],
     step_index: u32,
@@ -11,6 +11,9 @@ pub(super) fn emit_execution_contract_receipt_event(
     key: &str,
     satisfied: bool,
     evidence_material: &str,
+    probe_source: Option<&str>,
+    observed_value: Option<&str>,
+    evidence_type: Option<&str>,
     verifier_command_commit_hash: Option<String>,
     provider_id: Option<String>,
     synthesized_payload_hash: Option<String>,
@@ -23,8 +26,15 @@ pub(super) fn emit_execution_contract_receipt_event(
         .unwrap_or_default()
         .as_millis() as u64;
     let evidence_payload = format!(
-        "intent_id={};stage={};key={};satisfied={};evidence={}",
-        intent_id, stage, key, satisfied, evidence_material
+        "intent_id={};stage={};key={};satisfied={};probe_source={};observed_value={};evidence_type={};evidence={}",
+        intent_id,
+        stage,
+        key,
+        satisfied,
+        probe_source.unwrap_or(""),
+        observed_value.unwrap_or(""),
+        evidence_type.unwrap_or(""),
+        evidence_material
     );
     let evidence_commit_hash = sha256(evidence_payload.as_bytes())
         .map(|digest| format!("sha256:{}", hex::encode(digest.as_ref())))
@@ -42,10 +52,44 @@ pub(super) fn emit_execution_contract_receipt_event(
             timestamp_ms,
             evidence_commit_hash,
             verifier_command_commit_hash,
+            probe_source: probe_source.map(str::to_string),
+            observed_value: observed_value.map(str::to_string),
+            evidence_type: evidence_type.map(str::to_string),
             provider_id,
             synthesized_payload_hash,
         },
     ));
+}
+
+pub(crate) fn emit_execution_contract_receipt_event(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    step_index: u32,
+    intent_id: &str,
+    stage: &str,
+    key: &str,
+    satisfied: bool,
+    evidence_material: &str,
+    verifier_command_commit_hash: Option<String>,
+    provider_id: Option<String>,
+    synthesized_payload_hash: Option<String>,
+) {
+    emit_execution_contract_receipt_event_with_observation(
+        service,
+        session_id,
+        step_index,
+        intent_id,
+        stage,
+        key,
+        satisfied,
+        evidence_material,
+        None,
+        None,
+        None,
+        verifier_command_commit_hash,
+        provider_id,
+        synthesized_payload_hash,
+    );
 }
 
 pub(crate) fn resolved_intent_id(agent_state: &AgentState) -> String {

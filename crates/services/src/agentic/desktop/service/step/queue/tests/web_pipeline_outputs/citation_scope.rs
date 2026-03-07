@@ -7,6 +7,7 @@ fn web_pipeline_single_snapshot_citation_filter_excludes_query_hub_and_rss_wrapp
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: search_url.to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -56,6 +57,7 @@ fn web_pipeline_single_snapshot_scope_hint_ignores_rss_proxy_tokens() {
     let pending = PendingSearchCompletion {
         query: "what's the weather right now".to_string(),
         query_contract: "what's the weather right now".to_string(),
+        retrieval_contract: None,
         url: "https://news.google.com/rss/search?q=current+weather".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -102,6 +104,7 @@ fn web_pipeline_single_snapshot_retains_partial_note_when_grounded_hints_lack_re
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=anderson+sc+weather+right+now".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,

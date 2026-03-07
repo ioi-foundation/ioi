@@ -1,4 +1,5 @@
 use super::*;
+use ioi_types::app::agentic::WebRetrievalContract;
 
 #[derive(Debug, Clone)]
 pub(crate) struct CitationCandidate {
@@ -64,6 +65,7 @@ pub(crate) struct StoryDraft {
 #[derive(Debug, Clone)]
 pub(crate) struct SynthesisDraft {
     pub(crate) query: String,
+    pub(crate) retrieval_contract: Option<WebRetrievalContract>,
     pub(crate) run_date: String,
     pub(crate) run_timestamp_ms: u64,
     pub(crate) run_timestamp_iso_utc: String,

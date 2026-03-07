@@ -201,6 +201,8 @@ async fn web_retrieval_and_net_fetch_emit_deterministic_receipts_and_anti_loop()
         .execute(
             AgentTool::WebSearch {
                 query: "phase0 reliability deterministic fixture".to_string(),
+                query_contract: None,
+                retrieval_contract: None,
                 limit: Some(3),
                 url: None,
             },

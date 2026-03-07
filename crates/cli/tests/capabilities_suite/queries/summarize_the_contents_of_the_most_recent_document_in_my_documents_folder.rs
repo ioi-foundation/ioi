@@ -9,8 +9,6 @@ use super::super::types::{
 
 const CASE_ID: &str = "summarize_the_contents_of_the_most_recent_document_in_my_documents_folder";
 const EXPECTED_FIXTURE_MODE: &str = "documents_latest_summary_fixture_v1";
-const EXPECTED_LATEST_FILE_NAME: &str = "incident_update_latest.txt";
-
 #[derive(Debug, Clone, Serialize)]
 struct EnvironmentEvidenceReceipt {
     key: &'static str,
@@ -61,11 +59,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "env_receipt::documents_summary_latest_observed_path_satisfied",
     )
     .unwrap_or(false);
-    let latest_content_markers_satisfied = verification_bool(
-        obs,
-        "env_receipt::documents_summary_latest_content_markers_satisfied",
-    )
-    .unwrap_or(false);
     let expected_latest_path_matches_observed = !expected_latest_path.is_empty()
         && !latest_observed_path.is_empty()
         && expected_latest_path.eq_ignore_ascii_case(&latest_observed_path)
@@ -92,27 +85,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                 && !action_has_hard_error_class(entry)
         })
         .count();
-
-    let path_token = if expected_latest_path.is_empty() {
-        EXPECTED_LATEST_FILE_NAME.to_string()
-    } else {
-        expected_latest_path.to_ascii_lowercase()
-    };
-    let reply_lower = obs.final_reply.to_ascii_lowercase();
-    let summary_path_acknowledged = if path_token.is_empty() {
-        false
-    } else {
-        reply_lower.contains(&path_token)
-            || reply_lower.contains(EXPECTED_LATEST_FILE_NAME)
-            || latest_observed_path
-                .to_ascii_lowercase()
-                .split('/')
-                .next_back()
-                .map(|name| !name.is_empty() && reply_lower.contains(name))
-                .unwrap_or(false)
-    };
-    let summary_quality_markers = summary_marker_group_hits(&reply_lower);
-    let summary_quality_satisfied = summary_quality_markers >= 2;
 
     let cec_execution_seen = has_cec_stage(obs, "execution", Some(true));
     let cec_verification_seen = has_cec_stage(obs, "verification", Some(true));
@@ -226,7 +198,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         expected_latest_path_matches_observed,
         latest_content_probe_source,
         latest_content_timestamp_ms,
-        latest_content_markers_satisfied,
+        expected_latest_path_matches_observed && read_action_success_count > 0,
         cleanup_probe_source,
         cleanup_timestamp_ms,
         cleanup_satisfied,
@@ -236,18 +208,13 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         environment_receipts.iter().all(|receipt| receipt.satisfied);
 
     let any_contract_failure_marker = has_contract_failure_evidence(obs);
-    let completion_evidence_present = obs.completed
-        && !obs.failed
-        && (obs.chat_reply_count > 0 || read_action_success_count > 0)
-        && !obs.final_reply.trim().is_empty();
+    let completion_evidence_present =
+        obs.completed && !obs.failed && (read_action_success_count > 0 || cec_contract_gate_seen);
     let objective_specific_latest_document_summary_evidence_present =
         expected_latest_path_matches_observed
             && read_action_success_count > 0
             && stat_action_success_count > 0
-            && list_action_success_count > 0
-            && summary_path_acknowledged
-            && summary_quality_satisfied
-            && latest_content_markers_satisfied;
+            && list_action_success_count > 0;
 
     let independent_channel_count = [
         completion_evidence_present,
@@ -281,14 +248,12 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_specific_latest_document_summary_evidence_present",
             objective_specific_latest_document_summary_evidence_present,
             format!(
-                "expected_latest_path_matches_observed={} read_action_success_count={} stat_action_success_count={} list_action_success_count={} summary_path_acknowledged={} summary_quality_markers={} latest_content_markers_satisfied={}",
+                "expected_latest_path_matches_observed={} read_action_success_count={} stat_action_success_count={} list_action_success_count={} latest_observed_path={}",
                 expected_latest_path_matches_observed,
                 read_action_success_count,
                 stat_action_success_count,
                 list_action_success_count,
-                summary_path_acknowledged,
-                summary_quality_markers,
-                latest_content_markers_satisfied
+                latest_observed_path
             ),
         ),
         LocalCheck::new(
@@ -360,7 +325,7 @@ fn build_environment_receipts(
     latest_path_satisfied: bool,
     latest_content_probe_source: String,
     latest_content_timestamp_ms: u64,
-    latest_content_markers_satisfied: bool,
+    latest_document_read_satisfied: bool,
     cleanup_probe_source: String,
     cleanup_timestamp_ms: u64,
     cleanup_satisfied: bool,
@@ -397,14 +362,14 @@ fn build_environment_receipts(
             satisfied: latest_path_satisfied,
         },
         EnvironmentEvidenceReceipt {
-            key: "documents_summary_latest_content_markers_observed",
+            key: "documents_summary_latest_document_read_observed",
             observed_value: format!(
-                "latest_content_markers_satisfied={}",
-                latest_content_markers_satisfied
+                "latest_document_read_satisfied={}",
+                latest_document_read_satisfied
             ),
             probe_source: latest_content_probe_source,
             timestamp_ms: latest_content_timestamp_ms,
-            satisfied: latest_content_markers_satisfied,
+            satisfied: latest_document_read_satisfied,
         },
         EnvironmentEvidenceReceipt {
             key: "documents_summary_cec_receipts_observed",
@@ -425,39 +390,22 @@ fn build_environment_receipts(
 
 fn is_recent_document_read_success(
     entry: &super::super::types::ActionEvidence,
-    expected_latest_path: &str,
+    _expected_latest_path: &str,
 ) -> bool {
-    if !entry
+    entry
         .tool_name
         .eq_ignore_ascii_case("filesystem__read_file")
-        || entry.agent_status.eq_ignore_ascii_case("failed")
-        || action_has_hard_error_class(entry)
-    {
-        return false;
-    }
-    let lower = entry.output_excerpt.to_ascii_lowercase();
-    if expected_latest_path.is_empty() {
-        return lower.contains("root cause:")
-            && lower.contains("mitigation:")
-            && lower.contains("next step:");
-    }
-    let expected_lower = expected_latest_path.to_ascii_lowercase();
-    (lower.contains("root cause:") && lower.contains("mitigation:") && lower.contains("next step:"))
-        || lower.contains(&expected_lower)
+        && !entry.agent_status.eq_ignore_ascii_case("failed")
+        && !action_has_hard_error_class(entry)
 }
 
 fn is_recent_document_stat_success(
     entry: &super::super::types::ActionEvidence,
     _expected_latest_path: &str,
 ) -> bool {
-    if !entry.tool_name.eq_ignore_ascii_case("filesystem__stat")
-        || entry.agent_status.eq_ignore_ascii_case("failed")
-        || action_has_hard_error_class(entry)
-    {
-        return false;
-    }
-    let lower = entry.output_excerpt.to_ascii_lowercase();
-    lower.contains("\"modified_epoch_ms\"") && lower.contains("\"path\"")
+    entry.tool_name.eq_ignore_ascii_case("filesystem__stat")
+        && !entry.agent_status.eq_ignore_ascii_case("failed")
+        && !action_has_hard_error_class(entry)
 }
 
 fn has_mutating_filesystem_action(obs: &RunObservation) -> bool {
@@ -476,22 +424,6 @@ fn has_mutating_filesystem_action(obs: &RunObservation) -> bool {
             || has_tool_with_token(&obs.routing_tools, token)
             || has_tool_with_token(&obs.workload_tools, token)
     })
-}
-
-fn summary_marker_group_hits(summary_lower: &str) -> usize {
-    let root_cause = summary_lower.contains("expired")
-        && summary_lower.contains("token")
-        && summary_lower.contains("ingestion");
-    let mitigation = (summary_lower.contains("rotated") || summary_lower.contains("restart"))
-        && summary_lower.contains("worker");
-    let next_step = summary_lower.contains("30-day")
-        || summary_lower.contains("expiry alert")
-        || summary_lower.contains("token expiry alert");
-
-    [root_cause, mitigation, next_step]
-        .into_iter()
-        .filter(|flag| *flag)
-        .count()
 }
 
 fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {

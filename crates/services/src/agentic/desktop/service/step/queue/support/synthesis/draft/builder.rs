@@ -12,10 +12,14 @@ pub(crate) fn build_deterministic_story_draft(
     let run_timestamp_iso_utc = iso_datetime_from_unix_ms(run_timestamp_ms);
     let run_date = iso_date_from_unix_ms(run_timestamp_ms);
     let query = synthesis_query_contract(pending);
-    let single_snapshot_mode = prefers_single_fact_snapshot(&query);
-    let headline_lookup_mode = query_is_generic_headline_collection(&query);
-    let required_story_count = required_story_count(&query);
-    let citations_per_story = required_citations_per_story(&query);
+    let retrieval_contract = pending.retrieval_contract.as_ref();
+    let single_snapshot_mode =
+        retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query);
+    let headline_lookup_mode =
+        retrieval_contract_is_generic_headline_collection(retrieval_contract, &query);
+    let required_story_count = retrieval_contract_required_story_count(retrieval_contract, &query);
+    let citations_per_story =
+        retrieval_contract_required_citations_per_story(retrieval_contract, &query);
     let single_snapshot_policy = ResolutionPolicy::default();
     let completion_reason = completion_reason_line(reason).to_string();
     let min_sources = pending.min_sources.max(1) as usize;
@@ -65,7 +69,64 @@ pub(crate) fn build_deterministic_story_draft(
         .filter(|source| is_primary_status_surface_source(source))
         .cloned()
         .collect::<Vec<_>>();
-    let source_pool = if !successful_merged_sources.is_empty() {
+    let source_pool = if headline_lookup_mode && !successful_merged_sources.is_empty() {
+        successful_merged_sources.clone()
+    } else if single_snapshot_mode {
+        let mut ranked = if !successful_merged_sources.is_empty() {
+            successful_merged_sources.clone()
+        } else {
+            merged_sources.clone()
+        };
+        ranked.sort_by(|left, right| {
+            let left_current_signal = contains_current_condition_metric_signal(&format!(
+                "{} {}",
+                left.title.as_deref().unwrap_or_default(),
+                left.excerpt
+            ));
+            let right_current_signal = contains_current_condition_metric_signal(&format!(
+                "{} {}",
+                right.title.as_deref().unwrap_or_default(),
+                right.excerpt
+            ));
+            right_current_signal
+                .cmp(&left_current_signal)
+                .then_with(|| {
+                    let left_partial_signal = has_quantitative_metric_payload(
+                        &format!(
+                            "{} {}",
+                            left.title.as_deref().unwrap_or_default(),
+                            left.excerpt
+                        ),
+                        false,
+                    );
+                    let right_partial_signal = has_quantitative_metric_payload(
+                        &format!(
+                            "{} {}",
+                            right.title.as_deref().unwrap_or_default(),
+                            right.excerpt
+                        ),
+                        false,
+                    );
+                    right_partial_signal.cmp(&left_partial_signal)
+                })
+                .then_with(|| {
+                    compare_candidate_evidence_scores_desc(
+                        &single_snapshot_source_score(
+                            left,
+                            &single_snapshot_constraints,
+                            single_snapshot_policy,
+                        ),
+                        &single_snapshot_source_score(
+                            right,
+                            &single_snapshot_constraints,
+                            single_snapshot_policy,
+                        ),
+                    )
+                })
+                .then_with(|| left.url.cmp(&right.url))
+        });
+        ranked
+    } else if !successful_merged_sources.is_empty() {
         if successful_merged_sources.len() >= required_story_count {
             successful_merged_sources
         } else {
@@ -84,24 +145,6 @@ pub(crate) fn build_deterministic_story_draft(
             }
             combined
         }
-    } else if single_snapshot_mode {
-        let mut ranked = merged_sources.clone();
-        ranked.sort_by(|left, right| {
-            compare_candidate_evidence_scores_desc(
-                &single_snapshot_source_score(
-                    left,
-                    &single_snapshot_constraints,
-                    single_snapshot_policy,
-                ),
-                &single_snapshot_source_score(
-                    right,
-                    &single_snapshot_constraints,
-                    single_snapshot_policy,
-                ),
-            )
-            .then_with(|| left.url.cmp(&right.url))
-        });
-        ranked
     } else if primary_status_sources.len() >= required_story_count {
         primary_status_sources
     } else {
@@ -132,102 +175,166 @@ pub(crate) fn build_deterministic_story_draft(
         &source_pool
     };
 
-    let mut selected_sources = Vec::new();
-    let mut selected_story_tokens = Vec::<BTreeSet<String>>::new();
-    for source in preferred_source_pool {
-        if single_snapshot_mode && is_low_signal_excerpt(source.excerpt.as_str()) {
-            continue;
-        }
-        let title = canonical_source_title(source);
-        let source_tokens = if headline_lookup_mode {
-            Some(headline_story_source_tokens(source))
+    let locality_scope = explicit_query_scope_hint(&query).or_else(|| {
+        retrieval_contract_requires_runtime_locality(retrieval_contract, &query)
+            .then(|| effective_locality_scope_hint(None))
+            .flatten()
+    });
+    let local_business_entity_diversity_required =
+        retrieval_contract_entity_diversity_required(retrieval_contract, &query);
+    let local_business_entity_targets = if local_business_entity_diversity_required {
+            merged_local_business_target_names(
+                &pending.attempted_urls,
+                &pending.successful_reads,
+                locality_scope.as_deref(),
+                required_story_count,
+            )
         } else {
-            None
+            Vec::new()
         };
-        if selected_sources
-            .iter()
-            .any(|existing: &PendingSearchReadSummary| {
-                titles_similar(&title, &canonical_source_title(existing))
-            })
-        {
-            continue;
-        }
-        if let Some(tokens) = source_tokens.as_ref() {
-            if selected_story_tokens.iter().any(|existing| {
-                !existing.is_empty() && !tokens.is_empty() && {
-                    let overlap = existing.intersection(tokens).count();
-                    let smaller = existing.len().min(tokens.len());
-                    overlap >= 2 && overlap * 5 >= smaller * 2
-                }
-            }) {
-                continue;
-            }
-        }
-        selected_sources.push(source.clone());
-        if let Some(tokens) = source_tokens {
-            if !tokens.is_empty() {
-                selected_story_tokens.push(tokens);
-            }
-        }
-        if selected_sources.len() >= required_story_count {
-            break;
-        }
-    }
-    if selected_sources.len() < required_story_count {
-        for source in preferred_source_pool {
-            if selected_sources.len() >= required_story_count {
+    let mut selected_sources = if local_business_entity_targets.is_empty() {
+        Vec::new()
+    } else {
+        let mut selected = selected_local_business_target_sources(
+            &query,
+            &local_business_entity_targets,
+            preferred_source_pool,
+            locality_scope.as_deref(),
+            required_story_count,
+        );
+        for source in selected_local_business_target_sources(
+            &query,
+            &local_business_entity_targets,
+            &source_pool,
+            locality_scope.as_deref(),
+            required_story_count,
+        ) {
+            if selected.len() >= required_story_count {
                 break;
             }
-            if selected_sources.iter().any(|existing| {
+            if selected.iter().any(|existing| {
                 existing.url.eq_ignore_ascii_case(source.url.as_str())
                     || url_structurally_equivalent(existing.url.as_str(), source.url.as_str())
             }) {
                 continue;
             }
-            if headline_lookup_mode {
-                let tokens = headline_story_source_tokens(source);
+            selected.push(source);
+        }
+        selected
+    };
+    let mut selected_story_tokens = Vec::<BTreeSet<String>>::new();
+    if !local_business_entity_diversity_required {
+        for source in preferred_source_pool {
+            if !draft_source_is_selectable(source) {
+                continue;
+            }
+            if single_snapshot_mode && is_low_signal_excerpt(source.excerpt.as_str()) {
+                continue;
+            }
+            let title = if local_business_entity_targets.is_empty() {
+                canonical_source_title(source)
+            } else {
+                local_business_display_title(source, locality_scope.as_deref())
+            };
+            let source_tokens = if headline_lookup_mode {
+                Some(headline_story_source_tokens(source))
+            } else {
+                None
+            };
+            if selected_sources
+                .iter()
+                .any(|existing: &PendingSearchReadSummary| {
+                    titles_similar(&title, &canonical_source_title(existing))
+                })
+            {
+                continue;
+            }
+            if let Some(tokens) = source_tokens.as_ref() {
                 if selected_story_tokens.iter().any(|existing| {
                     !existing.is_empty() && !tokens.is_empty() && {
-                        let overlap = existing.intersection(&tokens).count();
+                        let overlap = existing.intersection(tokens).count();
                         let smaller = existing.len().min(tokens.len());
                         overlap >= 2 && overlap * 5 >= smaller * 2
                     }
                 }) {
                     continue;
                 }
+            }
+            selected_sources.push(source.clone());
+            if let Some(tokens) = source_tokens {
                 if !tokens.is_empty() {
                     selected_story_tokens.push(tokens);
                 }
             }
-            selected_sources.push(source.clone());
-        }
-    }
-    if headline_lookup_mode && selected_sources.len() < required_story_count {
-        for source in preferred_source_pool {
             if selected_sources.len() >= required_story_count {
                 break;
             }
-            if selected_sources.iter().any(|existing| {
-                existing.url.eq_ignore_ascii_case(source.url.as_str())
-                    || url_structurally_equivalent(existing.url.as_str(), source.url.as_str())
-            }) {
-                continue;
-            }
-            selected_sources.push(source.clone());
         }
-    }
-    if headline_lookup_mode && selected_sources.len() < required_story_count {
-        for source in &source_pool {
-            if selected_sources.len() >= required_story_count {
-                break;
+        if selected_sources.len() < required_story_count {
+            for source in preferred_source_pool {
+                if selected_sources.len() >= required_story_count {
+                    break;
+                }
+                if !draft_source_is_selectable(source) {
+                    continue;
+                }
+                if selected_sources.iter().any(|existing| {
+                    existing.url.eq_ignore_ascii_case(source.url.as_str())
+                        || url_structurally_equivalent(existing.url.as_str(), source.url.as_str())
+                }) {
+                    continue;
+                }
+                if headline_lookup_mode {
+                    let tokens = headline_story_source_tokens(source);
+                    if selected_story_tokens.iter().any(|existing| {
+                        !existing.is_empty() && !tokens.is_empty() && {
+                            let overlap = existing.intersection(&tokens).count();
+                            let smaller = existing.len().min(tokens.len());
+                            overlap >= 2 && overlap * 5 >= smaller * 2
+                        }
+                    }) {
+                        continue;
+                    }
+                    if !tokens.is_empty() {
+                        selected_story_tokens.push(tokens);
+                    }
+                }
+                selected_sources.push(source.clone());
             }
-            if selected_sources.iter().any(|existing| {
-                existing.url.eq_ignore_ascii_case(source.url.as_str())
-                    || url_structurally_equivalent(existing.url.as_str(), source.url.as_str())
-            }) {
-                continue;
+        }
+        if headline_lookup_mode && selected_sources.len() < required_story_count {
+            for source in preferred_source_pool {
+                if selected_sources.len() >= required_story_count {
+                    break;
+                }
+                if !draft_source_is_selectable(source) {
+                    continue;
+                }
+                if selected_sources.iter().any(|existing| {
+                    existing.url.eq_ignore_ascii_case(source.url.as_str())
+                        || url_structurally_equivalent(existing.url.as_str(), source.url.as_str())
+                }) {
+                    continue;
+                }
+                selected_sources.push(source.clone());
             }
-            selected_sources.push(source.clone());
+        }
+        if headline_lookup_mode && selected_sources.len() < required_story_count {
+            for source in &source_pool {
+                if selected_sources.len() >= required_story_count {
+                    break;
+                }
+                if !draft_source_is_selectable(source) {
+                    continue;
+                }
+                if selected_sources.iter().any(|existing| {
+                    existing.url.eq_ignore_ascii_case(source.url.as_str())
+                        || url_structurally_equivalent(existing.url.as_str(), source.url.as_str())
+                }) {
+                    continue;
+                }
+                selected_sources.push(source.clone());
+            }
         }
     }
     if single_snapshot_mode && selected_sources.is_empty() {
@@ -238,11 +345,15 @@ pub(crate) fn build_deterministic_story_draft(
 
     let mut used_citation_urls = BTreeSet::new();
     for source in selected_sources.iter().take(required_story_count) {
-        let title = canonical_source_title(source);
+        let title = if local_business_entity_targets.is_empty() {
+            canonical_source_title(source)
+        } else {
+            local_business_display_title(source, locality_scope.as_deref())
+        };
         let what_happened = if single_snapshot_mode {
             single_snapshot_summary_line(source)
         } else {
-            source_bullet(source)
+            source_bullet_for_query(&query, pending.min_sources as usize, source)
         };
         let why_it_matters = why_it_matters_from_story(source);
         let user_impact = user_impact_from_story(source);
@@ -376,6 +487,7 @@ pub(crate) fn build_deterministic_story_draft(
 
     SynthesisDraft {
         query,
+        retrieval_contract: pending.retrieval_contract.clone(),
         run_date,
         run_timestamp_ms,
         run_timestamp_iso_utc,
@@ -455,6 +567,28 @@ fn headline_story_topic_tokens(input: &str) -> BTreeSet<String> {
         .collect()
 }
 
+fn draft_source_is_selectable(source: &PendingSearchReadSummary) -> bool {
+    let title = source.title.as_deref().unwrap_or_default();
+    !source_has_human_challenge_signal(&source.url, title, &source.excerpt)
+        && !source_has_terminal_error_signal(&source.url, title, &source.excerpt)
+}
+
+fn local_business_display_title(
+    source: &PendingSearchReadSummary,
+    locality_hint: Option<&str>,
+) -> String {
+    let raw_title = source.title.as_deref().map(str::trim).unwrap_or_default();
+    if !raw_title.is_empty()
+        && !is_low_signal_title(raw_title)
+        && !local_business_target_matches_source_host(raw_title, &source.url)
+    {
+        return canonical_source_title(source);
+    }
+
+    local_business_target_name_from_source(source, locality_hint)
+        .unwrap_or_else(|| canonical_source_title(source))
+}
+
 fn headline_story_source_tokens(source: &PendingSearchReadSummary) -> BTreeSet<String> {
     let title = canonical_source_title(source);
     let detail = excerpt_headline(source.excerpt.trim())
@@ -462,66 +596,6 @@ fn headline_story_source_tokens(source: &PendingSearchReadSummary) -> BTreeSet<S
     headline_story_topic_tokens(&format!("{} {}", title, detail))
 }
 
-fn headline_story_title_has_specificity(title: &str) -> bool {
-    const GENERIC_TOKENS: &[&str] = &[
-        "top",
-        "news",
-        "headline",
-        "headlines",
-        "latest",
-        "breaking",
-        "story",
-        "stories",
-        "update",
-        "updates",
-        "today",
-        "live",
-        "report",
-        "reports",
-        "listen",
-        "watch",
-        "now",
-    ];
-    let tokens = title
-        .to_ascii_lowercase()
-        .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
-        .collect::<String>()
-        .split_whitespace()
-        .filter_map(|token| {
-            let normalized = token.trim();
-            if normalized.is_empty() {
-                None
-            } else {
-                Some(normalized.to_string())
-            }
-        })
-        .collect::<Vec<_>>();
-    if tokens.len() < 2 {
-        return false;
-    }
-    let informative_tokens = tokens
-        .iter()
-        .filter(|token| token.len() >= 3 && !GENERIC_TOKENS.contains(&token.as_str()))
-        .count();
-    informative_tokens >= 2
-}
-
 fn headline_story_source_is_actionable(source: &PendingSearchReadSummary) -> bool {
-    let url = source.url.trim();
-    if url.is_empty() || is_search_hub_url(url) || is_multi_item_listing_url(url) {
-        return false;
-    }
-    let title = canonical_source_title(source);
-    if is_low_signal_title(&title) || !headline_story_title_has_specificity(&title) {
-        return false;
-    }
-    let excerpt = source.excerpt.trim();
-    if excerpt_has_claim_signal(excerpt) {
-        return true;
-    }
-    let signals = source_evidence_signals(source);
-    effective_primary_event_hits(signals) > 0
-        || signals.impact_hits > 0
-        || signals.mitigation_hits > 0
+    headline_source_is_actionable(source)
 }

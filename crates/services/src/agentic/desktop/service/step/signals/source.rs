@@ -1,7 +1,7 @@
 use super::util::marker_hits;
 use url::Url;
 
-const SOURCE_LOW_PRIORITY_MARKERS: [&str; 40] = [
+const SOURCE_LOW_PRIORITY_MARKERS: [&str; 48] = [
     "fact sheet",
     "news websites",
     "trust in media",
@@ -42,6 +42,14 @@ const SOURCE_LOW_PRIORITY_MARKERS: [&str; 40] = [
     "newspaper headlines",
     "newspaper-headlines",
     "headlines for today",
+    "discussion board",
+    "discussion thread",
+    "community discussion",
+    "community thread",
+    "forum thread",
+    "message board",
+    "user forum",
+    "discussion community",
 ];
 
 const SOURCE_PRIMARY_EVENT_MARKERS: [&str; 28] = [
@@ -209,6 +217,32 @@ const SOURCE_DOCUMENTATION_SURFACE_PATH_MARKERS: [&str; 7] = [
     "/guides",
 ];
 
+const SOURCE_LOW_PRIORITY_SURFACE_HOST_MARKERS: [&str; 6] = [
+    "forum",
+    "forums",
+    "community",
+    "communities",
+    "discussion",
+    "discussions",
+];
+
+const SOURCE_LOW_PRIORITY_SURFACE_PATH_MARKERS: [&str; 14] = [
+    "/forum",
+    "/forum/",
+    "/forums",
+    "/forums/",
+    "/thread/",
+    "/threads/",
+    "/discussion/",
+    "/discussions/",
+    "/comments/",
+    "/comment/",
+    "/community/",
+    "/communities/",
+    "/message-board",
+    "/message-boards",
+];
+
 const SOURCE_IMPACT_MARKERS: [&str; 10] = [
     "u.s.",
     "united states",
@@ -314,6 +348,7 @@ struct SourceUrlSignalProfile {
     official_status_host_hits: usize,
     secondary_aggregation_hits: usize,
     documentation_surface_hits: usize,
+    low_priority_surface_hits: usize,
 }
 
 pub fn analyze_source_text_signals(text: &str) -> SourceSignalProfile {
@@ -373,11 +408,15 @@ fn analyze_source_url_signals(url: &str) -> SourceUrlSignalProfile {
         (marker_hits(&host, &SOURCE_DOCUMENTATION_SURFACE_HOST_MARKERS)
             + marker_hits(&path, &SOURCE_DOCUMENTATION_SURFACE_PATH_MARKERS))
         .min(4);
+    let low_priority_surface_hits = (marker_hits(&host, &SOURCE_LOW_PRIORITY_SURFACE_HOST_MARKERS)
+        + marker_hits(&path, &SOURCE_LOW_PRIORITY_SURFACE_PATH_MARKERS))
+    .min(4);
 
     SourceUrlSignalProfile {
         official_status_host_hits,
         secondary_aggregation_hits,
         documentation_surface_hits,
+        low_priority_surface_hits,
     }
 }
 
@@ -400,7 +439,8 @@ pub fn analyze_source_record_signals(url: &str, title: &str, excerpt: &str) -> S
     profile.documentation_surface_hits = url_profile.documentation_surface_hits;
     profile.low_priority_hits = profile
         .low_priority_hits
-        .saturating_add(url_profile.documentation_surface_hits);
+        .saturating_add(url_profile.documentation_surface_hits)
+        .saturating_add(url_profile.low_priority_surface_hits);
 
     profile
 }

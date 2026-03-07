@@ -287,7 +287,35 @@ pub(super) async fn run_web_search_execution(
         .unwrap_or(5)
         .clamp(1, 10);
 
-    match ioi_services::agentic::web::edge_web_search(&*BROWSER_DRIVER, &query, limit).await {
+    let query_contract = config
+        .get("query_contract")
+        .and_then(|value| value.as_str());
+    let retrieval_contract = match ioi_services::agentic::web::derive_web_retrieval_contract(
+        &query,
+        query_contract,
+    ) {
+        Ok(contract) => contract,
+        Err(err) => {
+            return Ok(build_result(
+                "error",
+                format!("Could not infer web retrieval contract: {}", err),
+                None,
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ));
+        }
+    };
+
+    match ioi_services::agentic::web::edge_web_search(
+        &*BROWSER_DRIVER,
+        &query,
+        query_contract,
+        &retrieval_contract,
+        limit,
+    )
+    .await
+    {
         Ok(bundle) => {
             let data = serde_json::to_value(&bundle).ok();
             let output = serde_json::to_string_pretty(&bundle).unwrap_or_else(|_| query.clone());

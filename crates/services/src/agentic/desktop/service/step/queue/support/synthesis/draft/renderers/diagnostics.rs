@@ -15,6 +15,7 @@ pub(super) fn assess_multi_story_grounding(
     headline_lookup_mode: bool,
     use_single_snapshot_layout: bool,
 ) -> MultiStoryGroundingAssessment {
+    let retrieval_contract = draft.retrieval_contract.as_ref();
     let required_distinct_source_floor = story_count.max(1);
     let actionable_read_grounding_sources = draft
         .citations_by_id
@@ -25,10 +26,19 @@ pub(super) fn assess_multi_story_grounding(
                     excerpt_has_claim_signal(&citation.excerpt)
                         || !is_low_signal_title(&citation.source_label)
                 } else {
-                    excerpt_has_claim_signal(&citation.excerpt)
+                    excerpt_has_query_grounding_signal_with_contract(
+                        retrieval_contract,
+                        &draft.query,
+                        required_distinct_source_floor,
+                        &citation.url,
+                        &citation.source_label,
+                        &citation.excerpt,
+                    )
                 }
         })
-        .filter_map(|citation| citation_source_independence_key(&citation.url))
+        .filter_map(|citation| {
+            citation_source_independence_key_for_query(retrieval_contract, &draft.query, citation)
+        })
         .collect::<BTreeSet<_>>();
     let actionable_read_grounding_count = actionable_read_grounding_sources.len();
     let has_read_grounding = actionable_read_grounding_count > 0;
@@ -270,10 +280,32 @@ fn headline_story_shared_anchor_tokens(
     shared
 }
 
-fn citation_source_independence_key(url: &str) -> Option<String> {
-    let trimmed = url.trim();
+fn citation_source_independence_key_for_query(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    query: &str,
+    citation: &CitationCandidate,
+) -> Option<String> {
+    let trimmed = citation.url.trim();
     if trimmed.is_empty() {
         return None;
+    }
+    if retrieval_contract_entity_diversity_required(retrieval_contract, query) {
+        let locality_hint = explicit_query_scope_hint(query).or_else(|| {
+            retrieval_contract_requires_runtime_locality(retrieval_contract, query)
+                .then(|| effective_locality_scope_hint(None))
+                .flatten()
+        });
+        let source = PendingSearchReadSummary {
+            url: citation.url.clone(),
+            title: Some(citation.source_label.clone()),
+            excerpt: citation.excerpt.clone(),
+        };
+        if let Some(target_name) =
+            local_business_target_name_from_source(&source, locality_hint.as_deref())
+                .and_then(|name| normalized_local_business_target_name(&name))
+        {
+            return Some(target_name);
+        }
     }
     if let Some(host) = source_host(trimmed) {
         return Some(host.strip_prefix("www.").unwrap_or(&host).to_string());

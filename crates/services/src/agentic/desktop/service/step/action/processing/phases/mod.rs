@@ -6,7 +6,10 @@ mod finalize_action_processing;
 
 pub(super) use apply_post_execution_guards::apply_post_execution_guards;
 pub(super) use execute_tool_phase::execute_tool_phase;
-pub(crate) use execute_tool_phase::{emit_completion_gate_status_event, resolved_intent_id};
+pub(crate) use execute_tool_phase::{
+    emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
+    resolved_intent_id,
+};
 pub(super) use finalize_action_processing::finalize_action_processing;
 
 pub(super) struct ActionProcessingState {

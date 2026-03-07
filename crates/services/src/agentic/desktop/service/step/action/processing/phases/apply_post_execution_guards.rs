@@ -254,18 +254,7 @@ pub(crate) async fn apply_post_execution_guards(
             let now_ms = web_pipeline_now_ms();
             let elapsed_ms = now_ms.saturating_sub(pending.started_at_ms);
             let remaining_candidates = remaining_pending_web_candidates(&pending);
-            let min_sources_required = pending.min_sources.max(1) as usize;
-            let completion_reason = if pending.deadline_ms > 0 && now_ms >= pending.deadline_ms {
-                Some(WebPipelineCompletionReason::DeadlineReached)
-            } else if remaining_candidates == 0 {
-                if pending.successful_reads.len() >= min_sources_required {
-                    Some(WebPipelineCompletionReason::MinSourcesReached)
-                } else {
-                    Some(WebPipelineCompletionReason::ExhaustedCandidates)
-                }
-            } else {
-                None
-            };
+            let completion_reason = web_pipeline_completion_reason(&pending, now_ms);
 
             verification_checks.push(format!(
                 "web_sources_success={}",
@@ -280,6 +269,7 @@ pub(crate) async fn apply_post_execution_guards(
             verification_checks.push(format!("web_constraint_search_probe_queued={}", false));
 
             if let Some(reason) = completion_reason {
+                append_final_web_completion_receipts(&pending, reason, &mut verification_checks);
                 let summary = if let Some(hybrid_summary) =
                     synthesize_web_pipeline_reply_hybrid(service, &pending, reason).await
                 {

@@ -10,11 +10,7 @@ use super::super::types::{
 const CASE_ID: &str = "uninstall_spotify_and_remove_its_leftover_config_files";
 const EXPECTED_FIXTURE_MODE: &str = "spotify_uninstall_fixture_v1";
 const EXPECTED_PROVIDER_IDS: [&str; 5] = ["apt-get", "snap", "flatpak", "brew", "pacman"];
-const REQUIRED_CONFIG_PATH_SUFFIXES: [&str; 3] = [
-    "/.config/spotify",
-    "/.cache/spotify",
-    "/.local/share/spotify",
-];
+const REQUIRED_CONFIG_PATH_COUNT: usize = 3;
 
 #[derive(Debug, Clone, Serialize)]
 struct EnvironmentEvidenceReceipt {
@@ -104,10 +100,19 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "env_receipt::spotify_uninstall_config_paths_removed_satisfied",
     )
     .unwrap_or(false);
-    let config_paths_lower = config_paths_csv.to_ascii_lowercase();
-    let config_paths_shape_satisfied = REQUIRED_CONFIG_PATH_SUFFIXES
-        .iter()
-        .all(|suffix| config_paths_lower.contains(suffix));
+    let fixture_home_dir =
+        verification_value(obs, "env_receipt::spotify_uninstall_fixture_home_dir")
+            .unwrap_or_default();
+    let config_paths = config_paths_csv
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    let config_paths_shape_satisfied = config_paths.len() == REQUIRED_CONFIG_PATH_COUNT
+        && !fixture_home_dir.is_empty()
+        && config_paths
+            .iter()
+            .all(|path| path.starts_with(fixture_home_dir.as_str()));
 
     let scope_satisfied =
         verification_bool(obs, "env_receipt::spotify_uninstall_scope_satisfied").unwrap_or(false);
@@ -160,10 +165,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && cec_postcondition_seen
         && (cec_contract_gate_seen || obs.completed);
 
-    let completion_evidence_present = obs.completed
-        && !obs.failed
-        && (!obs.action_evidence.is_empty()
-            || (obs.chat_reply_count > 0 && !obs.final_reply.trim().is_empty()));
+    let completion_evidence_present =
+        obs.completed && !obs.failed && (!obs.action_evidence.is_empty() || cec_contract_gate_seen);
 
     let objective_specific_uninstall_evidence_present = provider_satisfied
         && install_marker_removed_satisfied
@@ -334,7 +337,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 }
 
 fn is_exec_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    entry.tool_name.to_ascii_lowercase().contains("sys__exec")
+    entry.tool_name.eq_ignore_ascii_case("sys__exec")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }

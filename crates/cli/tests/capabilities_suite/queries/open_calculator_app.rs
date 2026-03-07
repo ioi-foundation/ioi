@@ -1,7 +1,7 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, ExecutionProfile, LocalCheck,
+    has_cec_receipt, observation_has_any_tool_name, truncate_chars, ExecutionProfile, LocalCheck,
     LocalJudgeResult, QueryCase, RunObservation,
 };
 
@@ -25,42 +25,55 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let lower_reply = obs.final_reply.to_ascii_lowercase();
+    let launch_action_completed = obs.action_evidence.iter().any(|entry| {
+        entry.tool_name.eq_ignore_ascii_case("os__launch_app")
+            && entry.agent_status.eq_ignore_ascii_case("completed")
+            && entry.error_class.is_none()
+    });
+    let launch_plan_observed = obs.planned_tool_calls.iter().any(|entry| {
+        entry.tool_name.eq_ignore_ascii_case("os__launch_app")
+            && entry
+                .arguments
+                .get("app_name")
+                .and_then(|value| value.as_str())
+                .map(|value| value.eq_ignore_ascii_case("calculator"))
+                .unwrap_or(false)
+    });
 
-    let reply_acknowledges_launch = contains_any(
-        &lower_reply,
-        &["opened", "launch", "launched", "open", "calculator"],
-    );
+    let launch_tool_seen =
+        observation_has_any_tool_name(obs, &["os__launch_app", "sys__exec", "sys__exec_session"]);
 
-    let launch_tool_seen = has_tool_with_token(&obs.action_tools, "launch")
-        || has_tool_with_token(&obs.routing_tools, "launch")
-        || has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec")
-        || has_tool_with_token(&obs.action_tools, "app")
-        || has_tool_with_token(&obs.routing_tools, "app");
-
-    let calculator_evidence_seen = contains_any(&lower_reply, &["calculator"])
-        || obs.action_evidence.iter().any(|entry| {
-            entry
-                .output_excerpt
-                .to_ascii_lowercase()
-                .contains("calculator")
-        });
+    let completion_gate_satisfied =
+        has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
 
     let checks = vec![
         LocalCheck::new(
-            "completed_with_reply",
-            obs.completed && !obs.final_reply.trim().is_empty(),
+            "completion_evidence_present",
+            obs.completed
+                && !obs.failed
+                && obs.chat_reply_count > 0
+                && launch_action_completed
+                && completion_gate_satisfied,
             format!(
-                "status={} reply_len={}",
+                "status={} failed={} chat_reply_count={} completion_gate_satisfied={} action_evidence_count={}",
                 obs.final_status,
-                obs.final_reply.chars().count()
+                obs.failed,
+                obs.chat_reply_count,
+                completion_gate_satisfied,
+                obs.action_evidence.len()
             ),
         ),
         LocalCheck::new(
-            "launch_or_open_acknowledged",
-            reply_acknowledges_launch,
-            truncate_chars(&obs.final_reply, 120),
+            "launch_action_observed",
+            launch_action_completed && launch_plan_observed,
+            format!(
+                "planned_tool_calls={:?} action_evidence_samples={:?}",
+                obs.planned_tool_calls
+                    .iter()
+                    .filter(|entry| entry.tool_name.eq_ignore_ascii_case("os__launch_app"))
+                    .collect::<Vec<_>>(),
+                obs.action_evidence.iter().take(2).collect::<Vec<_>>()
+            ),
         ),
         LocalCheck::new(
             "system_launch_signal_seen",
@@ -72,11 +85,19 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         ),
         LocalCheck::new(
             "calculator_named",
-            calculator_evidence_seen,
+            launch_plan_observed,
             format!(
-                "reply_excerpt={} action_evidence_count={}",
-                truncate_chars(&obs.final_reply, 80),
-                obs.action_evidence.len()
+                "planned_launch_calls={}",
+                truncate_chars(
+                    &format!(
+                        "{:?}",
+                        obs.planned_tool_calls
+                            .iter()
+                            .filter(|entry| entry.tool_name.eq_ignore_ascii_case("os__launch_app"))
+                            .collect::<Vec<_>>()
+                    ),
+                    120
+                )
             ),
         ),
     ];

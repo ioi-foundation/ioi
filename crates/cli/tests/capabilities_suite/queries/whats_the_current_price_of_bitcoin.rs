@@ -2,24 +2,27 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    contains_any, has_contract_failure_evidence, has_tool_with_token, max_verification_usize,
-    truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_cec_receipt, has_cec_stage, has_typed_contract_failure_evidence,
+    observation_has_tool_name, truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult,
+    QueryCase, RunObservation,
 };
 
+const CASE_ID: &str = "whats_the_current_price_of_bitcoin";
+
 #[derive(Debug, Clone, Serialize)]
-struct EnvironmentEvidenceReceipt {
-    key: &'static str,
+struct EvidenceReceipt {
+    key: String,
     observed_value: String,
-    probe_source: &'static str,
+    probe_source: String,
     timestamp_ms: u64,
     satisfied: bool,
 }
 
 pub fn case() -> QueryCase {
     QueryCase {
-        id: "whats_the_current_price_of_bitcoin",
+        id: CASE_ID,
         query: "What's the current price of Bitcoin?",
-        success_definition: "Return the current Bitcoin price with runtime-grounded web retrieval evidence, independent citations, and no CEC contract failures.",
+        success_definition: "Return the current Bitcoin price with runtime-grounded web retrieval evidence, explicit single-snapshot metric grounding, and final source-quality receipts that satisfy the runtime retrieval contract.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
         seed_resolved_intent: true,
@@ -35,121 +38,145 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let reply_lower = obs.final_reply.to_ascii_lowercase();
-
-    let web_search_path_seen = has_tool_with_token(&obs.action_tools, "web__search")
-        || has_tool_with_token(&obs.routing_tools, "web__search")
-        || has_tool_with_token(&obs.workload_tools, "web__search");
-    let web_read_path_seen = has_tool_with_token(&obs.action_tools, "web__read")
-        || has_tool_with_token(&obs.routing_tools, "web__read")
-        || has_tool_with_token(&obs.workload_tools, "web__read");
-    let direct_fetch_path_seen = has_tool_with_token(&obs.action_tools, "net__fetch")
-        || has_tool_with_token(&obs.routing_tools, "net__fetch")
-        || has_tool_with_token(&obs.workload_tools, "net__fetch");
-    let web_retrieval_path_present =
+    let Some(web) = obs.web.as_ref() else {
+        return LocalJudgeResult::from_checks(vec![
+            LocalCheck::new(
+                "web_observation_present",
+                false,
+                "missing typed web observation",
+            ),
+            LocalCheck::new(
+                "completion_evidence_present",
+                false,
+                format!("status={} failed={}", obs.final_status, obs.failed),
+            ),
+        ]);
+    };
+    let web_search_path_seen = observation_has_tool_name(obs, "web__search");
+    let web_read_path_seen = observation_has_tool_name(obs, "web__read");
+    let direct_fetch_path_seen = observation_has_tool_name(obs, "net__fetch");
+    let tool_and_route_path_evidence_present =
         web_search_path_seen && web_read_path_seen && !direct_fetch_path_seen;
 
-    let citation_urls = extract_citation_urls(&obs.final_reply);
-    let unique_citation_urls = citation_urls
-        .iter()
-        .collect::<std::collections::BTreeSet<_>>()
-        .into_iter()
-        .cloned()
-        .collect::<Vec<_>>();
-    let citation_domains = extract_domains(&unique_citation_urls);
-    let unique_domain_count = citation_domains
-        .iter()
-        .collect::<std::collections::BTreeSet<_>>()
-        .len();
-    let search_hub_or_wrapper_citations = unique_citation_urls
-        .iter()
-        .filter(|url| is_search_hub_or_wrapper_url(url))
-        .count();
-    let citation_timestamps = extract_citation_timestamps(&obs.final_reply);
-    let citation_iso_utc_count = citation_timestamps
-        .iter()
-        .filter(|value| looks_like_iso_utc_timestamp(value))
-        .count();
+    let runtime_query_contract = web.query_contract.clone().unwrap_or_default();
+    let retrieval_contract = web.retrieval_contract.as_ref();
+    let required_independent_sources = retrieval_contract
+        .map(|contract| contract.source_independence_min as usize)
+        .unwrap_or_else(|| web.min_sources.unwrap_or(1).max(1));
+    let runtime_locality_required = web.runtime_locality_required.unwrap_or(false);
+    let runtime_locality_satisfied = !runtime_locality_required
+        || web
+            .runtime_locality_scope
+            .as_ref()
+            .map(|scope| !scope.trim().is_empty())
+            .unwrap_or(false);
+    let currentness_required = web.currentness_required.unwrap_or(false);
+    let temporal_contract_receipts_present = has_cec_receipt(obs, "execution", "query_contract", Some(true))
+        && has_cec_receipt(obs, "execution", "currentness_required", Some(true))
+        && currentness_required
+        && !runtime_query_contract.trim().is_empty()
+        && (!runtime_locality_required || runtime_locality_satisfied);
 
-    let has_bitcoin_anchor = contains_any(&reply_lower, &["bitcoin", "btc"]);
-    let price_line_count = bitcoin_price_line_count(&obs.final_reply);
-    let objective_specific_price_signal_present = has_bitcoin_anchor && price_line_count > 0;
+    let web_min_sources = web.min_sources.unwrap_or(0);
+    let web_sources_success = web.sources_success.unwrap_or(0);
+    let source_floor_receipts_present = has_cec_receipt(obs, "verification", "source_floor", Some(true))
+        && web.source_floor_met.unwrap_or(false)
+        && web_min_sources >= required_independent_sources
+        && web_sources_success >= required_independent_sources;
 
-    let web_min_sources = max_verification_usize(obs, "web_min_sources");
-    let web_sources_success = max_verification_usize(obs, "web_sources_success");
-    let web_source_floor_present = match (web_min_sources, web_sources_success) {
-        (Some(min_sources), Some(success_sources)) => {
-            min_sources >= 2 && success_sources >= min_sources
-        }
-        _ => false,
-    };
+    let selected_source_quality_floor_met = web.selected_source_quality_floor_met.unwrap_or(false);
+    let selected_source_urls = web.selected_source_urls.clone();
+    let selected_source_count = web
+        .selected_source_count
+        .unwrap_or_else(|| selected_source_urls.len());
+    let selected_source_distinct_domains = web.selected_source_distinct_domains.unwrap_or(0);
+    let selected_source_quality_receipts_present =
+        has_cec_receipt(obs, "verification", "selected_source_quality_floor", Some(true))
+            && selected_source_quality_floor_met
+            && selected_source_count >= required_independent_sources
+            && selected_source_distinct_domains >= required_independent_sources;
 
-    let run_timestamp_present = reply_lower.contains("run timestamp (utc):");
-    let recency_heading_present =
-        reply_lower.contains("right now") || reply_lower.contains("as of");
-    let temporal_grounding_evidence_present =
-        run_timestamp_present && (recency_heading_present || citation_iso_utc_count > 0);
+    let final_story_slots_observed = web.story_slots_observed.unwrap_or(0);
+    let final_story_slot_floor_met = web.story_slot_floor_met.unwrap_or(false);
+    let final_story_citation_floor_met = web.story_citation_floor_met.unwrap_or(false);
+    let final_comparison_required = false;
+    let final_comparison_ready = web.comparison_ready.unwrap_or(true);
+    let final_single_snapshot_metric_grounding =
+        web.single_snapshot_metric_grounding.unwrap_or(false);
+    let objective_specific_bitcoin_price_evidence_present = final_story_slots_observed >= 1
+        && has_cec_receipt(obs, "verification", "story_slot_floor", Some(true))
+        && has_cec_receipt(obs, "verification", "story_citation_floor", Some(true))
+        && has_cec_receipt(
+            obs,
+            "verification",
+            "single_snapshot_metric_grounding",
+            Some(true),
+        )
+        && final_story_slot_floor_met
+        && final_story_citation_floor_met
+        && final_single_snapshot_metric_grounding
+        && (!final_comparison_required || final_comparison_ready);
 
-    let source_quality_and_independence_present = unique_citation_urls.len() >= 2
-        && unique_domain_count >= 2
-        && search_hub_or_wrapper_citations == 0;
-    let any_contract_failure_marker = has_contract_failure_evidence(obs);
-    let completion_evidence_present = obs.completed && !obs.failed && !obs.final_reply.is_empty();
+    let cec_execution_seen = has_cec_stage(obs, "execution", Some(true));
+    let cec_verification_seen = has_cec_stage(obs, "verification", Some(true));
+    let cec_contract_gate_seen =
+        has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
+    let cec_contract_gate_satisfied =
+        cec_contract_gate_seen || (cec_execution_seen && cec_verification_seen);
+    let contract_failure_markers_absent = !has_typed_contract_failure_evidence(obs);
+    let completion_evidence_present =
+        obs.completed && !obs.failed && obs.chat_reply_count > 0 && cec_contract_gate_satisfied;
 
-    let environment_receipts = build_environment_receipts(
+    let evidence_receipts = build_evidence_receipts(
         obs,
-        price_line_count,
-        has_bitcoin_anchor,
-        web_min_sources,
-        web_sources_success,
-        unique_citation_urls.len(),
-        unique_domain_count,
-        search_hub_or_wrapper_citations,
-        citation_iso_utc_count,
-        run_timestamp_present,
-        web_retrieval_path_present,
+        currentness_required,
     );
-    let environment_receipts_satisfied =
-        environment_receipts.iter().all(|receipt| receipt.satisfied);
+    let evidence_receipts_satisfied = evidence_receipts.iter().all(|receipt| receipt.satisfied);
 
     let independent_channel_count = [
-        objective_specific_price_signal_present,
-        web_retrieval_path_present,
-        web_source_floor_present,
-        source_quality_and_independence_present,
-        temporal_grounding_evidence_present,
+        completion_evidence_present,
+        objective_specific_bitcoin_price_evidence_present,
+        tool_and_route_path_evidence_present,
+        temporal_contract_receipts_present,
+        source_floor_receipts_present,
+        selected_source_quality_receipts_present,
+        cec_contract_gate_satisfied,
+        evidence_receipts_satisfied,
+        contract_failure_markers_absent,
     ]
     .into_iter()
     .filter(|flag| *flag)
     .count();
     let independent_runtime_evidence_channels_present =
-        objective_specific_price_signal_present && independent_channel_count >= 4;
+        objective_specific_bitcoin_price_evidence_present && independent_channel_count >= 8;
 
     let checks = vec![
         LocalCheck::new(
             "completion_evidence_present",
             completion_evidence_present,
             format!(
-                "status={} completed={} failed={} reply_len={}",
+                "status={} completed={} failed={} chat_reply_count={} cec_contract_gate_satisfied={}",
                 obs.final_status,
                 obs.completed,
                 obs.failed,
-                obs.final_reply.chars().count()
+                obs.chat_reply_count,
+                cec_contract_gate_satisfied
             ),
         ),
         LocalCheck::new(
             "objective_specific_bitcoin_price_evidence_present",
-            objective_specific_price_signal_present,
+            objective_specific_bitcoin_price_evidence_present,
             format!(
-                "price_line_count={} has_bitcoin_anchor={} reply_excerpt={}",
-                price_line_count,
-                has_bitcoin_anchor,
-                truncate_chars(&obs.final_reply, 180)
+                "final_story_slots_observed={} story_slot_floor_met={} story_citation_floor_met={} final_single_snapshot_metric_grounding={}",
+                final_story_slots_observed,
+                final_story_slot_floor_met,
+                final_story_citation_floor_met,
+                final_single_snapshot_metric_grounding
             ),
         ),
         LocalCheck::new(
             "tool_and_route_path_evidence_present",
-            web_retrieval_path_present,
+            tool_and_route_path_evidence_present,
             format!(
                 "web_search_path_seen={} web_read_path_seen={} direct_fetch_path_seen={} action_tools={:?} routing_tools={:?} workload_tools={:?}",
                 web_search_path_seen,
@@ -161,54 +188,68 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             ),
         ),
         LocalCheck::new(
-            "web_pipeline_receipt_floor_present",
-            web_source_floor_present,
+            "temporal_contract_receipts_present",
+            temporal_contract_receipts_present,
             format!(
-                "web_min_sources={:?} web_sources_success={:?} verification_checks={:?}",
+                "web_query_contract={} runtime_locality_required={} runtime_locality_satisfied={}",
+                runtime_query_contract,
+                runtime_locality_required,
+                runtime_locality_satisfied
+            ),
+        ),
+        LocalCheck::new(
+            "source_floor_receipts_present",
+            source_floor_receipts_present,
+            format!(
+                "web_min_sources={} web_sources_success={} verification_checks={:?}",
                 web_min_sources, web_sources_success, obs.verification_checks
             ),
         ),
         LocalCheck::new(
-            "source_quality_and_independence_present",
-            source_quality_and_independence_present,
+            "selected_source_quality_receipts_present",
+            selected_source_quality_receipts_present,
             format!(
-                "citation_url_count={} unique_domain_count={} search_hub_or_wrapper_citations={} citation_urls={:?}",
-                unique_citation_urls.len(),
-                unique_domain_count,
-                search_hub_or_wrapper_citations,
-                unique_citation_urls
+                "quality_floor_receipt_met={} selected_source_count={} selected_source_distinct_domains={} required_independent_sources={} selected_source_urls={:?}",
+                selected_source_quality_floor_met,
+                selected_source_count,
+                selected_source_distinct_domains,
+                required_independent_sources,
+                selected_source_urls
             ),
         ),
         LocalCheck::new(
-            "temporal_grounding_evidence_present",
-            temporal_grounding_evidence_present,
+            "cec_contract_gate_satisfied",
+            cec_contract_gate_satisfied,
             format!(
-                "run_timestamp_present={} recency_heading_present={} citation_iso_utc_count={}",
-                run_timestamp_present, recency_heading_present, citation_iso_utc_count
+                "execution={} verification={} completion_gate={} cec_receipts={:?}",
+                cec_execution_seen, cec_verification_seen, cec_contract_gate_seen, obs.cec_receipts
             ),
+        ),
+        LocalCheck::new(
+            "evidence_receipts_satisfied",
+            evidence_receipts_satisfied,
+            serialize_evidence_receipts(&evidence_receipts),
         ),
         LocalCheck::new(
             "contract_failure_markers_absent",
-            !any_contract_failure_marker,
+            contract_failure_markers_absent,
             truncate_chars(
                 &format!(
-                    "verification_checks={:?} final_reply={} event_excerpt={:?}",
-                    obs.verification_checks, obs.final_reply, obs.event_excerpt
+                    "contract_failure_evidence_present={} verification_checks={:?} event_excerpt={:?}",
+                    has_typed_contract_failure_evidence(obs),
+                    obs.verification_checks,
+                    obs.event_excerpt
                 ),
-                220,
+                320,
             ),
-        ),
-        LocalCheck::new(
-            "environment_receipts_satisfied",
-            environment_receipts_satisfied,
-            serialize_environment_receipts(&environment_receipts),
         ),
         LocalCheck::new(
             "independent_runtime_evidence_channels_present",
             independent_runtime_evidence_channels_present,
             format!(
-                "independent_channel_count={} objective_specific_price_signal_present={}",
-                independent_channel_count, objective_specific_price_signal_present
+                "independent_channel_count={} objective_specific_bitcoin_price_evidence_present={}",
+                independent_channel_count,
+                objective_specific_bitcoin_price_evidence_present
             ),
         ),
     ];
@@ -216,208 +257,92 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     LocalJudgeResult::from_checks(checks)
 }
 
-fn build_environment_receipts(
+#[allow(clippy::too_many_arguments)]
+fn build_evidence_receipts(
     obs: &RunObservation,
-    price_line_count: usize,
-    has_bitcoin_anchor: bool,
-    web_min_sources: Option<usize>,
-    web_sources_success: Option<usize>,
-    citation_url_count: usize,
-    unique_domain_count: usize,
-    search_hub_or_wrapper_citations: usize,
-    citation_iso_utc_count: usize,
-    run_timestamp_present: bool,
-    web_retrieval_path_present: bool,
-) -> Vec<EnvironmentEvidenceReceipt> {
-    let source_floor_satisfied = match (web_min_sources, web_sources_success) {
-        (Some(min_sources), Some(success_sources)) => {
-            min_sources >= 2 && success_sources >= min_sources
-        }
-        _ => false,
-    };
-
+    currentness_required: bool,
+) -> Vec<EvidenceReceipt> {
     vec![
-        EnvironmentEvidenceReceipt {
-            key: "bitcoin_price_signal_observed",
-            observed_value: format!(
-                "price_line_count={} has_bitcoin_anchor={}",
-                price_line_count, has_bitcoin_anchor
-            ),
-            probe_source: "KernelEvent::AgentActionResult(tool=chat__reply).output_excerpt",
+        observed_receipt(obs, "execution", "query_contract", "bitcoin_runtime_query_contract_observed"),
+        observed_receipt(
+            obs,
+            "execution",
+            "currentness_required",
+            "bitcoin_currentness_contract_observed",
+        ),
+        observed_receipt(
+            obs,
+            "execution",
+            "min_sources_required",
+            "bitcoin_min_sources_contract_observed",
+        ),
+        observed_receipt(obs, "verification", "source_floor", "bitcoin_source_floor_observed"),
+        observed_receipt(
+            obs,
+            "verification",
+            "selected_source_quality_floor",
+            "bitcoin_final_source_selection_observed",
+        ),
+        observed_receipt(
+            obs,
+            "verification",
+            "single_snapshot_metric_grounding",
+            "bitcoin_final_metric_grounding_observed",
+        ),
+        observed_receipt(
+            obs,
+            "completion_gate",
+            "contract_gate",
+            "bitcoin_completion_gate_observed",
+        ),
+        EvidenceReceipt {
+            key: "bitcoin_currentness_contract_true".to_string(),
+            observed_value: currentness_required.to_string(),
+            probe_source: "RunObservation.web".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: has_bitcoin_anchor && price_line_count > 0,
-        },
-        EnvironmentEvidenceReceipt {
-            key: "web_pipeline_source_floor_observed",
-            observed_value: format!(
-                "web_min_sources={:?} web_sources_success={:?}",
-                web_min_sources, web_sources_success
-            ),
-            probe_source: "RoutingReceipt.post_state.verification_checks",
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: source_floor_satisfied,
-        },
-        EnvironmentEvidenceReceipt {
-            key: "citation_source_independence_observed",
-            observed_value: format!(
-                "citation_url_count={} unique_domain_count={} search_hub_or_wrapper_citations={}",
-                citation_url_count, unique_domain_count, search_hub_or_wrapper_citations
-            ),
-            probe_source: "chat__reply citations block",
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: citation_url_count >= 2
-                && unique_domain_count >= 2
-                && search_hub_or_wrapper_citations == 0,
-        },
-        EnvironmentEvidenceReceipt {
-            key: "temporal_grounding_observed",
-            observed_value: format!(
-                "run_timestamp_present={} citation_iso_utc_count={}",
-                run_timestamp_present, citation_iso_utc_count
-            ),
-            probe_source: "chat__reply run timestamp + citation timestamp fields",
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: run_timestamp_present && citation_iso_utc_count >= 1,
-        },
-        EnvironmentEvidenceReceipt {
-            key: "web_retrieval_contract_path_observed",
-            observed_value: format!("web_retrieval_path_present={}", web_retrieval_path_present),
-            probe_source: "KernelEvent::AgentActionResult + RoutingReceipt.tool_name",
-            timestamp_ms: obs.run_timestamp_ms,
-            satisfied: web_retrieval_path_present,
+            satisfied: currentness_required,
         },
     ]
 }
 
-fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
-    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
-}
-
-fn extract_citation_urls(reply: &str) -> Vec<String> {
-    reply
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if !trimmed.starts_with("- ") || !trimmed.contains(" | http") {
-                return None;
-            }
-            trimmed
-                .split(" | ")
-                .find(|segment| segment.starts_with("http://") || segment.starts_with("https://"))
-                .map(|value| value.trim().to_string())
+fn observed_receipt(
+    obs: &RunObservation,
+    stage: &str,
+    key: &str,
+    logical_key: &str,
+) -> EvidenceReceipt {
+    if let Some(receipt) = obs
+        .cec_receipts
+        .iter()
+        .rev()
+        .find(|receipt| {
+            receipt.stage.eq_ignore_ascii_case(stage) && receipt.key.eq_ignore_ascii_case(key)
         })
-        .collect()
-}
-
-fn extract_citation_timestamps(reply: &str) -> Vec<String> {
-    reply
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            if !trimmed.starts_with("- ") || !trimmed.contains(" | http") {
-                return None;
-            }
-            let parts = trimmed.split(" | ").collect::<Vec<_>>();
-            if parts.len() < 4 {
-                return None;
-            }
-            parts
-                .iter()
-                .find(|part| looks_like_iso_utc_timestamp(part))
-                .map(|value| value.trim().to_string())
-        })
-        .collect()
-}
-
-fn extract_domains(urls: &[String]) -> Vec<String> {
-    urls.iter()
-        .filter_map(|url| {
-            let stripped = url
-                .trim_start_matches("https://")
-                .trim_start_matches("http://");
-            let host = stripped.split('/').next()?.trim();
-            if host.is_empty() {
-                None
-            } else {
-                Some(host.trim_start_matches("www.").to_string())
-            }
-        })
-        .collect::<Vec<_>>()
-}
-
-fn looks_like_iso_utc_timestamp(value: &str) -> bool {
-    let trimmed = value.trim();
-    if trimmed.len() < 20 {
-        return false;
-    }
-    let bytes = trimmed.as_bytes();
-    bytes.get(4) == Some(&b'-')
-        && bytes.get(7) == Some(&b'-')
-        && bytes.get(10) == Some(&b'T')
-        && bytes.get(13) == Some(&b':')
-        && bytes.get(16) == Some(&b':')
-        && trimmed.ends_with('Z')
-}
-
-fn bitcoin_price_line_count(reply: &str) -> usize {
-    let has_global_bitcoin_anchor = reply
-        .lines()
-        .any(|line| contains_any(&line.to_ascii_lowercase(), &["bitcoin", "btc"]));
-
-    reply
-        .lines()
-        .filter(|line| is_price_observation_line(line, has_global_bitcoin_anchor))
-        .count()
-}
-
-fn is_price_observation_line(line: &str, has_global_bitcoin_anchor: bool) -> bool {
-    let lower = line.to_ascii_lowercase();
-    if lower.trim().is_empty() {
-        return false;
-    }
-    if lower.contains("price unavailable")
-        || lower.contains("did not expose numeric current-condition metrics")
     {
-        return false;
+        return EvidenceReceipt {
+            key: logical_key.to_string(),
+            observed_value: receipt
+                .observed_value
+                .clone()
+                .unwrap_or_else(|| "<missing>".to_string()),
+            probe_source: receipt
+                .probe_source
+                .clone()
+                .unwrap_or_else(|| "RunObservation.cec_receipts".to_string()),
+            timestamp_ms: receipt.timestamp_ms,
+            satisfied: receipt.satisfied,
+        };
     }
 
-    let has_line_bitcoin_anchor = contains_any(&lower, &["bitcoin", "btc"]);
-    let has_price_anchor = contains_any(
-        &lower,
-        &["price", "quote", "trading", "usd", "us$", "market", "$"],
-    );
-    let has_numeric_price = has_price_numeric_token(line);
-    let structured_price_line = lower.trim_start().starts_with("- price:");
-
-    has_numeric_price
-        && has_price_anchor
-        && (has_line_bitcoin_anchor || structured_price_line || has_global_bitcoin_anchor)
+    EvidenceReceipt {
+        key: logical_key.to_string(),
+        observed_value: "<missing>".to_string(),
+        probe_source: "RunObservation.cec_receipts".to_string(),
+        timestamp_ms: 0,
+        satisfied: false,
+    }
 }
 
-fn has_price_numeric_token(line: &str) -> bool {
-    line.split_whitespace().any(|raw| {
-        let token = raw.trim_matches(|ch: char| ",.;:!?()[]{}'\"".contains(ch));
-        if token.is_empty() || token.contains(':') {
-            return false;
-        }
-        let digit_count = token.chars().filter(|ch| ch.is_ascii_digit()).count();
-        if digit_count < 3 {
-            return false;
-        }
-        token.contains('$')
-            || token.contains(',')
-            || token.contains('.')
-            || token.to_ascii_lowercase().contains("usd")
-    })
-}
-
-fn is_search_hub_or_wrapper_url(url: &str) -> bool {
-    let lower = url.trim().to_ascii_lowercase();
-    lower.starts_with("https://news.google.com/rss/articles/")
-        || lower.starts_with("https://news.google.com/rss/read/")
-        || lower.starts_with("https://news.google.com/rss/topics/")
-        || lower.contains("google.com/search?")
-        || lower.contains("bing.com/search?")
-        || lower.contains("duckduckgo.com/?q=")
-        || lower.contains("/search?")
+fn serialize_evidence_receipts(receipts: &[EvidenceReceipt]) -> String {
+    serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
 }

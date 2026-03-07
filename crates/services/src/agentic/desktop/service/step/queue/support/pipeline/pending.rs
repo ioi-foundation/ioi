@@ -1,5 +1,32 @@
 use super::*;
 
+pub(crate) fn pending_candidate_inventory(pending: &PendingSearchCompletion) -> Vec<String> {
+    let mut ordered = Vec::new();
+    let mut seen = BTreeSet::new();
+
+    for url in &pending.candidate_urls {
+        let trimmed = url.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if seen.insert(trimmed.to_string()) {
+            ordered.push(trimmed.to_string());
+        }
+    }
+
+    for hint in &pending.candidate_source_hints {
+        let trimmed = hint.url.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if seen.insert(trimmed.to_string()) {
+            ordered.push(trimmed.to_string());
+        }
+    }
+
+    ordered
+}
+
 pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> Option<String> {
     let mut attempted = BTreeSet::new();
     for url in &pending.attempted_urls {
@@ -16,15 +43,17 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
     }
 
     let query_contract = synthesis_query_contract(pending);
-    let prefer_host_diversity = prefers_single_fact_snapshot(&query_contract);
+    let retrieval_contract = pending.retrieval_contract.as_ref();
+    let prefer_host_diversity =
+        retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract);
     if prefer_host_diversity {
         let projection =
             build_query_constraint_projection(&query_contract, 1, &pending.candidate_source_hints);
         let envelope_constraints = &projection.constraints;
         let grounded_anchor_constrained = projection.strict_grounded_compatibility();
         let envelope_policy = ResolutionPolicy::default();
-        let mut ranked_candidates = pending
-            .candidate_urls
+        let candidate_inventory = pending_candidate_inventory(pending);
+        let mut ranked_candidates = candidate_inventory
             .iter()
             .enumerate()
             .filter_map(|(idx, candidate)| {
@@ -56,7 +85,7 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
                     excerpt,
                 );
                 let resolvable_payload =
-                    candidate_time_sensitive_resolvable_payload(title, excerpt);
+                    candidate_time_sensitive_resolvable_payload(trimmed, title, excerpt);
                 let source_relevance_score =
                     analyze_source_record_signals(trimmed, title, excerpt).relevance_score(false);
                 Some((
@@ -178,8 +207,10 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
         }
     }
 
-    if query_prefers_multi_item_cardinality(&query_contract) {
-        let required_distinct_domains = required_story_count(&query_contract).max(1);
+    let required_distinct_domains =
+        retrieval_contract_required_distinct_domain_floor(retrieval_contract, &query_contract);
+    let candidate_inventory = pending_candidate_inventory(pending);
+    if required_distinct_domains > 1 {
         let mut observed_domains = BTreeSet::new();
         for url in pending
             .attempted_urls
@@ -197,7 +228,7 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
             }
         }
 
-        for candidate in &pending.candidate_urls {
+        for candidate in &candidate_inventory {
             let trimmed = candidate.trim();
             if trimmed.is_empty() || attempted.contains(trimmed) || is_search_hub_url(trimmed) {
                 continue;
@@ -218,7 +249,7 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
         }
     }
 
-    for candidate in &pending.candidate_urls {
+    for candidate in &candidate_inventory {
         let trimmed = candidate.trim();
         if trimmed.is_empty() {
             continue;
@@ -480,6 +511,7 @@ pub(crate) fn merge_pending_search_completion(
         } else {
             existing.query_contract
         },
+        retrieval_contract: existing.retrieval_contract.or(incoming.retrieval_contract),
         url: if existing.url.trim().is_empty() {
             incoming.url
         } else {

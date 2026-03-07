@@ -48,7 +48,7 @@ const PROVENANCE_MARKERS: [&str; 18] = [
     "proof",
 ];
 
-const EXTERNAL_KNOWLEDGE_MARKERS: [&str; 20] = [
+const EXTERNAL_KNOWLEDGE_MARKERS: [&str; 33] = [
     "web",
     "internet",
     "online",
@@ -69,6 +69,19 @@ const EXTERNAL_KNOWLEDGE_MARKERS: [&str; 20] = [
     "public update",
     "market update",
     "release note",
+    "documentation",
+    "official announcement",
+    "official update",
+    "dashboard",
+    "exchange",
+    "exchange rate",
+    "quote",
+    "quoted",
+    "quoted value",
+    "measured",
+    "measured data",
+    "observation",
+    "observed",
 ];
 
 const PUBLIC_FACT_MARKERS: [&str; 29] = [
@@ -101,6 +114,16 @@ const PUBLIC_FACT_MARKERS: [&str; 29] = [
     "headlines",
     "breaking news",
     "top stories",
+];
+
+const LOCAL_EXTERNAL_DISCOVERY_MARKERS: [&str; 7] = [
+    " near me ",
+    " nearby ",
+    " closest ",
+    " nearest ",
+    " around me ",
+    " around here ",
+    " in my area ",
 ];
 
 const WORKSPACE_MARKERS: [&str; 24] = [
@@ -264,11 +287,42 @@ const MAILBOX_ACTION_MARKERS: [&str; 17] = [
     " summarise ",
 ];
 
+const QUERY_CONTROL_MARKERS: &[&str] = &[
+    "find",
+    "show",
+    "list",
+    "compare",
+    "comparison",
+    "versus",
+    "across",
+    "between",
+    "among",
+    "rank",
+    "ranking",
+    "ranked",
+    "best",
+    "top",
+    "review",
+    "reviewed",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "near",
+    "nearby",
+    "closest",
+    "nearest",
+    "their",
+];
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GoalSignalProfile {
     pub recency_hits: usize,
     pub provenance_hits: usize,
     pub external_hits: usize,
+    pub locality_lookup_hits: usize,
     pub public_fact_hits: usize,
     pub workspace_hits: usize,
     pub launch_hits: usize,
@@ -309,10 +363,16 @@ impl GoalSignalProfile {
             && self.filesystem_hits == 0
             && self.command_hits == 0
             && self.install_hits == 0;
+        let has_locality_bound_external_lookup = self.locality_lookup_hits > 0
+            && self.workspace_hits == 0
+            && self.filesystem_hits == 0
+            && self.command_hits == 0
+            && self.install_hits == 0;
 
         (has_live_grounding_request && has_external_surface)
             || (has_external_surface && has_provenance_pressure)
             || has_time_sensitive_public_fact_lookup
+            || has_locality_bound_external_lookup
     }
 
     pub fn prefers_mailbox_connector_flow(&self) -> bool {
@@ -342,11 +402,14 @@ pub fn analyze_goal_signals(goal: &str) -> GoalSignalProfile {
         return GoalSignalProfile::default();
     }
     let padded_goal = format!(" {} ", goal_lc);
+    let locality_lookup_hits =
+        usize::from(marker_hits(&padded_goal, &LOCAL_EXTERNAL_DISCOVERY_MARKERS) > 0);
 
     GoalSignalProfile {
         recency_hits: marker_hits(&padded_goal, &RECENCY_MARKERS),
         provenance_hits: marker_hits(&padded_goal, &PROVENANCE_MARKERS),
         external_hits: marker_hits(&padded_goal, &EXTERNAL_KNOWLEDGE_MARKERS),
+        locality_lookup_hits,
         public_fact_hits: marker_hits(&padded_goal, &PUBLIC_FACT_MARKERS),
         workspace_hits: marker_hits(&padded_goal, &WORKSPACE_MARKERS),
         launch_hits: marker_hits(&padded_goal, &LAUNCH_MARKERS),
@@ -383,7 +446,7 @@ fn marker_lexeme_tokens(markers: &[&str]) -> BTreeSet<String> {
 }
 
 fn goal_structural_directive_tokens(goal: &GoalSignalProfile) -> BTreeSet<String> {
-    let mut tokens = BTreeSet::new();
+    let mut tokens = marker_lexeme_tokens(QUERY_CONTROL_MARKERS);
     if goal.recency_hits > 0 {
         tokens.extend(marker_lexeme_tokens(&RECENCY_MARKERS));
     }

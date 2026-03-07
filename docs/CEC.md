@@ -1,6 +1,6 @@
 # Capability Execution Contract (CEC)
 
-Status: Draft v0.4
+Status: Draft v0.5
 Owners: Agentic Platform
 Scope: Post-resolution execution discipline for inference-driven tasks
 
@@ -31,6 +31,13 @@ Examples of class assignment:
 - `remote_retrieval`: fetching remote content where host capability probing is unnecessary.
 - `mixed`: workflows combining local deterministic transforms with topology-dependent side effects.
 
+### 2.2 Remote Retrieval Discovery Rule (Normative)
+For `remote_retrieval` and the remote-retrieval portions of `mixed` intents:
+- `discovery` MUST still construct a candidate provider set when multiple providers or retrieval shapes are possible.
+- provider selection MUST be grounded in typed retrieval requirements plus typed discovery evidence.
+- query text MAY influence typed retrieval requirements, but MUST NOT directly emit provider IDs, provider order, hostnames, or domain-specific execution branches.
+- provider selection MUST NOT depend on static query-to-provider shortcuts, domain allowlists keyed by query class, or lexical asset/subject slug extraction used as a stand-in for discovery.
+
 ## 3. Execution State Machine
 Execution MUST follow this state machine:
 1. `contract_loaded`
@@ -46,8 +53,9 @@ Normative constraints:
 - **Pre-Execution Quality Adjustment:** Iterative quality adjustment, self-critique, and validation loops (e.g., syntax linting, dry-runs) are explicitly permitted and encouraged *within* State 3 (`payload_synthesis`).
 - **Single-Shot Execution Boundary:** Once the payload transitions to State 4 (`execution`), it is the point of no return. State 4 MUST be a single-shot invocation. Post-execution heuristic retries using the real environment as a sandbox are strictly forbidden.
 - **Remote Retrieval Payload Linting:** For multi-source retrieval intents, State 3 MUST validate source-independence constraints (for example, a distinct-domain floor) before State 4 is allowed.
+- **Discovery-Backed Provider Selection:** For remote retrieval, State 3 MUST choose providers only from candidates evidenced in State 2 discovery. Hardcoded provider ladders keyed by content class are forbidden.
 - For `deterministic_local`, states `discovery` and `provider_selection` MAY be skipped by contract.
-- Verification MUST always execute unless the contract explicitly defines a `no_verify` class, which is forbidden in v0.4.
+- Verification MUST always execute unless the contract explicitly defines a `no_verify` class, which is forbidden in v0.5.
 
 ## 4. Contract Fields (Intent-Scoped)
 Each applicable intent MUST define:
@@ -55,12 +63,12 @@ Each applicable intent MUST define:
 
 Each applicable intent MAY additionally define:
 - `requires_host_discovery: bool`
-- `provider_selection_mode: dynamic_synthesis | capability_only`
+- `provider_selection_mode: dynamic_synthesis | capability_only | discovery_backed_only`
 - `required_receipts: [string]`
 - `required_postconditions: [string]`
 - `verification_mode: dynamic_synthesis | deterministic_check`
 
-*(Note: `fallback_chain` is explicitly deprecated in v0.4. Infinite topology variance MUST be handled by robust `discovery` and `dynamic_synthesis` loops prior to execution, not via execution retries).*
+*(Note: `fallback_chain` is explicitly deprecated in v0.5. Infinite topology variance MUST be handled by robust `discovery` and `dynamic_synthesis` loops prior to execution, not via execution retries).*
 
 ## 5. Receipt and Postcondition Schema
 Execution MUST emit machine-readable evidence records.
@@ -78,10 +86,18 @@ Optional fields:
 - `verifier_command_commit_hash`
 - `provider_id`
 - `synthesized_payload_hash`
+- `probe_source`
+- `observed_value`
+- `evidence_type`
 
 Shorthand compatibility markers MAY be emitted:
 - `receipt::<name>=true`
 - `postcondition::<name>=true`
+
+Normative constraints:
+- Human-readable shorthand markers MUST be treated as observability aids only.
+- Completion gates, local judges, and arbiters MUST rely on typed receipt fields or typed observation structures, not on substring parsing over freeform replies, diagnostics, or debug log lines.
+- Any claim about local or remote state in verification SHOULD carry `probe_source` and `observed_value`; for environment or host-state claims these fields SHOULD be treated as required by conformance policy.
 
 ### 5.1 Minimum Receipts by Applicability Class
 - `topology_dependent`: `host_discovery`, `provider_selection/synthesis`, `execution`, `verification`
@@ -92,6 +108,15 @@ Shorthand compatibility markers MAY be emitted:
 ### 5.2 Verification Rule
 The system MUST NOT assume success from process exit status alone.
 Verification MUST include read-state evidence with a cryptographic commit when verification is synthesized dynamically.
+
+### 5.3 Judge Integrity Rule
+Runtime success adjudication MUST be receipt-driven.
+
+Normative constraints:
+- Final chat reply text MUST NOT be the primary evidence channel for pass/fail.
+- Debug-oriented verification strings MUST NOT be parsed as the sole source of truth for contract satisfaction.
+- Implementations SHOULD project typed observation fields from runtime receipts so judges can evaluate structured evidence directly.
+- If shorthand markers are mirrored into logs or verification strings, those mirrors MUST be secondary to the typed receipt objects they summarize.
 
 ## 6. Policy Precedence and Synthesis Semantics
 When multiple gates apply, runtime MUST evaluate in this order:
@@ -105,6 +130,7 @@ When multiple gates apply, runtime MUST evaluate in this order:
 
 A failure at Phase 6 (Verification) MUST trigger a terminal error. The system MUST NOT route the error back to Phase 4 for a heuristic retry.
 If State 3 payload linting fails source-independence constraints, the system MUST stay in pre-execution phases (Discovery/Synthesis) and MUST NOT execute opportunistic reads that violate the contract.
+If typed provider discovery cannot justify any valid provider candidate, runtime MUST terminate with synthesis/discovery failure rather than introducing a static provider shortcut.
 
 ## 7. Completion Gate
 `agent__complete` (or any terminal completed status) MUST be blocked when:
@@ -149,6 +175,17 @@ Profile C: Mixed Execution
 - precedence order enforcement
 - deterministic terminal gating
 
+Profile D: Remote Retrieval Discipline
+- provider selection backed by typed discovery receipts
+- no static query-conditioned provider shortcuts
+- source-independence checks enforced pre-execution
+- typed verification evidence available for final adjudication
+
+Profile E: Judge Integrity
+- local judge and arbiter consume typed receipt fields or typed observations
+- final reply text is not required as primary success evidence
+- shorthand verification strings are not the sole gating material
+
 ## 10. Anti-Patterns (Prohibited)
 Implementations MUST NOT:
 - Implement unbounded post-execution "try-and-catch" code-rewriting loops.
@@ -157,6 +194,9 @@ Implementations MUST NOT:
 - Treat zero exit code as sufficient proof of postcondition.
 - Skip verification for synthesized execution payloads.
 - Emit terminal completion before receipt and postcondition checks pass.
+- Select remote providers through hardcoded query-class/provider-class mappings.
+- Build provider-specific URLs or provider order directly from lexical subject extraction unless a discovery receipt has already admitted that provider and affordance.
+- Gate success primarily on reply text, diagnostic prose, or substring matches over debug output.
 
 ## 11. Non-Goals
 CEC does not define semantic ranking, capability ontology design, or ambiguity winner selection. Those remain in CIRC.
@@ -166,9 +206,21 @@ CIRC + CEC define the full contract:
 - CIRC: intent resolution correctness (what should happen, bound by primitives).
 - CEC: execution correctness (how it is dynamically synthesized safely and verifiably executed).
 
-## 13. Change Control and Versioning
+## 13. Migration Guidance
+To migrate a heuristic executor to Draft v0.5:
+1. Inventory all query-conditioned provider ladders, domain allowlists, subject-slug URL builders, and reply-text/debug-string success checks.
+2. Replace provider/domain outputs from query interpretation with typed retrieval requirements only.
+3. Introduce a provider registry whose entries advertise structural affordances and admissibility predicates rather than domain semantics.
+4. Make State 2 discovery produce typed provider-candidate receipts and require State 3 provider selection to reference those receipts.
+5. Move provider-specific URL builders, parsers, and challenge handling behind adapters that are only reachable after discovery-backed provider admission.
+6. Normalize execution and verification outputs into typed receipt and observation structures with `probe_source` and `observed_value`.
+7. Make completion gates, local judges, and arbiters consume typed evidence directly; demote reply text and shorthand markers to observability-only.
+8. Add conformance coverage for provider-discovery integrity, source-independence enforcement, and judge-integrity invariants.
+
+## 14. Change Control and Versioning
 CEC changes MUST be versioned.
 Breaking changes MUST include:
-- migration notes (e.g., deprecation of `fallback_chain` in v0.4)
+- migration notes (e.g., deprecation of `fallback_chain` in v0.5)
 - conformance profile updates
 - receipt schema delta notes
+- judge-integrity and provider-discovery migration notes

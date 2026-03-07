@@ -46,23 +46,6 @@ pub(super) fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> 
     }
 }
 
-fn source_has_human_challenge_signal(url: &str, title: &str, excerpt: &str) -> bool {
-    let surface = format!("{} {} {}", url, title, excerpt).to_ascii_lowercase();
-    [
-        "please enable js",
-        "please enable javascript",
-        "enable javascript",
-        "verify you are human",
-        "access denied",
-        "captcha",
-        "recaptcha",
-        "cloudflare",
-        "dd={'rt':'c'",
-    ]
-    .iter()
-    .any(|marker| surface.contains(marker))
-}
-
 pub(super) fn headline_low_quality_signal(url: &str, title: &str, excerpt: &str) -> bool {
     if source_has_human_challenge_signal(url, title, excerpt) {
         return true;

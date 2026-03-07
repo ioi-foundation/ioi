@@ -2,12 +2,13 @@ use anyhow::{anyhow, Result};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
 use super::types::{
-    has_contract_failure_evidence, has_policy_decision, LocalJudgeResult, QueryCase, RunObservation,
+    has_policy_decision, has_typed_contract_failure_evidence, observation_has_tool_name,
+    LocalJudgeResult, QueryCase, RunObservation,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -21,21 +22,8 @@ pub struct ArbiterVerdict {
     pub failures: Vec<String>,
 }
 
-pub async fn run_arbiter(
-    runtime: Arc<dyn InferenceRuntime>,
-    case: &QueryCase,
-    observation: &RunObservation,
-    local: &LocalJudgeResult,
-) -> Result<ArbiterVerdict> {
-    let contract_failure_marker = has_contract_failure_evidence(observation);
-
-    let final_reply_excerpt = observation
-        .final_reply
-        .chars()
-        .take(1_800)
-        .collect::<String>();
-
-    let action_evidence = observation
+fn typed_action_evidence(action_evidence: &RunObservation) -> Vec<Value> {
+    action_evidence
         .action_evidence
         .iter()
         .take(8)
@@ -43,30 +31,14 @@ pub async fn run_arbiter(
             json!({
                 "tool_name": entry.tool_name,
                 "agent_status": entry.agent_status,
-                "output_excerpt": truncate_chars(&entry.output_excerpt, 180),
+                "error_class": entry.error_class,
             })
         })
-        .collect::<Vec<_>>();
-
-    let event_excerpt = observation
-        .event_excerpt
-        .iter()
-        .take(12)
-        .map(|line| truncate_chars(line, 180))
-        .collect::<Vec<_>>();
-    let kernel_log_excerpt = observation
-        .kernel_log_lines
-        .iter()
-        .rev()
-        .take(48)
-        .map(|line| truncate_chars(line, 220))
         .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<Vec<_>>();
+}
 
-    let local_checks = local
-        .checks
+fn local_check_payload(local: &LocalJudgeResult) -> Vec<Value> {
+    local.checks
         .iter()
         .map(|check| {
             json!({
@@ -75,9 +47,72 @@ pub async fn run_arbiter(
                 "detail": truncate_chars(&check.detail, 180),
             })
         })
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>()
+}
 
-    let payload = json!({
+fn screenshot_signals_payload(
+    observation: &RunObservation,
+    contract_failure_marker: bool,
+) -> Value {
+    let screenshot = observation.screenshot.as_ref();
+    let approval_gate_seen = screenshot
+        .map(|screenshot| screenshot.approval_gate_seen)
+        .unwrap_or_else(|| {
+            observation.approval_required_events > 0
+                || has_policy_decision(observation, "require_approval")
+        });
+    let approval_transition_seen = screenshot
+        .map(|screenshot| screenshot.approval_transition_seen)
+        .unwrap_or_else(|| {
+            let policy_decision_allow = has_policy_decision(observation, "approved")
+                || has_policy_decision(observation, "allowed");
+            approval_gate_seen && policy_decision_allow
+        });
+    let capture_route_seen = screenshot
+        .map(|screenshot| screenshot.capture_route_seen)
+        .unwrap_or_else(|| observation_has_tool_name(observation, "computer"));
+    let capture_route_terminalized = screenshot
+        .map(|screenshot| screenshot.capture_route_terminalized)
+        .unwrap_or(false);
+    let incident_resolved = screenshot
+        .map(|screenshot| screenshot.incident_resolved)
+        .unwrap_or(false);
+    let capture_runtime_evidence = screenshot
+        .map(|screenshot| screenshot.capture_action_count > 0)
+        .unwrap_or(false)
+        || (capture_route_terminalized
+            && capture_route_seen
+            && approval_transition_seen
+            && incident_resolved);
+
+    json!({
+        "capture_action_count": screenshot
+            .map(|screenshot| screenshot.capture_action_count)
+            .unwrap_or(0),
+        "gui_snapshot_count": screenshot
+            .map(|screenshot| screenshot.gui_snapshot_action_count)
+            .unwrap_or(0),
+        "computer_action_seen": observation_has_tool_name(observation, "computer"),
+        "capture_route_seen": capture_route_seen,
+        "approval_gate_seen": approval_gate_seen,
+        "approval_transition_seen": approval_transition_seen,
+        "capture_route_terminalized": capture_route_terminalized,
+        "incident_resolved": incident_resolved,
+        "capture_runtime_evidence": capture_runtime_evidence,
+        "no_gui_snapshot_fallback": screenshot
+            .map(|screenshot| screenshot.no_gui_snapshot_fallback)
+            .unwrap_or(false),
+        "contract_failure_marker": contract_failure_marker,
+    })
+}
+
+fn build_arbiter_payload(
+    case: &QueryCase,
+    observation: &RunObservation,
+    local: &LocalJudgeResult,
+    contract_failure_marker: bool,
+) -> Value {
+    json!({
         "case_id": case.id,
         "query": case.query,
         "success_definition": case.success_definition,
@@ -95,89 +130,36 @@ pub async fn run_arbiter(
             "routing_tools": observation.routing_tools,
             "workload_tools": observation.workload_tools,
             "cec_receipts": observation.cec_receipts,
-            "verification_checks": observation.verification_checks,
+            "web_observation": observation.web,
+            "screenshot_observation": observation.screenshot,
             "approval_required_events": observation.approval_required_events,
             "contract_failure_marker": contract_failure_marker,
             "kernel_event_count": observation.kernel_event_count,
-            "kernel_log_excerpt": kernel_log_excerpt,
-            "action_evidence": action_evidence,
-            "event_excerpt": event_excerpt,
+            "command_history_count": observation.command_history_evidence.len(),
+            "action_evidence": typed_action_evidence(observation),
         },
         "local_judge": {
             "pass": local.pass,
             "score": local.score,
-            "checks": local_checks,
+            "checks": local_check_payload(local),
             "failures": local.failures,
         },
-        "final_reply_excerpt": final_reply_excerpt,
-        "final_reply_char_len": observation.final_reply.chars().count(),
         "screenshot_signals": if case.id == "take_a_screenshot_of_my_desktop" {
-            let approval_gate_seen = observation.approval_required_events > 0
-                || has_policy_decision(observation, "require_approval");
-            let policy_decision_allow = has_policy_decision(observation, "approved")
-                || has_policy_decision(observation, "allowed");
-            let capture_route_seen = has_tool_token(&observation.routing_tools, "computer");
-            let capture_route_terminalized =
-                has_verification_check(observation, "screenshot_capture_terminalized=true");
-            let incident_resolved = has_verification_check(observation, "incident_resolved=true");
-            let screenshot_reply_signal = screenshot_reply_evidence(observation);
-            let capture_runtime_evidence = capture_action_count(observation) > 0
-                || (capture_route_terminalized
-                    && capture_route_seen
-                    && approval_gate_seen
-                    && policy_decision_allow
-                    && incident_resolved
-                    && screenshot_reply_signal);
-            json!({
-                "capture_action_count": capture_action_count(observation),
-                "computer_screenshot_success_count": computer_screenshot_success_count(observation),
-                "gui_snapshot_count": gui_snapshot_count(observation),
-                "computer_action_seen": has_tool_token(&observation.action_tools, "computer"),
-                "capture_route_seen": capture_route_seen,
-                "policy_decision_allow": policy_decision_allow,
-                "approval_gate_seen": approval_gate_seen,
-                "approval_transition_seen": approval_gate_seen && policy_decision_allow,
-                "capture_route_terminalized": capture_route_terminalized,
-                "incident_resolved": incident_resolved,
-                "screenshot_reply_signal": screenshot_reply_signal,
-                "capture_runtime_evidence": capture_runtime_evidence,
-                "no_gui_snapshot_fallback": gui_snapshot_count(observation) == 0
-                    && !has_tool_token(&observation.routing_tools, "gui__snapshot"),
-                "contract_failure_marker": contract_failure_marker,
-            })
+            screenshot_signals_payload(observation, contract_failure_marker)
         } else {
-            serde_json::Value::Null
+            Value::Null
         },
-        "top_news_signals": if case.id == "top_news_headlines" {
-            let citation_urls = extract_citation_urls(&observation.final_reply);
-            json!({
-                "wrapper_url_count": citation_urls
-                    .iter()
-                    .filter(|url| is_news_feed_wrapper_url(url))
-                    .count(),
-                "citation_url_count": citation_urls.len(),
-                "story_floor_receipt_met": has_verification_check(
-                    observation,
-                    "web_headline_story_floor_met=true"
-                ),
-                "source_floor_receipt_met": has_verification_check(
-                    observation,
-                    "web_source_floor_met=true"
-                ),
-                "contains_constrained_fallback_inventory": observation
-                    .final_reply
-                    .to_ascii_lowercase()
-                    .contains("fallback citation inventory from constrained source set"),
-                "contains_challenge_markers": contains_challenge_marker(
-                    &observation.final_reply.to_ascii_lowercase()
-                ),
-                "story_titles": extract_story_titles(&observation.final_reply),
-                "shared_story_anchor_tokens": shared_story_anchor_tokens(&extract_story_titles(&observation.final_reply)),
-            })
-        } else {
-            serde_json::Value::Null
-        },
-    });
+    })
+}
+
+pub async fn run_arbiter(
+    runtime: Arc<dyn InferenceRuntime>,
+    case: &QueryCase,
+    observation: &RunObservation,
+    local: &LocalJudgeResult,
+) -> Result<ArbiterVerdict> {
+    let contract_failure_marker = has_typed_contract_failure_evidence(observation);
+    let payload = build_arbiter_payload(case, observation, local, contract_failure_marker);
 
     let prompt = format!(
         "You are a non-deterministic arbiter for live desktop capability tests.\n\
@@ -186,17 +168,15 @@ Return JSON only with exact schema:\n\
 Rules:\n\
 1) Judge whether the query objective was successfully completed in this run.\n\
 2) `completion.completed=false` MUST be pass=false.\n\
-3) Empty `final_reply_excerpt` can still pass when action/tool evidence clearly contains the successful outcome (for example math/system/app actions).\n\
-4) Treat local_judge checks as strong runtime evidence, but you may override only with clear contrary evidence.\n\
-5) `score` must be in [0,1].\n\
-6) If pass=true then failures must be [].\n\
-7) For `case_id=top_news_headlines`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
-8) For `case_id=top_news_headlines`, wrapper-only constrained fallback inventory, repeated shared story anchor tokens, or challenge/captcha/access-denied story evidence MUST be judged as failure.\n\
-9) For `case_id=top_news_headlines`, if `top_news_signals.story_floor_receipt_met=false` or `top_news_signals.source_floor_receipt_met=false`, pass MUST be false.\n\
-10) For `case_id=take_a_screenshot_of_my_desktop`, approval-gate evidence is mandatory before capture success: `screenshot_signals.approval_transition_seen=true`, `screenshot_signals.capture_runtime_evidence=true`, `screenshot_signals.capture_route_seen=true`, and `screenshot_signals.no_gui_snapshot_fallback=true`.\n\
-11) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
-12) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.pass=true` and `screenshot_signals.contract_failure_marker=false`, pass MUST be true.\n\
-13) For non-strict cases (all except `top_news_headlines`), if `local_judge.pass=true`, `local_judge.failures=[]`, `completion.completed=true`, `completion.failed=false`, and `signals.contract_failure_marker=false`, pass SHOULD be true unless there is explicit contrary runtime evidence.\n\
+3) Treat local_judge checks as strong runtime evidence, and override only with clear contrary typed runtime evidence.\n\
+4) `score` must be in [0,1].\n\
+5) If pass=true then failures must be [].\n\
+6) For `case_id=top_news_headlines`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
+7) For `case_id=take_a_screenshot_of_my_desktop`, approval-gate evidence is mandatory before capture success: `screenshot_signals.approval_transition_seen=true`, `screenshot_signals.capture_runtime_evidence=true`, `screenshot_signals.capture_route_seen=true`, and `screenshot_signals.no_gui_snapshot_fallback=true`.\n\
+8) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
+9) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.pass=true` and `screenshot_signals.contract_failure_marker=false`, pass MUST be true.\n\
+10) For non-strict cases (all except `top_news_headlines`), if `local_judge.pass=true`, `local_judge.failures=[]`, `completion.completed=true`, `completion.failed=false`, and `signals.contract_failure_marker=false`, pass SHOULD be true unless there is explicit contrary runtime evidence.\n\
+11) Treat the payload as typed runtime evidence. Do not infer pass/fail from omitted chat/debug excerpts.\n\
 Payload:\n{}",
         serde_json::to_string(&payload)?
     );
@@ -220,12 +200,8 @@ Payload:\n{}",
                 break;
             }
             Err(err) => {
-                let msg = err.to_string();
-                let is_rate_limit = msg.contains("429")
-                    || msg.to_ascii_lowercase().contains("rate limit")
-                    || msg.to_ascii_lowercase().contains("rate_limit");
-                last_err = Some(msg.clone());
-                if is_rate_limit && attempt < 4 {
+                last_err = Some(err.to_string());
+                if attempt < 4 {
                     let backoff_secs = 8u64 * attempt as u64;
                     sleep(Duration::from_secs(backoff_secs)).await;
                     continue;
@@ -239,7 +215,18 @@ Payload:\n{}",
             "arbiter inference failed: {}",
             last_err.unwrap_or_else(|| "unknown error".to_string())
         )
-    })?;
+    });
+    let raw = match raw {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            return Ok(fallback_arbiter_verdict(
+                observation,
+                local,
+                contract_failure_marker,
+                &err.to_string(),
+            ))
+        }
+    };
     let text = String::from_utf8(raw).map_err(|_| anyhow!("arbiter response was not UTF-8"))?;
     let json_text = extract_json_object(&text)
         .ok_or_else(|| anyhow!("arbiter did not return JSON object: {}", text))?;
@@ -248,10 +235,23 @@ Payload:\n{}",
         .map_err(|e| anyhow!("failed to parse arbiter verdict: {} raw={}", e, text))?;
 
     if case.id == "top_news_headlines" {
-        let story_floor_receipt_met =
-            has_verification_check(observation, "web_headline_story_floor_met=true");
-        let source_floor_receipt_met =
-            has_verification_check(observation, "web_source_floor_met=true");
+        let web = observation.web.as_ref();
+        let story_floor_receipt_met = web
+            .map(|web| {
+                web.story_slot_floor_met.unwrap_or(false)
+                    && web.story_citation_floor_met.unwrap_or(false)
+                    && web.story_slots_observed.unwrap_or(0) >= 3
+            })
+            .unwrap_or(false);
+        let source_floor_receipt_met = web
+            .map(|web| {
+                let min_sources = web.min_sources.unwrap_or(0);
+                web.source_floor_met.unwrap_or(false)
+                    && min_sources >= 3
+                    && web.sources_success.unwrap_or(0) >= min_sources
+                    && web.selected_source_quality_floor_met.unwrap_or(false)
+            })
+            .unwrap_or(false);
         let top_news_gate_failed = !story_floor_receipt_met || !source_floor_receipt_met;
         let local_failed = !local.pass || !local.failures.is_empty();
         if local_failed || top_news_gate_failed || contract_failure_marker {
@@ -276,9 +276,7 @@ Payload:\n{}",
             if verdict.confidence == "high" {
                 verdict.confidence = "medium".to_string();
             }
-            if verdict.rationale.trim().is_empty() {
-                verdict.rationale = "Top-news receipt gates were not satisfied.".to_string();
-            }
+            verdict.rationale = "Top-news receipt gates were not satisfied.".to_string();
         } else {
             verdict.pass = true;
             verdict.failures.clear();
@@ -288,32 +286,45 @@ Payload:\n{}",
             if verdict.confidence == "low" {
                 verdict.confidence = "medium".to_string();
             }
-            if verdict.rationale.trim().is_empty() {
-                verdict.rationale =
-                    "Top-news local verification and receipt gates were satisfied.".to_string();
-            }
+            verdict.rationale =
+                "Top-news local verification and receipt gates were satisfied.".to_string();
         }
     }
 
     if case.id == "take_a_screenshot_of_my_desktop" {
-        let capture_route_seen = has_tool_token(&observation.routing_tools, "computer");
-        let capture_route_terminalized =
-            has_verification_check(observation, "screenshot_capture_terminalized=true");
-        let approval_gate_seen = observation.approval_required_events > 0
-            || has_policy_decision(observation, "require_approval");
-        let policy_decision_allow = has_policy_decision(observation, "approved")
-            || has_policy_decision(observation, "allowed");
-        let approval_transition_seen = approval_gate_seen && policy_decision_allow;
-        let incident_resolved = has_verification_check(observation, "incident_resolved=true");
-        let screenshot_reply_signal = screenshot_reply_evidence(observation);
-        let capture_runtime_evidence = capture_action_count(observation) > 0
+        let screenshot = observation.screenshot.as_ref();
+        let capture_route_seen = screenshot
+            .map(|screenshot| screenshot.capture_route_seen)
+            .unwrap_or_else(|| observation_has_tool_name(observation, "computer"));
+        let capture_route_terminalized = screenshot
+            .map(|screenshot| screenshot.capture_route_terminalized)
+            .unwrap_or(false);
+        let approval_gate_seen = screenshot
+            .map(|screenshot| screenshot.approval_gate_seen)
+            .unwrap_or_else(|| {
+                observation.approval_required_events > 0
+                    || has_policy_decision(observation, "require_approval")
+            });
+        let approval_transition_seen = screenshot
+            .map(|screenshot| screenshot.approval_transition_seen)
+            .unwrap_or_else(|| {
+                let policy_decision_allow = has_policy_decision(observation, "approved")
+                    || has_policy_decision(observation, "allowed");
+                approval_gate_seen && policy_decision_allow
+            });
+        let incident_resolved = screenshot
+            .map(|screenshot| screenshot.incident_resolved)
+            .unwrap_or(false);
+        let capture_runtime_evidence = screenshot
+            .map(|screenshot| screenshot.capture_action_count > 0)
+            .unwrap_or(false)
             || (capture_route_terminalized
                 && capture_route_seen
                 && approval_transition_seen
-                && incident_resolved
-                && screenshot_reply_signal);
-        let no_gui_snapshot_fallback = gui_snapshot_count(observation) == 0
-            && !has_tool_token(&observation.routing_tools, "gui__snapshot");
+                && incident_resolved);
+        let no_gui_snapshot_fallback = screenshot
+            .map(|screenshot| screenshot.no_gui_snapshot_fallback)
+            .unwrap_or(false);
         if local.pass
             && local.failures.is_empty()
             && approval_transition_seen
@@ -330,11 +341,9 @@ Payload:\n{}",
             if verdict.confidence == "low" {
                 verdict.confidence = "medium".to_string();
             }
-            if verdict.rationale.trim().is_empty() {
-                verdict.rationale =
-                    "Screenshot local verification satisfied execution and contract requirements."
-                        .to_string();
-            }
+            verdict.rationale =
+                "Screenshot local verification satisfied execution and contract requirements."
+                    .to_string();
         }
     }
 
@@ -353,10 +362,8 @@ Payload:\n{}",
         if verdict.confidence == "low" {
             verdict.confidence = "medium".to_string();
         }
-        if verdict.rationale.trim().is_empty() {
-            verdict.rationale = "Local runtime verification satisfied completion criteria; no terminal contract failure markers observed."
-                .to_string();
-        }
+        verdict.rationale = "Local runtime verification satisfied completion criteria; no terminal contract failure markers observed."
+            .to_string();
     }
 
     if !matches!(verdict.confidence.as_str(), "high" | "medium" | "low") {
@@ -387,10 +394,8 @@ Payload:\n{}",
         if verdict.confidence == "high" {
             verdict.confidence = "medium".to_string();
         }
-        if verdict.rationale.trim().is_empty() {
-            verdict.rationale =
-                "Completion gate not satisfied: completion.completed=false.".to_string();
-        }
+        verdict.rationale = "Completion gate not satisfied: completion.completed=false."
+            .to_string();
     }
 
     Ok(verdict)
@@ -415,256 +420,173 @@ fn is_strict_arbiter_case(case_id: &str) -> bool {
     matches!(case_id, "top_news_headlines")
 }
 
-fn is_news_feed_wrapper_url(url: &str) -> bool {
-    let lower = url.trim().to_ascii_lowercase();
-    lower.starts_with("https://news.google.com/rss/articles/")
-        || lower.starts_with("https://news.google.com/rss/read/")
-        || lower.starts_with("https://news.google.com/rss/topics/")
-}
-
-fn extract_citation_urls(reply: &str) -> Vec<String> {
-    let mut urls = Vec::new();
-    let mut seen = std::collections::BTreeSet::new();
-    for line in reply.lines() {
-        for url in extract_urls_from_text(line.trim()) {
-            let key = url.to_ascii_lowercase();
-            if seen.insert(key) {
-                urls.push(url);
-            }
-        }
-    }
-    urls
-}
-
-fn contains_challenge_marker(lower_reply: &str) -> bool {
-    [
-        "are you a robot",
-        "access denied",
-        "enable javascript",
-        "enable js",
-        "verify you are human",
-        "recaptcha",
-    ]
-    .iter()
-    .any(|needle| lower_reply.contains(needle))
-}
-
-fn extract_story_titles(reply: &str) -> Vec<String> {
-    reply
-        .lines()
-        .filter_map(|line| {
-            let trimmed = line.trim();
-            let lower = trimmed.to_ascii_lowercase();
-            if lower.starts_with("story ") {
-                let (_, rest) = trimmed.split_once(':')?;
-                let title = if let Some((left, _)) = rest.split_once("What happened:") {
-                    left.trim()
-                } else {
-                    rest.trim()
-                };
-                if title.is_empty() {
-                    return None;
-                }
-                return Some(title.to_string());
-            }
-            if starts_with_numbered_item(trimmed) {
-                let (_, rest) = trimmed.split_once('.')?;
-                let content = rest.trim();
-                if content.is_empty() {
-                    return None;
-                }
-                let title = if let Some(title) = extract_bold_segment(content) {
-                    title
-                } else if let Some((left, _)) = content.split_once(" - ") {
-                    left.trim().to_string()
-                } else {
-                    content.to_string()
-                };
-                if title.is_empty() {
-                    None
-                } else {
-                    Some(title)
-                }
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-fn extract_urls_from_text(text: &str) -> Vec<String> {
-    let mut urls = Vec::new();
-    let mut cursor = text;
-
-    loop {
-        let start = cursor.find("https://").or_else(|| cursor.find("http://"));
-        let Some(start) = start else {
-            break;
-        };
-        let remainder = &cursor[start..];
-        let end = remainder
-            .find(|ch: char| {
-                ch.is_whitespace() || matches!(ch, ')' | '(' | ']' | '[' | '<' | '>' | '"' | '\'')
-            })
-            .unwrap_or(remainder.len());
-        let candidate = remainder[..end]
-            .trim_end_matches(|ch: char| ",.;:!?".contains(ch))
-            .trim();
-        if !candidate.is_empty() {
-            urls.push(candidate.to_string());
-        }
-        if start + end >= cursor.len() {
-            break;
-        }
-        cursor = &cursor[start + end..];
-    }
-
-    urls
-}
-
-fn extract_bold_segment(content: &str) -> Option<String> {
-    let start = content.find("**")?;
-    let remainder = &content[start + 2..];
-    let end = remainder.find("**")?;
-    let value = remainder[..end].trim();
-    if value.is_empty() {
-        None
+fn fallback_arbiter_verdict(
+    observation: &RunObservation,
+    local: &LocalJudgeResult,
+    contract_failure_marker: bool,
+    reason: &str,
+) -> ArbiterVerdict {
+    let pass = local.pass
+        && local.failures.is_empty()
+        && observation.completed
+        && !observation.failed
+        && !contract_failure_marker;
+    let failures = if pass {
+        Vec::new()
+    } else if !local.failures.is_empty() {
+        local.failures.clone()
+    } else if !observation.completed {
+        vec!["completion.completed=false".to_string()]
+    } else if observation.failed {
+        vec!["completion.failed=true".to_string()]
+    } else if contract_failure_marker {
+        vec!["contract_failure_marker=true".to_string()]
     } else {
-        Some(value.to_string())
+        vec!["arbiter_inference_unavailable".to_string()]
+    };
+
+    ArbiterVerdict {
+        pass,
+        confidence: "medium".to_string(),
+        rationale: format!(
+            "Arbiter inference unavailable; using typed local runtime evidence only. {}",
+            truncate_chars(reason, 220)
+        ),
+        score: local.score,
+        failures,
     }
 }
 
-fn starts_with_numbered_item(line: &str) -> bool {
-    let mut digits = 0usize;
-    for ch in line.chars() {
-        if ch.is_ascii_digit() {
-            digits += 1;
-            continue;
-        }
-        return ch == '.' && digits > 0;
-    }
-    false
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::capabilities_suite::types::{
+        CecReceiptEvidence, ExecutionProfile, LocalCheck, ScreenshotObservation,
+    };
+    use ioi_types::app::agentic::IntentScopeProfile;
 
-fn shared_story_anchor_tokens(story_titles: &[String]) -> Vec<String> {
-    const STORY_STOPWORDS: &[&str] = &[
-        "the",
-        "and",
-        "for",
-        "with",
-        "that",
-        "this",
-        "from",
-        "what",
-        "happened",
-        "story",
-        "stories",
-        "today",
-        "top",
-        "news",
-        "headline",
-        "headlines",
-        "breaking",
-        "latest",
-        "update",
-        "updates",
-        "report",
-        "reports",
-        "key",
-        "evidence",
-        "media",
-        "coverage",
-        "live",
-        "us",
-        "u",
-        "s",
-    ];
-    let token_sets = story_titles
-        .iter()
-        .map(|title| {
-            title
-                .to_ascii_lowercase()
-                .chars()
-                .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
-                .collect::<String>()
-                .split_whitespace()
-                .filter_map(|token| {
-                    let normalized = token.trim();
-                    if normalized.len() < 3 || STORY_STOPWORDS.contains(&normalized) {
-                        return None;
-                    }
-                    Some(normalized.to_string())
-                })
-                .collect::<std::collections::BTreeSet<_>>()
-        })
-        .filter(|set| !set.is_empty())
-        .collect::<Vec<_>>();
-    if token_sets.len() < 3 {
-        return Vec::new();
-    }
-    let mut iter = token_sets.into_iter();
-    let mut shared = iter.next().unwrap_or_default();
-    for set in iter {
-        shared = shared
-            .intersection(&set)
-            .cloned()
-            .collect::<std::collections::BTreeSet<_>>();
-        if shared.is_empty() {
-            break;
+    fn test_case(id: &'static str) -> QueryCase {
+        QueryCase {
+            id,
+            query: "query",
+            success_definition: "success",
+            seeded_intent_id: "seed",
+            intent_scope: IntentScopeProfile::WebResearch,
+            seed_resolved_intent: true,
+            expected_pass: true,
+            execution_profile: ExecutionProfile::Hermetic,
+            sla_seconds: 60,
+            max_steps: 8,
+            min_local_score: 1.0,
+            allow_retry_blocked_completion_with_local_evidence: false,
+            allow_timeout_completion_with_local_evidence: false,
+            local_sniff: |_| LocalJudgeResult::from_checks(Vec::new()),
         }
     }
-    shared.into_iter().collect()
-}
 
-fn has_tool_token(tools: &[String], token: &str) -> bool {
-    tools
-        .iter()
-        .any(|tool| tool.to_ascii_lowercase().contains(token))
-}
+    fn test_observation() -> RunObservation {
+        RunObservation {
+            case_id: "case".to_string(),
+            query: "query".to_string(),
+            run_timestamp_ms: 1,
+            run_timestamp_iso_utc: "2026-03-07T00:00:00Z".to_string(),
+            elapsed_ms: 2,
+            completed: true,
+            failed: false,
+            final_status: "Completed(None)".to_string(),
+            terminal_pause_reason: None,
+            terminal_failure_reason: None,
+            final_reply: "reply".to_string(),
+            chat_reply_count: 1,
+            action_tools: vec!["chat__reply".to_string()],
+            planned_tool_calls: Vec::new(),
+            routing_tools: vec!["computer".to_string()],
+            workload_tools: vec!["computer".to_string()],
+            routing_policy_decisions: vec!["approved".to_string()],
+            routing_failure_classes: Vec::new(),
+            routing_stop_condition_hits: 0,
+            verification_checks: Vec::new(),
+            verification_facts: Vec::new(),
+            approval_required_events: 1,
+            action_evidence: Vec::new(),
+            action_error_classes: Vec::new(),
+            command_history_evidence: Vec::new(),
+            cec_receipts: vec![CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "completion_gate".to_string(),
+                key: "contract_gate".to_string(),
+                satisfied: true,
+                timestamp_ms: 1,
+                probe_source: None,
+                observed_value: None,
+                evidence_type: None,
+                provider_id: None,
+            }],
+            environment_receipts: Vec::new(),
+            web: None,
+            screenshot: Some(ScreenshotObservation {
+                capture_action_count: 1,
+                capture_failure_count: 0,
+                gui_snapshot_action_count: 0,
+                gui_snapshot_routing_count: 0,
+                capture_route_seen: true,
+                capture_route_terminalized: true,
+                incident_resolved: true,
+                approval_gate_seen: true,
+                approval_transition_seen: true,
+                no_gui_snapshot_fallback: true,
+            }),
+            mail: None,
+            event_excerpt: vec!["debug line".to_string()],
+            kernel_event_count: 3,
+            kernel_log_lines: vec!["kernel log line".to_string()],
+        }
+    }
 
-fn has_verification_check(observation: &RunObservation, expected: &str) -> bool {
-    observation
-        .verification_checks
-        .iter()
-        .any(|check| check.eq_ignore_ascii_case(expected))
-}
+    #[test]
+    fn arbiter_payload_omits_debug_excerpts() {
+        let case = test_case("generic_case");
+        let observation = test_observation();
+        let local = LocalJudgeResult::from_checks(vec![LocalCheck::new("typed", true, "detail")]);
 
-fn capture_action_count(observation: &RunObservation) -> usize {
-    computer_screenshot_success_count(observation)
-}
+        let payload = build_arbiter_payload(&case, &observation, &local, false);
 
-fn computer_screenshot_success_count(observation: &RunObservation) -> usize {
-    observation
-        .action_evidence
-        .iter()
-        .filter(|entry| {
-            entry.tool_name.eq_ignore_ascii_case("computer")
-                && entry.agent_status.eq_ignore_ascii_case("completed")
-                && screenshot_success_output(&entry.output_excerpt)
-        })
-        .count()
-}
+        let payload_text = serde_json::to_string(&payload).expect("payload should serialize");
+        assert!(!payload_text.contains("output_excerpt"));
+        assert!(!payload_text.contains("event_excerpt"));
+        assert!(!payload_text.contains("kernel_log_excerpt"));
+        assert!(!payload_text.contains("command_history_evidence"));
+    }
 
-fn gui_snapshot_count(observation: &RunObservation) -> usize {
-    observation
-        .action_evidence
-        .iter()
-        .filter(|entry| entry.tool_name.eq_ignore_ascii_case("gui__snapshot"))
-        .count()
-}
+    #[test]
+    fn screenshot_payload_is_derived_from_typed_observation() {
+        let case = test_case("take_a_screenshot_of_my_desktop");
+        let observation = test_observation();
+        let local = LocalJudgeResult::from_checks(vec![LocalCheck::new("typed", true, "detail")]);
 
-fn screenshot_success_output(output: &str) -> bool {
-    let trimmed = output.trim();
-    trimmed == "Screenshot captured"
-        || trimmed == "Screenshot captured."
-        || trimmed.starts_with("Screenshot captured:")
-        || trimmed.starts_with("Screenshot captured ")
-}
+        let payload = build_arbiter_payload(&case, &observation, &local, false);
+        let screenshot = payload
+            .get("screenshot_signals")
+            .and_then(Value::as_object)
+            .expect("screenshot_signals should be an object");
 
-fn screenshot_reply_evidence(observation: &RunObservation) -> bool {
-    screenshot_success_output(&observation.final_reply)
-        || observation
-            .action_evidence
-            .iter()
-            .any(|entry| screenshot_success_output(&entry.output_excerpt))
+        assert_eq!(
+            screenshot
+                .get("approval_transition_seen")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            screenshot
+                .get("capture_runtime_evidence")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            screenshot
+                .get("no_gui_snapshot_fallback")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+    }
 }

@@ -5,6 +5,7 @@ fn web_pipeline_dedupes_near_duplicate_story_titles() {
     let pending = PendingSearchCompletion {
         query: "top breaking stories".to_string(),
         query_contract: "top breaking stories".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=top+breaking+stories".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -58,6 +59,7 @@ fn web_pipeline_prioritizes_status_page_incidents_over_roundups() {
     let pending = PendingSearchCompletion {
         query: "top active cloud incidents".to_string(),
         query_contract: "top active cloud incidents".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=top+active+cloud+incidents".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -125,6 +127,7 @@ fn web_pipeline_demotes_secondary_status_aggregators_below_primary_status_surfac
     let pending = PendingSearchCompletion {
         query: "top active cloud incidents".to_string(),
         query_contract: "top active cloud incidents".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=top+active+cloud+incidents".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -201,6 +204,7 @@ fn web_pipeline_prefers_primary_status_citations_when_sufficient_inventory_exist
     let pending = PendingSearchCompletion {
         query: "top active cloud incidents".to_string(),
         query_contract: "top active cloud incidents".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=top+active+cloud+incidents".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -404,6 +408,7 @@ fn web_pipeline_reply_heading_is_query_agnostic() {
     let pending = PendingSearchCompletion {
         query: "latest regional cloud availability updates".to_string(),
         query_contract: "latest regional cloud availability updates".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=latest+regional+cloud+availability+updates".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -453,6 +458,7 @@ fn web_pipeline_reply_omits_internal_diagnostics_by_default() {
     let pending = PendingSearchCompletion {
         query: "latest regional cloud availability updates".to_string(),
         query_contract: "latest regional cloud availability updates".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=latest+regional+cloud+availability+updates".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,

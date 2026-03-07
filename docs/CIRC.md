@@ -1,6 +1,6 @@
 # Capability-Intent Resolution Contract (CIRC)
 
-Status: Draft v0.5
+Status: Draft v0.6
 Owners: Agentic Platform
 Scope: Intent resolution and capability ontology for desktop agent execution
 
@@ -12,6 +12,7 @@ Primary goals:
 - Keep behavior explainable and auditable.
 - Prevent layer mixing between domain semantics and system primitives.
 - Eliminate "heuristic routing" (guessing via regex/aliases).
+- Enforce structural retrieval modeling so ontology symbols do not collapse into provider or content vertical shortcuts.
 - Enable safe **probabilistic payload synthesis** at infinite scale by grounding generative actions in strict primitive capability boundaries.
 
 ## 2. Normative Terms
@@ -63,14 +64,24 @@ Normative constraints:
 - Tool presence MUST NOT alter semantic ranking scores.
 - If a Tool is designed to execute probabilistically synthesized payloads (e.g., an ephemeral shell), it MUST be strictly constrained by its declared `provides_capabilities`.
 
-### 3.5 Policy
+### 3.5 Structural Retrieval Rule (Normative)
+If the system models retrieval affordances, those affordances MUST describe structural evidence shape rather than domain semantics, provider families, or site topology.
+
+Normative constraints:
+- Retrieval affordances MUST be structural and cross-domain (for example `queryable_index`, `ordered_collection`, `link_collection`, `detail_document`, `structured_record`, `timestamped_record`, `geo_scoped_record`, `canonical_link_out`).
+- Retrieval affordances MUST NOT encode content verticals or provider classes (for example `news_feed`, `price_page`, `restaurant_directory`, `menu_detail_page`, `google_news`, `coindesk_page`).
+- Query inference MAY emit typed retrieval requirements (for example `currentness_required`, `locality_required`, `entity_cardinality_min`, `comparison_required`, `scalar_measure_required`, `source_independence_min`).
+- Query inference MUST NOT emit provider IDs, provider families, hostnames, site slugs, or domain-specific affordance names as ontology-level routing outputs.
+- Provider-specific parsers, URL builders, and transport quirks MAY exist only as adapter internals after provider selection has already been justified by typed discovery evidence.
+
+### 3.6 Policy
 Policy provides versioned deterministic controls:
 - confidence thresholds
 - ambiguity margins and actions (`proceed`, `pause`, `abstain`)
 - tie-region epsilon and score quantization
 - safety and risk constraints
 
-### 3.6 Normative Layering Examples
+### 3.7 Normative Layering Examples
 1. Arithmetic evaluation query:
 - Intent: `math.eval`
 - Required primitive capabilities: `agent.lifecycle`, `conversation.reply`
@@ -126,6 +137,10 @@ If a successfully resolved intent fails downstream during CEC execution, the res
 ### 5.1 Authoritative Inputs
 Resolver routing MUST depend only on canonical semantic ranking inputs plus explicit policy and feasibility checks.
 
+For retrieval-oriented intents:
+- semantic ranking MUST still select the intent without regard to provider names, provider families, or domain-specific affordance labels.
+- any post-ranking retrieval planning MUST operate only on typed retrieval requirements and typed feasibility constraints.
+
 ### 5.2 Prohibited Patterns
 Resolver logic MUST NOT:
 - route by ad hoc keyword, substring tests, or lexicographic assertions.
@@ -133,11 +148,15 @@ Resolver logic MUST NOT:
 - route by prompt-only exceptions.
 - short-circuit to a tool before intent winner selection.
 - fallback to lower-ranked intents dynamically based on downstream execution failures.
+- introduce domain-named or provider-named ontology symbols to avoid proper structural modeling.
+- emit provider IDs, provider orderings, or provider-family hints directly from query interpretation.
+- let provider availability or adapter presence alter semantic ranking scores.
 
 ### 5.3 Allowed Patterns
 Resolver logic MAY:
 - use aliases and exemplars for observability and analytics.
 - include deterministic post-ranking feasibility filtering.
+- produce typed structural retrieval requirements after intent selection, provided those outputs are provider-agnostic.
 
 ## 6. Determinism and Replayability
 Resolver receipts MUST commit to model and policy state so selection is replayable.
@@ -188,10 +207,17 @@ Profile B: Ontology Governance
 - capability admission gate enforcement
 - growth monotonicity on golden corpus
 - descriptor collision linting
+- structural retrieval affordance enforcement
+- provider/domain symbol ban enforcement
 
 Profile C: Replayability
 - resolver receipt completeness
 - deterministic replay from receipt material
+
+Profile D: Retrieval Ontology Integrity
+- typed retrieval requirements are provider-agnostic
+- provider/domain names do not appear in ontology descriptors, affordance IDs, or ranking features
+- adapter-specific details are isolated behind post-selection discovery evidence
 
 ## 10. Failure Taxonomy
 Resolvers MUST emit machine-readable failures with stable `ERROR_CLASS`.
@@ -204,12 +230,16 @@ Required classes:
 - `ERROR_CLASS=OntologyViolation`
 
 ## 11. Migration Guidance
-To migrate a heuristic resolver to Draft v0.5:
+To migrate a heuristic resolver to Draft v0.6:
 1. Extract routing fields into typed schema.
 2. Separate semantic ranking from feasibility and policy checks.
 3. Replace domain-specific capability bindings with primitive capability mappings.
 4. Enforce deterministic selection and full cryptographic receipts.
 5. Wire execution behavior strictly to CEC lifecycle gates (Zero Fallback).
+6. Replace domain-named retrieval affordances with structural affordances only.
+7. Remove provider/domain outputs from query interpretation and emit typed retrieval requirements instead.
+8. Move provider-specific URL builders, parsers, and transport quirks behind adapter boundaries that are only reachable after typed discovery.
+9. Add conformance tests that fail on provider/domain symbols appearing in ontology descriptors or ranking features.
 
 ## 12. Change Control and Versioning
 CIRC changes MUST be versioned.
@@ -218,3 +248,4 @@ Breaking changes MUST include:
 - conformance-suite updates
 - golden-corpus impact notes
 - ontology delta summary (intents, capabilities, tools)
+- structural-affordance delta summary and provider-symbol removals

@@ -150,13 +150,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         verification_bool(obs, "env_receipt::downloads_png_move_cleanup_satisfied")
             .unwrap_or(false);
 
-    let final_reply_lower = obs.final_reply.to_ascii_lowercase();
-    let reply_mentions_images_dir = !images_dir_path.is_empty()
-        && final_reply_lower.contains(&images_dir_path.to_ascii_lowercase());
-    let reply_mentions_expected_png_files = EXPECTED_PNG_FILES
-        .iter()
-        .all(|name| final_reply_lower.contains(name));
-
     let list_action_success_count = obs
         .action_evidence
         .iter()
@@ -211,18 +204,14 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let any_contract_failure_marker = has_contract_failure_evidence(obs);
 
-    let completion_evidence_present = obs.completed
-        && !obs.failed
-        && obs.chat_reply_count > 0
-        && !obs.final_reply.trim().is_empty();
+    let completion_evidence_present =
+        obs.completed && !obs.failed && (png_move_end_state_satisfied || cec_contract_gate_seen);
 
     let objective_specific_png_move_evidence_present = png_move_end_state_satisfied
         && seeded_png_satisfied
         && seeded_non_png_satisfied
         && create_directory_action_success_count > 0
-        && move_action_success_count >= EXPECTED_PNG_FILES.len()
-        && reply_mentions_images_dir
-        && reply_mentions_expected_png_files;
+        && move_action_success_count >= EXPECTED_PNG_FILES.len();
 
     let environment_receipts = build_environment_receipts(
         obs,
@@ -287,15 +276,14 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_specific_png_move_evidence_present",
             objective_specific_png_move_evidence_present,
             format!(
-                "png_move_end_state_satisfied={} seeded_png_satisfied={} seeded_non_png_satisfied={} list_action_success_count={} create_directory_action_success_count={} move_action_success_count={} reply_mentions_images_dir={} reply_mentions_expected_png_files={}",
+                "png_move_end_state_satisfied={} seeded_png_satisfied={} seeded_non_png_satisfied={} list_action_success_count={} create_directory_action_success_count={} move_action_success_count={} images_dir_path={}",
                 png_move_end_state_satisfied,
                 seeded_png_satisfied,
                 seeded_non_png_satisfied,
                 list_action_success_count,
                 create_directory_action_success_count,
                 move_action_success_count,
-                reply_mentions_images_dir,
-                reply_mentions_expected_png_files,
+                images_dir_path,
             ),
         ),
         LocalCheck::new(

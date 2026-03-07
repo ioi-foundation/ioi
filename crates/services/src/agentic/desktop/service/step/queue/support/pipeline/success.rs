@@ -50,20 +50,42 @@ pub(crate) fn push_pending_web_success(
             resolved_excerpt = hint_excerpt.to_string();
         }
     }
+    if source_has_human_challenge_signal(
+        trimmed,
+        resolved_title.as_deref().unwrap_or_default(),
+        &resolved_excerpt,
+    ) {
+        mark_pending_web_blocked(pending, trimmed);
+        return;
+    }
+    if source_has_terminal_error_signal(
+        trimmed,
+        resolved_title.as_deref().unwrap_or_default(),
+        &resolved_excerpt,
+    ) {
+        return;
+    }
 
     let query_contract = synthesis_query_contract(pending);
+    let retrieval_contract = pending.retrieval_contract.as_ref();
+    let single_snapshot_contract =
+        retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract);
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources,
         &pending.candidate_source_hints,
     );
-    let headline_collection_mode = query_is_generic_headline_collection(&query_contract);
+    let headline_collection_mode =
+        retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
     let min_sources_required = pending.min_sources.max(1) as usize;
     let source_floor_unmet = pending.successful_reads.len() < min_sources_required;
     let time_sensitive = projection
         .constraints
         .scopes
-        .contains(&ConstraintScope::TimeSensitive);
+        .contains(&ConstraintScope::TimeSensitive)
+        || retrieval_contract
+            .map(|contract| contract.currentness_required)
+            .unwrap_or(false);
     let reject_search_hub = projection.reject_search_hub_candidates();
     if headline_collection_mode {
         let script_like_excerpt = resolved_excerpt.contains("||")
@@ -98,6 +120,13 @@ pub(crate) fn push_pending_web_success(
                 })
                 .unwrap_or_else(|| trimmed.to_string())
         };
+        if headline_source_is_low_quality(
+            &resolved_url,
+            resolved_title.as_deref().unwrap_or_default(),
+            &resolved_excerpt,
+        ) {
+            return;
+        }
         pending.successful_reads.push(PendingSearchReadSummary {
             url: resolved_url,
             title: resolved_title,
@@ -193,6 +222,7 @@ pub(crate) fn push_pending_web_success(
 
         if time_sensitive {
             let mut resolved_payload = candidate_time_sensitive_resolvable_payload(
+                trimmed,
                 resolved_title.as_deref().unwrap_or_default(),
                 &resolved_excerpt,
             );
@@ -201,7 +231,11 @@ pub(crate) fn push_pending_web_success(
                     let hint_title = hint_entry.title.as_deref().unwrap_or_default().trim();
                     let hint_excerpt = hint_entry.excerpt.trim();
                     if !hint_excerpt.is_empty()
-                        && candidate_time_sensitive_resolvable_payload(hint_title, hint_excerpt)
+                        && candidate_time_sensitive_resolvable_payload(
+                            trimmed,
+                            hint_title,
+                            hint_excerpt,
+                        )
                     {
                         let hint_compatibility = candidate_constraint_compatibility(
                             &projection.constraints,
@@ -240,6 +274,7 @@ pub(crate) fn push_pending_web_success(
                         let candidate_title = candidate.title.as_deref().unwrap_or_default().trim();
                         let candidate_excerpt = candidate.excerpt.trim();
                         if !candidate_time_sensitive_resolvable_payload(
+                            candidate_url,
                             candidate_title,
                             candidate_excerpt,
                         ) {
@@ -265,6 +300,9 @@ pub(crate) fn push_pending_web_success(
                     } else {
                         return;
                     }
+                }
+                if single_snapshot_contract {
+                    return;
                 }
             }
         }
@@ -295,6 +333,19 @@ fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> {
     }
 }
 
+fn excerpt_without_source_url_metadata(excerpt: &str) -> String {
+    excerpt
+        .split_whitespace()
+        .filter(|token| {
+            let trimmed = token.trim();
+            !trimmed.is_empty()
+                && trimmed != "|"
+                && !trimmed.to_ascii_lowercase().starts_with("source_url=")
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 pub(crate) fn append_pending_web_success_fallback(
     pending: &mut PendingSearchCompletion,
     url: &str,
@@ -305,13 +356,65 @@ pub(crate) fn append_pending_web_success_fallback(
     push_pending_web_success(pending, url, None, excerpt);
 }
 
+pub(crate) fn append_pending_web_success_from_hint(
+    pending: &mut PendingSearchCompletion,
+    requested_url: &str,
+) -> bool {
+    let query_contract = synthesis_query_contract(pending);
+    if !retrieval_contract_is_generic_headline_collection(
+        pending.retrieval_contract.as_ref(),
+        &query_contract,
+    ) {
+        return false;
+    }
+
+    let Some(hint) = hint_for_url(pending, requested_url).cloned() else {
+        return false;
+    };
+    let candidate_url = source_url_from_metadata_excerpt(&hint.excerpt)
+        .unwrap_or_else(|| hint.url.trim().to_string());
+    if candidate_url.trim().is_empty() {
+        return false;
+    }
+    let cleaned_excerpt = excerpt_without_source_url_metadata(&hint.excerpt);
+    let excerpt = prioritized_signal_excerpt(&cleaned_excerpt, 180);
+    let candidate_source = PendingSearchReadSummary {
+        url: candidate_url.clone(),
+        title: hint.title.clone(),
+        excerpt: excerpt.clone(),
+    };
+    let candidate_title = canonical_source_title(&candidate_source);
+    if is_low_signal_title(&candidate_title)
+        || !headline_story_title_has_specificity(&candidate_title)
+        || headline_source_is_low_quality(&candidate_url, &candidate_title, &excerpt)
+    {
+        return false;
+    }
+
+    let before = pending.successful_reads.len();
+    if !try_append_headline_bundle_success(
+        pending,
+        requested_url,
+        &candidate_url,
+        hint.title,
+        excerpt,
+    ) {
+        return false;
+    }
+
+    pending.successful_reads.len() > before
+}
+
 pub(crate) fn append_pending_web_success_from_bundle(
     pending: &mut PendingSearchCompletion,
     bundle: &WebEvidenceBundle,
     fallback_url: &str,
 ) {
     let query_contract = synthesis_query_contract(pending);
-    let headline_collection_mode = query_is_generic_headline_collection(&query_contract);
+    let headline_collection_mode = retrieval_contract_is_generic_headline_collection(
+        pending.retrieval_contract.as_ref(),
+        &query_contract,
+    );
     if headline_collection_mode {
         let fallback_trimmed = fallback_url.trim();
         let mut appended = false;
@@ -436,19 +539,38 @@ fn try_append_headline_bundle_success(
         return false;
     }
 
-    let recorded_url = if headline_read_success_url_allowed(requested_trimmed) {
-        requested_trimmed.to_string()
-    } else if headline_read_success_url_allowed(candidate_trimmed) {
-        candidate_trimmed.to_string()
-    } else {
+    let requested_allowed = headline_read_success_url_allowed(requested_trimmed);
+    let candidate_allowed = headline_read_success_url_allowed(candidate_trimmed);
+    let requested_is_google_news_wrapper =
+        crate::agentic::web::is_google_news_article_wrapper_url(requested_trimmed);
+    let recorded_url =
+        if candidate_allowed && (requested_is_google_news_wrapper || !requested_allowed) {
+            candidate_trimmed.to_string()
+        } else if requested_allowed {
+            requested_trimmed.to_string()
+        } else if candidate_allowed {
+            candidate_trimmed.to_string()
+        } else {
+            return false;
+        };
+    if headline_source_is_low_quality(
+        &recorded_url,
+        title.as_deref().unwrap_or_default(),
+        &excerpt,
+    ) {
         return false;
-    };
+    }
     push_pending_web_success(pending, &recorded_url, title, excerpt);
     true
 }
 
 fn headline_bundle_url_matches_requested(candidate_url: &str, requested_url: &str) -> bool {
     if url_structurally_equivalent(candidate_url, requested_url) {
+        return true;
+    }
+    if crate::agentic::web::is_google_news_article_wrapper_url(requested_url)
+        && headline_read_success_url_allowed(candidate_url)
+    {
         return true;
     }
     let Some(candidate_host) = normalized_source_host(candidate_url) else {
@@ -470,8 +592,30 @@ fn normalized_source_host(url: &str) -> Option<String> {
 
 fn headline_read_success_url_allowed(url: &str) -> bool {
     let trimmed = url.trim();
-    !trimmed.is_empty()
-        && is_citable_web_url(trimmed)
-        && !is_search_hub_url(trimmed)
-        && !is_multi_item_listing_url(trimmed)
+    !trimmed.is_empty() && projection_candidate_url_allowed(trimmed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn headline_read_success_url_rejects_root_homepages() {
+        assert!(!headline_read_success_url_allowed(
+            "https://www.cbsnews.com/"
+        ));
+        assert!(!headline_read_success_url_allowed(
+            "https://www.nbcnews.com/"
+        ));
+    }
+
+    #[test]
+    fn headline_read_success_url_accepts_deep_article_urls() {
+        assert!(headline_read_success_url_allowed(
+            "https://www.reuters.com/world/europe/example-story-2026-03-01/"
+        ));
+        assert!(headline_read_success_url_allowed(
+            "https://news.google.com/rss/articles/CBMiY2h0dHBzOi8vd3d3LmFwbmV3cy5jb20vYXJ0aWNsZS9leGFtcGxlLXN0b3J5LTIwMjYtMDMtMDFSAQA"
+        ));
+    }
 }

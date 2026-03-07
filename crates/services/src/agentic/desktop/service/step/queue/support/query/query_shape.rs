@@ -1,5 +1,32 @@
 use super::*;
 
+const EXPLICIT_COUNT_COLLECTION_NOUNS: &[&str] = &[
+    "stories",
+    "story",
+    "items",
+    "results",
+    "findings",
+    "incidents",
+    "events",
+    "updates",
+    "options",
+    "records",
+    "entries",
+];
+
+const MULTI_ITEM_COMPARISON_DIRECTIVES: &[&str] = &[
+    " compare ",
+    " comparison ",
+    " versus ",
+    " vs ",
+    " across ",
+    " between ",
+    " among ",
+];
+
+const MULTI_ITEM_RANKING_DIRECTIVES: &[&str] =
+    &[" roundup ", " round-up ", " list ", " ranking ", " ranked "];
+
 pub(crate) fn parse_small_count_token(token: &str) -> Option<usize> {
     let normalized = token
         .trim()
@@ -16,10 +43,36 @@ pub(crate) fn parse_small_count_token(token: &str) -> Option<usize> {
     }
 }
 
+fn normalize_count_hint_token(token: &str) -> String {
+    token
+        .trim()
+        .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+        .to_ascii_lowercase()
+}
+
+fn token_is_semantic_count_target(token: &str, structural_tokens: &BTreeSet<String>) -> bool {
+    let normalized = normalize_count_hint_token(token);
+    if normalized.len() < QUERY_COMPATIBILITY_MIN_TOKEN_CHARS {
+        return false;
+    }
+    if normalized.chars().all(|ch| ch.is_ascii_digit()) || is_query_stopword(&normalized) {
+        return false;
+    }
+    !structural_tokens.contains(&normalized)
+}
+
+fn token_looks_plural(token: &str) -> bool {
+    let normalized = token.trim().to_ascii_lowercase();
+    normalized.len() >= QUERY_COMPATIBILITY_MIN_TOKEN_CHARS
+        && normalized.ends_with('s')
+        && !normalized.ends_with("ss")
+}
+
 pub(crate) fn explicit_story_count_hint(query: &str) -> Option<usize> {
     let tokens = query.split_whitespace().collect::<Vec<_>>();
+    let structural_tokens = query_structural_directive_tokens(query);
     for idx in 0..tokens.len() {
-        let token = tokens[idx].to_ascii_lowercase();
+        let token = normalize_count_hint_token(tokens[idx]);
         if token == "top" {
             if let Some(value) = tokens
                 .get(idx + 1)
@@ -34,12 +87,7 @@ pub(crate) fn explicit_story_count_hint(query: &str) -> Option<usize> {
         };
         let next = tokens
             .get(idx + 1)
-            .map(|value| {
-                value
-                    .trim()
-                    .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
-                    .to_ascii_lowercase()
-            })
+            .map(|value| normalize_count_hint_token(value))
             .unwrap_or_default();
         if matches!(
             next.as_str(),
@@ -52,6 +100,25 @@ pub(crate) fn explicit_story_count_hint(query: &str) -> Option<usize> {
                 | "events"
                 | "updates"
         ) {
+            return Some(value.clamp(1, 6));
+        }
+
+        let lookahead_contains_collection_noun = tokens
+            .iter()
+            .skip(idx + 1)
+            .take(4)
+            .map(|value| normalize_count_hint_token(value))
+            .any(|value| EXPLICIT_COUNT_COLLECTION_NOUNS.contains(&value.as_str()));
+        if lookahead_contains_collection_noun {
+            return Some(value.clamp(1, 6));
+        }
+
+        let lookahead_contains_semantic_target = tokens
+            .iter()
+            .skip(idx + 1)
+            .take(4)
+            .any(|value| token_is_semantic_count_target(value, &structural_tokens));
+        if lookahead_contains_semantic_target {
             return Some(value.clamp(1, 6));
         }
     }
@@ -99,7 +166,10 @@ pub(super) fn canonical_domain_key(url: &str) -> Option<String> {
     )
 }
 
-pub(super) fn required_distinct_domain_floor(query_contract: &str) -> usize {
+pub(crate) fn required_distinct_domain_floor(query_contract: &str) -> usize {
+    if query_requires_local_business_entity_diversity(query_contract) {
+        return 0;
+    }
     if query_prefers_multi_item_cardinality(query_contract) {
         required_story_count(query_contract).max(1)
     } else {
@@ -123,36 +193,16 @@ pub(crate) fn prefers_single_fact_snapshot(query: &str) -> bool {
         return false;
     }
     let padded = normalized_phrase_query(query);
-    let collection_topic = [
-        " headlines ",
-        " stories ",
-        " incidents ",
-        " outages ",
-        " updates ",
-        " events ",
-        " findings ",
-        " results ",
-        " providers ",
-        " services ",
-        " news ",
-    ]
-    .iter()
-    .any(|marker| padded.contains(marker));
-    if collection_topic
-        && [
-            " top ",
-            " roundup ",
-            " round-up ",
-            " list ",
-            " ranking ",
-            " ranked ",
-            " across ",
-            " between ",
-            " among ",
-        ]
+    let semantic_tokens = query_semantic_anchor_tokens(query);
+    let ranked_plural_collection = semantic_tokens
         .iter()
-        .any(|marker| padded.contains(marker))
-    {
+        .any(|token| token_looks_plural(token))
+        && MULTI_ITEM_RANKING_DIRECTIVES
+            .iter()
+            .chain([" top "].iter())
+            .chain(MULTI_ITEM_COMPARISON_DIRECTIVES.iter())
+            .any(|marker| padded.contains(marker));
+    if ranked_plural_collection {
         return false;
     }
     true
@@ -170,39 +220,28 @@ pub(crate) fn query_prefers_multi_item_cardinality(query: &str) -> bool {
     }
 
     let padded = normalized_phrase_query(query);
-    let has_collection_topic = [
-        " headlines ",
-        " stories ",
-        " incidents ",
-        " outages ",
-        " updates ",
-        " events ",
-        " findings ",
-        " results ",
-        " providers ",
-        " services ",
-    ]
-    .iter()
-    .any(|marker| padded.contains(marker));
-    let has_collection_directive = [
-        " roundup ",
-        " round-up ",
-        " list ",
-        " ranking ",
-        " ranked ",
-        " compare ",
-        " comparison ",
-        " versus ",
-        " vs ",
-        " across ",
-        " between ",
-        " among ",
-    ]
-    .iter()
-    .any(|marker| padded.contains(marker));
-    let has_ranked_collection = padded.contains(" top ") && has_collection_topic;
+    let has_collection_directive = MULTI_ITEM_RANKING_DIRECTIVES
+        .iter()
+        .chain(MULTI_ITEM_COMPARISON_DIRECTIVES.iter())
+        .any(|marker| padded.contains(marker));
+    let has_ranked_collection = padded.contains(" top ");
+    let semantic_tokens = query_semantic_anchor_tokens(query);
+    let plural_semantic_surface = semantic_tokens
+        .iter()
+        .any(|token| token_looks_plural(token));
 
-    has_ranked_collection || (has_collection_directive && has_collection_topic)
+    query_requests_comparison(query)
+        || ((has_ranked_collection || has_collection_directive) && plural_semantic_surface)
+}
+
+pub(crate) fn query_requests_comparison(query: &str) -> bool {
+    if query.trim().is_empty() {
+        return false;
+    }
+    let padded = normalized_phrase_query(query);
+    MULTI_ITEM_COMPARISON_DIRECTIVES
+        .iter()
+        .any(|marker| padded.contains(marker))
 }
 
 pub(crate) fn query_is_generic_headline_collection(query: &str) -> bool {
@@ -219,6 +258,20 @@ pub(crate) fn query_is_generic_headline_collection(query: &str) -> bool {
     facets.time_sensitive_public_fact
         && facets.grounded_external_required
         && !facets.workspace_constrained
+        && !facets.locality_sensitive_public_fact
+}
+
+pub(crate) fn query_contains_structured_search_operators(query: &str) -> bool {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let lowered = trimmed.to_ascii_lowercase();
+    trimmed.contains('"')
+        || lowered.contains("-site:")
+        || lowered.contains(" site:")
+        || lowered.contains("inurl:")
+        || lowered.contains("intitle:")
 }
 
 pub(super) fn generic_headline_search_phrase(query: &str) -> String {
@@ -227,13 +280,7 @@ pub(super) fn generic_headline_search_phrase(query: &str) -> String {
         return String::new();
     }
 
-    let lowered = trimmed.to_ascii_lowercase();
-    let has_structured_operator = trimmed.contains('"')
-        || lowered.contains("-site:")
-        || lowered.contains(" site:")
-        || lowered.contains("inurl:")
-        || lowered.contains("intitle:");
-    if has_structured_operator {
+    if query_contains_structured_search_operators(trimmed) {
         return trimmed.to_string();
     }
 
@@ -311,7 +358,7 @@ pub(crate) fn query_metric_axes_with_hints(
     let query_facets = analyze_query_facets(query);
     let query_native_tokens = query_native_anchor_tokens(query);
     let mut required_facets = query_facets.metric_schema.axis_hits;
-    if required_facets.is_empty() {
+    if required_facets.is_empty() && prefers_single_fact_snapshot(query) {
         let mut inferred_counts = BTreeMap::<MetricAxis, usize>::new();
         for hint in candidate_hints {
             let title = hint.title.as_deref().unwrap_or_default();

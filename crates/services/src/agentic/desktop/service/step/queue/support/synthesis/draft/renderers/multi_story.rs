@@ -137,6 +137,24 @@ pub(super) fn render_multi_story_layout(
         lines.push(format!("Caveat: {}", story.caveat));
     }
 
+    if retrieval_contract_requests_comparison(draft.retrieval_contract.as_ref(), &draft.query)
+        && story_count > 1
+    {
+        lines.push(String::new());
+        lines.push("Comparison:".to_string());
+        for story in draft.stories.iter().take(story_count) {
+            let summary = compact_whitespace(&story.what_happened);
+            let summary = if summary.is_empty() {
+                story.title.clone()
+            } else if summary.chars().count() <= 160 {
+                summary
+            } else {
+                format!("{}...", summary.chars().take(160).collect::<String>())
+            };
+            lines.push(format!("- {}: {}", story.title, summary));
+        }
+    }
+
     if headline_lookup_mode {
         let used_story_urls = draft
             .stories

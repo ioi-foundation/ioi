@@ -97,7 +97,8 @@ impl MVMemory {
                 continue;
             }
             let versions = entry.value().read();
-            let Some(version_entry) = versions.iter().rev().find(|ver| ver.version <= tx_idx) else {
+            let Some(version_entry) = versions.iter().rev().find(|ver| ver.version <= tx_idx)
+            else {
                 continue;
             };
 

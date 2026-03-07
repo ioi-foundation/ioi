@@ -6,13 +6,14 @@ use super::command_contract::{
     record_timer_notification_contract_requirement, record_verification_receipts,
     requires_timer_notification_contract, runtime_host_environment_receipt,
     synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
-    sys_exec_command_preview, sys_exec_foreign_absolute_home_path,
+    sys_exec_command_preview, sys_exec_foreign_absolute_home_path, sys_exec_timer_delay_seconds,
     sys_exec_satisfies_clock_read_contract, CLOCK_TIMESTAMP_POSTCONDITION,
     PROVIDER_SELECTION_COMMIT_RECEIPT, TIMER_NOTIFICATION_PATH_POSTCONDITION,
     TIMER_SLEEP_BACKEND_POSTCONDITION, VERIFICATION_COMMIT_RECEIPT,
 };
 use super::probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
+    summarize_math_eval_output, summarize_structured_command_receipt_output,
     summarize_system_clock_or_plain_output,
 };
 use super::refusal_eval::evaluate_and_crystallize;
@@ -51,12 +52,12 @@ use crate::agentic::desktop::service::step::incident::{
 };
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::step::queue::web_pipeline::{
-    append_pending_web_success_fallback, append_pending_web_success_from_bundle,
-    is_human_challenge_error, mark_pending_web_attempted, mark_pending_web_blocked,
-    parse_web_evidence_bundle, remaining_pending_web_candidates,
+    append_final_web_completion_receipts, append_pending_web_success_fallback,
+    append_pending_web_success_from_bundle, is_human_challenge_error, mark_pending_web_attempted,
+    mark_pending_web_blocked, parse_web_evidence_bundle, remaining_pending_web_candidates,
     render_mailbox_access_limited_reply, synthesize_web_pipeline_reply,
-    synthesize_web_pipeline_reply_hybrid, web_pipeline_min_sources, web_pipeline_now_ms,
-    WebPipelineCompletionReason,
+    synthesize_web_pipeline_reply_hybrid, web_pipeline_completion_reason, web_pipeline_min_sources,
+    web_pipeline_now_ms, WebPipelineCompletionReason,
 };
 use crate::agentic::desktop::service::step::signals::is_mail_connector_tool_name;
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
@@ -84,7 +85,6 @@ mod duplicate_guard;
 mod phases;
 mod refusal;
 mod web_helpers;
-mod web_pre_read;
 
 use self::duplicate_guard::{
     duplicate_command_cached_completion_summary, duplicate_command_cached_success_summary,
@@ -96,13 +96,16 @@ use self::phases::{
     ActionProcessingState, ApplyPostExecutionGuardsContext, ExecuteToolPhaseContext,
     FinalizeActionProcessingContext,
 };
-pub(crate) use self::phases::{emit_completion_gate_status_event, resolved_intent_id};
+pub(crate) use self::phases::{
+    emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
+    resolved_intent_id,
+};
+pub(crate) use self::duplicate_guard::verified_command_probe_completion_summary;
 use self::web_helpers::{
     extract_web_read_url_from_payload, is_empty_memory_search_output,
     is_transient_browser_snapshot_unexpected_state, queue_web_search_bootstrap,
     should_fail_fast_web_timeout, should_use_web_research_path,
 };
-use self::web_pre_read::apply_pre_read_bundle;
 
 pub fn resolve_action_routing_context(
     agent_state: &mut AgentState,

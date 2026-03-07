@@ -1,8 +1,8 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, ExecutionProfile, LocalCheck,
-    LocalJudgeResult, QueryCase, RunObservation,
+    cec_receipt_value, has_cec_receipt, observation_has_any_tool_name, truncate_chars,
+    ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 pub fn case() -> QueryCase {
@@ -25,35 +25,32 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let lower_reply = obs.final_reply.to_ascii_lowercase();
-    let has_time_signal = contains_hh_mm(&obs.final_reply)
-        || contains_any(
-            &lower_reply,
-            &[
-                " utc", " am", " pm", "gmt", "eastern", "pacific", "central", "mountain",
-            ],
-        );
-    let time_tool_signal = has_tool_with_token(&obs.action_tools, "time")
-        || has_tool_with_token(&obs.routing_tools, "time")
-        || has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec")
-        || has_tool_with_token(&obs.action_tools, "command")
-        || has_tool_with_token(&obs.routing_tools, "command");
+    let observed_timestamp =
+        cec_receipt_value(obs, "verification", "clock_timestamp_observed").unwrap_or_default();
+    let has_time_signal = !observed_timestamp.trim().is_empty()
+        && has_cec_receipt(obs, "verification", "clock_timestamp_observed", Some(true));
+    let time_tool_signal =
+        observation_has_any_tool_name(obs, &["time", "sys__exec", "sys__exec_session"]);
 
     let checks = vec![
         LocalCheck::new(
-            "completed_with_reply",
-            obs.completed && !obs.final_reply.trim().is_empty(),
+            "completion_evidence_present",
+            obs.completed
+                && !obs.failed
+                && (has_time_signal
+                    || has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true))),
             format!(
-                "status={} reply_len={}",
+                "status={} failed={} command_history_count={} action_evidence_count={}",
                 obs.final_status,
-                obs.final_reply.chars().count()
+                obs.failed,
+                obs.command_history_evidence.len(),
+                obs.action_evidence.len()
             ),
         ),
         LocalCheck::new(
-            "time_signal_in_reply",
+            "time_signal_in_runtime_evidence",
             has_time_signal,
-            truncate_chars(&obs.final_reply, 120),
+            truncate_chars(&observed_timestamp, 120),
         ),
         LocalCheck::new(
             "time_or_command_tool_seen",
@@ -66,25 +63,4 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     ];
 
     LocalJudgeResult::from_checks(checks)
-}
-
-fn contains_hh_mm(input: &str) -> bool {
-    let bytes = input.as_bytes();
-    if bytes.len() < 5 {
-        return false;
-    }
-
-    for idx in 0..=bytes.len() - 5 {
-        let window = &bytes[idx..idx + 5];
-        if window[0].is_ascii_digit()
-            && window[1].is_ascii_digit()
-            && window[2] == b':'
-            && window[3].is_ascii_digit()
-            && window[4].is_ascii_digit()
-        {
-            return true;
-        }
-    }
-
-    false
 }

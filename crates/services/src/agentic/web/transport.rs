@@ -1,13 +1,15 @@
 use anyhow::{anyhow, Result};
 use ioi_drivers::browser::BrowserDriver;
-use reqwest::{redirect, Client};
+use reqwest::{header, redirect, Client};
 use std::time::Duration;
 use tokio::time::timeout;
 
 #[cfg(test)]
 use std::future::Future;
 
-use super::constants::{BROWSER_RETRIEVAL_TIMEOUT_SECS, HTTP_FALLBACK_TIMEOUT_SECS};
+use super::constants::{
+    BROWSER_RETRIEVAL_TIMEOUT_SECS, HTTP_FALLBACK_TIMEOUT_SECS, STRUCTURED_DETAIL_HTTP_TIMEOUT_SECS,
+};
 use super::util::env_flag_enabled;
 
 const DEFAULT_HTTP_USER_AGENT: &str = "ioi-web-retrieve/1.0";
@@ -87,6 +89,10 @@ fn is_timeout_or_hang_message(msg: &str) -> bool {
         || lower.contains("hang")
 }
 
+pub(crate) fn transport_error_is_timeout_or_hang(err: &anyhow::Error) -> bool {
+    is_timeout_or_hang_message(&err.to_string())
+}
+
 #[cfg(test)]
 fn is_browser_unavailable_message(msg: &str) -> bool {
     let lower = msg.to_ascii_lowercase();
@@ -137,30 +143,62 @@ pub(crate) async fn navigate_browser_retrieval(
 }
 
 async fn fetch_html_http_fallback_with_user_agent(url: &str, user_agent: &str) -> Result<String> {
+    let (_, body) = fetch_html_http_fallback_with_user_agent_and_final_url(url, user_agent).await?;
+    Ok(body)
+}
+
+async fn fetch_html_http_fallback_with_user_agent_and_final_url(
+    url: &str,
+    user_agent: &str,
+) -> Result<(String, String)> {
+    fetch_html_http_fallback_with_user_agent_and_final_url_and_timeout(
+        url,
+        user_agent,
+        HTTP_FALLBACK_TIMEOUT_SECS,
+    )
+    .await
+}
+
+async fn fetch_html_http_fallback_with_user_agent_and_final_url_and_timeout(
+    url: &str,
+    user_agent: &str,
+    timeout_secs: u64,
+) -> Result<(String, String)> {
     if env_flag_enabled("IOI_WEB_TEST_FORCE_HTTP_TIMEOUT") {
         return Err(anyhow!("HTTP fallback request timed out (forced): {}", url));
     }
     if let Ok(html) = std::env::var("IOI_WEB_TEST_HTTP_FALLBACK_HTML") {
-        return Ok(html);
+        return Ok((url.to_string(), html));
     }
 
     let client = Client::builder()
         .redirect(redirect::Policy::limited(5))
-        .timeout(Duration::from_secs(HTTP_FALLBACK_TIMEOUT_SECS))
+        .timeout(Duration::from_secs(timeout_secs))
         .user_agent(user_agent)
         .build()
         .map_err(|e| anyhow!("HTTP fallback client init failed: {}", e))?;
 
     let response = client
         .get(url)
+        .header(
+            header::ACCEPT,
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        )
+        .header(header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .header(header::PRAGMA, "no-cache")
+        .header("Upgrade-Insecure-Requests", "1")
         .send()
         .await
         .map_err(|e| anyhow!("HTTP fallback request failed: {}", e))?;
 
-    response
+    let final_url = response.url().to_string();
+    let body = response
         .text()
         .await
-        .map_err(|e| anyhow!("HTTP fallback body read failed: {}", e))
+        .map_err(|e| anyhow!("HTTP fallback body read failed: {}", e))?;
+
+    Ok((final_url, body))
 }
 
 pub(crate) async fn fetch_html_http_fallback(url: &str) -> Result<String> {
@@ -169,6 +207,33 @@ pub(crate) async fn fetch_html_http_fallback(url: &str) -> Result<String> {
 
 pub(crate) async fn fetch_html_http_fallback_browser_ua(url: &str) -> Result<String> {
     fetch_html_http_fallback_with_user_agent(url, STANDARD_WEB_USER_AGENT).await
+}
+
+pub(crate) async fn fetch_html_http_fallback_browser_ua_with_final_url(
+    url: &str,
+) -> Result<(String, String)> {
+    fetch_html_http_fallback_with_user_agent_and_final_url(url, STANDARD_WEB_USER_AGENT).await
+}
+
+pub(crate) async fn fetch_structured_detail_http_fallback_browser_ua(url: &str) -> Result<String> {
+    let (_, body) = fetch_html_http_fallback_with_user_agent_and_final_url_and_timeout(
+        url,
+        STANDARD_WEB_USER_AGENT,
+        STRUCTURED_DETAIL_HTTP_TIMEOUT_SECS,
+    )
+    .await?;
+    Ok(body)
+}
+
+pub(crate) async fn fetch_structured_detail_http_fallback_browser_ua_with_final_url(
+    url: &str,
+) -> Result<(String, String)> {
+    fetch_html_http_fallback_with_user_agent_and_final_url_and_timeout(
+        url,
+        STANDARD_WEB_USER_AGENT,
+        STRUCTURED_DETAIL_HTTP_TIMEOUT_SECS,
+    )
+    .await
 }
 
 #[cfg(test)]

@@ -9,8 +9,11 @@ pub(crate) fn build_citation_candidates(
     run_timestamp_iso_utc: &str,
 ) -> Vec<CitationCandidate> {
     let query_contract = synthesis_query_contract(pending);
-    let single_snapshot_mode = prefers_single_fact_snapshot(&query_contract);
-    let headline_lookup_mode = query_is_generic_headline_collection(&query_contract);
+    let retrieval_contract = pending.retrieval_contract.as_ref();
+    let single_snapshot_mode =
+        retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract);
+    let headline_lookup_mode =
+        retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
     let citation_usable_url = |url: &str| {
         let trimmed = url.trim();
         if trimmed.is_empty() || !is_citable_web_url(trimmed) {
@@ -103,8 +106,16 @@ pub(crate) fn build_citation_candidates(
                 return None;
             }
             let excerpt = {
-                let prioritized = prioritized_signal_excerpt(source.excerpt.as_str(), 180);
-                if prioritized.is_empty() || !excerpt_has_claim_signal(&prioritized) {
+                let prioritized = prioritized_query_grounding_excerpt_with_contract(
+                    retrieval_contract,
+                    &query_contract,
+                    pending.min_sources as usize,
+                    &url,
+                    source_label.as_str(),
+                    source.excerpt.as_str(),
+                    180,
+                );
+                if prioritized.is_empty() {
                     String::new()
                 } else {
                     prioritized

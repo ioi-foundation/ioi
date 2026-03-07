@@ -1,5 +1,7 @@
+use crate::agentic::desktop::service::step::queue::web_pipeline::query_is_generic_headline_collection;
+use crate::agentic::desktop::service::step::queue::web_pipeline::source_has_human_challenge_signal;
 use crate::agentic::desktop::service::step::signals::{
-    analyze_query_facets, query_semantic_anchor_tokens,
+    analyze_query_facets, analyze_source_record_signals, query_semantic_anchor_tokens,
 };
 use ioi_types::app::agentic::WebSource;
 use std::collections::HashSet;
@@ -143,6 +145,20 @@ pub(crate) fn filter_provider_sources_by_query_anchors(
     query: &str,
     sources: Vec<WebSource>,
 ) -> Vec<WebSource> {
+    rank_provider_sources_by_query_anchors(query, sources)
+}
+
+pub(crate) fn rank_provider_sources_by_query_anchors(
+    query: &str,
+    sources: Vec<WebSource>,
+) -> Vec<WebSource> {
+    if query_is_generic_headline_collection(query) {
+        return sources;
+    }
+    let query_facets = analyze_query_facets(query);
+    let strict_only_grounding = query_facets.grounded_external_required
+        || query_facets.time_sensitive_public_fact
+        || query_facets.locality_sensitive_public_fact;
     let semantic_tokens = semantic_search_anchor_tokens(query);
     let query_scope_tokens = query_scope_tokens(query);
     let mut query_tokens = semantic_tokens.clone();
@@ -160,26 +176,59 @@ pub(crate) fn filter_provider_sources_by_query_anchors(
         semantic_query_tokens
     };
     let required_overlap = required_source_anchor_overlap(query, query_tokens.len());
+    let scope_overlap_required = !query_scope_tokens.is_empty();
     let mut strict_matches = Vec::new();
     let mut fallback_ranked = Vec::new();
 
     for source in sources {
+        let title = source.title.as_deref().unwrap_or_default();
+        let snippet = source.snippet.as_deref().unwrap_or_default();
+        let strict_quality_ok = if strict_only_grounding {
+            if source_has_human_challenge_signal(&source.url, title, snippet) {
+                false
+            } else {
+                let signals = analyze_source_record_signals(&source.url, title, snippet);
+                !(signals.low_priority_hits > 0 || signals.low_priority_dominates())
+            }
+        } else {
+            true
+        };
+        let source_tokens = search_anchor_tokens(&format!("{} {} {}", source.url, title, snippet));
         let (anchor_overlap, semantic_overlap) =
             source_anchor_overlap_metrics(&source, &query_tokens, &semantic_query_tokens);
+        let scope_overlap = source_anchor_overlap_count(&query_scope_tokens, &source_tokens);
+        let locality_guard_satisfied = !scope_overlap_required || scope_overlap > 0;
         let strict_match = anchor_overlap >= required_overlap
             && (semantic_query_tokens.is_empty()
                 || semantic_overlap >= SEARCH_ANCHOR_SEMANTIC_MIN_OVERLAP);
-        if strict_match {
-            strict_matches.push(source);
+        if strict_match && locality_guard_satisfied && strict_quality_ok {
+            strict_matches.push((source, anchor_overlap, semantic_overlap));
             continue;
         }
-        if anchor_overlap > 0 || semantic_overlap > 0 {
+        if locality_guard_satisfied
+            && (anchor_overlap > 0 || semantic_overlap > 0)
+            && (!strict_only_grounding || strict_quality_ok)
+        {
             fallback_ranked.push((source, anchor_overlap, semantic_overlap));
         }
     }
 
     if !strict_matches.is_empty() {
-        return strict_matches;
+        strict_matches.sort_by(|left, right| {
+            right
+                .2
+                .cmp(&left.2)
+                .then_with(|| right.1.cmp(&left.1))
+                .then_with(|| left.0.url.cmp(&right.0.url))
+        });
+        return strict_matches
+            .into_iter()
+            .map(|(source, _, _)| source)
+            .collect();
+    }
+
+    if strict_only_grounding {
+        return Vec::new();
     }
 
     fallback_ranked.sort_by(|left, right| {

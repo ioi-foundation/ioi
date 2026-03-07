@@ -2,10 +2,10 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    action_has_hard_error_class, contains_any, has_cec_receipt, has_cec_stage,
-    has_contract_failure_evidence, has_tool_with_token, has_verification_pair, truncate_chars,
-    verification_bool, verification_u64, verification_value, ExecutionProfile, LocalCheck,
-    LocalJudgeResult, QueryCase, RunObservation,
+    has_cec_receipt, has_cec_stage, has_contract_failure_evidence, has_tool_with_token,
+    has_verification_pair, truncate_chars, uri_scheme, verification_bool, verification_u64,
+    verification_value, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase,
+    RunObservation,
 };
 
 const CASE_ID: &str =
@@ -42,25 +42,27 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let reply_lower = obs.final_reply.to_ascii_lowercase();
-    let action_output_blob = obs
-        .action_evidence
-        .iter()
-        .map(|entry| entry.output_excerpt.as_str())
-        .collect::<Vec<_>>()
-        .join("\n");
-    let output_lower = action_output_blob.to_ascii_lowercase();
+    let Some(mail) = obs.mail.as_ref() else {
+        return LocalJudgeResult::from_checks(vec![
+            LocalCheck::new(
+                "mail_observation_present",
+                false,
+                "missing typed mail observation",
+            ),
+            LocalCheck::new(
+                "completion_evidence_present",
+                false,
+                format!("status={} failed={}", obs.final_status, obs.failed),
+            ),
+        ]);
+    };
 
-    let mail_reply_success_count = obs
-        .action_evidence
-        .iter()
-        .filter(|entry| is_mail_reply_success_event(entry))
-        .count();
-    let mail_reply_failure_count = obs
-        .action_evidence
-        .iter()
-        .filter(|entry| is_mail_reply_failure_event(entry))
-        .count();
+    let mail_reply_success_count = mail.reply_success_count;
+    let mail_reply_failure_count = mail.reply_failure_count;
+    let latest_payload = mail.reply_payloads.last();
+    let payload_debug = latest_payload
+        .and_then(|payload| serde_json::to_string(payload).ok())
+        .unwrap_or_else(|| "null".to_string());
 
     let mail_tool_action_seen = has_tool_with_token(&obs.action_tools, "mail_reply");
     let mail_tool_route_seen = has_tool_with_token(&obs.routing_tools, "mail_reply");
@@ -90,31 +92,32 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || has_tool_with_token(&obs.workload_tools, "mail_list_recent")
         || has_tool_with_token(&obs.workload_tools, "mail_delete_spam");
 
-    let to_field_present = output_lower.contains("\"to\":");
-    let redacted_to_field_present = output_lower.contains("\"to\":\"<redacted:email>\"")
-        || output_lower.contains("\"to\": \"<redacted:email>\"");
-    let reply_recipient_present =
-        reply_lower.contains(EXPECTED_RECIPIENT) || reply_lower.contains("<redacted:email>");
-    let recipient_binding_present = output_lower
-        .contains(&format!("\"to\":\"{}\"", EXPECTED_RECIPIENT))
-        || output_lower.contains(&format!("\"to\": \"{}\"", EXPECTED_RECIPIENT))
-        || redacted_to_field_present
-        || (to_field_present && reply_recipient_present);
-    let sent_message_id_present = output_lower.contains("\"sent_message_id\":");
-    let mailbox_output_present = output_lower.contains("\"mailbox\":");
-    let citation_field_present = output_lower.contains("\"citation\":");
-    let mailto_citation_present = output_lower.contains(&format!("mailto:{}", EXPECTED_RECIPIENT))
-        || (citation_field_present && output_lower.contains("<redacted:email>"))
-        || citation_field_present;
-    let schedule_change_evidence_present = schedule_change_phrase_present(&output_lower)
-        || schedule_change_phrase_present(&reply_lower);
+    let recipient_binding_present = latest_payload
+        .and_then(|payload| payload.to.as_deref())
+        .map(|value| value.eq_ignore_ascii_case(EXPECTED_RECIPIENT))
+        .unwrap_or(false);
+    let sent_message_id_present = latest_payload
+        .and_then(|payload| payload.sent_message_id.as_deref())
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false);
+    let mailbox_output_present = latest_payload
+        .and_then(|payload| payload.mailbox.as_deref())
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false);
+    let mailto_citation_present = latest_payload
+        .and_then(|payload| payload.citation.as_deref())
+        .and_then(uri_scheme)
+        .map(|scheme| scheme == "mailto")
+        .unwrap_or(false);
+    let payload_synthesis_receipt_present =
+        has_cec_receipt(obs, "provider_selection", "payload_synthesis", Some(true));
     let objective_specific_mail_send_evidence_present = mail_reply_success_count > 0
         && mail_reply_failure_count == 0
         && recipient_binding_present
         && sent_message_id_present
         && mailbox_output_present
         && mailto_citation_present
-        && schedule_change_evidence_present;
+        && payload_synthesis_receipt_present;
 
     let setup_env_loaded = has_verification_pair(obs, "env_receipt::mail_env_file_loaded", "true");
     let setup_connector_bootstrap =
@@ -164,39 +167,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let cec_phase_receipts_present =
         cec_execution_seen && cec_verification_seen && cec_completion_gate_seen;
 
-    let mailbox_runtime_fallback_markers_present =
-        verification_bool(obs, "mailbox_connector_path_required").unwrap_or(false)
-            || verification_bool(obs, "mailbox_non_connector_tool_blocked").unwrap_or(false)
-            || verification_bool(obs, "mailbox_invalid_tool_call_fail_fast").unwrap_or(false)
-            || verification_bool(obs, "mailbox_system_fail_degraded_to_reply").unwrap_or(false);
-    let mailbox_response_fallback_markers_present = has_mailbox_fallback_marker(&obs.final_reply)
-        || obs
-            .event_excerpt
-            .iter()
-            .any(|line| has_mailbox_fallback_marker(line));
-    let mailbox_fallback_markers_present =
-        mailbox_runtime_fallback_markers_present || mailbox_response_fallback_markers_present;
-    let no_mailbox_fallback_markers = !mailbox_fallback_markers_present;
-
-    let any_contract_failure_marker =
-        has_contract_failure_evidence(obs) || has_mailbox_runtime_failure_marker(obs);
+    let no_mailbox_fallback_markers = !mail.fallback_marker_present;
+    let any_contract_failure_marker = has_contract_failure_evidence(obs);
     let completion_evidence_present = obs.completed
         && !obs.failed
-        && ((!obs.final_reply.trim().is_empty() && obs.chat_reply_count > 0)
-            || objective_specific_mail_send_evidence_present);
-    let reply_addresses_user_request = !obs.final_reply.trim().is_empty()
-        && contains_any(
-            &reply_lower,
-            &[
-                "email",
-                "sent",
-                "standup",
-                "2 pm",
-                "2:00 pm",
-                "moved",
-                EXPECTED_RECIPIENT,
-            ],
-        );
+        && (objective_specific_mail_send_evidence_present || obs.chat_reply_count > 0);
 
     let environment_receipts = build_environment_receipts(
         obs,
@@ -228,7 +203,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             && !disallowed_mail_tool_seen,
         connector_environment_setup_receipts_present && environment_receipts_satisfied,
         cec_phase_receipts_present,
-        reply_addresses_user_request,
+        no_mailbox_fallback_markers,
     ]
     .into_iter()
     .filter(|flag| *flag)
@@ -253,14 +228,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_specific_mail_send_evidence_present",
             objective_specific_mail_send_evidence_present,
             format!(
-                "mail_reply_success_count={} mail_reply_failure_count={} recipient_binding_present={} sent_message_id_present={} mailbox_output_present={} mailto_citation_present={} schedule_change_evidence_present={}",
+                "mail_reply_success_count={} mail_reply_failure_count={} recipient_binding_present={} sent_message_id_present={} mailbox_output_present={} mailto_citation_present={} payload_synthesis_receipt_present={} payload={}",
                 mail_reply_success_count,
                 mail_reply_failure_count,
                 recipient_binding_present,
                 sent_message_id_present,
                 mailbox_output_present,
                 mailto_citation_present,
-                schedule_change_evidence_present
+                payload_synthesis_receipt_present,
+                payload_debug
             ),
         ),
         LocalCheck::new(
@@ -300,8 +276,12 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             no_mailbox_fallback_markers,
             truncate_chars(
                 &format!(
-                    "mailbox_fallback_markers_present={} verification_checks={:?} final_reply={} event_excerpt={:?}",
-                    mailbox_fallback_markers_present, obs.verification_checks, obs.final_reply, obs.event_excerpt
+                    "fallback_marker_present={} connector_path_required={} non_connector_tool_blocked={} invalid_tool_call_fail_fast={} system_fail_degraded_to_reply={}",
+                    mail.fallback_marker_present,
+                    mail.connector_path_required,
+                    mail.non_connector_tool_blocked,
+                    mail.invalid_tool_call_fail_fast,
+                    mail.system_fail_degraded_to_reply
                 ),
                 280,
             ),
@@ -311,8 +291,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             !any_contract_failure_marker && mail_reply_failure_count == 0,
             truncate_chars(
                 &format!(
-                    "mail_reply_failure_count={} verification_checks={:?} final_reply={} action_output={}",
-                    mail_reply_failure_count, obs.verification_checks, obs.final_reply, action_output_blob
+                    "mail_reply_failure_count={} contract_failure_evidence_present={} payload={}",
+                    mail_reply_failure_count,
+                    has_contract_failure_evidence(obs),
+                    payload_debug
                 ),
                 280,
             ),
@@ -326,66 +308,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "independent_runtime_evidence_channels_present",
             independent_runtime_evidence_channels_present,
             format!(
-                "independent_channel_count={} objective_specific_mail_send_evidence_present={} reply_addresses_user_request={}",
+                "independent_channel_count={} objective_specific_mail_send_evidence_present={} no_mailbox_fallback_markers={}",
                 independent_channel_count,
                 objective_specific_mail_send_evidence_present,
-                reply_addresses_user_request
+                no_mailbox_fallback_markers
             ),
         ),
     ];
 
     LocalJudgeResult::from_checks(checks)
-}
-
-fn is_mail_reply_success_event(entry: &super::super::types::ActionEvidence) -> bool {
-    let lower = entry.output_excerpt.to_ascii_lowercase();
-    let status_lower = entry.agent_status.to_ascii_lowercase();
-    let non_failure_status = !contains_any(
-        &status_lower,
-        &[
-            "fail", "error", "blocked", "deny", "reject", "terminal", "abort",
-        ],
-    );
-
-    is_mail_reply_tool_name(&entry.tool_name)
-        && non_failure_status
-        && !action_has_hard_error_class(entry)
-        && (lower.contains("\"operation\":\"mail_reply@v1\"")
-            || lower.contains("\"operation\": \"mail_reply@v1\""))
-}
-
-fn is_mail_reply_failure_event(entry: &super::super::types::ActionEvidence) -> bool {
-    if !is_mail_reply_tool_name(&entry.tool_name) {
-        return false;
-    }
-    entry.agent_status.eq_ignore_ascii_case("failed") || action_has_hard_error_class(entry)
-}
-
-fn is_mail_reply_tool_name(tool_name: &str) -> bool {
-    let lower = tool_name.to_ascii_lowercase();
-    lower == "wallet_network__mail_reply"
-        || lower == "wallet_mail_reply"
-        || lower == "mail__reply"
-        || lower.contains("mail_reply")
-}
-
-fn schedule_change_phrase_present(text: &str) -> bool {
-    let has_standup = text.contains("standup");
-    let has_move_or_change = text.contains("moved")
-        || text.contains("rescheduled")
-        || text.contains("moved to")
-        || text.contains("move to")
-        || text.contains("time change")
-        || text.contains("schedule change")
-        || text.contains("change")
-        || text.contains("change of")
-        || text.contains("change in")
-        || text.contains("changed");
-    let has_two_pm = text.contains("2 pm")
-        || text.contains("2:00 pm")
-        || text.contains("2pm")
-        || text.contains("14:00");
-    has_standup && (has_move_or_change || has_two_pm)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -474,46 +405,4 @@ fn build_environment_receipts(
 
 fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
     serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
-}
-
-fn has_mailbox_fallback_marker(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    [
-        "mailbox_connector_path_required=true",
-        "mailbox_non_connector_tool_blocked=true",
-        "mailbox_invalid_tool_call_fail_fast=true",
-        "mailbox_system_fail_degraded_to_reply=true",
-        "cannot access your mailbox",
-        "access limitation",
-        "mailbox content cannot be verified without direct mailbox access",
-    ]
-    .iter()
-    .any(|marker| lower.contains(marker))
-}
-
-fn has_mailbox_runtime_failure_marker(obs: &RunObservation) -> bool {
-    [
-        "wallet_network service is not active in the servicedirectory",
-        "unable to resolve wallet mail channel_id",
-        "unable to resolve wallet mail lease_id",
-        "mail connector for mailbox",
-        "no wallet mail lease binding available",
-        "lease does not authorize mail reply capability",
-        "channel does not authorize mail reply capability",
-        "mail_reply requires non-empty to, subject, and body",
-        "smtp send failed",
-    ]
-    .iter()
-    .any(|marker| {
-        let marker = marker.to_ascii_lowercase();
-        obs.final_reply.to_ascii_lowercase().contains(&marker)
-            || obs
-                .action_evidence
-                .iter()
-                .any(|entry| entry.output_excerpt.to_ascii_lowercase().contains(&marker))
-            || obs
-                .event_excerpt
-                .iter()
-                .any(|line| line.to_ascii_lowercase().contains(&marker))
-    })
 }

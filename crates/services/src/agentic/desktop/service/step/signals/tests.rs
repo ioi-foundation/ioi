@@ -82,6 +82,17 @@ fn source_signals_demote_headline_roundup_and_horoscope_content() {
 }
 
 #[test]
+fn source_signals_demote_community_discussion_surfaces() {
+    let discussion = analyze_source_record_signals(
+        "https://community.example.com/discussions/bitcoin-price-outlook",
+        "Bitcoin price outlook discussion thread",
+        "Community discussion about where the price goes next.",
+    );
+    assert!(discussion.low_priority_hits > 0);
+    assert!(discussion.low_priority_dominates());
+}
+
+#[test]
 fn source_signals_prefer_primary_status_surface_over_secondary_aggregation() {
     let primary = analyze_source_record_signals(
         "https://status.vendor-a.com/incidents/12345",
@@ -174,6 +185,16 @@ fn live_external_research_detects_time_sensitive_public_fact_lookups() {
 }
 
 #[test]
+fn live_external_research_detects_local_business_lookup_queries() {
+    assert!(is_live_external_research_goal(
+        "Find the three best-reviewed Italian restaurants near me and compare their menus."
+    ));
+    assert!(!is_live_external_research_goal(
+        "Compare the restaurant menu components defined in this repository."
+    ));
+}
+
+#[test]
 fn mailbox_tool_name_signal_matches_connector_prefixes() {
     assert!(is_mail_connector_tool_name(
         "wallet_network__mail_read_latest"
@@ -212,6 +233,9 @@ fn price_quote_signal_requires_explicit_quote_shape() {
     assert!(!has_price_quote_payload(
         "2 million BTC valued at about $36 billion at the current price."
     ));
+    assert!(!has_price_quote_payload(
+        "84 per (BTC / USD) with a current market cap of $1,364."
+    ));
 }
 
 #[test]
@@ -229,6 +253,28 @@ fn query_facets_capture_time_sensitive_public_fact_contract() {
 }
 
 #[test]
+fn query_facets_capture_local_business_locality_contract() {
+    let facets = analyze_query_facets(
+        "Find the three best-reviewed Italian restaurants near me and compare their menus.",
+    );
+    assert!(!facets.time_sensitive_public_fact);
+    assert!(facets.locality_sensitive_public_fact);
+    assert!(facets.grounded_external_required);
+    assert!(!facets.workspace_constrained);
+}
+
+#[test]
+fn query_facets_capture_explicit_scope_local_business_contract() {
+    let facets = analyze_query_facets(
+        "Find the three best-reviewed Italian restaurants in New York, NY and compare their menus.",
+    );
+    assert!(!facets.time_sensitive_public_fact);
+    assert!(facets.locality_sensitive_public_fact);
+    assert!(facets.grounded_external_required);
+    assert!(!facets.workspace_constrained);
+}
+
+#[test]
 fn semantic_anchor_tokens_exclude_structural_directives() {
     let query = "Current weather in Anderson, SC right now with sources and UTC timestamp.";
     let structural = query_structural_directive_tokens(query);
@@ -242,4 +288,27 @@ fn semantic_anchor_tokens_exclude_structural_directives() {
     assert!(!semantic.contains("sources"));
     assert!(!semantic.contains("utc"));
     assert!(!semantic.contains("timestamp"));
+}
+
+#[test]
+fn semantic_anchor_tokens_keep_local_business_entities_but_drop_control_terms() {
+    let query = "Find the three best-reviewed Italian restaurants near me and compare their menus.";
+    let structural = query_structural_directive_tokens(query);
+    assert!(structural.contains("find"));
+    assert!(structural.contains("three"));
+    assert!(structural.contains("best"));
+    assert!(structural.contains("reviewed"));
+    assert!(structural.contains("compare"));
+    assert!(structural.contains("near"));
+
+    let semantic = query_semantic_anchor_tokens(query);
+    assert!(semantic.contains("italian"));
+    assert!(semantic.contains("restaurants"));
+    assert!(semantic.contains("menus"));
+    assert!(!semantic.contains("find"));
+    assert!(!semantic.contains("three"));
+    assert!(!semantic.contains("best"));
+    assert!(!semantic.contains("reviewed"));
+    assert!(!semantic.contains("compare"));
+    assert!(!semantic.contains("near"));
 }

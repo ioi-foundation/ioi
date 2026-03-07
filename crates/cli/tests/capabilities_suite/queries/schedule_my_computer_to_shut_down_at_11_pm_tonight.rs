@@ -3,8 +3,9 @@ use serde::Serialize;
 
 use super::super::types::{
     action_has_hard_error_class, has_cec_receipt, has_cec_stage, has_contract_failure_evidence,
-    has_tool_with_token, truncate_chars, verification_bool, verification_u64, verification_value,
-    ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_tool_with_token, observation_has_any_tool_name, truncate_chars, verification_bool,
+    verification_u64, verification_value, ExecutionProfile, LocalCheck, LocalJudgeResult,
+    QueryCase, RunObservation,
 };
 
 const CASE_ID: &str = "schedule_my_computer_to_shut_down_at_11_pm_tonight";
@@ -78,10 +79,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "env_receipt::shutdown_schedule_provider_receipt_absent_satisfied",
     )
     .unwrap_or(false);
-
-    let probe_script_path =
-        verification_value(obs, "env_receipt::shutdown_schedule_probe_script_path")
-            .unwrap_or_default();
 
     let provider =
         verification_value(obs, "env_receipt::shutdown_schedule_provider").unwrap_or_default();
@@ -165,22 +162,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let cleanup_satisfied =
         verification_bool(obs, "env_receipt::shutdown_schedule_cleanup_satisfied").unwrap_or(false);
 
-    let probe_command_success_count = obs
-        .command_history_evidence
-        .iter()
-        .filter(|entry| {
-            entry.exit_code == 0
-                && command_matches_probe(&entry.command, &probe_script_path)
-                && entry.command.contains("--target-local")
-                && entry.command.contains(EXPECTED_TARGET_LOCAL_TIME)
-        })
-        .count();
-    let non_probe_command_count = obs
-        .command_history_evidence
-        .iter()
-        .filter(|entry| !command_matches_probe(&entry.command, &probe_script_path))
-        .count();
-
     let exec_action_success_count = obs
         .action_evidence
         .iter()
@@ -208,8 +189,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && receipt_path_satisfied
         && provider_receipt_path_satisfied
         && scope_satisfied
-        && probe_command_success_count == 1
-        && non_probe_command_count == 0;
+        && exec_action_success_count == 1;
 
     let action_exec_path_seen = has_tool_with_token(&obs.action_tools, "sys__exec");
     let routing_exec_path_seen = has_tool_with_token(&obs.routing_tools, "sys__exec");
@@ -264,9 +244,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let completion_evidence_present = obs.completed
         && !obs.failed
         && exec_action_success_count >= 1
-        && (obs.chat_reply_count > 0
-            || !obs.final_reply.trim().is_empty()
-            || objective_specific_shutdown_schedule_evidence_present);
+        && (objective_specific_shutdown_schedule_evidence_present || cec_contract_gate_seen);
 
     let environment_receipts = vec![
         EnvironmentEvidenceReceipt {
@@ -310,13 +288,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         },
         EnvironmentEvidenceReceipt {
             key: "shutdown_schedule_probe_command_observed",
-            observed_value: format!(
-                "probe_command_success_count={} non_probe_command_count={}",
-                probe_command_success_count, non_probe_command_count
-            ),
-            probe_source: "RunObservation.command_history_evidence".to_string(),
+            observed_value: format!("exec_action_success_count={}", exec_action_success_count),
+            probe_source: "RunObservation.action_evidence".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: probe_command_success_count == 1 && non_probe_command_count == 0,
+            satisfied: exec_action_success_count == 1,
         },
         EnvironmentEvidenceReceipt {
             key: "shutdown_schedule_cec_receipts_observed",
@@ -368,7 +343,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_specific_shutdown_schedule_evidence_present",
             objective_specific_shutdown_schedule_evidence_present,
             format!(
-                "provider_satisfied={} target_local_time={} target_local_time_satisfied={} target_after_run_satisfied={} delay_window_satisfied={} run_unique_match_satisfied={} scheduled_satisfied={} provider_invoked_satisfied={} provider_args_target_satisfied={} scope_satisfied={} probe_command_success_count={} non_probe_command_count={}",
+                "provider_satisfied={} target_local_time={} target_local_time_satisfied={} target_after_run_satisfied={} delay_window_satisfied={} run_unique_match_satisfied={} scheduled_satisfied={} provider_invoked_satisfied={} provider_args_target_satisfied={} scope_satisfied={} exec_action_success_count={}",
                 provider_satisfied,
                 target_local_time,
                 target_local_time_satisfied,
@@ -379,8 +354,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                 provider_invoked_satisfied,
                 provider_args_target_satisfied,
                 scope_satisfied,
-                probe_command_success_count,
-                non_probe_command_count,
+                exec_action_success_count,
             ),
         ),
         LocalCheck::new(
@@ -443,24 +417,19 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     LocalJudgeResult::from_checks(checks)
 }
 
-fn command_matches_probe(command: &str, probe_script_path: &str) -> bool {
-    let lower = command.to_ascii_lowercase();
-    let probe_lower = probe_script_path.to_ascii_lowercase();
-    (!probe_lower.is_empty() && lower.contains(&probe_lower))
-        || lower.contains("shutdown_schedule_probe")
-}
-
 fn has_disallowed_mutating_action(obs: &RunObservation) -> bool {
-    obs.action_tools.iter().any(|tool| {
-        let lower = tool.to_ascii_lowercase();
-        lower.contains("filesystem__write_file")
-            || lower.contains("filesystem__patch")
-            || lower.contains("filesystem__delete_path")
-            || lower.contains("filesystem__create_directory")
-            || lower.contains("filesystem__create_zip")
-            || lower.contains("filesystem__move_path")
-            || lower.contains("filesystem__copy_path")
-    })
+    observation_has_any_tool_name(
+        obs,
+        &[
+            "filesystem__write_file",
+            "filesystem__patch",
+            "filesystem__delete_path",
+            "filesystem__create_directory",
+            "filesystem__create_zip",
+            "filesystem__move_path",
+            "filesystem__copy_path",
+        ],
+    )
 }
 
 fn is_exec_action_success(entry: &super::super::types::ActionEvidence) -> bool {

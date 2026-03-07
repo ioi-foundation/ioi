@@ -1,4 +1,6 @@
+use crate::agentic::desktop::service::step::action::command_contract::format_utc_rfc3339;
 use ioi_types::app::agentic::{AgentTool, ResolvedIntentState};
+use std::collections::HashMap;
 use std::path::Path;
 
 const COMMAND_HISTORY_PREFIX: &str = "COMMAND_HISTORY:";
@@ -79,6 +81,32 @@ fn extract_command_history_clock_line(output: &str) -> Option<String> {
         .map(|line| line.to_string())
 }
 
+fn extract_command_history_metadata(output: &str) -> Option<serde_json::Value> {
+    let marker_idx = output.find(COMMAND_HISTORY_PREFIX)?;
+    let suffix = &output[marker_idx + COMMAND_HISTORY_PREFIX.len()..];
+    let payload = suffix.lines().next().unwrap_or_default().trim();
+    if payload.is_empty() {
+        return None;
+    }
+    serde_json::from_str::<serde_json::Value>(payload).ok()
+}
+
+fn extract_command_history_stdout(output: &str) -> Option<String> {
+    let metadata = extract_command_history_metadata(output)?;
+    metadata
+        .get("stdout")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn extract_command_history_timestamp_ms(output: &str) -> Option<u64> {
+    extract_command_history_metadata(output)?
+        .get("timestamp_ms")
+        .and_then(|value| value.as_u64())
+}
+
 pub fn summarize_system_clock_output(output: &str) -> Option<String> {
     let trimmed = output.trim();
     if trimmed.is_empty() {
@@ -96,6 +124,125 @@ pub fn summarize_system_clock_output(output: &str) -> Option<String> {
         return Some(ts);
     }
     None
+}
+
+pub fn summarize_math_eval_output(output: &str) -> Option<String> {
+    let trimmed = output.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let candidate = trimmed
+        .strip_prefix("Math result:")
+        .map(str::trim)
+        .or_else(|| {
+            trimmed
+                .lines()
+                .map(str::trim)
+                .find(|line| !line.is_empty())
+                .and_then(|line| line.strip_prefix("Math result:"))
+                .map(str::trim)
+        })?;
+    if candidate.is_empty() {
+        return None;
+    }
+
+    let normalized = candidate.replace(',', "");
+    normalized.parse::<f64>().ok()?;
+    Some(candidate.to_string())
+}
+
+fn parse_key_value_lines(text: &str) -> HashMap<String, String> {
+    let mut values = HashMap::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Some((raw_key, raw_value)) = trimmed.split_once('=') else {
+            continue;
+        };
+        let key = raw_key.trim().to_ascii_lowercase();
+        let value = raw_value.trim();
+        if key.is_empty() || value.is_empty() {
+            continue;
+        }
+        values.insert(key, value.to_string());
+    }
+    values
+}
+
+fn parse_memory_probe_rows(text: &str) -> Vec<(u32, String, String, String)> {
+    let mut rows = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if !trimmed.starts_with("row|") {
+            continue;
+        }
+        let mut parts = trimmed.split('|');
+        let marker = parts.next().unwrap_or_default();
+        let rank_raw = parts.next().unwrap_or_default().trim();
+        let app = parts.next().unwrap_or_default().trim();
+        let pid = parts.next().unwrap_or_default().trim();
+        let rss_kb = parts.next().unwrap_or_default().trim();
+        if marker != "row"
+            || app.is_empty()
+            || pid.is_empty()
+            || rss_kb.is_empty()
+            || parts.next().is_some()
+        {
+            continue;
+        }
+        let Ok(rank) = rank_raw.parse::<u32>() else {
+            continue;
+        };
+        rows.push((rank, app.to_string(), pid.to_string(), rss_kb.to_string()));
+    }
+    rows.sort_by_key(|row| row.0);
+    rows
+}
+
+pub fn summarize_structured_command_receipt_output(
+    output: &str,
+    run_timestamp_ms: Option<u64>,
+) -> Option<String> {
+    let body = extract_command_history_stdout(output).unwrap_or_else(|| output.to_string());
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let values = parse_key_value_lines(trimmed);
+    let provider = values.get("provider")?;
+    let memory_rows = parse_memory_probe_rows(trimmed);
+    if !memory_rows.is_empty() {
+        let mut summary = format!("Top memory apps by rss_kb via provider '{}':", provider);
+        for (rank, app, pid, rss_kb) in memory_rows {
+            summary.push_str(&format!(
+                "\n{}. {} (pid {}, rss_kb {})",
+                rank, app, pid, rss_kb
+            ));
+        }
+        return Some(summary);
+    }
+
+    if let Some(target_local_time) = values.get("target_local_time") {
+        return Some(format!(
+            "Shutdown scheduled via provider '{}' for local time {}.",
+            provider, target_local_time
+        ));
+    }
+
+    let effective_timestamp_ms =
+        run_timestamp_ms.or_else(|| extract_command_history_timestamp_ms(output));
+    if let Some(run_timestamp_utc) = effective_timestamp_ms.and_then(format_utc_rfc3339) {
+        return Some(format!(
+            "Probe completed via provider '{}' (run timestamp UTC: {}).",
+            provider, run_timestamp_utc
+        ));
+    }
+
+    Some(format!("Probe completed via provider '{}'.", provider))
 }
 
 pub fn summarize_system_clock_or_plain_output(output: &str) -> Option<String> {
@@ -324,6 +471,7 @@ pub fn summarize_command_probe_output(tool: &AgentTool, output: &str) -> Option<
 mod tests {
     use super::{
         is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
+        summarize_math_eval_output, summarize_structured_command_receipt_output,
         summarize_system_clock_or_plain_output, summarize_system_clock_output,
     };
     use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
@@ -423,6 +571,18 @@ mod tests {
     }
 
     #[test]
+    fn summarizes_math_eval_output_with_numeric_result() {
+        let summary =
+            summarize_math_eval_output("Math result: 9,386\n").expect("math result should parse");
+        assert_eq!(summary, "9,386");
+    }
+
+    #[test]
+    fn does_not_summarize_non_math_eval_output() {
+        assert_eq!(summarize_math_eval_output("Created directory /tmp/demo"), None);
+    }
+
+    #[test]
     fn summarizes_not_found_probe() {
         let tool = ioi_types::app::agentic::AgentTool::SysExec {
             command: "sh".to_string(),
@@ -470,5 +630,38 @@ mod tests {
         assert!(summary.contains("gimp is installed"));
         assert!(summary.contains("/usr/bin/gimp"));
         assert!(summary.contains("Version:"));
+    }
+
+    #[test]
+    fn summarizes_structured_shutdown_receipt_output() {
+        let output = "provider=shutdown\ntarget_local_time=23:00\nscheduled=true\n";
+        let summary = summarize_structured_command_receipt_output(output, Some(1_772_000_000_000))
+            .expect("structured shutdown output should summarize");
+        assert!(summary.contains("provider 'shutdown'"));
+        assert!(summary.contains("23:00"));
+    }
+
+    #[test]
+    fn summarizes_structured_top_memory_receipt_output() {
+        let output = "provider=ps\nrow|1|firefox-bin|6795|892632\nrow|2|soffice.bin|58757|795564\n";
+        let summary = summarize_structured_command_receipt_output(output, None)
+            .expect("structured top-memory output should summarize");
+        assert!(summary.contains("Top memory apps"));
+        assert!(summary.contains("firefox-bin"));
+        assert!(summary.contains("pid 6795"));
+        assert!(summary.contains("rss_kb 892632"));
+    }
+
+    #[test]
+    fn summarizes_structured_receipt_output_from_command_history_prefix() {
+        let output = concat!(
+            "COMMAND_HISTORY:{\"command\":\"/tmp/demo/top_memory_apps_probe 5\",\"exit_code\":0,",
+            "\"stdout\":\"provider=ps\\nrow|1|firefox-bin|6795|892632\\n\",",
+            "\"stderr\":\"\",\"timestamp_ms\":1772000000000,\"step_index\":2}\n"
+        );
+        let summary = summarize_structured_command_receipt_output(output, None)
+            .expect("command history stdout should be summarized");
+        assert!(summary.contains("Top memory apps"));
+        assert!(summary.contains("firefox-bin"));
     }
 }

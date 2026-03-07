@@ -34,7 +34,7 @@ use ioi_types::app::{
     MailConnectorUpsertParams, RoutingReceiptEvent, SecretKind, SessionChannelDelegationRules,
     SessionChannelEnvelope, SessionChannelMode, SessionChannelOrdering, SessionChannelRecord,
     SessionChannelState, SessionLease, SessionLeaseMode, SignatureSuite, VaultSecretRecord,
-    WorkloadReceipt,
+    WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt,
 };
 use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
@@ -53,8 +53,12 @@ use tokio::sync::broadcast;
 use zip::ZipArchive;
 
 use super::types::{
-    parse_verification_facts, ActionEvidence, CecReceiptEvidence, CommandHistoryEvidence,
-    QueryCase, RunObservation,
+    cec_receipt_bool, cec_receipt_usize, cec_receipt_value, cec_receipt_values,
+    has_policy_decision, has_verification_pair, observation_has_any_tool_name,
+    observation_has_tool_name, parse_verification_fact, parse_verification_facts, ActionEvidence,
+    CecReceiptEvidence, CommandHistoryEvidence, EnvironmentReceiptObservation, MailObservation,
+    MailReadLatestPayloadObservation, MailReplyPayloadObservation, PlannedToolCallEvidence,
+    QueryCase, RunObservation, ScreenshotObservation, WebObservation,
 };
 
 #[derive(Clone)]
@@ -150,6 +154,11 @@ const VLC_INSTALL_CASE_ID: &str = "download_and_install_vlc_media_player";
 const VLC_INSTALL_UNSEEDED_CASE_ID: &str = "download_and_install_vlc_media_player_unseeded";
 const VLC_INSTALL_FIXTURE_MODE: &str = "apt_get_vlc_fixture_v1";
 const VLC_INSTALL_FIXTURE_PROBE_SOURCE: &str = "harness.vlc_install_fixture";
+const DESKTOP_PROJECT_CREATE_CASE_ID: &str =
+    "create_a_new_folder_on_my_desktop_called_project_some_number";
+const DESKTOP_PROJECT_CREATE_FIXTURE_MODE: &str = "desktop_project_create_fixture_v1";
+const DESKTOP_PROJECT_CREATE_FIXTURE_PROBE_SOURCE: &str =
+    "harness.desktop_project_create_fixture";
 const PROJECTS_ZIP_CASE_ID: &str =
     "compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop";
 const PROJECTS_ZIP_FIXTURE_MODE: &str = "desktop_projects_zip_fixture_v1";
@@ -228,6 +237,12 @@ const MAIL_REPLY_SEND_CASE_ID: &str =
     "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it";
 const MAIL_REPLY_MOCK_FIXTURE_MODE: &str = "mail_reply_mock_driver_fixture_v1";
 const MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE: &str = "harness.mail_reply_mock_driver_fixture";
+const RESTAURANTS_NEAR_ME_CASE_ID: &str =
+    "find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus";
+const RESTAURANTS_NEAR_ME_FIXTURE_MODE: &str = "runtime_locality_observation_fixture_v2";
+const RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE: &str = "harness.restaurants_near_me_fixture";
+const RESTAURANTS_NEAR_ME_FIXTURE_DIR_PREFIX: &str = "ioi_restaurants_near_me_";
+const RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY: &str = "IOI_SESSION_LOCALITY";
 
 #[derive(Debug, Clone)]
 struct MailRuntimeBootstrapConfig {
@@ -265,6 +280,7 @@ struct MailRuntimeSecretSpec {
 struct ScopedEnvVar {
     key: String,
     previous: Option<String>,
+    restored: bool,
 }
 
 impl ScopedEnvVar {
@@ -272,17 +288,29 @@ impl ScopedEnvVar {
         let key = key.into();
         let previous = std::env::var(&key).ok();
         std::env::set_var(&key, value.into());
-        Self { key, previous }
+        Self {
+            key,
+            previous,
+            restored: false,
+        }
     }
-}
 
-impl Drop for ScopedEnvVar {
-    fn drop(&mut self) {
+    fn restore_now(&mut self) {
+        if self.restored {
+            return;
+        }
         if let Some(previous) = self.previous.as_ref() {
             std::env::set_var(&self.key, previous);
         } else {
             std::env::remove_var(&self.key);
         }
+        self.restored = true;
+    }
+}
+
+impl Drop for ScopedEnvVar {
+    fn drop(&mut self) {
+        self.restore_now();
     }
 }
 
@@ -305,6 +333,15 @@ struct ProjectsZipFixtureRuntime {
     projects_dir: PathBuf,
     desktop_dir: PathBuf,
     archive_path: PathBuf,
+}
+
+struct DesktopProjectCreateFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_home: ScopedEnvVar,
+    _env_userprofile: ScopedEnvVar,
+    home_dir: PathBuf,
+    desktop_dir: PathBuf,
+    expected_project_dir: PathBuf,
 }
 
 struct DownloadsLowercaseFixtureRuntime {
@@ -406,6 +443,13 @@ struct MailReplyMockDriverFixtureRuntime {
     _temp_dir: tempfile::TempDir,
     fixture_root: PathBuf,
     manifest_path: PathBuf,
+}
+
+struct RestaurantsNearMeFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    fixture_root: PathBuf,
+    manifest_path: PathBuf,
+    observed_locality: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1082,6 +1126,92 @@ fn extract_command_history_evidence(output: &str) -> Option<CommandHistoryEviden
     })
 }
 
+#[derive(Default)]
+struct ExecWorkloadEvidence {
+    stdout: BTreeMap<u64, String>,
+    stderr: BTreeMap<u64, String>,
+    exit_code: Option<i32>,
+}
+
+impl ExecWorkloadEvidence {
+    fn append_chunk(&mut self, stream: &str, seq: u64, chunk: &str, exit_code: Option<i32>) {
+        if let Some(code) = exit_code {
+            self.exit_code = Some(code);
+        }
+        match stream {
+            "stdout" => {
+                self.stdout.insert(seq, chunk.to_string());
+            }
+            "stderr" => {
+                self.stderr.insert(seq, chunk.to_string());
+            }
+            "status" => {}
+            _ => {}
+        }
+    }
+
+    fn set_exit_code(&mut self, exit_code: Option<i32>) {
+        if let Some(code) = exit_code {
+            self.exit_code = Some(code);
+        }
+    }
+
+    fn stdout_text(&self) -> String {
+        self.stdout.values().cloned().collect::<Vec<_>>().join("")
+    }
+
+    fn stderr_text(&self) -> String {
+        self.stderr.values().cloned().collect::<Vec<_>>().join("")
+    }
+}
+
+fn command_history_key(entry: &CommandHistoryEvidence) -> String {
+    format!(
+        "{}\n{}\n{}\n{}",
+        entry.command, entry.exit_code, entry.stdout, entry.stderr
+    )
+}
+
+fn push_command_history_evidence(
+    command_history_evidence: &mut Vec<CommandHistoryEvidence>,
+    command_history_keys: &mut BTreeSet<String>,
+    entry: CommandHistoryEvidence,
+) {
+    let key = command_history_key(&entry);
+    if command_history_keys.insert(key) {
+        command_history_evidence.push(entry);
+    }
+}
+
+fn command_history_from_exec_workload(
+    exec: &WorkloadExecReceipt,
+    evidence: Option<&ExecWorkloadEvidence>,
+) -> CommandHistoryEvidence {
+    let command = if !exec.command_preview.trim().is_empty() {
+        exec.command_preview.clone()
+    } else if exec.args.is_empty() {
+        exec.command.clone()
+    } else {
+        format!("{} {}", exec.command, exec.args.join(" "))
+    };
+    let exit_code = evidence
+        .and_then(|item| item.exit_code)
+        .or(exec.exit_code)
+        .unwrap_or(if exec.success { 0 } else { 1 });
+    let stdout = evidence
+        .map(ExecWorkloadEvidence::stdout_text)
+        .unwrap_or_default();
+    let stderr = evidence
+        .map(ExecWorkloadEvidence::stderr_text)
+        .unwrap_or_default();
+    CommandHistoryEvidence {
+        command,
+        exit_code,
+        stdout,
+        stderr,
+    }
+}
+
 fn civil_date_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
     let z = days_since_epoch + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -1109,6 +1239,676 @@ fn iso_datetime_from_unix_ms(unix_ms: u64) -> String {
     )
 }
 
+fn typed_receipt_state(observation: &RunObservation, stage: &str, key: &str) -> Option<bool> {
+    observation
+        .cec_receipts
+        .iter()
+        .rev()
+        .find(|receipt| {
+            receipt.stage.eq_ignore_ascii_case(stage) && receipt.key.eq_ignore_ascii_case(key)
+        })
+        .map(|receipt| receipt.satisfied)
+}
+
+fn collect_unique_urls(values: Vec<String>) -> Vec<String> {
+    let mut urls = Vec::new();
+    let mut seen = BTreeSet::new();
+    for value in values {
+        let trimmed = value.trim();
+        if !trimmed.starts_with("http://") && !trimmed.starts_with("https://") {
+            continue;
+        }
+        let key = trimmed.to_ascii_lowercase();
+        if seen.insert(key) {
+            urls.push(trimmed.to_string());
+        }
+    }
+    urls
+}
+
+fn collect_unique_names(values: Vec<String>) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut seen = BTreeSet::new();
+    for value in values {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let key = trimmed.to_ascii_lowercase();
+        if seen.insert(key) {
+            names.push(trimmed.to_string());
+        }
+    }
+    names
+}
+
+#[derive(Debug, Deserialize)]
+struct ProviderCandidateReceiptPayload {
+    provider_id: String,
+    source_count: u32,
+    selected: bool,
+    success: bool,
+    request_url: Option<String>,
+    challenge_reason: Option<String>,
+    #[serde(default)]
+    affordances: Vec<ioi_types::app::agentic::WebRetrievalAffordance>,
+}
+
+fn derive_provider_candidates(
+    observation: &RunObservation,
+) -> Vec<super::types::WebProviderCandidateObservation> {
+    observation
+        .cec_receipts
+        .iter()
+        .filter(|receipt| {
+            receipt.stage.eq_ignore_ascii_case("discovery")
+                && receipt.key.eq_ignore_ascii_case("provider_candidate")
+        })
+        .filter_map(|receipt| receipt.observed_value.as_deref())
+        .filter_map(|payload| serde_json::from_str::<ProviderCandidateReceiptPayload>(payload).ok())
+        .map(|payload| super::types::WebProviderCandidateObservation {
+            provider_id: payload.provider_id,
+            source_count: payload.source_count as usize,
+            selected: payload.selected,
+            success: payload.success,
+            request_url: payload.request_url,
+            challenge_reason: payload.challenge_reason,
+            affordances: payload.affordances,
+        })
+        .collect()
+}
+
+#[derive(Default)]
+struct EnvironmentReceiptAccumulator {
+    observed_values: Vec<String>,
+    probe_source: Option<String>,
+    timestamp_ms: Option<u64>,
+    satisfied: Option<bool>,
+}
+
+fn accumulate_environment_receipts_from_checks(
+    grouped: &mut BTreeMap<String, EnvironmentReceiptAccumulator>,
+    checks: &[String],
+) {
+    for fact in checks.iter().map(|check| parse_verification_fact(check)) {
+        let Some(normalized_key) = fact.key.strip_prefix("env_receipt::") else {
+            continue;
+        };
+        let Some(raw_value) = fact.value else {
+            continue;
+        };
+        let value = raw_value.trim().to_string();
+        let (base_key, field_kind) =
+            if let Some(base) = normalized_key.strip_suffix("_probe_source") {
+                (base, "probe_source")
+            } else if let Some(base) = normalized_key.strip_suffix("_timestamp_ms") {
+                (base, "timestamp_ms")
+            } else if let Some(base) = normalized_key.strip_suffix("_satisfied") {
+                (base, "satisfied")
+            } else {
+                (normalized_key, "observed_value")
+            };
+
+        let entry = grouped.entry(base_key.to_string()).or_default();
+        match field_kind {
+            "probe_source" => {
+                if !value.is_empty() {
+                    entry.probe_source = Some(value);
+                }
+            }
+            "timestamp_ms" => {
+                if let Ok(parsed) = value.parse::<u64>() {
+                    entry.timestamp_ms = Some(parsed);
+                }
+            }
+            "satisfied" => {
+                let normalized = value.to_ascii_lowercase();
+                entry.satisfied = match normalized.as_str() {
+                    "true" | "1" | "yes" => Some(true),
+                    "false" | "0" | "no" => Some(false),
+                    _ => entry.satisfied,
+                };
+            }
+            _ => {
+                if !value.is_empty() && !entry.observed_values.contains(&value) {
+                    entry.observed_values.push(value.clone());
+                }
+                let normalized = value.to_ascii_lowercase();
+                if entry.satisfied.is_none() {
+                    entry.satisfied = match normalized.as_str() {
+                        "true" | "1" | "yes" => Some(true),
+                        "false" | "0" | "no" => Some(false),
+                        _ => None,
+                    };
+                }
+            }
+        }
+    }
+}
+
+fn accumulate_environment_receipts_from_observations(
+    grouped: &mut BTreeMap<String, EnvironmentReceiptAccumulator>,
+    receipts: &[EnvironmentReceiptObservation],
+) {
+    for receipt in receipts {
+        let entry = grouped.entry(receipt.key.clone()).or_default();
+        for value in &receipt.observed_values {
+            if !value.is_empty() && !entry.observed_values.contains(value) {
+                entry.observed_values.push(value.clone());
+            }
+        }
+        if let Some(probe_source) = receipt.probe_source.as_ref() {
+            if !probe_source.trim().is_empty() {
+                entry.probe_source = Some(probe_source.clone());
+            }
+        }
+        if let Some(timestamp_ms) = receipt.timestamp_ms {
+            entry.timestamp_ms = Some(timestamp_ms);
+        }
+        if let Some(satisfied) = receipt.satisfied {
+            entry.satisfied = Some(satisfied);
+        }
+    }
+}
+
+fn finalize_environment_receipts(
+    grouped: BTreeMap<String, EnvironmentReceiptAccumulator>,
+) -> Vec<EnvironmentReceiptObservation> {
+    grouped
+        .into_iter()
+        .map(|(key, entry)| EnvironmentReceiptObservation {
+            key,
+            observed_values: entry.observed_values,
+            probe_source: entry.probe_source,
+            timestamp_ms: entry.timestamp_ms,
+            satisfied: entry.satisfied,
+        })
+        .collect()
+}
+
+fn derive_environment_receipts(checks: &[String]) -> Vec<EnvironmentReceiptObservation> {
+    let mut grouped = BTreeMap::<String, EnvironmentReceiptAccumulator>::new();
+    accumulate_environment_receipts_from_checks(&mut grouped, checks);
+    finalize_environment_receipts(grouped)
+}
+
+fn merge_environment_receipts(
+    existing: Vec<EnvironmentReceiptObservation>,
+    checks: &[String],
+) -> Vec<EnvironmentReceiptObservation> {
+    let mut grouped = BTreeMap::<String, EnvironmentReceiptAccumulator>::new();
+    accumulate_environment_receipts_from_observations(&mut grouped, &existing);
+    accumulate_environment_receipts_from_checks(&mut grouped, checks);
+    finalize_environment_receipts(grouped)
+}
+
+#[derive(Default)]
+struct EnvironmentEvidenceBatch {
+    checks: Vec<String>,
+    receipts: Vec<EnvironmentReceiptObservation>,
+}
+
+trait IntoEnvironmentEvidenceBatch {
+    fn into_environment_evidence_batch(self) -> EnvironmentEvidenceBatch;
+}
+
+impl IntoEnvironmentEvidenceBatch for EnvironmentEvidenceBatch {
+    fn into_environment_evidence_batch(self) -> EnvironmentEvidenceBatch {
+        self
+    }
+}
+
+impl IntoEnvironmentEvidenceBatch for Vec<String> {
+    fn into_environment_evidence_batch(self) -> EnvironmentEvidenceBatch {
+        let receipts = derive_environment_receipts(&self);
+        EnvironmentEvidenceBatch {
+            checks: self,
+            receipts,
+        }
+    }
+}
+
+fn mirror_environment_receipt_checks(receipt: &EnvironmentReceiptObservation) -> Vec<String> {
+    let mut checks = Vec::new();
+    for value in &receipt.observed_values {
+        checks.push(format!("env_receipt::{}={}", receipt.key, value));
+    }
+    if let Some(probe_source) = receipt.probe_source.as_ref() {
+        checks.push(format!(
+            "env_receipt::{}_probe_source={}",
+            receipt.key, probe_source
+        ));
+    }
+    if let Some(timestamp_ms) = receipt.timestamp_ms {
+        checks.push(format!(
+            "env_receipt::{}_timestamp_ms={}",
+            receipt.key, timestamp_ms
+        ));
+    }
+    if let Some(satisfied) = receipt.satisfied {
+        checks.push(format!("env_receipt::{}_satisfied={}", receipt.key, satisfied));
+    }
+    checks
+}
+
+fn push_environment_observation(
+    batch: &mut EnvironmentEvidenceBatch,
+    key: impl Into<String>,
+    observed_value: impl Into<String>,
+) {
+    let receipt = EnvironmentReceiptObservation {
+        key: key.into(),
+        observed_values: vec![observed_value.into()],
+        probe_source: None,
+        timestamp_ms: None,
+        satisfied: None,
+    };
+    batch.checks.extend(mirror_environment_receipt_checks(&receipt));
+    batch.receipts.push(receipt);
+}
+
+fn push_environment_metadata(
+    batch: &mut EnvironmentEvidenceBatch,
+    key: impl Into<String>,
+    probe_source: Option<String>,
+    timestamp_ms: Option<u64>,
+    satisfied: Option<bool>,
+) {
+    let receipt = EnvironmentReceiptObservation {
+        key: key.into(),
+        observed_values: Vec::new(),
+        probe_source,
+        timestamp_ms,
+        satisfied,
+    };
+    batch.checks.extend(mirror_environment_receipt_checks(&receipt));
+    batch.receipts.push(receipt);
+}
+
+fn push_environment_receipt(
+    batch: &mut EnvironmentEvidenceBatch,
+    key: impl Into<String>,
+    observed_value: impl Into<String>,
+    probe_source: Option<String>,
+    timestamp_ms: Option<u64>,
+    satisfied: Option<bool>,
+) {
+    let receipt = EnvironmentReceiptObservation {
+        key: key.into(),
+        observed_values: vec![observed_value.into()],
+        probe_source,
+        timestamp_ms,
+        satisfied,
+    };
+    batch.checks.extend(mirror_environment_receipt_checks(&receipt));
+    batch.receipts.push(receipt);
+}
+
+fn extend_environment_evidence_batch(
+    checks: &mut Vec<String>,
+    receipts: &mut Vec<EnvironmentReceiptObservation>,
+    batch: EnvironmentEvidenceBatch,
+) {
+    checks.extend(batch.checks);
+    receipts.extend(batch.receipts);
+}
+
+fn environment_evidence_batch_from_checks<T>(checks: T) -> EnvironmentEvidenceBatch
+where
+    T: IntoEnvironmentEvidenceBatch,
+{
+    checks.into_environment_evidence_batch()
+}
+
+fn planned_tool_call_from_step(
+    trace: &ioi_types::app::agentic::StepTrace,
+) -> Option<PlannedToolCallEvidence> {
+    let payload = serde_json::from_str::<serde_json::Value>(&trace.raw_output).ok()?;
+    let tool_name = payload.get("name")?.as_str()?.trim();
+    if tool_name.is_empty() {
+        return None;
+    }
+
+    Some(PlannedToolCallEvidence {
+        step_index: trace.step_index,
+        tool_name: tool_name.to_string(),
+        arguments: payload
+            .get("arguments")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null),
+    })
+}
+
+fn derive_web_observation(observation: &RunObservation) -> Option<WebObservation> {
+    let retrieval_contract = cec_receipt_value(observation, "execution", "retrieval_contract")
+        .and_then(|value| serde_json::from_str(&value).ok());
+    let query_contract = cec_receipt_value(observation, "execution", "query_contract");
+    let query_value = cec_receipt_value(observation, "execution", "query_value");
+    let currentness_required = cec_receipt_bool(observation, "execution", "currentness_required");
+    let runtime_locality_required =
+        cec_receipt_bool(observation, "discovery", "runtime_locality_required");
+    let runtime_locality_scope =
+        cec_receipt_value(observation, "discovery", "runtime_locality_scope").filter(|value| {
+            let trimmed = value.trim();
+            !trimmed.is_empty() && !trimmed.eq_ignore_ascii_case("<unset>")
+        });
+    let runtime_locality_alignment = typed_receipt_state(
+        observation,
+        "discovery",
+        "query_contract_locality_alignment",
+    );
+    let semantic_subject_alignment_required = cec_receipt_bool(
+        observation,
+        "discovery",
+        "semantic_subject_alignment_required",
+    );
+    let semantic_subject_alignment_floor_met = typed_receipt_state(
+        observation,
+        "discovery",
+        "semantic_subject_alignment_floor",
+    );
+    let semantic_subject_alignment_urls = collect_unique_urls(cec_receipt_values(
+        observation,
+        "discovery",
+        "semantic_subject_alignment_url",
+    ));
+    let min_sources = cec_receipt_usize(observation, "execution", "min_sources_required");
+    let sources_success = cec_receipt_usize(observation, "verification", "sources_success");
+    let source_floor_met = typed_receipt_state(observation, "verification", "source_floor");
+    let selected_source_quality_floor_met =
+        typed_receipt_state(observation, "verification", "selected_source_quality_floor");
+    let selected_source_subject_alignment_floor_met = typed_receipt_state(
+        observation,
+        "verification",
+        "selected_source_subject_alignment_floor",
+    );
+    let selected_source_urls = collect_unique_urls(cec_receipt_values(
+        observation,
+        "verification",
+        "selected_source_url",
+    ));
+    let selected_source_subject_alignment_urls = collect_unique_urls(cec_receipt_values(
+        observation,
+        "verification",
+        "selected_source_subject_alignment_url",
+    ));
+    let selected_source_count =
+        cec_receipt_usize(observation, "verification", "selected_source_total");
+    let selected_source_distinct_domains = cec_receipt_usize(
+        observation,
+        "verification",
+        "selected_source_distinct_domains",
+    );
+    let local_business_entity_floor_met =
+        typed_receipt_state(observation, "verification", "local_business_entity_floor");
+    let local_business_entity_names = collect_unique_names(cec_receipt_values(
+        observation,
+        "verification",
+        "local_business_entity_name",
+    ));
+    let local_business_entity_source_urls = collect_unique_urls(cec_receipt_values(
+        observation,
+        "verification",
+        "local_business_entity_source_url",
+    ));
+    let story_slots_observed =
+        cec_receipt_usize(observation, "verification", "story_slots_observed");
+    let story_slot_floor_met = typed_receipt_state(observation, "verification", "story_slot_floor");
+    let story_citation_floor_met =
+        typed_receipt_state(observation, "verification", "story_citation_floor");
+    let comparison_ready = typed_receipt_state(observation, "verification", "comparison_ready");
+    let single_snapshot_metric_grounding = typed_receipt_state(
+        observation,
+        "verification",
+        "single_snapshot_metric_grounding",
+    );
+    let provider_candidates = derive_provider_candidates(observation);
+
+    let evidence_present = query_contract
+        .as_ref()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+        || retrieval_contract.is_some()
+        || currentness_required.is_some()
+        || runtime_locality_required.is_some()
+        || semantic_subject_alignment_required.is_some()
+        || min_sources.is_some()
+        || sources_success.is_some()
+        || !selected_source_urls.is_empty()
+        || !semantic_subject_alignment_urls.is_empty()
+        || !provider_candidates.is_empty()
+        || !local_business_entity_names.is_empty()
+        || story_slots_observed.is_some()
+        || observation_has_any_tool_name(observation, &["web__search", "web__read"]);
+    if !evidence_present {
+        return None;
+    }
+
+    Some(WebObservation {
+        retrieval_contract,
+        query_contract,
+        query_value,
+        currentness_required,
+        runtime_locality_required,
+        runtime_locality_scope,
+        runtime_locality_alignment,
+        semantic_subject_alignment_required,
+        semantic_subject_alignment_floor_met,
+        semantic_subject_alignment_urls,
+        min_sources,
+        sources_success,
+        source_floor_met,
+        selected_source_quality_floor_met,
+        selected_source_subject_alignment_floor_met,
+        selected_source_count,
+        selected_source_distinct_domains,
+        selected_source_urls,
+        selected_source_subject_alignment_urls,
+        local_business_entity_floor_met,
+        local_business_entity_names,
+        local_business_entity_source_urls,
+        story_slots_observed,
+        story_slot_floor_met,
+        story_citation_floor_met,
+        comparison_ready,
+        single_snapshot_metric_grounding,
+        provider_candidates,
+    })
+}
+
+fn derive_screenshot_observation(observation: &RunObservation) -> Option<ScreenshotObservation> {
+    let capture_action_count = observation
+        .action_evidence
+        .iter()
+        .filter(|entry| {
+            entry.tool_name.eq_ignore_ascii_case("computer")
+                && entry.agent_status.eq_ignore_ascii_case("completed")
+        })
+        .count();
+    let capture_failure_count = observation
+        .action_evidence
+        .iter()
+        .filter(|entry| {
+            entry.tool_name.eq_ignore_ascii_case("computer")
+                && (entry.agent_status.eq_ignore_ascii_case("failed")
+                    || entry
+                        .error_class
+                        .as_deref()
+                        .map(|value| !value.trim().eq_ignore_ascii_case("NoEffectAfterAction"))
+                        .unwrap_or(false))
+        })
+        .count();
+    let gui_snapshot_action_count = observation
+        .action_evidence
+        .iter()
+        .filter(|entry| entry.tool_name.eq_ignore_ascii_case("gui__snapshot"))
+        .count();
+    let gui_snapshot_routing_count = observation
+        .routing_tools
+        .iter()
+        .filter(|tool| tool.eq_ignore_ascii_case("gui__snapshot"))
+        .count();
+    let capture_route_seen = observation_has_tool_name(observation, "computer");
+    let capture_route_terminalized =
+        has_verification_pair(observation, "screenshot_capture_terminalized", "true");
+    let incident_resolved = has_verification_pair(observation, "incident_resolved", "true");
+    let approval_gate_seen = observation.approval_required_events > 0
+        || has_policy_decision(observation, "require_approval");
+    let approval_transition_seen = approval_gate_seen
+        && (has_policy_decision(observation, "approved")
+            || has_policy_decision(observation, "allowed"));
+    let no_gui_snapshot_fallback =
+        gui_snapshot_action_count == 0 && gui_snapshot_routing_count == 0;
+
+    let evidence_present = capture_action_count > 0
+        || capture_failure_count > 0
+        || capture_route_seen
+        || approval_gate_seen
+        || capture_route_terminalized
+        || incident_resolved;
+    if !evidence_present {
+        return None;
+    }
+
+    Some(ScreenshotObservation {
+        capture_action_count,
+        capture_failure_count,
+        gui_snapshot_action_count,
+        gui_snapshot_routing_count,
+        capture_route_seen,
+        capture_route_terminalized,
+        incident_resolved,
+        approval_gate_seen,
+        approval_transition_seen,
+        no_gui_snapshot_fallback,
+    })
+}
+
+fn is_no_effect_after_action_error(error_class: Option<&str>) -> bool {
+    error_class
+        .map(|value| value.trim().eq_ignore_ascii_case("NoEffectAfterAction"))
+        .unwrap_or(false)
+}
+
+fn is_mail_read_latest_tool_name(tool_name: &str) -> bool {
+    tool_name.eq_ignore_ascii_case("wallet_network__mail_read_latest")
+        || tool_name.eq_ignore_ascii_case("wallet_mail_read_latest")
+        || tool_name.eq_ignore_ascii_case("mail__read_latest")
+}
+
+fn is_mail_reply_tool_name(tool_name: &str) -> bool {
+    tool_name.eq_ignore_ascii_case("wallet_network__mail_reply")
+        || tool_name.eq_ignore_ascii_case("wallet_mail_reply")
+        || tool_name.eq_ignore_ascii_case("mail__reply")
+}
+
+fn json_string_field(value: &serde_json::Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+}
+
+fn json_u64_field(value: &serde_json::Value, key: &str) -> Option<u64> {
+    value.get(key).and_then(serde_json::Value::as_u64)
+}
+
+fn parse_mail_read_latest_payload(output: &str) -> Option<MailReadLatestPayloadObservation> {
+    let value = serde_json::from_str::<serde_json::Value>(output).ok()?;
+    if json_string_field(&value, "operation")?.trim() != "mail_read_latest@v1" {
+        return None;
+    }
+    let message = value.get("message")?;
+
+    Some(MailReadLatestPayloadObservation {
+        operation: json_string_field(&value, "operation"),
+        mailbox: json_string_field(&value, "mailbox"),
+        citation: json_string_field(&value, "citation"),
+        message_id: json_string_field(message, "message_id"),
+        from: json_string_field(message, "from"),
+        subject: json_string_field(message, "subject"),
+        preview: json_string_field(message, "preview"),
+        received_at_ms: json_u64_field(message, "received_at_ms"),
+        received_at_utc: json_string_field(message, "received_at_utc"),
+    })
+}
+
+fn parse_mail_reply_payload(output: &str) -> Option<MailReplyPayloadObservation> {
+    let value = serde_json::from_str::<serde_json::Value>(output).ok()?;
+    if json_string_field(&value, "operation")?.trim() != "mail_reply@v1" {
+        return None;
+    }
+
+    Some(MailReplyPayloadObservation {
+        operation: json_string_field(&value, "operation"),
+        mailbox: json_string_field(&value, "mailbox"),
+        to: json_string_field(&value, "to"),
+        subject: json_string_field(&value, "subject"),
+        body: json_string_field(&value, "body"),
+        sent_message_id: json_string_field(&value, "sent_message_id"),
+        citation: json_string_field(&value, "citation"),
+    })
+}
+
+fn derive_mail_observation(
+    observation: &RunObservation,
+    read_latest_success_count: usize,
+    read_latest_failure_count: usize,
+    reply_success_count: usize,
+    reply_failure_count: usize,
+    read_latest_payloads: Vec<MailReadLatestPayloadObservation>,
+    reply_payloads: Vec<MailReplyPayloadObservation>,
+) -> Option<MailObservation> {
+    let connector_path_required =
+        has_verification_pair(observation, "mailbox_connector_path_required", "true");
+    let non_connector_tool_blocked =
+        has_verification_pair(observation, "mailbox_non_connector_tool_blocked", "true");
+    let invalid_tool_call_fail_fast =
+        has_verification_pair(observation, "mailbox_invalid_tool_call_fail_fast", "true");
+    let system_fail_degraded_to_reply =
+        has_verification_pair(observation, "mailbox_system_fail_degraded_to_reply", "true");
+    let fallback_marker_present = connector_path_required
+        || non_connector_tool_blocked
+        || invalid_tool_call_fail_fast
+        || system_fail_degraded_to_reply;
+
+    let evidence_present = read_latest_success_count > 0
+        || read_latest_failure_count > 0
+        || reply_success_count > 0
+        || reply_failure_count > 0
+        || !read_latest_payloads.is_empty()
+        || !reply_payloads.is_empty()
+        || fallback_marker_present
+        || observation_has_any_tool_name(
+            observation,
+            &[
+                "wallet_network__mail_read_latest",
+                "wallet_mail_read_latest",
+                "mail__read_latest",
+                "wallet_network__mail_reply",
+                "wallet_mail_reply",
+                "mail__reply",
+            ],
+        );
+    if !evidence_present {
+        return None;
+    }
+
+    Some(MailObservation {
+        read_latest_success_count,
+        read_latest_failure_count,
+        reply_success_count,
+        reply_failure_count,
+        read_latest_payloads,
+        reply_payloads,
+        connector_path_required,
+        non_connector_tool_blocked,
+        invalid_tool_call_fail_fast,
+        system_fail_degraded_to_reply,
+        fallback_marker_present,
+    })
+}
+
 fn run_unique_num(run_index: usize, run_timestamp_ms: u64) -> String {
     format!("{}{:03}", run_timestamp_ms, run_index)
 }
@@ -1127,6 +1927,10 @@ fn should_bootstrap_mailbox_runtime(goal: &str) -> bool {
 fn should_bootstrap_vlc_install_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(VLC_INSTALL_CASE_ID)
         || case_id.eq_ignore_ascii_case(VLC_INSTALL_UNSEEDED_CASE_ID)
+}
+
+fn should_bootstrap_desktop_project_create_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(DESKTOP_PROJECT_CREATE_CASE_ID)
 }
 
 fn should_bootstrap_projects_zip_fixture(case_id: &str) -> bool {
@@ -1167,6 +1971,10 @@ fn should_bootstrap_shutdown_schedule_fixture(case_id: &str) -> bool {
 
 fn should_bootstrap_mail_reply_mock_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(MAIL_REPLY_SEND_CASE_ID)
+}
+
+fn should_bootstrap_restaurants_near_me_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(RESTAURANTS_NEAR_ME_CASE_ID)
 }
 
 fn write_executable_script(path: &Path, content: &str) -> Result<()> {
@@ -1307,23 +2115,27 @@ esac
 fn vlc_install_fixture_preflight_checks(
     fixture: &VlcInstallFixtureRuntime,
     run_timestamp_ms: u64,
-) -> Vec<String> {
-    vec![
-        format!("env_receipt::vlc_fixture_mode={}", VLC_INSTALL_FIXTURE_MODE),
-        format!(
-            "env_receipt::vlc_fixture_prefix={}",
-            fixture.prefix.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::vlc_fixture_probe_source={}",
-            VLC_INSTALL_FIXTURE_PROBE_SOURCE
-        ),
-        format!("env_receipt::vlc_fixture_timestamp_ms={}", run_timestamp_ms),
-        "env_receipt::vlc_fixture_satisfied=true".to_string(),
-    ]
+) -> EnvironmentEvidenceBatch {
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(&mut batch, "vlc_fixture_mode", VLC_INSTALL_FIXTURE_MODE);
+    push_environment_observation(
+        &mut batch,
+        "vlc_fixture_prefix",
+        fixture.prefix.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "vlc_fixture",
+        Some(VLC_INSTALL_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    batch
 }
 
-fn vlc_install_fixture_post_run_checks(fixture: &VlcInstallFixtureRuntime) -> Vec<String> {
+fn vlc_install_fixture_post_run_checks(
+    fixture: &VlcInstallFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -1337,56 +2149,52 @@ fn vlc_install_fixture_post_run_checks(fixture: &VlcInstallFixtureRuntime) -> Ve
         .unwrap_or_default();
     let install_receipt_value_satisfied = install_receipt_value == "vlc";
     let probe_source = format!("{}.fs_probe", VLC_INSTALL_FIXTURE_PROBE_SOURCE);
-
-    vec![
-        format!(
-            "env_receipt::vlc_download_receipt_path={}",
-            fixture.download_receipt_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::vlc_download_receipt_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::vlc_download_receipt_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::vlc_download_receipt_satisfied={}",
-            download_exists
-        ),
-        format!(
-            "env_receipt::vlc_install_receipt_path={}",
-            fixture.install_receipt_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::vlc_install_receipt_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::vlc_install_receipt_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::vlc_install_receipt_satisfied={}",
-            install_exists
-        ),
-        format!(
-            "env_receipt::vlc_install_receipt_value={}",
-            install_receipt_value
-        ),
-        format!(
-            "env_receipt::vlc_install_receipt_value_satisfied={}",
-            install_receipt_value_satisfied
-        ),
-        format!(
-            "env_receipt::vlc_binary_path={}",
-            fixture.vlc_binary_path.to_string_lossy()
-        ),
-        format!("env_receipt::vlc_binary_probe_source={}", probe_source),
-        format!("env_receipt::vlc_binary_timestamp_ms={}", timestamp_ms),
-        format!("env_receipt::vlc_binary_satisfied={}", binary_exists),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "vlc_download_receipt_path",
+        fixture.download_receipt_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "vlc_download_receipt",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(download_exists),
+    );
+    push_environment_observation(
+        &mut batch,
+        "vlc_install_receipt_path",
+        fixture.install_receipt_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "vlc_install_receipt",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(install_exists),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "vlc_install_receipt_value",
+        install_receipt_value,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(install_receipt_value_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "vlc_binary_path",
+        fixture.vlc_binary_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "vlc_binary",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(binary_exists),
+    );
+    batch
 }
 
 fn bootstrap_projects_zip_fixture_runtime() -> Result<ProjectsZipFixtureRuntime> {
@@ -1423,45 +2231,207 @@ fn bootstrap_projects_zip_fixture_runtime() -> Result<ProjectsZipFixtureRuntime>
     })
 }
 
+fn bootstrap_desktop_project_create_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<DesktopProjectCreateFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let home_dir = temp_dir.path().join("home");
+    let desktop_dir = home_dir.join("Desktop");
+    let expected_project_dir = desktop_dir.join(format!("Project_{}", run_unique_num));
+    std::fs::create_dir_all(&desktop_dir)?;
+
+    let env_home = ScopedEnvVar::set("HOME", home_dir.to_string_lossy().to_string());
+    let env_userprofile = ScopedEnvVar::set("USERPROFILE", home_dir.to_string_lossy().to_string());
+
+    Ok(DesktopProjectCreateFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_home: env_home,
+        _env_userprofile: env_userprofile,
+        home_dir,
+        desktop_dir,
+        expected_project_dir,
+    })
+}
+
+fn desktop_project_create_fixture_preflight_checks(
+    fixture: &DesktopProjectCreateFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> EnvironmentEvidenceBatch {
+    let expected_absent = !fixture.expected_project_dir.exists();
+    let desktop_ready = fixture.desktop_dir.is_dir();
+    let run_unique_satisfied = fixture
+        .expected_project_dir
+        .file_name()
+        .and_then(|value| value.to_str())
+        .map(|value| value.eq_ignore_ascii_case(&format!("Project_{}", run_unique_num)))
+        .unwrap_or(false);
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "desktop_project_fixture_mode",
+        DESKTOP_PROJECT_CREATE_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_project_home_dir",
+        fixture.home_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_project_desktop_dir",
+        fixture.desktop_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_project_expected_path",
+        fixture.expected_project_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_project_run_unique_num",
+        run_unique_num.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_project_expected_absent",
+        Some(DESKTOP_PROJECT_CREATE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(expected_absent && desktop_ready && run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_project_fixture",
+        Some(DESKTOP_PROJECT_CREATE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(desktop_ready),
+    );
+    batch
+}
+
+fn desktop_project_create_fixture_post_run_checks(
+    fixture: &DesktopProjectCreateFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.fs_probe", DESKTOP_PROJECT_CREATE_FIXTURE_PROBE_SOURCE);
+    let desktop_entries = list_directory_entry_names(&fixture.desktop_dir);
+    let expected_dir_name = fixture
+        .expected_project_dir
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_string();
+    let created_satisfied = fixture.expected_project_dir.is_dir();
+    let scope_satisfied = created_satisfied
+        && desktop_entries.len() == 1
+        && desktop_entries
+            .first()
+            .map(|entry| entry == &expected_dir_name)
+            .unwrap_or(false);
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "desktop_project_observed_path",
+        fixture.expected_project_dir.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_project_created",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(created_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "desktop_project_desktop_entries",
+        desktop_entries.join(","),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_project_scope",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    batch
+}
+
+fn desktop_project_create_fixture_cleanup_checks(
+    fixture: &DesktopProjectCreateFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", DESKTOP_PROJECT_CREATE_FIXTURE_PROBE_SOURCE);
+    let _ = std::fs::remove_dir_all(&fixture.expected_project_dir);
+    let remaining_entries = list_directory_entry_names(&fixture.desktop_dir);
+    let cleanup_satisfied = !fixture.expected_project_dir.exists() && remaining_entries.is_empty();
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "desktop_project_cleanup_desktop_entries",
+        remaining_entries.join(","),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_project_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
+}
+
 fn projects_zip_fixture_preflight_checks(
     fixture: &ProjectsZipFixtureRuntime,
     run_timestamp_ms: u64,
-) -> Vec<String> {
-    vec![
-        format!(
-            "env_receipt::projects_zip_fixture_mode={}",
-            PROJECTS_ZIP_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::projects_zip_fixture_probe_source={}",
-            PROJECTS_ZIP_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::projects_zip_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::projects_zip_home_dir={}",
-            fixture.home_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::projects_zip_projects_dir={}",
-            fixture.projects_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::projects_zip_desktop_dir={}",
-            fixture.desktop_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::projects_zip_archive_path={}",
-            fixture.archive_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::projects_zip_expected_entries={}",
-            PROJECTS_ZIP_EXPECTED_ENTRIES.join(",")
-        ),
-        "env_receipt::projects_zip_fixture_satisfied=true".to_string(),
-    ]
+) -> EnvironmentEvidenceBatch {
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "projects_zip_fixture_mode",
+        PROJECTS_ZIP_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "projects_zip_home_dir",
+        fixture.home_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "projects_zip_projects_dir",
+        fixture.projects_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "projects_zip_desktop_dir",
+        fixture.desktop_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "projects_zip_archive_path",
+        fixture.archive_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "projects_zip_expected_entries",
+        PROJECTS_ZIP_EXPECTED_ENTRIES.join(","),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "projects_zip_fixture",
+        Some(PROJECTS_ZIP_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    batch
 }
 
 fn zip_archive_entries(path: &Path) -> Result<Vec<String>> {
@@ -1476,7 +2446,9 @@ fn zip_archive_entries(path: &Path) -> Result<Vec<String>> {
     Ok(entries)
 }
 
-fn projects_zip_fixture_post_run_checks(fixture: &ProjectsZipFixtureRuntime) -> Vec<String> {
+fn projects_zip_fixture_post_run_checks(
+    fixture: &ProjectsZipFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -1494,48 +2466,40 @@ fn projects_zip_fixture_post_run_checks(fixture: &ProjectsZipFixtureRuntime) -> 
     let source_preserved = PROJECTS_ZIP_EXPECTED_ENTRIES
         .iter()
         .all(|entry| fixture.projects_dir.join(entry).is_file());
-
-    vec![
-        format!(
-            "env_receipt::projects_zip_archive_path={}",
-            fixture.archive_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::projects_zip_archive_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::projects_zip_archive_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::projects_zip_archive_satisfied={}",
-            archive_exists
-        ),
-        format!(
-            "env_receipt::projects_zip_entries={}",
-            archive_entries.join(",")
-        ),
-        format!(
-            "env_receipt::projects_zip_entries_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::projects_zip_entries_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::projects_zip_entries_satisfied={}",
-            expected_entries_satisfied
-        ),
-        format!(
-            "env_receipt::projects_zip_source_preserved_satisfied={}",
-            source_preserved
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "projects_zip_archive_path",
+        fixture.archive_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "projects_zip_archive",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(archive_exists),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "projects_zip_entries",
+        archive_entries.join(","),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(expected_entries_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "projects_zip_source_preserved",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(source_preserved),
+    );
+    batch
 }
 
-fn projects_zip_fixture_cleanup_checks(fixture: &ProjectsZipFixtureRuntime) -> Vec<String> {
+fn projects_zip_fixture_cleanup_checks(
+    fixture: &ProjectsZipFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -1545,21 +2509,15 @@ fn projects_zip_fixture_cleanup_checks(fixture: &ProjectsZipFixtureRuntime) -> V
     let _ = std::fs::remove_file(&fixture.archive_path);
     let _ = std::fs::remove_dir_all(&fixture.projects_dir);
     let cleanup_satisfied = !fixture.archive_path.exists() && !fixture.projects_dir.exists();
-
-    vec![
-        format!(
-            "env_receipt::projects_zip_cleanup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::projects_zip_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::projects_zip_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_metadata(
+        &mut batch,
+        "projects_zip_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn bootstrap_downloads_lowercase_fixture_runtime(
@@ -1597,47 +2555,48 @@ fn bootstrap_downloads_lowercase_fixture_runtime(
 fn downloads_lowercase_fixture_preflight_checks(
     fixture: &DownloadsLowercaseFixtureRuntime,
     run_timestamp_ms: u64,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let seeded_files = list_directory_entry_names(&fixture.target_dir);
     let seeded_files_satisfied = DOWNLOADS_LOWERCASE_EXPECTED_ORIGINAL_FILES
         .iter()
         .all(|expected| seeded_files.iter().any(|observed| observed == expected));
-
-    vec![
-        format!(
-            "env_receipt::downloads_lowercase_fixture_mode={}",
-            DOWNLOADS_LOWERCASE_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_fixture_probe_source={}",
-            DOWNLOADS_LOWERCASE_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_home_dir={}",
-            fixture.home_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_downloads_dir={}",
-            fixture.downloads_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_target_dir={}",
-            fixture.target_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_seeded_files={}",
-            seeded_files.join(",")
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_seeded_files_satisfied={}",
-            seeded_files_satisfied
-        ),
-        "env_receipt::downloads_lowercase_fixture_satisfied=true".to_string(),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "downloads_lowercase_fixture_mode",
+        DOWNLOADS_LOWERCASE_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_lowercase_home_dir",
+        fixture.home_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_lowercase_downloads_dir",
+        fixture.downloads_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_lowercase_target_dir",
+        fixture.target_dir.to_string_lossy().to_string(),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "downloads_lowercase_seeded_files",
+        seeded_files.join(","),
+        None,
+        None,
+        Some(seeded_files_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_lowercase_fixture",
+        Some(DOWNLOADS_LOWERCASE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    batch
 }
 
 fn list_directory_entry_names(path: &Path) -> Vec<String> {
@@ -1710,7 +2669,7 @@ fn file_sets_content_match(
 
 fn downloads_lowercase_fixture_post_run_checks(
     fixture: &DownloadsLowercaseFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -1761,50 +2720,52 @@ fn downloads_lowercase_fixture_post_run_checks(
                 .map(|name| name.starts_with(DOWNLOADS_LOWERCASE_TARGET_PREFIX))
                 .unwrap_or(false)
         });
-
-    vec![
-        format!(
-            "env_receipt::downloads_lowercase_target_dir_count={}",
-            target_dir_count
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_target_dir_path={}",
-            target_dir_path
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_target_dir_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_target_dir_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_target_dir_satisfied={}",
-            target_dir_satisfied
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_entries={}",
-            target_entries.join(",")
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_entries_satisfied={}",
-            entries_satisfied
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_uppercase_absent_satisfied={}",
-            uppercase_absent
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_scope_satisfied={}",
-            scope_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "downloads_lowercase_target_dir_count",
+        target_dir_count.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_lowercase_target_dir_path",
+        target_dir_path,
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_lowercase_target_dir",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(target_dir_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "downloads_lowercase_entries",
+        target_entries.join(","),
+        None,
+        None,
+        Some(entries_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_lowercase_uppercase_absent",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(uppercase_absent),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_lowercase_scope",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    batch
 }
 
 fn downloads_lowercase_fixture_cleanup_checks(
     fixture: &DownloadsLowercaseFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -1814,21 +2775,15 @@ fn downloads_lowercase_fixture_cleanup_checks(
     let _ = std::fs::create_dir_all(&fixture.downloads_dir);
     let remaining_entries = list_directory_entry_names(&fixture.downloads_dir);
     let cleanup_satisfied = remaining_entries.is_empty();
-
-    vec![
-        format!(
-            "env_receipt::downloads_lowercase_cleanup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::downloads_lowercase_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_metadata(
+        &mut batch,
+        "downloads_lowercase_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn bootstrap_downloads_png_move_fixture_runtime(
@@ -1875,7 +2830,7 @@ fn downloads_png_move_fixture_preflight_checks(
     fixture: &DownloadsPngMoveFixtureRuntime,
     run_unique_num: &str,
     run_timestamp_ms: u64,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let seeded_entries = list_directory_entry_names(&fixture.target_dir);
     let seeded_png_satisfied = DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES
         .iter()
@@ -1890,81 +2845,97 @@ fn downloads_png_move_fixture_preflight_checks(
         .and_then(|name| name.to_str())
         .map(|name| name.ends_with(run_unique_num))
         .unwrap_or(false);
-
-    vec![
-        format!(
-            "env_receipt::downloads_png_move_fixture_mode={}",
-            DOWNLOADS_PNG_MOVE_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::downloads_png_move_fixture_probe_source={}",
-            DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::downloads_png_move_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::downloads_png_move_home_dir={}",
-            fixture.home_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::downloads_png_move_downloads_dir={}",
-            fixture.downloads_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::downloads_png_move_target_dir={}",
-            fixture.target_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::downloads_png_move_images_dir={}",
-            fixture.images_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::downloads_png_move_run_unique_num={}",
-            run_unique_num
-        ),
-        format!(
-            "env_receipt::downloads_png_move_seeded_entries={}",
-            seeded_entries.join(",")
-        ),
-        format!(
-            "env_receipt::downloads_png_move_seeded_png_files={}",
-            DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES.join(",")
-        ),
-        format!(
-            "env_receipt::downloads_png_move_seeded_non_png_files={}",
-            DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES.join(",")
-        ),
-        format!(
-            "env_receipt::downloads_png_move_seeded_png_satisfied={}",
-            seeded_png_satisfied
-        ),
-        format!(
-            "env_receipt::downloads_png_move_seeded_non_png_satisfied={}",
-            seeded_non_png_satisfied
-        ),
-        format!(
-            "env_receipt::downloads_png_move_images_dir_absent_satisfied={}",
-            images_dir_absent_satisfied
-        ),
-        format!(
-            "env_receipt::downloads_png_move_run_unique_satisfied={}",
-            run_unique_satisfied
-        ),
-        format!(
-            "env_receipt::downloads_png_move_fixture_satisfied={}",
-            seeded_png_satisfied
-                && seeded_non_png_satisfied
-                && images_dir_absent_satisfied
-                && run_unique_satisfied
-        ),
-    ]
+    let fixture_satisfied = seeded_png_satisfied
+        && seeded_non_png_satisfied
+        && images_dir_absent_satisfied
+        && run_unique_satisfied;
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_fixture_mode",
+        DOWNLOADS_PNG_MOVE_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_home_dir",
+        fixture.home_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_downloads_dir",
+        fixture.downloads_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_target_dir",
+        fixture.target_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_images_dir",
+        fixture.images_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_run_unique_num",
+        run_unique_num.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_seeded_entries",
+        seeded_entries.join(","),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_seeded_png_files",
+        DOWNLOADS_PNG_MOVE_EXPECTED_PNG_FILES.join(","),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_seeded_non_png_files",
+        DOWNLOADS_PNG_MOVE_EXPECTED_NON_PNG_FILES.join(","),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_seeded_png",
+        Some(DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(seeded_png_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_seeded_non_png",
+        Some(DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(seeded_non_png_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_images_dir_absent",
+        Some(DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(images_dir_absent_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_run_unique",
+        Some(DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_fixture",
+        Some(DOWNLOADS_PNG_MOVE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
 }
 
 fn downloads_png_move_fixture_post_run_checks(
     fixture: &DownloadsPngMoveFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -2050,74 +3021,76 @@ fn downloads_png_move_fixture_post_run_checks(
         });
     let scope_satisfied =
         target_dir_satisfied && source_entries_scope_satisfied && downloads_scope_satisfied;
-
-    vec![
-        format!(
-            "env_receipt::downloads_png_move_target_dir_count={}",
-            target_dir_count
-        ),
-        format!(
-            "env_receipt::downloads_png_move_target_dir_path={}",
-            target_dir_path
-        ),
-        format!(
-            "env_receipt::downloads_png_move_target_dir_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::downloads_png_move_target_dir_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::downloads_png_move_target_dir_satisfied={}",
-            target_dir_satisfied
-        ),
-        format!(
-            "env_receipt::downloads_png_move_images_dir_path={}",
-            images_dir_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::downloads_png_move_images_dir_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::downloads_png_move_images_dir_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::downloads_png_move_images_dir_satisfied={}",
-            images_dir_exists
-        ),
-        format!(
-            "env_receipt::downloads_png_move_images_entries={}",
-            images_entries.join(",")
-        ),
-        format!(
-            "env_receipt::downloads_png_move_images_entries_satisfied={}",
-            images_entries_satisfied
-        ),
-        format!(
-            "env_receipt::downloads_png_move_source_entries={}",
-            source_entries.join(",")
-        ),
-        format!(
-            "env_receipt::downloads_png_move_source_non_png_preserved_satisfied={}",
-            source_non_png_preserved
-        ),
-        format!(
-            "env_receipt::downloads_png_move_source_png_absent_satisfied={}",
-            source_png_absent
-        ),
-        format!(
-            "env_receipt::downloads_png_move_scope_satisfied={}",
-            scope_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_target_dir_count",
+        target_dir_count.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_target_dir_path",
+        target_dir_path,
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_target_dir",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(target_dir_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_images_dir_path",
+        images_dir_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_images_dir",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(images_dir_exists),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "downloads_png_move_images_entries",
+        images_entries.join(","),
+        None,
+        None,
+        Some(images_entries_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "downloads_png_move_source_entries",
+        source_entries.join(","),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_source_non_png_preserved",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(source_non_png_preserved),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_source_png_absent",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(source_png_absent),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_scope",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    batch
 }
 
 fn downloads_png_move_fixture_cleanup_checks(
     fixture: &DownloadsPngMoveFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -2127,21 +3100,15 @@ fn downloads_png_move_fixture_cleanup_checks(
     let _ = std::fs::create_dir_all(&fixture.downloads_dir);
     let remaining_entries = list_directory_entry_names(&fixture.downloads_dir);
     let cleanup_satisfied = remaining_entries.is_empty();
-
-    vec![
-        format!(
-            "env_receipt::downloads_png_move_cleanup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::downloads_png_move_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::downloads_png_move_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_metadata(
+        &mut batch,
+        "downloads_png_move_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn bootstrap_desktop_documents_backup_fixture_runtime(
@@ -2215,7 +3182,7 @@ fn desktop_documents_backup_fixture_preflight_checks(
     fixture: &DesktopDocumentsBackupFixtureRuntime,
     run_unique_num: &str,
     run_timestamp_ms: u64,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let seeded_desktop_files = list_relative_file_paths(&fixture.desktop_dir);
     let seeded_documents_files = list_relative_file_paths(&fixture.documents_dir);
     let seeded_desktop_satisfied =
@@ -2247,78 +3214,85 @@ fn desktop_documents_backup_fixture_preflight_checks(
         && seeded_documents_satisfied
         && destination_absent_satisfied
         && run_unique_satisfied;
-
-    vec![
-        format!(
-            "env_receipt::desktop_documents_backup_fixture_mode={}",
-            DESKTOP_DOCUMENTS_BACKUP_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_fixture_probe_source={}",
-            DESKTOP_DOCUMENTS_BACKUP_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_home_dir={}",
-            fixture.home_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_desktop_dir={}",
-            fixture.desktop_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_documents_dir={}",
-            fixture.documents_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_external_drive_path={}",
-            fixture.external_drive_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_destination_root={}",
-            fixture.backup_root.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_run_unique_num={}",
-            run_unique_num
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_run_unique_satisfied={}",
-            run_unique_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_seeded_desktop_files={}",
-            seeded_desktop_files.join(",")
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_seeded_documents_files={}",
-            seeded_documents_files.join(",")
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_seeded_desktop_files_satisfied={}",
-            seeded_desktop_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_seeded_documents_files_satisfied={}",
-            seeded_documents_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_destination_absent_satisfied={}",
-            destination_absent_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_fixture_satisfied={}",
-            fixture_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_fixture_mode",
+        DESKTOP_DOCUMENTS_BACKUP_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_home_dir",
+        fixture.home_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_desktop_dir",
+        fixture.desktop_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_documents_dir",
+        fixture.documents_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_external_drive_path",
+        fixture.external_drive_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_destination_root",
+        fixture.backup_root.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_run_unique_num",
+        run_unique_num.to_string(),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "desktop_documents_backup_seeded_desktop_files",
+        seeded_desktop_files.join(","),
+        None,
+        None,
+        Some(seeded_desktop_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "desktop_documents_backup_seeded_documents_files",
+        seeded_documents_files.join(","),
+        None,
+        None,
+        Some(seeded_documents_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_destination_absent",
+        Some(DESKTOP_DOCUMENTS_BACKUP_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(destination_absent_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_run_unique",
+        Some(DESKTOP_DOCUMENTS_BACKUP_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_fixture",
+        Some(DESKTOP_DOCUMENTS_BACKUP_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
 }
 
 fn desktop_documents_backup_fixture_post_run_checks(
     fixture: &DesktopDocumentsBackupFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -2393,82 +3367,103 @@ fn desktop_documents_backup_fixture_post_run_checks(
         && external_drive_entries
             .iter()
             .any(|entry| entry == &expected_backup_dir_name);
-
-    vec![
-        format!(
-            "env_receipt::desktop_documents_backup_backup_root_path={}",
-            fixture.backup_root.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_root_satisfied={}",
-            backup_root_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_desktop_path={}",
-            fixture.backup_desktop_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_desktop_satisfied={}",
-            backup_desktop_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_desktop_files={}",
-            backup_desktop_files.join(",")
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_desktop_files_satisfied={}",
-            backup_desktop_files_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_documents_path={}",
-            fixture.backup_documents_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_documents_satisfied={}",
-            backup_documents_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_documents_files={}",
-            backup_documents_files.join(",")
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_backup_documents_files_satisfied={}",
-            backup_documents_files_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_source_desktop_files={}",
-            source_desktop_files.join(",")
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_source_documents_files={}",
-            source_documents_files.join(",")
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_source_preserved_satisfied={}",
-            source_preserved_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_content_match_satisfied={}",
-            content_match_satisfied
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_scope_satisfied={}",
-            scope_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_backup_root_path",
+        fixture.backup_root.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_backup",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(true),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_backup_root",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(backup_root_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_backup_desktop_path",
+        fixture.backup_desktop_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_backup_desktop",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(backup_desktop_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "desktop_documents_backup_backup_desktop_files",
+        backup_desktop_files.join(","),
+        None,
+        None,
+        Some(backup_desktop_files_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_backup_documents_path",
+        fixture.backup_documents_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_backup_documents",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(backup_documents_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "desktop_documents_backup_backup_documents_files",
+        backup_documents_files.join(","),
+        None,
+        None,
+        Some(backup_documents_files_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_source_desktop_files",
+        source_desktop_files.join(","),
+    );
+    push_environment_observation(
+        &mut batch,
+        "desktop_documents_backup_source_documents_files",
+        source_documents_files.join(","),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_source_preserved",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(source_preserved_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_content_match",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(content_match_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_scope",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    batch
 }
 
 fn desktop_documents_backup_fixture_cleanup_checks(
     fixture: &DesktopDocumentsBackupFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -2486,21 +3481,15 @@ fn desktop_documents_backup_fixture_cleanup_checks(
         && !fixture.external_drive_path.exists()
         && !fixture.desktop_dir.exists()
         && !fixture.documents_dir.exists();
-
-    vec![
-        format!(
-            "env_receipt::desktop_documents_backup_cleanup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::desktop_documents_backup_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_metadata(
+        &mut batch,
+        "desktop_documents_backup_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn bootstrap_documents_summary_fixture_runtime(
@@ -2600,7 +3589,7 @@ fn documents_summary_fixture_preflight_checks(
     fixture: &DocumentsSummaryFixtureRuntime,
     run_unique_num: &str,
     run_timestamp_ms: u64,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let seeded_files = list_directory_entry_names(&fixture.fixture_dir);
     let seeded_files_satisfied = DOCUMENTS_SUMMARY_EXPECTED_FILE_NAMES
         .iter()
@@ -2611,62 +3600,66 @@ fn documents_summary_fixture_preflight_checks(
         .and_then(|name| name.to_str())
         .map(|name| name.ends_with(run_unique_num))
         .unwrap_or(false);
-
-    vec![
-        format!(
-            "env_receipt::documents_summary_fixture_mode={}",
-            DOCUMENTS_SUMMARY_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::documents_summary_fixture_probe_source={}",
-            DOCUMENTS_SUMMARY_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::documents_summary_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::documents_summary_home_dir={}",
-            fixture.home_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::documents_summary_documents_dir={}",
-            fixture.documents_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::documents_summary_fixture_dir={}",
-            fixture.fixture_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::documents_summary_run_unique_num={}",
-            run_unique_num
-        ),
-        format!(
-            "env_receipt::documents_summary_expected_latest_path={}",
-            fixture.latest_document_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::documents_summary_seeded_files={}",
-            seeded_files.join(",")
-        ),
-        format!(
-            "env_receipt::documents_summary_seeded_files_satisfied={}",
-            seeded_files_satisfied
-        ),
-        format!(
-            "env_receipt::documents_summary_run_unique_satisfied={}",
-            run_unique_satisfied
-        ),
-        format!(
-            "env_receipt::documents_summary_fixture_satisfied={}",
-            seeded_files_satisfied && run_unique_satisfied
-        ),
-    ]
+    let fixture_satisfied = seeded_files_satisfied && run_unique_satisfied;
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_fixture_mode",
+        DOCUMENTS_SUMMARY_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_home_dir",
+        fixture.home_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_documents_dir",
+        fixture.documents_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_fixture_dir",
+        fixture.fixture_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_run_unique_num",
+        run_unique_num.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_expected_latest_path",
+        fixture.latest_document_path.to_string_lossy().to_string(),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "documents_summary_seeded_files",
+        seeded_files.join(","),
+        None,
+        None,
+        Some(seeded_files_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "documents_summary_run_unique",
+        Some(DOCUMENTS_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "documents_summary_fixture",
+        Some(DOCUMENTS_SUMMARY_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
 }
 
 fn documents_summary_fixture_post_run_checks(
     fixture: &DocumentsSummaryFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -2698,74 +3691,52 @@ fn documents_summary_fixture_post_run_checks(
     let latest_content_probe_source = format!("{}.content_probe", probe_source);
     let latest_expected_mtime_ms =
         file_modified_epoch_ms(&fixture.latest_document_path).unwrap_or(0);
-
-    vec![
-        format!(
-            "env_receipt::documents_summary_observed_files={}",
-            observed_files.join(",")
-        ),
-        format!(
-            "env_receipt::documents_summary_observed_files_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::documents_summary_observed_files_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::documents_summary_observed_files_satisfied={}",
-            observed_files_satisfied
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_observed_path={}",
-            latest_observed_path
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_observed_path_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_observed_path_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_observed_path_satisfied={}",
-            latest_path_satisfied
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_observed_modified_epoch_ms={}",
-            latest_observed_mtime_ms
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_expected_modified_epoch_ms={}",
-            latest_expected_mtime_ms
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_expected_path={}",
-            latest_expected_path
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_content_probe_source={}",
-            latest_content_probe_source
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_content_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_content_markers_satisfied={}",
-            latest_content_satisfied
-        ),
-        format!(
-            "env_receipt::documents_summary_latest_content_excerpt={}",
-            truncate_for_log(&latest_content, 240)
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "documents_summary_observed_files",
+        observed_files.join(","),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(observed_files_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "documents_summary_latest_observed_path",
+        latest_observed_path,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(latest_path_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_latest_observed_modified_epoch_ms",
+        latest_observed_mtime_ms.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_latest_expected_modified_epoch_ms",
+        latest_expected_mtime_ms.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_latest_expected_path",
+        latest_expected_path,
+    );
+    push_environment_receipt(
+        &mut batch,
+        "documents_summary_latest_content_excerpt",
+        truncate_for_log(&latest_content, 240),
+        Some(latest_content_probe_source),
+        Some(timestamp_ms),
+        Some(latest_content_satisfied),
+    );
+    batch
 }
 
 fn documents_summary_fixture_cleanup_checks(
     fixture: &DocumentsSummaryFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -2775,29 +3746,25 @@ fn documents_summary_fixture_cleanup_checks(
     let fixture_dir_exists_after_cleanup = fixture.fixture_dir.exists();
     let documents_dir_entries = list_directory_entry_names(&fixture.documents_dir);
     let cleanup_satisfied = !fixture_dir_exists_after_cleanup && documents_dir_entries.is_empty();
-
-    vec![
-        format!(
-            "env_receipt::documents_summary_cleanup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::documents_summary_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::documents_summary_cleanup_fixture_dir_exists={}",
-            fixture_dir_exists_after_cleanup
-        ),
-        format!(
-            "env_receipt::documents_summary_cleanup_documents_dir_entries={}",
-            documents_dir_entries.join(",")
-        ),
-        format!(
-            "env_receipt::documents_summary_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_cleanup_fixture_dir_exists",
+        fixture_dir_exists_after_cleanup.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "documents_summary_cleanup_documents_dir_entries",
+        documents_dir_entries.join(","),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "documents_summary_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn list_pdf_file_paths(path: &Path) -> Vec<PathBuf> {
@@ -2890,7 +3857,7 @@ fn pdf_last_week_fixture_preflight_checks(
     fixture: &PdfLastWeekFixtureRuntime,
     run_unique_num: &str,
     run_timestamp_ms: u64,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let seeded_files = list_directory_entry_names(&fixture.fixture_dir);
     let expected_seeded_files_present = PDF_LAST_WEEK_EXPECTED_PDF_FILES
         .iter()
@@ -2905,72 +3872,76 @@ fn pdf_last_week_fixture_preflight_checks(
         .and_then(|name| name.to_str())
         .map(|name| name.ends_with(run_unique_num))
         .unwrap_or(false);
-
-    vec![
-        format!(
-            "env_receipt::pdf_last_week_fixture_mode={}",
-            PDF_LAST_WEEK_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::pdf_last_week_fixture_probe_source={}",
-            PDF_LAST_WEEK_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::pdf_last_week_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::pdf_last_week_home_dir={}",
-            fixture.home_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::pdf_last_week_documents_dir={}",
-            fixture.documents_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::pdf_last_week_fixture_dir={}",
-            fixture.fixture_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::pdf_last_week_run_unique_num={}",
-            run_unique_num
-        ),
-        format!(
-            "env_receipt::pdf_last_week_expected_paths={}",
-            join_paths_csv(&fixture.expected_pdf_paths)
-        ),
-        format!(
-            "env_receipt::pdf_last_week_expected_count={}",
-            fixture.expected_pdf_paths.len()
-        ),
-        format!(
-            "env_receipt::pdf_last_week_expected_window_start_epoch_ms={}",
-            fixture.window_start_epoch_ms
-        ),
-        format!(
-            "env_receipt::pdf_last_week_seeded_files={}",
-            seeded_files.join(",")
-        ),
-        format!(
-            "env_receipt::pdf_last_week_seeded_files_satisfied={}",
-            expected_seeded_files_present
-        ),
-        format!(
-            "env_receipt::pdf_last_week_expected_paths_satisfied={}",
-            expected_pdf_paths_satisfied
-        ),
-        format!(
-            "env_receipt::pdf_last_week_run_unique_satisfied={}",
-            run_unique_satisfied
-        ),
-        format!(
-            "env_receipt::pdf_last_week_fixture_satisfied={}",
-            expected_seeded_files_present && expected_pdf_paths_satisfied && run_unique_satisfied
-        ),
-    ]
+    let fixture_satisfied =
+        expected_seeded_files_present && expected_pdf_paths_satisfied && run_unique_satisfied;
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(&mut batch, "pdf_last_week_fixture_mode", PDF_LAST_WEEK_FIXTURE_MODE);
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_home_dir",
+        fixture.home_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_documents_dir",
+        fixture.documents_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_fixture_dir",
+        fixture.fixture_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_run_unique_num",
+        run_unique_num.to_string(),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "pdf_last_week_expected_paths",
+        join_paths_csv(&fixture.expected_pdf_paths),
+        None,
+        None,
+        Some(expected_pdf_paths_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_expected_count",
+        fixture.expected_pdf_paths.len().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_expected_window_start_epoch_ms",
+        fixture.window_start_epoch_ms.to_string(),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "pdf_last_week_seeded_files",
+        seeded_files.join(","),
+        None,
+        None,
+        Some(expected_seeded_files_present),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "pdf_last_week_run_unique",
+        Some(PDF_LAST_WEEK_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "pdf_last_week_fixture",
+        Some(PDF_LAST_WEEK_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
 }
 
-fn pdf_last_week_fixture_post_run_checks(fixture: &PdfLastWeekFixtureRuntime) -> Vec<String> {
+fn pdf_last_week_fixture_post_run_checks(
+    fixture: &PdfLastWeekFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -2994,68 +3965,58 @@ fn pdf_last_week_fixture_post_run_checks(fixture: &PdfLastWeekFixtureRuntime) ->
         .count();
     let observed_within_window_satisfied =
         observed_within_window_count == fixture.expected_pdf_paths.len();
-
-    vec![
-        format!(
-            "env_receipt::pdf_last_week_observed_files={}",
-            observed_files.join(",")
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_files_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_files_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_files_satisfied={}",
-            observed_files_satisfied
-        ),
-        format!(
-            "env_receipt::pdf_last_week_expected_paths={}",
-            expected_pdf_paths_csv
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_pdf_paths={}",
-            observed_pdf_paths_csv
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_pdf_paths_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_pdf_paths_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_pdf_paths_satisfied={}",
-            expected_pdf_paths_satisfied
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_window_start_epoch_ms={}",
-            fixture.window_start_epoch_ms
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_window_start_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_window_start_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_within_window_count={}",
-            observed_within_window_count
-        ),
-        format!(
-            "env_receipt::pdf_last_week_observed_within_window_satisfied={}",
-            observed_within_window_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "pdf_last_week_observed_files",
+        observed_files.join(","),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(observed_files_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_expected_paths",
+        expected_pdf_paths_csv,
+    );
+    push_environment_receipt(
+        &mut batch,
+        "pdf_last_week_observed_pdf_paths",
+        observed_pdf_paths_csv,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(expected_pdf_paths_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_observed_window_start_epoch_ms",
+        fixture.window_start_epoch_ms.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "pdf_last_week_observed_window_start",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(true),
+    );
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_observed_within_window_count",
+        observed_within_window_count.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "pdf_last_week_observed_within_window",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(observed_within_window_satisfied),
+    );
+    batch
 }
 
-fn pdf_last_week_fixture_cleanup_checks(fixture: &PdfLastWeekFixtureRuntime) -> Vec<String> {
+fn pdf_last_week_fixture_cleanup_checks(
+    fixture: &PdfLastWeekFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -3065,29 +4026,25 @@ fn pdf_last_week_fixture_cleanup_checks(fixture: &PdfLastWeekFixtureRuntime) -> 
     let fixture_dir_exists_after_cleanup = fixture.fixture_dir.exists();
     let documents_dir_entries = list_directory_entry_names(&fixture.documents_dir);
     let cleanup_satisfied = !fixture_dir_exists_after_cleanup && documents_dir_entries.is_empty();
-
-    vec![
-        format!(
-            "env_receipt::pdf_last_week_cleanup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::pdf_last_week_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::pdf_last_week_cleanup_fixture_dir_exists={}",
-            fixture_dir_exists_after_cleanup
-        ),
-        format!(
-            "env_receipt::pdf_last_week_cleanup_documents_dir_entries={}",
-            documents_dir_entries.join(",")
-        ),
-        format!(
-            "env_receipt::pdf_last_week_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_cleanup_fixture_dir_exists",
+        fixture_dir_exists_after_cleanup.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_cleanup_documents_dir_entries",
+        documents_dir_entries.join(","),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "pdf_last_week_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn bootstrap_spotify_uninstall_fixture_runtime(
@@ -3386,7 +4343,7 @@ fn spotify_uninstall_fixture_preflight_checks(
     fixture: &SpotifyUninstallFixtureRuntime,
     run_unique_num: &str,
     run_timestamp_ms: u64,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let config_paths_seeded = fixture.config_paths.iter().all(|path| path.is_dir());
     let sentinel_paths_seeded = fixture.sentinel_paths.iter().all(|path| path.is_file());
     let install_marker_seeded = fixture.install_marker_path.is_file();
@@ -3404,90 +4361,112 @@ fn spotify_uninstall_fixture_preflight_checks(
         && binary_seeded
         && provider_receipt_absent
         && run_unique_satisfied;
-
-    vec![
-        format!(
-            "env_receipt::spotify_uninstall_fixture_mode={}",
-            SPOTIFY_UNINSTALL_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_fixture_probe_source={}",
-            SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_fixture_home_dir={}",
-            fixture.home_dir.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_fixture_root={}",
-            fixture.fixture_root.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_run_unique_num={}",
-            run_unique_num
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_provider_candidates={}",
-            SPOTIFY_UNINSTALL_PROVIDER_IDS.join(",")
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_provider_receipt_path={}",
-            fixture.provider_receipt_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_install_marker_path={}",
-            fixture.install_marker_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_binary_path={}",
-            fixture.binary_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_config_paths={}",
-            join_paths_csv(&fixture.config_paths)
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_sentinel_paths={}",
-            join_paths_csv(&fixture.sentinel_paths)
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_config_paths_seeded_satisfied={}",
-            config_paths_seeded
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_sentinel_paths_seeded_satisfied={}",
-            sentinel_paths_seeded
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_install_marker_seeded_satisfied={}",
-            install_marker_seeded
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_binary_seeded_satisfied={}",
-            binary_seeded
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_provider_receipt_absent_satisfied={}",
-            provider_receipt_absent
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_run_unique_satisfied={}",
-            run_unique_satisfied
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_fixture_satisfied={}",
-            fixture_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_fixture_mode",
+        SPOTIFY_UNINSTALL_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_fixture_home_dir",
+        fixture.home_dir.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_fixture_root",
+        fixture.fixture_root.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_run_unique_num",
+        run_unique_num.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_provider_candidates",
+        SPOTIFY_UNINSTALL_PROVIDER_IDS.join(","),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_provider_receipt_path",
+        fixture.provider_receipt_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_install_marker_path",
+        fixture.install_marker_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_binary_path",
+        fixture.binary_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_config_paths",
+        join_paths_csv(&fixture.config_paths),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_sentinel_paths",
+        join_paths_csv(&fixture.sentinel_paths),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_config_paths_seeded",
+        Some(SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(config_paths_seeded),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_sentinel_paths_seeded",
+        Some(SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(sentinel_paths_seeded),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_install_marker_seeded",
+        Some(SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(install_marker_seeded),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_binary_seeded",
+        Some(SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(binary_seeded),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_provider_receipt_absent",
+        Some(SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(provider_receipt_absent),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_run_unique",
+        Some(SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_fixture",
+        Some(SPOTIFY_UNINSTALL_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
 }
 
 fn spotify_uninstall_fixture_post_run_checks(
     fixture: &SpotifyUninstallFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -3506,62 +4485,69 @@ fn spotify_uninstall_fixture_post_run_checks(
     let config_paths_removed = fixture.config_paths.iter().all(|path| !path.exists());
     let sentinel_paths_preserved = fixture.sentinel_paths.iter().all(|path| path.is_file());
     let scope_satisfied = sentinel_paths_preserved;
-
-    vec![
-        format!(
-            "env_receipt::spotify_uninstall_provider={}",
-            provider_selected
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_provider_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_provider_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_provider_satisfied={}",
-            provider_satisfied
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_install_marker_path={}",
-            fixture.install_marker_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_install_marker_removed_satisfied={}",
-            install_marker_removed
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_binary_path={}",
-            fixture.binary_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_binary_absent_satisfied={}",
-            binary_absent
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_config_paths={}",
-            join_paths_csv(&fixture.config_paths)
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_config_paths_removed_satisfied={}",
-            config_paths_removed
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_sentinel_paths={}",
-            join_paths_csv(&fixture.sentinel_paths)
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_scope_satisfied={}",
-            scope_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "spotify_uninstall_provider",
+        provider_selected,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(provider_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_install_marker_path",
+        fixture.install_marker_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_install_marker_removed",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(install_marker_removed),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_binary_path",
+        fixture.binary_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_binary_absent",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(binary_absent),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_config_paths",
+        join_paths_csv(&fixture.config_paths),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_config_paths_removed",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(config_paths_removed),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_sentinel_paths",
+        join_paths_csv(&fixture.sentinel_paths),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_scope",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    batch
 }
 
 fn spotify_uninstall_fixture_cleanup_checks(
     fixture: &SpotifyUninstallFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -3576,29 +4562,25 @@ fn spotify_uninstall_fixture_cleanup_checks(
     let home_entries = list_directory_entry_names(&fixture.home_dir);
     let fixture_root_entries = list_directory_entry_names(&fixture.fixture_root);
     let cleanup_satisfied = home_entries.is_empty() && fixture_root_entries.is_empty();
-
-    vec![
-        format!(
-            "env_receipt::spotify_uninstall_cleanup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_cleanup_home_entries={}",
-            home_entries.join(",")
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_cleanup_fixture_root_entries={}",
-            fixture_root_entries.join(",")
-        ),
-        format!(
-            "env_receipt::spotify_uninstall_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_cleanup_home_entries",
+        home_entries.join(","),
+    );
+    push_environment_observation(
+        &mut batch,
+        "spotify_uninstall_cleanup_fixture_root_entries",
+        fixture_root_entries.join(","),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "spotify_uninstall_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn bootstrap_top_memory_apps_fixture_runtime(
@@ -3702,7 +4684,7 @@ fn top_memory_apps_fixture_preflight_checks(
     fixture: &TopMemoryAppsFixtureRuntime,
     run_unique_num: &str,
     run_timestamp_ms: u64,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let run_unique_satisfied = fixture
         .fixture_root
         .file_name()
@@ -3713,53 +4695,61 @@ fn top_memory_apps_fixture_preflight_checks(
     let receipt_absent_satisfied = !fixture.receipt_path.exists();
     let fixture_satisfied =
         run_unique_satisfied && probe_script_seeded_satisfied && receipt_absent_satisfied;
-
-    vec![
-        format!(
-            "env_receipt::top_memory_apps_fixture_mode={}",
-            TOP_MEMORY_APPS_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::top_memory_apps_fixture_probe_source={}",
-            TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::top_memory_apps_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::top_memory_apps_fixture_root={}",
-            fixture.fixture_root.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::top_memory_apps_probe_script_path={}",
-            fixture.probe_script_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::top_memory_apps_receipt_path={}",
-            fixture.receipt_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::top_memory_apps_run_unique_num={}",
-            run_unique_num
-        ),
-        format!(
-            "env_receipt::top_memory_apps_run_unique_satisfied={}",
-            run_unique_satisfied
-        ),
-        format!(
-            "env_receipt::top_memory_apps_probe_script_seeded_satisfied={}",
-            probe_script_seeded_satisfied
-        ),
-        format!(
-            "env_receipt::top_memory_apps_receipt_absent_satisfied={}",
-            receipt_absent_satisfied
-        ),
-        format!(
-            "env_receipt::top_memory_apps_fixture_satisfied={}",
-            fixture_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "top_memory_apps_fixture_mode",
+        TOP_MEMORY_APPS_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "top_memory_apps_fixture_root",
+        fixture.fixture_root.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "top_memory_apps_probe_script_path",
+        fixture.probe_script_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "top_memory_apps_receipt_path",
+        fixture.receipt_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "top_memory_apps_run_unique_num",
+        run_unique_num.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "top_memory_apps_run_unique",
+        Some(TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "top_memory_apps_probe_script_seeded",
+        Some(TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(probe_script_seeded_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "top_memory_apps_receipt_absent",
+        Some(TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(receipt_absent_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "top_memory_apps_fixture",
+        Some(TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
 }
 
 fn parse_top_memory_apps_probe_receipt(path: &Path) -> TopMemoryAppsProbeReceipt {
@@ -3816,7 +4806,9 @@ fn top_memory_apps_rows_sorted_desc(rows: &[TopMemoryAppProbeRow]) -> bool {
     true
 }
 
-fn top_memory_apps_fixture_post_run_checks(fixture: &TopMemoryAppsFixtureRuntime) -> Vec<String> {
+fn top_memory_apps_fixture_post_run_checks(
+    fixture: &TopMemoryAppsFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -3833,69 +4825,62 @@ fn top_memory_apps_fixture_post_run_checks(fixture: &TopMemoryAppsFixtureRuntime
     let row_count_satisfied = row_count >= 3;
     let rows_sorted_desc_satisfied = top_memory_apps_rows_sorted_desc(&receipt.rows);
     let scope_satisfied = provider_satisfied && row_count_satisfied && rows_sorted_desc_satisfied;
-
-    let mut checks = vec![
-        format!("env_receipt::top_memory_apps_provider={}", receipt.provider),
-        format!(
-            "env_receipt::top_memory_apps_provider_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::top_memory_apps_provider_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::top_memory_apps_provider_satisfied={}",
-            provider_satisfied
-        ),
-        format!("env_receipt::top_memory_apps_row_count={}", row_count),
-        format!(
-            "env_receipt::top_memory_apps_row_count_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::top_memory_apps_row_count_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::top_memory_apps_row_count_satisfied={}",
-            row_count_satisfied
-        ),
-        format!(
-            "env_receipt::top_memory_apps_rows_sorted_desc_satisfied={}",
-            rows_sorted_desc_satisfied
-        ),
-        format!(
-            "env_receipt::top_memory_apps_receipt_path={}",
-            fixture.receipt_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::top_memory_apps_receipt_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::top_memory_apps_receipt_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::top_memory_apps_receipt_path_satisfied={}",
-            receipt_present_satisfied
-        ),
-        format!(
-            "env_receipt::top_memory_apps_scope_satisfied={}",
-            scope_satisfied
-        ),
-    ];
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "top_memory_apps_provider",
+        receipt.provider,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(provider_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "top_memory_apps_row_count",
+        row_count.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(row_count_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "top_memory_apps_rows_sorted_desc",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(rows_sorted_desc_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "top_memory_apps_receipt_path",
+        fixture.receipt_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "top_memory_apps_receipt",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(receipt_present_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "top_memory_apps_scope",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
     for row in receipt.rows {
-        checks.push(format!(
-            "env_receipt::top_memory_apps_row={}|{}|{}|{}",
-            row.rank, row.app, row.pid, row.rss_kb
-        ));
+        push_environment_observation(
+            &mut batch,
+            "top_memory_apps_row",
+            format!("{}|{}|{}|{}", row.rank, row.app, row.pid, row.rss_kb),
+        );
     }
-    checks
+    batch
 }
 
-fn top_memory_apps_fixture_cleanup_checks(fixture: &TopMemoryAppsFixtureRuntime) -> Vec<String> {
+fn top_memory_apps_fixture_cleanup_checks(
+    fixture: &TopMemoryAppsFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -3906,29 +4891,25 @@ fn top_memory_apps_fixture_cleanup_checks(fixture: &TopMemoryAppsFixtureRuntime)
     let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
     let receipt_exists_after_cleanup = fixture.receipt_path.exists();
     let cleanup_satisfied = !fixture_root_exists_after_cleanup && !receipt_exists_after_cleanup;
-
-    vec![
-        format!(
-            "env_receipt::top_memory_apps_cleanup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::top_memory_apps_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::top_memory_apps_cleanup_fixture_root_exists={}",
-            fixture_root_exists_after_cleanup
-        ),
-        format!(
-            "env_receipt::top_memory_apps_cleanup_receipt_exists={}",
-            receipt_exists_after_cleanup
-        ),
-        format!(
-            "env_receipt::top_memory_apps_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "top_memory_apps_cleanup_fixture_root_exists",
+        fixture_root_exists_after_cleanup.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "top_memory_apps_cleanup_receipt_exists",
+        receipt_exists_after_cleanup.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "top_memory_apps_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn bootstrap_shutdown_schedule_fixture_runtime(
@@ -4178,7 +5159,7 @@ fn shutdown_schedule_fixture_preflight_checks(
     fixture: &ShutdownScheduleFixtureRuntime,
     run_unique_num: &str,
     run_timestamp_ms: u64,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let run_unique_satisfied = fixture
         .fixture_root
         .file_name()
@@ -4192,61 +5173,73 @@ fn shutdown_schedule_fixture_preflight_checks(
         && probe_script_seeded_satisfied
         && receipt_absent_satisfied
         && provider_receipt_absent_satisfied;
-
-    vec![
-        format!(
-            "env_receipt::shutdown_schedule_fixture_mode={}",
-            SHUTDOWN_SCHEDULE_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_fixture_probe_source={}",
-            SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_fixture_root={}",
-            fixture.fixture_root.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_probe_script_path={}",
-            fixture.probe_script_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_receipt_path={}",
-            fixture.receipt_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_receipt_path={}",
-            fixture.provider_receipt_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_run_unique_num={}",
-            run_unique_num
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_run_unique_satisfied={}",
-            run_unique_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_probe_script_seeded_satisfied={}",
-            probe_script_seeded_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_receipt_absent_satisfied={}",
-            receipt_absent_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_receipt_absent_satisfied={}",
-            provider_receipt_absent_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_fixture_satisfied={}",
-            fixture_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_fixture_mode",
+        SHUTDOWN_SCHEDULE_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_fixture_root",
+        fixture.fixture_root.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_probe_script_path",
+        fixture.probe_script_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_receipt_path",
+        fixture.receipt_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_provider_receipt_path",
+        fixture.provider_receipt_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_run_unique_num",
+        run_unique_num.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_run_unique",
+        Some(SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_probe_script_seeded",
+        Some(SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(probe_script_seeded_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_receipt_absent",
+        Some(SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(receipt_absent_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_provider_receipt_absent",
+        Some(SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(provider_receipt_absent_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_fixture",
+        Some(SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
 }
 
 fn parse_shutdown_schedule_probe_receipt(path: &Path) -> ShutdownScheduleProbeReceipt {
@@ -4307,7 +5300,7 @@ fn parse_shutdown_provider_invocation_receipt(path: &Path) -> ShutdownProviderIn
 
 fn shutdown_schedule_fixture_post_run_checks(
     fixture: &ShutdownScheduleFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -4367,122 +5360,149 @@ fn shutdown_schedule_fixture_post_run_checks(
         && provider_args_target_satisfied
         && receipt_path_satisfied
         && provider_receipt_path_satisfied;
-
-    vec![
-        format!(
-            "env_receipt::shutdown_schedule_provider={}",
-            receipt.provider
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_satisfied={}",
-            provider_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_target_local_time={}",
-            receipt.target_local_time
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_target_local_date={}",
-            receipt.target_local_date
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_target_local_time_satisfied={}",
-            target_local_time_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_now_epoch_sec={}",
-            receipt.now_epoch_sec
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_target_epoch_sec={}",
-            receipt.target_epoch_sec
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_delay_seconds={}",
-            receipt.delay_seconds
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_delay_window_satisfied={}",
-            delay_window_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_target_after_run_satisfied={}",
-            target_after_run_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_rollover_to_next_day={}",
-            receipt.rollover_to_next_day
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_run_unique_observed={}",
-            receipt.run_unique_num
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_run_unique_match_satisfied={}",
-            run_unique_match_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_scheduled_satisfied={}",
-            scheduled_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_receipt_provider={}",
-            provider_receipt.provider
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_args={}",
-            provider_receipt.provider_args
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_receipt_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_receipt_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_invoked_satisfied={}",
-            provider_invoked_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_args_target_satisfied={}",
-            provider_args_target_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_receipt_path={}",
-            fixture.receipt_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_receipt_path={}",
-            fixture.provider_receipt_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_receipt_path_satisfied={}",
-            receipt_path_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_provider_receipt_path_satisfied={}",
-            provider_receipt_path_satisfied
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_scope_satisfied={}",
-            scope_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "shutdown_schedule_provider",
+        receipt.provider,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(provider_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "shutdown_schedule_target_local_time",
+        receipt.target_local_time,
+        None,
+        None,
+        Some(target_local_time_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_target_local_date",
+        receipt.target_local_date,
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_now_epoch_sec",
+        receipt.now_epoch_sec.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_target_epoch_sec",
+        receipt.target_epoch_sec.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_delay_seconds",
+        receipt.delay_seconds.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_delay_window",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(delay_window_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_target_after_run",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(target_after_run_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_rollover_to_next_day",
+        receipt.rollover_to_next_day.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_run_unique_observed",
+        receipt.run_unique_num,
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_run_unique_match",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(run_unique_match_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_scheduled",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(scheduled_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_provider_receipt_provider",
+        provider_receipt.provider,
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_provider_args",
+        provider_receipt.provider_args,
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_provider_receipt",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(provider_receipt_path_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_provider_invoked",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(provider_invoked_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_provider_args_target",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(provider_args_target_satisfied),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_receipt_path",
+        fixture.receipt_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_provider_receipt_path",
+        fixture.provider_receipt_path.to_string_lossy().to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_receipt_path",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(receipt_path_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_provider_receipt_path",
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(provider_receipt_path_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_scope",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    batch
 }
 
 fn shutdown_schedule_fixture_cleanup_checks(
     fixture: &ShutdownScheduleFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -4497,33 +5517,30 @@ fn shutdown_schedule_fixture_cleanup_checks(
     let cleanup_satisfied = !fixture_root_exists_after_cleanup
         && !receipt_exists_after_cleanup
         && !provider_receipt_exists_after_cleanup;
-
-    vec![
-        format!(
-            "env_receipt::shutdown_schedule_cleanup_probe_source={}",
-            probe_source
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_cleanup_fixture_root_exists={}",
-            fixture_root_exists_after_cleanup
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_cleanup_receipt_exists={}",
-            receipt_exists_after_cleanup
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_cleanup_provider_receipt_exists={}",
-            provider_receipt_exists_after_cleanup
-        ),
-        format!(
-            "env_receipt::shutdown_schedule_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_cleanup_fixture_root_exists",
+        fixture_root_exists_after_cleanup.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_cleanup_receipt_exists",
+        receipt_exists_after_cleanup.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "shutdown_schedule_cleanup_provider_receipt_exists",
+        provider_receipt_exists_after_cleanup.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "shutdown_schedule_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn bootstrap_mail_reply_mock_fixture_runtime(
@@ -4554,75 +5571,84 @@ fn mail_reply_mock_fixture_preflight_checks(
     fixture: &MailReplyMockDriverFixtureRuntime,
     run_unique_num: &str,
     run_timestamp_ms: u64,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let probe_source = format!("{}.preflight", MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE);
     let fixture_root = fixture.fixture_root.to_string_lossy().to_string();
     let run_unique_satisfied = fixture_root.contains(run_unique_num);
     let manifest_seeded_satisfied = fixture.manifest_path.is_file();
     let fixture_satisfied = fixture.fixture_root.is_dir() && run_unique_satisfied;
-
-    vec![
-        format!(
-            "env_receipt::mail_reply_fixture_mode={}",
-            MAIL_REPLY_MOCK_FIXTURE_MODE
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_probe_source={}",
-            MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_timestamp_ms={}",
-            run_timestamp_ms
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_root={}",
-            fixture.fixture_root.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_manifest_path={}",
-            fixture.manifest_path.to_string_lossy()
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_run_unique_num={}",
-            run_unique_num
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_run_unique_satisfied={}",
-            run_unique_satisfied
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_manifest_seeded_satisfied={}",
-            manifest_seeded_satisfied
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_satisfied={}",
-            fixture_satisfied
-        ),
-        format!("env_receipt::mail_reply_fixture_probe={}", probe_source),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "mail_reply_fixture_mode",
+        MAIL_REPLY_MOCK_FIXTURE_MODE,
+    );
+    push_environment_observation(
+        &mut batch,
+        "mail_reply_fixture_root",
+        fixture.fixture_root.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "mail_reply_fixture_manifest_path",
+        fixture.manifest_path.to_string_lossy().to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "mail_reply_fixture_run_unique_num",
+        run_unique_num.to_string(),
+    );
+    push_environment_observation(&mut batch, "mail_reply_fixture_probe", probe_source);
+    push_environment_metadata(
+        &mut batch,
+        "mail_reply_fixture_run_unique",
+        Some(MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "mail_reply_fixture_manifest_seeded",
+        Some(MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(manifest_seeded_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "mail_reply_fixture",
+        Some(MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
 }
 
 fn mail_reply_mock_fixture_post_run_checks(
     fixture: &MailReplyMockDriverFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let root_exists_satisfied = fixture.fixture_root.is_dir();
     let manifest_exists_satisfied = fixture.manifest_path.is_file();
-
-    vec![
-        format!(
-            "env_receipt::mail_reply_fixture_root_exists_satisfied={}",
-            root_exists_satisfied
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_manifest_exists_satisfied={}",
-            manifest_exists_satisfied
-        ),
-    ]
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_metadata(
+        &mut batch,
+        "mail_reply_fixture_root_exists",
+        None,
+        None,
+        Some(root_exists_satisfied),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "mail_reply_fixture_manifest_exists",
+        None,
+        None,
+        Some(manifest_exists_satisfied),
+    );
+    batch
 }
 
 fn mail_reply_mock_fixture_cleanup_checks(
     fixture: &MailReplyMockDriverFixtureRuntime,
-) -> Vec<String> {
+) -> EnvironmentEvidenceBatch {
     let timestamp_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -4634,29 +5660,334 @@ fn mail_reply_mock_fixture_cleanup_checks(
     let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
     let manifest_exists_after_cleanup = fixture.manifest_path.exists();
     let cleanup_satisfied = !fixture_root_exists_after_cleanup && !manifest_exists_after_cleanup;
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_observation(
+        &mut batch,
+        "mail_reply_fixture_cleanup_root_exists",
+        fixture_root_exists_after_cleanup.to_string(),
+    );
+    push_environment_observation(
+        &mut batch,
+        "mail_reply_fixture_cleanup_manifest_exists",
+        manifest_exists_after_cleanup.to_string(),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "mail_reply_fixture_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
+}
 
-    vec![
+fn display_optional_env_value(value: Option<&str>) -> String {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| "<unset>".to_string())
+}
+
+fn restore_optional_env_value(key: &str, value: Option<&str>) {
+    if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
+        std::env::set_var(key, value);
+    } else {
+        std::env::remove_var(key);
+    }
+}
+
+fn bootstrap_restaurants_near_me_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<RestaurantsNearMeFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let fixture_root = temp_dir.path().join(format!(
+        "{}{}",
+        RESTAURANTS_NEAR_ME_FIXTURE_DIR_PREFIX, run_unique_num
+    ));
+    std::fs::create_dir_all(&fixture_root)?;
+    let manifest_path = fixture_root.join("fixture_manifest.txt");
+    let observed_locality = std::env::var(RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    std::fs::write(
+        &manifest_path,
         format!(
-            "env_receipt::mail_reply_fixture_cleanup_probe_source={}",
-            probe_source
+            "mode={}\nrun_unique_num={}\nlocality_env_key={}\nobserved_locality={}\n",
+            RESTAURANTS_NEAR_ME_FIXTURE_MODE,
+            run_unique_num,
+            RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY,
+            display_optional_env_value(observed_locality.as_deref())
         ),
-        format!(
-            "env_receipt::mail_reply_fixture_cleanup_timestamp_ms={}",
-            timestamp_ms
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_cleanup_root_exists={}",
-            fixture_root_exists_after_cleanup
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_cleanup_manifest_exists={}",
-            manifest_exists_after_cleanup
-        ),
-        format!(
-            "env_receipt::mail_reply_fixture_cleanup_satisfied={}",
-            cleanup_satisfied
-        ),
-    ]
+    )?;
+
+    Ok(RestaurantsNearMeFixtureRuntime {
+        _temp_dir: temp_dir,
+        fixture_root,
+        manifest_path,
+        observed_locality,
+    })
+}
+
+fn restaurants_near_me_fixture_preflight_checks(
+    fixture: &RestaurantsNearMeFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> EnvironmentEvidenceBatch {
+    let probe_source = format!("{}.preflight", RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE);
+    let fixture_root = fixture.fixture_root.to_string_lossy().to_string();
+    let locality_observed = std::env::var(RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let run_unique_satisfied = fixture_root.contains(run_unique_num);
+    let manifest_seeded_satisfied = fixture.manifest_path.is_file();
+    let locality_observation_satisfied =
+        locality_observed.as_deref() == fixture.observed_locality.as_deref();
+    let fixture_satisfied =
+        run_unique_satisfied && manifest_seeded_satisfied && locality_observation_satisfied;
+
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_fixture_mode",
+        RESTAURANTS_NEAR_ME_FIXTURE_MODE,
+        Some(RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_fixture_root",
+        fixture.fixture_root.to_string_lossy().to_string(),
+        Some(RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_fixture_manifest_path",
+        fixture.manifest_path.to_string_lossy().to_string(),
+        Some(RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(manifest_seeded_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_run_unique_num",
+        run_unique_num.to_string(),
+        Some(RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_locality_env_key",
+        RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY,
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_locality_observed_value",
+        display_optional_env_value(locality_observed.as_deref()),
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(locality_observation_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_locality_initial_value",
+        display_optional_env_value(fixture.observed_locality.as_deref()),
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(locality_observation_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_locality",
+        display_optional_env_value(locality_observed.as_deref()),
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(locality_observation_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_locality_observation",
+        locality_observation_satisfied.to_string(),
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(locality_observation_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_manifest_seeded",
+        manifest_seeded_satisfied.to_string(),
+        Some(RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(manifest_seeded_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_fixture",
+        fixture_satisfied.to_string(),
+        Some(RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
+}
+
+fn restaurants_near_me_fixture_post_run_checks(
+    fixture: &RestaurantsNearMeFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let root_exists_satisfied = fixture.fixture_root.is_dir();
+    let manifest_exists_satisfied = fixture.manifest_path.is_file();
+    let locality_post_run = std::env::var(RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let locality_unchanged_satisfied = std::env::var(RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .as_deref()
+        == fixture.observed_locality.as_deref();
+    let scope_satisfied = root_exists_satisfied && manifest_exists_satisfied;
+
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.post_run", RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE);
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_fixture_root_exists",
+        root_exists_satisfied.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(root_exists_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_manifest_exists",
+        manifest_exists_satisfied.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(manifest_exists_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_locality_unchanged_post_run",
+        locality_unchanged_satisfied.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(locality_unchanged_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_locality_post_run_value",
+        display_optional_env_value(locality_post_run.as_deref()),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(locality_unchanged_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_scope",
+        scope_satisfied.to_string(),
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    batch
+}
+
+fn restaurants_near_me_fixture_cleanup_checks(
+    fixture: &RestaurantsNearMeFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE);
+
+    let observed_locality = std::env::var(RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    restore_optional_env_value(
+        RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY,
+        fixture.observed_locality.as_deref(),
+    );
+    let restored_locality = std::env::var(RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let locality_unchanged_satisfied =
+        restored_locality.as_deref() == fixture.observed_locality.as_deref();
+
+    let _ = std::fs::remove_file(&fixture.manifest_path);
+    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
+    let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
+    let manifest_exists_after_cleanup = fixture.manifest_path.exists();
+    let cleanup_satisfied = !fixture_root_exists_after_cleanup
+        && !manifest_exists_after_cleanup
+        && locality_unchanged_satisfied;
+
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_cleanup_root_exists",
+        fixture_root_exists_after_cleanup.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(!fixture_root_exists_after_cleanup),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_cleanup_manifest_exists",
+        manifest_exists_after_cleanup.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(!manifest_exists_after_cleanup),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_cleanup_locality_observed_value",
+        display_optional_env_value(restored_locality.as_deref()),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(locality_unchanged_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_cleanup_locality_pre_restore_value",
+        display_optional_env_value(observed_locality.as_deref()),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_cleanup_locality_unchanged",
+        locality_unchanged_satisfied.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(locality_unchanged_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "restaurants_near_me_cleanup",
+        cleanup_satisfied.to_string(),
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
 }
 
 fn wallet_channel_key(channel_id: &[u8; 32]) -> Vec<u8> {
@@ -4742,7 +6073,7 @@ async fn bootstrap_mailbox_runtime_state(
     run_index: usize,
     run_timestamp_ms: u64,
     provider_driver_override: Option<&str>,
-) -> Result<Vec<String>> {
+) -> Result<EnvironmentEvidenceBatch> {
     let config = parse_mail_runtime_bootstrap_config()?;
     upsert_wallet_network_service_meta(state)?;
 
@@ -4926,36 +6257,113 @@ async fn bootstrap_mailbox_runtime_state(
         MailConnectorAuthMode::Oauth2 => "oauth2",
     };
 
-    Ok(vec![
-        "env_receipt::mail_env_file_loaded=true".to_string(),
-        "env_receipt::mail_service_meta_registered=true".to_string(),
-        "env_receipt::mail_connector_bootstrap=true".to_string(),
-        "env_receipt::mail_channel_seeded=true".to_string(),
-        "env_receipt::mail_lease_seeded=true".to_string(),
-        format!(
-            "env_receipt::mail_send_capability_seeded={}",
-            mail_send_capability_seeded
-        ),
-        format!(
-            "env_receipt::mail_channel_capabilities={}",
-            channel_capability_set.join(",")
-        ),
-        format!(
-            "env_receipt::mail_lease_capabilities={}",
-            lease_capability_subset.join(",")
-        ),
-        format!(
-            "env_receipt::mail_provider_driver={}",
-            provider_driver_label
-        ),
-        format!(
-            "env_receipt::mail_provider_driver_source={}",
-            provider_driver_source
-        ),
-        format!("env_receipt::mail_auth_mode={}", auth_mode_label),
-        format!("env_receipt::mail_mailbox={}", config.mailbox),
-        format!("env_receipt::mail_setup_timestamp_ms={}", run_timestamp_ms),
-    ])
+    let probe_source = "harness.mail_runtime_bootstrap".to_string();
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "mail_env_file_loaded",
+        "true",
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_service_meta_registered",
+        "true",
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_connector_bootstrap",
+        "true",
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_channel_seeded",
+        "true",
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_lease_seeded",
+        "true",
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_send_capability_seeded",
+        mail_send_capability_seeded.to_string(),
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(mail_send_capability_seeded),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_channel_capabilities",
+        channel_capability_set.join(","),
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_lease_capabilities",
+        lease_capability_subset.join(","),
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_provider_driver",
+        provider_driver_label,
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_provider_driver_source",
+        provider_driver_source,
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_auth_mode",
+        auth_mode_label,
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_mailbox",
+        config.mailbox,
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_setup_timestamp_ms",
+        run_timestamp_ms.to_string(),
+        Some(probe_source),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    Ok(batch)
 }
 
 fn bootstrap_optional_fixture<T, B, P>(
@@ -4963,33 +6371,39 @@ fn bootstrap_optional_fixture<T, B, P>(
     bootstrap: B,
     preflight: P,
     setup_checks: &mut Vec<String>,
+    setup_receipts: &mut Vec<EnvironmentReceiptObservation>,
 ) -> Result<Option<T>>
 where
     B: FnOnce() -> Result<T>,
-    P: FnOnce(&T) -> Vec<String>,
+    P: FnOnce(&T) -> EnvironmentEvidenceBatch,
 {
     if !enabled {
         return Ok(None);
     }
     let fixture = bootstrap()?;
-    setup_checks.extend(preflight(&fixture));
+    extend_environment_evidence_batch(setup_checks, setup_receipts, preflight(&fixture));
     Ok(Some(fixture))
 }
 
-fn insert_fixture_checks<T>(
+fn insert_fixture_evidence<T>(
     verification_checks: &mut BTreeSet<String>,
+    environment_receipts: &mut Vec<EnvironmentReceiptObservation>,
     fixture: Option<&T>,
-    post_run: fn(&T) -> Vec<String>,
-    cleanup: Option<fn(&T) -> Vec<String>>,
+    post_run: fn(&T) -> EnvironmentEvidenceBatch,
+    cleanup: Option<fn(&T) -> EnvironmentEvidenceBatch>,
 ) {
     let Some(fixture) = fixture else {
         return;
     };
-    for check in post_run(fixture) {
+    let post_run_batch = post_run(fixture);
+    environment_receipts.extend(post_run_batch.receipts);
+    for check in post_run_batch.checks {
         verification_checks.insert(check);
     }
     if let Some(cleanup_fn) = cleanup {
-        for check in cleanup_fn(fixture) {
+        let cleanup_batch = cleanup_fn(fixture);
+        environment_receipts.extend(cleanup_batch.receipts);
+        for check in cleanup_batch.checks {
             verification_checks.insert(check);
         }
     }
@@ -5026,31 +6440,55 @@ pub async fn run_case(
     let run_unique_num = run_unique_num(run_index, run_timestamp_ms);
     let mut run_query = render_query_for_run(case.query, run_index, run_timestamp_ms);
     let mut runtime_setup_verification_checks = Vec::<String>::new();
+    let mut runtime_setup_environment_receipts = Vec::<EnvironmentReceiptObservation>::new();
     let vlc_install_fixture = bootstrap_optional_fixture(
         should_bootstrap_vlc_install_fixture(case.id),
         bootstrap_vlc_install_fixture_runtime,
-        |fixture| vlc_install_fixture_preflight_checks(fixture, run_timestamp_ms),
+        |fixture| environment_evidence_batch_from_checks(vlc_install_fixture_preflight_checks(fixture, run_timestamp_ms)),
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
+    )?;
+    let desktop_project_create_fixture = bootstrap_optional_fixture(
+        should_bootstrap_desktop_project_create_fixture(case.id),
+        || bootstrap_desktop_project_create_fixture_runtime(&run_unique_num),
+        |fixture| {
+            environment_evidence_batch_from_checks(desktop_project_create_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
+        },
+        &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     let projects_zip_fixture = bootstrap_optional_fixture(
         should_bootstrap_projects_zip_fixture(case.id),
         bootstrap_projects_zip_fixture_runtime,
-        |fixture| projects_zip_fixture_preflight_checks(fixture, run_timestamp_ms),
+        |fixture| environment_evidence_batch_from_checks(projects_zip_fixture_preflight_checks(fixture, run_timestamp_ms)),
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     let downloads_lowercase_fixture = bootstrap_optional_fixture(
         should_bootstrap_downloads_lowercase_fixture(case.id),
         || bootstrap_downloads_lowercase_fixture_runtime(&run_unique_num),
-        |fixture| downloads_lowercase_fixture_preflight_checks(fixture, run_timestamp_ms),
+        |fixture| environment_evidence_batch_from_checks(downloads_lowercase_fixture_preflight_checks(fixture, run_timestamp_ms)),
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     let downloads_png_move_fixture = bootstrap_optional_fixture(
         should_bootstrap_downloads_png_move_fixture(case.id),
         || bootstrap_downloads_png_move_fixture_runtime(&run_unique_num),
         |fixture| {
-            downloads_png_move_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+            environment_evidence_batch_from_checks(
+                downloads_png_move_fixture_preflight_checks(
+                    fixture,
+                    &run_unique_num,
+                    run_timestamp_ms,
+                ),
+            )
         },
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     if let Some(fixture) = downloads_png_move_fixture.as_ref() {
         run_query = run_query.replace(
@@ -5062,13 +6500,14 @@ pub async fn run_case(
         should_bootstrap_desktop_documents_backup_fixture(case.id),
         || bootstrap_desktop_documents_backup_fixture_runtime(&run_unique_num),
         |fixture| {
-            desktop_documents_backup_fixture_preflight_checks(
+            environment_evidence_batch_from_checks(desktop_documents_backup_fixture_preflight_checks(
                 fixture,
                 &run_unique_num,
                 run_timestamp_ms,
-            )
+            ))
         },
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     if let Some(fixture) = desktop_documents_backup_fixture.as_ref() {
         run_query = run_query.replace(
@@ -5084,9 +6523,14 @@ pub async fn run_case(
         should_bootstrap_documents_summary_fixture(case.id),
         || bootstrap_documents_summary_fixture_runtime(&run_unique_num),
         |fixture| {
-            documents_summary_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+            environment_evidence_batch_from_checks(documents_summary_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
         },
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     if let Some(fixture) = documents_summary_fixture.as_ref() {
         run_query = run_query.replace("{DOCS_FIXTURE_DIR}", &fixture.fixture_dir.to_string_lossy());
@@ -5095,9 +6539,14 @@ pub async fn run_case(
         should_bootstrap_pdf_last_week_fixture(case.id),
         || bootstrap_pdf_last_week_fixture_runtime(&run_unique_num),
         |fixture| {
-            pdf_last_week_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+            environment_evidence_batch_from_checks(pdf_last_week_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
         },
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     if let Some(fixture) = pdf_last_week_fixture.as_ref() {
         run_query = run_query.replace(
@@ -5109,9 +6558,14 @@ pub async fn run_case(
         should_bootstrap_spotify_uninstall_fixture(case.id),
         || bootstrap_spotify_uninstall_fixture_runtime(&run_unique_num),
         |fixture| {
-            spotify_uninstall_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+            environment_evidence_batch_from_checks(spotify_uninstall_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
         },
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     if let Some(fixture) = spotify_uninstall_fixture.as_ref() {
         run_query = run_query.replace(
@@ -5123,9 +6577,14 @@ pub async fn run_case(
         should_bootstrap_top_memory_apps_fixture(case.id),
         || bootstrap_top_memory_apps_fixture_runtime(&run_unique_num),
         |fixture| {
-            top_memory_apps_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+            environment_evidence_batch_from_checks(top_memory_apps_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
         },
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     if let Some(fixture) = top_memory_apps_fixture.as_ref() {
         run_query = run_query.replace(
@@ -5137,9 +6596,14 @@ pub async fn run_case(
         should_bootstrap_shutdown_schedule_fixture(case.id),
         || bootstrap_shutdown_schedule_fixture_runtime(&run_unique_num),
         |fixture| {
-            shutdown_schedule_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+            environment_evidence_batch_from_checks(shutdown_schedule_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
         },
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     if let Some(fixture) = shutdown_schedule_fixture.as_ref() {
         run_query = run_query.replace(
@@ -5151,13 +6615,29 @@ pub async fn run_case(
         should_bootstrap_mail_reply_mock_fixture(case.id),
         || bootstrap_mail_reply_mock_fixture_runtime(&run_unique_num),
         |fixture| {
-            mail_reply_mock_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+            environment_evidence_batch_from_checks(mail_reply_mock_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
         },
         &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
+    )?;
+    let restaurants_near_me_fixture = bootstrap_optional_fixture(
+        should_bootstrap_restaurants_near_me_fixture(case.id),
+        || bootstrap_restaurants_near_me_fixture_runtime(&run_unique_num),
+        |fixture| {
+            restaurants_near_me_fixture_preflight_checks(fixture, &run_unique_num, run_timestamp_ms)
+        },
+        &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
     )?;
     let mail_provider_driver_override = mail_reply_mock_fixture.as_ref().map(|_| "mock");
     if should_bootstrap_mailbox_runtime(&run_query) {
-        runtime_setup_verification_checks.extend(
+        extend_environment_evidence_batch(
+            &mut runtime_setup_verification_checks,
+            &mut runtime_setup_environment_receipts,
             bootstrap_mailbox_runtime_state(
                 &mut state,
                 &mut ctx,
@@ -5297,6 +6777,7 @@ pub async fn run_case(
     let final_state = read_agent_state(&state, session_id);
 
     let mut action_tools = BTreeSet::new();
+    let mut planned_tool_calls = Vec::new();
     let mut routing_tools = BTreeSet::new();
     let mut workload_tools = BTreeSet::new();
     let mut routing_policy_decisions = BTreeSet::new();
@@ -5306,13 +6787,27 @@ pub async fn run_case(
     let mut action_evidence = Vec::new();
     let mut action_error_classes = BTreeSet::new();
     let mut command_history_evidence = Vec::new();
+    let mut command_history_keys = BTreeSet::new();
+    let mut exec_workload_evidence = BTreeMap::<(u32, String), ExecWorkloadEvidence>::new();
     let mut cec_receipts = Vec::new();
+    let mut environment_receipts = runtime_setup_environment_receipts;
     let mut final_reply = String::new();
     let mut chat_reply_count = 0usize;
     let mut approval_required_events = 0usize;
+    let mut mail_read_latest_success_count = 0usize;
+    let mut mail_read_latest_failure_count = 0usize;
+    let mut mail_reply_success_count = 0usize;
+    let mut mail_reply_failure_count = 0usize;
+    let mut mail_read_latest_payloads = Vec::<MailReadLatestPayloadObservation>::new();
+    let mut mail_reply_payloads = Vec::<MailReplyPayloadObservation>::new();
 
     for event in &captured_events {
         match event {
+            KernelEvent::AgentStep(trace) => {
+                if let Some(entry) = planned_tool_call_from_step(trace) {
+                    planned_tool_calls.push(entry);
+                }
+            }
             KernelEvent::AgentActionResult {
                 tool_name,
                 output,
@@ -5323,11 +6818,46 @@ pub async fn run_case(
                 action_tools.insert(tool_name.clone());
                 if tool_name.starts_with("sys__exec") {
                     if let Some(entry) = extract_command_history_evidence(output) {
-                        command_history_evidence.push(entry);
+                        push_command_history_evidence(
+                            &mut command_history_evidence,
+                            &mut command_history_keys,
+                            entry,
+                        );
                     }
                 }
                 if let Some(class_name) = error_class.as_ref() {
                     action_error_classes.insert(class_name.clone());
+                }
+                let hard_error = error_class
+                    .as_deref()
+                    .map(|value| !is_no_effect_after_action_error(Some(value)))
+                    .unwrap_or(false);
+                if is_mail_read_latest_tool_name(tool_name) {
+                    if !hard_error {
+                        if let Some(payload) = parse_mail_read_latest_payload(output) {
+                            mail_read_latest_success_count =
+                                mail_read_latest_success_count.saturating_add(1);
+                            mail_read_latest_payloads.push(payload);
+                        } else if agent_status.eq_ignore_ascii_case("failed") {
+                            mail_read_latest_failure_count =
+                                mail_read_latest_failure_count.saturating_add(1);
+                        }
+                    } else {
+                        mail_read_latest_failure_count =
+                            mail_read_latest_failure_count.saturating_add(1);
+                    }
+                }
+                if is_mail_reply_tool_name(tool_name) {
+                    if !hard_error {
+                        if let Some(payload) = parse_mail_reply_payload(output) {
+                            mail_reply_success_count = mail_reply_success_count.saturating_add(1);
+                            mail_reply_payloads.push(payload);
+                        } else if agent_status.eq_ignore_ascii_case("failed") {
+                            mail_reply_failure_count = mail_reply_failure_count.saturating_add(1);
+                        }
+                    } else {
+                        mail_reply_failure_count = mail_reply_failure_count.saturating_add(1);
+                    }
                 }
                 action_evidence.push(ActionEvidence {
                     tool_name: tool_name.clone(),
@@ -5380,6 +6910,16 @@ pub async fn run_case(
                     if let Some(error_class) = exec.error_class.as_ref() {
                         action_error_classes.insert(error_class.clone());
                     }
+                    let workload_key = (workload.step_index, workload.workload_id.clone());
+                    let entry = command_history_from_exec_workload(
+                        exec,
+                        exec_workload_evidence.get(&workload_key),
+                    );
+                    push_command_history_evidence(
+                        &mut command_history_evidence,
+                        &mut command_history_keys,
+                        entry,
+                    );
                 }
                 WorkloadReceipt::NetFetch(fetch) => {
                     workload_tools.insert(fetch.tool_name.clone());
@@ -5394,6 +6934,28 @@ pub async fn run_case(
                     }
                 }
             },
+            KernelEvent::WorkloadActivity(activity) => match &activity.kind {
+                WorkloadActivityKind::Lifecycle { exit_code, .. } => {
+                    let workload_key = (activity.step_index, activity.workload_id.clone());
+                    exec_workload_evidence
+                        .entry(workload_key)
+                        .or_default()
+                        .set_exit_code(*exit_code);
+                }
+                WorkloadActivityKind::Stdio {
+                    stream,
+                    chunk,
+                    seq,
+                    exit_code,
+                    ..
+                } => {
+                    let workload_key = (activity.step_index, activity.workload_id.clone());
+                    exec_workload_evidence
+                        .entry(workload_key)
+                        .or_default()
+                        .append_chunk(stream, *seq, chunk, *exit_code);
+                }
+            },
             KernelEvent::ExecutionContractReceipt(receipt) => {
                 cec_receipts.push(CecReceiptEvidence {
                     contract_version: receipt.contract_version.clone(),
@@ -5401,6 +6963,9 @@ pub async fn run_case(
                     key: receipt.key.clone(),
                     satisfied: receipt.satisfied,
                     timestamp_ms: receipt.timestamp_ms,
+                    probe_source: receipt.probe_source.clone(),
+                    observed_value: receipt.observed_value.clone(),
+                    evidence_type: receipt.evidence_type.clone(),
                     provider_id: receipt.provider_id.clone(),
                 });
             }
@@ -5435,71 +7000,104 @@ pub async fn run_case(
     for check in runtime_setup_verification_checks {
         verification_checks.insert(check);
     }
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         vlc_install_fixture.as_ref(),
-        vlc_install_fixture_post_run_checks,
+        |fixture| environment_evidence_batch_from_checks(vlc_install_fixture_post_run_checks(fixture)),
         None,
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
+        desktop_project_create_fixture.as_ref(),
+        |fixture| {
+            environment_evidence_batch_from_checks(desktop_project_create_fixture_post_run_checks(
+                fixture,
+            ))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(desktop_project_create_fixture_cleanup_checks(
+                fixture,
+            ))
+        }),
+    );
+    insert_fixture_evidence(
+        &mut verification_checks,
+        &mut environment_receipts,
         projects_zip_fixture.as_ref(),
-        projects_zip_fixture_post_run_checks,
-        Some(projects_zip_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(projects_zip_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(projects_zip_fixture_cleanup_checks(fixture))),
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         downloads_lowercase_fixture.as_ref(),
-        downloads_lowercase_fixture_post_run_checks,
-        Some(downloads_lowercase_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(downloads_lowercase_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(downloads_lowercase_fixture_cleanup_checks(fixture))),
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         downloads_png_move_fixture.as_ref(),
-        downloads_png_move_fixture_post_run_checks,
-        Some(downloads_png_move_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(downloads_png_move_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(downloads_png_move_fixture_cleanup_checks(fixture))),
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         desktop_documents_backup_fixture.as_ref(),
-        desktop_documents_backup_fixture_post_run_checks,
-        Some(desktop_documents_backup_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(desktop_documents_backup_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(desktop_documents_backup_fixture_cleanup_checks(fixture))),
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         documents_summary_fixture.as_ref(),
-        documents_summary_fixture_post_run_checks,
-        Some(documents_summary_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(documents_summary_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(documents_summary_fixture_cleanup_checks(fixture))),
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         pdf_last_week_fixture.as_ref(),
-        pdf_last_week_fixture_post_run_checks,
-        Some(pdf_last_week_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(pdf_last_week_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(pdf_last_week_fixture_cleanup_checks(fixture))),
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         spotify_uninstall_fixture.as_ref(),
-        spotify_uninstall_fixture_post_run_checks,
-        Some(spotify_uninstall_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(spotify_uninstall_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(spotify_uninstall_fixture_cleanup_checks(fixture))),
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         top_memory_apps_fixture.as_ref(),
-        top_memory_apps_fixture_post_run_checks,
-        Some(top_memory_apps_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(top_memory_apps_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(top_memory_apps_fixture_cleanup_checks(fixture))),
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         shutdown_schedule_fixture.as_ref(),
-        shutdown_schedule_fixture_post_run_checks,
-        Some(shutdown_schedule_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(shutdown_schedule_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(shutdown_schedule_fixture_cleanup_checks(fixture))),
     );
-    insert_fixture_checks(
+    insert_fixture_evidence(
         &mut verification_checks,
+        &mut environment_receipts,
         mail_reply_mock_fixture.as_ref(),
-        mail_reply_mock_fixture_post_run_checks,
-        Some(mail_reply_mock_fixture_cleanup_checks),
+        |fixture| environment_evidence_batch_from_checks(mail_reply_mock_fixture_post_run_checks(fixture)),
+        Some(|fixture| environment_evidence_batch_from_checks(mail_reply_mock_fixture_cleanup_checks(fixture))),
+    );
+    insert_fixture_evidence(
+        &mut verification_checks,
+        &mut environment_receipts,
+        restaurants_near_me_fixture.as_ref(),
+        restaurants_near_me_fixture_post_run_checks,
+        Some(restaurants_near_me_fixture_cleanup_checks),
     );
 
     let event_excerpt = captured_events
@@ -5518,8 +7116,7 @@ pub async fn run_case(
 
     let verification_checks = verification_checks.into_iter().collect::<Vec<_>>();
     let verification_facts = parse_verification_facts(&verification_checks);
-
-    Ok(RunObservation {
+    let mut observation = RunObservation {
         case_id: case.id.to_string(),
         query: run_query,
         run_timestamp_ms,
@@ -5533,6 +7130,7 @@ pub async fn run_case(
         final_reply,
         chat_reply_count,
         action_tools: action_tools.into_iter().collect(),
+        planned_tool_calls,
         routing_tools: routing_tools.into_iter().collect(),
         workload_tools: workload_tools.into_iter().collect(),
         routing_policy_decisions: routing_policy_decisions.into_iter().collect(),
@@ -5545,8 +7143,124 @@ pub async fn run_case(
         action_error_classes: action_error_classes.into_iter().collect(),
         command_history_evidence,
         cec_receipts,
+        environment_receipts,
+        web: None,
+        screenshot: None,
+        mail: None,
         event_excerpt,
         kernel_event_count: captured_events.len(),
         kernel_log_lines,
-    })
+    };
+    observation.web = derive_web_observation(&observation);
+    observation.screenshot = derive_screenshot_observation(&observation);
+    observation.mail = derive_mail_observation(
+        &observation,
+        mail_read_latest_success_count,
+        mail_read_latest_failure_count,
+        mail_reply_success_count,
+        mail_reply_failure_count,
+        mail_read_latest_payloads,
+        mail_reply_payloads,
+    );
+
+    Ok(observation)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        merge_environment_receipts, parse_mail_read_latest_payload, parse_mail_reply_payload,
+    };
+    use crate::capabilities_suite::types::EnvironmentReceiptObservation;
+
+    #[test]
+    fn parses_mail_read_latest_payload_into_typed_observation() {
+        let payload = parse_mail_read_latest_payload(
+            r#"{
+                "operation":"mail_read_latest@v1",
+                "mailbox":"primary",
+                "citation":"imap://primary/msg-123",
+                "message":{
+                    "message_id":"msg-123",
+                    "from":"alerts@example.com",
+                    "subject":"Status update",
+                    "received_at_ms":1772862000000,
+                    "received_at_utc":"2026-03-07T05:00:00Z",
+                    "preview":"Latest status update preview"
+                }
+            }"#,
+        )
+        .expect("mail read payload should parse");
+
+        assert_eq!(payload.operation.as_deref(), Some("mail_read_latest@v1"));
+        assert_eq!(payload.mailbox.as_deref(), Some("primary"));
+        assert_eq!(payload.citation.as_deref(), Some("imap://primary/msg-123"));
+        assert_eq!(payload.message_id.as_deref(), Some("msg-123"));
+        assert_eq!(payload.from.as_deref(), Some("alerts@example.com"));
+        assert_eq!(payload.subject.as_deref(), Some("Status update"));
+        assert_eq!(payload.received_at_ms, Some(1772862000000));
+        assert_eq!(
+            payload.received_at_utc.as_deref(),
+            Some("2026-03-07T05:00:00Z")
+        );
+    }
+
+    #[test]
+    fn parses_mail_reply_payload_into_typed_observation() {
+        let payload = parse_mail_reply_payload(
+            r#"{
+                "operation":"mail_reply@v1",
+                "mailbox":"primary",
+                "to":"team@ioi.network",
+                "subject":"Standup moved",
+                "body":"Tomorrow's standup is moved to 2 PM.",
+                "sent_message_id":"sent-456",
+                "citation":"mailto:team@ioi.network?subject=Standup%20moved"
+            }"#,
+        )
+        .expect("mail reply payload should parse");
+
+        assert_eq!(payload.operation.as_deref(), Some("mail_reply@v1"));
+        assert_eq!(payload.mailbox.as_deref(), Some("primary"));
+        assert_eq!(payload.to.as_deref(), Some("team@ioi.network"));
+        assert_eq!(payload.subject.as_deref(), Some("Standup moved"));
+        assert_eq!(
+            payload.body.as_deref(),
+            Some("Tomorrow's standup is moved to 2 PM.")
+        );
+        assert_eq!(payload.sent_message_id.as_deref(), Some("sent-456"));
+        assert_eq!(
+            payload.citation.as_deref(),
+            Some("mailto:team@ioi.network?subject=Standup%20moved")
+        );
+    }
+
+    #[test]
+    fn merge_environment_receipts_deduplicates_observed_values() {
+        let existing = vec![EnvironmentReceiptObservation {
+            key: "top_memory_apps_row".to_string(),
+            observed_values: vec!["1|code|4003|4437552".to_string()],
+            probe_source: Some("fixture.receipt_probe".to_string()),
+            timestamp_ms: Some(1),
+            satisfied: Some(true),
+        }];
+        let checks = vec![
+            "env_receipt::top_memory_apps_row=1|code|4003|4437552".to_string(),
+            "env_receipt::top_memory_apps_row=2|firefox-bin|5461|841404".to_string(),
+        ];
+
+        let merged = merge_environment_receipts(existing, &checks);
+        let row_receipt = merged
+            .iter()
+            .find(|receipt| receipt.key == "top_memory_apps_row")
+            .expect("row receipt should be present");
+
+        assert_eq!(
+            row_receipt.observed_values,
+            vec![
+                "1|code|4003|4437552".to_string(),
+                "2|firefox-bin|5461|841404".to_string(),
+            ]
+        );
+    }
 }

@@ -1,4 +1,127 @@
 use super::*;
+use ioi_types::app::agentic::WebRetrievalContract;
+
+pub(crate) fn retrieval_contract_prefers_single_fact_snapshot(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> bool {
+    contract
+        .map(|contract| {
+            contract.entity_cardinality_min <= 1
+                && contract.structured_record_preferred
+                && !contract.comparison_required
+        })
+        .unwrap_or(false)
+}
+
+pub(crate) fn retrieval_contract_requires_runtime_locality(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> bool {
+    contract
+        .map(|contract| contract.runtime_locality_required)
+        .unwrap_or(false)
+}
+
+pub(crate) fn retrieval_contract_prefers_multi_item_cardinality(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> bool {
+    contract
+        .map(|contract| contract.entity_cardinality_min > 1 || contract.comparison_required)
+        .unwrap_or(false)
+}
+
+pub(crate) fn retrieval_contract_requests_comparison(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> bool {
+    contract
+        .map(|contract| contract.comparison_required)
+        .unwrap_or(false)
+}
+
+pub(crate) fn retrieval_contract_is_generic_headline_collection(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> bool {
+    contract
+        .map(|contract| {
+            contract.ordered_collection_preferred
+                && contract.entity_cardinality_min > 1
+                && !crate::agentic::web::contract_requires_geo_scoped_entity_expansion(contract)
+        })
+        .unwrap_or(false)
+}
+
+pub(crate) fn retrieval_contract_entity_diversity_required(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> bool {
+    contract
+        .map(crate::agentic::web::contract_requires_geo_scoped_entity_expansion)
+        .unwrap_or(false)
+}
+
+pub(crate) fn retrieval_contract_required_story_count(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> usize {
+    contract
+        .map(|contract| contract.entity_cardinality_min.max(1) as usize)
+        .unwrap_or(1)
+}
+
+pub(crate) fn retrieval_contract_required_citations_per_story(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> usize {
+    contract
+        .map(|contract| contract.citation_count_min.max(1) as usize)
+        .unwrap_or(1)
+}
+
+pub(crate) fn retrieval_contract_required_distinct_domain_floor(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> usize {
+    contract
+        .map(|contract| {
+            if crate::agentic::web::contract_requires_geo_scoped_entity_expansion(contract) {
+                0
+            } else if contract.entity_cardinality_min > 1 {
+                contract
+                    .source_independence_min
+                    .max(contract.entity_cardinality_min) as usize
+            } else {
+                0
+            }
+        })
+        .unwrap_or(0)
+}
+
+pub(crate) fn retrieval_contract_required_distinct_citations(
+    contract: Option<&WebRetrievalContract>,
+    query: &str,
+) -> usize {
+    retrieval_contract_required_story_count(contract, query).saturating_mul(
+        retrieval_contract_required_citations_per_story(contract, query),
+    )
+}
+
+pub(crate) fn retrieval_contract_min_sources(
+    contract: Option<&WebRetrievalContract>,
+    _query: &str,
+) -> u32 {
+    contract
+        .map(|contract| {
+            contract
+                .source_independence_min
+                .max(contract.entity_cardinality_min.max(1))
+                .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX)
+        })
+        .unwrap_or(1)
+}
 
 pub(crate) fn required_citations_per_story(query: &str) -> usize {
     let tokens = query.split_whitespace().collect::<Vec<_>>();
@@ -181,6 +304,7 @@ pub(crate) fn render_mailbox_access_limited_reply(query: &str, run_timestamp_ms:
     let run_timestamp_iso_utc = iso_datetime_from_unix_ms(run_timestamp_ms);
     let draft = SynthesisDraft {
         query: query.to_string(),
+        retrieval_contract: None,
         run_date: iso_date_from_unix_ms(run_timestamp_ms),
         run_timestamp_ms,
         run_timestamp_iso_utc: run_timestamp_iso_utc.clone(),
