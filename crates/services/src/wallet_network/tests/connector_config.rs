@@ -57,13 +57,8 @@ fn seed_primary_connector(
         },
     };
     let upsert_params = codec::to_bytes_canonical(&upsert).expect("encode");
-    run_async(service.handle_service_call(
-        state,
-        "mail_connector_upsert@v1",
-        &upsert_params,
-        ctx,
-    ))
-    .expect("mail connector upsert");
+    run_async(service.handle_service_call(state, "mail_connector_upsert@v1", &upsert_params, ctx))
+        .expect("mail connector upsert");
 }
 
 #[test]
@@ -258,18 +253,14 @@ fn mail_connector_ensure_binding_provisions_and_reuses_binding() {
         .expect("decode lease");
         assert_eq!(lease.audience, signer);
         assert_eq!(lease.channel_id, receipt_a.channel_id);
-        assert!(
-            lease
-                .capability_subset
-                .iter()
-                .any(|cap| cap.eq_ignore_ascii_case("mail.reply"))
-        );
-        assert!(
-            lease
-                .capability_subset
-                .iter()
-                .any(|cap| cap.eq_ignore_ascii_case("mail.read.latest"))
-        );
+        assert!(lease
+            .capability_subset
+            .iter()
+            .any(|cap| cap.eq_ignore_ascii_case("mail.reply")));
+        assert!(lease
+            .capability_subset
+            .iter()
+            .any(|cap| cap.eq_ignore_ascii_case("mail.read.latest")));
 
         let ensure_b = MailConnectorEnsureBindingParams {
             request_id: [0x62u8; 32],

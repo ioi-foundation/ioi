@@ -5,6 +5,7 @@ mod types;
 
 use anyhow::{anyhow, Result};
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
+use ioi_types::app::agentic::InferenceOptions;
 use serde_json::json;
 use std::sync::Arc;
 
@@ -77,22 +78,132 @@ fn is_human_intervention_blocker(observation: &types::RunObservation) -> bool {
             .unwrap_or(false)
 }
 
+fn configured_model_candidates(explicit_env: &str, default_env: &str) -> Vec<String> {
+    let explicit = std::env::var(explicit_env)
+        .ok()
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if !explicit.is_empty() {
+        return explicit;
+    }
+
+    let mut candidates = Vec::new();
+    if let Ok(model) = std::env::var(default_env) {
+        let trimmed = model.trim();
+        if !trimmed.is_empty() {
+            candidates.push(trimmed.to_string());
+        }
+    }
+
+    for candidate in ["gpt-4o-mini", "gpt-3.5-turbo"] {
+        if !candidates
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(candidate))
+        {
+            candidates.push(candidate.to_string());
+        }
+    }
+
+    candidates
+}
+
+async fn probe_http_inference_model(
+    api_url: &str,
+    api_key: &str,
+    model: &str,
+) -> Result<()> {
+    let runtime = HttpInferenceRuntime::new(
+        api_url.to_string(),
+        api_key.to_string(),
+        model.to_string(),
+    );
+    let response = runtime
+        .execute_inference(
+            [0u8; 32],
+            b"Reply with ok.",
+            InferenceOptions::default(),
+        )
+        .await
+        .map_err(|err| anyhow!("model probe failed for '{}': {}", model, err))?;
+    if response.is_empty() {
+        return Err(anyhow!("model probe returned empty response for '{}'", model));
+    }
+    Ok(())
+}
+
+async fn select_http_inference_model(
+    api_url: &str,
+    api_key: &str,
+    candidates: &[String],
+    role_label: &str,
+) -> Result<String> {
+    let mut failures = Vec::new();
+    for model in candidates {
+        match probe_http_inference_model(api_url, api_key, model).await {
+            Ok(()) => {
+                println!(
+                    "CAPABILITIES_INFERENCE_MODEL_SELECTED_{}={}",
+                    role_label, model
+                );
+                return Ok(model.clone());
+            }
+            Err(err) => failures.push(err.to_string()),
+        }
+    }
+
+    Err(anyhow!(
+        "no runnable inference model found for {}. attempted_models={:?} failures={:?}",
+        role_label,
+        candidates,
+        failures
+    ))
+}
+
 pub async fn run_capabilities_suite() -> Result<()> {
     ioi_cli::testing::build_test_artifacts();
     harness::load_env_from_workspace_dotenv_if_present();
 
     let openai_api_key = std::env::var("OPENAI_API_KEY")
         .map_err(|_| anyhow!("OPENAI_API_KEY is required for capabilities suite"))?;
-    let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
-    let arbiter_model =
-        std::env::var("CAPABILITIES_E2E_ARBITER_MODEL").unwrap_or_else(|_| openai_model.clone());
     let api_url = std::env::var("OPENAI_API_URL")
         .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
+    let agent_model_candidates =
+        configured_model_candidates("CAPABILITIES_E2E_AGENT_MODELS", "OPENAI_MODEL");
+    let agent_model = select_http_inference_model(
+        &api_url,
+        &openai_api_key,
+        &agent_model_candidates,
+        "agent",
+    )
+    .await?;
+    let arbiter_model_candidates =
+        configured_model_candidates("CAPABILITIES_E2E_ARBITER_MODELS", "CAPABILITIES_E2E_ARBITER_MODEL");
+    let arbiter_model = if arbiter_model_candidates.is_empty()
+        && !agent_model.trim().is_empty()
+    {
+        agent_model.clone()
+    } else {
+        select_http_inference_model(
+            &api_url,
+            &openai_api_key,
+            if arbiter_model_candidates.is_empty() {
+                std::slice::from_ref(&agent_model)
+            } else {
+                &arbiter_model_candidates
+            },
+            "arbiter",
+        )
+        .await?
+    };
 
     let agent_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
         api_url.clone(),
         openai_api_key.clone(),
-        openai_model,
+        agent_model,
     ));
     let arbiter_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
         api_url,

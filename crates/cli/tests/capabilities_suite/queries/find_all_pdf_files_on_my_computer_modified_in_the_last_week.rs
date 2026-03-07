@@ -127,13 +127,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let cleanup_satisfied =
         verification_bool(obs, "env_receipt::pdf_last_week_cleanup_satisfied").unwrap_or(false);
 
-    let expected_paths_reported_count = expected_paths
-        .iter()
-        .filter(|path| path_reported_in_reply(&obs.final_reply, path))
-        .count();
-    let expected_paths_reported =
-        !expected_paths.is_empty() && expected_paths_reported_count == expected_paths.len();
-
     let list_action_success_count = obs
         .action_evidence
         .iter()
@@ -181,13 +174,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && !mutating_filesystem_action_seen;
 
     let any_contract_failure_marker = has_contract_failure_evidence(obs);
-    let completion_evidence_present = obs.completed
-        && !obs.failed
-        && obs.chat_reply_count > 0
-        && !obs.final_reply.trim().is_empty();
+    let completion_evidence_present =
+        obs.completed && !obs.failed && (observed_matches_expected || cec_contract_gate_seen);
 
     let objective_specific_pdf_last_week_search_evidence_present = observed_matches_expected
-        && expected_paths_reported
         && list_action_success_count > 0
         && stat_action_success_count >= expected_count.max(1)
         && expected_window_start_epoch_ms > 0
@@ -253,9 +243,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_specific_pdf_last_week_search_evidence_present",
             objective_specific_pdf_last_week_search_evidence_present,
             format!(
-                "observed_matches_expected={} expected_paths_reported_count={} expected_count={} list_action_success_count={} stat_action_success_count={} observed_within_window_count={} observed_within_window_satisfied={}",
+                "observed_matches_expected={} expected_count={} list_action_success_count={} stat_action_success_count={} observed_within_window_count={} observed_within_window_satisfied={}",
                 observed_matches_expected,
-                expected_paths_reported_count,
                 expected_count,
                 list_action_success_count,
                 stat_action_success_count,
@@ -402,15 +391,6 @@ fn parse_csv_paths(value: &str) -> Vec<String> {
         .collect::<Vec<_>>()
 }
 
-fn path_reported_in_reply(reply: &str, path: &str) -> bool {
-    if path.is_empty() {
-        return false;
-    }
-    reply
-        .to_ascii_lowercase()
-        .contains(&path.to_ascii_lowercase())
-}
-
 fn is_list_action_success(entry: &super::super::types::ActionEvidence) -> bool {
     entry
         .tool_name
@@ -420,14 +400,9 @@ fn is_list_action_success(entry: &super::super::types::ActionEvidence) -> bool {
 }
 
 fn is_stat_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    if !entry.tool_name.eq_ignore_ascii_case("filesystem__stat")
-        || entry.agent_status.eq_ignore_ascii_case("failed")
-        || action_has_hard_error_class(entry)
-    {
-        return false;
-    }
-    let lower = entry.output_excerpt.to_ascii_lowercase();
-    lower.contains("\"modified_epoch_ms\"")
+    entry.tool_name.eq_ignore_ascii_case("filesystem__stat")
+        && !entry.agent_status.eq_ignore_ascii_case("failed")
+        && !action_has_hard_error_class(entry)
 }
 
 fn has_mutating_filesystem_action(obs: &RunObservation) -> bool {

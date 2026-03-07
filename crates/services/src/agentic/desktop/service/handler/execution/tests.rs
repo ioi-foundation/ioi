@@ -2,6 +2,7 @@ use super::approvals::is_runtime_secret_install_retry_approved;
 use super::focus::is_focus_sensitive_tool;
 use super::normalize_web_research_tool_call;
 use super::query_active_window_with_timeout;
+use super::target_requires_window_binding;
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
 use async_trait::async_trait;
@@ -9,6 +10,7 @@ use ioi_api::state::StateScanIter;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_types::app::agentic::{
     AgentTool, ComputerAction, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    WebRetrievalContract,
 };
 use ioi_types::app::{AccountId, ActionTarget, ChainId, NetMode, RuntimeTarget};
 use ioi_types::error::StateError;
@@ -87,6 +89,18 @@ fn browser_click_tools_do_not_require_native_focus_recovery() {
     assert!(!is_focus_sensitive_tool(
         &AgentTool::BrowserSyntheticClick { x: 20, y: 30 }
     ));
+}
+
+#[test]
+fn desktop_screenshot_does_not_require_window_binding() {
+    assert!(
+        !target_requires_window_binding(&ActionTarget::GuiScreenshot),
+        "full-display screenshot capture should not depend on a foreground-window binding"
+    );
+    assert!(
+        target_requires_window_binding(&ActionTarget::GuiClick),
+        "interactive GUI clicks should remain window-bound"
+    );
 }
 
 struct SlowWindowOsDriver;
@@ -207,8 +221,16 @@ fn rewrites_search_navigation_to_web_search_for_web_research_scope() {
     normalize_web_research_tool_call(&mut tool, Some(&intent), "fallback query");
 
     match tool {
-        AgentTool::WebSearch { query, limit, url } => {
+        AgentTool::WebSearch {
+            query,
+            query_contract,
+            retrieval_contract,
+            limit,
+            url,
+        } => {
             assert_eq!(query, "latest news");
+            assert_eq!(query_contract.as_deref(), Some("fallback query"));
+            assert!(retrieval_contract.is_none());
             assert_eq!(
                     limit,
                     Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
@@ -221,26 +243,87 @@ fn rewrites_search_navigation_to_web_search_for_web_research_scope() {
 }
 
 #[test]
-fn does_not_rewrite_non_search_navigation_or_non_web_scope() {
+fn rewrites_direct_navigation_to_web_read_for_web_research_scope() {
     let mut tool = AgentTool::BrowserNavigate {
         url: "https://example.com/news".to_string(),
     };
     let intent = resolved(IntentScopeProfile::WebResearch);
     normalize_web_research_tool_call(&mut tool, Some(&intent), "fallback query");
-    assert!(matches!(tool, AgentTool::BrowserNavigate { .. }));
 
+    match tool {
+        AgentTool::WebRead { url, max_chars } => {
+            assert_eq!(url, "https://example.com/news");
+            assert_eq!(max_chars, None);
+        }
+        other => panic!("expected WebRead, got {:?}", other),
+    }
+}
+
+#[test]
+fn rewrites_browser_snapshot_to_web_search_for_web_research_scope() {
+    let mut tool = AgentTool::BrowserSnapshot {};
+    let intent = resolved(IntentScopeProfile::WebResearch);
+    normalize_web_research_tool_call(
+        &mut tool,
+        Some(&intent),
+        "Find the three best-reviewed Italian restaurants near me and compare their menus.",
+    );
+
+    match tool {
+        AgentTool::WebSearch {
+            query,
+            query_contract,
+            retrieval_contract,
+            limit,
+            url,
+        } => {
+            assert_eq!(
+                query,
+                "Find the three best-reviewed Italian restaurants near me and compare their menus."
+            );
+            assert_eq!(
+                query_contract.as_deref(),
+                Some(
+                    "Find the three best-reviewed Italian restaurants near me and compare their menus."
+                )
+            );
+            assert!(retrieval_contract.is_none());
+            assert_eq!(
+                limit,
+                Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+            );
+            let expected = crate::agentic::web::build_default_search_url(
+                "Find the three best-reviewed Italian restaurants near me and compare their menus.",
+            );
+            assert_eq!(url.as_deref(), Some(expected.as_str()));
+        }
+        other => panic!("expected WebSearch, got {:?}", other),
+    }
+}
+
+#[test]
+fn does_not_rewrite_non_search_navigation_or_non_web_scope() {
     let mut scoped_tool = AgentTool::BrowserNavigate {
         url: "https://duckduckgo.com/?q=latest+news".to_string(),
     };
     let non_web_intent = resolved(IntentScopeProfile::Conversation);
     normalize_web_research_tool_call(&mut scoped_tool, Some(&non_web_intent), "fallback");
     assert!(matches!(scoped_tool, AgentTool::BrowserNavigate { .. }));
+
+    let mut non_http_tool = AgentTool::BrowserNavigate {
+        url: "about:blank".to_string(),
+    };
+    let web_intent = resolved(IntentScopeProfile::WebResearch);
+    normalize_web_research_tool_call(&mut non_http_tool, Some(&web_intent), "fallback");
+    assert!(matches!(non_http_tool, AgentTool::BrowserNavigate { .. }));
 }
 
 #[test]
 fn normalizes_direct_web_search_limit_for_web_research_scope() {
     let mut tool = AgentTool::WebSearch {
         query: "top US breaking news last 6 hours".to_string(),
+        query_contract: None,
+        retrieval_contract: None,
         limit: Some(3),
         url: None,
     };
@@ -248,8 +331,16 @@ fn normalizes_direct_web_search_limit_for_web_research_scope() {
     normalize_web_research_tool_call(&mut tool, Some(&intent), "fallback");
 
     match tool {
-        AgentTool::WebSearch { query, limit, url } => {
+        AgentTool::WebSearch {
+            query,
+            query_contract,
+            retrieval_contract,
+            limit,
+            url,
+        } => {
             assert_eq!(query, "top US breaking news last 6 hours");
+            assert_eq!(query_contract.as_deref(), Some("fallback"));
+            assert!(retrieval_contract.is_none());
             assert_eq!(
                     limit,
                     Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
@@ -257,6 +348,98 @@ fn normalizes_direct_web_search_limit_for_web_research_scope() {
             let expected =
                 crate::agentic::web::build_default_search_url("top US breaking news last 6 hours");
             assert_eq!(url.as_deref(), Some(expected.as_str()));
+        }
+        other => panic!("expected WebSearch, got {:?}", other),
+    }
+}
+
+#[test]
+fn normalizes_web_search_query_contract_from_resolved_locality_query() {
+    let mut tool = AgentTool::WebSearch {
+        query: "best-reviewed Italian restaurants in Anderson, SC".to_string(),
+        query_contract: None,
+        retrieval_contract: None,
+        limit: Some(3),
+        url: None,
+    };
+    let intent = resolved(IntentScopeProfile::WebResearch);
+    normalize_web_research_tool_call(
+        &mut tool,
+        Some(&intent),
+        "Find the three best-reviewed Italian restaurants near me and compare their menus.",
+    );
+
+    match tool {
+        AgentTool::WebSearch {
+            query,
+            query_contract,
+            retrieval_contract,
+            limit,
+            url,
+        } => {
+            assert_eq!(query, "best-reviewed Italian restaurants in Anderson, SC");
+            assert_eq!(
+                query_contract.as_deref(),
+                Some(
+                    "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus."
+                )
+            );
+            assert!(retrieval_contract.is_none());
+            assert_eq!(
+                limit,
+                Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
+            );
+            let expected = crate::agentic::web::build_default_search_url(
+                "best-reviewed Italian restaurants in Anderson, SC",
+            );
+            assert_eq!(url.as_deref(), Some(expected.as_str()));
+        }
+        other => panic!("expected WebSearch, got {:?}", other),
+    }
+}
+
+#[test]
+fn preserves_precomputed_web_search_retrieval_contract_when_query_contract_is_present() {
+    let mut tool = AgentTool::WebSearch {
+        query: "best-reviewed Italian restaurants in Anderson, SC".to_string(),
+        query_contract: Some(
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus."
+                .to_string(),
+        ),
+        retrieval_contract: Some(WebRetrievalContract {
+            contract_version: "test.v1".to_string(),
+            entity_cardinality_min: 3,
+            comparison_required: true,
+            currentness_required: true,
+            runtime_locality_required: true,
+            source_independence_min: 3,
+            citation_count_min: 1,
+            structured_record_preferred: false,
+            ordered_collection_preferred: false,
+            link_collection_preferred: true,
+            canonical_link_out_preferred: true,
+            geo_scoped_detail_required: true,
+            discovery_surface_required: true,
+            entity_diversity_required: true,
+            scalar_measure_required: false,
+            browser_fallback_allowed: true,
+        }),
+        limit: Some(3),
+        url: None,
+    };
+    let intent = resolved(IntentScopeProfile::WebResearch);
+
+    normalize_web_research_tool_call(
+        &mut tool,
+        Some(&intent),
+        "Find the three best-reviewed Italian restaurants near me and compare their menus.",
+    );
+
+    match tool {
+        AgentTool::WebSearch {
+            retrieval_contract, ..
+        } => {
+            assert!(retrieval_contract.is_some());
         }
         other => panic!("expected WebSearch, got {:?}", other),
     }
@@ -271,8 +454,16 @@ fn rewrites_memory_search_to_web_search_for_web_research_scope() {
     normalize_web_research_tool_call(&mut tool, Some(&intent), "fallback");
 
     match tool {
-        AgentTool::WebSearch { query, limit, url } => {
+        AgentTool::WebSearch {
+            query,
+            query_contract,
+            retrieval_contract,
+            limit,
+            url,
+        } => {
             assert_eq!(query, "active cloud incidents us impact");
+            assert_eq!(query_contract.as_deref(), Some("fallback"));
+            assert!(retrieval_contract.is_none());
             assert_eq!(
                     limit,
                     Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
@@ -298,8 +489,19 @@ fn rewrites_empty_memory_search_with_fallback_for_web_research_scope() {
     );
 
     match tool {
-        AgentTool::WebSearch { query, limit, url } => {
+        AgentTool::WebSearch {
+            query,
+            query_contract,
+            retrieval_contract,
+            limit,
+            url,
+        } => {
             assert_eq!(query, "as of now top active us cloud incidents");
+            assert_eq!(
+                query_contract.as_deref(),
+                Some("as of now top active us cloud incidents")
+            );
+            assert!(retrieval_contract.is_none());
             assert_eq!(
                     limit,
                     Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)

@@ -1,24 +1,38 @@
 use anyhow::anyhow;
-use ioi_types::app::agentic::WebSource;
+use ioi_types::app::agentic::{WebRetrievalContract, WebSource};
 
 use super::anchor_policy::{
     filter_provider_sources_by_query_anchors, provider_sources_match_query_anchors,
 };
 use super::constants::EDGE_WEB_SEARCH_TOTAL_BUDGET_MS;
+use super::contract::contract_requires_geo_scoped_entity_expansion;
 use super::parsers::{
-    parse_bing_news_sources_from_rss, parse_bing_sources_from_html, parse_ddg_sources_from_html,
-    parse_google_news_sources_from_rss,
+    parse_bing_news_sources_from_rss, parse_bing_sources_from_html, parse_brave_sources_from_html,
+    parse_ddg_sources_from_html, parse_generic_page_source_from_html,
+    parse_google_news_sources_from_rss, parse_local_business_directory_category_sources_from_html,
+    parse_local_business_directory_item_list_sources_from_html,
 };
-use super::readability::{build_document_text_and_spans, extract_read_blocks};
+use super::readability::{
+    build_document_text_and_spans, extract_non_html_read_blocks, extract_read_blocks,
+};
 use super::search::{
-    effective_search_provider_plan, search_backend_profile, search_budget_exhausted,
-    search_provider_plan,
+    aggregated_sources_meet_pre_read_floor, provider_candidate_is_usable,
+    provider_candidate_selection_key, provider_descriptor_is_admissible,
+    provider_probe_priority_key, search_budget_exhausted, search_provider_registry,
+    search_provider_requirements_from_contract, should_stop_provider_aggregation,
+    SearchProviderCandidateSelectionInput,
 };
-use super::transport::{detect_human_challenge, retrieve_html_with_fallback};
-use super::types::{SearchBackendProfile, SearchProviderStage};
+use super::transport::{
+    detect_human_challenge, fetch_html_http_fallback_browser_ua, retrieve_html_with_fallback,
+    transport_error_is_timeout_or_hang,
+};
+use super::types::{SearchProviderRequirements, SearchProviderStage};
 use super::urls::{
-    build_bing_serp_url, build_ddg_serp_url, build_google_news_serp_url, build_google_serp_url,
-    normalize_google_search_href, normalize_search_href,
+    build_bing_search_rss_url, build_bing_serp_url, build_brave_serp_url, build_ddg_serp_url,
+    build_google_news_serp_url, build_google_news_top_stories_rss_url, build_google_serp_url,
+    build_restaurantji_locality_root_url, build_weather_gov_locality_lookup_url,
+    build_wttr_locality_current_conditions_url, normalize_google_search_href,
+    normalize_search_href,
 };
 use super::util::{domain_for_url, now_ms, source_id_for_url};
 
@@ -31,6 +45,80 @@ fn test_source(url: &str, title: &str, snippet: &str) -> WebSource {
         snippet: Some(snippet.to_string()),
         domain: domain_for_url(url),
     }
+}
+
+fn base_contract() -> WebRetrievalContract {
+    WebRetrievalContract {
+        contract_version: "test.v1".to_string(),
+        entity_cardinality_min: 1,
+        comparison_required: false,
+        currentness_required: false,
+        runtime_locality_required: false,
+        source_independence_min: 1,
+        citation_count_min: 1,
+        structured_record_preferred: false,
+        ordered_collection_preferred: false,
+        link_collection_preferred: false,
+        canonical_link_out_preferred: false,
+        geo_scoped_detail_required: false,
+        discovery_surface_required: true,
+        entity_diversity_required: false,
+        scalar_measure_required: false,
+        browser_fallback_allowed: true,
+    }
+}
+
+fn headline_contract() -> WebRetrievalContract {
+    let mut contract = base_contract();
+    contract.entity_cardinality_min = 3;
+    contract.currentness_required = true;
+    contract.source_independence_min = 3;
+    contract.citation_count_min = 2;
+    contract.ordered_collection_preferred = true;
+    contract
+}
+
+fn price_snapshot_contract() -> WebRetrievalContract {
+    let mut contract = base_contract();
+    contract.currentness_required = true;
+    contract.discovery_surface_required = false;
+    contract.structured_record_preferred = true;
+    contract.scalar_measure_required = true;
+    contract
+}
+
+fn weather_snapshot_contract() -> WebRetrievalContract {
+    let mut contract = price_snapshot_contract();
+    contract.runtime_locality_required = true;
+    contract.geo_scoped_detail_required = true;
+    contract
+}
+
+fn misclassified_weather_snapshot_contract() -> WebRetrievalContract {
+    let mut contract = weather_snapshot_contract();
+    contract.discovery_surface_required = true;
+    contract
+}
+
+fn locality_comparison_contract() -> WebRetrievalContract {
+    let mut contract = base_contract();
+    contract.entity_cardinality_min = 3;
+    contract.comparison_required = true;
+    contract.runtime_locality_required = true;
+    contract.source_independence_min = 3;
+    contract.link_collection_preferred = true;
+    contract.canonical_link_out_preferred = true;
+    contract.geo_scoped_detail_required = true;
+    contract.entity_diversity_required = true;
+    contract
+}
+
+fn misclassified_headline_contract() -> WebRetrievalContract {
+    let mut contract = headline_contract();
+    contract.link_collection_preferred = true;
+    contract.canonical_link_out_preferred = true;
+    contract.entity_diversity_required = true;
+    contract
 }
 
 #[test]
@@ -56,49 +144,502 @@ fn provider_specific_search_urls_encode_query() {
     let bing = build_bing_serp_url("internet of intelligence");
     assert!(bing.starts_with("https://www.bing.com/search"));
     assert!(bing.contains("q=internet+of+intelligence"));
+
+    let bing_rss = build_bing_search_rss_url("internet of intelligence");
+    assert!(bing_rss.starts_with("https://www.bing.com/search"));
+    assert!(bing_rss.contains("q=internet+of+intelligence"));
+    assert!(bing_rss.contains("format=rss"));
+
+    let brave = build_brave_serp_url("internet of intelligence");
+    assert!(brave.starts_with("https://search.brave.com/search"));
+    assert!(brave.contains("q=internet+of+intelligence"));
+
+    let wttr = build_wttr_locality_current_conditions_url("Anderson, SC");
+    assert!(wttr.starts_with("https://wttr.in/"));
+    assert!(wttr.contains("format="));
+
+    let weather_gov = build_weather_gov_locality_lookup_url("Anderson, SC");
+    assert!(weather_gov.starts_with("https://forecast.weather.gov/zipcity.php"));
+    assert!(weather_gov.contains("inputstring=Anderson%2C+SC"));
+
+    let restaurantji =
+        build_restaurantji_locality_root_url("Anderson, SC").expect("restaurantji locality url");
+    assert_eq!(restaurantji, "https://www.restaurantji.com/sc/anderson/");
 }
 
 #[test]
-fn search_backend_profile_uses_constraint_grounded_plan_for_time_sensitive_queries() {
-    let profile = search_backend_profile("What's the weather right now in Anderson, SC?");
+fn search_provider_requirements_prefer_ordered_collection_for_headlines() {
+    let contract = headline_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, None);
     assert_eq!(
-        profile,
-        SearchBackendProfile::ConstraintGroundedTimeSensitive
+        requirements,
+        SearchProviderRequirements {
+            freshness_bias: true,
+            ordered_collection_preferred: true,
+            structured_record_preferred: false,
+            link_collection_preferred: false,
+            canonical_link_out_preferred: false,
+            currentness_required: true,
+            locality_scope_required: false,
+            discovery_surface_required: true,
+            geo_scoped_detail_required: false,
+            browser_fallback_allowed: true,
+        }
     );
-    let plan = search_provider_plan(profile);
-    assert_eq!(plan.first(), Some(&SearchProviderStage::BingHttp));
-    assert_eq!(plan.get(1), Some(&SearchProviderStage::BingNewsRss));
-    assert_eq!(plan.get(2), Some(&SearchProviderStage::GoogleHttp));
+}
+
+fn descriptor_for(stage: SearchProviderStage) -> super::search::SearchProviderDescriptor {
+    search_provider_registry()
+        .iter()
+        .copied()
+        .find(|descriptor| descriptor.stage == stage)
+        .expect("provider descriptor present in registry")
+}
+
+#[test]
+fn discovery_backed_selection_prefers_ordered_collection_candidates_when_required() {
+    let contract = headline_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, None);
+    let google_news = descriptor_for(SearchProviderStage::GoogleNewsTopStoriesRss);
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+    let bing = descriptor_for(SearchProviderStage::BingHttp);
+
+    let mut candidates = [
+        SearchProviderCandidateSelectionInput {
+            descriptor: &brave,
+            source_count: 6,
+            challenge_present: false,
+        },
+        SearchProviderCandidateSelectionInput {
+            descriptor: &google_news,
+            source_count: 2,
+            challenge_present: false,
+        },
+        SearchProviderCandidateSelectionInput {
+            descriptor: &bing,
+            source_count: 4,
+            challenge_present: false,
+        },
+    ];
+    candidates.sort_by_key(|candidate| provider_candidate_selection_key(&requirements, *candidate));
+
+    assert_eq!(
+        candidates
+            .first()
+            .map(|candidate| candidate.descriptor.stage),
+        Some(SearchProviderStage::GoogleNewsTopStoriesRss)
+    );
+}
+
+#[test]
+fn discovery_backed_selection_prefers_queryable_index_candidates_for_snapshot_queries() {
+    let contract = price_snapshot_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, None);
+    let google_news = descriptor_for(SearchProviderStage::GoogleNewsRss);
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+    let bing = descriptor_for(SearchProviderStage::BingHttp);
+
+    let mut candidates = [
+        SearchProviderCandidateSelectionInput {
+            descriptor: &google_news,
+            source_count: 8,
+            challenge_present: false,
+        },
+        SearchProviderCandidateSelectionInput {
+            descriptor: &brave,
+            source_count: 2,
+            challenge_present: false,
+        },
+        SearchProviderCandidateSelectionInput {
+            descriptor: &bing,
+            source_count: 3,
+            challenge_present: false,
+        },
+    ];
+    candidates.sort_by_key(|candidate| provider_candidate_selection_key(&requirements, *candidate));
+
+    assert_eq!(
+        candidates
+            .first()
+            .map(|candidate| candidate.descriptor.stage),
+        Some(SearchProviderStage::BingHttp)
+    );
+}
+
+#[test]
+fn ordered_collection_aggregation_continues_until_pre_read_floor_is_met() {
+    let mut contract = headline_contract();
+    contract.entity_cardinality_min = 5;
+    contract.source_independence_min = 5;
+
+    let first_batch = vec![
+        test_source(
+            "https://alpha.example.com/news/world/story-one",
+            "Story One",
+            "alpha source",
+        ),
+        test_source(
+            "https://beta.example.com/news/world/story-two",
+            "Story Two",
+            "beta source",
+        ),
+        test_source(
+            "https://gamma.example.com/news/world/story-three",
+            "Story Three",
+            "gamma source",
+        ),
+        test_source(
+            "https://delta.example.com/news/world/story-four",
+            "Story Four",
+            "delta source",
+        ),
+        test_source(
+            "https://alpha.example.com/news/world/story-five",
+            "Story Five",
+            "alpha duplicate domain",
+        ),
+    ];
+    assert!(!aggregated_sources_meet_pre_read_floor(
+        &contract,
+        "Tell me today's top news headlines.",
+        None,
+        10,
+        &first_batch,
+    ));
+
+    let mut second_batch = first_batch;
+    second_batch.push(test_source(
+        "https://epsilon.example.com/news/world/story-six",
+        "Story Six",
+        "epsilon source",
+    ));
+    assert!(aggregated_sources_meet_pre_read_floor(
+        &contract,
+        "Tell me today's top news headlines.",
+        None,
+        10,
+        &second_batch,
+    ));
+}
+
+#[test]
+fn direct_snapshot_aggregation_stops_after_structured_detail_provider_meets_floor() {
+    let contract = weather_snapshot_contract();
+    let weather_gov = descriptor_for(SearchProviderStage::WeatherGovLocalityDetail);
+    let sources = vec![test_source(
+        "https://forecast.weather.gov/MapClick.php?CityName=Anderson&state=SC&site=GSP&textField1=34.5186&textField2=-82.6458&e=0",
+        "Anderson, SC current conditions",
+        "Current conditions as of 10:35 AM: temperature 62F, humidity 42%, wind 4 mph.",
+    )];
+
+    assert!(should_stop_provider_aggregation(
+        &contract,
+        "What's the weather like right now in Anderson, SC?",
+        Some("Anderson, SC"),
+        10,
+        10,
+        &sources,
+        Some(&weather_gov),
+        false,
+    ));
+}
+
+#[test]
+fn direct_snapshot_aggregation_does_not_stop_on_queryable_index_floor_alone() {
+    let contract = weather_snapshot_contract();
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+    let sources = vec![test_source(
+        "https://www.wunderground.com/weather/us/sc/anderson",
+        "Anderson, SC Weather Conditions",
+        "Current conditions as of 10:35 AM: temperature 62F, humidity 42%, wind 4 mph.",
+    )];
+
+    assert!(!should_stop_provider_aggregation(
+        &contract,
+        "What's the weather like right now in Anderson, SC?",
+        Some("Anderson, SC"),
+        10,
+        10,
+        &sources,
+        Some(&brave),
+        false,
+    ));
+}
+
+#[test]
+fn probe_priority_prefers_geo_structured_providers_for_runtime_local_weather_queries() {
+    let contract = weather_snapshot_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+    let weather_gov = descriptor_for(SearchProviderStage::WeatherGovLocalityDetail);
+
+    let mut descriptors = vec![brave, weather_gov];
+    descriptors.sort_by_key(|descriptor| provider_probe_priority_key(&requirements, descriptor));
+
     assert!(
-        plan.contains(&SearchProviderStage::GoogleNewsRss),
-        "time-sensitive public-fact plan should include rss provider to improve source diversity"
+        matches!(
+            descriptors.first().map(|descriptor| descriptor.stage),
+            Some(SearchProviderStage::WeatherGovLocalityDetail)
+        ),
+        "expected geo-structured provider first, got {:?}",
+        descriptors
+            .iter()
+            .map(|descriptor| descriptor.stage)
+            .collect::<Vec<_>>()
     );
-}
-
-#[test]
-fn search_backend_profile_treats_latest_news_as_time_sensitive_public_fact() {
-    let profile = search_backend_profile("today's top news headlines");
     assert_eq!(
-        profile,
-        SearchBackendProfile::ConstraintGroundedTimeSensitive
+        descriptors.last().map(|descriptor| descriptor.stage),
+        Some(SearchProviderStage::BraveHttp)
     );
 }
 
 #[test]
-fn search_provider_plan_follows_profile_order_for_headline_queries() {
-    let query = "today's top news headlines";
-    let profile = search_backend_profile(query);
-    let plan = effective_search_provider_plan(query);
-    assert_eq!(plan, search_provider_plan(profile));
+fn google_news_top_stories_rss_url_uses_typed_feed_endpoint() {
+    let url = build_google_news_top_stories_rss_url();
+    assert_eq!(
+        url,
+        "https://news.google.com/rss?hl=en-US&gl=US&ceid=US%3Aen"
+    );
 }
 
 #[test]
-fn search_backend_profile_uses_general_plan_for_non_external_queries() {
-    let profile = search_backend_profile("Summarize this local markdown file.");
-    assert_eq!(profile, SearchBackendProfile::General);
-    let plan = search_provider_plan(profile);
-    assert_eq!(plan.first(), Some(&SearchProviderStage::DdgHttp));
-    assert_eq!(plan.get(1), Some(&SearchProviderStage::DdgBrowser));
+fn provider_candidate_usability_requires_observed_sources() {
+    let contract = price_snapshot_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, None);
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+
+    assert!(!provider_candidate_is_usable(
+        &requirements,
+        SearchProviderCandidateSelectionInput {
+            descriptor: &brave,
+            source_count: 0,
+            challenge_present: false,
+        }
+    ));
+    assert!(provider_candidate_is_usable(
+        &requirements,
+        SearchProviderCandidateSelectionInput {
+            descriptor: &brave,
+            source_count: 1,
+            challenge_present: false,
+        }
+    ));
+}
+
+#[test]
+fn search_provider_requirements_do_not_request_ordered_collection_for_snapshot_queries() {
+    let contract = price_snapshot_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, None);
+    assert_eq!(
+        requirements,
+        SearchProviderRequirements {
+            freshness_bias: true,
+            ordered_collection_preferred: false,
+            structured_record_preferred: true,
+            link_collection_preferred: false,
+            canonical_link_out_preferred: false,
+            currentness_required: true,
+            locality_scope_required: false,
+            discovery_surface_required: false,
+            geo_scoped_detail_required: false,
+            browser_fallback_allowed: true,
+        }
+    );
+}
+
+#[test]
+fn search_provider_requirements_default_to_ranked_index_for_non_external_queries() {
+    let contract = base_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, None);
+    assert_eq!(
+        requirements,
+        SearchProviderRequirements {
+            freshness_bias: false,
+            ordered_collection_preferred: false,
+            structured_record_preferred: false,
+            link_collection_preferred: false,
+            canonical_link_out_preferred: false,
+            currentness_required: false,
+            locality_scope_required: false,
+            discovery_surface_required: true,
+            geo_scoped_detail_required: false,
+            browser_fallback_allowed: true,
+        }
+    );
+    let registry = search_provider_registry();
+    assert!(registry
+        .iter()
+        .any(|descriptor| { descriptor.stage == SearchProviderStage::GoogleNewsTopStoriesRss }));
+    assert!(registry
+        .iter()
+        .any(|descriptor| descriptor.stage == SearchProviderStage::BraveHttp));
+}
+
+#[test]
+fn search_provider_requirements_prefer_geo_scoped_structured_records_for_local_snapshots() {
+    let contract = weather_snapshot_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
+    assert_eq!(
+        requirements,
+        SearchProviderRequirements {
+            freshness_bias: true,
+            ordered_collection_preferred: false,
+            structured_record_preferred: true,
+            link_collection_preferred: false,
+            canonical_link_out_preferred: false,
+            currentness_required: true,
+            locality_scope_required: true,
+            discovery_surface_required: false,
+            geo_scoped_detail_required: true,
+            browser_fallback_allowed: true,
+        }
+    );
+}
+
+#[test]
+fn search_provider_requirements_normalize_direct_weather_snapshots_away_from_discovery_surface() {
+    let contract = misclassified_weather_snapshot_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
+
+    assert!(
+        !requirements.discovery_surface_required,
+        "single-record structured weather snapshots should admit direct resolution providers"
+    );
+}
+
+#[test]
+fn search_provider_requirements_prefer_link_collections_for_local_multi_entity_queries() {
+    let contract = locality_comparison_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
+    assert_eq!(
+        requirements,
+        SearchProviderRequirements {
+            freshness_bias: false,
+            ordered_collection_preferred: false,
+            structured_record_preferred: false,
+            link_collection_preferred: true,
+            canonical_link_out_preferred: true,
+            currentness_required: false,
+            locality_scope_required: true,
+            discovery_surface_required: true,
+            geo_scoped_detail_required: true,
+            browser_fallback_allowed: true,
+        }
+    );
+}
+
+#[test]
+fn non_geo_ordered_collection_contracts_do_not_enter_entity_expansion_mode() {
+    let contract = misclassified_headline_contract();
+    assert!(
+        !contract_requires_geo_scoped_entity_expansion(&contract),
+        "headline-style ordered collections should not be interpreted as same-domain entity expansion"
+    );
+
+    let requirements = search_provider_requirements_from_contract(&contract, None);
+    assert!(requirements.ordered_collection_preferred);
+}
+
+#[test]
+fn provider_admission_uses_structural_requirements_for_local_multi_entity_queries() {
+    let contract = locality_comparison_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+    let google_news = descriptor_for(SearchProviderStage::GoogleNewsRss);
+    let google_news_top_stories = descriptor_for(SearchProviderStage::GoogleNewsTopStoriesRss);
+    let weather_gov = descriptor_for(SearchProviderStage::WeatherGovLocalityDetail);
+
+    assert!(provider_descriptor_is_admissible(&requirements, &brave));
+    assert!(
+        !provider_descriptor_is_admissible(&requirements, &google_news),
+        "ordered collections without geo-scoped resolution should be inadmissible for locality comparison"
+    );
+    assert!(
+        !provider_descriptor_is_admissible(&requirements, &google_news_top_stories),
+        "top-stories ordered collections must not satisfy canonical link-out expansion contracts"
+    );
+    assert!(
+        !provider_descriptor_is_admissible(&requirements, &weather_gov),
+        "single detail surfaces without discovery affordances should be inadmissible for multi-entity discovery"
+    );
+}
+
+#[test]
+fn provider_admission_allows_geo_structured_detail_surfaces_for_local_snapshots_even_if_contract_requested_discovery(
+) {
+    let contract = misclassified_weather_snapshot_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
+    let weather_gov = descriptor_for(SearchProviderStage::WeatherGovLocalityDetail);
+
+    assert!(provider_descriptor_is_admissible(
+        &requirements,
+        &weather_gov
+    ));
+}
+
+#[test]
+fn provider_admission_rejects_locality_bound_detail_surfaces_for_global_snapshots() {
+    let contract = price_snapshot_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, None);
+    let weather_gov = descriptor_for(SearchProviderStage::WeatherGovLocalityDetail);
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+
+    assert!(
+        !provider_descriptor_is_admissible(&requirements, &weather_gov),
+        "global snapshot queries must not admit locality-bound structured providers"
+    );
+    assert!(provider_descriptor_is_admissible(&requirements, &brave));
+}
+
+#[test]
+fn provider_admission_allows_queryable_indexes_for_single_entity_geo_detail_queries() {
+    let requirements = SearchProviderRequirements {
+        freshness_bias: false,
+        ordered_collection_preferred: false,
+        structured_record_preferred: false,
+        link_collection_preferred: false,
+        canonical_link_out_preferred: false,
+        currentness_required: false,
+        locality_scope_required: true,
+        discovery_surface_required: true,
+        geo_scoped_detail_required: true,
+        browser_fallback_allowed: true,
+    };
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+
+    assert!(
+        provider_descriptor_is_admissible(&requirements, &brave),
+        "queryable index providers remain admissible for detail lookups"
+    );
+}
+
+#[test]
+fn discovery_backed_selection_prefers_geo_scoped_structured_candidates_for_local_snapshots() {
+    let contract = weather_snapshot_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
+    let weather_gov = descriptor_for(SearchProviderStage::WeatherGovLocalityDetail);
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+
+    let mut candidates = [
+        SearchProviderCandidateSelectionInput {
+            descriptor: &brave,
+            source_count: 4,
+            challenge_present: false,
+        },
+        SearchProviderCandidateSelectionInput {
+            descriptor: &weather_gov,
+            source_count: 1,
+            challenge_present: false,
+        },
+    ];
+    candidates.sort_by_key(|candidate| provider_candidate_selection_key(&requirements, *candidate));
+
+    assert!(matches!(
+        candidates
+            .first()
+            .map(|candidate| candidate.descriptor.stage),
+        Some(SearchProviderStage::WeatherGovLocalityDetail)
+    ));
 }
 
 #[test]
@@ -148,6 +689,16 @@ fn parses_minimal_ddg_serp_html() {
 }
 
 #[test]
+fn extract_non_html_read_blocks_preserves_metric_payload() {
+    let blocks = extract_non_html_read_blocks(
+        "Anderson,SC: temp +70°F humidity 66% wind 2mph pressure 1023hPa as of 20:18:01-0500",
+    );
+    assert_eq!(blocks.len(), 1);
+    assert!(blocks[0].contains("humidity 66%"));
+    assert!(blocks[0].contains("wind 2mph"));
+}
+
+#[test]
 fn parses_minimal_bing_serp_html() {
     let html = r#"
         <html>
@@ -169,6 +720,45 @@ fn parses_minimal_bing_serp_html() {
     assert_eq!(sources[0].snippet.as_deref(), Some("Snippet A"));
     assert_eq!(sources[1].url, "https://example.com/b");
     assert_eq!(sources[1].title.as_deref(), Some("Example B"));
+}
+
+#[test]
+fn parses_minimal_brave_serp_html() {
+    let html = r#"
+        <html>
+          <body>
+            <div class="snippet" data-type="web">
+              <a class="svelte-14r20fy l1" href="https://example.com/a">Example A</a>
+              <div class="generic-snippet"><div class="content">Snippet A</div></div>
+            </div>
+            <div class="snippet" data-type="web">
+              <a class="svelte-14r20fy l1" href="https://example.com/b">Example B</a>
+            </div>
+          </body>
+        </html>
+        "#;
+    let sources = parse_brave_sources_from_html(html, 10);
+    assert_eq!(sources.len(), 2);
+    assert_eq!(sources[0].url, "https://example.com/a");
+    assert_eq!(sources[0].title.as_deref(), Some("Example A"));
+    assert_eq!(sources[0].snippet.as_deref(), Some("Snippet A"));
+    assert_eq!(sources[1].url, "https://example.com/b");
+}
+
+#[test]
+fn serp_parsers_reject_global_anchor_fallbacks_without_result_containers() {
+    let html = r#"
+        <html>
+          <body>
+            <nav>
+              <a href="https://example.com/nav-only">Nav Link</a>
+            </nav>
+          </body>
+        </html>
+        "#;
+
+    assert!(parse_ddg_sources_from_html(html, 10).is_empty());
+    assert!(parse_bing_sources_from_html(html, 10).is_empty());
 }
 
 #[test]
@@ -200,6 +790,128 @@ fn parses_google_news_rss_items() {
     assert_eq!(sources[0].snippet.as_deref(), Some("Outlet A"));
     assert_eq!(sources[1].url, "https://example.com/story-two");
     assert_eq!(sources[1].title.as_deref(), Some("Headline Two"));
+}
+
+#[test]
+fn parses_local_business_directory_category_links() {
+    let html = r#"
+        <html>
+          <head>
+            <title>Restaurants Anderson South Carolina</title>
+            <meta name="description" content="Find the best places to eat in Anderson, SC." />
+          </head>
+          <body>
+            <a href="/sc/anderson/italian/">Italian</a>
+            <a href="/sc/anderson/pizza/">Pizza</a>
+            <a href="/sc/anderson/brothers-italian-cuisine-/">Brothers Italian Cuisine</a>
+          </body>
+        </html>
+        "#;
+
+    let sources = parse_local_business_directory_category_sources_from_html(
+        "https://www.restaurantji.com/sc/anderson/",
+        html,
+        10,
+    );
+
+    assert_eq!(sources.len(), 2);
+    assert_eq!(
+        sources[0].url,
+        "https://www.restaurantji.com/sc/anderson/italian/"
+    );
+    assert_eq!(sources[0].title.as_deref(), Some("Italian"));
+    assert!(sources[0]
+        .snippet
+        .as_deref()
+        .unwrap_or_default()
+        .contains("Anderson"));
+}
+
+#[test]
+fn parses_local_business_directory_item_list_json_ld() {
+    let html = r#"
+        <html>
+          <head>
+            <title>Italian Restaurants in Anderson, SC</title>
+            <meta name="description" content="Best Italian restaurants in Anderson." />
+            <script type="application/ld+json">
+              {
+                "@context":"https://schema.org",
+                "@type":"ItemList",
+                "itemListElement":[
+                  {
+                    "@type":"ListItem",
+                    "position":1,
+                    "item":{
+                      "@type":"Restaurant",
+                      "name":"Dolce Vita Italian Bistro",
+                      "url":"/sc/anderson/dolce-vita-italian-bistro-/",
+                      "aggregateRating":{"ratingValue":4.6,"reviewCount":211},
+                      "priceRange":"$$"
+                    }
+                  },
+                  {
+                    "@type":"ListItem",
+                    "position":2,
+                    "item":{
+                      "@type":"Restaurant",
+                      "name":"Coach House Restaurant",
+                      "url":"/sc/anderson/coach-house-restaurant-/"
+                    }
+                  }
+                ]
+              }
+            </script>
+          </head>
+        </html>
+        "#;
+
+    let sources = parse_local_business_directory_item_list_sources_from_html(
+        "https://www.restaurantji.com/sc/anderson/italian/",
+        html,
+        10,
+    );
+
+    assert_eq!(sources.len(), 2);
+    assert_eq!(
+        sources[0].url,
+        "https://www.restaurantji.com/sc/anderson/dolce-vita-italian-bistro-/"
+    );
+    assert_eq!(
+        sources[0].title.as_deref(),
+        Some("Dolce Vita Italian Bistro")
+    );
+    assert!(sources[0]
+        .snippet
+        .as_deref()
+        .unwrap_or_default()
+        .contains("4.6 rating"));
+}
+
+fn parses_generic_page_source_from_html_uses_meta_fallbacks() {
+    let html = r#"
+        <html>
+          <head>
+            <meta property="og:title" content="Bitcoin price today, BTC to USD live price, marketcap and chart | CoinDesk">
+            <meta property="og:description" content="The price of Bitcoin (BTC) is $68,214.99 today as of Mar 6, 2026, 2:25 pm EST.">
+          </head>
+          <body></body>
+        </html>
+        "#;
+
+    let source =
+        parse_generic_page_source_from_html("https://www.coindesk.com/price/bitcoin", html)
+            .expect("generic page source");
+
+    assert_eq!(
+        source.title.as_deref(),
+        Some("Bitcoin price today, BTC to USD live price, marketcap and chart | CoinDesk")
+    );
+    assert!(source
+        .snippet
+        .as_deref()
+        .unwrap_or_default()
+        .contains("$68,214.99"));
 }
 
 #[test]
@@ -374,6 +1086,103 @@ fn provider_anchor_policy_rejects_stopword_only_overlap() {
 }
 
 #[test]
+fn provider_anchor_policy_rejects_language_learning_drift_for_local_restaurant_lookup() {
+    let query =
+        "Find the three best-reviewed Italian restaurants in New York, NY and compare their menus.";
+    let sources = vec![
+        test_source(
+            "https://en.wikipedia.org/wiki/Italian_language",
+            "Italian language - Wikipedia",
+            "History, grammar and phonology of the Italian language.",
+        ),
+        test_source(
+            "https://www.duolingo.com/course/it/en/Learn-Italian",
+            "Learn Italian with lessons that work - Duolingo",
+            "Online lessons for Italian vocabulary and pronunciation.",
+        ),
+    ];
+
+    let filtered = filter_provider_sources_by_query_anchors(query, sources);
+    assert!(
+        filtered.is_empty(),
+        "expected local restaurant lookup to reject cuisine-language drift: {:?}",
+        filtered
+            .iter()
+            .map(|source| (&source.url, source.title.as_deref().unwrap_or_default()))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn provider_anchor_policy_preserves_restaurant_surface_for_local_restaurant_lookup() {
+    let query =
+        "Find the three best-reviewed Italian restaurants in New York, NY and compare their menus.";
+    let sources = vec![
+        test_source(
+            "https://www.timeout.com/newyork/restaurants/best-italian-restaurants-in-nyc",
+            "Best Italian Restaurants in NYC",
+            "Restaurant reviews, ratings and menus for top Italian restaurants.",
+        ),
+        test_source(
+            "https://storylearning.com/learn/italian/italian-tips/basic-italian-phrases",
+            "83 Basic Italian Phrases - StoryLearning",
+            "Learn Italian phrases and grammar basics for beginners.",
+        ),
+    ];
+
+    let filtered = filter_provider_sources_by_query_anchors(query, sources);
+    assert_eq!(filtered.len(), 1);
+    assert!(filtered[0].url.contains("timeout.com/newyork/restaurants"));
+}
+
+#[test]
+fn provider_anchor_policy_refuses_weak_overlap_fallback_for_grounded_price_lookup() {
+    let query = "What's the current price of Bitcoin?";
+    let sources = vec![
+        test_source(
+            "https://bitco.in/forum/threads/free-crypto-from-swapzone.90645/",
+            "Free Crypto from Swapzone | Bitcoin Forum",
+            "I want to share a method that made me over $3,000 in 3 days.",
+        ),
+        test_source(
+            "https://bitco.in/forum/threads/free-eth-method.89200/",
+            "FREE ETH METHOD | Bitcoin Forum",
+            "Free ETH method discussion thread.",
+        ),
+    ];
+
+    let filtered = filter_provider_sources_by_query_anchors(query, sources);
+    assert!(
+        filtered.is_empty(),
+        "grounded price lookup should not keep weak-overlap forum spam: {:?}",
+        filtered
+            .iter()
+            .map(|source| (&source.url, source.title.as_deref().unwrap_or_default()))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn provider_anchor_policy_rejects_community_discussion_surface_for_grounded_price_lookup() {
+    let query = "What's the current price of Bitcoin?";
+    let sources = vec![test_source(
+        "https://community.example.com/discussions/bitcoin-price-outlook",
+        "Bitcoin price outlook discussion thread",
+        "Community discussion about where the price goes next.",
+    )];
+
+    let filtered = filter_provider_sources_by_query_anchors(query, sources);
+    assert!(
+        filtered.is_empty(),
+        "grounded price lookup should not keep community discussion surfaces: {:?}",
+        filtered
+            .iter()
+            .map(|source| (&source.url, source.title.as_deref().unwrap_or_default()))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn provider_anchor_policy_keeps_generic_headline_sources_without_strict_anchor_overlap() {
     let query = "today's top news headlines";
     let sources = vec![
@@ -440,6 +1249,158 @@ async fn retrieval_timeout_uses_http_fallback_for_read_flow() {
     let (title, blocks) = extract_read_blocks(&html);
     assert_eq!(title.as_deref(), Some("Doc"));
     assert_eq!(blocks.len(), 2);
+}
+
+#[test]
+fn timeout_or_hang_transport_errors_are_classified_for_structured_retry() {
+    assert!(transport_error_is_timeout_or_hang(&anyhow!(
+        "HTTP fallback request timed out: https://example.com"
+    )));
+    assert!(transport_error_is_timeout_or_hang(&anyhow!(
+        "ERROR_CLASS=TimeoutOrHang browser retrieval timed out after 8s"
+    )));
+    assert!(!transport_error_is_timeout_or_hang(&anyhow!(
+        "HTTP fallback request failed: connection refused"
+    )));
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "live network probe for local-business search orchestration"]
+async fn edge_web_search_live_returns_local_business_sources_for_scoped_restaurant_query() {
+    let browser = ioi_drivers::browser::BrowserDriver::new();
+    let contract = locality_comparison_contract();
+    let bundle = crate::agentic::web::edge_web_search(
+        &browser,
+        "best-reviewed Italian restaurants in Anderson, SC",
+        Some("Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus."),
+        &contract,
+        10,
+    )
+    .await
+    .expect("live edge_web_search should complete");
+
+    eprintln!("backend={}", bundle.backend);
+    eprintln!("query={:?}", bundle.query);
+    for source in &bundle.sources {
+        eprintln!(
+            "source url={} title={:?} snippet={:?}",
+            source.url, source.title, source.snippet
+        );
+    }
+
+    assert!(
+        !bundle.sources.is_empty(),
+        "expected at least one live source, backend={}",
+        bundle.backend
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "live network probe for weather search orchestration"]
+async fn edge_web_search_live_returns_weather_sources_for_scoped_weather_query() {
+    let browser = ioi_drivers::browser::BrowserDriver::new();
+    let contract = weather_snapshot_contract();
+    let bundle = crate::agentic::web::edge_web_search(
+        &browser,
+        "What's the weather like right now?",
+        Some("What's the weather like right now in Anderson, SC?"),
+        &contract,
+        4,
+    )
+    .await
+    .expect("live edge_web_search should complete");
+
+    eprintln!("backend={}", bundle.backend);
+    for source in &bundle.sources {
+        eprintln!(
+            "source url={} title={:?} snippet={:?}",
+            source.url, source.title, source.snippet
+        );
+    }
+
+    assert!(
+        bundle
+            .sources
+            .iter()
+            .any(|source| source.url.contains("forecast.weather.gov")),
+        "expected weather.gov source, got {:?}",
+        bundle
+            .sources
+            .iter()
+            .map(|source| source.url.clone())
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        bundle
+            .sources
+            .iter()
+            .any(|source| source.url.contains("wttr.in/")),
+        "expected wttr source, got {:?}",
+        bundle
+            .sources
+            .iter()
+            .map(|source| source.url.clone())
+            .collect::<Vec<_>>()
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "live network probe for price-snapshot search orchestration"]
+async fn edge_web_search_live_returns_price_snapshot_sources_for_bitcoin_query() {
+    let browser = ioi_drivers::browser::BrowserDriver::new();
+    let contract = price_snapshot_contract();
+    let bundle = crate::agentic::web::edge_web_search(
+        &browser,
+        "current Bitcoin price",
+        Some("What's the current price of Bitcoin?"),
+        &contract,
+        10,
+    )
+    .await
+    .expect("live edge_web_search should complete");
+
+    eprintln!("backend={}", bundle.backend);
+    eprintln!("query={:?}", bundle.query);
+    for source in &bundle.sources {
+        eprintln!(
+            "source url={} title={:?} snippet={:?}",
+            source.url, source.title, source.snippet
+        );
+    }
+
+    assert!(
+        !bundle.sources.is_empty(),
+        "expected at least one live source, backend={}",
+        bundle.backend
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "live probe for raw Bing HTML retrieval and parser admission"]
+async fn bing_http_live_probe_reports_html_shape_and_parser_output() {
+    let url = build_bing_serp_url("bitcoin price");
+    let html = fetch_html_http_fallback_browser_ua(&url)
+        .await
+        .expect("live bing html should load");
+    let sources = parse_bing_sources_from_html(&html, 10);
+
+    eprintln!("url={}", url);
+    eprintln!("html_len={}", html.len());
+    eprintln!("contains_b_results={}", html.contains("id=\"b_results\""));
+    eprintln!("contains_b_algo={}", html.contains("class=\"b_algo\""));
+    eprintln!(
+        "contains_ck_redirect={}",
+        html.contains("https://www.bing.com/ck/a?!")
+    );
+    eprintln!("parser_source_count={}", sources.len());
+    if let Some(source) = sources.first() {
+        eprintln!(
+            "first_source url={} title={:?} snippet={:?}",
+            source.url, source.title, source.snippet
+        );
+    }
+    let probe_excerpt = html.chars().take(3000).collect::<String>();
+    eprintln!("html_excerpt={}", probe_excerpt);
 }
 
 #[test]

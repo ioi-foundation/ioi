@@ -1,10 +1,12 @@
 use super::*;
+use crate::agentic::desktop::service::step::queue::support::concise_metric_snapshot_line;
 
 #[test]
 fn web_pipeline_single_snapshot_renders_actionable_metric_limitation_when_metrics_absent() {
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=anderson+sc+weather+right+now".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -54,6 +56,7 @@ fn web_pipeline_single_snapshot_renders_structured_metric_bullets_when_observed_
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=anderson+sc+weather+right+now".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -121,6 +124,7 @@ fn web_pipeline_single_snapshot_partial_metric_caveat_mentions_partial_availabil
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=current+weather+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -194,6 +198,7 @@ fn web_pipeline_single_snapshot_partial_metric_summary_keeps_trailing_numeric_va
 
     let draft = SynthesisDraft {
         query: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         run_date: "2026-02-23".to_string(),
         run_timestamp_ms: 1_771_859_150_000,
         run_timestamp_iso_utc: "2026-02-23T15:19:10Z".to_string(),
@@ -230,6 +235,7 @@ fn web_pipeline_single_snapshot_prefers_current_observation_over_forecast_range(
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=current+weather+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -269,10 +275,75 @@ fn web_pipeline_single_snapshot_prefers_current_observation_over_forecast_range(
 }
 
 #[test]
+fn web_pipeline_single_snapshot_prefers_current_price_source_over_stale_quote() {
+    let retrieval_contract = WebRetrievalContract {
+        entity_cardinality_min: 1,
+        comparison_required: false,
+        currentness_required: true,
+        runtime_locality_required: false,
+        source_independence_min: 1,
+        citation_count_min: 1,
+        structured_record_preferred: true,
+        ordered_collection_preferred: false,
+        link_collection_preferred: false,
+        canonical_link_out_preferred: false,
+        geo_scoped_detail_required: false,
+        discovery_surface_required: false,
+        entity_diversity_required: false,
+        scalar_measure_required: true,
+        browser_fallback_allowed: true,
+        ..WebRetrievalContract::default()
+    };
+    let pending = PendingSearchCompletion {
+        query: "What's the current price of Bitcoin?".to_string(),
+        query_contract: "What's the current price of Bitcoin?".to_string(),
+        retrieval_contract: Some(retrieval_contract),
+        url: "https://search.brave.com/search?q=current+bitcoin+price".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![
+            PendingSearchReadSummary {
+                url: "https://crypto.com/en/price/bitcoin".to_string(),
+                title: Some(
+                    "Bitcoin (BTC) Price Today: BTC Live Price, Charts, News - Crypto.com International"
+                        .to_string(),
+                ),
+                excerpt: "3 weeks ago - Bitcoin's price today is $70,107".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://mudrex.com/coins/bitcoin".to_string(),
+                title: Some("Bitcoin price today is $68,000.6 in USD live on Mudrex".to_string()),
+                excerpt: "Bitcoin price right now: $68,000.6 USD as of 17:23 UTC.".to_string(),
+            },
+        ],
+        min_sources: 1,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    assert!(
+        reply.contains("$68,000.6"),
+        "expected current quoted price source to anchor the snapshot, got:\n{}",
+        reply
+    );
+    assert!(
+        !reply.contains("3 weeks ago - Bitcoin's price today is $70,107"),
+        "stale relative-age quote should not outrank a current price source:\n{}",
+        reply
+    );
+}
+
+#[test]
 fn web_pipeline_single_snapshot_avoids_pseudo_metric_summary_from_forecast_only_text() {
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://www.bing.com/search?q=current+weather+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -327,10 +398,43 @@ fn web_pipeline_single_snapshot_avoids_pseudo_metric_summary_from_forecast_only_
 }
 
 #[test]
+fn concise_metric_snapshot_line_keeps_price_quote_pairs_intact() {
+    let concise = concise_metric_snapshot_line(
+        "Current BTC quote: $86,743.63 per BTC / USD with live market data.",
+    );
+    assert!(
+        concise.contains("BTC / USD"),
+        "expected slash-delimited quote pair to remain intact, got:\n{}",
+        concise
+    );
+}
+
+#[test]
+fn concise_metric_snapshot_line_strips_existing_summary_prefixes() {
+    let concise = concise_metric_snapshot_line(
+        "Current conditions from retrieved source text: The live price of Bitcoin is $68,211",
+    );
+    assert_eq!(concise, "The live price of Bitcoin is $68,211");
+}
+
+#[test]
+fn concise_metric_snapshot_line_handles_unicode_without_panicking() {
+    let concise = concise_metric_snapshot_line(
+        "Anderson, SC: temp +65°F humidity 87% wind ↑4mph pressure 1023hPa as of 03:38:03-0500",
+    );
+    assert!(
+        concise.contains("wind ↑4mph"),
+        "expected unicode wind direction marker to survive summary compaction, got:\n{}",
+        concise
+    );
+}
+
+#[test]
 fn web_pipeline_single_snapshot_emits_next_step_when_limitation_summary_present() {
     let pending = PendingSearchCompletion {
         query: "what's the weather right now".to_string(),
         query_contract: "what's the weather right now".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=current+weather".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -373,12 +477,70 @@ fn web_pipeline_single_snapshot_emits_next_step_when_limitation_summary_present(
 }
 
 #[test]
+fn web_pipeline_single_snapshot_price_followup_guidance_uses_price_axes_not_weather_text() {
+    let retrieval_contract = WebRetrievalContract {
+        entity_cardinality_min: 1,
+        comparison_required: false,
+        currentness_required: true,
+        runtime_locality_required: false,
+        source_independence_min: 1,
+        citation_count_min: 1,
+        structured_record_preferred: true,
+        ordered_collection_preferred: false,
+        link_collection_preferred: false,
+        canonical_link_out_preferred: false,
+        geo_scoped_detail_required: false,
+        discovery_surface_required: false,
+        entity_diversity_required: false,
+        scalar_measure_required: true,
+        browser_fallback_allowed: true,
+        ..WebRetrievalContract::default()
+    };
+    let pending = PendingSearchCompletion {
+        query: "What's the current price of Bitcoin?".to_string(),
+        query_contract: "What's the current price of Bitcoin?".to_string(),
+        retrieval_contract: Some(retrieval_contract),
+        url: "https://search.brave.com/search?q=current+bitcoin+price".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://crypto.com/en/price/bitcoin".to_string(),
+            title: Some(
+                "Bitcoin (BTC) Price Today: BTC Live Price, Charts, News - Crypto.com International"
+                    .to_string(),
+            ),
+            excerpt: "3 weeks ago - Bitcoin's price today is $70,107".to_string(),
+        }],
+        min_sources: 1,
+    };
+
+    let reply =
+        synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+    assert!(
+        reply.contains("live metric details (Price)"),
+        "expected follow-up guidance to be derived from unresolved price axes, got:\n{}",
+        reply
+    );
+    assert!(
+        !reply.contains("temperature, feels-like, humidity, wind"),
+        "price follow-up guidance should not leak weather-specific text:\n{}",
+        reply
+    );
+}
+
+#[test]
 fn web_pipeline_single_snapshot_emits_next_step_when_rendered_summary_implies_limitation() {
     let pending = PendingSearchCompletion {
         query: "Current weather in Anderson, SC right now with sources and UTC timestamp."
             .to_string(),
         query_contract: "Current weather in Anderson, SC right now with sources and UTC timestamp."
             .to_string(),
+        retrieval_contract: None,
         url: "https://www.bing.com/search?q=current+weather+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -438,6 +600,7 @@ fn web_pipeline_single_snapshot_treats_non_measurement_current_labels_as_limitat
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=current+weather+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -493,6 +656,7 @@ fn web_pipeline_single_snapshot_envelope_caveat_overrides_irrelevant_current_con
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://www.bing.com/search?q=current+weather+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,

@@ -5,6 +5,7 @@ fn web_pipeline_next_candidate_prefers_distinct_host_for_single_snapshot_queries
     let pending = PendingSearchCompletion {
         query: "What's the weather right now?".to_string(),
         query_contract: "What's the weather right now?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=weather+right+now".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -36,6 +37,7 @@ fn web_pipeline_next_candidate_prefers_new_domain_for_multi_story_queries() {
     let pending = PendingSearchCompletion {
         query: "Tell me today's top news headlines.".to_string(),
         query_contract: "Tell me today's top news headlines.".to_string(),
+        retrieval_contract: None,
         url: "https://news.google.com/rss/search?q=top+headlines".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -65,6 +67,7 @@ fn web_pipeline_next_candidate_returns_none_when_multi_story_only_has_repeat_dom
     let pending = PendingSearchCompletion {
         query: "Tell me today's top news headlines.".to_string(),
         query_contract: "Tell me today's top news headlines.".to_string(),
+        retrieval_contract: None,
         url: "https://news.google.com/rss/search?q=top+headlines".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -92,6 +95,7 @@ fn web_pipeline_next_candidate_prefers_immediate_metric_source_for_single_snapsh
     let pending = PendingSearchCompletion {
         query: "What's the weather right now?".to_string(),
         query_contract: "What's the weather right now?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=weather+right+now".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -132,6 +136,7 @@ fn web_pipeline_next_candidate_prefers_current_observation_surface_without_numer
     let pending = PendingSearchCompletion {
         query: "What's the weather right now?".to_string(),
         query_contract: "What's the weather right now?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=weather+right+now".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -175,6 +180,7 @@ fn web_pipeline_next_candidate_prefers_compatible_source_over_irrelevant_candida
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://www.bing.com/search?q=current+weather+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -215,6 +221,7 @@ fn web_pipeline_next_candidate_allows_single_exploratory_read_when_compatibility
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://www.bing.com/search?q=current+weather+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -251,6 +258,7 @@ fn web_pipeline_next_candidate_allows_one_extra_exploratory_read_after_probe_sea
     let mut base = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://duckduckgo.com/?q=anderson+sc+weather+right+now".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -306,6 +314,7 @@ fn web_pipeline_next_candidate_allows_exploratory_read_under_strict_grounding_wh
             .to_string(),
         query_contract: "Current weather in Anderson, SC right now with sources and UTC timestamp."
             .to_string(),
+        retrieval_contract: None,
         url: "https://www.google.com/search?q=weather+in+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,
@@ -338,6 +347,7 @@ fn web_pipeline_next_candidate_ignores_search_hub_attempts_for_host_diversity() 
     let pending = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
         query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
         url: "https://news.google.com/rss/search?q=weather+anderson+sc".to_string(),
         started_step: 1,
         started_at_ms: 1_771_465_364_000,

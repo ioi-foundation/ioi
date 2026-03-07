@@ -1,26 +1,42 @@
 use super::envelope::ResolutionPolicy;
 use super::support::{
-    append_pending_web_success_fallback, append_pending_web_success_from_bundle,
+    append_final_web_completion_receipts, append_pending_web_success_fallback,
+    append_pending_web_success_from_bundle, append_pending_web_success_from_hint,
+    build_query_constraint_projection_with_locality_hint, candidate_constraint_compatibility,
     candidate_source_hints_from_bundle, candidate_urls_from_bundle, citation_ids_for_story,
+    collect_projection_candidate_urls_with_locality_hint,
     constraint_grounded_probe_query_with_hints_and_locality_hint, constraint_grounded_search_limit,
     constraint_grounded_search_query, constraint_grounded_search_query_with_hints,
-    constraint_grounded_search_query_with_hints_and_locality_hint, fallback_search_summary,
-    is_search_hub_url, looks_like_structured_metadata_noise, merge_pending_search_completion,
-    next_pending_web_candidate, pre_read_candidate_plan_from_bundle,
-    pre_read_candidate_plan_from_bundle_with_locality_hint, query_requires_structured_synthesis,
+    constraint_grounded_search_query_with_hints_and_locality_hint,
+    excerpt_has_query_grounding_signal, excerpt_has_query_grounding_signal_with_contract,
+    explicit_query_scope_hint, fallback_search_summary,
+    is_search_hub_url, local_business_expansion_query, local_business_search_entity_anchor_tokens,
+    local_business_target_names_from_attempted_urls, local_business_target_names_from_sources,
+    looks_like_structured_metadata_noise, matched_local_business_target_names,
+    merge_pending_search_completion, next_pending_web_candidate,
+    pre_read_candidate_plan_from_bundle, pre_read_candidate_plan_from_bundle_with_locality_hint,
+    preferred_pre_read_action_count_with_locality_hint, projection_candidate_url_allowed,
+    projection_probe_hint_anchor_phrase, query_prefers_multi_item_cardinality,
+    query_requests_comparison, query_requires_local_business_entity_diversity,
+    query_requires_runtime_locality_scope, query_requires_structured_synthesis,
     queue_action_request_to_tool, render_synthesis_draft, required_citations_per_story,
-    required_story_count, select_web_pipeline_query_contract,
-    single_snapshot_constraint_set_with_hints, summarize_search_results,
+    required_story_count, resolved_query_contract_with_locality_hint,
+    retrieval_affordances_with_locality_hint, retrieval_contract_min_sources,
+    select_web_pipeline_query_contract, selected_local_business_target_sources,
+    selected_source_quality_metrics_with_locality_hint, single_snapshot_constraint_set_with_hints,
+    source_anchor_tokens, source_locality_tokens,
+    source_matches_local_business_search_entity_anchor, summarize_search_results,
     synthesize_web_pipeline_reply, web_pipeline_can_queue_initial_read_latency_aware,
     web_pipeline_can_queue_probe_search_latency_aware, web_pipeline_completion_reason,
     web_pipeline_grounded_probe_attempt_available, web_pipeline_latency_pressure_label,
     web_pipeline_min_sources, web_pipeline_required_probe_budget_ms,
-    web_pipeline_required_read_budget_ms, CitationCandidate, StoryDraft, SynthesisDraft,
-    WebPipelineCompletionReason, WEB_PIPELINE_REQUIRED_STORIES, WEIGHTED_INSIGHT_SIGNAL_VERSION,
+    web_pipeline_required_read_budget_ms, CitationCandidate, RetrievalAffordanceKind, StoryDraft,
+    SynthesisDraft, WebPipelineCompletionReason, WEB_PIPELINE_REQUIRED_STORIES,
+    WEIGHTED_INSIGHT_SIGNAL_VERSION,
 };
 use crate::agentic::desktop::types::{PendingSearchCompletion, PendingSearchReadSummary};
 use ioi_types::app::agentic::{AgentTool, ComputerAction};
-use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebSource};
+use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebRetrievalContract, WebSource};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -101,7 +117,10 @@ fn anderson_weather_search_bundle(query: &str, sources: Vec<WebSource>) -> WebEv
         query: Some(query.to_string()),
         url: Some(ANDERSON_BING_SEARCH_URL.to_string()),
         sources,
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     }
 }
 

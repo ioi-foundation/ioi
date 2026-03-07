@@ -36,6 +36,9 @@ pub(crate) fn excerpt_headline(excerpt: &str) -> Option<String> {
     if trimmed.is_empty() {
         return None;
     }
+    if looks_like_structured_metadata_noise(trimmed) {
+        return None;
+    }
     let candidate = trimmed
         .split(['.', ';', '\n'])
         .next()
@@ -52,6 +55,8 @@ pub(crate) fn source_bullet(source: &PendingSearchReadSummary) -> String {
     let excerpt = source.excerpt.trim();
     let headline = if !title.is_empty() && !is_low_signal_title(title) {
         title.to_string()
+    } else if let Some(display_name) = local_business_detail_display_name(source, None) {
+        display_name
     } else if let Some(from_excerpt) = excerpt_headline(excerpt) {
         from_excerpt
     } else {
@@ -68,6 +73,60 @@ pub(crate) fn source_bullet(source: &PendingSearchReadSummary) -> String {
     } else {
         format!("{}: {}", headline, detail)
     }
+}
+
+pub(crate) fn source_bullet_for_query(
+    query_contract: &str,
+    min_sources: usize,
+    source: &PendingSearchReadSummary,
+) -> String {
+    source_bullet_for_query_with_contract(None, query_contract, min_sources, source)
+}
+
+pub(crate) fn source_bullet_for_query_with_contract(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    query_contract: &str,
+    min_sources: usize,
+    source: &PendingSearchReadSummary,
+) -> String {
+    let title = source.title.as_deref().map(str::trim).unwrap_or_default();
+    let excerpt = source.excerpt.trim();
+    let headline = if !title.is_empty()
+        && !is_low_signal_title(title)
+        && !local_business_target_matches_source_host(title, &source.url)
+    {
+        title.to_string()
+    } else if let Some(display_name) = local_business_detail_display_name(source, None) {
+        display_name
+    } else if let Some(from_excerpt) = excerpt_headline(excerpt) {
+        from_excerpt
+    } else {
+        format!("Update from {}", source.url)
+    };
+
+    if excerpt.is_empty()
+        || excerpt.to_ascii_lowercase().contains("source_url=")
+        || looks_like_structured_metadata_noise(excerpt)
+    {
+        return headline;
+    }
+
+    if excerpt_has_query_grounding_signal_with_contract(
+        retrieval_contract,
+        query_contract,
+        min_sources,
+        &source.url,
+        title,
+        excerpt,
+    ) {
+        let detail = compact_excerpt(excerpt, 160);
+        if detail.eq_ignore_ascii_case(&headline) {
+            return headline;
+        }
+        return format!("{}: {}", headline, detail);
+    }
+
+    source_bullet(source)
 }
 
 pub(crate) fn single_snapshot_source_score(
@@ -90,6 +149,9 @@ pub(crate) fn has_quantitative_metric_payload(
     text: &str,
     require_current_observation: bool,
 ) -> bool {
+    if require_current_observation && has_stale_relative_age_signal(text) {
+        return false;
+    }
     let schema = analyze_metric_schema(text);
     if schema.numeric_token_hits == 0 {
         return false;
@@ -173,7 +235,27 @@ fn has_temperature_observation_signal(text: &str) -> bool {
     true
 }
 
+fn has_stale_relative_age_signal(text: &str) -> bool {
+    let lowered = format!(" {} ", compact_whitespace(text).to_ascii_lowercase());
+    [
+        " yesterday ",
+        " day ago ",
+        " days ago ",
+        " week ago ",
+        " weeks ago ",
+        " month ago ",
+        " months ago ",
+        " year ago ",
+        " years ago ",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker))
+}
+
 pub(crate) fn contains_current_condition_metric_signal(text: &str) -> bool {
+    if has_stale_relative_age_signal(text) {
+        return false;
+    }
     let current_metric_payload = has_quantitative_metric_payload(text, true);
     let temperature_observation = has_temperature_observation_signal(text);
     if !current_metric_payload && !temperature_observation {
@@ -261,14 +343,22 @@ pub(crate) fn metric_segment_signal_score(text: &str) -> usize {
     let timestamp_score = schema.timestamp_hits.min(3).saturating_mul(2);
     let horizon_penalty = schema.horizon_hits.min(3);
     let range_penalty = schema.range_hits.min(2);
+    let price_quote_bonus =
+        usize::from(schema.axis_hits.contains(&MetricAxis::Price) && has_price_quote_payload(text))
+            .saturating_mul(12);
+    let price_without_quote_penalty =
+        usize::from(schema.axis_hits.contains(&MetricAxis::Price) && !has_price_quote_payload(text))
+            .saturating_mul(8);
     axis_score
         .saturating_add(numeric_score)
         .saturating_add(unit_score)
         .saturating_add(currency_score)
         .saturating_add(observation_score)
         .saturating_add(timestamp_score)
+        .saturating_add(price_quote_bonus)
         .saturating_sub(horizon_penalty)
         .saturating_sub(range_penalty)
+        .saturating_sub(price_without_quote_penalty)
 }
 
 pub(crate) fn best_metric_segment(text: &str) -> Option<String> {
@@ -418,10 +508,13 @@ pub(crate) fn has_numeric_measurement_signal(text: &str) -> bool {
 }
 
 pub(crate) fn concise_metric_snapshot_line(metric_excerpt: &str) -> String {
-    let focused = compact_metric_focus(metric_excerpt);
+    let focused = compact_metric_focus(strip_metric_summary_prefix(metric_excerpt));
     if focused.is_empty() {
         return focused;
     }
+    let schema = analyze_metric_schema(&focused);
+    let allow_slash_delimiter = schema.axis_hits.contains(&MetricAxis::Price)
+        || schema.axis_hits.contains(&MetricAxis::Rate);
 
     let mut tokens = Vec::new();
     for token in focused.split_whitespace() {
@@ -429,7 +522,11 @@ pub(crate) fn concise_metric_snapshot_line(metric_excerpt: &str) -> String {
         if trimmed.is_empty() {
             continue;
         }
-        if looks_like_clock_time(trimmed) || trimmed.contains('/') {
+        if looks_like_clock_time(trimmed)
+            || (trimmed.contains('/') && !allow_slash_delimiter)
+            || trimmed.starts_with("http://")
+            || trimmed.starts_with("https://")
+        {
             break;
         }
         tokens.push(trimmed.to_string());
@@ -447,6 +544,24 @@ pub(crate) fn concise_metric_snapshot_line(metric_excerpt: &str) -> String {
         .trim()
         .trim_matches(|ch: char| ch == ':' || ch == '-' || ch == '|')
         .to_string()
+}
+
+fn strip_metric_summary_prefix(text: &str) -> &str {
+    let trimmed = text.trim();
+    for prefix in [
+        "Current conditions from retrieved source text:",
+        "Current conditions from cited source text:",
+        "Available observed details from retrieved source text:",
+        "Available observed details from cited source text:",
+    ] {
+        if trimmed
+            .get(..prefix.len())
+            .is_some_and(|candidate| candidate.eq_ignore_ascii_case(prefix))
+        {
+            return trimmed[prefix.len()..].trim();
+        }
+    }
+    trimmed
 }
 
 pub(crate) fn single_snapshot_metric_limitation_line(source: &PendingSearchReadSummary) -> String {

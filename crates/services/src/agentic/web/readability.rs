@@ -4,6 +4,7 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebQuoteSpan, WebSource};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
+use std::time::Duration;
 
 use super::constants::{
     READ_BLOCK_LOW_SIGNAL_CHAR_THRESHOLD, READ_BLOCK_STRUCTURED_SCRIPT_MAX,
@@ -11,11 +12,19 @@ use super::constants::{
     READ_BLOCK_STRUCTURED_SCRIPT_TOKEN_LIMIT, READ_BLOCK_STRUCTURED_SCRIPT_WINDOW_STEP,
     READ_BLOCK_STRUCTURED_SCRIPT_WINDOW_TOKENS, READ_BLOCK_SUPPLEMENTAL_MAX,
 };
+use super::google_news::{is_google_news_article_wrapper_url, resolve_google_news_article_url};
+use super::parsers::{
+    parse_local_business_directory_category_sources_from_html,
+    parse_local_business_directory_item_list_sources_from_html,
+};
 use super::transport::{
-    detect_human_challenge, fetch_html_http_fallback_browser_ua, navigate_browser_retrieval,
+    detect_human_challenge, fetch_html_http_fallback_browser_ua,
+    fetch_structured_detail_http_fallback_browser_ua, navigate_browser_retrieval,
+    transport_error_is_timeout_or_hang,
 };
 use super::util::{
-    compact_ws, domain_for_url, now_ms, sha256_hex, source_id_for_url, text_content,
+    compact_ws, domain_for_url, normalize_url_for_id, now_ms, sha256_hex, source_id_for_url,
+    text_content,
 };
 
 fn looks_like_structured_metadata_noise(text: &str) -> bool {
@@ -174,6 +183,47 @@ pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
     (title, blocks)
 }
 
+pub(crate) fn extract_non_html_read_blocks(raw: &str) -> Vec<String> {
+    let compact = compact_ws(raw);
+    let trimmed = compact.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    if trimmed.starts_with('<') && trimmed.contains('>') {
+        return Vec::new();
+    }
+
+    let schema = analyze_metric_schema(trimmed);
+    if schema.has_metric_payload()
+        && (schema.numeric_token_hits > 0
+            || schema.unit_hits > 0
+            || schema.currency_hits > 0
+            || !schema.axis_hits.is_empty())
+    {
+        return vec![trimmed.to_string()];
+    }
+
+    let lines = raw
+        .lines()
+        .map(compact_ws)
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .take(READ_BLOCK_SUPPLEMENTAL_MAX)
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        return Vec::new();
+    }
+    let line_has_metric_payload = lines.iter().any(|line| {
+        let schema = analyze_metric_schema(line);
+        schema.has_metric_payload() && schema.numeric_token_hits > 0
+    });
+    if line_has_metric_payload {
+        return lines;
+    }
+
+    Vec::new()
+}
+
 fn structured_metric_window_score(segment: &str) -> usize {
     if looks_like_structured_metadata_noise(segment) {
         return 0;
@@ -304,33 +354,80 @@ pub async fn edge_web_read(
     url: &str,
     max_chars: Option<u32>,
 ) -> Result<WebEvidenceBundle> {
-    let read_url = url.trim();
-    if read_url.is_empty() {
+    let requested_url = url.trim();
+    if requested_url.is_empty() {
         return Err(anyhow!("Empty URL"));
     }
+    let resolved_google_news_url = if is_google_news_article_wrapper_url(requested_url) {
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(8))
+            .timeout(Duration::from_millis(3_500))
+            .user_agent("Mozilla/5.0 (compatible; ioi-web-retriever/1.0; +https://ioi.local/web)")
+            .build()
+            .ok();
+        match client {
+            Some(client) => resolve_google_news_article_url(&client, requested_url).await,
+            None => None,
+        }
+    } else {
+        None
+    };
+    let read_url = resolved_google_news_url.as_deref().unwrap_or(requested_url);
+
     let mut retrieval_notes: Vec<String> = Vec::new();
     let mut backend = "edge:read:http".to_string();
     let initial_html = match fetch_html_http_fallback_browser_ua(read_url).await {
         Ok(html) => html,
         Err(http_err) => {
             retrieval_notes.push(format!("http_error={}", http_err));
-            let browser_html = navigate_browser_retrieval(browser, read_url)
-                .await
-                .map_err(|browser_err| {
-                    anyhow!(
-                        "ERROR_CLASS=UnexpectedState web retrieval failed for {}. {} browser_error={}",
-                        read_url,
-                        retrieval_notes.join("; "),
-                        browser_err
-                    )
-                })?;
-            backend = "edge:read:browser".to_string();
-            browser_html
+            if transport_error_is_timeout_or_hang(&http_err) {
+                match fetch_structured_detail_http_fallback_browser_ua(read_url).await {
+                    Ok(html) => {
+                        backend = "edge:read:http:structured".to_string();
+                        html
+                    }
+                    Err(structured_err) => {
+                        retrieval_notes.push(format!("structured_http_error={}", structured_err));
+                        let browser_html = navigate_browser_retrieval(browser, read_url)
+                            .await
+                            .map_err(|browser_err| {
+                                anyhow!(
+                                    "ERROR_CLASS=UnexpectedState web retrieval failed for {}. {} browser_error={}",
+                                    read_url,
+                                    retrieval_notes.join("; "),
+                                    browser_err
+                                )
+                            })?;
+                        backend = "edge:read:browser".to_string();
+                        browser_html
+                    }
+                }
+            } else {
+                let browser_html = navigate_browser_retrieval(browser, read_url)
+                    .await
+                    .map_err(|browser_err| {
+                        anyhow!(
+                            "ERROR_CLASS=UnexpectedState web retrieval failed for {}. {} browser_error={}",
+                            read_url,
+                            retrieval_notes.join("; "),
+                            browser_err
+                        )
+                    })?;
+                backend = "edge:read:browser".to_string();
+                browser_html
+            }
         }
     };
 
-    let mut challenge_reason = detect_human_challenge(read_url, &initial_html);
-    let (mut title, mut blocks) = extract_read_blocks(&initial_html);
+    let mut resolved_html = initial_html;
+    let mut challenge_reason = detect_human_challenge(read_url, &resolved_html);
+    let (mut title, mut blocks) = extract_read_blocks(&resolved_html);
+    if blocks.is_empty() {
+        let fallback_blocks = extract_non_html_read_blocks(&resolved_html);
+        if !fallback_blocks.is_empty() {
+            blocks = fallback_blocks;
+        }
+    }
 
     let low_signal_blocks = blocks.is_empty()
         || blocks
@@ -347,7 +444,16 @@ pub async fn edge_web_read(
                     challenge_reason = None;
                     title = browser_title;
                     blocks = browser_blocks;
+                    resolved_html = browser_html;
                     backend = "edge:read:browser".to_string();
+                } else if browser_challenge.is_none() {
+                    let fallback_blocks = extract_non_html_read_blocks(&browser_html);
+                    if !fallback_blocks.is_empty() {
+                        challenge_reason = None;
+                        blocks = fallback_blocks;
+                        resolved_html = browser_html;
+                        backend = "edge:read:browser".to_string();
+                    }
                 } else if challenge_reason.is_none() {
                     challenge_reason = browser_challenge;
                 }
@@ -375,14 +481,38 @@ pub async fn edge_web_read(
     let content_hash = sha256_hex(content_text.as_bytes());
 
     let source_id = source_id_for_url(read_url);
-    let source = WebSource {
+    let mut sources = vec![WebSource {
         source_id: source_id.clone(),
         rank: None,
         url: read_url.to_string(),
         title: title.clone(),
         snippet: None,
         domain: domain_for_url(read_url),
-    };
+    }];
+    let mut seen_source_urls = sources
+        .iter()
+        .map(|source| normalize_url_for_id(&source.url))
+        .collect::<HashSet<_>>();
+    for extracted in parse_local_business_directory_item_list_sources_from_html(
+        read_url,
+        &resolved_html,
+        READ_BLOCK_SUPPLEMENTAL_MAX,
+    ) {
+        let key = normalize_url_for_id(&extracted.url);
+        if seen_source_urls.insert(key) {
+            sources.push(extracted);
+        }
+    }
+    for extracted in parse_local_business_directory_category_sources_from_html(
+        read_url,
+        &resolved_html,
+        READ_BLOCK_SUPPLEMENTAL_MAX,
+    ) {
+        let key = normalize_url_for_id(&extracted.url);
+        if seen_source_urls.insert(key) {
+            sources.push(extracted);
+        }
+    }
     let doc = WebDocument {
         source_id,
         url: read_url.to_string(),
@@ -399,7 +529,10 @@ pub async fn edge_web_read(
         backend,
         query: None,
         url: Some(read_url.to_string()),
-        sources: vec![source],
+        sources,
+        source_observations: vec![],
         documents: vec![doc],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     })
 }

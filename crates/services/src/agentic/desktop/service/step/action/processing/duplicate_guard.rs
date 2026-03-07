@@ -1,9 +1,10 @@
 use crate::agentic::desktop::service::step::action::command_contract::{
     format_utc_rfc3339, parse_sleep_seconds, render_command_preview, target_utc_from_run_and_sleep,
 };
+use crate::agentic::desktop::service::step::action::summarize_structured_command_receipt_output;
 use crate::agentic::desktop::types::CommandExecution;
 use ioi_types::app::agentic::AgentTool;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::path::Path;
 
 pub(super) fn duplicate_command_execution_summary(tool: &AgentTool) -> String {
@@ -128,7 +129,9 @@ pub(super) fn duplicate_command_cached_completion_summary(
     // Reuse eligibility checks from cached-success path.
     let _ = duplicate_command_cached_success_summary(tool, history_entry)?;
     let entry = history_entry?;
-    if let Some(summary) = structured_probe_completion_summary(entry) {
+    if let Some(summary) =
+        summarize_structured_command_receipt_output(&entry.stdout, Some(entry.timestamp_ms))
+    {
         return Some(summary);
     }
     if normalize_command_binary(&entry.command).as_deref() == Some("find")
@@ -144,83 +147,54 @@ pub(super) fn duplicate_command_cached_completion_summary(
         .or_else(|| duplicate_command_cached_success_summary(tool, Some(entry)))
 }
 
-fn structured_probe_completion_summary(entry: &CommandExecution) -> Option<String> {
-    let values = parse_key_value_lines(&entry.stdout);
-    let provider = values.get("provider")?;
-    let memory_rows = parse_memory_probe_rows(&entry.stdout);
-    if !memory_rows.is_empty() {
-        let mut summary = format!("Top memory apps by rss_kb via provider '{}':", provider);
-        for (rank, app, pid, rss_kb) in memory_rows {
-            summary.push_str(&format!(
-                "\n{}. {} (pid {}, rss_kb {})",
-                rank, app, pid, rss_kb
-            ));
+pub(crate) fn verified_command_probe_completion_summary(
+    tool: &AgentTool,
+    history: &VecDeque<CommandExecution>,
+) -> Option<String> {
+    let entry = find_matching_command_history_entry(tool, history)?;
+    if entry.exit_code != 0 {
+        return None;
+    }
+
+    let command_preview = match tool {
+        AgentTool::SysExec {
+            command,
+            args,
+            detach,
+            ..
+        } => {
+            if *detach {
+                return None;
+            }
+            render_command_preview(command, args)
         }
+        AgentTool::SysExecSession { command, args, .. } => render_command_preview(command, args),
+        _ => return None,
+    };
+
+    if !is_safe_read_probe_command(&command_preview) {
+        return None;
+    }
+
+    let prior_side_effecting_success = history
+        .iter()
+        .rev()
+        .skip_while(|candidate| {
+            candidate.exit_code != 0 || !commands_equivalent(&command_preview, &candidate.command)
+        })
+        .skip(1)
+        .find(|candidate| candidate.exit_code == 0 && !is_safe_read_probe_command(&candidate.command));
+    let Some(prior_side_effecting_success) = prior_side_effecting_success else {
+        return None;
+    };
+
+    if let Some(summary) =
+        matched_probe_stdout_line_for_prior_command(&entry.stdout, &prior_side_effecting_success.command)
+    {
         return Some(summary);
     }
-    if let Some(target_local_time) = values.get("target_local_time") {
-        return Some(format!(
-            "Shutdown scheduled via provider '{}' for local time {}.",
-            provider, target_local_time
-        ));
-    }
-    if let Some(run_timestamp_utc) = format_utc_rfc3339(entry.timestamp_ms) {
-        return Some(format!(
-            "Probe completed via provider '{}' (run timestamp UTC: {}).",
-            provider, run_timestamp_utc
-        ));
-    }
-    Some(format!("Probe completed via provider '{}'.", provider))
-}
 
-fn parse_key_value_lines(text: &str) -> HashMap<String, String> {
-    let mut values = HashMap::new();
-    for line in text.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        let Some((raw_key, raw_value)) = trimmed.split_once('=') else {
-            continue;
-        };
-        let key = raw_key.trim().to_ascii_lowercase();
-        let value = raw_value.trim();
-        if key.is_empty() || value.is_empty() {
-            continue;
-        }
-        values.insert(key, value.to_string());
-    }
-    values
-}
-
-fn parse_memory_probe_rows(text: &str) -> Vec<(u32, String, String, String)> {
-    let mut rows = Vec::new();
-    for line in text.lines() {
-        let trimmed = line.trim();
-        if !trimmed.starts_with("row|") {
-            continue;
-        }
-        let mut parts = trimmed.split('|');
-        let marker = parts.next().unwrap_or_default();
-        let rank_raw = parts.next().unwrap_or_default().trim();
-        let app = parts.next().unwrap_or_default().trim();
-        let pid = parts.next().unwrap_or_default().trim();
-        let rss_kb = parts.next().unwrap_or_default().trim();
-        if marker != "row"
-            || app.is_empty()
-            || pid.is_empty()
-            || rss_kb.is_empty()
-            || parts.next().is_some()
-        {
-            continue;
-        }
-        let rank = rank_raw
-            .parse::<u32>()
-            .unwrap_or_else(|_| rows.len() as u32 + 1);
-        rows.push((rank, app.to_string(), pid.to_string(), rss_kb.to_string()));
-    }
-    rows.sort_by_key(|row| row.0);
-    rows
+    duplicate_command_cached_completion_summary(tool, Some(entry))
 }
 
 fn preferred_cached_completion_line(text: &str) -> Option<String> {
@@ -228,6 +202,30 @@ fn preferred_cached_completion_line(text: &str) -> Option<String> {
         .map(str::trim)
         .find(|line| !line.is_empty())
         .map(|line| line.to_string())
+}
+
+fn matched_probe_stdout_line_for_prior_command(stdout: &str, prior_command: &str) -> Option<String> {
+    let target_basename = last_path_like_command_token(prior_command)
+        .and_then(|path| {
+            Path::new(&path)
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(str::to_string)
+        })?;
+    stdout
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && line.contains(&target_basename))
+        .map(str::to_string)
+}
+
+fn last_path_like_command_token(command_preview: &str) -> Option<String> {
+    command_preview
+        .split_whitespace()
+        .map(|token| token.trim_matches(|ch: char| matches!(ch, '\'' | '"' | '`')))
+        .filter(|token| token.contains('/') || token.contains('\\'))
+        .next_back()
+        .map(str::to_string)
 }
 
 fn commands_equivalent(left: &str, right: &str) -> bool {
@@ -333,6 +331,7 @@ mod tests {
     use super::{
         duplicate_command_cached_completion_summary, duplicate_command_cached_success_summary,
         duplicate_command_completion_summary, find_matching_command_history_entry,
+        verified_command_probe_completion_summary,
     };
     use crate::agentic::desktop::types::CommandExecution;
     use ioi_types::app::agentic::AgentTool;
@@ -572,5 +571,57 @@ mod tests {
         assert!(summary.contains("pid 6795"));
         assert!(summary.contains("rss_kb 892632"));
         assert!(summary.contains("soffice.bin"));
+    }
+
+    #[test]
+    fn verified_probe_completion_requires_prior_side_effecting_success() {
+        let tool = AgentTool::SysExec {
+            command: "ls".to_string(),
+            args: vec!["/home/user/Desktop".to_string()],
+            stdin: None,
+            detach: false,
+        };
+        let history = VecDeque::from(vec![
+            CommandExecution {
+                command: "mkdir /home/user/Desktop/Project_42".to_string(),
+                exit_code: 0,
+                stdout: String::new(),
+                stderr: String::new(),
+                timestamp_ms: 1_772_000_000_000,
+                step_index: 0,
+            },
+            CommandExecution {
+                command: "ls /home/user/Desktop".to_string(),
+                exit_code: 0,
+                stdout: "Notes\nProject_42\n".to_string(),
+                stderr: String::new(),
+                timestamp_ms: 1_772_000_001_000,
+                step_index: 1,
+            },
+        ]);
+
+        let summary = verified_command_probe_completion_summary(&tool, &history)
+            .expect("safe verification probe should terminalize after prior side effect");
+        assert_eq!(summary, "Project_42");
+    }
+
+    #[test]
+    fn verified_probe_completion_rejects_probe_only_history() {
+        let tool = AgentTool::SysExec {
+            command: "ls".to_string(),
+            args: vec!["/home/user/Desktop".to_string()],
+            stdin: None,
+            detach: false,
+        };
+        let history = VecDeque::from(vec![CommandExecution {
+            command: "ls /home/user/Desktop".to_string(),
+            exit_code: 0,
+            stdout: "Notes\nProject_42\n".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 1_772_000_001_000,
+            step_index: 1,
+        }]);
+
+        assert!(verified_command_probe_completion_summary(&tool, &history).is_none());
     }
 }

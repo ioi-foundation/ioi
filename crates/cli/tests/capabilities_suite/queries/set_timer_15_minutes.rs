@@ -1,8 +1,8 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, ExecutionProfile, LocalCheck,
-    LocalJudgeResult, QueryCase, RunObservation,
+    cec_receipt_usize, cec_receipt_value, has_cec_receipt, observation_has_any_tool_name,
+    truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 pub fn case() -> QueryCase {
@@ -25,44 +25,47 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let lower_reply = obs.final_reply.to_ascii_lowercase();
+    let timer_backend_observed =
+        has_cec_receipt(obs, "execution", "timer_sleep_backend", Some(true));
+    let notification_path_observed =
+        has_cec_receipt(obs, "execution", "notification_path_armed", Some(true));
+    let timer_delay_seconds = cec_receipt_usize(obs, "execution", "timer_delay_seconds")
+        .or_else(|| {
+            cec_receipt_value(obs, "execution", "timer_sleep_backend")
+                .and_then(|value| value.trim().parse::<usize>().ok())
+        })
+        .unwrap_or(0);
+    let includes_15_min_signal = timer_delay_seconds == 900;
 
-    let timer_acknowledged = contains_any(&lower_reply, &["timer", "scheduled", "set", "minutes"]);
-    let includes_15_min_signal = contains_any(&lower_reply, &["15", "fifteen"])
-        && contains_any(&lower_reply, &["minute", "min"]);
+    let system_command_seen =
+        observation_has_any_tool_name(obs, &["sys__exec", "sys__exec_session"]);
 
-    let system_command_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec")
-        || has_tool_with_token(&obs.action_tools, "command")
-        || has_tool_with_token(&obs.routing_tools, "command");
-
-    let sleep_or_timer_evidence = obs.action_evidence.iter().any(|entry| {
-        let lower = entry.output_excerpt.to_ascii_lowercase();
-        lower.contains("sleep 900")
-            || lower.contains("timer")
-            || lower.contains("15 minutes")
-            || lower.contains("900")
-    });
+    let sleep_or_timer_evidence =
+        timer_backend_observed || notification_path_observed || timer_delay_seconds > 0;
 
     let checks = vec![
         LocalCheck::new(
-            "completed_with_reply",
-            obs.completed && !obs.final_reply.trim().is_empty(),
+            "completion_evidence_present",
+            obs.completed
+                && !obs.failed
+                && has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true)),
             format!(
-                "status={} reply_len={}",
-                obs.final_status,
-                obs.final_reply.chars().count()
+                "status={} failed={} cec_receipts={:?}",
+                obs.final_status, obs.failed, obs.cec_receipts
             ),
         ),
         LocalCheck::new(
-            "timer_acknowledged",
-            timer_acknowledged,
-            truncate_chars(&obs.final_reply, 120),
+            "timer_contract_evidence_present",
+            timer_backend_observed && notification_path_observed,
+            truncate_chars(
+                &format!("timer_delay_seconds={}", timer_delay_seconds),
+                120,
+            ),
         ),
         LocalCheck::new(
             "15_minute_signal_present",
             includes_15_min_signal,
-            truncate_chars(&obs.final_reply, 120),
+            format!("timer_delay_seconds={}", timer_delay_seconds),
         ),
         LocalCheck::new(
             "system_command_path_seen",

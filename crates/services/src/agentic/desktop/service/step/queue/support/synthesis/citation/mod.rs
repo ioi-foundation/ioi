@@ -48,8 +48,17 @@ pub(crate) fn titles_similar(a: &str, b: &str) -> bool {
 
 pub(crate) fn canonical_source_title(source: &PendingSearchReadSummary) -> String {
     let title = source.title.as_deref().map(str::trim).unwrap_or_default();
-    if !title.is_empty() && !is_low_signal_title(title) {
+    if !title.is_empty()
+        && !is_low_signal_title(title)
+        && !local_business_target_matches_source_host(title, &source.url)
+    {
         return title.chars().take(WEB_PIPELINE_STORY_TITLE_CHARS).collect();
+    }
+    if let Some(display_name) = local_business_detail_display_name(source, None) {
+        return display_name
+            .chars()
+            .take(WEB_PIPELINE_STORY_TITLE_CHARS)
+            .collect();
     }
     if let Some(from_excerpt) = excerpt_headline(source.excerpt.trim()) {
         return from_excerpt

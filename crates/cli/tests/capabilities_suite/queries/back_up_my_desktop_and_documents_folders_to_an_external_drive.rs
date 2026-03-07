@@ -615,14 +615,9 @@ fn is_list_action_success(entry: &super::super::types::ActionEvidence) -> bool {
 }
 
 fn is_stat_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    if !entry.tool_name.eq_ignore_ascii_case("filesystem__stat")
-        || entry.agent_status.eq_ignore_ascii_case("failed")
-        || action_has_hard_error_class(entry)
-    {
-        return false;
-    }
-    let lower = entry.output_excerpt.to_ascii_lowercase();
-    lower.contains("\"modified_epoch_ms\"")
+    entry.tool_name.eq_ignore_ascii_case("filesystem__stat")
+        && !entry.agent_status.eq_ignore_ascii_case("failed")
+        && !action_has_hard_error_class(entry)
 }
 
 fn has_disallowed_mutating_action(obs: &RunObservation) -> bool {

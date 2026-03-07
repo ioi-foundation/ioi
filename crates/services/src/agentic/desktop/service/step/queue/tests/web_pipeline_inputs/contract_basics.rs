@@ -13,6 +13,33 @@ fn web_pipeline_min_sources_defaults_without_explicit_citation_contract() {
 }
 
 #[test]
+fn retrieval_contract_min_sources_preserves_single_snapshot_floor_without_search_limit_clamp() {
+    let contract = WebRetrievalContract {
+        contract_version: "test.v1".to_string(),
+        entity_cardinality_min: 1,
+        comparison_required: false,
+        currentness_required: true,
+        runtime_locality_required: true,
+        source_independence_min: 1,
+        citation_count_min: 1,
+        structured_record_preferred: true,
+        ordered_collection_preferred: false,
+        link_collection_preferred: false,
+        canonical_link_out_preferred: false,
+        geo_scoped_detail_required: true,
+        discovery_surface_required: true,
+        entity_diversity_required: false,
+        scalar_measure_required: true,
+        browser_fallback_allowed: true,
+    };
+
+    assert_eq!(
+        retrieval_contract_min_sources(Some(&contract), "What's the weather like right now?"),
+        1
+    );
+}
+
+#[test]
 fn web_pipeline_required_citations_per_story_honors_for_each_clause() {
     let query = "As of now (UTC), what are the top 3 U.S. breaking stories from the last 6 hours? For each: what happened, what changed in the last hour, why it matters, and 2 source citations with absolute dates/times.";
     assert_eq!(required_citations_per_story(query), 2);
@@ -30,6 +57,13 @@ fn web_pipeline_required_citations_per_story_defaults_to_two_for_generic_headlin
 fn web_pipeline_treats_google_news_topics_as_search_hub() {
     assert!(is_search_hub_url(
         "https://news.google.com/topics/CAAqIggKIhxDQkFTRHdvSkwyMHZNRGxqTjNjd0VnSmxiaWdBUAE?hl=en-US&ceid=US:en"
+    ));
+}
+
+#[test]
+fn web_pipeline_treats_google_news_article_wrappers_as_redirectable_sources() {
+    assert!(!is_search_hub_url(
+        "https://news.google.com/rss/articles/CBMiakFVX3lxTE1paDlDQVMzckpVZjltZkhUM3RSdFh4MGtVOHFGNll6NlRKNUpqOV9UVDl4ZlBXZldpcUtMNm9JLWtZZ0dSMHlORTBRVlZTNC1mZ1dCemkzaWRCcmFMN2E5VVlZallSYjI5MVE?oc=5"
     ));
 }
 
@@ -106,7 +140,10 @@ fn web_pipeline_pre_read_multi_story_enforces_distinct_domain_payload() {
                 domain: Some("apnews.com".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let plan = pre_read_candidate_plan_from_bundle(query, 3, &bundle);
@@ -164,11 +201,14 @@ fn web_pipeline_pre_read_multi_story_marks_probe_when_distinct_domain_floor_unme
                 domain: Some("foxnews.com".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let plan = pre_read_candidate_plan_from_bundle(query, 3, &bundle);
-    assert_eq!(plan.candidate_urls.len(), 1);
+    assert!(plan.candidate_urls.is_empty(), "plan={plan:?}");
     assert!(plan.requires_constraint_search_probe);
 }
 
@@ -183,7 +223,10 @@ fn web_pipeline_pre_read_multi_story_marks_probe_when_discovery_inventory_is_emp
         query: Some(query.to_string()),
         url: Some("https://www.bing.com/search?q=today+top+news+headlines".to_string()),
         sources: vec![],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let plan = pre_read_candidate_plan_from_bundle(query, 3, &bundle);
@@ -193,6 +236,73 @@ fn web_pipeline_pre_read_multi_story_marks_probe_when_discovery_inventory_is_emp
         "time-sensitive multi-story queries should request a typed probe when discovery inventory is empty: {:?}",
         plan
     );
+}
+
+#[test]
+fn web_pipeline_pre_read_multi_story_counts_wrapper_hint_domains_toward_independence_floor() {
+    let query = "Tell me today's top news headlines.";
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:google-news-top-stories-rss".to_string(),
+        query: Some(query.to_string()),
+        url: Some("https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en".to_string()),
+        sources: vec![
+            WebSource {
+                source_id: "google-item-1".to_string(),
+                rank: Some(1),
+                url: "https://news.google.com/rss/articles/alpha?oc=5".to_string(),
+                title: Some("Federal agency announces emergency review".to_string()),
+                snippet: Some(
+                    "Reuters | source_url=https://www.reuters.com/world/us/emergency-review-2026-03-07/"
+                        .to_string(),
+                ),
+                domain: Some("reuters.com".to_string()),
+            },
+            WebSource {
+                source_id: "google-item-2".to_string(),
+                rank: Some(2),
+                url: "https://news.google.com/rss/articles/bravo?oc=5".to_string(),
+                title: Some("Senate leaders unveil bipartisan funding framework".to_string()),
+                snippet: Some(
+                    "AP News | source_url=https://apnews.com/article/funding-framework-2026-03-07"
+                        .to_string(),
+                ),
+                domain: Some("apnews.com".to_string()),
+            },
+            WebSource {
+                source_id: "google-item-3".to_string(),
+                rank: Some(3),
+                url: "https://news.google.com/rss/articles/charlie?oc=5".to_string(),
+                title: Some("International summit reaches ceasefire framework".to_string()),
+                snippet: Some(
+                    "ABC News | source_url=https://abcnews.go.com/Politics/ceasefire-framework-2026-03-07/story?id=12345"
+                        .to_string(),
+                ),
+                domain: Some("abcnews.go.com".to_string()),
+            },
+        ],
+        source_observations: vec![],
+        documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
+    };
+
+    let plan = pre_read_candidate_plan_from_bundle(query, 3, &bundle);
+    assert_eq!(plan.candidate_urls.len(), 3, "plan={plan:?}");
+
+    let (_, compatible_sources, _, distinct_domains, _, quality_floor_met, _) =
+        selected_source_quality_metrics_with_locality_hint(
+            query,
+            3,
+            &plan.candidate_urls,
+            &plan.candidate_source_hints,
+            None,
+        );
+    assert_eq!(compatible_sources, 3, "plan={plan:?}");
+    assert_eq!(distinct_domains, 3, "plan={plan:?}");
+    assert!(quality_floor_met, "plan={plan:?}");
 }
 
 #[test]
@@ -260,7 +370,10 @@ fn web_pipeline_pre_read_multi_story_prefers_article_urls_over_listing_pages() {
                 domain: Some("cnn.com".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let plan = pre_read_candidate_plan_from_bundle(query, 3, &bundle);

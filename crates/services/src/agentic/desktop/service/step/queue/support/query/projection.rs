@@ -63,21 +63,28 @@ pub(crate) fn build_query_constraint_projection_with_locality_hint(
         candidate_hints,
     );
     let query_facets = analyze_query_facets(&projection_query_contract);
-    let query_native_tokens = query_native_anchor_tokens(&projection_query_contract);
-    let query_tokens = query_anchor_tokens(&projection_query_contract, &constraints);
     let locality_scope = explicit_query_scope_hint(&projection_query_contract);
-    let locality_scope_inferred = original_locality_scope.is_none()
-        && trusted_locality_scope.is_none()
-        && inferred_locality_scope.is_some();
     let locality_tokens = locality_scope
         .as_deref()
         .map(normalized_locality_tokens)
         .unwrap_or_default();
+    let structural_tokens = query_structural_directive_tokens(&projection_query_contract);
+    let query_native_tokens = query_native_anchor_tokens(&projection_query_contract);
+    let query_native_tokens_ordered = ordered_anchor_phrase_tokens(
+        &projection_query_contract,
+        &locality_tokens,
+        &structural_tokens,
+    );
+    let query_tokens = query_anchor_tokens(&projection_query_contract, &constraints);
+    let locality_scope_inferred = original_locality_scope.is_none()
+        && trusted_locality_scope.is_none()
+        && inferred_locality_scope.is_some();
 
     QueryConstraintProjection {
         constraints,
         query_facets,
         query_native_tokens,
+        query_native_tokens_ordered,
         query_tokens,
         locality_scope,
         locality_scope_inferred,
@@ -260,6 +267,51 @@ pub(crate) fn source_anchor_tokens(url: &str, title: &str, excerpt: &str) -> BTr
     tokens
 }
 
+fn simple_anchor_variant(token: &str) -> Option<String> {
+    let normalized = token.trim().to_ascii_lowercase();
+    if normalized.len() <= 3 {
+        return None;
+    }
+    if normalized == "menus" {
+        return Some("menu".to_string());
+    }
+    if normalized == "news" || normalized.ends_with("ss") || normalized.ends_with("ous") {
+        return None;
+    }
+    if let Some(stem) = normalized.strip_suffix("ies") {
+        if stem.len() >= 2 {
+            return Some(format!("{stem}y"));
+        }
+    }
+    if normalized.ends_with("ches")
+        || normalized.ends_with("shes")
+        || normalized.ends_with("sses")
+        || normalized.ends_with("xes")
+        || normalized.ends_with("zes")
+        || normalized.ends_with("oes")
+    {
+        return normalized
+            .strip_suffix("es")
+            .map(str::to_string)
+            .filter(|value| !value.is_empty());
+    }
+    normalized
+        .strip_suffix('s')
+        .filter(|stem| stem.len() >= 3)
+        .filter(|_| !normalized.ends_with("us") || normalized == "menus")
+        .map(str::to_string)
+}
+
+fn expanded_query_anchor_tokens(tokens: &BTreeSet<String>) -> BTreeSet<String> {
+    let mut expanded = tokens.clone();
+    for token in tokens {
+        if let Some(variant) = simple_anchor_variant(token) {
+            expanded.insert(variant);
+        }
+    }
+    expanded
+}
+
 pub(crate) fn is_search_hub_url(url: &str) -> bool {
     let Ok(parsed) = Url::parse(url.trim()) else {
         return false;
@@ -269,6 +321,8 @@ pub(crate) fn is_search_hub_url(url: &str) -> bool {
     };
     let host = host.to_ascii_lowercase();
     let path = parsed.path().to_ascii_lowercase();
+    let is_google_news_article_wrapper =
+        host == "news.google.com" && path.starts_with("/rss/articles/");
     let has_query = parsed
         .query_pairs()
         .any(|(key, _)| key == "q" || key == "query" || key == "text");
@@ -282,6 +336,7 @@ pub(crate) fn is_search_hub_url(url: &str) -> bool {
             || path == "/url"
             || path.starts_with("/rss/search"));
     let is_google_news_hub = host == "news.google.com"
+        && !is_google_news_article_wrapper
         && (path == "/"
             || path.starts_with("/topics")
             || path.starts_with("/topstories")
@@ -394,7 +449,11 @@ pub(crate) fn is_citable_web_url(url: &str) -> bool {
         .unwrap_or(false)
 }
 
-pub(crate) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: &str) -> bool {
+pub(crate) fn candidate_time_sensitive_resolvable_payload(
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
     fn observation_surface_signal(schema: &MetricSchemaProfile) -> bool {
         let observation_strength = schema
             .observation_hits
@@ -413,11 +472,22 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: 
         schema.axis_hits.contains(&MetricAxis::Price) && !has_price_quote_payload(text)
     }
 
+    if source_has_human_challenge_signal(url, title, excerpt) {
+        return false;
+    }
+    let source_signals = analyze_source_record_signals(url, title, excerpt);
+    if source_signals.low_priority_hits > 0 || source_signals.low_priority_dominates() {
+        return false;
+    }
+
     let source_text = format!("{} {}", title, excerpt);
     let source_schema = analyze_metric_schema(&source_text);
-    let source_has_price_without_quote =
-        schema_has_price_without_quote(&source_schema, &source_text);
-    if (source_schema.has_current_observation_payload() && !source_has_price_without_quote)
+    let source_price_axis = source_schema.axis_hits.contains(&MetricAxis::Price);
+    if source_price_axis {
+        if has_price_quote_payload(&source_text) {
+            return true;
+        }
+    } else if source_schema.has_current_observation_payload()
         || (source_schema.numeric_token_hits > 0 && source_schema.unit_hits > 0)
     {
         return true;
@@ -425,7 +495,11 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: 
 
     let excerpt_schema = analyze_metric_schema(excerpt);
     let excerpt_has_price_without_quote = schema_has_price_without_quote(&excerpt_schema, excerpt);
-    if observation_surface_signal(&excerpt_schema) && !excerpt_has_price_without_quote {
+    if excerpt_schema.axis_hits.contains(&MetricAxis::Price) {
+        if has_price_quote_payload(excerpt) {
+            return true;
+        }
+    } else if observation_surface_signal(&excerpt_schema) && !excerpt_has_price_without_quote {
         return true;
     }
 
@@ -434,6 +508,9 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(title: &str, excerpt: 
     }
 
     let title_schema = analyze_metric_schema(title);
+    if title_schema.axis_hits.contains(&MetricAxis::Price) {
+        return has_price_quote_payload(title);
+    }
     observation_surface_signal(&title_schema)
         && !schema_has_price_without_quote(&title_schema, title)
 }
@@ -445,10 +522,12 @@ pub(crate) fn compatibility_passes_projection(
     if !compatibility.is_compatible {
         return false;
     }
-    if projection
+    let locality_scope_enforced = projection
         .constraints
         .scopes
         .contains(&ConstraintScope::TimeSensitive)
+        || projection.query_facets.grounded_external_required;
+    if locality_scope_enforced
         && projection.locality_scope.is_some()
         && !compatibility.locality_compatible
     {
@@ -470,17 +549,27 @@ pub(crate) fn candidate_constraint_compatibility(
 ) -> CandidateConstraintCompatibility {
     let source_tokens = source_anchor_tokens(url, title, excerpt);
     let source_locality = source_locality_tokens(url, title, excerpt);
-    let anchor_overlap_count = query_tokens.intersection(&source_tokens).count();
-    let native_anchor_overlap_count = query_native_tokens.intersection(&source_tokens).count();
+    let source_structural_locality = source_structural_locality_tokens(url, title)
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    let expanded_query_tokens = expanded_query_anchor_tokens(query_tokens);
+    let expanded_query_native_tokens = expanded_query_anchor_tokens(query_native_tokens);
+    let anchor_overlap_count = expanded_query_tokens.intersection(&source_tokens).count();
+    let native_anchor_overlap_count = expanded_query_native_tokens
+        .intersection(&source_tokens)
+        .count();
     let locality_overlap_count = query_locality_tokens.intersection(&source_locality).count();
+    let structural_locality_overlap_count = query_locality_tokens
+        .intersection(&source_structural_locality)
+        .count();
     let query_anchor_count = query_tokens.len();
 
     let source_schema = analyze_metric_schema(&format!("{} {}", title, excerpt));
     let axis_overlap_count = source_schema.axis_overlap_score(&constraints.required_facets);
     let has_current_observation_payload = source_schema.has_current_observation_payload();
     let has_time_sensitive_resolvable_payload =
-        candidate_time_sensitive_resolvable_payload(title, excerpt);
-    let semantic_anchor_overlap_count = query_native_tokens
+        candidate_time_sensitive_resolvable_payload(url, title, excerpt);
+    let semantic_anchor_overlap_count = expanded_query_native_tokens
         .iter()
         .filter(|token| !query_locality_tokens.contains(*token))
         .filter(|token| source_tokens.contains(*token))
@@ -516,10 +605,20 @@ pub(crate) fn candidate_constraint_compatibility(
     };
     let has_anchor_overlap = anchor_overlap_count >= QUERY_COMPATIBILITY_MIN_ANCHOR_OVERLAP;
     let has_locality_overlap = locality_overlap_count >= QUERY_COMPATIBILITY_MIN_LOCALITY_OVERLAP;
+    let has_structural_locality_overlap =
+        structural_locality_overlap_count >= QUERY_COMPATIBILITY_MIN_LOCALITY_OVERLAP;
     let locality_scope_active = has_query_locality_scope
         && !query_locality_tokens.is_empty()
-        && constraints.scopes.contains(&ConstraintScope::TimeSensitive);
-    let requires_semantic_anchor_overlap = locality_scope_active && semantic_anchor_token_count > 0;
+        && (constraints.scopes.contains(&ConstraintScope::TimeSensitive)
+            || query_facets.grounded_external_required);
+    let grounded_locality_scope_active =
+        locality_scope_active && query_facets.grounded_external_required;
+    let typed_structural_match = typed_match
+        && (has_time_sensitive_resolvable_payload
+            || has_current_observation_payload
+            || axis_overlap_count > 0);
+    let requires_semantic_anchor_overlap =
+        locality_scope_active && semantic_anchor_token_count > 0 && !typed_structural_match;
     let min_native_overlap_required = if query_facets.grounded_external_required
         && query_native_tokens.len() >= QUERY_COMPATIBILITY_MIN_GROUNDED_MULTI_ANCHOR_OVERLAP
     {
@@ -592,7 +691,18 @@ pub(crate) fn candidate_constraint_compatibility(
         compatibility_score = compatibility_score
             .saturating_add(locality_overlap_count * QUERY_COMPATIBILITY_LOCALITY_OVERLAP_WEIGHT);
     }
-    let locality_compatible = !locality_scope_active || has_locality_overlap;
+    if grounded_locality_scope_active && has_structural_locality_overlap {
+        compatibility_score = compatibility_score.saturating_add(
+            structural_locality_overlap_count * QUERY_COMPATIBILITY_LOCALITY_OVERLAP_WEIGHT,
+        );
+    }
+    let locality_compatible = if grounded_locality_scope_active {
+        has_structural_locality_overlap
+    } else if locality_scope_active {
+        has_locality_overlap
+    } else {
+        true
+    };
 
     CandidateConstraintCompatibility {
         compatibility_score,
@@ -602,8 +712,11 @@ pub(crate) fn candidate_constraint_compatibility(
 }
 
 pub(crate) fn probe_hint_anchor_tokens(title: &str, excerpt: &str) -> BTreeSet<String> {
+    let observed = format!("{} {}", title, excerpt);
+    let structural_tokens = query_structural_directive_tokens(&observed);
     let mut out = normalized_anchor_tokens(title);
     out.extend(normalized_anchor_tokens(excerpt));
+    out.retain(|token| !structural_tokens.contains(token) && !is_locality_scope_noise_token(token));
     out
 }
 
@@ -612,6 +725,13 @@ pub(crate) fn projection_probe_hint_anchor_phrase(
     candidate_hints: &[PendingSearchReadSummary],
 ) -> Option<String> {
     if candidate_hints.is_empty() {
+        return None;
+    }
+
+    if projection.enforce_grounded_compatibility() {
+        // For grounded retrieval we only want the next query to carry the original
+        // typed contract plus discovery-backed exclusions. Pulling novel anchor
+        // tokens from noisy candidate titles turns drift into the next probe.
         return None;
     }
     if projection.query_facets.grounded_external_required
@@ -670,7 +790,7 @@ pub(crate) fn projection_probe_hint_anchor_phrase(
         }
         let title = hint.title.as_deref().unwrap_or_default();
         if time_sensitive_scope
-            && !candidate_time_sensitive_resolvable_payload(title, &hint.excerpt)
+            && !candidate_time_sensitive_resolvable_payload(&hint.url, title, &hint.excerpt)
         {
             continue;
         }
@@ -692,20 +812,13 @@ pub(crate) fn projection_probe_hint_anchor_phrase(
     let mut ranked_tokens = token_hits.into_iter().collect::<Vec<_>>();
     ranked_tokens.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
 
-    let mut anchor_tokens = ranked_tokens
+    let anchor_tokens = ranked_tokens
         .iter()
         .filter_map(|(token, hits)| {
             (*hits >= QUERY_PROBE_HINT_MIN_SHARED_TOKEN_HITS).then(|| token.clone())
         })
         .take(QUERY_PROBE_HINT_MAX_TOKENS)
         .collect::<Vec<_>>();
-    if anchor_tokens.len() < 2 {
-        anchor_tokens = ranked_tokens
-            .into_iter()
-            .map(|(token, _)| token)
-            .take(QUERY_PROBE_HINT_MAX_TOKENS)
-            .collect();
-    }
 
     (anchor_tokens.len() >= 2).then(|| format!("\"{}\"", anchor_tokens.join(" ")))
 }
@@ -723,12 +836,39 @@ pub(crate) fn projection_native_anchor_phrase(
         // Adding a quoted native-anchor phrase can over-constrain SERP recall.
         return None;
     }
-    let anchor_phrase_tokens = projection
-        .query_native_tokens
+    let metric_tokens = projection
+        .constraints
+        .required_facets
         .iter()
-        .take(4)
-        .cloned()
-        .collect::<Vec<_>>();
+        .copied()
+        .flat_map(|axis| normalized_anchor_tokens(metric_axis_search_phrase(axis)))
+        .collect::<BTreeSet<_>>();
+    let mut anchor_phrase_tokens = if !metric_tokens.is_empty() {
+        let mut tokens = projection
+            .query_native_tokens_ordered
+            .iter()
+            .filter(|token| !metric_tokens.contains(*token))
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>();
+        tokens.extend(
+            projection
+                .query_native_tokens_ordered
+                .iter()
+                .filter(|token| metric_tokens.contains(*token))
+                .take(2)
+                .cloned(),
+        );
+        tokens
+    } else {
+        projection
+            .query_native_tokens_ordered
+            .iter()
+            .take(4)
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+    anchor_phrase_tokens.dedup();
     (anchor_phrase_tokens.len() >= 2).then(|| format!("\"{}\"", anchor_phrase_tokens.join(" ")))
 }
 
@@ -746,7 +886,7 @@ pub(crate) fn projection_locality_semantic_anchor_phrase(
         .collect::<Vec<_>>();
     tokens.extend(
         projection
-            .query_native_tokens
+            .query_native_tokens_ordered
             .iter()
             .filter(|token| !projection.locality_tokens.contains(*token))
             .take(2)
@@ -821,35 +961,91 @@ pub(crate) fn projection_probe_host_exclusion_terms(
         .constraints
         .scopes
         .contains(&ConstraintScope::TimeSensitive);
-    let host_exclusion_allowed = time_sensitive_scope
-        || (projection.query_facets.grounded_external_required
-            && projection_prefers_service_status_surfaces(projection));
+    let host_exclusion_allowed =
+        time_sensitive_scope || projection.enforce_grounded_compatibility();
     if !host_exclusion_allowed {
         return Vec::new();
     }
 
-    let mut host_hits = BTreeMap::<String, usize>::new();
+    fn collapsed_host_keys(host: &str) -> Vec<String> {
+        let normalized = host.trim().trim_start_matches("www.").to_ascii_lowercase();
+        if normalized.is_empty() {
+            return Vec::new();
+        }
+
+        let mut out = BTreeSet::new();
+        out.insert(normalized.clone());
+        let labels = normalized.split('.').collect::<Vec<_>>();
+        if labels.len() >= 2 {
+            out.insert(format!(
+                "{}.{}",
+                labels[labels.len() - 2],
+                labels[labels.len() - 1]
+            ));
+        }
+        out.into_iter().collect()
+    }
+
+    let mut bad_host_hits = BTreeMap::<String, usize>::new();
+    let mut good_host_hits = BTreeMap::<String, usize>::new();
     for hint in candidate_hints {
         let title = hint.title.as_deref().unwrap_or_default();
-        let observed = format!("{} {}", title, hint.excerpt);
-        if time_sensitive_scope && contains_current_condition_metric_signal(&observed) {
-            continue;
-        }
         let Some(host) = source_host(&hint.url) else {
             continue;
         };
         if host.trim().is_empty() {
             continue;
         }
-        *host_hits.entry(host).or_insert(0) += 1;
+        let compatibility = candidate_constraint_compatibility(
+            &projection.constraints,
+            &projection.query_facets,
+            &projection.query_native_tokens,
+            &projection.query_tokens,
+            &projection.locality_tokens,
+            projection.locality_scope.is_some(),
+            &hint.url,
+            title,
+            &hint.excerpt,
+        );
+        let payload_resolvable = !time_sensitive_scope
+            || candidate_time_sensitive_resolvable_payload(&hint.url, title, &hint.excerpt);
+        let compatible = compatibility_passes_projection(projection, &compatibility);
+        let host_keys = collapsed_host_keys(&host);
+        if compatible && payload_resolvable {
+            for key in host_keys {
+                *good_host_hits.entry(key).or_insert(0) += 1;
+            }
+            continue;
+        }
+        for key in host_keys {
+            *bad_host_hits.entry(key).or_insert(0) += 1;
+        }
     }
 
-    let mut ranked_hosts = host_hits.into_iter().collect::<Vec<_>>();
-    ranked_hosts.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
-    ranked_hosts
+    let mut ranked_hosts = bad_host_hits
         .into_iter()
-        .take(QUERY_PROBE_ESCALATION_MAX_HOST_EXCLUSION_TERMS)
-        .map(|(host, _)| format!("-site:{host}"))
+        .filter(|(host, hits)| {
+            *hits >= QUERY_PROBE_ESCALATION_MIN_CONFLICT_HITS && !good_host_hits.contains_key(host)
+        })
+        .collect::<Vec<_>>();
+    ranked_hosts.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    let mut selected_hosts = Vec::new();
+    for (host, _) in ranked_hosts {
+        if selected_hosts.iter().any(|selected: &String| {
+            host == *selected
+                || host.ends_with(&format!(".{selected}"))
+                || selected.ends_with(&format!(".{host}"))
+        }) {
+            continue;
+        }
+        selected_hosts.push(host);
+        if selected_hosts.len() >= QUERY_PROBE_ESCALATION_MAX_HOST_EXCLUSION_TERMS {
+            break;
+        }
+    }
+    selected_hosts
+        .into_iter()
+        .map(|host| format!("-site:{host}"))
         .collect()
 }
 
@@ -903,7 +1099,9 @@ pub(crate) fn projection_probe_progressive_fallback_terms(
         terms.push("\"customer impact\"".to_string());
         terms.push("\"workaround\"".to_string());
     }
-    if projection.query_facets.grounded_external_required {
+    if projection.query_facets.grounded_external_required
+        && projection_prefers_service_status_surfaces(projection)
+    {
         terms.push("\"official status page\"".to_string());
         terms.push("\"service health\"".to_string());
         terms.push("\"incident update\"".to_string());
@@ -940,4 +1138,36 @@ pub(crate) fn append_unique_query_terms(base_query: &str, terms: &[String]) -> S
         appended.push_str(trimmed);
     }
     appended
+}
+
+#[cfg(test)]
+mod tests {
+    use super::candidate_time_sensitive_resolvable_payload;
+
+    #[test]
+    fn time_sensitive_resolvable_payload_rejects_low_priority_forum_surface() {
+        assert!(!candidate_time_sensitive_resolvable_payload(
+            "https://www.reddit.com/r/CryptoCurrency/comments/14zq3b4/why_is_the_bitcoin_price_falling_what_is_the/",
+            "Why is the Bitcoin price falling?",
+            "Current BTC price is $68,123, but this thread is community speculation about where it goes next.",
+        ));
+    }
+
+    #[test]
+    fn time_sensitive_resolvable_payload_accepts_observation_surface() {
+        assert!(candidate_time_sensitive_resolvable_payload(
+            "https://www.example.com/markets/bitcoin-price",
+            "Bitcoin price",
+            "BTC price today is $68,123.45 as of 14:32 UTC.",
+        ));
+    }
+
+    #[test]
+    fn time_sensitive_resolvable_payload_rejects_marketing_percentages_on_price_pages() {
+        assert!(!candidate_time_sensitive_resolvable_payload(
+            "https://crypto.com/en/price/bitcoin",
+            "Bitcoin (BTC) Price Today: BTC Live Price, Charts, News - Crypto.com International",
+            "99% 0% fee first 30 days The purpose of this website is solely to display information regarding the products and services available",
+        ));
+    }
 }

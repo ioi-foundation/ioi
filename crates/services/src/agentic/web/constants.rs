@@ -1,5 +1,6 @@
 pub(crate) const BROWSER_RETRIEVAL_TIMEOUT_SECS: u64 = 8;
 pub(crate) const HTTP_FALLBACK_TIMEOUT_SECS: u64 = 4;
+pub(crate) const STRUCTURED_DETAIL_HTTP_TIMEOUT_SECS: u64 = 10;
 pub(crate) const EDGE_WEB_SEARCH_TOTAL_BUDGET_MS: u64 = 14_000;
 pub(crate) const READ_BLOCK_LOW_SIGNAL_CHAR_THRESHOLD: usize = 320;
 pub(crate) const READ_BLOCK_SUPPLEMENTAL_MAX: usize = 40;

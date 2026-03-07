@@ -265,6 +265,15 @@ pub struct ExecutionContractReceiptEvent {
     /// Optional verification-command commit hash.
     #[serde(default)]
     pub verifier_command_commit_hash: Option<String>,
+    /// Optional probe source used to derive the observed value.
+    #[serde(default)]
+    pub probe_source: Option<String>,
+    /// Optional observed value backing the receipt.
+    #[serde(default)]
+    pub observed_value: Option<String>,
+    /// Optional evidence type label for `observed_value` (for example `scalar`, `json`, `url`).
+    #[serde(default)]
+    pub evidence_type: Option<String>,
     /// Optional provider identifier.
     #[serde(default)]
     pub provider_id: Option<String>,

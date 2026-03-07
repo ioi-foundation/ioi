@@ -1,12 +1,23 @@
-use super::*;
+use crate::agentic::desktop::service::step::queue::web_pipeline::resolved_query_contract_with_locality_hint;
+use crate::agentic::web::util::domain_for_url;
+use ioi_types::app::agentic::WebSource;
 use url::Url;
 
-pub(super) fn provider_search_query(query: &str) -> String {
+pub(super) fn provider_search_query_with_locality_hint(
+    query: &str,
+    locality_hint: Option<&str>,
+) -> String {
     let trimmed = query.trim();
     if trimmed.is_empty() {
         return String::new();
     }
-    trimmed.to_string()
+    let resolved = resolved_query_contract_with_locality_hint(trimmed, locality_hint);
+    let resolved_trimmed = resolved.trim();
+    if resolved_trimmed.is_empty() {
+        trimmed.to_string()
+    } else {
+        resolved_trimmed.to_string()
+    }
 }
 
 pub(super) fn canonical_source_domain(source: &WebSource) -> Option<String> {
@@ -152,19 +163,23 @@ pub(super) fn headline_article_path_depth(url: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        headline_article_path_depth, looks_like_headline_article_url, provider_search_query,
+        headline_article_path_depth, looks_like_headline_article_url,
+        provider_search_query_with_locality_hint,
     };
 
     #[test]
-    fn provider_search_query_preserves_structured_exclusion_terms() {
-        let query = "latest top news headlines -site:www.fifa.com -site:media.fifa.com";
-        assert_eq!(provider_search_query(query), query);
+    fn provider_search_query_with_locality_hint_leaves_queries_unchanged_without_scope() {
+        let query = provider_search_query_with_locality_hint("today's top news headlines", None);
+        assert_eq!(query, "today's top news headlines");
     }
 
     #[test]
-    fn provider_search_query_leaves_headline_queries_unchanged() {
-        let query = provider_search_query("today's top news headlines");
-        assert_eq!(query, "today's top news headlines");
+    fn provider_search_query_resolves_runtime_locality_placeholders() {
+        let query = provider_search_query_with_locality_hint(
+            "best-reviewed Italian restaurants near me",
+            Some("Anderson, SC"),
+        );
+        assert_eq!(query, "best-reviewed Italian restaurants in Anderson, SC");
     }
 
     #[test]

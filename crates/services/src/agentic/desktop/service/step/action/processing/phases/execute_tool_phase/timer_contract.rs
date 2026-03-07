@@ -1,5 +1,6 @@
 use super::events::{emit_execution_contract_receipt_event, synthesized_payload_hash_for_tool};
 use super::*;
+use crate::agentic::desktop::service::step::action::command_contract::timer_payload_requires_allowlisted_scheduler;
 
 pub(super) struct TimerContractContext<'a> {
     pub service: &'a DesktopAgentService,
@@ -72,7 +73,7 @@ pub(super) fn prepare_timer_contract(ctx: TimerContractContext<'_>) -> TimerCont
         .map(command_arms_deferred_notification_path)
         .unwrap_or(false);
 
-    if timer_notification_required && timer_delay_backend_armed && !notification_path_armed {
+    if timer_notification_required && timer_payload_requires_allowlisted_scheduler(&tool) {
         if let Some(rewritten_tool) = synthesize_allowlisted_timer_notification_tool(&tool) {
             let original_preview = sys_exec_command_preview(&tool).unwrap_or_default();
             tool = rewritten_tool;

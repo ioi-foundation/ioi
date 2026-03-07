@@ -144,7 +144,10 @@ mod tests {
                 ),
                 domain: Some("reuters.com".to_string()),
             }],
+            source_observations: vec![],
             documents: vec![],
+            provider_candidates: vec![],
+            retrieval_contract: None,
         };
 
         let hints = candidate_source_hints_from_bundle_ranked(&bundle);
@@ -237,6 +240,10 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         &candidate_hints,
         locality_hint,
     );
+    let headline_lookup_mode = retrieval_contract_is_generic_headline_collection(
+        bundle.retrieval_contract.as_ref(),
+        query_contract,
+    );
     let constraints = &projection.constraints;
     let policy = ResolutionPolicy::default();
     let min_required = min_sources.max(1) as usize;
@@ -268,7 +275,10 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
             );
             let source_signals = analyze_source_record_signals(&hint.url, title, &hint.excerpt);
             let time_sensitive_resolvable_payload =
-                candidate_time_sensitive_resolvable_payload(title, &hint.excerpt);
+                candidate_time_sensitive_resolvable_payload(&hint.url, title, &hint.excerpt);
+            let headline_low_quality = headline_lookup_mode
+                && headline_source_is_low_quality(&hint.url, title, &hint.excerpt);
+            let headline_actionable = headline_lookup_mode && headline_source_is_actionable(&hint);
             RankedAcquisitionCandidate {
                 idx,
                 hint,
@@ -277,6 +287,8 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                 time_sensitive_resolvable_payload,
                 compatibility,
                 source_relevance_score: source_signals.relevance_score(false),
+                headline_low_quality,
+                headline_actionable,
             }
         })
         .collect::<Vec<_>>();
@@ -284,8 +296,14 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         let right_passes = compatibility_passes_projection(&projection, &right.compatibility);
         let left_passes = compatibility_passes_projection(&projection, &left.compatibility);
         right
-            .time_sensitive_resolvable_payload
-            .cmp(&left.time_sensitive_resolvable_payload)
+            .headline_actionable
+            .cmp(&left.headline_actionable)
+            .then_with(|| left.headline_low_quality.cmp(&right.headline_low_quality))
+            .then_with(|| {
+                right
+                    .time_sensitive_resolvable_payload
+                    .cmp(&left.time_sensitive_resolvable_payload)
+            })
             .then_with(|| right_passes.cmp(&left_passes))
             .then_with(|| right.resolves_constraint.cmp(&left.resolves_constraint))
             .then_with(|| {
@@ -312,7 +330,11 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         .filter(|candidate| compatibility_passes_projection(&projection, &candidate.compatibility))
         .count();
     let should_filter_by_compatibility =
-        has_constraint_objective && compatible_candidates >= min_required;
+        !headline_lookup_mode && has_constraint_objective && compatible_candidates >= min_required;
+    let headline_non_low_quality_candidates = ranked
+        .iter()
+        .filter(|candidate| !candidate.headline_low_quality)
+        .count();
 
     let mut filtered = ranked.iter().collect::<Vec<_>>();
     if should_filter_by_compatibility {
@@ -320,12 +342,15 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
             compatibility_passes_projection(&projection, &candidate.compatibility)
         });
     }
+    if headline_lookup_mode && headline_non_low_quality_candidates >= min_required {
+        filtered.retain(|candidate| !candidate.headline_low_quality);
+    }
 
     let resolvable_candidates = filtered
         .iter()
         .filter(|candidate| candidate.resolves_constraint)
         .count();
-    if has_constraint_objective && resolvable_candidates >= min_required {
+    if !headline_lookup_mode && has_constraint_objective && resolvable_candidates >= min_required {
         filtered.retain(|candidate| candidate.resolves_constraint);
     }
 

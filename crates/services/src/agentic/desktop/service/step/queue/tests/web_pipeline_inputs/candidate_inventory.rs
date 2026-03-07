@@ -27,7 +27,10 @@ fn web_pipeline_candidate_urls_preserve_rank_order() {
                 domain: Some("a.example.com".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let urls = candidate_urls_from_bundle(&bundle);
@@ -67,7 +70,10 @@ fn web_pipeline_source_hints_preserve_rank_order() {
                 domain: Some("a.example.com".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let hints = candidate_source_hints_from_bundle(&bundle);
@@ -109,7 +115,10 @@ fn web_pipeline_source_hints_prioritize_primary_status_surfaces_over_secondary_a
                 domain: Some("status.vendor-a.com".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let hints = candidate_source_hints_from_bundle(&bundle);
@@ -158,7 +167,10 @@ fn web_pipeline_source_hints_prioritize_operational_status_hosts_over_documentat
                 domain: Some("status.vendor-b.com".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let hints = candidate_source_hints_from_bundle(&bundle);
@@ -214,7 +226,10 @@ fn web_pipeline_pre_read_prunes_unresolvable_candidates_when_resolvable_inventor
                 domain: Some("weather.gov".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let plan = pre_read_candidate_plan_from_bundle("what's the weather right now", 2, &bundle);
@@ -294,6 +309,70 @@ fn web_pipeline_pre_read_acquisition_filters_incompatible_candidates_for_single_
 }
 
 #[test]
+fn web_pipeline_pre_read_keeps_structural_weather_records_without_lexical_host_overlap() {
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:search:aggregate:edge:wttr:current-conditions-text+edge:weather-gov:locality-detail"
+            .to_string(),
+        query: Some("weather current conditions temperature humidity wind in Anderson, SC".to_string()),
+        url: Some(
+            "https://wttr.in/Anderson,%20SC?format=%25l%3A+temp+%25t+humidity+%25h+wind+%25w+pressure+%25P+as+of+%25T"
+                .to_string(),
+        ),
+        sources: vec![
+            WebSource {
+                source_id: "wttr".to_string(),
+                rank: Some(1),
+                url: "https://wttr.in/Anderson,%20SC?format=%25l%3A+temp+%25t+humidity+%25h+wind+%25w+pressure+%25P+as+of+%25T".to_string(),
+                title: Some("Anderson, SC current conditions".to_string()),
+                snippet: Some(
+                    "Anderson, SC: temp +70°F humidity 66% wind ←2mph pressure 1023hPa as of 20:26:56-0500"
+                        .to_string(),
+                ),
+                domain: Some("wttr.in".to_string()),
+            },
+            WebSource {
+                source_id: "weather-gov".to_string(),
+                rank: Some(2),
+                url: "https://forecast.weather.gov/MapClick.php?CityName=Anderson&state=SC&site=GSP&textField1=34.5186&textField2=-82.6458&e=0".to_string(),
+                title: Some("Anderson, SC current conditions".to_string()),
+                snippet: Some("21°C".to_string()),
+                domain: Some("forecast.weather.gov".to_string()),
+            },
+        ],
+        source_observations: vec![],
+        documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
+    };
+
+    let plan = pre_read_candidate_plan_from_bundle_with_locality_hint(
+        "What's the weather like right now?",
+        2,
+        &bundle,
+        Some("Anderson, SC"),
+    );
+
+    assert_eq!(plan.candidate_urls.len(), 2, "plan={:?}", plan);
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .any(|url| url.contains("wttr.in/")),
+        "expected typed structural weather record to survive compatibility pruning: {:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .any(|url| url.contains("forecast.weather.gov/MapClick.php")),
+        "expected weather.gov current-conditions detail to remain: {:?}",
+        plan.candidate_urls
+    );
+}
+
+#[test]
 fn web_pipeline_pre_read_prunes_search_hub_urls_for_grounded_time_sensitive_queries() {
     let bundle = WebEvidenceBundle {
         schema_version: 1,
@@ -334,7 +413,10 @@ fn web_pipeline_pre_read_prunes_search_hub_urls_for_grounded_time_sensitive_quer
                 domain: Some("weather.gov".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let plan = pre_read_candidate_plan_from_bundle("what's the weather right now", 2, &bundle);
@@ -406,7 +488,10 @@ fn web_pipeline_pre_read_requires_probe_when_resolvable_inventory_below_source_f
                 domain: Some("theweathernetwork.com".to_string()),
             },
         ],
+        source_observations: vec![],
         documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
     };
 
     let plan = pre_read_candidate_plan_from_bundle(

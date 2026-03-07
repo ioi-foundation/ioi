@@ -108,6 +108,15 @@ const PRICE_QUOTE_SCALE_MARKERS: [&str; 7] = [
     " valued at ",
     " circulating supply ",
 ];
+const PRICE_QUOTE_LOCAL_MARKERS: [&str; 6] = [" price ", " quote ", " per ", " to ", "/", "="];
+const PRICE_QUOTE_SECONDARY_VALUATION_MARKERS: [&str; 6] = [
+    " market cap ",
+    " valuation ",
+    " valued at ",
+    " trading volume ",
+    " volume ",
+    " circulating supply ",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MetricAxis {
@@ -325,6 +334,51 @@ fn token_is_currency_token(token: &str) -> bool {
     PRICE_QUOTE_CURRENCY_TOKENS.contains(&token)
 }
 
+fn local_price_quote_context(tokens: &[String], idx: usize) -> bool {
+    let start = idx.saturating_sub(4);
+    let end = (idx + 5).min(tokens.len());
+    let window = tokens[start..end]
+        .iter()
+        .map(|token| token_normalized(token))
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+    if window.is_empty() {
+        return false;
+    }
+
+    let window_text = format!(" {} ", window.join(" "));
+    let marker_hit = PRICE_QUOTE_LOCAL_MARKERS
+        .iter()
+        .any(|marker| window_text.contains(marker));
+    let currency_window_hit = window.iter().any(|token| {
+        token_is_currency_token(token)
+            || token.contains('/')
+            || token.contains("btc")
+            || token.contains("eth")
+            || token.contains("usd")
+    });
+
+    marker_hit || currency_window_hit
+}
+
+fn secondary_valuation_context(tokens: &[String], idx: usize) -> bool {
+    let start = idx.saturating_sub(4);
+    let end = (idx + 5).min(tokens.len());
+    let window = tokens[start..end]
+        .iter()
+        .map(|token| token_normalized(token))
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+    if window.is_empty() {
+        return false;
+    }
+
+    let window_text = format!(" {} ", window.join(" "));
+    PRICE_QUOTE_SECONDARY_VALUATION_MARKERS
+        .iter()
+        .any(|marker| window_text.contains(marker))
+}
+
 pub fn has_price_quote_payload(text: &str) -> bool {
     let schema = analyze_metric_schema(text);
     if !schema.axis_hits.contains(&MetricAxis::Price) || schema.numeric_token_hits == 0 {
@@ -371,7 +425,10 @@ pub fn has_price_quote_payload(text: &str) -> bool {
 
         let has_precision_shape = trimmed.contains('.') || trimmed.contains(',');
         let has_magnitude_shape = digit_count >= 3;
-        if has_precision_shape || has_magnitude_shape {
+        if (has_precision_shape || has_magnitude_shape)
+            && local_price_quote_context(&tokens, idx)
+            && !secondary_valuation_context(&tokens, idx)
+        {
             quote_token_present = true;
             break;
         }

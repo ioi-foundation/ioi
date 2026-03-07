@@ -38,6 +38,7 @@ pub(crate) struct QueryConstraintProjection {
     pub(crate) constraints: ConstraintSet,
     pub(crate) query_facets: QueryFacetProfile,
     pub(crate) query_native_tokens: BTreeSet<String>,
+    pub(crate) query_native_tokens_ordered: Vec<String>,
     pub(crate) query_tokens: BTreeSet<String>,
     pub(crate) locality_scope: Option<String>,
     pub(crate) locality_scope_inferred: bool,
@@ -89,4 +90,6 @@ pub(crate) struct RankedAcquisitionCandidate {
     pub(crate) time_sensitive_resolvable_payload: bool,
     pub(crate) compatibility: CandidateConstraintCompatibility,
     pub(crate) source_relevance_score: usize,
+    pub(crate) headline_low_quality: bool,
+    pub(crate) headline_actionable: bool,
 }

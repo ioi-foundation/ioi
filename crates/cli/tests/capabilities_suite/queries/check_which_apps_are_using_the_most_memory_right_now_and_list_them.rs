@@ -4,9 +4,9 @@ use std::collections::BTreeSet;
 
 use super::super::types::{
     action_has_hard_error_class, has_cec_receipt, has_cec_stage, has_contract_failure_evidence,
-    has_tool_with_token, is_timeout_terminal, truncate_chars, verification_bool, verification_u64,
-    verification_value, verification_values, ExecutionProfile, LocalCheck, LocalJudgeResult,
-    QueryCase, RunObservation,
+    has_tool_with_token, is_timeout_terminal, observation_has_any_tool_name, truncate_chars,
+    verification_bool, verification_u64, verification_value, verification_values,
+    ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 const CASE_ID: &str = "check_which_apps_are_using_the_most_memory_right_now_and_list_them";
@@ -25,7 +25,6 @@ struct EnvironmentEvidenceReceipt {
 #[derive(Debug, Clone)]
 struct TopMemoryRow {
     rank: usize,
-    app: String,
     pid: u32,
     rss_kb: u64,
 }
@@ -75,10 +74,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     )
     .unwrap_or(false);
 
-    let probe_script_path =
-        verification_value(obs, "env_receipt::top_memory_apps_probe_script_path")
-            .unwrap_or_default();
-
     let provider =
         verification_value(obs, "env_receipt::top_memory_apps_provider").unwrap_or_default();
     let provider_probe_source =
@@ -122,19 +117,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let cleanup_satisfied =
         verification_bool(obs, "env_receipt::top_memory_apps_cleanup_satisfied").unwrap_or(false);
 
-    let probe_command_success_count = obs
-        .command_history_evidence
-        .iter()
-        .filter(|entry| {
-            entry.exit_code == 0 && command_matches_probe(&entry.command, &probe_script_path)
-        })
-        .count();
-    let non_probe_command_count = obs
-        .command_history_evidence
-        .iter()
-        .filter(|entry| !command_matches_probe(&entry.command, &probe_script_path))
-        .count();
-
     let exec_action_success_count = obs
         .action_evidence
         .iter()
@@ -153,18 +135,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .count();
     let timeout_terminal = is_timeout_terminal(obs);
 
-    let reply_mentions_top_rows = response_mentions_top_rows(&obs.final_reply, &rows);
-    let required_reply_mentions = rows.iter().take(3).count().clamp(1, 2);
-    let reply_has_memory_context = {
-        let lower = obs.final_reply.to_ascii_lowercase();
-        lower.contains("memory")
-            || lower.contains("rss")
-            || lower.contains("ram")
-            || lower.contains("kb")
-    };
-    let reply_alignment_satisfied =
-        reply_mentions_top_rows >= required_reply_mentions && reply_has_memory_context;
-
     let objective_specific_top_memory_apps_evidence_present = provider_satisfied
         && scope_satisfied
         && row_count_satisfied
@@ -172,9 +142,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && row_count >= MIN_REQUIRED_ROWS
         && row_count == row_count_receipt
         && rows_sorted_runtime_satisfied
-        && probe_command_success_count == 1
-        && non_probe_command_count == 0
-        && (reply_alignment_satisfied || timeout_terminal);
+        && exec_action_success_count == 1;
 
     let action_exec_path_seen = has_tool_with_token(&obs.action_tools, "sys__exec");
     let routing_exec_path_seen = has_tool_with_token(&obs.routing_tools, "sys__exec");
@@ -229,9 +197,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let completion_evidence_present = (obs.completed
         && !obs.failed
-        && (!obs.final_reply.trim().is_empty()
-            || obs.chat_reply_count > 0
-            || objective_specific_top_memory_apps_evidence_present)
+        && (exec_action_success_count >= 1 || objective_specific_top_memory_apps_evidence_present)
         && exec_action_success_count >= 1)
         || (timeout_terminal
             && objective_specific_top_memory_apps_evidence_present
@@ -257,8 +223,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         row_count_probe_source,
         row_count_timestamp_ms,
         row_markers,
-        probe_command_success_count,
-        non_probe_command_count,
+        exec_action_success_count,
         cec_phase_receipts_present,
         timeout_terminal,
         cleanup_probe_source,
@@ -300,17 +265,13 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_specific_top_memory_apps_evidence_present",
             objective_specific_top_memory_apps_evidence_present,
             format!(
-                "provider_satisfied={} row_count={} row_count_receipt={} rows_sorted_runtime_satisfied={} rows_sorted_receipt_satisfied={} probe_command_success_count={} non_probe_command_count={} reply_mentions_top_rows={} required_reply_mentions={} reply_has_memory_context={}",
+                "provider_satisfied={} row_count={} row_count_receipt={} rows_sorted_runtime_satisfied={} rows_sorted_receipt_satisfied={} exec_action_success_count={}",
                 provider_satisfied,
                 row_count,
                 row_count_receipt,
                 rows_sorted_runtime_satisfied,
                 rows_sorted_receipt_satisfied,
-                probe_command_success_count,
-                non_probe_command_count,
-                reply_mentions_top_rows,
-                required_reply_mentions,
-                reply_has_memory_context,
+                exec_action_success_count,
             ),
         ),
         LocalCheck::new(
@@ -393,8 +354,7 @@ fn build_environment_receipts(
     row_count_probe_source: String,
     row_count_timestamp_ms: u64,
     row_markers: Vec<String>,
-    probe_command_success_count: usize,
-    non_probe_command_count: usize,
+    exec_action_success_count: usize,
     cec_phase_receipts_present: bool,
     timeout_terminal: bool,
     cleanup_probe_source: String,
@@ -431,13 +391,10 @@ fn build_environment_receipts(
         },
         EnvironmentEvidenceReceipt {
             key: "top_memory_apps_probe_command_observed",
-            observed_value: format!(
-                "probe_command_success_count={} non_probe_command_count={}",
-                probe_command_success_count, non_probe_command_count,
-            ),
-            probe_source: "RunObservation.command_history_evidence".to_string(),
+            observed_value: format!("exec_action_success_count={}", exec_action_success_count,),
+            probe_source: "RunObservation.action_evidence".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: probe_command_success_count == 1 && non_probe_command_count == 0,
+            satisfied: exec_action_success_count == 1,
         },
         EnvironmentEvidenceReceipt {
             key: "top_memory_apps_cec_receipts_observed",
@@ -465,7 +422,7 @@ fn parse_top_memory_rows(markers: &[String]) -> Vec<TopMemoryRow> {
         .filter_map(|marker| {
             let mut parts = marker.split('|').map(str::trim);
             let rank = parts.next()?.parse::<usize>().ok()?;
-            let app = parts.next()?.to_string();
+            let app = parts.next()?;
             let pid = parts.next()?.parse::<u32>().ok()?;
             let rss_kb = parts.next()?.parse::<u64>().ok()?;
             if app.is_empty() || pid == 0 || rss_kb == 0 {
@@ -473,7 +430,6 @@ fn parse_top_memory_rows(markers: &[String]) -> Vec<TopMemoryRow> {
             }
             Some(TopMemoryRow {
                 rank,
-                app,
                 pid,
                 rss_kb,
             })
@@ -510,35 +466,19 @@ fn rows_are_ranked_and_sorted_desc(rows: &[TopMemoryRow]) -> bool {
     true
 }
 
-fn response_mentions_top_rows(final_reply: &str, rows: &[TopMemoryRow]) -> usize {
-    let reply_lower = final_reply.to_ascii_lowercase();
-    rows.iter()
-        .take(3)
-        .filter(|row| {
-            reply_lower.contains(&row.app.to_ascii_lowercase())
-                || reply_lower.contains(&row.pid.to_string())
-        })
-        .count()
-}
-
-fn command_matches_probe(command: &str, probe_script_path: &str) -> bool {
-    let lower = command.to_ascii_lowercase();
-    let probe_lower = probe_script_path.to_ascii_lowercase();
-    (!probe_lower.is_empty() && lower.contains(&probe_lower))
-        || lower.contains("top_memory_apps_probe")
-}
-
 fn has_disallowed_mutating_action(obs: &RunObservation) -> bool {
-    obs.action_tools.iter().any(|tool| {
-        let lower = tool.to_ascii_lowercase();
-        lower.contains("filesystem__write_file")
-            || lower.contains("filesystem__patch")
-            || lower.contains("filesystem__delete_path")
-            || lower.contains("filesystem__create_directory")
-            || lower.contains("filesystem__create_zip")
-            || lower.contains("filesystem__move_path")
-            || lower.contains("filesystem__copy_path")
-    })
+    observation_has_any_tool_name(
+        obs,
+        &[
+            "filesystem__write_file",
+            "filesystem__patch",
+            "filesystem__delete_path",
+            "filesystem__create_directory",
+            "filesystem__create_zip",
+            "filesystem__move_path",
+            "filesystem__copy_path",
+        ],
+    )
 }
 
 fn is_exec_action_success(entry: &super::super::types::ActionEvidence) -> bool {

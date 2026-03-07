@@ -27,6 +27,7 @@ pub const TIMER_SLEEP_BACKEND_POSTCONDITION: &str = "timer_sleep_backend";
 pub const TIMER_NOTIFICATION_PATH_POSTCONDITION: &str = "notification_path_armed";
 pub const TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT: &str =
     "timer_notification_contract_required";
+pub const WEB_PIPELINE_TERMINAL_RECEIPT: &str = "web_pipeline_terminal";
 pub const PROVIDER_SELECTION_COMMIT_RECEIPT: &str = "provider_selection_commit";
 pub const VERIFICATION_COMMIT_RECEIPT: &str = "verification_commit";
 const COMMAND_SCOPE_REQUIRED_RECEIPTS: [&str; 3] =
@@ -515,6 +516,29 @@ pub fn parse_sleep_seconds(command: &str) -> Option<i64> {
     None
 }
 
+fn parse_systemd_on_active_seconds(command: &str) -> Option<i64> {
+    for token in command.split_whitespace() {
+        let normalized = normalize_shell_token(token);
+        let Some(value) = normalized.strip_prefix("--on-active=") else {
+            continue;
+        };
+        let digits = value.trim_end_matches('s');
+        if digits.is_empty() || !digits.chars().all(|ch| ch.is_ascii_digit()) {
+            continue;
+        }
+        if let Ok(seconds) = digits.parse::<i64>() {
+            if seconds > 0 {
+                return Some(seconds);
+            }
+        }
+    }
+    None
+}
+
+pub fn inferred_timer_delay_seconds(command: &str) -> Option<i64> {
+    parse_sleep_seconds(command).or_else(|| parse_systemd_on_active_seconds(command))
+}
+
 fn normalize_shell_token(token: &str) -> String {
     token
         .trim_matches(|ch: char| {
@@ -560,21 +584,6 @@ pub fn sys_exec_command_preview(tool: &AgentTool) -> Option<String> {
     }
 }
 
-fn is_simple_sleep_timer_command(command_preview: &str) -> bool {
-    let tokens: Vec<&str> = command_preview.split_whitespace().collect();
-    if tokens.len() != 2 {
-        return false;
-    }
-    tokens
-        .first()
-        .map(|token| token.eq_ignore_ascii_case("sleep"))
-        .unwrap_or(false)
-        && tokens
-            .get(1)
-            .map(|token| token.chars().all(|ch| ch.is_ascii_digit()))
-            .unwrap_or(false)
-}
-
 fn scheduler_timer_notification_args(sleep_seconds: i64) -> Vec<String> {
     let rounded_minutes = ((sleep_seconds + 59) / 60).max(1);
     vec![
@@ -586,12 +595,26 @@ fn scheduler_timer_notification_args(sleep_seconds: i64) -> Vec<String> {
     ]
 }
 
+pub fn timer_payload_requires_allowlisted_scheduler(tool: &AgentTool) -> bool {
+    let Some(command_preview) = sys_exec_command_preview(tool) else {
+        return false;
+    };
+    if parse_sleep_seconds(&command_preview).is_none() {
+        return false;
+    }
+
+    match tool {
+        AgentTool::SysExec { detach, .. } => {
+            !detach || !command_arms_deferred_notification_path(&command_preview)
+        }
+        AgentTool::SysExecSession { .. } => true,
+        _ => false,
+    }
+}
+
 pub fn synthesize_allowlisted_timer_notification_tool(tool: &AgentTool) -> Option<AgentTool> {
     let command_preview = sys_exec_command_preview(tool)?;
     let sleep_seconds = parse_sleep_seconds(&command_preview)?;
-    if !is_simple_sleep_timer_command(&command_preview) {
-        return None;
-    }
 
     let args = scheduler_timer_notification_args(sleep_seconds);
     match tool {
@@ -676,7 +699,7 @@ pub fn command_arms_deferred_notification_path(command_preview: &str) -> bool {
 
 pub fn command_arms_timer_delay_backend(command_preview: &str) -> bool {
     let command_lc = command_preview.to_ascii_lowercase();
-    parse_sleep_seconds(command_preview).is_some()
+    inferred_timer_delay_seconds(command_preview).is_some()
         || (command_lc.contains("systemd-run") && command_lc.contains("--on-active"))
         || command_lc.starts_with("at ")
         || command_lc.contains(" at now")
@@ -687,6 +710,12 @@ pub fn sys_exec_arms_timer_delay_backend(tool: &AgentTool) -> bool {
         .as_deref()
         .map(command_arms_timer_delay_backend)
         .unwrap_or(false)
+}
+
+pub fn sys_exec_timer_delay_seconds(tool: &AgentTool) -> Option<i64> {
+    sys_exec_command_preview(tool)
+        .as_deref()
+        .and_then(inferred_timer_delay_seconds)
 }
 
 pub fn record_provider_selection_receipts(
@@ -933,6 +962,9 @@ fn resolved_contract_requirements(
     for rrsa_receipt in rrsa_required_receipts(agent_state) {
         append_unique_marker(&mut required_receipts, &rrsa_receipt);
     }
+    if agent_state.pending_search_completion.is_some() {
+        append_unique_marker(&mut required_receipts, WEB_PIPELINE_TERMINAL_RECEIPT);
+    }
 
     (required_receipts, required_postconditions)
 }
@@ -1138,7 +1170,9 @@ mod tests {
         compose_terminal_chat_reply, enrich_command_scope_summary,
         execution_contract_violation_error, is_command_execution_provider_tool,
         missing_execution_contract_markers_with_rules, record_verification_receipts,
-        VERIFICATION_COMMIT_RECEIPT,
+        synthesize_allowlisted_timer_notification_tool,
+        timer_payload_requires_allowlisted_scheduler, VERIFICATION_COMMIT_RECEIPT,
+        WEB_PIPELINE_TERMINAL_RECEIPT,
     };
     use crate::agentic::desktop::service::step::action::support::{
         mark_execution_postcondition, mark_execution_receipt, mark_execution_receipt_with_value,
@@ -1455,5 +1489,69 @@ mod tests {
         let missing = missing_execution_contract_markers_with_rules(&state, &rules);
         assert!(missing.contains(&"receipt::rrsa_approval_token_ref=true".to_string()));
         assert!(missing.contains(&"receipt::rrsa_eei_bundle_commitment=true".to_string()));
+    }
+
+    #[test]
+    fn pending_web_pipeline_requires_terminal_receipt_at_completion_gate() {
+        let mut state = test_agent_state();
+        state.pending_search_completion = Some(Default::default());
+
+        let rules = ActionRules::default();
+        let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+
+        assert!(missing.contains(&format!("receipt::{}=true", WEB_PIPELINE_TERMINAL_RECEIPT)));
+    }
+
+    #[test]
+    fn pending_web_pipeline_terminal_receipt_clears_completion_gate_requirement() {
+        let mut state = test_agent_state();
+        state.pending_search_completion = Some(Default::default());
+        mark_execution_receipt(&mut state.tool_execution_log, WEB_PIPELINE_TERMINAL_RECEIPT);
+
+        let rules = ActionRules::default();
+        let missing = missing_execution_contract_markers_with_rules(&state, &rules);
+
+        assert!(
+            !missing.contains(&format!("receipt::{}=true", WEB_PIPELINE_TERMINAL_RECEIPT)),
+            "unexpected missing markers: {missing:?}"
+        );
+    }
+
+    #[test]
+    fn timer_payload_scheduler_rewrite_covers_foreground_sleep_notify_chain() {
+        let tool = AgentTool::SysExecSession {
+            command: "sleep 900 && notify-send 'Timer' '15 minutes are up!'".to_string(),
+            args: vec![],
+            stdin: None,
+        };
+
+        assert!(timer_payload_requires_allowlisted_scheduler(&tool));
+        let rewritten = synthesize_allowlisted_timer_notification_tool(&tool)
+            .expect("sleep-backed timer chain should synthesize a scheduler-backed payload");
+
+        match rewritten {
+            AgentTool::SysExecSession { command, args, .. } => {
+                assert_eq!(command, "systemd-run");
+                assert!(args.iter().any(|arg| arg == "--user"));
+                assert!(args.iter().any(|arg| arg == "--on-active=900s"));
+                assert!(args.iter().any(|arg| arg == "notify-send"));
+            }
+            other => panic!("unexpected rewritten tool: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn detached_deferred_sleep_timer_does_not_require_scheduler_rewrite() {
+        let tool = AgentTool::SysExec {
+            command: "bash".to_string(),
+            args: vec![
+                "-lc".to_string(),
+                "nohup sh -c 'sleep 900 && notify-send Timer Done' &".to_string(),
+            ],
+            stdin: None,
+            detach: true,
+        };
+
+        assert!(!timer_payload_requires_allowlisted_scheduler(&tool));
     }
 }

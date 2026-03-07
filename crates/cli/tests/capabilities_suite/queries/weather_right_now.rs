@@ -1,7 +1,7 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    contains_any, has_tool_with_token, truncate_chars, ExecutionProfile, LocalCheck,
+    has_cec_receipt, observation_has_any_tool_name, truncate_chars, ExecutionProfile, LocalCheck,
     LocalJudgeResult, QueryCase, RunObservation,
 };
 
@@ -25,49 +25,52 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let lower_reply = obs.final_reply.to_ascii_lowercase();
+    let Some(web) = obs.web.as_ref() else {
+        return LocalJudgeResult::from_checks(vec![
+            LocalCheck::new(
+                "web_observation_present",
+                false,
+                "missing typed web observation",
+            ),
+            LocalCheck::new(
+                "completion_evidence_present",
+                false,
+                format!("status={} failed={}", obs.final_status, obs.failed),
+            ),
+        ]);
+    };
 
-    let has_weather_language = contains_any(
-        &lower_reply,
-        &[
-            "weather",
-            "temperature",
-            "overcast",
-            "cloud",
-            "rain",
-            "storm",
-            "sunny",
-            "clear",
-            "wind",
-            "humidity",
-            "forecast",
-        ],
-    ) || obs.final_reply.contains('°');
+    let currentness_required = web.currentness_required.unwrap_or(false);
+    let source_floor_met = web.source_floor_met.unwrap_or(false);
+    let quality_floor_met = web.selected_source_quality_floor_met.unwrap_or(false);
+    let snapshot_grounded = web.single_snapshot_metric_grounding.unwrap_or(false);
 
-    let web_path_observed = has_tool_with_token(&obs.routing_tools, "web__search")
-        || has_tool_with_token(&obs.routing_tools, "web__read")
-        || has_tool_with_token(&obs.workload_tools, "web__search")
-        || has_tool_with_token(&obs.workload_tools, "web__read");
-
-    let has_currentness_signal = contains_any(
-        &lower_reply,
-        &["right now", "current", "currently", "as of", "today", "utc"],
-    );
+    let web_path_observed = observation_has_any_tool_name(obs, &["web__search", "web__read"]);
 
     let checks = vec![
         LocalCheck::new(
-            "completed_with_reply",
-            obs.completed && !obs.final_reply.trim().is_empty(),
+            "completion_evidence_present",
+            obs.completed
+                && !obs.failed
+                && has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true)),
             format!(
-                "status={} reply_len={}",
+                "status={} failed={} chat_reply_count={}",
                 obs.final_status,
-                obs.final_reply.chars().count()
+                obs.failed,
+                obs.chat_reply_count
             ),
         ),
         LocalCheck::new(
-            "weather_language_present",
-            has_weather_language,
-            truncate_chars(&obs.final_reply, 140),
+            "current_weather_grounding_present",
+            currentness_required && source_floor_met && quality_floor_met && snapshot_grounded,
+            format!(
+                "currentness_required={} source_floor_met={} quality_floor_met={} snapshot_grounded={} selected_source_urls={:?}",
+                currentness_required,
+                source_floor_met,
+                quality_floor_met,
+                snapshot_grounded,
+                web.selected_source_urls
+            ),
         ),
         LocalCheck::new(
             "web_retrieval_path_seen",
@@ -78,9 +81,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             ),
         ),
         LocalCheck::new(
-            "currentness_signal_present",
-            has_currentness_signal,
-            truncate_chars(&obs.final_reply, 100),
+            "runtime_locality_alignment_present",
+            web.runtime_locality_alignment.unwrap_or(true),
+            truncate_chars(&web.query_contract.clone().unwrap_or_default(), 100),
         ),
     ];
 

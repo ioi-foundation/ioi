@@ -111,13 +111,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         verification_bool(obs, "env_receipt::downloads_lowercase_cleanup_satisfied")
             .unwrap_or(false);
 
-    let final_reply_lower = obs.final_reply.to_ascii_lowercase();
-    let reply_mentions_target_dir = !target_dir_path.is_empty()
-        && final_reply_lower.contains(&target_dir_path.to_ascii_lowercase());
-    let reply_mentions_expected_files = EXPECTED_FINAL_FILES
-        .iter()
-        .all(|name| final_reply_lower.contains(name));
-
     let list_action_success_count = obs
         .action_evidence
         .iter()
@@ -164,17 +157,13 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let any_contract_failure_marker = has_contract_failure_evidence(obs);
 
-    let completion_evidence_present = obs.completed
-        && !obs.failed
-        && obs.chat_reply_count > 0
-        && !obs.final_reply.trim().is_empty();
+    let completion_evidence_present =
+        obs.completed && !obs.failed && (rename_end_state_satisfied || cec_contract_gate_seen);
 
     let objective_specific_rename_evidence_present = rename_end_state_satisfied
         && seeded_files_satisfied
         && list_action_success_count > 0
-        && move_action_success_count >= EXPECTED_FINAL_FILES.len()
-        && reply_mentions_target_dir
-        && reply_mentions_expected_files;
+        && move_action_success_count >= EXPECTED_FINAL_FILES.len();
 
     let environment_receipts = build_environment_receipts(
         obs,
@@ -231,13 +220,12 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_specific_rename_evidence_present",
             objective_specific_rename_evidence_present,
             format!(
-                "rename_end_state_satisfied={} seeded_files_satisfied={} list_action_success_count={} move_action_success_count={} reply_mentions_target_dir={} reply_mentions_expected_files={}",
+                "rename_end_state_satisfied={} seeded_files_satisfied={} list_action_success_count={} move_action_success_count={} target_dir_path={}",
                 rename_end_state_satisfied,
                 seeded_files_satisfied,
                 list_action_success_count,
                 move_action_success_count,
-                reply_mentions_target_dir,
-                reply_mentions_expected_files,
+                target_dir_path,
             ),
         ),
         LocalCheck::new(

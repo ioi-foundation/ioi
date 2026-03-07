@@ -290,27 +290,26 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 }
 
 fn is_vlc_install_success(entry: &super::super::types::ActionEvidence) -> bool {
-    let output = entry.output_excerpt.to_ascii_lowercase();
-    entry.tool_name.eq_ignore_ascii_case("sys__install_package")
-        && output.contains("installed 'vlc'")
-        && output.contains("apt-get")
-        && !action_has_hard_error_class(entry)
-}
-
-fn is_vlc_install_hard_failure(entry: &super::super::types::ActionEvidence) -> bool {
-    let output = entry.output_excerpt.to_ascii_lowercase();
     let duplicate_no_effect = entry
         .error_class
         .as_deref()
         .map(is_no_effect_after_action_class)
-        .unwrap_or(false)
-        || output.contains("skipped immediate replay")
-        || output.contains("duplicate command action was blocked");
+        .unwrap_or(false);
+    entry.tool_name.eq_ignore_ascii_case("sys__install_package")
+        && entry.agent_status.eq_ignore_ascii_case("completed")
+        && !duplicate_no_effect
+        && !action_has_hard_error_class(entry)
+}
+
+fn is_vlc_install_hard_failure(entry: &super::super::types::ActionEvidence) -> bool {
+    let duplicate_no_effect = entry
+        .error_class
+        .as_deref()
+        .map(is_no_effect_after_action_class)
+        .unwrap_or(false);
     entry.tool_name.eq_ignore_ascii_case("sys__install_package")
         && !duplicate_no_effect
-        && (entry.agent_status.eq_ignore_ascii_case("failed")
-            || output.contains("failed to install 'vlc'")
-            || action_has_hard_error_class(entry))
+        && (entry.agent_status.eq_ignore_ascii_case("failed") || action_has_hard_error_class(entry))
 }
 
 #[allow(clippy::too_many_arguments)]

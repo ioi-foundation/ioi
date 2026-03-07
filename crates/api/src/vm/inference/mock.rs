@@ -31,6 +31,119 @@ impl InferenceRuntime for MockInferenceRuntime {
         // [DEBUG]
         // println!("[MockBrain] Input: {}", input_str);
 
+        if input_str.contains("classifying a structural web retrieval contract") {
+            let lower = input_str.to_ascii_lowercase();
+            let restaurants = lower.contains("restaurant");
+            let weather = lower.contains("weather");
+            let bitcoin = lower.contains("bitcoin") || lower.contains("btc");
+            let headlines = lower.contains("headline") || lower.contains("top news");
+            let compare = lower.contains("compare") || lower.contains("comparison");
+            let near_me = lower.contains("near me") || lower.contains("nearby");
+            let currentness = lower.contains("current")
+                || lower.contains("right now")
+                || lower.contains("today")
+                || lower.contains("latest");
+            let scalar_measure = weather || bitcoin;
+
+            let response = if restaurants {
+                json!({
+                    "contract_version": "web_retrieval_contract.v1",
+                    "entity_cardinality_min": 3,
+                    "comparison_required": true,
+                    "currentness_required": false,
+                    "runtime_locality_required": near_me,
+                    "source_independence_min": 3,
+                    "citation_count_min": 1,
+                    "structured_record_preferred": false,
+                    "ordered_collection_preferred": false,
+                    "link_collection_preferred": true,
+                    "canonical_link_out_preferred": true,
+                    "geo_scoped_detail_required": near_me,
+                    "discovery_surface_required": true,
+                    "entity_diversity_required": true,
+                    "scalar_measure_required": false,
+                    "browser_fallback_allowed": true
+                })
+            } else if headlines {
+                json!({
+                    "contract_version": "web_retrieval_contract.v1",
+                    "entity_cardinality_min": 3,
+                    "comparison_required": compare,
+                    "currentness_required": true,
+                    "runtime_locality_required": false,
+                    "source_independence_min": 3,
+                    "citation_count_min": 2,
+                    "structured_record_preferred": false,
+                    "ordered_collection_preferred": true,
+                    "link_collection_preferred": false,
+                    "canonical_link_out_preferred": false,
+                    "geo_scoped_detail_required": false,
+                    "discovery_surface_required": true,
+                    "entity_diversity_required": false,
+                    "scalar_measure_required": false,
+                    "browser_fallback_allowed": true
+                })
+            } else if weather {
+                json!({
+                    "contract_version": "web_retrieval_contract.v1",
+                    "entity_cardinality_min": 1,
+                    "comparison_required": false,
+                    "currentness_required": true,
+                    "runtime_locality_required": near_me || lower.contains(" in "),
+                    "source_independence_min": 2,
+                    "citation_count_min": 1,
+                    "structured_record_preferred": true,
+                    "ordered_collection_preferred": false,
+                    "link_collection_preferred": false,
+                    "canonical_link_out_preferred": false,
+                    "geo_scoped_detail_required": near_me || lower.contains(" in "),
+                    "discovery_surface_required": false,
+                    "entity_diversity_required": false,
+                    "scalar_measure_required": true,
+                    "browser_fallback_allowed": true
+                })
+            } else if bitcoin {
+                json!({
+                    "contract_version": "web_retrieval_contract.v1",
+                    "entity_cardinality_min": 1,
+                    "comparison_required": false,
+                    "currentness_required": currentness,
+                    "runtime_locality_required": false,
+                    "source_independence_min": 2,
+                    "citation_count_min": 1,
+                    "structured_record_preferred": true,
+                    "ordered_collection_preferred": false,
+                    "link_collection_preferred": false,
+                    "canonical_link_out_preferred": false,
+                    "geo_scoped_detail_required": false,
+                    "discovery_surface_required": true,
+                    "entity_diversity_required": false,
+                    "scalar_measure_required": true,
+                    "browser_fallback_allowed": true
+                })
+            } else {
+                json!({
+                    "contract_version": "web_retrieval_contract.v1",
+                    "entity_cardinality_min": if compare { 3 } else { 1 },
+                    "comparison_required": compare,
+                    "currentness_required": currentness,
+                    "runtime_locality_required": near_me,
+                    "source_independence_min": if compare || currentness { 2 } else { 1 },
+                    "citation_count_min": 1,
+                    "structured_record_preferred": scalar_measure && !compare,
+                    "ordered_collection_preferred": false,
+                    "link_collection_preferred": compare && near_me,
+                    "canonical_link_out_preferred": compare && near_me,
+                    "geo_scoped_detail_required": near_me,
+                    "discovery_surface_required": compare || !scalar_measure,
+                    "entity_diversity_required": compare && near_me,
+                    "scalar_measure_required": scalar_measure,
+                    "browser_fallback_allowed": true
+                })
+            };
+            return Ok(response.to_string().into_bytes());
+        }
+
         // 1. Intent Resolver Logic (Control Plane)
         // Detect if this is a request to map Natural Language -> Transaction.
         // We look for keywords from the System Prompt or specific user intent triggers.

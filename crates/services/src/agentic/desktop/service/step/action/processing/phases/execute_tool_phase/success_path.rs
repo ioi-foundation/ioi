@@ -1,4 +1,6 @@
-use super::events::emit_execution_contract_receipt_event;
+use super::events::{
+    emit_execution_contract_receipt_event, emit_execution_contract_receipt_event_with_observation,
+};
 use super::tool_outcome::{apply_tool_outcome_and_followups, ToolOutcomeContext};
 use super::*;
 
@@ -661,7 +663,9 @@ pub(super) async fn handle_execution_success(
                         );
                         verification_checks
                             .push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
-                        emit_execution_contract_receipt_event(
+                        let delay_seconds =
+                            sys_exec_timer_delay_seconds(tool).map(|value| value.to_string());
+                        emit_execution_contract_receipt_event_with_observation(
                             service,
                             session_id,
                             step_index,
@@ -670,10 +674,31 @@ pub(super) async fn handle_execution_success(
                             TIMER_SLEEP_BACKEND_POSTCONDITION,
                             true,
                             "timer_sleep_backend=armed",
+                            Some("tool_payload"),
+                            delay_seconds.as_deref(),
+                            Some("seconds"),
                             None,
                             None,
                             synthesized_payload_hash.clone(),
                         );
+                        if let Some(delay_seconds) = delay_seconds.as_deref() {
+                            emit_execution_contract_receipt_event_with_observation(
+                                service,
+                                session_id,
+                                step_index,
+                                resolved_intent_id,
+                                "execution",
+                                "timer_delay_seconds",
+                                true,
+                                "timer_delay_seconds_observed=true",
+                                Some("tool_payload"),
+                                Some(delay_seconds),
+                                Some("seconds"),
+                                None,
+                                None,
+                                synthesized_payload_hash.clone(),
+                            );
+                        }
                     }
                     if let Some(command_preview) = sys_exec_command_preview(tool) {
                         if command_arms_deferred_notification_path(&command_preview) {
@@ -683,7 +708,7 @@ pub(super) async fn handle_execution_success(
                             );
                             verification_checks
                                 .push(postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION));
-                            emit_execution_contract_receipt_event(
+                            emit_execution_contract_receipt_event_with_observation(
                                 service,
                                 session_id,
                                 step_index,
@@ -692,6 +717,9 @@ pub(super) async fn handle_execution_success(
                                 TIMER_NOTIFICATION_PATH_POSTCONDITION,
                                 true,
                                 "timer_notification_path_armed=true",
+                                Some("tool_payload"),
+                                Some("deferred_notification"),
+                                Some("strategy"),
                                 None,
                                 None,
                                 synthesized_payload_hash.clone(),
@@ -701,7 +729,7 @@ pub(super) async fn handle_execution_success(
                                 "notification_strategy",
                             );
                             verification_checks.push(receipt_marker("notification_strategy"));
-                            emit_execution_contract_receipt_event(
+                            emit_execution_contract_receipt_event_with_observation(
                                 service,
                                 session_id,
                                 step_index,
@@ -710,6 +738,9 @@ pub(super) async fn handle_execution_success(
                                 "notification_strategy",
                                 true,
                                 "notification_strategy=deferred",
+                                Some("tool_payload"),
+                                Some("deferred"),
+                                Some("strategy"),
                                 None,
                                 None,
                                 synthesized_payload_hash.clone(),

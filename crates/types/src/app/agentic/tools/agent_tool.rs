@@ -1,4 +1,5 @@
 use crate::app::ActionTarget;
+use crate::app::agentic::WebRetrievalContract;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -376,6 +377,12 @@ pub enum AgentTool {
     WebSearch {
         /// Search query.
         query: String,
+        /// Optional full query contract used for provider selection and completion policy.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        query_contract: Option<String>,
+        /// Optional typed retrieval contract carried by runtime continuations.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        retrieval_contract: Option<WebRetrievalContract>,
         /// Optional max results to return.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         limit: Option<u32>,

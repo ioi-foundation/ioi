@@ -1,10 +1,12 @@
 use super::events::{
     emit_completion_gate_status_event, emit_completion_gate_violation_events,
-    emit_execution_contract_receipt_event,
+    emit_execution_contract_receipt_event, emit_execution_contract_receipt_event_with_observation,
 };
 use super::system_fail::handle_system_fail_outcome;
 use super::web_followup::apply_web_research_followups;
 use super::*;
+use crate::agentic::desktop::service::step::action::command_contract::WEB_PIPELINE_TERMINAL_RECEIPT;
+use crate::agentic::desktop::service::step::queue::handle_web_search_result;
 
 pub(super) struct ToolOutcomeContext<'a, 's> {
     pub service: &'a DesktopAgentService,
@@ -112,7 +114,85 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 }
             }
         }
+        AgentTool::MathEval { .. } => {
+            if *success {
+                if let Some(observed_result) = history_entry
+                    .as_deref()
+                    .or(action_output.as_deref())
+                    .and_then(summarize_math_eval_output)
+                {
+                    let evidence = format!("math_result={}", observed_result);
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "math_result",
+                        true,
+                        &evidence,
+                        Some("tool_output"),
+                        Some(observed_result.as_str()),
+                        Some("number"),
+                        None,
+                        None,
+                        synthesized_payload_hash.clone(),
+                    );
+                }
+            }
+        }
         AgentTool::ChatReply { message } => {
+            if let Some(pending) = agent_state.pending_search_completion.clone() {
+                if let Some(reason) =
+                    web_pipeline_completion_reason(&pending, web_pipeline_now_ms())
+                {
+                    append_final_web_completion_receipts(&pending, reason, verification_checks);
+                    let summary = if let Some(hybrid_summary) =
+                        synthesize_web_pipeline_reply_hybrid(service, &pending, reason).await
+                    {
+                        hybrid_summary
+                    } else {
+                        synthesize_web_pipeline_reply(&pending, reason)
+                    };
+                    let summary = enrich_command_scope_summary(&summary, agent_state);
+                    mark_execution_receipt(
+                        &mut agent_state.tool_execution_log,
+                        WEB_PIPELINE_TERMINAL_RECEIPT,
+                    );
+                    verification_checks.push(receipt_marker(WEB_PIPELINE_TERMINAL_RECEIPT));
+                    verification_checks.push("web_pipeline_active=false".to_string());
+                    verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                    agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                    agent_state.pending_search_completion = None;
+                    *is_lifecycle_action = true;
+                    *history_entry = Some(summary.clone());
+                    *action_output = Some(summary.clone());
+                    *terminal_chat_reply_output = Some(summary.clone());
+                    evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
+                    emit_completion_gate_status_event(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        true,
+                        "chat_reply_web_pipeline_contract_gate_passed",
+                    );
+                    emit_execution_contract_receipt_event(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "completion_gate",
+                        WEB_PIPELINE_TERMINAL_RECEIPT,
+                        true,
+                        "pending_web_pipeline_terminalized",
+                        None,
+                        None,
+                        synthesized_payload_hash.clone(),
+                    );
+                    return Ok(());
+                }
+            }
             let missing_contract_markers =
                 missing_execution_contract_markers_with_rules(agent_state, rules);
             if !missing_contract_markers.is_empty() {
@@ -250,7 +330,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         CLOCK_TIMESTAMP_POSTCONDITION,
                     );
                     verification_checks.push(postcondition_marker(CLOCK_TIMESTAMP_POSTCONDITION));
-                    emit_execution_contract_receipt_event(
+                    emit_execution_contract_receipt_event_with_observation(
                         service,
                         session_id,
                         step_index,
@@ -259,6 +339,9 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         CLOCK_TIMESTAMP_POSTCONDITION,
                         true,
                         "clock_timestamp_observed=true",
+                        Some("command_history"),
+                        Some(summary.as_str()),
+                        Some("rfc3339_utc"),
                         None,
                         None,
                         synthesized_payload_hash.clone(),
@@ -282,7 +365,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     verification_checks.push("execution_contract_gate_blocked=true".to_string());
                     verification_checks
                         .push(format!("execution_contract_missing_keys={}", missing));
-                    emit_execution_contract_receipt_event(
+                    emit_execution_contract_receipt_event_with_observation(
                         service,
                         session_id,
                         step_index,
@@ -291,13 +374,67 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         CLOCK_TIMESTAMP_POSTCONDITION,
                         false,
                         "clock_timestamp_observed=false",
+                        Some("command_history"),
+                        None,
+                        Some("rfc3339_utc"),
                         None,
                         None,
                         synthesized_payload_hash.clone(),
                     );
                 }
             } else if command_scope {
-                if let Some(summary) =
+                if let Some(summary) = history_entry.as_deref().and_then(|raw| {
+                    summarize_structured_command_receipt_output(
+                        raw,
+                        agent_state
+                            .command_history
+                            .back()
+                            .map(|entry| entry.timestamp_ms),
+                    )
+                }) {
+                    let summary = enrich_command_scope_summary(&summary, agent_state);
+                    let missing_contract_markers =
+                        missing_execution_contract_markers_with_rules(agent_state, rules);
+                    if missing_contract_markers.is_empty() {
+                        *success = true;
+                        *error_msg = None;
+                        agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        *is_lifecycle_action = true;
+                        *action_output = Some(summary.clone());
+                        *terminal_chat_reply_output = Some(summary);
+                        agent_state.execution_queue.clear();
+                        agent_state.pending_search_completion = None;
+                        verification_checks
+                            .push("structured_command_receipt_terminalized=true".to_string());
+                        verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                        emit_completion_gate_status_event(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            true,
+                            "command_scope_structured_receipt_completion_gate_passed",
+                        );
+                    } else {
+                        let missing = missing_contract_markers.join(",");
+                        let contract_error = execution_contract_violation_error(&missing);
+                        *success = false;
+                        *error_msg = Some(contract_error.clone());
+                        *history_entry = Some(contract_error.clone());
+                        *action_output = Some(contract_error);
+                        verification_checks
+                            .push("execution_contract_gate_blocked=true".to_string());
+                        verification_checks
+                            .push(format!("execution_contract_missing_keys={}", missing));
+                        emit_completion_gate_violation_events(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            &missing,
+                        );
+                    }
+                } else if let Some(summary) =
                     duplicate_command_completion_summary(tool, agent_state.command_history.back())
                 {
                     let missing_contract_markers =
@@ -340,37 +477,85 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             &missing,
                         );
                     }
+                } else if let Some(summary) =
+                    verified_command_probe_completion_summary(tool, &agent_state.command_history)
+                {
+                    let summary = enrich_command_scope_summary(&summary, agent_state);
+                    let missing_contract_markers =
+                        missing_execution_contract_markers_with_rules(agent_state, rules);
+                    if missing_contract_markers.is_empty() {
+                        *success = true;
+                        *error_msg = None;
+                        agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        *is_lifecycle_action = true;
+                        *action_output = Some(summary.clone());
+                        *terminal_chat_reply_output = Some(summary);
+                        agent_state.execution_queue.clear();
+                        agent_state.pending_search_completion = None;
+                        verification_checks
+                            .push("verified_command_probe_terminalized=true".to_string());
+                        verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                        emit_completion_gate_status_event(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            true,
+                            "command_scope_verified_probe_completion_gate_passed",
+                        );
+                    } else {
+                        let missing = missing_contract_markers.join(",");
+                        let contract_error = execution_contract_violation_error(&missing);
+                        *success = false;
+                        *error_msg = Some(contract_error.clone());
+                        *history_entry = Some(contract_error.clone());
+                        *action_output = Some(contract_error);
+                        verification_checks
+                            .push("execution_contract_gate_blocked=true".to_string());
+                        verification_checks
+                            .push(format!("execution_contract_missing_keys={}", missing));
+                        emit_completion_gate_violation_events(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            &missing,
+                        );
+                    }
                 }
             }
         }
         AgentTool::MemorySearch { query } => {
-            let mut promoted_memory_search = false;
-            if *success && should_use_web_research_path(agent_state) {
-                if let Some(raw) = history_entry.as_deref() {
-                    if let Some(bundle) = parse_web_evidence_bundle(raw) {
-                        if bundle.tool == "web__search" {
-                            promoted_memory_search = true;
-                            *current_tool_name = "web__search".to_string();
-                            verification_checks
-                                .push("memory_search_promoted_to_web_search=true".to_string());
-                            apply_pre_read_bundle(
-                                service,
-                                agent_state,
-                                session_id,
-                                step_index,
-                                &bundle,
-                                query,
-                                verification_checks,
-                                history_entry,
-                                action_output,
-                                terminal_chat_reply_output,
-                                is_lifecycle_action,
-                            )
-                            .await?;
-                        }
-                    }
+            let mut completion_summary = None;
+            let effective_tool_name = current_tool_name.clone();
+            handle_web_search_result(
+                service,
+                agent_state,
+                session_id,
+                step_index,
+                effective_tool_name.as_str(),
+                tool,
+                false,
+                success,
+                history_entry,
+                error_msg,
+                &mut completion_summary,
+                verification_checks,
+            )
+            .await?;
+            if let Some(summary) = completion_summary {
+                if history_entry.is_none() {
+                    *history_entry = Some(summary.clone());
                 }
+                *action_output = Some(summary.clone());
+                *terminal_chat_reply_output = Some(summary);
+                *is_lifecycle_action = true;
             }
+            let promoted_memory_search = *success
+                && current_tool_name.eq_ignore_ascii_case("web__search")
+                && verification_checks
+                    .iter()
+                    .any(|check| check == "memory_search_promoted_to_web_search=true");
 
             if !promoted_memory_search
                 && *success
@@ -400,26 +585,30 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 agent_state.status = AgentStatus::Running;
             }
         }
-        AgentTool::WebSearch { query, .. } => {
-            if *success && should_use_web_research_path(agent_state) {
-                if let Some(raw) = history_entry.as_deref() {
-                    if let Some(bundle) = parse_web_evidence_bundle(raw) {
-                        apply_pre_read_bundle(
-                            service,
-                            agent_state,
-                            session_id,
-                            step_index,
-                            &bundle,
-                            query,
-                            verification_checks,
-                            history_entry,
-                            action_output,
-                            terminal_chat_reply_output,
-                            is_lifecycle_action,
-                        )
-                        .await?;
-                    }
+        AgentTool::WebSearch { .. } => {
+            let mut completion_summary = None;
+            handle_web_search_result(
+                service,
+                agent_state,
+                session_id,
+                step_index,
+                current_tool_name.as_str(),
+                tool,
+                false,
+                success,
+                history_entry,
+                error_msg,
+                &mut completion_summary,
+                verification_checks,
+            )
+            .await?;
+            if let Some(summary) = completion_summary {
+                if history_entry.is_none() {
+                    *history_entry = Some(summary.clone());
                 }
+                *action_output = Some(summary.clone());
+                *terminal_chat_reply_output = Some(summary);
+                *is_lifecycle_action = true;
             }
         }
         AgentTool::SystemFail { reason, .. } => {

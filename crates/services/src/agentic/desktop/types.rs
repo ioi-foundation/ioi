@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/desktop/types.rs
 
 use ioi_types::app::action::ApprovalToken;
-use ioi_types::app::agentic::ResolvedIntentState;
+use ioi_types::app::agentic::{ResolvedIntentState, WebRetrievalContract};
 use ioi_types::app::ActionRequest;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -237,6 +237,8 @@ pub struct PendingSearchCompletion {
     pub query: String,
     #[serde(default)]
     pub query_contract: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retrieval_contract: Option<WebRetrievalContract>,
     pub url: String,
     pub started_step: u32,
     pub started_at_ms: u64,
@@ -266,6 +268,7 @@ impl Default for PendingSearchCompletion {
         Self {
             query: String::new(),
             query_contract: String::new(),
+            retrieval_contract: None,
             url: String::new(),
             started_step: 0,
             started_at_ms: 0,

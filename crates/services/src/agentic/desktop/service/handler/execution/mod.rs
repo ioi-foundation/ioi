@@ -341,6 +341,9 @@ fn emit_execution_contract_receipt_event(
             timestamp_ms,
             evidence_commit_hash,
             verifier_command_commit_hash: None,
+            probe_source: None,
+            observed_value: None,
+            evidence_type: None,
             provider_id: None,
             synthesized_payload_hash: None,
         },
@@ -638,7 +641,6 @@ pub(crate) fn target_requires_window_binding(target: &ActionTarget) -> bool {
             | ActionTarget::GuiMouseMove
             | ActionTarget::GuiClick
             | ActionTarget::GuiType
-            | ActionTarget::GuiScreenshot
             | ActionTarget::GuiScroll
             | ActionTarget::GuiSequence
             | ActionTarget::BrowserInteract

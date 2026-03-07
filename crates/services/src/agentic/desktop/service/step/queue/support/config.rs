@@ -2,7 +2,7 @@
 pub(crate) const MAX_SEARCH_EXTRACT_CHARS: usize = 8_000;
 pub(crate) const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
 pub(crate) const WEB_PIPELINE_EXCERPT_CHARS: usize = 220;
-pub(crate) const WEB_PIPELINE_BUDGET_MS: u64 = 45_000;
+pub(crate) const WEB_PIPELINE_BUDGET_MS: u64 = 65_000;
 pub(crate) const WEB_PIPELINE_DEFAULT_MIN_SOURCES: u32 = 1;
 pub(crate) const WEB_PIPELINE_SEARCH_LIMIT: u32 = 10;
 pub(crate) const WEB_PIPELINE_REQUIRED_STORIES: usize = 3;

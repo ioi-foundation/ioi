@@ -2,9 +2,9 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    action_has_hard_error_class, contains_any, has_contract_failure_evidence, has_tool_with_token,
-    has_verification_pair, truncate_chars, verification_bool, verification_value, ExecutionProfile,
-    LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_contract_failure_evidence, has_tool_with_token, has_verification_pair, truncate_chars,
+    uri_scheme, verification_value, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase,
+    RunObservation,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -36,25 +36,27 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let reply_lower = obs.final_reply.to_ascii_lowercase();
-    let action_output_blob = obs
-        .action_evidence
-        .iter()
-        .map(|entry| entry.output_excerpt.as_str())
-        .collect::<Vec<_>>()
-        .join("\n");
-    let output_lower = action_output_blob.to_ascii_lowercase();
+    let Some(mail) = obs.mail.as_ref() else {
+        return LocalJudgeResult::from_checks(vec![
+            LocalCheck::new(
+                "mail_observation_present",
+                false,
+                "missing typed mail observation",
+            ),
+            LocalCheck::new(
+                "completion_evidence_present",
+                false,
+                format!("status={} failed={}", obs.final_status, obs.failed),
+            ),
+        ]);
+    };
 
-    let mail_read_success_count = obs
-        .action_evidence
-        .iter()
-        .filter(|entry| is_mail_read_latest_success_event(entry))
-        .count();
-    let mail_read_failure_count = obs
-        .action_evidence
-        .iter()
-        .filter(|entry| is_mail_read_latest_failure_event(entry))
-        .count();
+    let mail_read_success_count = mail.read_latest_success_count;
+    let mail_read_failure_count = mail.read_latest_failure_count;
+    let latest_payload = mail.read_latest_payloads.last();
+    let payload_debug = latest_payload
+        .and_then(|payload| serde_json::to_string(payload).ok())
+        .unwrap_or_else(|| "null".to_string());
 
     let mail_tool_action_seen = has_tool_with_token(&obs.action_tools, "mail_read_latest");
     let mail_tool_route_seen = has_tool_with_token(&obs.routing_tools, "mail_read_latest");
@@ -67,11 +69,49 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || has_tool_with_token(&obs.workload_tools, "web__search")
         || has_tool_with_token(&obs.workload_tools, "web__read");
 
-    let structured_mail_payload_present = message_payload_fields_present(&output_lower);
-    let imap_citation_present = imap_citation_present(&output_lower);
-    let received_timestamp_present = output_lower.contains("\"received_at_ms\":")
-        || output_lower.contains("\"received_at_utc\":");
-    let mailbox_output_present = output_lower.contains("\"mailbox\":");
+    let structured_mail_payload_present = latest_payload
+        .map(|payload| {
+            payload
+                .message_id
+                .as_deref()
+                .map(|value| !value.trim().is_empty())
+                .unwrap_or(false)
+                && payload
+                    .from
+                    .as_deref()
+                    .map(|value| !value.trim().is_empty())
+                    .unwrap_or(false)
+                && payload
+                    .subject
+                    .as_deref()
+                    .map(|value| !value.trim().is_empty())
+                    .unwrap_or(false)
+                && payload
+                    .preview
+                    .as_deref()
+                    .map(|value| !value.trim().is_empty())
+                    .unwrap_or(false)
+        })
+        .unwrap_or(false);
+    let imap_citation_present = latest_payload
+        .and_then(|payload| payload.citation.as_deref())
+        .and_then(uri_scheme)
+        .map(|scheme| scheme == "imap")
+        .unwrap_or(false);
+    let received_timestamp_present = latest_payload
+        .map(|payload| {
+            payload.received_at_ms.is_some()
+                || payload
+                    .received_at_utc
+                    .as_deref()
+                    .map(|value| !value.trim().is_empty())
+                    .unwrap_or(false)
+        })
+        .unwrap_or(false);
+    let mailbox_output_present = latest_payload
+        .and_then(|payload| payload.mailbox.as_deref())
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false);
     let objective_specific_mail_read_evidence_present = mail_read_success_count > 0
         && mail_read_failure_count == 0
         && structured_mail_payload_present
@@ -89,15 +129,13 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         verification_value(obs, "env_receipt::mail_setup_timestamp_ms").is_some();
     let setup_mailbox = verification_value(obs, "env_receipt::mail_mailbox")
         .map(|value| value.to_ascii_lowercase());
+    let payload_mailbox = latest_payload
+        .and_then(|payload| payload.mailbox.as_ref())
+        .map(|value| value.to_ascii_lowercase());
     let setup_mailbox_binding_present = setup_mailbox
-        .as_ref()
-        .map(|mailbox| {
-            output_lower.contains(&format!("\"mailbox\":\"{}\"", mailbox.to_ascii_lowercase()))
-                || output_lower.contains(&format!(
-                    "\"mailbox\": \"{}\"",
-                    mailbox.to_ascii_lowercase()
-                ))
-        })
+        .as_deref()
+        .zip(payload_mailbox.as_deref())
+        .map(|(expected, observed)| expected.eq_ignore_ascii_case(observed))
         .unwrap_or(false);
 
     let connector_environment_setup_receipts_present = setup_env_loaded
@@ -106,35 +144,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && setup_lease_seeded
         && setup_receipt_timestamp_present;
 
-    let mailbox_runtime_fallback_markers_present =
-        verification_bool(obs, "mailbox_connector_path_required").unwrap_or(false)
-            || verification_bool(obs, "mailbox_non_connector_tool_blocked").unwrap_or(false)
-            || verification_bool(obs, "mailbox_invalid_tool_call_fail_fast").unwrap_or(false)
-            || verification_bool(obs, "mailbox_system_fail_degraded_to_reply").unwrap_or(false);
-    let mailbox_response_fallback_markers_present = has_mailbox_fallback_marker(&obs.final_reply)
-        || obs
-            .event_excerpt
-            .iter()
-            .any(|line| has_mailbox_fallback_marker(line));
-    let mailbox_fallback_markers_present =
-        mailbox_runtime_fallback_markers_present || mailbox_response_fallback_markers_present;
-    let no_mailbox_fallback_markers = !mailbox_fallback_markers_present;
-
-    let any_contract_failure_marker =
-        has_contract_failure_evidence(obs) || has_mailbox_runtime_failure_marker(obs);
+    let no_mailbox_fallback_markers = !mail.fallback_marker_present;
+    let any_contract_failure_marker = has_contract_failure_evidence(obs);
     let completion_evidence_present = obs.completed
         && !obs.failed
-        && ((!obs.final_reply.trim().is_empty() && obs.chat_reply_count > 0)
-            || objective_specific_mail_read_evidence_present);
-    let reply_addresses_user_request = !obs.final_reply.trim().is_empty()
-        && contains_any(
-            &reply_lower,
-            &[
-                "email", "subject", "from", "received", "latest", "last", "inbox",
-            ],
-        )
-        && !reply_lower.contains("cannot access your mailbox")
-        && !reply_lower.contains("access limitation");
+        && (objective_specific_mail_read_evidence_present || obs.chat_reply_count > 0);
 
     let environment_receipts = build_environment_receipts(
         obs,
@@ -154,7 +168,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         mail_tool_action_seen && mail_tool_route_seen && !web_or_browser_path_seen,
         connector_environment_setup_receipts_present && environment_receipts_satisfied,
         imap_citation_present && received_timestamp_present,
-        reply_addresses_user_request,
+        no_mailbox_fallback_markers,
     ]
     .into_iter()
     .filter(|flag| *flag)
@@ -210,23 +224,27 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "mailbox_binding_consistency_present",
             setup_mailbox_binding_present,
             format!(
-                "setup_mailbox={:?} output_excerpt={}",
+                "setup_mailbox={:?} payload_mailbox={:?}",
                 setup_mailbox,
-                truncate_chars(&action_output_blob, 220)
+                payload_mailbox
             ),
         ),
         LocalCheck::new(
             "source_and_quality_evidence_present",
-            imap_citation_present && message_payload_fields_present(&output_lower),
-            truncate_chars(&action_output_blob, 220),
+            imap_citation_present && structured_mail_payload_present,
+            truncate_chars(&payload_debug, 220),
         ),
         LocalCheck::new(
             "no_mailbox_fallback_markers",
             no_mailbox_fallback_markers,
             truncate_chars(
                 &format!(
-                    "mailbox_fallback_markers_present={} verification_checks={:?} final_reply={} event_excerpt={:?}",
-                    mailbox_fallback_markers_present, obs.verification_checks, obs.final_reply, obs.event_excerpt
+                    "fallback_marker_present={} connector_path_required={} non_connector_tool_blocked={} invalid_tool_call_fail_fast={} system_fail_degraded_to_reply={}",
+                    mail.fallback_marker_present,
+                    mail.connector_path_required,
+                    mail.non_connector_tool_blocked,
+                    mail.invalid_tool_call_fail_fast,
+                    mail.system_fail_degraded_to_reply
                 ),
                 260,
             ),
@@ -236,8 +254,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             !any_contract_failure_marker && mail_read_failure_count == 0,
             truncate_chars(
                 &format!(
-                    "mail_read_failure_count={} verification_checks={:?} final_reply={} action_output={}",
-                    mail_read_failure_count, obs.verification_checks, obs.final_reply, action_output_blob
+                    "mail_read_failure_count={} contract_failure_evidence_present={} payload={}",
+                    mail_read_failure_count,
+                    has_contract_failure_evidence(obs),
+                    payload_debug
                 ),
                 260,
             ),
@@ -251,57 +271,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "independent_runtime_evidence_channels_present",
             independent_runtime_evidence_channels_present,
             format!(
-                "independent_channel_count={} objective_specific_mail_read_evidence_present={} reply_addresses_user_request={}",
+                "independent_channel_count={} objective_specific_mail_read_evidence_present={} no_mailbox_fallback_markers={}",
                 independent_channel_count,
                 objective_specific_mail_read_evidence_present,
-                reply_addresses_user_request
+                no_mailbox_fallback_markers
             ),
         ),
     ];
 
     LocalJudgeResult::from_checks(checks)
-}
-
-fn is_mail_read_latest_success_event(entry: &super::super::types::ActionEvidence) -> bool {
-    let lower = entry.output_excerpt.to_ascii_lowercase();
-    let status_lower = entry.agent_status.to_ascii_lowercase();
-    let non_failure_status = !contains_any(
-        &status_lower,
-        &[
-            "fail", "error", "blocked", "deny", "reject", "terminal", "abort",
-        ],
-    );
-    is_mail_read_latest_tool_name(&entry.tool_name)
-        && non_failure_status
-        && !action_has_hard_error_class(entry)
-        && (imap_citation_present(&lower)
-            || (lower.contains("\"mailbox\":") && lower.contains("\"message\":")))
-}
-
-fn is_mail_read_latest_failure_event(entry: &super::super::types::ActionEvidence) -> bool {
-    if !is_mail_read_latest_tool_name(&entry.tool_name) {
-        return false;
-    }
-    entry.agent_status.eq_ignore_ascii_case("failed") || action_has_hard_error_class(entry)
-}
-
-fn is_mail_read_latest_tool_name(tool_name: &str) -> bool {
-    let lower = tool_name.to_ascii_lowercase();
-    lower == "wallet_network__mail_read_latest"
-        || lower == "wallet_mail_read_latest"
-        || lower == "mail__read_latest"
-        || lower.contains("mail_read_latest")
-}
-
-fn message_payload_fields_present(lower: &str) -> bool {
-    lower.contains("\"message_id\":")
-        && lower.contains("\"from\":")
-        && lower.contains("\"subject\":")
-        && lower.contains("\"preview\":")
-}
-
-fn imap_citation_present(lower: &str) -> bool {
-    lower.contains("\"citation\":\"imap://") || lower.contains("\"citation\": \"imap://")
 }
 
 fn build_environment_receipts(
@@ -367,42 +345,4 @@ fn build_environment_receipts(
 
 fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> String {
     serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
-}
-
-fn has_mailbox_fallback_marker(text: &str) -> bool {
-    let lower = text.to_ascii_lowercase();
-    [
-        "mailbox_connector_path_required=true",
-        "mailbox_non_connector_tool_blocked=true",
-        "mailbox_invalid_tool_call_fail_fast=true",
-        "mailbox_system_fail_degraded_to_reply=true",
-        "cannot access your mailbox",
-        "access limitation",
-        "mailbox content cannot be verified without direct mailbox access",
-    ]
-    .iter()
-    .any(|marker| lower.contains(marker))
-}
-
-fn has_mailbox_runtime_failure_marker(obs: &RunObservation) -> bool {
-    [
-        "wallet_network service is not active in the servicedirectory",
-        "unable to resolve wallet mail channel_id",
-        "unable to resolve wallet mail lease_id",
-        "mail connector for mailbox",
-        "no wallet mail lease binding available",
-    ]
-    .iter()
-    .any(|marker| {
-        let marker = marker.to_ascii_lowercase();
-        obs.final_reply.to_ascii_lowercase().contains(&marker)
-            || obs
-                .action_evidence
-                .iter()
-                .any(|entry| entry.output_excerpt.to_ascii_lowercase().contains(&marker))
-            || obs
-                .event_excerpt
-                .iter()
-                .any(|line| line.to_ascii_lowercase().contains(&marker))
-    })
 }

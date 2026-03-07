@@ -1,5 +1,19 @@
 use super::*;
 
+fn followup_metric_details_label(unresolved_axes: &BTreeSet<MetricAxis>) -> Option<String> {
+    let labels = unresolved_axes
+        .iter()
+        .copied()
+        .map(metric_axis_display_label)
+        .take(4)
+        .collect::<Vec<_>>();
+    if labels.is_empty() {
+        None
+    } else {
+        Some(labels.join(", "))
+    }
+}
+
 pub(super) fn render_single_snapshot_layout(
     draft: &SynthesisDraft,
     story_count: usize,
@@ -189,15 +203,19 @@ pub(super) fn render_single_snapshot_layout(
                         .next()
                 })
             {
-                lines.push(format!(
-                    "- Next step: Open {} for live current-condition metrics (temperature, feels-like, humidity, wind).",
-                    primary_citation.url
-                ));
+                if let Some(metric_labels) = followup_metric_details_label(&unresolved_axes) {
+                    lines.push(format!(
+                        "- Next step: Open {} for live metric details ({}).",
+                        primary_citation.url, metric_labels
+                    ));
+                } else {
+                    lines.push(format!(
+                        "- Next step: Open {} for live metric details.",
+                        primary_citation.url
+                    ));
+                }
             } else {
-                lines.push(
-                    "- Next step: Open the cited sources for live current-condition metrics."
-                        .to_string(),
-                );
+                lines.push("- Next step: Open the cited sources for live metric details.".to_string());
             }
         }
 

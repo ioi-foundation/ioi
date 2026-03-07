@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::agentic::desktop::service::step::action::command_contract::timer_payload_requires_allowlisted_scheduler;
 use ioi_api::vm::drivers::os::OsDriver;
 use std::sync::Arc;
 
@@ -77,7 +78,7 @@ pub(crate) async fn run_execution_timer_phase(
     let mut skip_execution_due_to_contract = false;
     let mut pre_execution_contract_error: Option<String> = None;
 
-    if timer_notification_required && timer_delay_backend_armed && !notification_path_armed {
+    if timer_notification_required && timer_payload_requires_allowlisted_scheduler(&tool) {
         if let Some(rewritten_tool) = synthesize_allowlisted_timer_notification_tool(&tool) {
             let original_preview = sys_exec_command_preview(&tool).unwrap_or_default();
             tool = rewritten_tool;
@@ -197,6 +198,42 @@ pub(crate) async fn run_execution_timer_phase(
                     TIMER_SLEEP_BACKEND_POSTCONDITION,
                 );
                 verification_checks.push(postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION));
+                let delay_seconds =
+                    sys_exec_timer_delay_seconds(&tool).map(|value| value.to_string());
+                emit_execution_contract_receipt_event_with_observation(
+                    service,
+                    session_id,
+                    step_index,
+                    &resolved_intent_id(agent_state),
+                    "execution",
+                    TIMER_SLEEP_BACKEND_POSTCONDITION,
+                    true,
+                    "timer_sleep_backend=armed",
+                    Some("tool_payload"),
+                    delay_seconds.as_deref(),
+                    Some("seconds"),
+                    None,
+                    None,
+                    None,
+                );
+                if let Some(delay_seconds) = delay_seconds.as_deref() {
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        &resolved_intent_id(agent_state),
+                        "execution",
+                        "timer_delay_seconds",
+                        true,
+                        "timer_delay_seconds_observed=true",
+                        Some("tool_payload"),
+                        Some(delay_seconds),
+                        Some("seconds"),
+                        None,
+                        None,
+                        None,
+                    );
+                }
             }
             if let Some(command_preview) = sys_exec_command_preview(&tool) {
                 if command_arms_deferred_notification_path(&command_preview) {
@@ -211,6 +248,38 @@ pub(crate) async fn run_execution_timer_phase(
                         "notification_strategy",
                     );
                     verification_checks.push(receipt_marker("notification_strategy"));
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        &resolved_intent_id(agent_state),
+                        "execution",
+                        TIMER_NOTIFICATION_PATH_POSTCONDITION,
+                        true,
+                        "timer_notification_path_armed=true",
+                        Some("tool_payload"),
+                        Some("deferred_notification"),
+                        Some("strategy"),
+                        None,
+                        None,
+                        None,
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        &resolved_intent_id(agent_state),
+                        "execution",
+                        "notification_strategy",
+                        true,
+                        "notification_strategy=deferred",
+                        Some("tool_payload"),
+                        Some("deferred"),
+                        Some("strategy"),
+                        None,
+                        None,
+                        None,
+                    );
                     verification_checks.push("timer_notification_path_armed=true".to_string());
                 }
             }

@@ -299,6 +299,7 @@ pub(crate) fn apply_hybrid_synthesis_response(
 
     Some(SynthesisDraft {
         query: base.query.clone(),
+        retrieval_contract: base.retrieval_contract.clone(),
         run_date: base.run_date.clone(),
         run_timestamp_ms: base.run_timestamp_ms,
         run_timestamp_iso_utc: base.run_timestamp_iso_utc.clone(),
@@ -334,9 +335,13 @@ pub(crate) async fn synthesize_web_pipeline_reply_hybrid(
     if !query_requires_structured_synthesis(&draft.query) {
         return None;
     }
-    let required_story_count = required_story_count(&draft.query);
-    let citations_per_story = required_citations_per_story(&draft.query);
-    let required_distinct_citations = required_distinct_citations(&draft.query);
+    let retrieval_contract = draft.retrieval_contract.as_ref();
+    let required_story_count =
+        retrieval_contract_required_story_count(retrieval_contract, &draft.query);
+    let citations_per_story =
+        retrieval_contract_required_citations_per_story(retrieval_contract, &draft.query);
+    let required_distinct_citations =
+        retrieval_contract_required_distinct_citations(retrieval_contract, &draft.query);
     let now_ms = web_pipeline_now_ms();
     if pending.deadline_ms > 0
         && now_ms.saturating_add(WEB_PIPELINE_HYBRID_BUDGET_GUARD_MS) >= pending.deadline_ms

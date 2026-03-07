@@ -119,7 +119,13 @@ pub async fn handle(
     step_index: u32,
 ) -> ToolExecutionResult {
     match tool {
-        AgentTool::WebSearch { query, limit, .. } => {
+        AgentTool::WebSearch {
+            query,
+            query_contract,
+            retrieval_contract,
+            limit,
+            ..
+        } => {
             let limit = limit.unwrap_or(5).clamp(1, 10);
             let query_trimmed = query.trim();
             let query_for_receipt_raw =
@@ -157,8 +163,26 @@ pub async fn handle(
             let mut sources_count: u32 = 0;
             let mut documents_count: u32 = 0;
             let mut backend_for_receipt = "edge:search".to_string();
-            let result =
-                match crate::agentic::web::edge_web_search(&exec.browser, &query, limit).await {
+            let retrieval_contract_result = if let Some(contract) = retrieval_contract {
+                Ok(contract)
+            } else {
+                crate::agentic::web::infer_web_retrieval_contract(
+                    exec.inference.clone(),
+                    &query,
+                    query_contract.as_deref(),
+                )
+                .await
+            };
+            let result = match retrieval_contract_result {
+                Ok(retrieval_contract) => match crate::agentic::web::edge_web_search(
+                    &exec.browser,
+                    &query,
+                    query_contract.as_deref(),
+                    &retrieval_contract,
+                    limit,
+                )
+                .await
+                {
                     Ok(bundle) => {
                         backend_for_receipt = bundle.backend.clone();
                         match serde_json::to_string_pretty(&bundle) {
@@ -168,13 +192,21 @@ pub async fn handle(
                                 ToolExecutionResult::success(out)
                             }
                             Err(e) => ToolExecutionResult::failure(format!(
-                            "ERROR_CLASS=SerializationFailed Failed to serialize web evidence: {}",
-                            e
-                        )),
+                                "ERROR_CLASS=SerializationFailed Failed to serialize web evidence: {}",
+                                e
+                            )),
                         }
                     }
-                    Err(e) => ToolExecutionResult::failure(e.to_string()),
-                };
+                    Err(e) => {
+                        let error_text: String = e.to_string();
+                        ToolExecutionResult::failure(error_text)
+                    }
+                },
+                Err(err) => ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS=SynthesisFailed {}",
+                    err.trim()
+                )),
+            };
 
             if let Some(tx) = exec.event_sender.as_ref() {
                 workload::emit_workload_activity(

@@ -1,8 +1,9 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    has_tool_with_token, is_retry_blocked_terminal, truncate_chars, ExecutionProfile, LocalCheck,
-    LocalJudgeResult, QueryCase, RunObservation,
+    cec_receipt_value, is_retry_blocked_terminal, observation_has_tool_name,
+    observation_has_tool_namespace, truncate_chars, ExecutionProfile, LocalCheck,
+    LocalJudgeResult, QueryCase, RunObservation, ToolNamespace,
 };
 
 pub fn case() -> QueryCase {
@@ -25,27 +26,10 @@ pub fn case() -> QueryCase {
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
-    let lower_reply = obs.final_reply.to_ascii_lowercase();
-    let action_output_concat = obs
-        .action_evidence
-        .iter()
-        .map(|entry| entry.output_excerpt.as_str())
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_ascii_lowercase();
-
-    let has_correct_answer = lower_reply.contains("9386")
-        || lower_reply.contains("9,386")
-        || action_output_concat.contains("9386")
-        || action_output_concat.contains("9,386");
-
-    let no_web_retrieval_noise = !has_tool_with_token(&obs.routing_tools, "web__search")
-        && !has_tool_with_token(&obs.routing_tools, "web__read")
-        && !has_tool_with_token(&obs.workload_tools, "web__search")
-        && !has_tool_with_token(&obs.workload_tools, "web__read");
-
-    let math_tool_used = has_tool_with_token(&obs.routing_tools, "math__eval")
-        || has_tool_with_token(&obs.action_tools, "math__eval");
+    let math_result = cec_receipt_value(obs, "verification", "math_result").unwrap_or_default();
+    let has_correct_answer = math_result.trim() == "9386";
+    let no_web_retrieval_noise = !observation_has_tool_namespace(obs, ToolNamespace::Web);
+    let math_tool_used = observation_has_tool_name(obs, "math__eval");
 
     let paused_retry_blocked = is_retry_blocked_terminal(obs);
     let completed_with_result_channel = (obs.completed && !obs.action_evidence.is_empty())
@@ -54,22 +38,20 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let checks = vec![
         LocalCheck::new(
             "completed_with_result_channel",
-            completed_with_result_channel,
+            completed_with_result_channel && !obs.failed,
             format!(
-                "status={} paused_retry_blocked={} reply_len={} action_evidence_count={}",
+                "status={} failed={} paused_retry_blocked={} command_history_count={} action_evidence_count={}",
                 obs.final_status,
+                obs.failed,
                 paused_retry_blocked,
-                obs.final_reply.chars().count(),
+                obs.command_history_evidence.len(),
                 obs.action_evidence.len()
             ),
         ),
         LocalCheck::new(
             "correct_answer_present",
             has_correct_answer,
-            truncate_chars(
-                &format!("{} {}", obs.final_reply, action_output_concat),
-                120,
-            ),
+            truncate_chars(&format!("math_result={}", math_result), 120),
         ),
         LocalCheck::new(
             "math_tool_used",

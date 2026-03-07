@@ -264,10 +264,7 @@ fn is_zip_action_success(entry: &super::super::types::ActionEvidence) -> bool {
         .tool_name
         .eq_ignore_ascii_case("filesystem__create_zip")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
-        && entry
-            .output_excerpt
-            .to_ascii_lowercase()
-            .contains("created zip")
+        && !action_has_hard_error_class(entry)
 }
 
 fn is_zip_action_failure(entry: &super::super::types::ActionEvidence) -> bool {
