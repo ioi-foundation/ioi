@@ -1,3 +1,4 @@
+{
     // OS Control Tools
     if tier == ExecutionTier::VisualForeground {
         let focus_params = json!({
@@ -13,3 +14,4 @@
             parameters: focus_params.to_string(),
         });
     }
+}

@@ -12,14 +12,6 @@ use chromiumoxide::keys;
 use std::time::Instant;
 
 impl BrowserDriver {
-    include!("page_ops/navigation.rs");
-
-    include!("page_ops/waits.rs");
-
-    include!("page_ops/text_search.rs");
-
-    include!("page_ops/file_inputs.rs");
-
     fn validate_upload_paths(paths: &[String]) -> std::result::Result<Vec<String>, BrowserError> {
         if paths.is_empty() {
             return Err(BrowserError::Internal(
@@ -53,8 +45,6 @@ impl BrowserDriver {
             })
             .collect::<Result<Vec<String>, BrowserError>>()
     }
-
-    include!("page_ops/dropdowns.rs");
 
     pub async fn go_back(&self, steps: u32) -> std::result::Result<(u32, String), BrowserError> {
         self.require_runtime()?;
@@ -108,9 +98,18 @@ impl BrowserDriver {
 
         Ok((moved, current_url))
     }
-
-    include!("page_ops/tab_management.rs");
-
-    include!("page_ops/input_events.rs");
-
 }
+
+include!("page_ops/navigation.rs");
+
+include!("page_ops/waits.rs");
+
+include!("page_ops/text_search.rs");
+
+include!("page_ops/file_inputs.rs");
+
+include!("page_ops/dropdowns.rs");
+
+include!("page_ops/tab_management.rs");
+
+include!("page_ops/input_events.rs");

@@ -1,3 +1,4 @@
+{
     // Global scroll capability.
     let scroll_params = json!({
         "type": "object",
@@ -13,3 +14,4 @@
                 .to_string(),
         parameters: scroll_params.to_string(),
     });
+}

@@ -401,6 +401,35 @@ pub enum AgentTool {
         max_chars: Option<u32>,
     },
 
+    /// Extract transcript text from a remote media URL using managed media providers.
+    #[serde(rename = "media__extract_transcript")]
+    MediaExtractTranscript {
+        /// URL to inspect.
+        url: String,
+        /// Requested transcript language (for example: "en").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        language: Option<String>,
+        /// Optional max characters of transcript text to return.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_chars: Option<u32>,
+    },
+
+    /// Extract multimodal evidence from a remote media URL using transcript + visual providers.
+    #[serde(rename = "media__extract_multimodal_evidence")]
+    MediaExtractMultimodalEvidence {
+        /// URL to inspect.
+        url: String,
+        /// Requested transcript language (for example: "en").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        language: Option<String>,
+        /// Optional max characters of transcript text to return.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_chars: Option<u32>,
+        /// Optional max sampled frames to analyze.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        frame_limit: Option<u32>,
+    },
+
     /// Direct HTTP fetch for known URLs (no citations; raw response text/headers).
     ///
     /// This is the governed egress primitive used when a URL is already known and the agent

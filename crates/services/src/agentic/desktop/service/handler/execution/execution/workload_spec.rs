@@ -45,7 +45,11 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         | AgentTool::BrowserTabList {}
         | AgentTool::BrowserTabSwitch { .. }
         | AgentTool::BrowserTabClose { .. } => RuntimeTarget::Browser,
-        AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } | AgentTool::NetFetch { .. } => {
+        AgentTool::WebSearch { .. }
+        | AgentTool::WebRead { .. }
+        | AgentTool::MediaExtractTranscript { .. }
+        | AgentTool::MediaExtractMultimodalEvidence { .. }
+        | AgentTool::NetFetch { .. } => {
             RuntimeTarget::Network
         }
         AgentTool::MemorySearch { .. } | AgentTool::MemoryInspect { .. } => RuntimeTarget::Memory,
@@ -108,6 +112,8 @@ fn observed_domain_for_tool(tool: &AgentTool) -> Option<String> {
     match tool {
         AgentTool::NetFetch { url, .. }
         | AgentTool::WebRead { url, .. }
+        | AgentTool::MediaExtractTranscript { url, .. }
+        | AgentTool::MediaExtractMultimodalEvidence { url, .. }
         | AgentTool::BrowserNavigate { url }
         | AgentTool::CommerceCheckout {
             merchant_url: url, ..

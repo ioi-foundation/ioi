@@ -354,6 +354,8 @@ impl ToolExecutor {
             // Web Retrieval Domain
             AgentTool::WebSearch { .. }
             | AgentTool::WebRead { .. }
+            | AgentTool::MediaExtractTranscript { .. }
+            | AgentTool::MediaExtractMultimodalEvidence { .. }
             | AgentTool::NetFetch { .. } => web::handle(self, tool, session_id, step_index).await,
 
             // Filesystem Domain

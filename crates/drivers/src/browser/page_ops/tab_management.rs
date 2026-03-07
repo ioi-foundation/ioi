@@ -1,3 +1,4 @@
+impl BrowserDriver {
     pub async fn list_tabs(&self) -> std::result::Result<Vec<BrowserTabInfo>, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
@@ -198,3 +199,4 @@
             .map_err(|e| BrowserError::Internal(format!("Tab screenshot failed: {}", e)))?;
         Ok(bytes)
     }
+}

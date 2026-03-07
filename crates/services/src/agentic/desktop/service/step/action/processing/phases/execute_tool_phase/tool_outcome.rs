@@ -254,6 +254,767 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 );
             }
         }
+        AgentTool::MediaExtractTranscript {
+            url, language, ..
+        } => {
+            if *success {
+                if let Some(bundle) = history_entry
+                    .as_deref()
+                    .or(action_output.as_deref())
+                    .and_then(parse_media_transcript_bundle)
+                {
+                    let provider_id = bundle.provider_id.clone();
+                    let duration_value =
+                        bundle.duration_seconds.map(|value| value.to_string());
+                    let transcript_char_count_value = bundle.transcript_char_count.to_string();
+                    let transcript_segment_count_value = bundle.segment_count.to_string();
+                    let provider_candidates = if bundle.provider_candidates.is_empty() {
+                        vec![crate::agentic::web::media_provider_candidate_receipt(
+                            &provider_id,
+                            url,
+                            true,
+                            true,
+                            None,
+                        )]
+                    } else {
+                        bundle.provider_candidates.clone()
+                    };
+
+                    mark_execution_receipt(&mut agent_state.tool_execution_log, "host_discovery");
+                    mark_execution_receipt(&mut agent_state.tool_execution_log, "provider_selection");
+                    mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
+                    mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
+                    mark_execution_postcondition(
+                        &mut agent_state.tool_execution_log,
+                        "media_transcript_available",
+                    );
+
+                    verification_checks.push(receipt_marker("host_discovery"));
+                    verification_checks.push(receipt_marker("provider_selection"));
+                    verification_checks.push(receipt_marker("execution"));
+                    verification_checks.push(receipt_marker("verification"));
+                    verification_checks.push(postcondition_marker("media_transcript_available"));
+
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "discovery",
+                        "host_discovery",
+                        true,
+                        "managed_media_provider_discovered",
+                        Some("media__extract_transcript.runtime"),
+                        Some(bundle.provider_version.as_str()),
+                        Some("version"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    for provider_candidate in provider_candidates {
+                        let provider_candidate_provider_id =
+                            provider_candidate.provider_id.clone();
+                        let provider_candidate_json =
+                            serde_json::to_string(&provider_candidate).unwrap_or_default();
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "discovery",
+                            "provider_candidate",
+                            provider_candidate.success,
+                            "managed_media_provider_candidate",
+                            Some("media__extract_transcript.discovery"),
+                            Some(provider_candidate_json.as_str()),
+                            Some("json"),
+                            None,
+                            Some(provider_candidate_provider_id),
+                            synthesized_payload_hash.clone(),
+                        );
+                    }
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "provider_selection",
+                        "provider_selection",
+                        true,
+                        "managed_media_provider_selected",
+                        Some("media__extract_transcript.selection"),
+                        Some(provider_id.as_str()),
+                        Some("provider_id"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "execution",
+                        "execution",
+                        true,
+                        "media_transcript_executed",
+                        Some("media__extract_transcript.execution"),
+                        Some(bundle.canonical_url.as_str()),
+                        Some("url"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "verification",
+                        true,
+                        "media_transcript_verified",
+                        Some("media__extract_transcript.verification"),
+                        Some(bundle.transcript_hash.as_str()),
+                        Some("sha256"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_title",
+                        bundle.title.as_deref().is_some(),
+                        "media_title_observed",
+                        Some("media__extract_transcript.bundle"),
+                        bundle.title.as_deref(),
+                        Some("text"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_duration_seconds",
+                        bundle.duration_seconds.unwrap_or_default() > 0,
+                        "media_duration_observed",
+                        Some("media__extract_transcript.bundle"),
+                        duration_value.as_deref(),
+                        Some("seconds"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_transcript_char_count",
+                        bundle.transcript_char_count > 0,
+                        "media_transcript_chars_observed",
+                        Some("media__extract_transcript.bundle"),
+                        Some(transcript_char_count_value.as_str()),
+                        Some("char_count"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_transcript_segment_count",
+                        bundle.segment_count > 0,
+                        "media_transcript_segments_observed",
+                        Some("media__extract_transcript.bundle"),
+                        Some(transcript_segment_count_value.as_str()),
+                        Some("segment_count"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_transcript_source_kind",
+                        true,
+                        "media_transcript_source_kind_observed",
+                        Some("media__extract_transcript.bundle"),
+                        Some(bundle.transcript_source_kind.as_str()),
+                        Some("enum"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_transcript_language",
+                        true,
+                        "media_transcript_language_observed",
+                        Some("media__extract_transcript.bundle"),
+                        Some(bundle.transcript_language.as_str()),
+                        Some("language"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "selected_source_url",
+                        true,
+                        "media_canonical_url_selected",
+                        Some("media__extract_transcript.bundle"),
+                        Some(bundle.canonical_url.as_str()),
+                        Some("url"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "selected_source_total",
+                        true,
+                        "media_selected_source_total_observed",
+                        Some("media__extract_transcript.bundle"),
+                        Some("1"),
+                        Some("scalar"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "selected_source_distinct_domains",
+                        true,
+                        "media_selected_source_distinct_domains_observed",
+                        Some("media__extract_transcript.bundle"),
+                        Some("1"),
+                        Some("scalar"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "selected_source_quality_floor",
+                        true,
+                        "media_selected_source_quality_floor_met",
+                        Some("media__extract_transcript.bundle"),
+                        Some("selected_total=1;distinct_domains=1"),
+                        Some("summary"),
+                        None,
+                        Some(provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_transcript_available",
+                        true,
+                        "media_transcript_postcondition_met",
+                        Some("media__extract_transcript.bundle"),
+                        Some("true"),
+                        Some("bool"),
+                        None,
+                        Some(provider_id),
+                        synthesized_payload_hash.clone(),
+                    );
+                    verification_checks.push(format!(
+                        "media_requested_language={}",
+                        language.as_deref().unwrap_or("en")
+                    ));
+                }
+            }
+        }
+        AgentTool::MediaExtractMultimodalEvidence {
+            url, language, ..
+        } => {
+            if *success {
+                if let Some(bundle) = history_entry
+                    .as_deref()
+                    .or(action_output.as_deref())
+                    .and_then(parse_media_multimodal_bundle)
+                {
+                    let selected_provider_ids = if bundle.selected_provider_ids.is_empty() {
+                        bundle
+                            .transcript
+                            .as_ref()
+                            .map(|transcript| vec![transcript.provider_id.clone()])
+                            .unwrap_or_default()
+                    } else {
+                        bundle.selected_provider_ids.clone()
+                    };
+                    let primary_provider_id = selected_provider_ids
+                        .first()
+                        .cloned()
+                        .or_else(|| {
+                            bundle
+                                .transcript
+                                .as_ref()
+                                .map(|transcript| transcript.provider_id.clone())
+                        })
+                        .or_else(|| {
+                            bundle
+                                .visual
+                                .as_ref()
+                                .map(|visual| visual.provider_id.clone())
+                        })
+                        .unwrap_or_else(|| "media.multimodal".to_string());
+                    let duration_value = bundle.duration_seconds.map(|value| value.to_string());
+                    let selected_modalities_value = if bundle.selected_modalities.is_empty() {
+                        String::new()
+                    } else {
+                        bundle.selected_modalities.join(",")
+                    };
+                    let selected_providers_value = selected_provider_ids.join(",");
+                    let provider_candidates = bundle.provider_candidates.clone();
+
+                    mark_execution_receipt(&mut agent_state.tool_execution_log, "host_discovery");
+                    mark_execution_receipt(&mut agent_state.tool_execution_log, "provider_selection");
+                    mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
+                    mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
+                    mark_execution_postcondition(
+                        &mut agent_state.tool_execution_log,
+                        "media_multimodal_evidence_available",
+                    );
+                    if bundle.transcript.is_some() {
+                        mark_execution_postcondition(
+                            &mut agent_state.tool_execution_log,
+                            "media_transcript_available",
+                        );
+                    }
+                    if bundle.visual.is_some() {
+                        mark_execution_postcondition(
+                            &mut agent_state.tool_execution_log,
+                            "media_visual_evidence_available",
+                        );
+                    }
+
+                    verification_checks.push(receipt_marker("host_discovery"));
+                    verification_checks.push(receipt_marker("provider_selection"));
+                    verification_checks.push(receipt_marker("execution"));
+                    verification_checks.push(receipt_marker("verification"));
+                    verification_checks
+                        .push(postcondition_marker("media_multimodal_evidence_available"));
+                    if bundle.transcript.is_some() {
+                        verification_checks.push(postcondition_marker("media_transcript_available"));
+                    }
+                    if bundle.visual.is_some() {
+                        verification_checks.push(postcondition_marker("media_visual_evidence_available"));
+                    }
+
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "discovery",
+                        "host_discovery",
+                        true,
+                        "managed_media_multimodal_provider_discovered",
+                        Some("media__extract_multimodal_evidence.runtime"),
+                        Some(selected_providers_value.as_str()),
+                        Some("provider_ids"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    for provider_candidate in provider_candidates {
+                        let provider_candidate_provider_id =
+                            provider_candidate.provider_id.clone();
+                        let provider_candidate_json =
+                            serde_json::to_string(&provider_candidate).unwrap_or_default();
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "discovery",
+                            "provider_candidate",
+                            provider_candidate.success,
+                            "managed_media_provider_candidate",
+                            Some("media__extract_multimodal_evidence.discovery"),
+                            Some(provider_candidate_json.as_str()),
+                            Some("json"),
+                            None,
+                            Some(provider_candidate_provider_id),
+                            synthesized_payload_hash.clone(),
+                        );
+                    }
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "provider_selection",
+                        "provider_selection",
+                        true,
+                        "managed_media_multimodal_provider_selected",
+                        Some("media__extract_multimodal_evidence.selection"),
+                        Some(selected_providers_value.as_str()),
+                        Some("provider_ids"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "provider_selection",
+                        "selected_modalities",
+                        !selected_modalities_value.trim().is_empty(),
+                        "media_modalities_selected",
+                        Some("media__extract_multimodal_evidence.selection"),
+                        Some(selected_modalities_value.as_str()),
+                        Some("csv"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "execution",
+                        "execution",
+                        true,
+                        "media_multimodal_executed",
+                        Some("media__extract_multimodal_evidence.execution"),
+                        Some(bundle.canonical_url.as_str()),
+                        Some("url"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "verification",
+                        true,
+                        "media_multimodal_verified",
+                        Some("media__extract_multimodal_evidence.verification"),
+                        Some(bundle.canonical_url.as_str()),
+                        Some("url"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_title",
+                        bundle.title.as_deref().is_some(),
+                        "media_title_observed",
+                        Some("media__extract_multimodal_evidence.bundle"),
+                        bundle.title.as_deref(),
+                        Some("text"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_duration_seconds",
+                        bundle.duration_seconds.unwrap_or_default() > 0,
+                        "media_duration_observed",
+                        Some("media__extract_multimodal_evidence.bundle"),
+                        duration_value.as_deref(),
+                        Some("seconds"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "selected_source_url",
+                        true,
+                        "media_canonical_url_selected",
+                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some(bundle.canonical_url.as_str()),
+                        Some("url"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "selected_source_total",
+                        true,
+                        "media_selected_source_total_observed",
+                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("1"),
+                        Some("scalar"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "selected_source_distinct_domains",
+                        true,
+                        "media_selected_source_distinct_domains_observed",
+                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("1"),
+                        Some("scalar"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "selected_source_quality_floor",
+                        true,
+                        "media_selected_source_quality_floor_met",
+                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("selected_total=1;distinct_domains=1"),
+                        Some("summary"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+                    emit_execution_contract_receipt_event_with_observation(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        "verification",
+                        "media_multimodal_evidence_available",
+                        true,
+                        "media_multimodal_postcondition_met",
+                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("true"),
+                        Some("bool"),
+                        None,
+                        Some(primary_provider_id.clone()),
+                        synthesized_payload_hash.clone(),
+                    );
+
+                    if let Some(transcript) = bundle.transcript.as_ref() {
+                        let transcript_char_count_value = transcript.transcript_char_count.to_string();
+                        let transcript_segment_count_value = transcript.segment_count.to_string();
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_transcript_char_count",
+                            transcript.transcript_char_count > 0,
+                            "media_transcript_chars_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(transcript_char_count_value.as_str()),
+                            Some("char_count"),
+                            None,
+                            Some(transcript.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_transcript_segment_count",
+                            transcript.segment_count > 0,
+                            "media_transcript_segments_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(transcript_segment_count_value.as_str()),
+                            Some("segment_count"),
+                            None,
+                            Some(transcript.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_transcript_source_kind",
+                            true,
+                            "media_transcript_source_kind_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(transcript.transcript_source_kind.as_str()),
+                            Some("enum"),
+                            None,
+                            Some(transcript.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_transcript_language",
+                            true,
+                            "media_transcript_language_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(transcript.transcript_language.as_str()),
+                            Some("language"),
+                            None,
+                            Some(transcript.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_transcript_available",
+                            true,
+                            "media_transcript_postcondition_met",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("true"),
+                            Some("bool"),
+                            None,
+                            Some(transcript.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                    }
+                    if let Some(visual) = bundle.visual.as_ref() {
+                        let visual_frame_count_value = visual.frame_count.to_string();
+                        let visual_char_count_value = visual.visual_char_count.to_string();
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_visual_frame_count",
+                            visual.frame_count > 0,
+                            "media_visual_frames_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(visual_frame_count_value.as_str()),
+                            Some("frame_count"),
+                            None,
+                            Some(visual.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_visual_char_count",
+                            visual.visual_char_count > 0,
+                            "media_visual_chars_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(visual_char_count_value.as_str()),
+                            Some("char_count"),
+                            None,
+                            Some(visual.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_visual_hash",
+                            !visual.visual_hash.trim().is_empty(),
+                            "media_visual_hash_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(visual.visual_hash.as_str()),
+                            Some("sha256"),
+                            None,
+                            Some(visual.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_visual_evidence_available",
+                            true,
+                            "media_visual_postcondition_met",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("true"),
+                            Some("bool"),
+                            None,
+                            Some(visual.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                    }
+                    verification_checks.push(format!(
+                        "media_requested_language={}",
+                        language.as_deref().unwrap_or("en")
+                    ));
+                }
+            }
+        }
         AgentTool::SysInstallPackage { package, .. } => {
             if *success && command_scope {
                 let summary = history_entry
@@ -641,4 +1402,12 @@ pub(super) async fn apply_tool_outcome_and_followups(
         verification_checks,
     )?;
     Ok(())
+}
+
+fn parse_media_transcript_bundle(raw: &str) -> Option<ioi_types::app::agentic::MediaTranscriptBundle> {
+    serde_json::from_str(raw).ok()
+}
+
+fn parse_media_multimodal_bundle(raw: &str) -> Option<ioi_types::app::agentic::MediaMultimodalBundle> {
+    serde_json::from_str(raw).ok()
 }

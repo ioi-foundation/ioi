@@ -1,3 +1,4 @@
+{
     // Clipboard (Tier-1 deterministic primitive)
     let copy_params = json!({
         "type": "object",
@@ -22,3 +23,4 @@
         description: "Read text from the system clipboard (Paste).".to_string(),
         parameters: paste_params.to_string(),
     });
+}

@@ -17,6 +17,9 @@ pub mod knowledge;
 /// Market definitions for assets, manifests, and licenses.
 pub mod market;
 
+/// Typed transcript evidence bundles for remote media URLs.
+pub mod media;
+
 /// Security policy definitions for the Agency Firewall.
 pub mod security;
 
@@ -30,6 +33,7 @@ pub mod web;
 pub use execution::*;
 pub use knowledge::*;
 pub use market::*;
+pub use media::*;
 pub use security::*;
 pub use tools::*;
 pub use web::*;

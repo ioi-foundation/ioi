@@ -1,3 +1,4 @@
+{
     // OpenInterpreter-style shell continuity (persistent session).
     let sys_session_params = json!({
         "type": "object",
@@ -51,3 +52,4 @@
             .to_string(),
         parameters: sys_change_dir_params.to_string(),
     });
+}

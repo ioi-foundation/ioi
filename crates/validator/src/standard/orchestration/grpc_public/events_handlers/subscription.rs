@@ -1,3 +1,30 @@
+impl<CS, ST, CE, V> PublicApiImpl<CS, ST, CE, V>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    CE: ioi_api::consensus::ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: ioi_api::state::Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+{
     pub(super) async fn handle_subscribe_events(
         &self,
         _request: Request<SubscribeEventsRequest>,
@@ -76,3 +103,4 @@
 
         Ok(Response::new(ReceiverStream::new(rx)))
     }
+}

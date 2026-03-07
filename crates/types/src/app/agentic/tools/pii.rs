@@ -14,6 +14,10 @@ pub enum PiiEgressField {
     WebSearchUrl,
     /// Destination URL for `web__read`.
     WebReadUrl,
+    /// Destination URL for `media__extract_transcript`.
+    MediaExtractTranscriptUrl,
+    /// Destination URL for `media__extract_multimodal_evidence`.
+    MediaExtractMultimodalEvidenceUrl,
     /// Destination URL for `net__fetch`.
     NetFetchUrl,
     /// Free-form text payload for `browser__type`.
@@ -72,6 +76,18 @@ impl AgentTool {
                 supports_transform: false,
                 risk_surface: PiiEgressRiskSurface::Egress,
             }],
+            AgentTool::MediaExtractTranscript { .. } => vec![PiiEgressSpec {
+                field: PiiEgressField::MediaExtractTranscriptUrl,
+                target: PiiTarget::Action(ActionTarget::WebRetrieve),
+                supports_transform: false,
+                risk_surface: PiiEgressRiskSurface::Egress,
+            }],
+            AgentTool::MediaExtractMultimodalEvidence { .. } => vec![PiiEgressSpec {
+                field: PiiEgressField::MediaExtractMultimodalEvidenceUrl,
+                target: PiiTarget::Action(ActionTarget::WebRetrieve),
+                supports_transform: false,
+                risk_surface: PiiEgressRiskSurface::Egress,
+            }],
             AgentTool::NetFetch { .. } => vec![PiiEgressSpec {
                 field: PiiEgressField::NetFetchUrl,
                 target: PiiTarget::Action(ActionTarget::NetFetch),
@@ -113,6 +129,14 @@ impl AgentTool {
             (AgentTool::BrowserNavigate { url }, PiiEgressField::BrowserNavigateUrl) => Some(url),
             (AgentTool::WebSearch { url, .. }, PiiEgressField::WebSearchUrl) => url.as_mut(),
             (AgentTool::WebRead { url, .. }, PiiEgressField::WebReadUrl) => Some(url),
+            (
+                AgentTool::MediaExtractTranscript { url, .. },
+                PiiEgressField::MediaExtractTranscriptUrl,
+            ) => Some(url),
+            (
+                AgentTool::MediaExtractMultimodalEvidence { url, .. },
+                PiiEgressField::MediaExtractMultimodalEvidenceUrl,
+            ) => Some(url),
             (AgentTool::NetFetch { url, .. }, PiiEgressField::NetFetchUrl) => Some(url),
             (AgentTool::BrowserType { text, .. }, PiiEgressField::BrowserTypeText) => Some(text),
             (

@@ -1,3 +1,4 @@
+{
     // Browser Interaction (CONDITIONAL)
     // Follow-up browser tools are exposed in DOM headless flows and when a browser
     // window is active (including visual tiers) to prevent navigate-only loops.
@@ -300,3 +301,4 @@
             });
         }
     }
+}

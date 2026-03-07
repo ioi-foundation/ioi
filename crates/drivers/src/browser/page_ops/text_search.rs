@@ -1,3 +1,4 @@
+impl BrowserDriver {
     pub async fn find_text(
         &self,
         query: &str,
@@ -121,3 +122,4 @@
             first_snippet: result.first_snippet,
         })
     }
+}

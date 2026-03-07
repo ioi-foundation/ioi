@@ -182,6 +182,14 @@ const TOP_MEMORY_APPS_CASE_ID: &str =
 const TOP_MEMORY_APPS_FIXTURE_MODE: &str = "top_memory_apps_fixture_v1";
 const TOP_MEMORY_APPS_FIXTURE_PROBE_SOURCE: &str = "harness.top_memory_apps_fixture";
 const TOP_MEMORY_APPS_PROBE_SCRIPT_NAME: &str = "top_memory_apps_probe";
+const MEDIA_TRANSCRIPT_SUMMARY_CASE_ID: &str =
+    "summarize_the_key_points_from_this_45_minute_youtube_video";
+const MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_MODE: &str = "media_multimodal_tool_home_fixture_v1";
+const MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE: &str =
+    "harness.media_multimodal_summary_fixture";
+const MEDIA_TRANSCRIPT_SUMMARY_TOOL_HOME_ENV_KEY: &str = "IOI_MEDIA_TOOL_HOME";
+const MEDIA_TRANSCRIPT_SUMMARY_EXPECTED_URL: &str =
+    "https://www.youtube.com/watch?v=9Tm2c6NJH4Y";
 const SHUTDOWN_SCHEDULE_CASE_ID: &str = "schedule_my_computer_to_shut_down_at_11_pm_tonight";
 const SHUTDOWN_SCHEDULE_FIXTURE_MODE: &str = "shutdown_schedule_fixture_v1";
 const SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE: &str = "harness.shutdown_schedule_fixture";
@@ -388,6 +396,8 @@ fn collect_unique_names(values: Vec<String>) -> Vec<String> {
 #[derive(Debug, Deserialize)]
 struct ProviderCandidateReceiptPayload {
     provider_id: String,
+    #[serde(default)]
+    modality: Option<String>,
     source_count: u32,
     selected: bool,
     success: bool,
@@ -411,6 +421,7 @@ fn derive_provider_candidates(
         .filter_map(|payload| serde_json::from_str::<ProviderCandidateReceiptPayload>(payload).ok())
         .map(|payload| super::types::WebProviderCandidateObservation {
             provider_id: payload.provider_id,
+            modality: payload.modality,
             source_count: payload.source_count as usize,
             selected: payload.selected,
             success: payload.success,

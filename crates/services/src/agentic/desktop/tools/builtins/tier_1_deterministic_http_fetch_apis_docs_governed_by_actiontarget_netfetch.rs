@@ -1,3 +1,4 @@
+{
     // Tier-1 deterministic HTTP fetch (APIs/docs) governed by ActionTarget::NetFetch.
     if is_tool_allowed_for_resolution(resolved_intent, "net__fetch") {
         let params = json!({
@@ -14,3 +15,4 @@
             parameters: params.to_string(),
         });
     }
+}

@@ -1,3 +1,4 @@
+impl BrowserDriver {
     pub async fn dropdown_options(
         &self,
         selector: &str,
@@ -352,3 +353,4 @@
             label: result.label.unwrap_or_default(),
         })
     }
+}

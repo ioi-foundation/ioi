@@ -349,7 +349,11 @@ fn classify_domain(tool: &AgentTool) -> Option<RrsaDomain> {
         | AgentTool::FsCreateDirectory { .. }
         | AgentTool::FsCreateZip { .. } => Some(RrsaDomain::Filesystem),
 
-        AgentTool::NetFetch { .. } | AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } => {
+        AgentTool::NetFetch { .. }
+        | AgentTool::WebSearch { .. }
+        | AgentTool::WebRead { .. }
+        | AgentTool::MediaExtractTranscript { .. }
+        | AgentTool::MediaExtractMultimodalEvidence { .. } => {
             Some(RrsaDomain::Network)
         }
 
