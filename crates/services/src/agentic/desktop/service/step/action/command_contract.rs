@@ -77,24 +77,7 @@ pub use environment::{
 };
 pub use history::{append_command_history_entry, command_history_entry, command_history_exit_code};
 
-pub fn capability_route_label(tool: &AgentTool) -> Option<&'static str> {
-    match tool {
-        AgentTool::SysInstallPackage { .. } => Some("enablement_request"),
-        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => Some("script_backend"),
-        _ => match tool.target() {
-            ActionTarget::WindowFocus
-            | ActionTarget::ClipboardWrite
-            | ActionTarget::ClipboardRead
-            | ActionTarget::BrowserInteract
-            | ActionTarget::BrowserInspect
-            | ActionTarget::GuiClick
-            | ActionTarget::GuiType
-            | ActionTarget::GuiScroll
-            | ActionTarget::GuiInspect => Some("native_integration"),
-            _ => None,
-        },
-    }
-}
+include!("command_contract/contract_resolution.rs");
 
 pub fn is_command_execution_provider_tool(tool: &AgentTool) -> bool {
     matches!(
@@ -102,83 +85,6 @@ pub fn is_command_execution_provider_tool(tool: &AgentTool) -> bool {
         AgentTool::SysExec { .. }
             | AgentTool::SysExecSession { .. }
             | AgentTool::SysInstallPackage { .. }
-    )
-}
-
-pub fn extract_error_class_token(error: Option<&str>) -> Option<&str> {
-    let raw = error?;
-    let marker = "ERROR_CLASS=";
-    let start = raw.find(marker)?;
-    raw[start + marker.len()..]
-        .split_whitespace()
-        .next()
-        .filter(|token| !token.trim().is_empty())
-}
-
-pub fn is_cec_terminal_error(error: Option<&str>) -> bool {
-    matches!(
-        extract_error_class_token(error),
-        Some(
-            "ExecutionContractViolation"
-                | "DiscoveryMissing"
-                | "SynthesisFailed"
-                | "ExecutionFailedTerminal"
-                | "VerificationMissing"
-                | "PostconditionFailed"
-        )
-    )
-}
-
-pub fn execution_contract_violation_error(missing_keys: &str) -> String {
-    let mut missing_receipts = Vec::<String>::new();
-    let mut missing_postconditions = Vec::<String>::new();
-    for token in missing_keys
-        .split(',')
-        .map(|token| token.trim())
-        .filter(|token| !token.is_empty())
-    {
-        if let Some(rest) = token.strip_prefix("receipt::") {
-            missing_receipts.push(rest.trim_end_matches("=true").to_string());
-        } else if let Some(rest) = token.strip_prefix("postcondition::") {
-            missing_postconditions.push(rest.trim_end_matches("=true").to_string());
-        }
-    }
-
-    let (error_class, failed_stage) = if missing_receipts
-        .iter()
-        .any(|receipt| receipt == "host_discovery")
-    {
-        ("DiscoveryMissing", "discovery")
-    } else if missing_receipts
-        .iter()
-        .any(|receipt| receipt == "provider_selection" || receipt == "provider_selection_commit")
-    {
-        ("SynthesisFailed", "provider_selection")
-    } else if missing_receipts
-        .iter()
-        .any(|receipt| receipt == "verification" || receipt == "verification_commit")
-    {
-        ("VerificationMissing", "verification")
-    } else if !missing_postconditions.is_empty() {
-        ("PostconditionFailed", "completion_gate")
-    } else {
-        ("ExecutionContractViolation", "completion_gate")
-    };
-
-    let missing_receipts_str = if missing_receipts.is_empty() {
-        "none".to_string()
-    } else {
-        missing_receipts.join("|")
-    };
-    let missing_postconditions_str = if missing_postconditions.is_empty() {
-        "none".to_string()
-    } else {
-        missing_postconditions.join("|")
-    };
-
-    format!(
-        "ERROR_CLASS={} base_error_class=ExecutionContractViolation Execution contract unmet. failed_stage={} missing_receipts={} missing_postconditions={} missing_keys={}",
-        error_class, failed_stage, missing_receipts_str, missing_postconditions_str, missing_keys
     )
 }
 
@@ -251,250 +157,7 @@ pub fn upsert_structured_field(summary: &str, marker: &str, value: &str) -> Stri
     lines.join("\n")
 }
 
-pub fn compose_terminal_chat_reply(summary: &str) -> TerminalReplyComposerOutcome {
-    let trimmed = summary.trim();
-    if trimmed.is_empty() {
-        return TerminalReplyComposerOutcome {
-            output: summary.to_string(),
-            applied: false,
-            template_id: "passthrough",
-            validator_passed: true,
-            fallback_reason: None,
-        };
-    }
-
-    let pdf_paths = extract_pdf_paths_for_composer(trimmed);
-    if pdf_paths.len() < 2 {
-        return TerminalReplyComposerOutcome {
-            output: summary.to_string(),
-            applied: false,
-            template_id: "passthrough",
-            validator_passed: true,
-            fallback_reason: None,
-        };
-    }
-
-    let summary_len = trimmed.chars().count().max(1);
-    let path_chars: usize = pdf_paths.iter().map(|path| path.chars().count()).sum();
-    if path_chars * 100 < summary_len * 35 {
-        return TerminalReplyComposerOutcome {
-            output: summary.to_string(),
-            applied: false,
-            template_id: "passthrough",
-            validator_passed: true,
-            fallback_reason: None,
-        };
-    }
-
-    let run_timestamp = extract_structured_field(trimmed, RUN_TIMESTAMP_UTC_MARKER);
-    let target_utc = extract_structured_field(trimmed, TARGET_UTC_MARKER);
-    let mechanism = extract_structured_field(trimmed, MECHANISM_MARKER);
-    let template_choice = deterministic_template_choice(trimmed);
-    let template_id = if template_choice == 0 {
-        "markdown_paths"
-    } else {
-        "markdown_paths_with_count"
-    };
-
-    let mut lines = Vec::<String>::new();
-    if template_choice == 1 {
-        lines.push(format!("Found {} matching PDF files:", pdf_paths.len()));
-    } else {
-        lines.push("Matching PDF files:".to_string());
-    }
-    lines.push(String::new());
-    for path in &pdf_paths {
-        lines.push(format!("- `{}`", path));
-    }
-
-    let mut metadata_lines = Vec::<String>::new();
-    if let Some(mechanism) = mechanism.as_deref() {
-        metadata_lines.push(format!("{} {}", MECHANISM_MARKER, mechanism));
-    }
-    if let Some(run_timestamp) = run_timestamp.as_deref() {
-        metadata_lines.push(format!("{} {}", RUN_TIMESTAMP_UTC_MARKER, run_timestamp));
-    }
-    if let Some(target_utc) = target_utc.as_deref() {
-        metadata_lines.push(format!("{} {}", TARGET_UTC_MARKER, target_utc));
-    }
-    if !metadata_lines.is_empty() {
-        lines.push(String::new());
-    }
-    lines.extend(metadata_lines);
-
-    let candidate = lines.join("\n").trim().to_string();
-    if candidate.is_empty() {
-        return TerminalReplyComposerOutcome {
-            output: summary.to_string(),
-            applied: false,
-            template_id,
-            validator_passed: false,
-            fallback_reason: Some("empty_candidate"),
-        };
-    }
-
-    if !composed_reply_is_valid(
-        &candidate,
-        &pdf_paths,
-        run_timestamp.as_deref(),
-        target_utc.as_deref(),
-        mechanism.as_deref(),
-    ) {
-        return TerminalReplyComposerOutcome {
-            output: summary.to_string(),
-            applied: false,
-            template_id,
-            validator_passed: false,
-            fallback_reason: Some("validator_failed"),
-        };
-    }
-
-    TerminalReplyComposerOutcome {
-        output: candidate,
-        applied: true,
-        template_id,
-        validator_passed: true,
-        fallback_reason: None,
-    }
-}
-
-fn deterministic_template_choice(summary: &str) -> u8 {
-    sha256(summary.as_bytes())
-        .ok()
-        .map(|digest| digest.as_ref().first().copied().unwrap_or(0) % 2)
-        .unwrap_or(0)
-}
-
-fn composed_reply_is_valid(
-    candidate: &str,
-    pdf_paths: &[String],
-    run_timestamp: Option<&str>,
-    target_utc: Option<&str>,
-    mechanism: Option<&str>,
-) -> bool {
-    if candidate.trim().is_empty() {
-        return false;
-    }
-
-    let candidate_paths = extract_pdf_paths_for_composer(candidate);
-    if !pdf_paths.iter().all(|path| {
-        candidate_paths
-            .iter()
-            .any(|candidate_path| candidate_path.eq_ignore_ascii_case(path))
-    }) {
-        return false;
-    }
-
-    if let Some(run_timestamp) = run_timestamp {
-        if extract_structured_field(candidate, RUN_TIMESTAMP_UTC_MARKER).as_deref()
-            != Some(run_timestamp)
-        {
-            return false;
-        }
-    }
-    if let Some(target_utc) = target_utc {
-        if extract_structured_field(candidate, TARGET_UTC_MARKER).as_deref() != Some(target_utc) {
-            return false;
-        }
-    }
-    if let Some(mechanism) = mechanism {
-        if extract_structured_field(candidate, MECHANISM_MARKER).as_deref() != Some(mechanism) {
-            return false;
-        }
-    }
-    true
-}
-
-fn extract_pdf_paths_for_composer(summary: &str) -> Vec<String> {
-    let lower = summary.to_ascii_lowercase();
-    let bytes = summary.as_bytes();
-    let mut paths = Vec::<String>::new();
-    let mut offset = 0usize;
-
-    while offset < lower.len() {
-        let Some(found) = lower[offset..].find(".pdf") else {
-            break;
-        };
-        let end = offset + found + 4;
-        let mut start = find_preferred_pdf_path_start(summary, end).unwrap_or(offset + found);
-        if start == offset + found {
-            while start > 0 {
-                if bytes.get(start) == Some(&b'/')
-                    && start >= 4
-                    && lower[start - 4..start].eq_ignore_ascii_case(".pdf")
-                {
-                    break;
-                }
-                let prev = bytes[start - 1] as char;
-                if !is_path_token_char(prev) {
-                    break;
-                }
-                start -= 1;
-            }
-        }
-        let candidate = normalize_composer_path(&summary[start..end]);
-        if is_valid_composer_pdf_path(&candidate)
-            && !paths
-                .iter()
-                .any(|existing| existing.eq_ignore_ascii_case(&candidate))
-        {
-            paths.push(candidate);
-        }
-        offset = end;
-    }
-
-    paths
-}
-
-fn find_preferred_pdf_path_start(summary: &str, end: usize) -> Option<usize> {
-    let prefix = &summary[..end];
-    let mut best: Option<usize> = None;
-    for marker in ["/home/", "/Users/", "~/"] {
-        for (idx, _) in prefix.match_indices(marker) {
-            if !is_path_start_boundary(prefix, idx) {
-                continue;
-            }
-            if best.map(|current| idx > current).unwrap_or(true) {
-                best = Some(idx);
-            }
-        }
-    }
-    best
-}
-
-fn is_path_start_boundary(prefix: &str, idx: usize) -> bool {
-    if idx == 0 {
-        return true;
-    }
-    if prefix[..idx].to_ascii_lowercase().ends_with(".pdf") {
-        return true;
-    }
-    let prev = prefix.as_bytes()[idx - 1] as char;
-    prev.is_ascii_whitespace()
-        || matches!(prev, '"' | '\'' | '`' | '(' | '[' | '{' | ',' | ';' | ':')
-}
-
-fn normalize_composer_path(path: &str) -> String {
-    path.trim()
-        .trim_matches(|ch: char| {
-            matches!(
-                ch,
-                '"' | '\'' | '`' | '(' | ')' | '[' | ']' | '{' | '}' | ',' | ';' | '<' | '>'
-            )
-        })
-        .to_string()
-}
-
-fn is_valid_composer_pdf_path(path: &str) -> bool {
-    if path.is_empty() {
-        return false;
-    }
-    let lower = path.to_ascii_lowercase();
-    if !(lower.starts_with('/') || lower.starts_with("~/")) {
-        return false;
-    }
-    lower.ends_with(".pdf")
-}
+include!("command_contract/reply_composition.rs");
 
 fn is_path_token_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || matches!(ch, '/' | '_' | '-' | '.' | ':')
@@ -556,13 +219,6 @@ fn parse_positive_shell_integer(token: &str) -> Option<i64> {
         return None;
     }
     digits.parse::<i64>().ok().filter(|seconds| *seconds > 0)
-}
-
-pub fn requires_timer_notification_contract(agent_state: &AgentState) -> bool {
-    has_execution_receipt(
-        &agent_state.tool_execution_log,
-        TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT,
-    ) || latest_timer_backend_history_entry(agent_state).is_some()
 }
 
 pub fn render_command_preview(command: &str, args: &[String]) -> String {
@@ -633,14 +289,6 @@ pub fn synthesize_allowlisted_timer_notification_tool(tool: &AgentTool) -> Optio
     }
 }
 
-pub fn is_system_clock_read_contract_intent(agent_state: &AgentState) -> bool {
-    agent_state
-        .resolved_intent
-        .as_ref()
-        .map(|resolved| resolved.intent_id == "system.clock.read")
-        .unwrap_or(false)
-}
-
 fn command_preview_tokens(command_preview: &str) -> Vec<String> {
     command_preview
         .to_ascii_lowercase()
@@ -648,29 +296,6 @@ fn command_preview_tokens(command_preview: &str) -> Vec<String> {
         .filter(|token| !token.trim().is_empty())
         .map(|token| token.to_string())
         .collect()
-}
-
-pub fn sys_exec_satisfies_clock_read_contract(tool: &AgentTool) -> bool {
-    let Some(command_preview) = sys_exec_command_preview(tool) else {
-        return false;
-    };
-    let tokens = command_preview_tokens(&command_preview);
-    if tokens.is_empty() {
-        return false;
-    }
-    let has_clock_token = tokens.iter().any(|token| {
-        CLOCK_PAYLOAD_COMMAND_TOKENS
-            .iter()
-            .any(|allowed| token == allowed)
-    });
-    if !has_clock_token {
-        return false;
-    }
-    !tokens.iter().any(|token| {
-        CLOCK_PAYLOAD_NETWORK_TOKENS
-            .iter()
-            .any(|blocked| token == blocked)
-    })
 }
 
 fn command_arms_notification_path(command_preview: &str) -> bool {
@@ -740,17 +365,6 @@ pub fn record_provider_selection_receipts(
     verification_checks.push(receipt_marker(PROVIDER_SELECTION_COMMIT_RECEIPT));
     verification_checks.push(format!("provider_selection_route={}", route_label));
     verification_checks.push(format!("provider_selection_commit={}", commit));
-}
-
-pub fn record_timer_notification_contract_requirement(
-    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
-    verification_checks: &mut Vec<String>,
-) {
-    mark_execution_receipt(
-        tool_execution_log,
-        TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT,
-    );
-    verification_checks.push(receipt_marker(TIMER_NOTIFICATION_CONTRACT_REQUIRED_RECEIPT));
 }
 
 pub fn record_verification_receipts(
@@ -864,30 +478,6 @@ fn append_unique_marker(values: &mut Vec<String>, marker: &str) {
     }
 }
 
-fn canonical_contract_markers(markers: &[String]) -> Vec<String> {
-    let mut normalized = Vec::<String>::new();
-    for marker in markers.iter().map(|value| value.trim()) {
-        if marker.is_empty() {
-            continue;
-        }
-        append_unique_marker(&mut normalized, marker);
-    }
-    normalized
-}
-
-fn required_markers_from_matrix(
-    intent_id: &str,
-    matrix: &[IntentMatrixEntry],
-) -> Option<(Vec<String>, Vec<String>)> {
-    let entry = matrix
-        .iter()
-        .find(|entry| entry.intent_id.trim() == intent_id.trim())?;
-    Some((
-        canonical_contract_markers(&entry.required_receipts),
-        canonical_contract_markers(&entry.required_postconditions),
-    ))
-}
-
 fn rrsa_required_receipts(agent_state: &AgentState) -> Vec<String> {
     let mut required = Vec::<String>::new();
     let Some(domain_raw) = execution_receipt_value(&agent_state.tool_execution_log, "rrsa_domain")
@@ -928,47 +518,6 @@ fn rrsa_required_receipts(agent_state: &AgentState) -> Vec<String> {
     required
 }
 
-fn resolved_contract_requirements(
-    agent_state: &AgentState,
-    matrix: Option<&[IntentMatrixEntry]>,
-) -> (Vec<String>, Vec<String>) {
-    let command_scope = agent_state
-        .resolved_intent
-        .as_ref()
-        .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
-        .unwrap_or(false);
-    let resolved_from_matrix = agent_state.resolved_intent.as_ref().and_then(|resolved| {
-        matrix.and_then(|entries| required_markers_from_matrix(&resolved.intent_id, entries))
-    });
-
-    let mut required_receipts = resolved_from_matrix
-        .as_ref()
-        .map(|(receipts, _)| receipts.clone())
-        .unwrap_or_default();
-    let mut required_postconditions = resolved_from_matrix
-        .map(|(_, postconditions)| postconditions)
-        .unwrap_or_default();
-
-    if required_receipts.is_empty() && required_postconditions.is_empty() && command_scope {
-        append_unique_marker(&mut required_receipts, "host_discovery");
-        for receipt in COMMAND_SCOPE_REQUIRED_RECEIPTS {
-            append_unique_marker(&mut required_receipts, receipt);
-        }
-        for postcondition in COMMAND_SCOPE_REQUIRED_POSTCONDITIONS {
-            append_unique_marker(&mut required_postconditions, postcondition);
-        }
-    }
-
-    for rrsa_receipt in rrsa_required_receipts(agent_state) {
-        append_unique_marker(&mut required_receipts, &rrsa_receipt);
-    }
-    if agent_state.pending_search_completion.is_some() {
-        append_unique_marker(&mut required_receipts, WEB_PIPELINE_TERMINAL_RECEIPT);
-    }
-
-    (required_receipts, required_postconditions)
-}
-
 fn receipt_requires_commit_hash(receipt: &str) -> bool {
     matches!(
         receipt,
@@ -980,188 +529,6 @@ fn push_unique_missing(missing: &mut Vec<String>, marker: String) {
     if !missing.iter().any(|existing| existing == &marker) {
         missing.push(marker);
     }
-}
-
-fn collect_missing_contract_markers(
-    agent_state: &AgentState,
-    required_receipts: &[String],
-    required_postconditions: &[String],
-) -> Vec<String> {
-    let mut missing = Vec::<String>::new();
-    for receipt in required_receipts {
-        if !has_execution_receipt(&agent_state.tool_execution_log, receipt) {
-            push_unique_missing(&mut missing, receipt_marker(receipt));
-            continue;
-        }
-        let receipt_value = execution_receipt_value(&agent_state.tool_execution_log, receipt)
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-        if receipt_value.is_empty() {
-            push_unique_missing(&mut missing, receipt_marker(receipt));
-            continue;
-        }
-        if receipt_requires_commit_hash(receipt) && !receipt_value.starts_with("sha256:") {
-            push_unique_missing(&mut missing, receipt_marker(receipt));
-        }
-    }
-
-    for postcondition in required_postconditions {
-        if !has_execution_postcondition(&agent_state.tool_execution_log, postcondition) {
-            push_unique_missing(&mut missing, postcondition_marker(postcondition));
-        }
-    }
-
-    if is_system_clock_read_contract_intent(agent_state)
-        && !has_execution_postcondition(
-            &agent_state.tool_execution_log,
-            CLOCK_TIMESTAMP_POSTCONDITION,
-        )
-    {
-        push_unique_missing(
-            &mut missing,
-            postcondition_marker(CLOCK_TIMESTAMP_POSTCONDITION),
-        );
-    }
-    if requires_timer_notification_contract(agent_state) {
-        if !has_execution_postcondition(
-            &agent_state.tool_execution_log,
-            TIMER_SLEEP_BACKEND_POSTCONDITION,
-        ) {
-            push_unique_missing(
-                &mut missing,
-                postcondition_marker(TIMER_SLEEP_BACKEND_POSTCONDITION),
-            );
-        }
-        if has_execution_postcondition(
-            &agent_state.tool_execution_log,
-            TIMER_SLEEP_BACKEND_POSTCONDITION,
-        ) && !has_execution_postcondition(
-            &agent_state.tool_execution_log,
-            TIMER_NOTIFICATION_PATH_POSTCONDITION,
-        ) {
-            push_unique_missing(
-                &mut missing,
-                postcondition_marker(TIMER_NOTIFICATION_PATH_POSTCONDITION),
-            );
-        }
-    }
-
-    missing
-}
-
-pub fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<String> {
-    let default_matrix = IntentRoutingPolicy::default().matrix;
-    let (required_receipts, required_postconditions) =
-        resolved_contract_requirements(agent_state, Some(&default_matrix));
-    collect_missing_contract_markers(agent_state, &required_receipts, &required_postconditions)
-}
-
-pub fn missing_execution_contract_markers_with_rules(
-    agent_state: &AgentState,
-    rules: &ActionRules,
-) -> Vec<String> {
-    let (required_receipts, required_postconditions) = resolved_contract_requirements(
-        agent_state,
-        Some(&rules.ontology_policy.intent_routing.matrix),
-    );
-    collect_missing_contract_markers(agent_state, &required_receipts, &required_postconditions)
-}
-
-pub fn enrich_command_scope_summary(summary: &str, agent_state: &AgentState) -> String {
-    let normalized_summary = normalize_runtime_home_paths(summary);
-    let command_scope = agent_state
-        .resolved_intent
-        .as_ref()
-        .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
-        .unwrap_or(false);
-    if !command_scope {
-        return normalized_summary;
-    }
-
-    let mut enriched = normalized_summary;
-    let timer_contract_active = requires_timer_notification_contract(agent_state);
-    let run_timestamp_utc = if timer_contract_active {
-        latest_timer_backend_history_entry(agent_state)
-            .or_else(|| agent_state.command_history.back())
-            .and_then(|entry| format_utc_rfc3339(entry.timestamp_ms))
-    } else {
-        agent_state
-            .command_history
-            .back()
-            .and_then(|entry| format_utc_rfc3339(entry.timestamp_ms))
-    };
-    let Some(run_timestamp_utc) = run_timestamp_utc else {
-        return enriched;
-    };
-    if timer_contract_active {
-        let run_timestamp = parse_utc_rfc3339(&run_timestamp_utc);
-        let target_timestamp = extract_structured_field(&enriched, TARGET_UTC_MARKER)
-            .as_deref()
-            .and_then(parse_utc_rfc3339);
-        if target_timestamp
-            .zip(run_timestamp)
-            .map(|(target, run)| target < run)
-            .unwrap_or(true)
-        {
-            if let Some(derived_target_utc) = derived_target_utc_from_history(agent_state) {
-                enriched =
-                    upsert_structured_field(&enriched, TARGET_UTC_MARKER, &derived_target_utc);
-            }
-        }
-    }
-    if extract_structured_field(&enriched, RUN_TIMESTAMP_UTC_MARKER).is_none() {
-        enriched = upsert_structured_field(&enriched, RUN_TIMESTAMP_UTC_MARKER, &run_timestamp_utc);
-    }
-    enriched
-}
-
-fn normalize_runtime_home_paths(summary: &str) -> String {
-    let Some(runtime_home_dir) = runtime_home_directory() else {
-        return summary.to_string();
-    };
-    let runtime_home_dir = runtime_home_dir.trim_end_matches('/').to_string();
-    if runtime_home_dir.is_empty() {
-        return summary.to_string();
-    }
-
-    const RUNTIME_HOME_PLACEHOLDER: &str = "__IOI_RUNTIME_HOME__";
-    let mut normalized = summary.replace(&runtime_home_dir, RUNTIME_HOME_PLACEHOLDER);
-    normalized = normalized.replace("~/", &format!("{RUNTIME_HOME_PLACEHOLDER}/"));
-
-    // Guard against synthesized "/home/<known-user-dir>/..." paths that should stay
-    // scoped under the runtime-owned home root in fixture and sandboxed environments.
-    for segment in [
-        "Desktop",
-        "Documents",
-        "Downloads",
-        "Music",
-        "Pictures",
-        "Videos",
-        "desktop",
-        "documents",
-        "downloads",
-        "music",
-        "pictures",
-        "videos",
-    ] {
-        let escaped_segment = regex::escape(segment);
-        // Replace only rooted aliases (start/whitespace/punctuation), never when "/home/<dir>"
-        // appears inside an already-correct runtime path like "/tmp/.../home/<dir>".
-        let alias_pattern =
-            format!(r"(?P<prefix>^|[^\w./-])(?P<alias>/home/{escaped_segment})(?P<suffix>/|$|\s)");
-        let alias_re = Regex::new(&alias_pattern).expect("home alias regex should compile");
-        normalized = alias_re
-            .replace_all(&normalized, |captures: &regex::Captures<'_>| {
-                format!(
-                    "{}{}/{}{}",
-                    &captures["prefix"], RUNTIME_HOME_PLACEHOLDER, segment, &captures["suffix"]
-                )
-            })
-            .into_owned();
-    }
-
-    normalized.replace(RUNTIME_HOME_PLACEHOLDER, &runtime_home_dir)
 }
 
 #[cfg(test)]

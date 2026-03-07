@@ -25,6 +25,11 @@ packages/agent-ide/tsconfig.tsbuildinfo
 .output.txt
 MARATHON.md
 
+crates/cli/ioi-data/
+apps/autopilot/src/generated/
+apps/autopilot/src-tauri/gen/schemas/
+
+
 # Python cache/build artifacts
 __pycache__/
 *.pyc
