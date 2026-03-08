@@ -124,6 +124,174 @@ pub struct AgentMacro {
     pub fitness: f32,
 }
 
+/// Lifecycle state for an executable skill record.
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode,
+)]
+pub enum SkillLifecycleState {
+    /// Newly synthesized skill that has not yet cleared validation thresholds.
+    Candidate,
+    /// Skill that has demonstrated enough successful usage to be eligible at runtime.
+    Validated,
+    /// Skill that has cleared promotion benchmarks and can publish human-facing docs.
+    Promoted,
+    /// Skill that regressed below acceptable quality and should no longer be used.
+    Deprecated,
+}
+
+impl Default for SkillLifecycleState {
+    fn default() -> Self {
+        Self::Candidate
+    }
+}
+
+/// Provenance class for how a skill entered the system.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub enum SkillSourceType {
+    /// Skill synthesized from an observed successful agent trace.
+    Trace,
+    /// Skill synthesized specifically to recover from a failure trace.
+    Recovery,
+    /// Skill synthesized from parsed video evidence.
+    Video,
+    /// Skill synthesized from transcript-only evidence.
+    Transcript,
+    /// Skill synthesized from a structured web procedure.
+    WebProcedure,
+    /// Skill imported directly by a human or market package.
+    Imported,
+    /// Skill synthesized from an explicitly labeled human demonstration.
+    HumanDemonstration,
+}
+
+impl Default for SkillSourceType {
+    fn default() -> Self {
+        Self::Imported
+    }
+}
+
+/// Mutable benchmark snapshot used to decide whether a skill can be promoted.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
+pub struct SkillBenchmarkReport {
+    /// Number of sessions or benchmark runs contributing to this report.
+    pub sample_size: u32,
+    /// Success rate in basis points (0 - 10_000).
+    pub success_rate_bps: u32,
+    /// Fraction of runs requiring explicit user intervention, in basis points.
+    pub intervention_rate_bps: u32,
+    /// Fraction of runs that triggered policy incidents, in basis points.
+    pub policy_incident_rate_bps: u32,
+    /// Moving average of Labor Gas cost across the measured runs.
+    pub avg_cost: u64,
+    /// Moving average latency in milliseconds, if available.
+    pub avg_latency_ms: u64,
+    /// Whether the current report satisfies the promotion gate.
+    pub passed: bool,
+    /// Last block height used to refresh this report.
+    pub last_evaluated_height: u64,
+}
+
+/// Publication metadata for a generated human-facing skill document.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
+pub struct SkillPublicationInfo {
+    /// Version string for the deterministic doc generator.
+    pub generator_version: String,
+    /// Last wall-clock timestamp (ms) when the doc artifact was generated.
+    pub generated_at: u64,
+    /// Hash of the generated markdown artifact.
+    pub doc_hash: [u8; 32],
+    /// Relative path where the generated doc should live when exported.
+    pub relative_path: String,
+    /// Whether the current generated doc is known to be stale relative to the macro hash.
+    pub stale: bool,
+}
+
+/// Canonical mutable record for a learned executable skill.
+///
+/// The wrapped `AgentMacro` remains the executable source of truth for behavior.
+/// The surrounding record tracks lifecycle, provenance, evaluation, and publication state.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct SkillRecord {
+    /// Canonical hash of the serialized `AgentMacro`.
+    pub skill_hash: [u8; 32],
+    /// SCS frame id where the immutable archival macro payload is stored.
+    pub frame_id: u64,
+    /// Executable macro body used at runtime.
+    pub macro_body: AgentMacro,
+    /// Mutable lifecycle state.
+    #[serde(default)]
+    pub lifecycle_state: SkillLifecycleState,
+    /// Provenance class for how this skill entered the system.
+    #[serde(default)]
+    pub source_type: SkillSourceType,
+    /// Source session id, when the skill originated from a session.
+    pub source_session_id: Option<[u8; 32]>,
+    /// Canonical hash of normalized external evidence, when applicable.
+    pub source_evidence_hash: Option<[u8; 32]>,
+    /// Latest benchmark snapshot.
+    pub benchmark: Option<SkillBenchmarkReport>,
+    /// Publication metadata, populated after deterministic doc generation.
+    pub publication: Option<SkillPublicationInfo>,
+    /// Creation timestamp in ms.
+    pub created_at: u64,
+    /// Last update timestamp in ms.
+    pub updated_at: u64,
+}
+
+/// Aggregate skill catalog index used by UI/CLI clients that can only query exact keys.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
+pub struct SkillCatalogIndex {
+    /// Canonical skill hashes that belong to this catalog view.
+    pub skills: Vec<[u8; 32]>,
+}
+
+/// Human-facing, generated skill document derived from a promoted executable skill.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct PublishedSkillDoc {
+    /// Canonical hash of the executable macro this doc describes.
+    pub skill_hash: [u8; 32],
+    /// Stable display name, usually matching the tool name.
+    pub name: String,
+    /// Markdown body of the generated doc.
+    pub markdown: String,
+    /// Generator version used to create the doc.
+    pub generator_version: String,
+    /// Generation timestamp in ms.
+    pub generated_at: u64,
+    /// Provenance trace hash carried through from the macro.
+    pub source_trace_hash: [u8; 32],
+    /// Canonical hash of normalized external evidence, when applicable.
+    pub source_evidence_hash: Option<[u8; 32]>,
+    /// Lifecycle state of the source skill at generation time.
+    pub lifecycle_state: SkillLifecycleState,
+    /// Hash of the generated markdown bytes.
+    pub doc_hash: [u8; 32],
+    /// Relative export path for this generated doc.
+    pub relative_path: String,
+    /// Whether the doc is stale relative to the current promoted macro.
+    pub stale: bool,
+}
+
+/// Normalized external evidence that can be turned into a candidate executable skill.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct ExternalSkillEvidence {
+    /// Source class of the evidence.
+    #[serde(default)]
+    pub source_type: SkillSourceType,
+    /// Optional canonical source URI (e.g. YouTube URL, tutorial URL).
+    pub source_uri: Option<String>,
+    /// Optional human-friendly title.
+    pub title: Option<String>,
+    /// Deterministically normalized procedure text.
+    pub normalized_procedure: String,
+    /// Optional structured hints produced by an extractor.
+    pub structured_hints_json: Option<String>,
+    /// Session id associated with the extraction, if applicable.
+    pub source_session_id: Option<[u8; 32]>,
+    /// Source trace hash, if the evidence was derived from a prior trace.
+    pub source_trace_hash: Option<[u8; 32]>,
+}
+
 /// Tracks the longitudinal performance of a specific skill (Macro).
 /// Stored in state as `skills::stats::{skill_hash}`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Encode, Decode)]
@@ -149,6 +317,14 @@ impl SkillStats {
         // Laplace smoothing: (s + 1) / (n + 2)
         (s + 1.0) / (n + 2.0)
     }
+
+    /// Returns success rate in basis points (0 - 10_000).
+    pub fn success_rate_bps(&self) -> u32 {
+        if self.uses == 0 {
+            return 0;
+        }
+        ((self.successes as u64 * 10_000) / self.uses as u64) as u32
+    }
 }
 
 /// Defines the configuration for a single inference request, including tool availability.
@@ -172,8 +348,9 @@ pub struct InferenceOptions {
     pub max_tokens: u32,
 }
 
-/// A structured representation of an Agent Skill following the agentskills.io standard.
-/// This represents Procedural Memory (Know-How) stored in the Substrate.
+/// Legacy human-facing skill content following the agentskills.io-style schema.
+///
+/// Runtime execution should prefer `SkillRecord` + `AgentMacro`.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct AgentSkill {
     /// Unique identifier (e.g., "webapp-testing"). From YAML frontmatter.

@@ -10,12 +10,13 @@ use crate::agentic::desktop::service::step::queue::handle_web_search_result;
 
 pub(super) struct ToolOutcomeContext<'a, 's> {
     pub service: &'a DesktopAgentService,
-    pub _state: &'s mut dyn StateAccess,
+    pub state: &'s mut dyn StateAccess,
     pub agent_state: &'a mut AgentState,
     pub rules: &'a ActionRules,
     pub tool: &'a AgentTool,
     pub tool_args: &'a serde_json::Value,
     pub session_id: [u8; 32],
+    pub block_height: u64,
     pub block_timestamp_ns: u64,
     pub step_index: u32,
     pub resolved_intent_id: &'a str,
@@ -32,17 +33,31 @@ pub(super) struct ToolOutcomeContext<'a, 's> {
     pub command_probe_completed: &'a mut bool,
 }
 
+async fn crystallize_successful_session(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    agent_state: &AgentState,
+    session_id: [u8; 32],
+    block_height: u64,
+) {
+    evaluate_and_crystallize(service, state, agent_state, session_id).await;
+    let _ = service
+        .update_skill_reputation(state, session_id, true, block_height)
+        .await;
+}
+
 pub(super) async fn apply_tool_outcome_and_followups(
     ctx: ToolOutcomeContext<'_, '_>,
 ) -> Result<(), TransactionError> {
     let ToolOutcomeContext {
         service,
-        _state: _,
+        state,
         agent_state,
         rules,
         tool,
         tool_args,
         session_id,
+        block_height,
         block_timestamp_ns,
         step_index,
         resolved_intent_id,
@@ -96,7 +111,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     *terminal_chat_reply_output = Some(completed_result.clone());
                     verification_checks.push("terminal_chat_reply_ready=true".to_string());
                 }
-                evaluate_and_crystallize(service, agent_state, session_id, &completed_result).await;
+                crystallize_successful_session(
+                    service,
+                    state,
+                    agent_state,
+                    session_id,
+                    block_height,
+                )
+                .await;
                 emit_completion_gate_status_event(
                     service,
                     session_id,
@@ -168,7 +190,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     *history_entry = Some(summary.clone());
                     *action_output = Some(summary.clone());
                     *terminal_chat_reply_output = Some(summary.clone());
-                    evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
+                    crystallize_successful_session(
+                        service,
+                        state,
+                        agent_state,
+                        session_id,
+                        block_height,
+                    )
+                    .await;
                     emit_completion_gate_status_event(
                         service,
                         session_id,
@@ -218,7 +247,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 *is_lifecycle_action = true;
                 *action_output = Some(message.clone());
                 *terminal_chat_reply_output = Some(message.clone());
-                evaluate_and_crystallize(service, agent_state, session_id, &message).await;
+                crystallize_successful_session(
+                    service,
+                    state,
+                    agent_state,
+                    session_id,
+                    block_height,
+                )
+                .await;
                 emit_completion_gate_status_event(
                     service,
                     session_id,
@@ -248,15 +284,21 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 verification_checks.push("terminal_chat_reply_ready=true".to_string());
                 agent_state.execution_queue.clear();
                 agent_state.pending_search_completion = None;
+                crystallize_successful_session(
+                    service,
+                    state,
+                    agent_state,
+                    session_id,
+                    block_height,
+                )
+                .await;
                 log::info!(
                     "Auto-completed app-launch session {} after successful os__launch_app.",
                     hex::encode(&session_id[..4])
                 );
             }
         }
-        AgentTool::MediaExtractTranscript {
-            url, language, ..
-        } => {
+        AgentTool::MediaExtractTranscript { url, language, .. } => {
             if *success {
                 if let Some(bundle) = history_entry
                     .as_deref()
@@ -264,8 +306,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     .and_then(parse_media_transcript_bundle)
                 {
                     let provider_id = bundle.provider_id.clone();
-                    let duration_value =
-                        bundle.duration_seconds.map(|value| value.to_string());
+                    let duration_value = bundle.duration_seconds.map(|value| value.to_string());
                     let transcript_char_count_value = bundle.transcript_char_count.to_string();
                     let transcript_segment_count_value = bundle.segment_count.to_string();
                     let provider_candidates = if bundle.provider_candidates.is_empty() {
@@ -281,7 +322,10 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     };
 
                     mark_execution_receipt(&mut agent_state.tool_execution_log, "host_discovery");
-                    mark_execution_receipt(&mut agent_state.tool_execution_log, "provider_selection");
+                    mark_execution_receipt(
+                        &mut agent_state.tool_execution_log,
+                        "provider_selection",
+                    );
                     mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
                     mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
                     mark_execution_postcondition(
@@ -312,8 +356,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         synthesized_payload_hash.clone(),
                     );
                     for provider_candidate in provider_candidates {
-                        let provider_candidate_provider_id =
-                            provider_candidate.provider_id.clone();
+                        let provider_candidate_provider_id = provider_candidate.provider_id.clone();
                         let provider_candidate_json =
                             serde_json::to_string(&provider_candidate).unwrap_or_default();
                         emit_execution_contract_receipt_event_with_observation(
@@ -564,9 +607,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 }
             }
         }
-        AgentTool::MediaExtractMultimodalEvidence {
-            url, language, ..
-        } => {
+        AgentTool::MediaExtractMultimodalEvidence { url, language, .. } => {
             if *success {
                 if let Some(bundle) = history_entry
                     .as_deref()
@@ -608,7 +649,10 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     let provider_candidates = bundle.provider_candidates.clone();
 
                     mark_execution_receipt(&mut agent_state.tool_execution_log, "host_discovery");
-                    mark_execution_receipt(&mut agent_state.tool_execution_log, "provider_selection");
+                    mark_execution_receipt(
+                        &mut agent_state.tool_execution_log,
+                        "provider_selection",
+                    );
                     mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
                     mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
                     mark_execution_postcondition(
@@ -635,10 +679,12 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     verification_checks
                         .push(postcondition_marker("media_multimodal_evidence_available"));
                     if bundle.transcript.is_some() {
-                        verification_checks.push(postcondition_marker("media_transcript_available"));
+                        verification_checks
+                            .push(postcondition_marker("media_transcript_available"));
                     }
                     if bundle.visual.is_some() {
-                        verification_checks.push(postcondition_marker("media_visual_evidence_available"));
+                        verification_checks
+                            .push(postcondition_marker("media_visual_evidence_available"));
                     }
 
                     emit_execution_contract_receipt_event_with_observation(
@@ -658,8 +704,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         synthesized_payload_hash.clone(),
                     );
                     for provider_candidate in provider_candidates {
-                        let provider_candidate_provider_id =
-                            provider_candidate.provider_id.clone();
+                        let provider_candidate_provider_id = provider_candidate.provider_id.clone();
                         let provider_candidate_json =
                             serde_json::to_string(&provider_candidate).unwrap_or_default();
                         emit_execution_contract_receipt_event_with_observation(
@@ -857,7 +902,8 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     );
 
                     if let Some(transcript) = bundle.transcript.as_ref() {
-                        let transcript_char_count_value = transcript.transcript_char_count.to_string();
+                        let transcript_char_count_value =
+                            transcript.transcript_char_count.to_string();
                         let transcript_segment_count_value = transcript.segment_count.to_string();
                         emit_execution_contract_receipt_event_with_observation(
                             service,
@@ -1035,6 +1081,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     verification_checks.push("install_dependency_terminalized=true".to_string());
                     agent_state.execution_queue.clear();
                     agent_state.pending_search_completion = None;
+                    crystallize_successful_session(
+                        service,
+                        state,
+                        agent_state,
+                        session_id,
+                        block_height,
+                    )
+                    .await;
                     emit_completion_gate_status_event(
                         service,
                         session_id,
@@ -1078,6 +1132,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         *action_output = Some(summary);
                         agent_state.execution_queue.clear();
                         agent_state.pending_search_completion = None;
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
                     }
                 }
             } else if is_system_clock_read_intent(agent_state.resolved_intent.as_ref()) {
@@ -1115,6 +1177,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     *terminal_chat_reply_output = Some(summary);
                     agent_state.execution_queue.clear();
                     agent_state.pending_search_completion = None;
+                    crystallize_successful_session(
+                        service,
+                        state,
+                        agent_state,
+                        session_id,
+                        block_height,
+                    )
+                    .await;
                 } else {
                     let missing = postcondition_marker(CLOCK_TIMESTAMP_POSTCONDITION);
                     let contract_error = execution_contract_violation_error(&missing);
@@ -1168,6 +1238,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         verification_checks
                             .push("structured_command_receipt_terminalized=true".to_string());
                         verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
                         emit_completion_gate_status_event(
                             service,
                             session_id,
@@ -1211,6 +1289,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         agent_state.pending_search_completion = None;
                         verification_checks.push("timer_schedule_terminalized=true".to_string());
                         verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
                         emit_completion_gate_status_event(
                             service,
                             session_id,
@@ -1256,6 +1342,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         verification_checks
                             .push("verified_command_probe_terminalized=true".to_string());
                         verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
                         emit_completion_gate_status_event(
                             service,
                             session_id,
@@ -1404,10 +1498,14 @@ pub(super) async fn apply_tool_outcome_and_followups(
     Ok(())
 }
 
-fn parse_media_transcript_bundle(raw: &str) -> Option<ioi_types::app::agentic::MediaTranscriptBundle> {
+fn parse_media_transcript_bundle(
+    raw: &str,
+) -> Option<ioi_types::app::agentic::MediaTranscriptBundle> {
     serde_json::from_str(raw).ok()
 }
 
-fn parse_media_multimodal_bundle(raw: &str) -> Option<ioi_types::app::agentic::MediaMultimodalBundle> {
+fn parse_media_multimodal_bundle(
+    raw: &str,
+) -> Option<ioi_types::app::agentic::MediaMultimodalBundle> {
     serde_json::from_str(raw).ok()
 }

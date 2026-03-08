@@ -6,6 +6,8 @@
 //! It observes agent execution failures, synthesizes code patches (mutations),
 //! verifies them in a sandbox, and submits upgrade transactions to evolve the agent.
 
+use crate::agentic::desktop::keys::{get_state_key, TRACE_PREFIX};
+use crate::agentic::desktop::types::AgentState;
 use async_trait::async_trait;
 use ioi_api::services::UpgradableService;
 use ioi_api::state::StateAccess;
@@ -25,12 +27,32 @@ use crate::agentic::rules::ActionRules;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{FrameType, RetentionClass, SovereignContextStore};
 use ioi_types::app::agentic::{
-    AgentMacro, AgentManifest, InferenceOptions, IntelligenceAsset, LlmToolDefinition,
-    ResourceRequirements, RuntimeEnvironment,
+    AgentMacro, AgentManifest, ExternalSkillEvidence, InferenceOptions, IntelligenceAsset,
+    LlmToolDefinition, ResourceRequirements, RuntimeEnvironment, SkillLifecycleState,
+    SkillSourceType,
 };
 use reqwest::Url;
 
 use crate::market::PublishAssetParams;
+
+fn fetch_session_traces(
+    state: &dyn StateAccess,
+    session_id: [u8; 32],
+) -> Result<Vec<StepTrace>, TransactionError> {
+    let prefix = [TRACE_PREFIX, session_id.as_slice()].concat();
+    let mut traces = Vec::new();
+    if let Ok(iter) = state.prefix_scan(&prefix) {
+        for item in iter {
+            if let Ok((_, bytes)) = item {
+                if let Ok(trace) = codec::from_bytes_canonical::<StepTrace>(&bytes) {
+                    traces.push(trace);
+                }
+            }
+        }
+    }
+    traces.sort_by_key(|trace| trace.step_index);
+    Ok(traces)
+}
 
 /// Parameters for triggering an optimization loop.
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
@@ -235,13 +257,32 @@ impl OptimizerService {
     #[method]
     pub async fn crystallize_skill(
         &self,
-        _state: &mut dyn StateAccess,
+        state: &mut dyn StateAccess,
         params: crate::agentic::desktop::types::StepAgentParams,
         _ctx: &TxContext<'_>,
     ) -> Result<(), TransactionError> {
-        let trace_hash = [0u8; 32];
-        self.crystallize_skill_internal(params.session_id, trace_hash, None)
-            .await?;
+        let traces = fetch_session_traces(state, params.session_id)?;
+        if traces.is_empty() {
+            return Err(TransactionError::Invalid(
+                "Cannot crystallize skill without session traces".into(),
+            ));
+        }
+        let state_key = get_state_key(&params.session_id);
+        let state_bytes = state
+            .get(&state_key)?
+            .ok_or(TransactionError::Invalid("Session state not found".into()))?;
+        let agent_state: AgentState = codec::from_bytes_canonical(&state_bytes)?;
+        let trace_hash_bytes = sha256(&codec::to_bytes_canonical(&traces)?)
+            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        let mut trace_hash = [0u8; 32];
+        trace_hash.copy_from_slice(trace_hash_bytes.as_ref());
+        self.crystallize_skill_internal(
+            state,
+            params.session_id,
+            trace_hash,
+            Some((&traces, &agent_state.goal)),
+        )
+        .await?;
         Ok(())
     }
 
@@ -259,51 +300,43 @@ impl OptimizerService {
     #[method]
     pub async fn import_skill(
         &self,
-        _state: &mut dyn StateAccess,
+        state: &mut dyn StateAccess,
         params: AgentMacro,
         _ctx: &TxContext<'_>,
     ) -> Result<(), TransactionError> {
-        let skill = params;
-
-        let scs_mutex = self
-            .scs
-            .as_ref()
-            .ok_or(TransactionError::Invalid("SCS not available".into()))?;
-
-        // 1. Append Frame to SCS (Persistence)
-        // [FIX] Scope lock
-        let (frame_id, hash_arr) = {
-            let mut store = scs_mutex
-                .lock()
-                .map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
-            let skill_bytes =
-                codec::to_bytes_canonical(&skill).map_err(TransactionError::Serialization)?;
-            let hash =
-                sha256(&skill_bytes).map_err(|e| TransactionError::Invalid(e.to_string()))?;
-            let mut hash_arr = [0u8; 32];
-            hash_arr.copy_from_slice(hash.as_ref());
-
-            let fid = store
-                .append_frame(
-                    FrameType::Skill,
-                    &skill_bytes,
-                    0,
-                    [0u8; 32],
-                    [0u8; 32],
-                    // [FIX] Added retention policy (Archival for imported skills)
-                    RetentionClass::Archival,
-                )
-                .map_err(|e| TransactionError::Invalid(e.to_string()))?;
-            (fid, hash_arr)
-        };
-
-        // 2. Index Skill (Vector Embed)
-        self.index_skill(frame_id, &skill.definition).await?;
+        let record = self
+            .persist_skill_record(
+                state,
+                None,
+                None,
+                params,
+                SkillSourceType::Imported,
+                SkillLifecycleState::Validated,
+            )
+            .await?;
 
         log::info!(
             "Optimizer: Imported & Indexed skill '{}' (Hash: {})",
-            skill.definition.name,
-            hex::encode(hash_arr)
+            record.macro_body.definition.name,
+            hex::encode(record.skill_hash)
+        );
+        Ok(())
+    }
+
+    #[method]
+    pub async fn ingest_skill_evidence(
+        &self,
+        state: &mut dyn StateAccess,
+        params: ExternalSkillEvidence,
+        _ctx: &TxContext<'_>,
+    ) -> Result<(), TransactionError> {
+        let record = self
+            .ingest_external_skill_evidence_internal(state, params)
+            .await?;
+        log::info!(
+            "Optimizer: Ingested external skill evidence for '{}' (Hash: {})",
+            record.macro_body.definition.name,
+            hex::encode(record.skill_hash)
         );
         Ok(())
     }

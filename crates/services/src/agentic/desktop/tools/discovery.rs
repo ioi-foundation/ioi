@@ -209,11 +209,7 @@ mod tests {
                     "mail_connector",
                     "wallet_network.mail",
                 ),
-                mail_provider_candidate(
-                    "mail.google.gmail",
-                    "google_gmail",
-                    "google.workspace",
-                ),
+                mail_provider_candidate("mail.google.gmail", "google_gmail", "google.workspace"),
             ],
         });
         state

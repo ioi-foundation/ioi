@@ -62,31 +62,30 @@ pub(crate) fn final_web_completion_facts(
             required_story_floor.max(min_sources_required),
         )
     };
-    let selected_source_urls = if local_business_entity_floor_required
-        && local_business_selected_sources.is_empty()
-    {
-        Vec::new()
-    } else if local_business_selected_sources.is_empty() {
-        if headline_collection_mode {
-            pending
-                .successful_reads
-                .iter()
-                .filter(|source| headline_source_is_actionable(source))
-                .map(|source| source.url.clone())
-                .collect::<Vec<_>>()
+    let selected_source_urls =
+        if local_business_entity_floor_required && local_business_selected_sources.is_empty() {
+            Vec::new()
+        } else if local_business_selected_sources.is_empty() {
+            if headline_collection_mode {
+                pending
+                    .successful_reads
+                    .iter()
+                    .filter(|source| headline_source_is_actionable(source))
+                    .map(|source| source.url.clone())
+                    .collect::<Vec<_>>()
+            } else {
+                pending
+                    .successful_reads
+                    .iter()
+                    .map(|source| source.url.clone())
+                    .collect::<Vec<_>>()
+            }
         } else {
-            pending
-                .successful_reads
+            local_business_selected_sources
                 .iter()
                 .map(|source| source.url.clone())
                 .collect::<Vec<_>>()
-        }
-    } else {
-        local_business_selected_sources
-            .iter()
-            .map(|source| source.url.clone())
-            .collect::<Vec<_>>()
-    };
+        };
 
     let final_draft = build_deterministic_story_draft(pending, reason);
     let required_citations =

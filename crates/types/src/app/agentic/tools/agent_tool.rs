@@ -1,5 +1,5 @@
-use crate::app::ActionTarget;
 use crate::app::agentic::WebRetrievalContract;
+use crate::app::ActionTarget;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

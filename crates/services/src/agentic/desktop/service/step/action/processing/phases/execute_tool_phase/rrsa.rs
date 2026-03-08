@@ -353,9 +353,7 @@ fn classify_domain(tool: &AgentTool) -> Option<RrsaDomain> {
         | AgentTool::WebSearch { .. }
         | AgentTool::WebRead { .. }
         | AgentTool::MediaExtractTranscript { .. }
-        | AgentTool::MediaExtractMultimodalEvidence { .. } => {
-            Some(RrsaDomain::Network)
-        }
+        | AgentTool::MediaExtractMultimodalEvidence { .. } => Some(RrsaDomain::Network),
 
         _ => match tool.target() {
             ActionTarget::WalletSign | ActionTarget::WalletSend => Some(RrsaDomain::Wallet),

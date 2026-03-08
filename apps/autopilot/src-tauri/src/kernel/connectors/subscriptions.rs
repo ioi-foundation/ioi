@@ -241,7 +241,12 @@ impl GoogleAutomationManager {
                 .registry
                 .subscriptions
                 .iter()
-                .filter(|record| matches!(record.status, GoogleSubscriptionStatus::Active | GoogleSubscriptionStatus::Degraded))
+                .filter(|record| {
+                    matches!(
+                        record.status,
+                        GoogleSubscriptionStatus::Active | GoogleSubscriptionStatus::Degraded
+                    )
+                })
                 .map(|record| record.subscription_id.clone())
                 .collect::<Vec<_>>()
         };
@@ -438,7 +443,12 @@ impl GoogleAutomationManager {
                 .registry
                 .subscriptions
                 .iter()
-                .filter(|record| matches!(record.status, GoogleSubscriptionStatus::Active | GoogleSubscriptionStatus::Degraded))
+                .filter(|record| {
+                    matches!(
+                        record.status,
+                        GoogleSubscriptionStatus::Active | GoogleSubscriptionStatus::Degraded
+                    )
+                })
                 .filter(|record| {
                     record
                         .renew_at_utc
@@ -485,7 +495,10 @@ impl GoogleAutomationManager {
                 Ok(Some(record)) => record,
                 _ => break,
             };
-            if !matches!(record.status, GoogleSubscriptionStatus::Active | GoogleSubscriptionStatus::Degraded) {
+            if !matches!(
+                record.status,
+                GoogleSubscriptionStatus::Active | GoogleSubscriptionStatus::Degraded
+            ) {
                 break;
             }
 
@@ -543,7 +556,10 @@ impl GoogleAutomationManager {
                 .get("ackId")
                 .and_then(Value::as_str)
                 .map(ToString::to_string);
-            let message = received.get("message").cloned().unwrap_or_else(|| json!({}));
+            let message = received
+                .get("message")
+                .cloned()
+                .unwrap_or_else(|| json!({}));
             let outcome = match record.kind {
                 GoogleSubscriptionKind::GmailWatch => {
                     self.process_gmail_notification(record, &auth.access_token, &message)
@@ -684,7 +700,10 @@ impl GoogleAutomationManager {
             let gmail_message =
                 gmail_get_message_metadata(&self.client, access_token, gmail_message_id).await?;
             let event_key = format!("gmail:{}:{}", record.subscription_id, gmail_message_id);
-            if self.receipt_exists(&event_key, record.automation.as_ref()).await? {
+            if self
+                .receipt_exists(&event_key, record.automation.as_ref())
+                .await?
+            {
                 processed_any = true;
                 continue;
             }
@@ -727,7 +746,10 @@ impl GoogleAutomationManager {
                 receipt_id: Uuid::new_v4().to_string(),
                 subscription_id: record.subscription_id.clone(),
                 event_key,
-                action_id: record.automation.as_ref().map(|trigger| trigger.action_id.clone()),
+                action_id: record
+                    .automation
+                    .as_ref()
+                    .map(|trigger| trigger.action_id.clone()),
                 status: "success".to_string(),
                 summary: format!("Processed Gmail message {}.", gmail_message_id),
                 created_at_utc: now_utc_string(),
@@ -769,7 +791,10 @@ impl GoogleAutomationManager {
             .map(ToString::to_string)
             .unwrap_or_else(|| pubsub_message_id.clone());
         let event_key = format!("workspace:{}:{}", record.subscription_id, event_id);
-        if self.receipt_exists(&event_key, record.automation.as_ref()).await? {
+        if self
+            .receipt_exists(&event_key, record.automation.as_ref())
+            .await?
+        {
             return Ok(());
         }
 
@@ -810,7 +835,10 @@ impl GoogleAutomationManager {
             receipt_id: Uuid::new_v4().to_string(),
             subscription_id: record.subscription_id.clone(),
             event_key,
-            action_id: record.automation.as_ref().map(|trigger| trigger.action_id.clone()),
+            action_id: record
+                .automation
+                .as_ref()
+                .map(|trigger| trigger.action_id.clone()),
             status: "success".to_string(),
             summary: "Processed Workspace event.".to_string(),
             created_at_utc: now_utc_string(),
@@ -970,7 +998,8 @@ impl GoogleAutomationManager {
         record: &GoogleSubscriptionRecord,
         error: String,
     ) -> Result<(), String> {
-        let status = if error.contains("missing required scopes") || error.contains("not connected") {
+        let status = if error.contains("missing required scopes") || error.contains("not connected")
+        {
             GoogleSubscriptionStatus::ReauthRequired
         } else {
             GoogleSubscriptionStatus::Degraded
@@ -998,13 +1027,8 @@ impl GoogleAutomationManager {
             return Vec::new();
         };
 
-        let artifact = artifacts::create_report_artifact(
-            &scs,
-            thread_id,
-            title,
-            title_prefix,
-            payload,
-        );
+        let artifact =
+            artifacts::create_report_artifact(&scs, thread_id, title, title_prefix, payload);
         let artifact_id = artifact.artifact_id.clone();
         register_artifact(&self.app, artifact);
         vec![ArtifactRef {
@@ -1032,7 +1056,10 @@ impl GoogleAutomationManager {
         Ok(())
     }
 
-    async fn get_record(&self, subscription_id: &str) -> Result<Option<GoogleSubscriptionRecord>, String> {
+    async fn get_record(
+        &self,
+        subscription_id: &str,
+    ) -> Result<Option<GoogleSubscriptionRecord>, String> {
         let inner = self.inner.lock().await;
         Ok(inner
             .registry
@@ -1159,15 +1186,22 @@ pub async fn build_registration_from_result(
         }
         "events.subscribe" => {
             let data = result.data.clone();
-            let subscription_response = data.get("subscription").cloned().unwrap_or_else(|| json!({}));
-            let pubsub_topic = data
-                .get("pubsubTopic")
-                .and_then(Value::as_str)
-                .ok_or_else(|| "Workspace Events subscribe did not return a Pub/Sub topic.".to_string())?;
+            let subscription_response = data
+                .get("subscription")
+                .cloned()
+                .unwrap_or_else(|| json!({}));
+            let pubsub_topic =
+                data.get("pubsubTopic")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        "Workspace Events subscribe did not return a Pub/Sub topic.".to_string()
+                    })?;
             let pubsub_subscription = data
                 .get("pubsubSubscription")
                 .and_then(Value::as_str)
-                .ok_or_else(|| "Workspace Events subscribe did not return a Pub/Sub subscription.".to_string())?;
+                .ok_or_else(|| {
+                    "Workspace Events subscribe did not return a Pub/Sub subscription.".to_string()
+                })?;
             let google_resource_name = subscription_response
                 .get("name")
                 .and_then(Value::as_str)
@@ -1177,7 +1211,9 @@ pub async fn build_registration_from_result(
                 .and_then(Value::as_str)
                 .map(ToString::to_string)
                 .or_else(|| google_project_from_resource_name("topics", pubsub_topic))
-                .or_else(|| google_project_from_resource_name("subscriptions", pubsub_subscription));
+                .or_else(|| {
+                    google_project_from_resource_name("subscriptions", pubsub_subscription)
+                });
             Ok(Some(GoogleSubscriptionRegistration {
                 kind: GoogleSubscriptionKind::WorkspaceEvents,
                 connector_id: result.connector_id.clone(),
@@ -1301,7 +1337,11 @@ async fn gmail_get_message_metadata(
         client,
         access_token,
         Method::GET,
-        &format!("{}/users/me/messages/{}", GMAIL_BASE_URL, url_encode(message_id)),
+        &format!(
+            "{}/users/me/messages/{}",
+            GMAIL_BASE_URL,
+            url_encode(message_id)
+        ),
         Some(query),
         None,
     )
@@ -1391,13 +1431,20 @@ async fn parse_google_response(response: reqwest::Response) -> Result<Value, Str
         .await
         .map_err(|error| format!("Failed to read Google API response: {}", error))?;
     if !status.is_success() {
-        return Err(format!("Google API request failed with {}: {}", status, text));
+        return Err(format!(
+            "Google API request failed with {}: {}",
+            status, text
+        ));
     }
     if text.trim().is_empty() {
         return Ok(json!({ "ok": true, "status": status.as_u16() }));
     }
-    serde_json::from_str(&text)
-        .map_err(|error| format!("Failed to parse Google API JSON response '{}': {}", text, error))
+    serde_json::from_str(&text).map_err(|error| {
+        format!(
+            "Failed to parse Google API JSON response '{}': {}",
+            text, error
+        )
+    })
 }
 
 fn load_registry(path: &Path) -> Result<GoogleAutomationRegistry, String> {
@@ -1408,23 +1455,33 @@ fn load_registry(path: &Path) -> Result<GoogleAutomationRegistry, String> {
             receipts: Vec::new(),
         });
     }
-    let bytes = fs::read(path).map_err(|error| format!("Failed to read Google automation registry: {}", error))?;
+    let bytes = fs::read(path)
+        .map_err(|error| format!("Failed to read Google automation registry: {}", error))?;
     serde_json::from_slice(&bytes)
         .map_err(|error| format!("Failed to parse Google automation registry: {}", error))
 }
 
 fn persist_registry(path: &Path, registry: &GoogleAutomationRegistry) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| format!("Failed to create Google automation registry dir: {}", error))?;
+        fs::create_dir_all(parent).map_err(|error| {
+            format!("Failed to create Google automation registry dir: {}", error)
+        })?;
     }
     let payload = serde_json::to_vec_pretty(registry)
         .map_err(|error| format!("Failed to serialize Google automation registry: {}", error))?;
     let tmp = path.with_extension("tmp");
-    fs::write(&tmp, payload)
-        .map_err(|error| format!("Failed to write Google automation registry temp file: {}", error))?;
-    fs::rename(&tmp, path)
-        .map_err(|error| format!("Failed to finalize Google automation registry file: {}", error))?;
+    fs::write(&tmp, payload).map_err(|error| {
+        format!(
+            "Failed to write Google automation registry temp file: {}",
+            error
+        )
+    })?;
+    fs::rename(&tmp, path).map_err(|error| {
+        format!(
+            "Failed to finalize Google automation registry file: {}",
+            error
+        )
+    })?;
     Ok(())
 }
 
@@ -1524,8 +1581,13 @@ fn render_template(template: &Value, context: &Value) -> Value {
 fn render_template_string(template: &str, context: &Value) -> Value {
     let trimmed = template.trim();
     if trimmed.starts_with("{{") && trimmed.ends_with("}}") && trimmed.matches("{{").count() == 1 {
-        let path = trimmed.trim_start_matches("{{").trim_end_matches("}}").trim();
-        return resolve_context_value(context, path).cloned().unwrap_or_else(|| Value::String(template.to_string()));
+        let path = trimmed
+            .trim_start_matches("{{")
+            .trim_end_matches("}}")
+            .trim();
+        return resolve_context_value(context, path)
+            .cloned()
+            .unwrap_or_else(|| Value::String(template.to_string()));
     }
 
     let mut output = template.to_string();
@@ -1718,16 +1780,18 @@ mod tests {
 
     #[test]
     fn extracts_placeholders_once() {
-        let placeholders = collect_placeholders("{{message.id}} -> {{message.id}} -> {{event.type}}");
-        assert_eq!(placeholders, vec!["message.id".to_string(), "event.type".to_string()]);
+        let placeholders =
+            collect_placeholders("{{message.id}} -> {{message.id}} -> {{event.type}}");
+        assert_eq!(
+            placeholders,
+            vec!["message.id".to_string(), "event.type".to_string()]
+        );
     }
 
     #[test]
     fn derives_project_id_from_pubsub_resource_names() {
-        let topic_project = google_project_from_resource_name(
-            "topics",
-            "projects/demo-project/topics/demo-topic",
-        );
+        let topic_project =
+            google_project_from_resource_name("topics", "projects/demo-project/topics/demo-topic");
         let subscription_project = google_project_from_resource_name(
             "subscriptions",
             "projects/demo-project/subscriptions/demo-sub",

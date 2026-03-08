@@ -4,15 +4,10 @@ impl OptimizerService {
     /// [NEW] Internal logic for asset hydration.
     pub(crate) async fn install_asset_internal(
         &self,
-        state: &dyn StateAccess,
+        state: &mut dyn StateAccess,
         params: InstallAssetParams,
         installer_id: ioi_types::app::AccountId,
     ) -> Result<(), TransactionError> {
-        let scs_mutex = self
-            .scs
-            .as_ref()
-            .ok_or(TransactionError::Invalid("SCS not available".into()))?;
-
         // 1. Verify License
         let ns_prefix = ioi_api::state::service_namespace_prefix("market");
         let license_key = [
@@ -46,30 +41,21 @@ impl OptimizerService {
 
         // 4. Determine Asset Type & Index
         if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(&payload_bytes) {
-            // [FIX] Scope the lock to ensure it's dropped before await
-            let frame_id = {
-                let mut store = scs_mutex
-                    .lock()
-                    .map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
-
-                store
-                    .append_frame(
-                        FrameType::Skill,
-                        &payload_bytes,
-                        0,
-                        [0u8; 32],
-                        [0u8; 32],
-                        RetentionClass::Archival,
-                    )
-                    .map_err(|e| TransactionError::Invalid(e.to_string()))?
-            };
-
-            // Index
-            self.index_skill(frame_id, &skill.definition).await?;
+            let record = self
+                .persist_skill_record(
+                    state,
+                    None,
+                    None,
+                    skill,
+                    SkillSourceType::Imported,
+                    SkillLifecycleState::Validated,
+                )
+                .await?;
 
             log::info!(
-                "Optimizer: Installed & Indexed skill '{}'",
-                skill.definition.name
+                "Optimizer: Installed & Indexed skill '{}' (Hash: {})",
+                record.macro_body.definition.name,
+                hex::encode(record.skill_hash)
             );
             return Ok(());
         }

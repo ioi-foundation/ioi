@@ -1,8 +1,7 @@
 use super::{
     is_ambiguity_abstain_exempt, is_tool_allowed_for_resolution, resolve_band, resolve_step_intent,
-    resolve_step_intent_with_state,
-    should_abstain_for_ambiguity, should_pause_for_clarification, tool_capabilities,
-    IntentCandidateScore,
+    resolve_step_intent_with_state, should_abstain_for_ambiguity, should_pause_for_clarification,
+    tool_capabilities, IntentCandidateScore,
 };
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};

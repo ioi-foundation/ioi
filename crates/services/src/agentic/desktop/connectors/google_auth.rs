@@ -140,8 +140,9 @@ pub async fn status() -> Result<GoogleAuthStatus, String> {
     }
 
     let Some(mut record) = load_google_auth_record()? else {
-        let summary = last_auth_error()
-            .unwrap_or_else(|| "Google auth is not connected. Use Connect to start native OAuth.".to_string());
+        let summary = last_auth_error().unwrap_or_else(|| {
+            "Google auth is not connected. Use Connect to start native OAuth.".to_string()
+        });
         return Ok(GoogleAuthStatus {
             status: "needs_auth".to_string(),
             summary,
@@ -162,7 +163,10 @@ pub async fn status() -> Result<GoogleAuthStatus, String> {
 
     let summary = match record.account_email.as_deref() {
         Some(account) if !account.trim().is_empty() => {
-            format!("Google auth is connected for {} using native OAuth.", account)
+            format!(
+                "Google auth is connected for {} using native OAuth.",
+                account
+            )
         }
         _ => "Google auth is connected using native OAuth.".to_string(),
     };
@@ -190,7 +194,8 @@ pub async fn login(requested_scopes: Option<Vec<String>>) -> Result<GoogleAuthSt
         let _ = open_url_in_browser(&pending.auth_url);
         return Ok(GoogleAuthStatus {
             status: "needs_auth".to_string(),
-            summary: "Google OAuth is already in progress. Complete sign-in in your browser.".to_string(),
+            summary: "Google OAuth is already in progress. Complete sign-in in your browser."
+                .to_string(),
             data: json!({
                 "authPending": true,
                 "authUrl": pending.auth_url,
@@ -222,7 +227,8 @@ pub async fn login(requested_scopes: Option<Vec<String>>) -> Result<GoogleAuthSt
     let code_challenge = pkce_code_challenge(&code_verifier);
     let now = OffsetDateTime::now_utc();
     let started_at_utc = format_rfc3339(now);
-    let expires_at_utc = format_rfc3339(now + time::Duration::seconds(GOOGLE_AUTH_TIMEOUT_SECS as i64));
+    let expires_at_utc =
+        format_rfc3339(now + time::Duration::seconds(GOOGLE_AUTH_TIMEOUT_SECS as i64));
     let auth_url = build_google_auth_url(
         &client.client_id,
         &redirect_uri,
@@ -320,8 +326,13 @@ pub async fn logout() -> Result<GoogleAuthStatus, String> {
 
     let path = google_auth_storage_path()?;
     if path.exists() {
-        fs::remove_file(&path)
-            .map_err(|error| format!("Failed to remove Google auth state '{}': {}", path.display(), error))?;
+        fs::remove_file(&path).map_err(|error| {
+            format!(
+                "Failed to remove Google auth state '{}': {}",
+                path.display(),
+                error
+            )
+        })?;
     }
 
     Ok(GoogleAuthStatus {
@@ -348,8 +359,9 @@ pub async fn cancel_pending_login() -> Result<GoogleAuthStatus, String> {
 }
 
 pub async fn access_context(required_scopes: &[&str]) -> Result<GoogleAccessContext, String> {
-    let mut record = load_google_auth_record()?
-        .ok_or_else(|| "Google auth is not connected. Use Connect to start native OAuth.".to_string())?;
+    let mut record = load_google_auth_record()?.ok_or_else(|| {
+        "Google auth is not connected. Use Connect to start native OAuth.".to_string()
+    })?;
 
     if should_refresh(&record) {
         let client = load_google_oauth_client()?;
@@ -372,10 +384,7 @@ pub async fn access_context(required_scopes: &[&str]) -> Result<GoogleAccessCont
     })
 }
 
-pub fn granted_scopes_missing(
-    granted_scopes: &[String],
-    required_scopes: &[&str],
-) -> Vec<String> {
+pub fn granted_scopes_missing(granted_scopes: &[String], required_scopes: &[&str]) -> Vec<String> {
     missing_required_scopes(granted_scopes, required_scopes)
 }
 
@@ -516,10 +525,20 @@ fn clear_last_auth_error() {
 fn load_google_auth_record() -> Result<Option<GoogleAuthRecord>, String> {
     let path = google_auth_storage_path()?;
     if path.exists() {
-        let raw = fs::read_to_string(&path)
-            .map_err(|error| format!("Failed to read Google auth state '{}': {}", path.display(), error))?;
-        let record = serde_json::from_str::<GoogleAuthRecord>(&raw)
-            .map_err(|error| format!("Failed to parse Google auth state '{}': {}", path.display(), error))?;
+        let raw = fs::read_to_string(&path).map_err(|error| {
+            format!(
+                "Failed to read Google auth state '{}': {}",
+                path.display(),
+                error
+            )
+        })?;
+        let record = serde_json::from_str::<GoogleAuthRecord>(&raw).map_err(|error| {
+            format!(
+                "Failed to parse Google auth state '{}': {}",
+                path.display(),
+                error
+            )
+        })?;
         return Ok(Some(record));
     }
 
@@ -535,10 +554,7 @@ fn load_google_auth_record_from_env() -> Result<Option<GoogleAuthRecord>, String
         "GOOGLE_OAUTH_REFRESH_TOKEN",
         "GOOGLE_WORKSPACE_REFRESH_TOKEN",
     ]);
-    let access_token = env_string(&[
-        "GOOGLE_OAUTH_ACCESS_TOKEN",
-        "GOOGLE_WORKSPACE_ACCESS_TOKEN",
-    ]);
+    let access_token = env_string(&["GOOGLE_OAUTH_ACCESS_TOKEN", "GOOGLE_WORKSPACE_ACCESS_TOKEN"]);
 
     if refresh_token.is_none() && access_token.is_none() {
         return Ok(None);
@@ -570,8 +586,13 @@ fn save_google_auth_record(record: &GoogleAuthRecord) -> Result<(), String> {
     }
     let payload = serde_json::to_string_pretty(record)
         .map_err(|error| format!("Failed to serialize Google auth state: {}", error))?;
-    fs::write(&path, payload)
-        .map_err(|error| format!("Failed to write Google auth state '{}': {}", path.display(), error))
+    fs::write(&path, payload).map_err(|error| {
+        format!(
+            "Failed to write Google auth state '{}': {}",
+            path.display(),
+            error
+        )
+    })
 }
 
 fn google_auth_storage_path() -> Result<PathBuf, String> {
@@ -586,7 +607,10 @@ fn google_auth_storage_path() -> Result<PathBuf, String> {
         return Ok(PathBuf::from(base).join("ioi").join(GOOGLE_AUTH_FILE_NAME));
     }
     if let Some(home) = env_string(&["HOME"]) {
-        return Ok(PathBuf::from(home).join(".config").join("ioi").join(GOOGLE_AUTH_FILE_NAME));
+        return Ok(PathBuf::from(home)
+            .join(".config")
+            .join("ioi")
+            .join(GOOGLE_AUTH_FILE_NAME));
     }
 
     Err("Unable to resolve a Google auth storage path. Set IOI_GOOGLE_AUTH_PATH.".to_string())
@@ -717,7 +741,9 @@ fn resolve_requested_google_oauth_scopes(
     }
 
     if selected_scope_count == 0 {
-        return Err("Select at least one Google capability before continuing to consent.".to_string());
+        return Err(
+            "Select at least one Google capability before continuing to consent.".to_string(),
+        );
     }
 
     let mut values = scopes.into_iter().collect::<Vec<_>>();
@@ -759,9 +785,7 @@ fn expand_granted_google_scope(scope: &str) -> Vec<String> {
         "https://www.googleapis.com/auth/spreadsheets" | "spreadsheets" => {
             expand_google_scope("spreadsheets.readonly")
         }
-        "https://www.googleapis.com/auth/drive" | "drive" => {
-            expand_google_scope("drive.readonly")
-        }
+        "https://www.googleapis.com/auth/drive" | "drive" => expand_google_scope("drive.readonly"),
         "https://www.googleapis.com/auth/tasks" | "tasks" => {
             vec!["https://www.googleapis.com/auth/tasks.readonly".to_string()]
         }
@@ -780,14 +804,23 @@ fn expand_google_scope(scope: &str) -> Vec<String> {
     match scope.trim() {
         "" => Vec::new(),
         "openid" => vec!["openid".to_string()],
-        "email" => vec!["email".to_string(), "https://www.googleapis.com/auth/userinfo.email".to_string()],
+        "email" => vec![
+            "email".to_string(),
+            "https://www.googleapis.com/auth/userinfo.email".to_string(),
+        ],
         "gmail.readonly" => vec!["https://www.googleapis.com/auth/gmail.readonly".to_string()],
         "gmail.modify" => vec!["https://www.googleapis.com/auth/gmail.modify".to_string()],
-        "calendar.readonly" => vec!["https://www.googleapis.com/auth/calendar.readonly".to_string()],
+        "calendar.readonly" => {
+            vec!["https://www.googleapis.com/auth/calendar.readonly".to_string()]
+        }
         "calendar" => vec!["https://www.googleapis.com/auth/calendar".to_string()],
-        "documents.readonly" => vec!["https://www.googleapis.com/auth/documents.readonly".to_string()],
+        "documents.readonly" => {
+            vec!["https://www.googleapis.com/auth/documents.readonly".to_string()]
+        }
         "documents" => vec!["https://www.googleapis.com/auth/documents".to_string()],
-        "spreadsheets.readonly" => vec!["https://www.googleapis.com/auth/spreadsheets.readonly".to_string()],
+        "spreadsheets.readonly" => {
+            vec!["https://www.googleapis.com/auth/spreadsheets.readonly".to_string()]
+        }
         "spreadsheets" => vec!["https://www.googleapis.com/auth/spreadsheets".to_string()],
         "drive.readonly" => vec!["https://www.googleapis.com/auth/drive.readonly".to_string()],
         "drive" => vec!["https://www.googleapis.com/auth/drive".to_string()],
@@ -897,10 +930,9 @@ async fn refresh_google_access_token(
     client: &GoogleOauthClientConfig,
     record: &mut GoogleAuthRecord,
 ) -> Result<(), String> {
-    let refresh_token = record
-        .refresh_token
-        .clone()
-        .ok_or_else(|| "Google auth cannot be refreshed because no refresh token is stored.".to_string())?;
+    let refresh_token = record.refresh_token.clone().ok_or_else(|| {
+        "Google auth cannot be refreshed because no refresh token is stored.".to_string()
+    })?;
     let http = Client::new();
     let mut form = vec![
         ("refresh_token", refresh_token.clone()),
@@ -960,9 +992,9 @@ fn build_auth_record_from_token(
         .map(split_scope_string)
         .filter(|values| !values.is_empty())
         .unwrap_or(fallback_scopes);
-    let expires_at_utc = token
-        .expires_in
-        .map(|seconds| format_rfc3339(OffsetDateTime::now_utc() + time::Duration::seconds(seconds)));
+    let expires_at_utc = token.expires_in.map(|seconds| {
+        format_rfc3339(OffsetDateTime::now_utc() + time::Duration::seconds(seconds))
+    });
 
     GoogleAuthRecord {
         account_email,
@@ -1022,8 +1054,10 @@ fn wait_for_google_callback(
                     .split_whitespace()
                     .nth(1)
                     .ok_or_else(|| "Google OAuth callback request path was missing.".to_string())?;
-                let callback_url = Url::parse(&format!("http://127.0.0.1{}", path))
-                    .map_err(|error| format!("Failed to parse Google OAuth callback URL: {}", error))?;
+                let callback_url =
+                    Url::parse(&format!("http://127.0.0.1{}", path)).map_err(|error| {
+                        format!("Failed to parse Google OAuth callback URL: {}", error)
+                    })?;
                 let state = callback_url
                     .query_pairs()
                     .find_map(|(key, value)| (key == "state").then(|| value.to_string()));
@@ -1058,7 +1092,9 @@ fn wait_for_google_callback(
                         "Google sign-in failed",
                         "No authorization code was returned. You can close this window.",
                     );
-                    return Err("Google OAuth callback did not include an authorization code.".to_string());
+                    return Err(
+                        "Google OAuth callback did not include an authorization code.".to_string(),
+                    );
                 };
 
                 let _ = send_google_callback_response(
@@ -1221,9 +1257,10 @@ fn google_client_storage_path() -> Result<PathBuf, String> {
     }
 
     let auth_path = google_auth_storage_path()?;
-    let base_dir = auth_path.parent().map(PathBuf::from).ok_or_else(|| {
-        "Unable to resolve Google OAuth client config directory.".to_string()
-    })?;
+    let base_dir = auth_path
+        .parent()
+        .map(PathBuf::from)
+        .ok_or_else(|| "Unable to resolve Google OAuth client config directory.".to_string())?;
     Ok(base_dir.join(GOOGLE_CLIENT_FILE_NAME))
 }
 
@@ -1298,7 +1335,12 @@ mod tests {
         ];
         let missing = missing_required_scopes(
             &granted,
-            &["gmail.readonly", "calendar.readonly", "tasks.readonly", "drive.readonly"],
+            &[
+                "gmail.readonly",
+                "calendar.readonly",
+                "tasks.readonly",
+                "drive.readonly",
+            ],
         );
         assert!(missing.is_empty());
     }
@@ -1321,15 +1363,11 @@ mod tests {
 
         assert!(scopes.iter().any(|scope| scope == "openid"));
         assert!(scopes.iter().any(|scope| scope == "email"));
-        assert!(
-            scopes
-                .iter()
-                .any(|scope| scope == "https://www.googleapis.com/auth/gmail.modify")
-        );
-        assert!(
-            scopes
-                .iter()
-                .any(|scope| scope == "https://www.googleapis.com/auth/calendar")
-        );
+        assert!(scopes
+            .iter()
+            .any(|scope| scope == "https://www.googleapis.com/auth/gmail.modify"));
+        assert!(scopes
+            .iter()
+            .any(|scope| scope == "https://www.googleapis.com/auth/calendar"));
     }
 }

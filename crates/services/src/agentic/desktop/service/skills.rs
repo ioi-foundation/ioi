@@ -1,14 +1,23 @@
 // Path: crates/services/src/agentic/desktop/service/skills.rs
 
 use super::DesktopAgentService;
+use crate::agentic::desktop::keys::{
+    get_skill_session_outcome_key, get_skill_stats_key, TRACE_PREFIX,
+};
+use crate::agentic::skill_registry::{
+    build_benchmark_report, generate_published_skill_doc, load_doc_catalog_index,
+    load_published_skill_doc, load_skill_catalog_index, load_skill_record, next_lifecycle_state,
+    now_ms, skill_is_runtime_eligible, upsert_published_skill_doc, upsert_skill_record,
+};
+use hex;
 use ioi_api::state::StateAccess;
-use ioi_types::app::agentic::{AgentMacro, AgentSkill, SkillStats};
+use ioi_types::app::agentic::StepTrace;
+use ioi_types::app::agentic::{
+    AgentMacro, AgentSkill, PublishedSkillDoc, SkillBenchmarkReport, SkillLifecycleState,
+    SkillRecord, SkillStats,
+};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
-// [FIX] Import keys from local desktop module, not ioi_types
-use crate::agentic::desktop::keys::{get_skill_stats_key, SKILL_INDEX_PREFIX, TRACE_PREFIX};
-use hex;
-use ioi_types::app::agentic::StepTrace;
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -19,48 +28,48 @@ pub async fn recall_skills(
 ) -> Result<Vec<AgentSkill>, TransactionError> {
     let mut relevant_skills = Vec::new();
     let goal_lower = goal.to_lowercase();
-    if let Ok(iter) = state.prefix_scan(SKILL_INDEX_PREFIX) {
-        for item in iter {
-            if let Ok((_, val_bytes)) = item {
-                if let Ok(skill) = codec::from_bytes_canonical::<AgentSkill>(&val_bytes) {
-                    let name_lower = skill.name.to_lowercase();
-                    let desc_lower = skill.description.to_lowercase();
-                    if goal_lower.contains(&name_lower)
-                        || name_lower.contains(&goal_lower)
-                        || desc_lower.contains(&goal_lower)
-                    {
-                        relevant_skills.push(skill);
-                    }
-                }
-            }
+    let doc_index = load_doc_catalog_index(state)?;
+    for hash in doc_index.skills {
+        let Some(doc) = load_published_skill_doc(state, &hash)? else {
+            continue;
+        };
+        let name_lower = doc.name.to_lowercase();
+        let markdown_lower = doc.markdown.to_lowercase();
+        if goal_lower.contains(&name_lower)
+            || name_lower.contains(&goal_lower)
+            || markdown_lower.contains(&goal_lower)
+        {
+            relevant_skills.push(agent_skill_from_published_doc(&doc));
         }
     }
     Ok(relevant_skills)
 }
 
 pub fn fetch_skill_macro(
-    service: &DesktopAgentService,
+    _service: &DesktopAgentService,
+    state: &dyn StateAccess,
     tool_name: &str,
 ) -> Option<(AgentMacro, [u8; 32])> {
-    if let Some(store_mutex) = &service.scs {
-        if let Ok(store) = store_mutex.lock() {
-            let payloads = store.scan_skills();
-            for p in payloads {
-                if let Ok(skill) = codec::from_bytes_canonical::<AgentMacro>(&p) {
-                    if skill.definition.name == tool_name
-                        || skill.definition.name.ends_with(&format!("__{}", tool_name))
-                    {
-                        if let Ok(hash) = ioi_crypto::algorithms::hash::sha256(&p) {
-                            let mut arr = [0u8; 32];
-                            arr.copy_from_slice(hash.as_ref());
-                            return Some((skill, arr));
-                        }
-                    }
-                }
-            }
+    let index = load_skill_catalog_index(state).ok()?;
+    let mut best_match: Option<(AgentMacro, [u8; 32], SkillBenchmarkReport)> = None;
+    for hash in index.skills {
+        let Some(record) = load_skill_record(state, &hash).ok().flatten() else {
+            continue;
+        };
+        if !skill_is_runtime_eligible(&record) {
+            continue;
+        }
+        let name = record.macro_body.definition.name.as_str();
+        if name != tool_name && !name.ends_with(&format!("__{}", tool_name)) {
+            continue;
+        }
+        let benchmark = record.benchmark.clone().unwrap_or_default();
+        match &best_match {
+            Some((_, _, existing)) if existing.success_rate_bps > benchmark.success_rate_bps => {}
+            _ => best_match = Some((record.macro_body.clone(), hash, benchmark)),
         }
     }
-    None
+    best_match.map(|(macro_body, hash, _)| (macro_body, hash))
 }
 
 pub fn expand_macro(
@@ -114,6 +123,38 @@ fn interpolate_values(target: &mut Value, args: &serde_json::Map<String, Value>)
     }
 }
 
+fn agent_skill_from_published_doc(doc: &PublishedSkillDoc) -> AgentSkill {
+    AgentSkill {
+        name: doc.name.clone(),
+        description: format!(
+            "Generated skill doc for {} (hash: 0x{})",
+            doc.name,
+            hex::encode(&doc.skill_hash[..4])
+        ),
+        content: doc.markdown.clone(),
+        resources: vec![],
+    }
+}
+
+pub fn fetch_session_traces(
+    state: &dyn StateAccess,
+    session_id: [u8; 32],
+) -> Result<Vec<StepTrace>, TransactionError> {
+    let prefix = [TRACE_PREFIX, session_id.as_slice()].concat();
+    let mut traces = Vec::new();
+    if let Ok(iter) = state.prefix_scan(&prefix) {
+        for item in iter {
+            if let Ok((_, bytes)) = item {
+                if let Ok(trace) = codec::from_bytes_canonical::<StepTrace>(&bytes) {
+                    traces.push(trace);
+                }
+            }
+        }
+    }
+    traces.sort_by_key(|trace| trace.step_index);
+    Ok(traces)
+}
+
 pub async fn update_skill_reputation(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
@@ -121,23 +162,20 @@ pub async fn update_skill_reputation(
     session_success: bool,
     block_height: u64,
 ) -> Result<(), TransactionError> {
-    let _scs_mutex = service
+    let _ = service
         .scs
         .as_ref()
         .ok_or(TransactionError::Invalid("SCS required".into()))?;
 
-    let prefix = [TRACE_PREFIX, session_id.as_slice()].concat();
-    let mut unique_skills = HashSet::new();
+    let session_outcome_key = get_skill_session_outcome_key(&session_id);
+    if state.get(&session_outcome_key)?.is_some() {
+        return Ok(());
+    }
 
-    if let Ok(iter) = state.prefix_scan(&prefix) {
-        for item in iter {
-            if let Ok((_, val)) = item {
-                if let Ok(trace) = codec::from_bytes_canonical::<StepTrace>(&val) {
-                    if let Some(hash) = trace.skill_hash {
-                        unique_skills.insert(hash);
-                    }
-                }
-            }
+    let mut unique_skills = HashSet::new();
+    for trace in fetch_session_traces(state, session_id)? {
+        if let Some(hash) = trace.skill_hash {
+            unique_skills.insert(hash);
         }
     }
 
@@ -174,6 +212,23 @@ pub async fn update_skill_reputation(
 
         state.insert(&key, &codec::to_bytes_canonical(&stats)?)?;
 
+        if let Some(mut record) = load_skill_record(state, &hash)? {
+            let previous_state = record.lifecycle_state;
+            let benchmark = build_benchmark_report(&stats, block_height);
+            record.benchmark = Some(benchmark.clone());
+            record.lifecycle_state = next_lifecycle_state(record.lifecycle_state, &benchmark);
+            record.updated_at = now_ms();
+            if record.lifecycle_state == SkillLifecycleState::Promoted {
+                let (doc, publication) = generate_published_skill_doc(&record)?;
+                record.publication = Some(publication);
+                upsert_published_skill_doc(state, &doc)?;
+            } else if let Some(publication) = record.publication.as_mut() {
+                publication.stale = true;
+            }
+            upsert_skill_record(state, &record)?;
+            refresh_published_doc_state(state, &record, previous_state)?;
+        }
+
         log::info!(
             "Skill 0x{} reliability: {:.2}",
             hex::encode(&hash[0..4]),
@@ -181,5 +236,51 @@ pub async fn update_skill_reputation(
         );
     }
 
+    state.insert(
+        &session_outcome_key,
+        &codec::to_bytes_canonical(&session_success)?,
+    )?;
+
     Ok(())
+}
+
+fn refresh_published_doc_state(
+    state: &mut dyn StateAccess,
+    record: &SkillRecord,
+    previous_state: SkillLifecycleState,
+) -> Result<(), TransactionError> {
+    let Some(mut doc) = load_published_skill_doc(state, &record.skill_hash)? else {
+        return Ok(());
+    };
+    doc.lifecycle_state = record.lifecycle_state;
+    doc.source_evidence_hash = record.source_evidence_hash;
+    doc.generated_at = record
+        .publication
+        .as_ref()
+        .map(|publication| publication.generated_at)
+        .unwrap_or(doc.generated_at);
+    doc.generator_version = record
+        .publication
+        .as_ref()
+        .map(|publication| publication.generator_version.clone())
+        .unwrap_or_else(|| doc.generator_version.clone());
+    doc.doc_hash = record
+        .publication
+        .as_ref()
+        .map(|publication| publication.doc_hash)
+        .unwrap_or(doc.doc_hash);
+    doc.relative_path = record
+        .publication
+        .as_ref()
+        .map(|publication| publication.relative_path.clone())
+        .unwrap_or_else(|| doc.relative_path.clone());
+    doc.stale = record
+        .publication
+        .as_ref()
+        .map(|publication| publication.stale)
+        .unwrap_or(
+            previous_state == SkillLifecycleState::Promoted
+                && record.lifecycle_state != SkillLifecycleState::Promoted,
+        );
+    upsert_published_skill_doc(state, &doc)
 }

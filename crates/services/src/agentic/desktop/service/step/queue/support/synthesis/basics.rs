@@ -346,9 +346,10 @@ pub(crate) fn metric_segment_signal_score(text: &str) -> usize {
     let price_quote_bonus =
         usize::from(schema.axis_hits.contains(&MetricAxis::Price) && has_price_quote_payload(text))
             .saturating_mul(12);
-    let price_without_quote_penalty =
-        usize::from(schema.axis_hits.contains(&MetricAxis::Price) && !has_price_quote_payload(text))
-            .saturating_mul(8);
+    let price_without_quote_penalty = usize::from(
+        schema.axis_hits.contains(&MetricAxis::Price) && !has_price_quote_payload(text),
+    )
+    .saturating_mul(8);
     axis_score
         .saturating_add(numeric_score)
         .saturating_add(unit_score)

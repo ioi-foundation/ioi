@@ -140,7 +140,10 @@ impl ShieldPolicyManager {
             .clone()
     }
 
-    pub fn replace_state(&self, next_state: ShieldPolicyState) -> Result<ShieldPolicyState, String> {
+    pub fn replace_state(
+        &self,
+        next_state: ShieldPolicyState,
+    ) -> Result<ShieldPolicyState, String> {
         let normalized = normalize_policy_state(next_state);
         persist_policy_state(&self.path, &normalized)?;
         let mut state = self.state.lock().expect("shield policy lock poisoned");
@@ -213,9 +216,10 @@ fn resolve_connector_policy_from_state(
 }
 
 fn load_policy_state(path: &Path) -> Result<ShieldPolicyState, String> {
-    let raw = fs::read_to_string(path).map_err(|error| format!("Failed to read Shield policy: {}", error))?;
-    let parsed: ShieldPolicyState =
-        serde_json::from_str(&raw).map_err(|error| format!("Failed to parse Shield policy: {}", error))?;
+    let raw = fs::read_to_string(path)
+        .map_err(|error| format!("Failed to read Shield policy: {}", error))?;
+    let parsed: ShieldPolicyState = serde_json::from_str(&raw)
+        .map_err(|error| format!("Failed to parse Shield policy: {}", error))?;
     Ok(normalize_policy_state(parsed))
 }
 

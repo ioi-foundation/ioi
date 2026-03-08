@@ -106,9 +106,7 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                     "web__search"
                     | "web__read"
                     | "media__extract_transcript"
-                    | "media__extract_multimodal_evidence" => {
-                        ActionTarget::WebRetrieve
-                    }
+                    | "media__extract_multimodal_evidence" => ActionTarget::WebRetrieve,
                     "browser__snapshot" => ActionTarget::BrowserInspect,
                     "browser__navigate"
                     | "browser__click"

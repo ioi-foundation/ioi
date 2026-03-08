@@ -9,5 +9,5 @@ mod stream;
 #[path = "events/support.rs"]
 mod support;
 
-pub use stream::monitor_kernel_events;
 pub(crate) use emission::{build_event, register_artifact, register_event};
+pub use stream::monitor_kernel_events;

@@ -968,12 +968,13 @@ pub(super) async fn handle_execution_success(
 
     apply_tool_outcome_and_followups(ToolOutcomeContext {
         service,
-        _state: state,
+        state,
         agent_state,
         rules,
         tool,
         tool_args,
         session_id,
+        block_height,
         block_timestamp_ns,
         step_index,
         resolved_intent_id,

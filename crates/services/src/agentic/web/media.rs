@@ -1,21 +1,21 @@
 use anyhow::{anyhow, Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
+use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, Rgb};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::{
     InferenceOptions, MediaFrameEvidence, MediaMultimodalBundle, MediaProviderCandidate,
     MediaTranscriptBundle, MediaTranscriptProviderCandidate, MediaVisualEvidenceBundle,
     WebRetrievalAffordance,
 };
-use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, Rgb};
 use reqwest::{header, redirect};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::cmp::Ordering;
 use std::fs;
 use std::fs::File;
-use std::io::ErrorKind;
 use std::io::Cursor;
+use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -32,8 +32,8 @@ use symphonia::core::probe::Hint;
 use tokio::process::Command;
 use tokio::task::spawn_blocking;
 use tokio::time::timeout;
-use walkdir::WalkDir;
 use url::Url;
+use walkdir::WalkDir;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 use xz2::read::XzDecoder;
 use zip::ZipArchive;
@@ -407,8 +407,12 @@ pub async fn edge_media_extract_multimodal_evidence(
     let duration_seconds = metadata.get("duration").and_then(Value::as_u64);
     let retrieved_at_ms = now_ms();
 
-    let transcript_bundle = transcript_artifact.as_ref().map(|artifact| artifact.bundle.clone());
-    let visual_bundle = visual_artifact.as_ref().map(|artifact| artifact.bundle.clone());
+    let transcript_bundle = transcript_artifact
+        .as_ref()
+        .map(|artifact| artifact.bundle.clone());
+    let visual_bundle = visual_artifact
+        .as_ref()
+        .map(|artifact| artifact.bundle.clone());
     let bundle = MediaMultimodalBundle {
         schema_version: 1,
         retrieved_at_ms,
@@ -515,7 +519,8 @@ async fn extract_transcript_artifact(
         subtitle_candidate.candidate.clone(),
         audio_candidate.candidate.clone(),
     ];
-    let Some(selected_plan) = select_provider_plan(&mut subtitle_candidate, &mut audio_candidate) else {
+    let Some(selected_plan) = select_provider_plan(&mut subtitle_candidate, &mut audio_candidate)
+    else {
         if require_candidate {
             return Err(anyhow!(
                 "ERROR_CLASS=DiscoveryMissing media transcript discovery found no admissible provider candidates for requested_language={} url={}",
@@ -700,13 +705,8 @@ async fn extract_visual_artifact(
     transcript_segments: Option<&[TranscriptSegment]>,
     inference: Arc<dyn InferenceRuntime>,
 ) -> Result<(Vec<MediaProviderCandidate>, Option<VisualArtifact>)> {
-    let mut visual_candidate = discover_visual_candidate(
-        requested_url,
-        tool_home,
-        metadata,
-        inference.clone(),
-    )
-    .await?;
+    let mut visual_candidate =
+        discover_visual_candidate(requested_url, tool_home, metadata, inference.clone()).await?;
     let Some(plan) = visual_candidate.plan.clone() else {
         return Ok((vec![visual_candidate.candidate], None));
     };
@@ -715,11 +715,14 @@ async fn extract_visual_artifact(
     let run_dir = prepare_run_dir(tool_home)?;
     let video_path =
         download_selected_video(ytdlp, requested_url, &plan.video_format, &run_dir).await?;
-    let duration_seconds = metadata.get("duration").and_then(Value::as_u64).ok_or_else(|| {
-        anyhow!(
+    let duration_seconds = metadata
+        .get("duration")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            anyhow!(
             "ERROR_CLASS=VerificationMissing visual sampling requires a positive media duration."
         )
-    })?;
+        })?;
     let timestamps_ms = sample_visual_frame_timestamps(duration_seconds, frame_limit as usize);
     if timestamps_ms.is_empty() {
         return Err(anyhow!(
@@ -728,12 +731,8 @@ async fn extract_visual_artifact(
     }
     let frame_samples =
         extract_visual_frame_samples(&plan.ffmpeg, &video_path, &timestamps_ms, &run_dir).await?;
-    let frame_evidence = analyze_visual_frame_samples(
-        &frame_samples,
-        transcript_segments,
-        inference,
-    )
-    .await?;
+    let frame_evidence =
+        analyze_visual_frame_samples(&frame_samples, transcript_segments, inference).await?;
     if frame_evidence.is_empty() {
         return Err(anyhow!(
             "ERROR_CLASS=VerificationMissing visual frame analysis produced no observations."
@@ -794,7 +793,10 @@ async fn extract_visual_artifact(
         ..MediaMultimodalRunReceipt::default()
     };
 
-    Ok((vec![visual_candidate.candidate], Some(VisualArtifact { bundle, receipt })))
+    Ok((
+        vec![visual_candidate.candidate],
+        Some(VisualArtifact { bundle, receipt }),
+    ))
 }
 
 async fn discover_visual_candidate(
@@ -832,7 +834,10 @@ async fn discover_visual_candidate(
             plan: None,
         });
     };
-    let duration_seconds = metadata.get("duration").and_then(Value::as_u64).unwrap_or_default();
+    let duration_seconds = metadata
+        .get("duration")
+        .and_then(Value::as_u64)
+        .unwrap_or_default();
     if duration_seconds == 0 {
         return Ok(VisualProviderCandidateState {
             candidate: media_provider_candidate_receipt_with_modality(
@@ -964,7 +969,10 @@ fn discover_subtitle_candidate(
     }
 }
 
-fn discover_audio_stt_candidate(request_url: &str, metadata: &Value) -> MediaProviderCandidateState {
+fn discover_audio_stt_candidate(
+    request_url: &str,
+    metadata: &Value,
+) -> MediaProviderCandidateState {
     match select_audio_format(metadata) {
         Some(selection) => MediaProviderCandidateState {
             candidate: media_provider_candidate_receipt(
@@ -1144,11 +1152,10 @@ async fn ensure_managed_ffmpeg_provider(tool_home: &Path) -> Result<ManagedFfmpe
         .ok()
         .map(|raw| raw.trim().eq_ignore_ascii_case(&expected_sha))
         .unwrap_or(false);
-    let binaries_ready = locate_ffmpeg_binary(&extract_root, "ffmpeg")
-        .and_then(|ffmpeg_path| {
-            locate_ffmpeg_binary(&extract_root, "ffprobe")
-                .map(|ffprobe_path| (ffmpeg_path, ffprobe_path))
-        });
+    let binaries_ready = locate_ffmpeg_binary(&extract_root, "ffmpeg").and_then(|ffmpeg_path| {
+        locate_ffmpeg_binary(&extract_root, "ffprobe")
+            .map(|ffprobe_path| (ffmpeg_path, ffprobe_path))
+    });
 
     let (ffmpeg_path, ffprobe_path) = if pin_matches {
         binaries_ready.ok_or_else(|| {
@@ -1376,7 +1383,12 @@ fn parse_sha256sum_line(line: &str, asset_name: &str) -> Option<String> {
 }
 
 fn parse_header_hex_sha256(value: &header::HeaderValue) -> Option<String> {
-    let parsed = value.to_str().ok()?.trim().trim_matches('"').to_ascii_lowercase();
+    let parsed = value
+        .to_str()
+        .ok()?
+        .trim()
+        .trim_matches('"')
+        .to_ascii_lowercase();
     (parsed.len() == 64 && parsed.chars().all(|ch| ch.is_ascii_hexdigit())).then_some(parsed)
 }
 
@@ -1508,7 +1520,10 @@ async fn download_selected_subtitle(
         "--sub-langs".to_string(),
         selection.language_key.clone(),
         "-o".to_string(),
-        run_dir.join("transcript.%(ext)s").to_string_lossy().to_string(),
+        run_dir
+            .join("transcript.%(ext)s")
+            .to_string_lossy()
+            .to_string(),
     ];
     if selection.source_kind == "manual" {
         args.push("--write-subs".to_string());
@@ -1577,9 +1592,7 @@ async fn download_selected_audio(
                     })
         })
         .ok_or_else(|| {
-            anyhow!(
-                "ERROR_CLASS=VerificationMissing yt-dlp did not materialize an audio file."
-            )
+            anyhow!("ERROR_CLASS=VerificationMissing yt-dlp did not materialize an audio file.")
         })
 }
 
@@ -1625,9 +1638,7 @@ async fn download_selected_video(
                     })
         })
         .ok_or_else(|| {
-            anyhow!(
-                "ERROR_CLASS=VerificationMissing yt-dlp did not materialize a video file."
-            )
+            anyhow!("ERROR_CLASS=VerificationMissing yt-dlp did not materialize a video file.")
         })
 }
 
@@ -1840,8 +1851,13 @@ async fn extract_visual_frame_samples(
             "3".to_string(),
             output_path.to_string_lossy().to_string(),
         ];
-        let _ = run_managed_ffmpeg(&provider.ffmpeg_path, &args, run_dir, FFMPEG_FRAME_TIMEOUT_SECS)
-            .await?;
+        let _ = run_managed_ffmpeg(
+            &provider.ffmpeg_path,
+            &args,
+            run_dir,
+            FFMPEG_FRAME_TIMEOUT_SECS,
+        )
+        .await?;
         let bytes = fs::read(&output_path).with_context(|| {
             format!(
                 "ERROR_CLASS=VerificationMissing failed to read extracted frame {}",
@@ -1897,7 +1913,12 @@ async fn analyze_visual_frame_samples(
                 VISION_PROBE_TIMEOUT_SECS
             )
         })?
-        .map_err(|err| anyhow!("ERROR_CLASS=ExecutionFailedTerminal visual frame analysis failed: {}", err))?;
+        .map_err(|err| {
+            anyhow!(
+                "ERROR_CLASS=ExecutionFailedTerminal visual frame analysis failed: {}",
+                err
+            )
+        })?;
         let value = parse_json_value(&raw)?;
         let observations_value = value
             .get("observations")
@@ -1936,8 +1957,8 @@ async fn analyze_visual_frame_samples(
                     .and_then(Value::as_str)
                     .unwrap_or(""),
             );
-            let transcript_excerpt =
-                transcript_segments.and_then(|segments| transcript_excerpt_near(segments, sample.timestamp_ms));
+            let transcript_excerpt = transcript_segments
+                .and_then(|segments| transcript_excerpt_near(segments, sample.timestamp_ms));
             observations.push(MediaFrameEvidence {
                 timestamp_ms,
                 timestamp_label: sample.timestamp_label.clone(),
@@ -1995,10 +2016,7 @@ fn build_visual_summary(frames: &[MediaFrameEvidence]) -> String {
         .join("\n")
 }
 
-fn transcript_excerpt_near(
-    segments: &[TranscriptSegment],
-    timestamp_ms: u64,
-) -> Option<String> {
+fn transcript_excerpt_near(segments: &[TranscriptSegment], timestamp_ms: u64) -> Option<String> {
     let window_start = timestamp_ms.saturating_sub(90_000);
     let window_end = timestamp_ms.saturating_add(90_000);
     let excerpt = segments
@@ -2054,7 +2072,12 @@ async fn probe_vision_runtime(inference: Arc<dyn InferenceRuntime>) -> Result<bo
             VISION_PROBE_TIMEOUT_SECS
         )
     })?
-    .map_err(|err| anyhow!("ERROR_CLASS=ExecutionFailedTerminal vision probe failed: {}", err))?;
+    .map_err(|err| {
+        anyhow!(
+            "ERROR_CLASS=ExecutionFailedTerminal vision probe failed: {}",
+            err
+        )
+    })?;
     let value = parse_json_value(&raw)?;
     Ok(value
         .get("image_support")
@@ -2120,7 +2143,9 @@ fn discovery_reason_from_error(err: &anyhow::Error) -> String {
 
 fn select_subtitle_track(metadata: &Value, requested_language: &str) -> Option<SubtitleSelection> {
     let manual = metadata.get("subtitles").and_then(Value::as_object);
-    let automatic = metadata.get("automatic_captions").and_then(Value::as_object);
+    let automatic = metadata
+        .get("automatic_captions")
+        .and_then(Value::as_object);
 
     select_track_from_bucket(manual, requested_language)
         .map(|language_key| SubtitleSelection {
@@ -2237,7 +2262,8 @@ async fn transcribe_audio_with_managed_whisper(
     let audio_path = audio_path.to_path_buf();
     let model_path = model.model_path.clone();
     let language = language.to_string();
-    let job = spawn_blocking(move || transcribe_audio_blocking(&model_path, &audio_path, &language));
+    let job =
+        spawn_blocking(move || transcribe_audio_blocking(&model_path, &audio_path, &language));
     timeout(Duration::from_secs(WHISPER_TRANSCRIBE_TIMEOUT_SECS), job)
         .await
         .map_err(|_| {
@@ -2390,8 +2416,9 @@ fn decode_audio_to_whisper_pcm(path: &Path) -> Result<Vec<f32>> {
                 }
                 let mut sample_buf = SampleBuffer::<f32>::new(audio_buf.capacity() as u64, spec);
                 sample_buf.copy_interleaved_ref(audio_buf);
-                let resampler = resampler
-                    .get_or_insert_with(|| LinearResampler::new(spec.rate, WHISPER_TARGET_SAMPLE_RATE));
+                let resampler = resampler.get_or_insert_with(|| {
+                    LinearResampler::new(spec.rate, WHISPER_TARGET_SAMPLE_RATE)
+                });
                 if resampler.input_rate != spec.rate {
                     return Err(anyhow!(
                         "ERROR_CLASS=ExecutionFailedTerminal variable sample rate audio is unsupported for {}",
@@ -2642,7 +2669,10 @@ fn write_run_receipt(tool_home: &Path, receipt: &MediaTranscriptRunReceipt) -> R
     })
 }
 
-fn write_multimodal_run_receipt(tool_home: &Path, receipt: &MediaMultimodalRunReceipt) -> Result<()> {
+fn write_multimodal_run_receipt(
+    tool_home: &Path,
+    receipt: &MediaMultimodalRunReceipt,
+) -> Result<()> {
     let receipt_path = media_tool_receipt_path(tool_home);
     if let Some(parent) = receipt_path.parent() {
         fs::create_dir_all(parent)?;
@@ -2694,7 +2724,10 @@ mod tests {
         });
         let map = bucket.as_object();
         assert_eq!(select_track_from_bucket(map, "en").as_deref(), Some("en"));
-        assert_eq!(select_track_from_bucket(map, "en-GB").as_deref(), Some("en"));
+        assert_eq!(
+            select_track_from_bucket(map, "en-GB").as_deref(),
+            Some("en")
+        );
     }
 
     #[test]
@@ -2754,7 +2787,10 @@ mod tests {
 ```"#,
         )
         .expect("wrapped json should parse");
-        assert_eq!(value.get("image_support").and_then(Value::as_bool), Some(true));
+        assert_eq!(
+            value.get("image_support").and_then(Value::as_bool),
+            Some(true)
+        );
     }
 
     #[test]

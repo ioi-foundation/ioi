@@ -3,9 +3,20 @@
 use crate::util::create_cli_tx;
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{GetTransactionStatusRequest, SubmitTransactionRequest};
-use ioi_types::app::agentic::{AgentMacro, LlmToolDefinition};
+use ioi_services::agentic::desktop::keys::{
+    get_skill_doc_key, get_skill_record_key, SKILL_DOC_INDEX_KEY,
+};
+use ioi_services::agentic::skill_registry::{
+    render_skill_markdown, skill_doc_relative_path, SKILL_DOC_GENERATOR_VERSION,
+};
+use ioi_types::app::agentic::{
+    AgentMacro, ExternalSkillEvidence, LlmToolDefinition, PublishedSkillDoc, SkillCatalogIndex,
+    SkillLifecycleState, SkillRecord,
+};
 use ioi_types::app::{
     ActionContext, ActionRequest, ActionTarget, MailConnectorAuthMode, MailConnectorConfig,
     MailConnectorEndpoint, MailConnectorProvider, MailConnectorSecretAliases, MailConnectorTlsMode,
@@ -74,6 +85,21 @@ pub enum DevCommands {
     /// Inject a raw skill JSON into the node's SCS.
     InjectSkill { file: PathBuf },
 
+    /// Ingest normalized external evidence and synthesize a candidate executable skill.
+    IngestSkillEvidence { file: PathBuf },
+
+    /// Export promoted generated skill docs from chain state to a local directory.
+    ExportSkillDocs {
+        #[clap(long, default_value = "docs")]
+        out_dir: PathBuf,
+    },
+
+    /// Verify exported skill docs match the promoted state-backed publications exactly.
+    VerifySkillDocs {
+        #[clap(long, default_value = "docs")]
+        out_dir: PathBuf,
+    },
+
     /// Bootstrap wallet mail connector + secret aliases from local env file.
     BootstrapMail {
         #[clap(long, default_value = ".env.mail-e2e.local")]
@@ -125,9 +151,19 @@ struct LocalMailSecretSpec {
     value: String,
 }
 
+struct PublishedSkillBundle {
+    record: SkillRecord,
+    doc: PublishedSkillDoc,
+}
+
 pub async fn run(args: DevArgs) -> Result<()> {
     match args.command {
         DevCommands::InjectSkill { file } => run_inject_skill(&args.rpc, file).await,
+        DevCommands::IngestSkillEvidence { file } => {
+            run_ingest_skill_evidence(&args.rpc, file).await
+        }
+        DevCommands::ExportSkillDocs { out_dir } => run_export_skill_docs(&args.rpc, out_dir).await,
+        DevCommands::VerifySkillDocs { out_dir } => run_verify_skill_docs(&args.rpc, out_dir).await,
         DevCommands::BootstrapMail { env_file } => run_bootstrap_mail(&args.rpc, env_file).await,
     }
 }
@@ -186,6 +222,125 @@ async fn run_inject_skill(rpc: &str, file: PathBuf) -> Result<()> {
     println!(
         "Skill '{}' injected. tx_hash={}",
         skill.definition.name, tx_hash
+    );
+    Ok(())
+}
+
+async fn run_ingest_skill_evidence(rpc: &str, file: PathBuf) -> Result<()> {
+    let json = std::fs::read_to_string(&file)
+        .with_context(|| format!("Failed to read evidence file '{}'", file.display()))?;
+    let evidence: ExternalSkillEvidence =
+        serde_json::from_str(&json).context("Failed to parse external skill evidence JSON")?;
+
+    let params_bytes = codec::to_bytes_canonical(&evidence)
+        .map_err(|e| anyhow!("Failed to encode ExternalSkillEvidence: {}", e))?;
+    let payload = SystemPayload::CallService {
+        service_id: "optimizer".to_string(),
+        method: "ingest_skill_evidence@v1".to_string(),
+        params: params_bytes,
+    };
+
+    let keypair = ioi_crypto::sign::eddsa::Ed25519KeyPair::generate()
+        .map_err(|e| anyhow!("Failed to generate keypair: {}", e))?;
+    let tx = create_cli_tx(&keypair, payload, 0);
+
+    let mut client = connect_public_client(rpc).await?;
+    let tx_hash = submit_tx_and_wait(&mut client, &tx).await?;
+    println!(
+        "Ingested external evidence from '{}' via tx_hash={}",
+        file.display(),
+        tx_hash
+    );
+    Ok(())
+}
+
+async fn run_export_skill_docs(rpc: &str, out_dir: PathBuf) -> Result<()> {
+    let mut client = connect_public_client(rpc).await?;
+    let bundle = load_published_skill_docs(&mut client).await?;
+    let index_markdown = render_skill_index_markdown(&bundle);
+
+    std::fs::create_dir_all(&out_dir).with_context(|| {
+        format!(
+            "Failed to create skill export directory '{}'",
+            out_dir.display()
+        )
+    })?;
+
+    for item in &bundle {
+        verify_state_publication(item)?;
+        let full_path = out_dir.join(&item.doc.relative_path);
+        if let Some(parent) = full_path.parent() {
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!(
+                    "Failed to create parent directory '{}' for generated skill doc",
+                    parent.display()
+                )
+            })?;
+        }
+        std::fs::write(&full_path, item.doc.markdown.as_bytes()).with_context(|| {
+            format!(
+                "Failed to write generated skill doc '{}'",
+                full_path.display()
+            )
+        })?;
+    }
+
+    let index_path = out_dir.join("skills.md");
+    std::fs::write(&index_path, index_markdown.as_bytes()).with_context(|| {
+        format!(
+            "Failed to write generated skill index '{}'",
+            index_path.display()
+        )
+    })?;
+
+    println!(
+        "Exported {} promoted skill docs into '{}'",
+        bundle.len(),
+        out_dir.display()
+    );
+    Ok(())
+}
+
+async fn run_verify_skill_docs(rpc: &str, out_dir: PathBuf) -> Result<()> {
+    let mut client = connect_public_client(rpc).await?;
+    let bundle = load_published_skill_docs(&mut client).await?;
+    let index_markdown = render_skill_index_markdown(&bundle);
+
+    for item in &bundle {
+        verify_state_publication(item)?;
+        let full_path = out_dir.join(&item.doc.relative_path);
+        let disk_markdown = std::fs::read_to_string(&full_path).with_context(|| {
+            format!(
+                "Generated skill doc '{}' is missing or unreadable",
+                full_path.display()
+            )
+        })?;
+        if disk_markdown != item.doc.markdown {
+            return Err(anyhow!(
+                "Generated skill doc '{}' drifted from published state",
+                full_path.display()
+            ));
+        }
+    }
+
+    let index_path = out_dir.join("skills.md");
+    let disk_index = std::fs::read_to_string(&index_path).with_context(|| {
+        format!(
+            "Generated skill index '{}' is missing or unreadable",
+            index_path.display()
+        )
+    })?;
+    if disk_index != index_markdown {
+        return Err(anyhow!(
+            "Generated skill index '{}' drifted from published state",
+            index_path.display()
+        ));
+    }
+
+    println!(
+        "Verified {} promoted skill docs in '{}'",
+        bundle.len(),
+        out_dir.display()
     );
     Ok(())
 }
@@ -619,6 +774,146 @@ async fn connect_public_client(rpc: &str) -> Result<PublicApiClient<Channel>> {
     Ok(PublicApiClient::new(channel))
 }
 
+async fn query_raw_state(
+    client: &mut PublicApiClient<Channel>,
+    key: Vec<u8>,
+) -> Result<Option<Vec<u8>>> {
+    let response = client
+        .query_raw_state(QueryRawStateRequest { key })
+        .await
+        .context("query_raw_state RPC failed")?
+        .into_inner();
+    if response.found {
+        Ok(Some(response.value))
+    } else {
+        Ok(None)
+    }
+}
+
+async fn load_published_skill_docs(
+    client: &mut PublicApiClient<Channel>,
+) -> Result<Vec<PublishedSkillBundle>> {
+    let index = if let Some(bytes) = query_raw_state(client, SKILL_DOC_INDEX_KEY.to_vec()).await? {
+        codec::from_bytes_canonical::<SkillCatalogIndex>(&bytes)
+            .map_err(|e| anyhow!("Failed to decode skill doc index: {}", e))?
+    } else {
+        SkillCatalogIndex::default()
+    };
+
+    let mut bundle = Vec::new();
+    for skill_hash in index.skills {
+        let Some(doc_bytes) = query_raw_state(client, get_skill_doc_key(&skill_hash)).await? else {
+            continue;
+        };
+        let doc = codec::from_bytes_canonical::<PublishedSkillDoc>(&doc_bytes)
+            .map_err(|e| anyhow!("Failed to decode published skill doc: {}", e))?;
+
+        let Some(record_bytes) = query_raw_state(client, get_skill_record_key(&skill_hash)).await?
+        else {
+            return Err(anyhow!(
+                "Published skill doc '{}' is missing its backing SkillRecord",
+                doc.name
+            ));
+        };
+        let record = codec::from_bytes_canonical::<SkillRecord>(&record_bytes)
+            .map_err(|e| anyhow!("Failed to decode skill record: {}", e))?;
+
+        if record.lifecycle_state == SkillLifecycleState::Promoted && !doc.stale {
+            bundle.push(PublishedSkillBundle { record, doc });
+        }
+    }
+
+    bundle.sort_by(|left, right| left.doc.name.cmp(&right.doc.name));
+    Ok(bundle)
+}
+
+fn verify_state_publication(item: &PublishedSkillBundle) -> Result<()> {
+    let expected_markdown = render_skill_markdown(&item.record);
+    let expected_relative_path = skill_doc_relative_path(&item.record);
+    let expected_hash_bytes = sha256(expected_markdown.as_bytes())
+        .map_err(|e| anyhow!("Failed to hash generated skill markdown: {}", e))?;
+    let mut expected_hash = [0u8; 32];
+    expected_hash.copy_from_slice(expected_hash_bytes.as_ref());
+
+    if item.doc.markdown != expected_markdown {
+        return Err(anyhow!(
+            "Published skill doc '{}' drifted from its backing SkillRecord",
+            item.doc.name
+        ));
+    }
+    if item.doc.relative_path != expected_relative_path {
+        return Err(anyhow!(
+            "Published skill doc '{}' has a stale relative path",
+            item.doc.name
+        ));
+    }
+    if item.doc.doc_hash != expected_hash {
+        return Err(anyhow!(
+            "Published skill doc '{}' has a stale doc hash",
+            item.doc.name
+        ));
+    }
+    if item.doc.generator_version != SKILL_DOC_GENERATOR_VERSION {
+        return Err(anyhow!(
+            "Published skill doc '{}' was generated by an unexpected generator version",
+            item.doc.name
+        ));
+    }
+    let publication = item.record.publication.as_ref().ok_or_else(|| {
+        anyhow!(
+            "Promoted skill '{}' is missing publication metadata",
+            item.doc.name
+        )
+    })?;
+    if publication.stale {
+        return Err(anyhow!(
+            "Promoted skill '{}' is marked stale and must be republished",
+            item.doc.name
+        ));
+    }
+    if publication.relative_path != item.doc.relative_path
+        || publication.doc_hash != item.doc.doc_hash
+    {
+        return Err(anyhow!(
+            "Promoted skill '{}' publication metadata drifted from the published doc",
+            item.doc.name
+        ));
+    }
+    Ok(())
+}
+
+fn render_skill_index_markdown(bundle: &[PublishedSkillBundle]) -> String {
+    let mut out = String::from("# Skills\n\n");
+    out.push_str("Generated skill docs derived from promoted executable `AgentMacro` records.\n\n");
+    if bundle.is_empty() {
+        out.push_str("No promoted skill docs are currently published.\n");
+        return out;
+    }
+
+    out.push_str("## Published Skills\n\n");
+    for item in bundle {
+        let description = item.record.macro_body.definition.description.trim();
+        let success_rate = item
+            .record
+            .benchmark
+            .as_ref()
+            .map(|benchmark| benchmark.success_rate_bps)
+            .unwrap_or_default();
+        out.push_str(&format!(
+            "- `{}`: {} (`{}`; success=`{} bps`)\n",
+            item.doc.name,
+            if description.is_empty() {
+                "No description".to_string()
+            } else {
+                description.to_string()
+            },
+            item.doc.relative_path,
+            success_rate
+        ));
+    }
+    out
+}
+
 async fn submit_tx_and_wait(
     client: &mut PublicApiClient<Channel>,
     tx: &ioi_types::app::ChainTransaction,
@@ -666,4 +961,101 @@ fn now_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_types::app::agentic::{SkillBenchmarkReport, SkillPublicationInfo, SkillSourceType};
+
+    fn sample_bundle() -> PublishedSkillBundle {
+        let record = SkillRecord {
+            skill_hash: [7u8; 32],
+            frame_id: 11,
+            macro_body: AgentMacro {
+                definition: LlmToolDefinition {
+                    name: "browser__open_dashboard".to_string(),
+                    description: "Open the dashboard.".to_string(),
+                    parameters: r#"{"type":"object","properties":{"url":{"type":"string"}}}"#
+                        .to_string(),
+                },
+                steps: vec![ActionRequest {
+                    target: ActionTarget::BrowserInteract,
+                    params: br#"{"__ioi_tool_name":"browser__navigate","url":"{{url}}"}"#.to_vec(),
+                    context: ActionContext {
+                        agent_id: "macro".to_string(),
+                        session_id: None,
+                        window_id: None,
+                    },
+                    nonce: 0,
+                }],
+                source_trace_hash: [3u8; 32],
+                fitness: 1.0,
+            },
+            lifecycle_state: SkillLifecycleState::Promoted,
+            source_type: SkillSourceType::Imported,
+            source_session_id: None,
+            source_evidence_hash: Some([5u8; 32]),
+            benchmark: Some(SkillBenchmarkReport {
+                sample_size: 8,
+                success_rate_bps: 9_250,
+                intervention_rate_bps: 0,
+                policy_incident_rate_bps: 0,
+                avg_cost: 77,
+                avg_latency_ms: 0,
+                passed: true,
+                last_evaluated_height: 9,
+            }),
+            publication: None,
+            created_at: 1,
+            updated_at: 2,
+        };
+        let markdown = render_skill_markdown(&record);
+        let digest = sha256(markdown.as_bytes()).expect("hash");
+        let mut doc_hash = [0u8; 32];
+        doc_hash.copy_from_slice(digest.as_ref());
+        let relative_path = skill_doc_relative_path(&record);
+        let publication = SkillPublicationInfo {
+            generator_version: SKILL_DOC_GENERATOR_VERSION.to_string(),
+            generated_at: 123,
+            doc_hash,
+            relative_path: relative_path.clone(),
+            stale: false,
+        };
+        let doc = PublishedSkillDoc {
+            skill_hash: record.skill_hash,
+            name: record.macro_body.definition.name.clone(),
+            markdown,
+            generator_version: SKILL_DOC_GENERATOR_VERSION.to_string(),
+            generated_at: 123,
+            source_trace_hash: record.macro_body.source_trace_hash,
+            source_evidence_hash: record.source_evidence_hash,
+            lifecycle_state: record.lifecycle_state,
+            doc_hash,
+            relative_path,
+            stale: false,
+        };
+        PublishedSkillBundle {
+            record: SkillRecord {
+                publication: Some(publication),
+                ..record
+            },
+            doc,
+        }
+    }
+
+    #[test]
+    fn verify_state_publication_accepts_matching_bundle() {
+        let bundle = sample_bundle();
+        verify_state_publication(&bundle).expect("bundle should verify");
+    }
+
+    #[test]
+    fn render_skill_index_markdown_lists_promoted_docs() {
+        let bundle = sample_bundle();
+        let markdown = render_skill_index_markdown(&[bundle]);
+        assert!(markdown.contains("browser__open_dashboard"));
+        assert!(markdown.contains("skills/browser__open_dashboard/SKILL.md"));
+        assert!(markdown.contains("success=`9250 bps`"));
+    }
 }

@@ -6,6 +6,12 @@ pub const TRACE_PREFIX: &[u8] = b"agent::trace::";
 pub const AGENT_POLICY_PREFIX: &[u8] = b"agent::policy::";
 // [NEW] Prefix for mutable skill statistics
 pub const SKILL_STATS_PREFIX: &[u8] = b"skills::stats::";
+pub const SKILL_RECORD_PREFIX: &[u8] = b"skills::record::";
+pub const SKILL_DOC_PREFIX: &[u8] = b"skills::doc::";
+pub const SKILL_EXTERNAL_EVIDENCE_PREFIX: &[u8] = b"skills::evidence::";
+pub const SKILL_CATALOG_INDEX_KEY: &[u8] = b"skills::catalog::index";
+pub const SKILL_DOC_INDEX_KEY: &[u8] = b"skills::docs::index";
+pub const SKILL_SESSION_OUTCOME_PREFIX: &[u8] = b"skills::session_outcome::";
 // [NEW] Prefix for the latest mutation receipt pointer for a session.
 pub const MUTATION_RECEIPT_PTR_PREFIX: &[u8] = b"agent::mutation_receipt_ptr::";
 pub const REMEDIATION_PREFIX: &[u8] = b"agent::remediation::";
@@ -40,6 +46,22 @@ pub fn get_trace_key(session_id: &[u8; 32], step: u32) -> Vec<u8> {
 
 pub fn get_skill_stats_key(skill_hash: &[u8; 32]) -> Vec<u8> {
     [SKILL_STATS_PREFIX, skill_hash.as_slice()].concat()
+}
+
+pub fn get_skill_record_key(skill_hash: &[u8; 32]) -> Vec<u8> {
+    [SKILL_RECORD_PREFIX, skill_hash.as_slice()].concat()
+}
+
+pub fn get_skill_doc_key(skill_hash: &[u8; 32]) -> Vec<u8> {
+    [SKILL_DOC_PREFIX, skill_hash.as_slice()].concat()
+}
+
+pub fn get_skill_external_evidence_key(skill_hash: &[u8; 32]) -> Vec<u8> {
+    [SKILL_EXTERNAL_EVIDENCE_PREFIX, skill_hash.as_slice()].concat()
+}
+
+pub fn get_skill_session_outcome_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [SKILL_SESSION_OUTCOME_PREFIX, session_id.as_slice()].concat()
 }
 
 pub fn get_session_result_key(session_id: &[u8; 32]) -> Vec<u8> {

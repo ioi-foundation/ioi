@@ -48,9 +48,7 @@ pub(crate) fn contract_requires_geo_scoped_entity_expansion(
         && (contract.runtime_locality_required || contract.geo_scoped_detail_required)
 }
 
-pub(crate) fn contract_requires_semantic_source_alignment(
-    contract: &WebRetrievalContract,
-) -> bool {
+pub(crate) fn contract_requires_semantic_source_alignment(contract: &WebRetrievalContract) -> bool {
     contract.entity_diversity_required
         || contract.scalar_measure_required
         || (contract.currentness_required
@@ -88,9 +86,7 @@ fn lint_web_retrieval_contract(
             && query_requires_runtime_locality_scope(normalized_query_contract));
     let scalar_measure_required = !query_metric_axes(normalized_query_contract).is_empty();
     let single_fact_snapshot = prefers_single_fact_snapshot(normalized_query_contract)
-        || (explicit_entity_cardinality <= 1
-            && scalar_measure_required
-            && !comparison_required);
+        || (explicit_entity_cardinality <= 1 && scalar_measure_required && !comparison_required);
     let direct_single_record_snapshot = contract.entity_cardinality_min <= 1
         && contract.structured_record_preferred
         && !contract.comparison_required
@@ -106,7 +102,8 @@ fn lint_web_retrieval_contract(
         .max(explicit_entity_cardinality);
     contract.comparison_required = contract.comparison_required || comparison_required;
     contract.currentness_required &= facets.time_sensitive_public_fact;
-    contract.runtime_locality_required = contract.runtime_locality_required || runtime_locality_required;
+    contract.runtime_locality_required =
+        contract.runtime_locality_required || runtime_locality_required;
     contract.scalar_measure_required = contract.scalar_measure_required || scalar_measure_required;
     contract.source_independence_min = contract.source_independence_min.clamp(1, 6);
     contract.citation_count_min = contract
@@ -127,9 +124,8 @@ fn lint_web_retrieval_contract(
     }
 
     if !facets.time_sensitive_public_fact {
-        contract.ordered_collection_preferred &= query_is_generic_headline_collection(
-            normalized_query_contract,
-        );
+        contract.ordered_collection_preferred &=
+            query_is_generic_headline_collection(normalized_query_contract);
     }
 
     if contract.entity_diversity_required {
@@ -219,8 +215,8 @@ fn deterministic_web_retrieval_contract(
     let generic_headline_collection = query_is_generic_headline_collection(structural_query);
     let single_fact_snapshot = prefers_single_fact_snapshot(structural_query)
         || (entity_cardinality_min <= 1 && scalar_measure_required && !comparison_required);
-    let direct_snapshot_surface_preferred = single_fact_snapshot
-        && (scalar_measure_required || runtime_locality_required);
+    let direct_snapshot_surface_preferred =
+        single_fact_snapshot && (scalar_measure_required || runtime_locality_required);
     let entity_diversity_required = entity_cardinality_min > 1
         && runtime_locality_required
         && !facets.time_sensitive_public_fact
@@ -268,10 +264,11 @@ pub fn derive_web_retrieval_contract(
         return Err("web retrieval contract inference requires a non-empty query".to_string());
     }
 
-    lint_web_retrieval_contract(query, Some(normalized_query_contract), deterministic_web_retrieval_contract(
-        raw_query,
+    lint_web_retrieval_contract(
+        query,
         Some(normalized_query_contract),
-    ))
+        deterministic_web_retrieval_contract(raw_query, Some(normalized_query_contract)),
+    )
 }
 
 pub(crate) async fn infer_web_retrieval_contract(
@@ -404,7 +401,8 @@ pub(crate) fn query_matching_source_urls(
     }
 
     ranked.sort_by(|left, right| {
-        right.0
+        right
+            .0
             .cmp(&left.0)
             .then_with(|| left.1.cmp(&right.1))
             .then_with(|| left.2.cmp(&right.2))
@@ -553,7 +551,8 @@ mod tests {
     }
 
     #[test]
-    fn deterministic_contract_prefers_direct_snapshot_surfaces_for_local_current_snapshot_queries() {
+    fn deterministic_contract_prefers_direct_snapshot_surfaces_for_local_current_snapshot_queries()
+    {
         let contract = deterministic_web_retrieval_contract(
             "What's the weather like right now near me?",
             Some("What's the weather like right now in Anderson, SC?"),

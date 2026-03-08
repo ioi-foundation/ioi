@@ -183,14 +183,17 @@ pub(crate) fn verified_command_probe_completion_summary(
             candidate.exit_code != 0 || !commands_equivalent(&command_preview, &candidate.command)
         })
         .skip(1)
-        .find(|candidate| candidate.exit_code == 0 && !is_safe_read_probe_command(&candidate.command));
+        .find(|candidate| {
+            candidate.exit_code == 0 && !is_safe_read_probe_command(&candidate.command)
+        });
     let Some(prior_side_effecting_success) = prior_side_effecting_success else {
         return None;
     };
 
-    if let Some(summary) =
-        matched_probe_stdout_line_for_prior_command(&entry.stdout, &prior_side_effecting_success.command)
-    {
+    if let Some(summary) = matched_probe_stdout_line_for_prior_command(
+        &entry.stdout,
+        &prior_side_effecting_success.command,
+    ) {
         return Some(summary);
     }
 
@@ -204,14 +207,16 @@ fn preferred_cached_completion_line(text: &str) -> Option<String> {
         .map(|line| line.to_string())
 }
 
-fn matched_probe_stdout_line_for_prior_command(stdout: &str, prior_command: &str) -> Option<String> {
-    let target_basename = last_path_like_command_token(prior_command)
-        .and_then(|path| {
-            Path::new(&path)
-                .file_name()
-                .and_then(|name| name.to_str())
-                .map(str::to_string)
-        })?;
+fn matched_probe_stdout_line_for_prior_command(
+    stdout: &str,
+    prior_command: &str,
+) -> Option<String> {
+    let target_basename = last_path_like_command_token(prior_command).and_then(|path| {
+        Path::new(&path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(str::to_string)
+    })?;
     stdout
         .lines()
         .map(str::trim)

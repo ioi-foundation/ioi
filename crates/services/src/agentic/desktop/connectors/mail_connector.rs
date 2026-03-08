@@ -1,11 +1,9 @@
 use super::{
     ConnectorPostconditionProof, ConnectorPostconditionVerifierBinding,
-    ConnectorProtectedSlotBinding,
-    ConnectorProviderProbeBinding, ConnectorSymbolicReferenceBinding,
-    ConnectorSymbolicReferenceInferenceBinding, ConnectorToolRouteBinding,
-    PostconditionVerificationFuture, ProviderCandidateDiscoveryFuture,
-    ResolvedSymbolicReference, SymbolicReferenceInferenceFuture,
-    SymbolicReferenceResolutionFuture,
+    ConnectorProtectedSlotBinding, ConnectorProviderProbeBinding,
+    ConnectorSymbolicReferenceBinding, ConnectorSymbolicReferenceInferenceBinding,
+    ConnectorToolRouteBinding, PostconditionVerificationFuture, ProviderCandidateDiscoveryFuture,
+    ResolvedSymbolicReference, SymbolicReferenceInferenceFuture, SymbolicReferenceResolutionFuture,
 };
 use crate::agentic::desktop::types::AgentState;
 use ioi_api::state::StateAccess;

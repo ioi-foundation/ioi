@@ -587,7 +587,10 @@ mod tests {
 
     #[test]
     fn does_not_summarize_non_math_eval_output() {
-        assert_eq!(summarize_math_eval_output("Created directory /tmp/demo"), None);
+        assert_eq!(
+            summarize_math_eval_output("Created directory /tmp/demo"),
+            None
+        );
     }
 
     #[test]

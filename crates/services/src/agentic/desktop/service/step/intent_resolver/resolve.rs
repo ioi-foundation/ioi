@@ -276,73 +276,72 @@ pub async fn resolve_step_intent_with_state(
         required_postconditions,
         risk_class,
         provider_selection,
-    ) =
-        if winner.intent_id == "resolver.unclassified" {
-            (
-                IntentScopeProfile::Unknown,
-                "tool_first".to_string(),
-                0.0,
-                IntentConfidenceBand::Low,
-                vec![],
-                vec![],
-                vec![],
-                "unknown".to_string(),
-                None,
-            )
-        } else {
-            let entry = matrix
-                .iter()
-                .find(|entry| entry.intent_id == winner.intent_id)
-                .ok_or_else(|| {
-                    TransactionError::Invalid(format!(
-                        "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix binding",
-                        winner.intent_id
-                    ))
-                })?;
-            let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+    ) = if winner.intent_id == "resolver.unclassified" {
+        (
+            IntentScopeProfile::Unknown,
+            "tool_first".to_string(),
+            0.0,
+            IntentConfidenceBand::Low,
+            vec![],
+            vec![],
+            vec![],
+            "unknown".to_string(),
+            None,
+        )
+    } else {
+        let entry = matrix
+            .iter()
+            .find(|entry| entry.intent_id == winner.intent_id)
+            .ok_or_else(|| {
                 TransactionError::Invalid(format!(
+                    "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix binding",
+                    winner.intent_id
+                ))
+            })?;
+        let scope = scope_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+            TransactionError::Invalid(format!(
                 "ERROR_CLASS=ResolverContractViolation Intent '{}' missing matrix scope binding",
                 winner.intent_id
             ))
-            })?;
-            let preferred_tier =
-                preferred_tier_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
-                    TransactionError::Invalid(format!(
+        })?;
+        let preferred_tier =
+            preferred_tier_for_intent(&matrix, &winner.intent_id).ok_or_else(|| {
+                TransactionError::Invalid(format!(
                 "ERROR_CLASS=ResolverContractViolation Intent '{}' missing preferred tier binding",
                 winner.intent_id
             ))
-                })?;
-            let score = winner.score.clamp(0.0, 1.0);
-            let base_band = resolve_band(score, policy);
-            let band = maybe_promote_low_band_for_policy_exempt_winner(
-                &winner,
-                &selection_top_k,
-                policy,
-                base_band,
-            );
-            let provider_selection = resolve_provider_selection_state(
-                service,
-                state,
-                &runtime,
-                agent_state.session_id,
-                &query,
-                entry,
-                &entry.required_capabilities,
-                &bindings,
-            )
-            .await;
-            (
-                scope,
-                preferred_tier,
-                score,
-                band,
-                entry.required_capabilities.clone(),
-                entry.required_receipts.clone(),
-                entry.required_postconditions.clone(),
-                entry.risk_class.clone(),
-                provider_selection,
-            )
-        };
+            })?;
+        let score = winner.score.clamp(0.0, 1.0);
+        let base_band = resolve_band(score, policy);
+        let band = maybe_promote_low_band_for_policy_exempt_winner(
+            &winner,
+            &selection_top_k,
+            policy,
+            base_band,
+        );
+        let provider_selection = resolve_provider_selection_state(
+            service,
+            state,
+            &runtime,
+            agent_state.session_id,
+            &query,
+            entry,
+            &entry.required_capabilities,
+            &bindings,
+        )
+        .await;
+        (
+            scope,
+            preferred_tier,
+            score,
+            band,
+            entry.required_capabilities.clone(),
+            entry.required_receipts.clone(),
+            entry.required_postconditions.clone(),
+            entry.risk_class.clone(),
+            provider_selection,
+        )
+    };
     let instruction_contract = synthesize_instruction_contract(
         service,
         &runtime,

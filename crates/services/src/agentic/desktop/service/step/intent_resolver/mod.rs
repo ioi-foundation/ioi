@@ -64,11 +64,11 @@ use policy::*;
 use providers::*;
 use ranking::*;
 
+pub(crate) use capabilities::tool_provider_route_label;
 pub(crate) use capabilities::{
     is_mail_reply_provider_tool, is_tool_allowed_for_resolution,
     is_tool_allowed_for_selected_provider, tool_has_capability,
 };
-pub(crate) use capabilities::tool_provider_route_label;
 pub use ranking::{preferred_tier, should_pause_for_clarification};
 pub use resolve::{resolve_step_intent, resolve_step_intent_with_state};
 

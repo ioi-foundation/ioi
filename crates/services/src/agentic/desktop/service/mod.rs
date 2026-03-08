@@ -38,8 +38,8 @@ use ioi_types::app::{AccountId, ChainId};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::service_configs::Capabilities;
-use std::path::PathBuf;
 use std::any::Any;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 
@@ -324,11 +324,20 @@ impl DesktopAgentService {
         self::memory::fetch_failure_context(self, session_id)
     }
 
+    pub(crate) fn fetch_session_traces(
+        &self,
+        state: &dyn StateAccess,
+        session_id: [u8; 32],
+    ) -> Result<Vec<ioi_types::app::agentic::StepTrace>, TransactionError> {
+        self::skills::fetch_session_traces(state, session_id)
+    }
+
     pub(crate) fn fetch_skill_macro(
         &self,
+        state: &dyn StateAccess,
         tool_name: &str,
     ) -> Option<(ioi_types::app::agentic::AgentMacro, [u8; 32])> {
-        self::skills::fetch_skill_macro(self, tool_name)
+        self::skills::fetch_skill_macro(self, state, tool_name)
     }
 
     pub(crate) fn expand_macro(

@@ -186,7 +186,10 @@ pub fn run() {
             ));
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = google_automation_manager.bootstrap().await {
-                    eprintln!("[Autopilot] Failed to bootstrap Google automation manager: {}", error);
+                    eprintln!(
+                        "[Autopilot] Failed to bootstrap Google automation manager: {}",
+                        error
+                    );
                 }
             });
 
@@ -314,6 +317,7 @@ pub fn run() {
             kernel::connectors::connector_policy_set,
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,
+            kernel::data::get_skill_catalog,
             kernel::artifacts::get_thread_events,
             kernel::artifacts::get_thread_artifacts,
             kernel::artifacts::get_artifact_content,

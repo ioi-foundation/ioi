@@ -1,8 +1,7 @@
 use super::super::support::{
     append_final_web_completion_receipts, append_pending_web_success_fallback,
     append_pending_web_success_from_bundle, build_query_constraint_projection_with_locality_hint,
-    candidate_source_hints_from_bundle,
-    candidate_constraint_compatibility,
+    candidate_constraint_compatibility, candidate_source_hints_from_bundle,
     collect_projection_candidate_urls_with_contract_and_locality_hint,
     collect_projection_candidate_urls_with_locality_hint, compact_whitespace,
     compatibility_passes_projection,
@@ -11,18 +10,15 @@ use super::super::support::{
     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
     constraint_grounded_search_query_with_hints_and_locality_hint, effective_locality_scope_hint,
     explicit_query_scope_hint, extract_json_object, fallback_search_summary,
-    final_web_completion_facts, is_citable_web_url,
-    is_human_challenge_error, is_multi_item_listing_url, is_search_hub_url,
-    local_business_detail_display_name, local_business_discovery_source_allowed_with_projection,
-    local_business_entity_name_allowed,
-    local_business_expansion_query,
-    local_business_search_entity_anchor_tokens,
+    final_web_completion_facts, is_citable_web_url, is_human_challenge_error,
+    is_multi_item_listing_url, is_search_hub_url, local_business_detail_display_name,
+    local_business_discovery_source_allowed_with_projection, local_business_entity_name_allowed,
+    local_business_expansion_query, local_business_search_entity_anchor_tokens,
     local_business_search_entity_anchor_tokens_with_contract,
-    local_business_target_name_from_source, local_business_target_names_from_sources,
-    local_business_target_names_from_attempted_urls, mark_pending_web_attempted,
-    mark_pending_web_blocked, merge_pending_search_completion,
-    normalized_local_business_target_name, parse_web_evidence_bundle,
-    pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint,
+    local_business_target_name_from_source, local_business_target_names_from_attempted_urls,
+    local_business_target_names_from_sources, mark_pending_web_attempted, mark_pending_web_blocked,
+    merge_pending_search_completion, normalized_local_business_target_name,
+    parse_web_evidence_bundle, pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint,
     pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint_and_recovery_mode,
     pre_read_candidate_plan_from_bundle_with_locality_hint,
     preferred_pre_read_action_count_with_contract_and_locality_hint,
@@ -31,11 +27,11 @@ use super::super::support::{
     query_requires_runtime_locality_scope, queue_web_read_from_pipeline,
     queue_web_search_from_pipeline, remaining_pending_web_candidates,
     retrieval_affordances_with_contract_and_locality_hint,
-    retrieval_affordances_with_locality_hint, retrieval_contract_prefers_multi_item_cardinality,
-    retrieval_contract_requests_comparison, retrieval_contract_requires_runtime_locality,
-    retrieval_contract_entity_diversity_required,
+    retrieval_affordances_with_locality_hint, retrieval_contract_entity_diversity_required,
+    retrieval_contract_prefers_multi_item_cardinality, retrieval_contract_requests_comparison,
     retrieval_contract_required_distinct_domain_floor,
-    select_web_pipeline_query_contract, selected_local_business_target_sources,
+    retrieval_contract_requires_runtime_locality, select_web_pipeline_query_contract,
+    selected_local_business_target_sources,
     selected_source_quality_metrics_with_contract_and_locality_hint,
     selected_source_quality_metrics_with_locality_hint,
     semantic_retrieval_query_contract_with_contract_and_locality_hint,
@@ -61,8 +57,8 @@ use crate::agentic::desktop::types::{
     AgentState, AgentStatus, PendingSearchCompletion, PendingSearchReadSummary,
 };
 use ioi_types::app::agentic::{
-    AgentTool, InferenceOptions, WebEvidenceBundle, WebRetrievalAffordance,
-    WebRetrievalContract, WebSource, WebSourceExpansionAffordance, WebSourceObservation,
+    AgentTool, InferenceOptions, WebEvidenceBundle, WebRetrievalAffordance, WebRetrievalContract,
+    WebSource, WebSourceExpansionAffordance, WebSourceObservation,
 };
 use ioi_types::app::ActionTarget;
 use ioi_types::error::TransactionError;
@@ -981,7 +977,8 @@ mod tests {
     }
 
     #[test]
-    fn local_business_expansion_source_selection_prefers_embedded_detail_pages_over_neighboring_categories() {
+    fn local_business_expansion_source_selection_prefers_embedded_detail_pages_over_neighboring_categories(
+    ) {
         let bundle = WebEvidenceBundle {
             schema_version: 1,
             retrieved_at_ms: 0,
@@ -1086,7 +1083,10 @@ mod tests {
         )
         .expect("expected a query-compatible expansion source");
 
-        assert_eq!(selected.0, "https://www.restaurantji.com/sc/anderson/italian/");
+        assert_eq!(
+            selected.0,
+            "https://www.restaurantji.com/sc/anderson/italian/"
+        );
         assert_eq!(
             selected.3,
             vec![

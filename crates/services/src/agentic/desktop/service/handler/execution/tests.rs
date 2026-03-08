@@ -662,7 +662,10 @@ fn runtime_target_maps_google_connector_dynamic_tools_to_network() {
         "name": "connector__google__gmail_read_emails",
         "arguments": { "query": "is:unread" }
     }));
-    assert_eq!(super::runtime_target_for_tool(&tool), RuntimeTarget::Network);
+    assert_eq!(
+        super::runtime_target_for_tool(&tool),
+        RuntimeTarget::Network
+    );
 }
 
 #[test]

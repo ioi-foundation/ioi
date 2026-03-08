@@ -14,14 +14,14 @@ use serde_json::Value;
 use std::sync::Mutex;
 use tauri::State;
 
+pub use policy::{policy_state_path_for, ShieldPolicyManager, ShieldPolicyState};
+pub use subscriptions::{
+    registry_path_for, GoogleAutomationManager, GoogleConnectorSubscriptionView,
+};
 pub use types::{
     WalletMailConfigureAccountResult, WalletMailDeleteSpamResult, WalletMailListRecentResult,
     WalletMailReadLatestResult, WalletMailReplyResult,
 };
-pub use subscriptions::{
-    registry_path_for, GoogleAutomationManager, GoogleConnectorSubscriptionView,
-};
-pub use policy::{policy_state_path_for, ShieldPolicyManager, ShieldPolicyState};
 
 #[tauri::command]
 pub async fn wallet_mail_configure_account(

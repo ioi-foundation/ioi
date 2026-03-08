@@ -24,7 +24,10 @@ fn locality_scope_identity_tokens(locality_hint: Option<&str>) -> BTreeSet<Strin
         return BTreeSet::new();
     };
     let mut tokens = normalized_locality_tokens(&scope);
-    let mut parts = scope.split(',').map(str::trim).filter(|part| !part.is_empty());
+    let mut parts = scope
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty());
     let _city = parts.next();
     if let Some(region) = parts.next() {
         if let Some(code) = normalized_us_state_code(region) {
@@ -111,8 +114,7 @@ mod tests {
             &source.excerpt,
         ));
         assert_eq!(
-            local_business_target_name_from_source(&source, Some("Anderson, SC"))
-                .as_deref(),
+            local_business_target_name_from_source(&source, Some("Anderson, SC")).as_deref(),
             Some("Olive Garden Italian Restaurant")
         );
     }
@@ -196,8 +198,7 @@ mod tests {
                     .to_string(),
             },
             PendingSearchReadSummary {
-                url: "https://www.yelp.com/search?cflt=italian&find_loc=Anderson,%20sc"
-                    .to_string(),
+                url: "https://www.yelp.com/search?cflt=italian&find_loc=Anderson,%20sc".to_string(),
                 title: Some("Best Italian in Anderson, SC".to_string()),
                 excerpt: "Olive Garden, Dolce Vita Italian Bistro and Coach House Restaurant."
                     .to_string(),
