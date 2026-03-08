@@ -283,6 +283,22 @@ export const GhostIcon = () => (
   </svg>
 );
 
+export const ShieldIcon = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 21s7-3.5 7-8.8V5.8L12 3 5 5.8v6.4C5 17.5 12 21 12 21z" />
+    <path d="m9.5 11.5 1.8 1.8 3.4-3.8" />
+  </svg>
+);
+
 export const SettingsIcon = () => (
   <svg
     width="20"

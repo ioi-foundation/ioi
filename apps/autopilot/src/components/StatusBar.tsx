@@ -7,9 +7,10 @@ interface StatusBarProps {
     risk: number;
   };
   status?: string;
+  onOpenShield?: () => void;
 }
 
-export function StatusBar({ metrics, status = "Ready" }: StatusBarProps) {
+export function StatusBar({ metrics, status = "Ready", onOpenShield }: StatusBarProps) {
   const getRiskColor = (val: number) => {
     if (val < 0.33) return "#107c10";
     if (val < 0.66) return "#d18b0e";
@@ -30,7 +31,13 @@ export function StatusBar({ metrics, status = "Ready" }: StatusBarProps) {
           <span>Cost:</span>
           <strong>${metrics.cost.toFixed(2)}</strong>
         </div>
-        <div className="status-item">
+        <button
+          type="button"
+          className={`status-item status-button ${onOpenShield ? "clickable" : ""}`}
+          title="Open Shield policy center"
+          onClick={onOpenShield}
+          disabled={!onOpenShield}
+        >
           <span>Privacy:</span>
           <div className="status-meter">
             <div 
@@ -38,8 +45,14 @@ export function StatusBar({ metrics, status = "Ready" }: StatusBarProps) {
               style={{ width: `${metrics.privacy * 100}%`, background: getRiskColor(metrics.privacy) }} 
             />
           </div>
-        </div>
-        <div className="status-item">
+        </button>
+        <button
+          type="button"
+          className={`status-item status-button ${onOpenShield ? "clickable" : ""}`}
+          title="Open Shield policy center"
+          onClick={onOpenShield}
+          disabled={!onOpenShield}
+        >
           <span>Risk:</span>
           <div className="status-meter">
             <div 
@@ -47,7 +60,7 @@ export function StatusBar({ metrics, status = "Ready" }: StatusBarProps) {
               style={{ width: `${metrics.risk * 100}%`, background: getRiskColor(metrics.risk) }} 
             />
           </div>
-        </div>
+        </button>
         <div className="status-item clickable" title="Execution Environment">
           <span>Env: Default</span>
         </div>

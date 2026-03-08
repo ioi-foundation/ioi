@@ -527,6 +527,7 @@ pub fn is_mail_connector_tool_name(tool_name: &str) -> bool {
     normalized.starts_with("wallet_network__mail_")
         || normalized.starts_with("wallet_mail_")
         || normalized.starts_with("mail__")
+        || normalized.starts_with("connector__google__gmail_")
 }
 
 pub fn infer_interaction_target(goal: &str) -> Option<InteractionTarget> {

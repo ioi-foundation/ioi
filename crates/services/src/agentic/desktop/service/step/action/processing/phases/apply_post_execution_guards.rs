@@ -76,6 +76,7 @@ pub(crate) async fn apply_post_execution_guards(
         agent_state.execution_queue.clear();
         agent_state.pending_approval = None;
         agent_state.pending_tool_call = Some(tool_call_result.clone());
+        agent_state.pending_request_nonce = Some(agent_state.step_count as u64);
         agent_state.pending_visual_hash = Some(final_visual_phash);
         agent_state.last_screen_phash = Some(final_visual_phash);
         if let Some(tool_jcs) = executed_tool_jcs.clone() {
@@ -136,6 +137,7 @@ pub(crate) async fn apply_post_execution_guards(
         agent_state.pending_tool_call = None;
         agent_state.pending_tool_jcs = None;
         agent_state.pending_tool_hash = None;
+        agent_state.pending_request_nonce = None;
         agent_state.pending_visual_hash = None;
         agent_state.execution_queue.clear();
 

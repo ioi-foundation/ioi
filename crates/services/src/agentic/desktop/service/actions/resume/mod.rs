@@ -69,6 +69,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub(super) fn clear_pending_resume_state(agent_state: &mut AgentState) {
     agent_state.pending_tool_jcs = None;
     agent_state.pending_tool_hash = None;
+    agent_state.pending_request_nonce = None;
     agent_state.pending_visual_hash = None;
     agent_state.pending_tool_call = None;
     agent_state.pending_approval = None;
@@ -83,6 +84,7 @@ pub(super) fn restore_pending_resume_state(
 ) {
     agent_state.pending_tool_jcs = Some(tool_jcs);
     agent_state.pending_tool_hash = Some(tool_hash);
+    agent_state.pending_request_nonce = None;
     agent_state.pending_visual_hash = Some(pending_visual_hash);
     agent_state.pending_tool_call = Some(action_json);
     agent_state.pending_approval = None;

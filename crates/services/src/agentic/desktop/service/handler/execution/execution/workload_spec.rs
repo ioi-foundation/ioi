@@ -53,7 +53,17 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
             RuntimeTarget::Network
         }
         AgentTool::MemorySearch { .. } | AgentTool::MemoryInspect { .. } => RuntimeTarget::Memory,
-        AgentTool::Dynamic(_) => RuntimeTarget::McpAdapter,
+        AgentTool::Dynamic(value) => {
+            if crate::agentic::desktop::connectors::google_workspace::google_dynamic_tool_target(
+                value,
+            )
+            .is_some()
+            {
+                RuntimeTarget::Network
+            } else {
+                RuntimeTarget::McpAdapter
+            }
+        }
         AgentTool::MathEval { .. }
         | AgentTool::ChatReply { .. }
         | AgentTool::AgentDelegate { .. }
@@ -78,6 +88,7 @@ fn target_requires_network_lease(target: &ActionTarget) -> bool {
             normalized.starts_with("net::")
                 || normalized.starts_with("web::")
                 || normalized.starts_with("browser::")
+                || normalized.starts_with("connector__google__")
         }
         _ => false,
     }

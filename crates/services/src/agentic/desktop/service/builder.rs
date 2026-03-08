@@ -15,11 +15,16 @@ use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 
 // [FIX] Import LensRegistry, ReactLens, and AutoLens fallback
 use ioi_drivers::gui::lenses::{auto::AutoLens, react::ReactLens, LensRegistry};
+
+fn shield_policy_path_from_env() -> Option<PathBuf> {
+    std::env::var_os("IOI_SHIELD_POLICY_PATH").map(PathBuf::from)
+}
 
 impl DesktopAgentService {
     pub fn new(
@@ -55,6 +60,7 @@ impl DesktopAgentService {
             event_sender: None,
             os_driver: Some(Arc::new(NativeOsDriver::new())),
             workspace_path: "./ioi-data".to_string(),
+            shield_policy_path: shield_policy_path_from_env(),
             enable_som: false,
             // [FIX] Increased cache size from 5 to 100 to prevent eviction during human approval delays
             som_history: Arc::new(RwLock::new(VisualContextCache::new(100))),
@@ -97,6 +103,7 @@ impl DesktopAgentService {
             event_sender: None,
             os_driver: Some(Arc::new(NativeOsDriver::new())),
             workspace_path: "./ioi-data".to_string(),
+            shield_policy_path: shield_policy_path_from_env(),
             enable_som: false,
             // [FIX] Increased cache size from 5 to 100 to prevent eviction during human approval delays
             som_history: Arc::new(RwLock::new(VisualContextCache::new(100))),
@@ -107,6 +114,11 @@ impl DesktopAgentService {
 
     pub fn with_workspace_path(mut self, path: String) -> Self {
         self.workspace_path = path;
+        self
+    }
+
+    pub fn with_shield_policy_path(mut self, path: PathBuf) -> Self {
+        self.shield_policy_path = Some(path);
         self
     }
 

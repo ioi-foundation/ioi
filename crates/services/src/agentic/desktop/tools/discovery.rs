@@ -1,4 +1,6 @@
-use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
+use crate::agentic::desktop::service::step::intent_resolver::{
+    is_tool_allowed_for_resolution, is_tool_allowed_for_selected_provider,
+};
 use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::state::StateAccess;
@@ -57,6 +59,7 @@ pub async fn discover_tools(
     // Dynamic service tools (on-chain services)
     services::push_service_tools(state, active_window_title, &mut tools);
     services::inject_mail_connector_fallback_tools_if_needed(resolved_intent, &mut tools);
+    services::inject_google_connector_tools_if_needed(&mut tools);
 
     // MCP tool discovery
     if let Some(mcp) = mcp {
@@ -87,13 +90,14 @@ pub async fn discover_tools(
             return true;
         }
         let allowed = is_tool_allowed_for_resolution(resolved_intent, &tool.name);
+        let provider_allowed = is_tool_allowed_for_selected_provider(resolved_intent, &tool.name);
         if !allowed && mcp_tool_names.contains(&tool.name) {
             tracing::debug!(
                 "Hiding MCP tool '{}' because it is outside resolved intent capability scope",
                 tool.name
             );
         }
-        allowed
+        allowed && provider_allowed
     });
 
     tools
@@ -108,7 +112,8 @@ mod tests {
     use ioi_state::primitives::hash::HashCommitmentScheme;
     use ioi_state::tree::iavl::IAVLTree;
     use ioi_types::app::agentic::{
-        CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+        CapabilityId, IntentConfidenceBand, IntentScopeProfile, ProviderRouteCandidate,
+        ProviderSelectionMode, ProviderSelectionState, ResolvedIntentState,
     };
     use serde_json::Value;
     use std::sync::Arc;
@@ -136,6 +141,8 @@ mod tests {
             score: 0.95,
             top_k: vec![],
             required_capabilities,
+            required_receipts: vec![],
+            required_postconditions: vec![],
             risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "intent-matrix-v2".to_string(),
@@ -148,8 +155,68 @@ mod tests {
             query_normalization_version: "v1".to_string(),
             matrix_source_hash: [1u8; 32],
             receipt_hash: [2u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
             constrained: false,
         }
+    }
+
+    fn mail_provider_candidate(
+        provider_family: &str,
+        route_label: &str,
+        connector_id: &str,
+    ) -> ProviderRouteCandidate {
+        ProviderRouteCandidate {
+            provider_family: provider_family.to_string(),
+            route_label: route_label.to_string(),
+            connector_id: connector_id.to_string(),
+            provider_id: Some(format!("{}::primary", provider_family)),
+            account_label: Some("connected@example.com".to_string()),
+            capabilities: vec![CapabilityId::from("mail.reply")],
+            summary: format!("Candidate for {}.", provider_family),
+        }
+    }
+
+    fn resolved_mail_with_provider_selection(
+        selected_provider_family: Option<&str>,
+    ) -> ResolvedIntentState {
+        let mut state = resolved(IntentScopeProfile::Conversation);
+        state.intent_id = "mail.reply".to_string();
+        state.required_capabilities = vec![CapabilityId::from("mail.reply")];
+        state.risk_class = "high".to_string();
+        state.provider_selection = Some(ProviderSelectionState {
+            mode: ProviderSelectionMode::DynamicSynthesis,
+            selected_provider_family: selected_provider_family.map(str::to_string),
+            selected_route_label: selected_provider_family.map(|family| match family {
+                "mail.google.gmail" => "google_gmail".to_string(),
+                "mail.wallet_network" => "mail_connector".to_string(),
+                _ => family.to_string(),
+            }),
+            selected_provider_id: selected_provider_family
+                .map(|family| format!("{}::primary", family)),
+            selected_connector_id: selected_provider_family.map(|family| match family {
+                "mail.google.gmail" => "google.workspace".to_string(),
+                "mail.wallet_network" => "wallet_network.mail".to_string(),
+                _ => family.to_string(),
+            }),
+            selection_basis: Some(match selected_provider_family {
+                Some(_) => "semantic_match".to_string(),
+                None => "unresolved".to_string(),
+            }),
+            candidates: vec![
+                mail_provider_candidate(
+                    "mail.wallet_network",
+                    "mail_connector",
+                    "wallet_network.mail",
+                ),
+                mail_provider_candidate(
+                    "mail.google.gmail",
+                    "google_gmail",
+                    "google.workspace",
+                ),
+            ],
+        });
+        state
     }
 
     #[test]
@@ -365,5 +432,55 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn selected_google_mail_provider_hides_wallet_mail_tools() {
+        let intent = resolved_mail_with_provider_selection(Some("mail.google.gmail"));
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "draft an email to my connected google address",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools
+            .iter()
+            .any(|tool| tool.name == "connector__google__gmail_draft_email"));
+        assert!(!tools
+            .iter()
+            .any(|tool| tool.name == "wallet_network__mail_reply"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn selected_wallet_mail_provider_hides_google_mail_tools() {
+        let intent = resolved_mail_with_provider_selection(Some("mail.wallet_network"));
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "draft an email to the connected mailbox",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools
+            .iter()
+            .any(|tool| tool.name == "wallet_network__mail_reply"));
+        assert!(!tools
+            .iter()
+            .any(|tool| tool.name == "connector__google__gmail_draft_email"));
     }
 }

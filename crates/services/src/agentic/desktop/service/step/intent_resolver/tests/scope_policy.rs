@@ -9,6 +9,8 @@ fn conversation_scope_blocks_browser() {
         score: 0.95,
         top_k: vec![],
         required_capabilities: vec![CapabilityId::from("conversation.reply")],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "v1".to_string(),
@@ -21,6 +23,8 @@ fn conversation_scope_blocks_browser() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [1u8; 32],
         receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     };
     assert!(!is_tool_allowed_for_resolution(
@@ -33,6 +37,10 @@ fn conversation_scope_blocks_browser() {
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
         "wallet_network__mail_reply"
+    ));
+    assert!(!is_tool_allowed_for_resolution(
+        Some(&state),
+        "connector__google__calendar_create_event"
     ));
     assert!(!is_tool_allowed_for_resolution(
         Some(&state),
@@ -50,6 +58,8 @@ fn math_intent_allows_math_eval_and_chat_reply_only() {
         score: 0.97,
         top_k: vec![],
         required_capabilities: vec![CapabilityId::from("conversation.reply")],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "v1".to_string(),
@@ -62,6 +72,8 @@ fn math_intent_allows_math_eval_and_chat_reply_only() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [1u8; 32],
         receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     };
     assert!(is_tool_allowed_for_resolution(Some(&state), "math__eval"));
@@ -83,6 +95,39 @@ fn mail_connector_setup_tools_do_not_inherit_conversation_capability() {
 }
 
 #[test]
+fn google_gmail_send_tool_satisfies_mail_reply_intent() {
+    let state = ResolvedIntentState {
+        intent_id: "mail.reply".to_string(),
+        scope: IntentScopeProfile::Conversation,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("mail.reply")],
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "high".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [1u8; 32],
+        receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    };
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "connector__google__gmail_send_email"
+    ));
+}
+
+#[test]
 fn unregistered_prefixed_tools_do_not_gain_capabilities_by_name_shape() {
     let state = ResolvedIntentState {
         intent_id: "command.exec".to_string(),
@@ -91,6 +136,8 @@ fn unregistered_prefixed_tools_do_not_gain_capabilities_by_name_shape() {
         score: 0.95,
         top_k: vec![],
         required_capabilities: vec![CapabilityId::from("command.exec")],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "v1".to_string(),
@@ -103,6 +150,8 @@ fn unregistered_prefixed_tools_do_not_gain_capabilities_by_name_shape() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [1u8; 32],
         receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     };
     assert!(!is_tool_allowed_for_resolution(
@@ -127,6 +176,8 @@ fn ui_interaction_scope_allows_clipboard() {
             CapabilityId::from("clipboard.read"),
             CapabilityId::from("clipboard.write"),
         ],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "visual_last".to_string(),
         matrix_version: "v1".to_string(),
@@ -139,6 +190,8 @@ fn ui_interaction_scope_allows_clipboard() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [1u8; 32],
         receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     };
     assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
@@ -157,6 +210,8 @@ fn command_execution_scope_allows_clipboard() {
             CapabilityId::from("clipboard.read"),
             CapabilityId::from("clipboard.write"),
         ],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "v1".to_string(),
@@ -169,6 +224,8 @@ fn command_execution_scope_allows_clipboard() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [1u8; 32],
         receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     };
     assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
@@ -187,6 +244,8 @@ fn workspace_ops_scope_allows_clipboard() {
             CapabilityId::from("clipboard.read"),
             CapabilityId::from("clipboard.write"),
         ],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "v1".to_string(),
@@ -199,6 +258,8 @@ fn workspace_ops_scope_allows_clipboard() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [1u8; 32],
         receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     };
     assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
@@ -230,6 +291,8 @@ fn pause_policy_applies_to_medium_confidence_band() {
         score: 0.61,
         top_k: vec![],
         required_capabilities: vec![CapabilityId::from("command.exec")],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "v1".to_string(),
@@ -242,6 +305,8 @@ fn pause_policy_applies_to_medium_confidence_band() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [0u8; 32],
         receipt_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     };
 

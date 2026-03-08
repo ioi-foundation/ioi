@@ -370,6 +370,10 @@ pub struct AgentState {
     #[serde(default)]
     pub pending_tool_hash: Option<[u8; 32]>,
 
+    // The original ActionRequest nonce for the canonical pending action.
+    #[serde(default)]
+    pub pending_request_nonce: Option<u64>,
+
     // The visual context hash active when the action was intercepted.
     #[serde(default)]
     pub pending_visual_hash: Option<[u8; 32]>,

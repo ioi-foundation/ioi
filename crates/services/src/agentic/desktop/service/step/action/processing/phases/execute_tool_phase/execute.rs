@@ -122,7 +122,7 @@ pub(crate) async fn execute_tool_phase(
             session_id,
             pre_state_summary.step_index,
             &resolved_intent_id,
-            route_label,
+            route_label.as_deref(),
             synthesized_payload_hash.clone(),
             &mut verification_checks,
             &mut policy_decision,

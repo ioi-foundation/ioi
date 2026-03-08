@@ -34,6 +34,11 @@ pub(super) fn preflight_missing_capability(
     let has_command_tool = has_tool("sys__exec") || has_tool("sys__exec_session");
     let has_install_package_tool = has_tool("sys__install_package");
     let has_filesystem_tooling = tools.iter().any(|t| t.name.starts_with("filesystem__"));
+    let has_google_workspace_tooling = tools.iter().any(|t| {
+        crate::agentic::desktop::connectors::google_workspace::is_google_connector_tool_name(
+            &t.name,
+        )
+    });
 
     if requires_browser_interaction && !has_browser_tooling {
         return Some((
@@ -66,10 +71,10 @@ pub(super) fn preflight_missing_capability(
         ));
     }
 
-    if requires_workspace_ops && !has_filesystem_tooling {
+    if requires_workspace_ops && !has_filesystem_tooling && !has_google_workspace_tooling {
         return Some((
             "filesystem__read_file".to_string(),
-            "Resolver selected workspace_ops scope but filesystem tooling is unavailable."
+            "Resolver selected workspace_ops scope but neither filesystem nor Google connector tooling is available."
                 .to_string(),
         ));
     }

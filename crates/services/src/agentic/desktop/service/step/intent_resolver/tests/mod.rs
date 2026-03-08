@@ -1,5 +1,6 @@
 use super::{
     is_ambiguity_abstain_exempt, is_tool_allowed_for_resolution, resolve_band, resolve_step_intent,
+    resolve_step_intent_with_state,
     should_abstain_for_ambiguity, should_pause_for_clarification, tool_capabilities,
     IntentCandidateScore,
 };
@@ -943,6 +944,7 @@ fn test_agent_state() -> AgentState {
         pending_tool_call: None,
         pending_tool_jcs: None,
         pending_tool_hash: None,
+        pending_request_nonce: None,
         pending_visual_hash: None,
         recent_actions: vec![],
         mode: AgentMode::Agent,

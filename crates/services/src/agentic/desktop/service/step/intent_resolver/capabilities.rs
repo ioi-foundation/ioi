@@ -1,3 +1,4 @@
+use crate::agentic::desktop::connectors::{connector_tool_route_bindings, google_workspace};
 use super::*;
 
 pub(super) fn capability(id: &str) -> CapabilityId {
@@ -5,7 +6,7 @@ pub(super) fn capability(id: &str) -> CapabilityId {
 }
 
 pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
-    vec![
+    let mut bindings = vec![
         ToolCapabilityBinding {
             tool_name: "agent__complete".to_string(),
             action_target: ActionTarget::Custom("agent__complete".to_string()),
@@ -391,7 +392,45 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             action_target: ActionTarget::BrowserInteract,
             capabilities: vec![capability("browser.interact")],
         },
-    ]
+    ];
+    bindings.extend(google_workspace::google_connector_tool_bindings());
+    bindings
+}
+
+pub(crate) fn tool_provider_family(tool_name: &str) -> Option<&'static str> {
+    let normalized = tool_name.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+    connector_tool_route_bindings()
+        .into_iter()
+        .find(|binding| binding.tool_name == normalized)
+        .map(|binding| binding.provider_family)
+}
+
+pub(crate) fn tool_provider_route_label(tool_name: &str) -> Option<&'static str> {
+    let normalized = tool_name.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+    connector_tool_route_bindings()
+        .into_iter()
+        .find(|binding| binding.tool_name == normalized)
+        .map(|binding| binding.route_label)
+}
+
+pub(crate) fn tool_has_capability(tool_name: &str, capability_id: &str) -> bool {
+    let normalized = capability_id.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return false;
+    }
+    tool_capabilities(tool_name)
+        .iter()
+        .any(|capability| capability.as_str() == normalized)
+}
+
+pub(crate) fn is_mail_reply_provider_tool(tool_name: &str) -> bool {
+    tool_has_capability(tool_name, "mail.reply") || tool_has_capability(tool_name, "mail.send")
 }
 
 pub(super) fn is_mail_connector_tool(tool_name: &str) -> bool {
@@ -605,6 +644,35 @@ pub fn is_tool_allowed_for_resolution(
             .iter()
             .any(|required| required == tool_cap)
     })
+}
+
+pub fn is_tool_allowed_for_selected_provider(
+    resolved: Option<&ResolvedIntentState>,
+    tool_name: &str,
+) -> bool {
+    let Some(resolved) = resolved else {
+        return true;
+    };
+    let Some(provider_selection) = resolved.provider_selection.as_ref() else {
+        return true;
+    };
+    if provider_selection.candidates.is_empty() {
+        return tool_provider_family(tool_name).is_none();
+    }
+
+    let tool_family = tool_provider_family(tool_name);
+    let Some(tool_family) = tool_family else {
+        return true;
+    };
+
+    if let Some(selected_family) = provider_selection.selected_provider_family.as_deref() {
+        return tool_family == selected_family;
+    }
+
+    provider_selection
+        .candidates
+        .iter()
+        .any(|candidate| candidate.provider_family == tool_family)
 }
 
 #[cfg(test)]

@@ -203,6 +203,7 @@ mod tests {
             pending_tool_call: None,
             pending_tool_jcs: None,
             pending_tool_hash: None,
+            pending_request_nonce: None,
             pending_visual_hash: None,
             recent_actions: Vec::new(),
             mode: AgentMode::Agent,

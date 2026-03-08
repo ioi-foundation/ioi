@@ -29,6 +29,17 @@
   height: 100%;
 }
 
+.status-button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+}
+
+.status-button:disabled {
+  opacity: 1;
+}
+
 .status-item.clickable {
   cursor: pointer;
 }

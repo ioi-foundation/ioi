@@ -10,3 +10,4 @@ mod stream;
 mod support;
 
 pub use stream::monitor_kernel_events;
+pub(crate) use emission::{build_event, register_artifact, register_event};

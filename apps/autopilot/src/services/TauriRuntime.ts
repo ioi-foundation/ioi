@@ -4,6 +4,8 @@ import { listen } from "@tauri-apps/api/event";
 import { 
   AgentRuntime, GraphPayload, GraphEvent, ProjectFile, AgentSummary, 
   FleetState, Zone, Container, MarketplaceAgent, ConnectorSummary, ConnectorStatus,
+  ConnectorActionDefinition, ConnectorActionRequest, ConnectorActionResult,
+  ConnectorConfigureRequest, ConnectorConfigureResult, ConnectorSubscriptionSummary,
   WalletMailDeleteSpamInput, WalletMailDeleteSpamResult,
   WalletMailReplyInput, WalletMailReplyResult,
   WalletMailListRecentInput, WalletMailListRecentResult,
@@ -34,9 +36,19 @@ const MARKET_AGENTS: MarketplaceAgent[] = [
   { id: "a4", name: "Video Gen", developer: "CreativeX", price: "$0.10/min", description: "AI Video", requirements: "H100 GPU" },
 ];
 
+const SHIELD_APPROVAL_PREFIX = "SHIELD_APPROVAL_REQUIRED:";
+
+interface ShieldApprovalRequest {
+  connectorId: string;
+  actionId: string;
+  actionLabel: string;
+  message: string;
+}
+
 const INITIAL_CONNECTORS: ConnectorSummary[] = [
   {
     id: "mail.primary",
+    pluginId: "wallet_mail",
     name: "Mail",
     provider: "wallet.network",
     category: "communication",
@@ -49,14 +61,30 @@ const INITIAL_CONNECTORS: ConnectorSummary[] = [
       "E2E target: request session channel, approve bounded read lease, perform check-inbox and read-latest-email ops.",
   },
   {
-    id: "calendar.primary",
-    name: "Calendar",
-    provider: "wallet.network",
+    id: "google.workspace",
+    pluginId: "google_workspace",
+    name: "Google",
+    provider: "google",
     category: "productivity",
-    description: "Scaffold for calendar operations with the same approval and lease model.",
-    status: "disabled",
-    authMode: "wallet_network_session",
-    scopes: ["calendar.read.events"],
+    description:
+      "Single Google connector exposing Gmail, Calendar, Docs, Sheets, BigQuery, Drive, Tasks, Chat, events, workflows, and expert raw access.",
+    status: "needs_auth",
+    authMode: "oauth",
+    scopes: [
+      "gmail",
+      "calendar",
+      "docs",
+      "sheets",
+      "bigquery",
+      "drive",
+      "tasks",
+      "chat",
+      "events",
+      "workflow",
+      "expert",
+    ],
+    notes:
+      "Uses native Google OAuth and direct Google APIs for curated tools plus an expert raw request path.",
   },
 ];
 
@@ -94,6 +122,7 @@ function patchMailConnectorConnected(
   return [
     {
       id: "mail.primary",
+      pluginId: "wallet_mail",
       name: "Mail",
       provider: "wallet.network",
       category: "communication",
@@ -107,6 +136,60 @@ function patchMailConnectorConnected(
     },
     ...next,
   ];
+}
+
+function patchConnectorConfigured(
+  connectors: ConnectorSummary[],
+  result: ConnectorConfigureResult
+): ConnectorSummary[] {
+  const syncedAt = result.executedAtUtc;
+  let found = false;
+  const next = connectors.map((connector) => {
+    if (connector.id !== result.connectorId) return connector;
+    found = true;
+    return {
+      ...connector,
+      status: result.status,
+      lastSyncAtUtc: syncedAt,
+      notes: result.summary,
+    };
+  });
+
+  if (found) return next;
+  return next;
+}
+
+function parseShieldApprovalRequest(error: unknown): ShieldApprovalRequest | null {
+  const message = String(error ?? "");
+  const markerIndex = message.indexOf(SHIELD_APPROVAL_PREFIX);
+  if (markerIndex < 0) return null;
+
+  const payload = message.slice(markerIndex + SHIELD_APPROVAL_PREFIX.length).trim();
+  try {
+    const parsed = JSON.parse(payload) as Partial<ShieldApprovalRequest>;
+    if (
+      typeof parsed.connectorId === "string" &&
+      typeof parsed.actionId === "string" &&
+      typeof parsed.actionLabel === "string" &&
+      typeof parsed.message === "string"
+    ) {
+      return parsed as ShieldApprovalRequest;
+    }
+  } catch (_error) {
+    // Fall through to null; the original runtime error will be rethrown upstream.
+  }
+
+  return null;
+}
+
+function confirmShieldApproval(request: ShieldApprovalRequest): boolean {
+  if (typeof window === "undefined" || typeof window.confirm !== "function") {
+    return false;
+  }
+
+  return window.confirm(
+    `${request.message}\n\nConnector: ${request.connectorId}\nAction: ${request.actionLabel}`
+  );
 }
 
 export class TauriRuntime implements AgentRuntime {
@@ -192,6 +275,92 @@ export class TauriRuntime implements AgentRuntime {
 
     async getConnectors(): Promise<ConnectorSummary[]> {
         return cloneConnectors(this.connectors);
+    }
+
+    async getConnectorActions(connectorId: string): Promise<ConnectorActionDefinition[]> {
+      return invoke("connector_list_actions", {
+        connectorId,
+      });
+    }
+
+    async runConnectorAction(
+      request: ConnectorActionRequest
+    ): Promise<ConnectorActionResult> {
+      try {
+        return await invoke("connector_run_action", {
+          connectorId: request.connectorId,
+          actionId: request.actionId,
+          input: request.input,
+        });
+      } catch (error) {
+        const approvalRequest = parseShieldApprovalRequest(error);
+        if (!approvalRequest || request.input._shieldApproved === true) {
+          throw error;
+        }
+
+        const approved = confirmShieldApproval(approvalRequest);
+        if (!approved) {
+          throw new Error(`Shield approval declined for ${approvalRequest.actionLabel}.`);
+        }
+
+        return invoke("connector_run_action", {
+          connectorId: request.connectorId,
+          actionId: request.actionId,
+          input: {
+            ...request.input,
+            _shieldApproved: true,
+          },
+        });
+      }
+    }
+
+    async configureConnector(
+      request: ConnectorConfigureRequest
+    ): Promise<ConnectorConfigureResult> {
+      const result = await invoke<ConnectorConfigureResult>("connector_configure", {
+        connectorId: request.connectorId,
+        input: request.input ?? {},
+      });
+      this.connectors = patchConnectorConfigured(this.connectors, result);
+      return result;
+    }
+
+    async listConnectorSubscriptions(
+      connectorId: string
+    ): Promise<ConnectorSubscriptionSummary[]> {
+      return invoke("connector_list_subscriptions", {
+        connectorId,
+      });
+    }
+
+    async stopConnectorSubscription(
+      connectorId: string,
+      subscriptionId: string
+    ): Promise<ConnectorSubscriptionSummary> {
+      return invoke("connector_stop_subscription", {
+        connectorId,
+        subscriptionId,
+      });
+    }
+
+    async resumeConnectorSubscription(
+      connectorId: string,
+      subscriptionId: string
+    ): Promise<ConnectorSubscriptionSummary> {
+      return invoke("connector_resume_subscription", {
+        connectorId,
+        subscriptionId,
+      });
+    }
+
+    async renewConnectorSubscription(
+      connectorId: string,
+      subscriptionId: string
+    ): Promise<ConnectorSubscriptionSummary> {
+      return invoke("connector_renew_subscription", {
+        connectorId,
+        subscriptionId,
+      });
     }
 
     async walletMailReadLatest(

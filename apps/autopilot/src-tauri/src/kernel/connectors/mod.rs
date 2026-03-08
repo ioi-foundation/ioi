@@ -1,12 +1,16 @@
 mod commands;
 mod config;
 mod constants;
+mod google_workspace;
 mod operations;
+mod policy;
 mod rpc;
+mod subscriptions;
 mod types;
 mod utils;
 
 use crate::models::AppState;
+use serde_json::Value;
 use std::sync::Mutex;
 use tauri::State;
 
@@ -14,6 +18,10 @@ pub use types::{
     WalletMailConfigureAccountResult, WalletMailDeleteSpamResult, WalletMailListRecentResult,
     WalletMailReadLatestResult, WalletMailReplyResult,
 };
+pub use subscriptions::{
+    registry_path_for, GoogleAutomationManager, GoogleConnectorSubscriptionView,
+};
+pub use policy::{policy_state_path_for, ShieldPolicyManager, ShieldPolicyState};
 
 #[tauri::command]
 pub async fn wallet_mail_configure_account(
@@ -113,4 +121,82 @@ pub async fn wallet_mail_reply(
         reply_to_message_id,
     )
     .await
+}
+
+#[tauri::command]
+pub async fn connector_list_actions(
+    connector_id: String,
+) -> Result<Vec<google_workspace::ConnectorActionDefinition>, String> {
+    google_workspace::connector_list_actions(connector_id).await
+}
+
+#[tauri::command]
+pub async fn connector_configure(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    input: Value,
+) -> Result<google_workspace::ConnectorConfigureResult, String> {
+    google_workspace::connector_configure(manager, connector_id, input).await
+}
+
+#[tauri::command]
+pub async fn connector_run_action(
+    manager: State<'_, GoogleAutomationManager>,
+    policy_manager: State<'_, ShieldPolicyManager>,
+    connector_id: String,
+    action_id: String,
+    input: Value,
+) -> Result<google_workspace::ConnectorActionResult, String> {
+    google_workspace::connector_run_action(manager, policy_manager, connector_id, action_id, input)
+        .await
+}
+
+#[tauri::command]
+pub async fn connector_list_subscriptions(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+) -> Result<Vec<GoogleConnectorSubscriptionView>, String> {
+    google_workspace::connector_list_subscriptions(manager, connector_id).await
+}
+
+#[tauri::command]
+pub async fn connector_stop_subscription(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    subscription_id: String,
+) -> Result<GoogleConnectorSubscriptionView, String> {
+    google_workspace::connector_stop_subscription(manager, connector_id, subscription_id).await
+}
+
+#[tauri::command]
+pub async fn connector_resume_subscription(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    subscription_id: String,
+) -> Result<GoogleConnectorSubscriptionView, String> {
+    google_workspace::connector_resume_subscription(manager, connector_id, subscription_id).await
+}
+
+#[tauri::command]
+pub async fn connector_renew_subscription(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    subscription_id: String,
+) -> Result<GoogleConnectorSubscriptionView, String> {
+    google_workspace::connector_renew_subscription(manager, connector_id, subscription_id).await
+}
+
+#[tauri::command]
+pub fn connector_policy_get(
+    manager: State<'_, ShieldPolicyManager>,
+) -> Result<ShieldPolicyState, String> {
+    policy::current_policy_state(manager)
+}
+
+#[tauri::command]
+pub fn connector_policy_set(
+    manager: State<'_, ShieldPolicyManager>,
+    policy: ShieldPolicyState,
+) -> Result<ShieldPolicyState, String> {
+    policy::replace_policy_state(manager, policy)
 }

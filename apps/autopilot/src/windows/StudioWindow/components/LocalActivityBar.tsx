@@ -7,6 +7,7 @@ import {
   GhostIcon,
   IntegrationsIcon,
   MarketplaceIcon,
+  ShieldIcon,
   SettingsIcon,
 } from "./ActivityBarIcons";
 
@@ -156,6 +157,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "fleet", label: "Fleet", icon: <FleetIcon />, shortcut: "⌘4" },
   { id: "marketplace", label: "Marketplace", icon: <MarketplaceIcon />, shortcut: "⌘5" },
   { id: "integrations", label: "Integrations", icon: <IntegrationsIcon />, shortcut: "⌘6" },
+  { id: "shield", label: "Shield", icon: <ShieldIcon />, shortcut: "⌘7" },
 ];
 
 const GHOST_ITEM: NavItem = { id: "ghost", label: "Ghost Mode", icon: <GhostIcon />, shortcut: "⌘G" };

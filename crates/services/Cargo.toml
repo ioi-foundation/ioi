@@ -34,6 +34,8 @@ dcrypt = { workspace = true }
 time = { workspace = true, features = ["formatting", "parsing"] }
 # [FIX] Add base64 dependency
 base64 = { workspace = true }
+once_cell = { workspace = true }
+sha2 = "0.10"
 
 # [FIX] Added 'rt' feature for tokio::spawn
 tokio = { workspace = true, features = ["sync", "rt", "time", "process"] }
@@ -42,6 +44,7 @@ rand = { workspace = true }
 
 # [FIX] Added url dependency
 url = "2.5"
+dotenvy = "0.15"
 
 # HTML parsing for edge web retrieval (`web__search` / `web__read`).
 scraper = "0.18"

@@ -38,6 +38,7 @@ use ioi_types::app::{AccountId, ChainId};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::service_configs::Capabilities;
+use std::path::PathBuf;
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
@@ -90,6 +91,8 @@ pub struct DesktopAgentService {
     pub(crate) os_driver: Option<Arc<dyn OsDriver>>,
     /// Path to the local workspace/sandbox.
     pub(crate) workspace_path: String,
+    /// Optional runtime-owned Shield policy snapshot path for connector gating.
+    pub(crate) shield_policy_path: Option<PathBuf>,
     /// Whether Set-of-Marks (SoM) visual grounding is enabled.
     pub(crate) enable_som: bool,
 

@@ -11,6 +11,53 @@ use ioi_ipc::public::ActionIntercepted;
 use serde_json::json;
 use tauri::Manager;
 
+fn connector_gate_presentation(
+    target: &str,
+) -> Option<(String, String, String, Option<String>, Option<String>)> {
+    let normalized = target.trim().to_ascii_lowercase();
+    if !normalized.starts_with("connector__google__") {
+        return None;
+    }
+
+    let human_label = normalized
+        .trim_start_matches("connector__google__")
+        .split("__")
+        .next()
+        .unwrap_or(normalized.as_str())
+        .split('_')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| {
+            let mut chars = segment.chars();
+            match chars.next() {
+                Some(first) => first.to_ascii_uppercase().to_string() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let risk = if normalized.contains("expert")
+        || normalized.contains("watch")
+        || normalized.contains("events_")
+        || normalized.contains("bigquery_execute_query")
+    {
+        "high".to_string()
+    } else {
+        "medium".to_string()
+    };
+
+    Some((
+        "Approve Google action".to_string(),
+        format!(
+            "Shield policy paused the run before {} in your connected Google Workspace. Approve to continue or deny to block the action.",
+            human_label
+        ),
+        risk,
+        Some("Approve action".to_string()),
+        Some("Deny action".to_string()),
+    ))
+}
+
 pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercepted) {
     if action.verdict == "PII_REVIEW_REQUESTED" {
         let pii_info = fetch_pii_review_info(&app, &action.reason).await;
@@ -21,6 +68,8 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                     description:
                         "Sensitive content was detected before egress. Review and choose a deterministic action.".to_string(),
                     risk: "high".to_string(),
+                    approve_label: Some("Approve transform".to_string()),
+                    deny_label: Some("Deny".to_string()),
                     deadline_ms: Some(pii.deadline_ms),
                     pii: Some(pii.clone()),
                 });
@@ -93,7 +142,11 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
 
             update_task_state(app, |t| {
                 t.phase = AgentPhase::Gate;
-                t.current_step = "Policy Gate: Approval Required".to_string();
+                let connector_presentation = connector_gate_presentation(&action.target);
+                t.current_step = connector_presentation
+                    .as_ref()
+                    .map(|_| "Waiting for approval".to_string())
+                    .unwrap_or_else(|| "Waiting for approval".to_string());
                 t.credential_request = None;
                 t.clarification_request = None;
 
@@ -104,8 +157,22 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                             "Sensitive content was detected before egress. Choose transform, deny, or scoped exception."
                                 .to_string(),
                         risk: "high".to_string(),
+                        approve_label: Some("Approve transform".to_string()),
+                        deny_label: Some("Deny".to_string()),
                         deadline_ms: Some(pii.deadline_ms),
                         pii: Some(pii),
+                    }
+                } else if let Some((title, description, risk, approve_label, deny_label)) =
+                    connector_presentation.clone()
+                {
+                    GateInfo {
+                        title,
+                        description,
+                        risk,
+                        approve_label,
+                        deny_label,
+                        deadline_ms: None,
+                        pii: None,
                     }
                 } else {
                     GateInfo {
@@ -115,6 +182,8 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                             action.target
                         ),
                         risk: "high".to_string(),
+                        approve_label: Some("Approve action".to_string()),
+                        deny_label: Some("Deny action".to_string()),
                         deadline_ms: None,
                         pii: None,
                     }
@@ -126,7 +195,12 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
 
                 t.history.push(crate::models::ChatMessage {
                     role: "system".to_string(),
-                    text: format!("🛑 Policy Gate triggered for action: {}", action.target),
+                    text: connector_presentation
+                        .as_ref()
+                        .map(|(_, description, _, _, _)| format!("🛑 {}", description))
+                        .unwrap_or_else(|| {
+                            format!("🛑 Policy Gate triggered for action: {}", action.target)
+                        }),
                     timestamp: crate::kernel::state::now(),
                 });
 

@@ -264,6 +264,19 @@ pub async fn handle_action_execution(
                 }
             }
 
+            if let Some(result) =
+                crate::agentic::desktop::connectors::google_workspace::try_execute_dynamic_tool(
+                    service,
+                    agent_state,
+                    session_id,
+                    &value,
+                )
+                .await?
+            {
+                let (success, out, err) = result;
+                return Ok(no_visual(success, out, err));
+            }
+
             let result = executor
                 .execute(
                     AgentTool::Dynamic(value),

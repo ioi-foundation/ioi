@@ -45,8 +45,8 @@ pub async fn run_agent_driver_task_with_handles(
     )?);
 
     // 2. Identify Running Agents
-    for (_key, val_bytes) in kvs {
-        let key_suffix = _key
+    for (state_key, val_bytes) in kvs {
+        let key_suffix = state_key
             .as_slice()
             .strip_prefix(full_scan_prefix.as_slice())
             .map(|s| hex::encode(&s[..s.len().min(4)]))
@@ -80,9 +80,47 @@ pub async fn run_agent_driver_task_with_handles(
                 continue;
             }
 
+            // Refresh the session immediately before dispatch. The initial prefix scan can race
+            // with a just-committed step result, which otherwise causes stale Running snapshots
+            // to submit an extra follow-up step after the session already completed/cleared queue.
+            let latest_state: AgentState = match workload_client.query_raw_state(&state_key).await {
+                Ok(Some(bytes)) => match decode_state_value(&bytes) {
+                    Ok(fresh) => fresh,
+                    Err(e) => {
+                        tracing::warn!(
+                            target: "agent_driver",
+                            "Failed to decode refreshed agent state for key {}: {}",
+                            key_suffix,
+                            e
+                        );
+                        continue;
+                    }
+                },
+                Ok(None) => continue,
+                Err(e) => {
+                    tracing::warn!(
+                        target: "agent_driver",
+                        "Failed to refresh agent state for key {}: {}",
+                        key_suffix,
+                        e
+                    );
+                    continue;
+                }
+            };
+
+            if latest_state.status != AgentStatus::Running {
+                tracing::debug!(
+                    target: "agent_driver",
+                    "Skipping stale running snapshot for agent {}; refreshed status is {:?}",
+                    hex::encode(&state.session_id[..4]),
+                    latest_state.status
+                );
+                continue;
+            }
+
             // 4. Construct Step Transaction
             let params = StepAgentParams {
-                session_id: state.session_id,
+                session_id: latest_state.session_id,
             };
 
             let payload = SystemPayload::CallService {
@@ -126,7 +164,7 @@ pub async fn run_agent_driver_task_with_handles(
             tracing::info!(
                 target: "agent_driver",
                 "Submitting step for session {} with nonce {}",
-                hex::encode(&state.session_id[..4]),
+                hex::encode(&latest_state.session_id[..4]),
                 nonce
             );
 
@@ -178,8 +216,8 @@ pub async fn run_agent_driver_task_with_handles(
                     tracing::info!(
                         target: "agent_driver",
                         "Auto-stepping agent session {} (Step {} | Nonce {})",
-                        hex::encode(&state.session_id[0..4]),
-                        state.step_count,
+                        hex::encode(&latest_state.session_id[0..4]),
+                        latest_state.step_count,
                         nonce
                     );
                     work_performed = true;

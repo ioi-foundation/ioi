@@ -1,5 +1,6 @@
 use super::events::{emit_completion_gate_status_event, emit_completion_gate_violation_events};
 use super::*;
+use crate::agentic::desktop::service::step::intent_resolver::is_mail_reply_provider_tool;
 
 pub(super) struct DuplicateExecutionContext<'a> {
     pub service: &'a DesktopAgentService,
@@ -243,6 +244,9 @@ fn is_non_command_duplicate_noop_tool(tool_name: &str) -> bool {
     is_read_only_filesystem_tool(tool_name)
         || is_mail_read_latest_tool(tool_name)
         || is_mail_reply_tool(tool_name)
+        || crate::agentic::desktop::connectors::google_workspace::is_google_duplicate_safe_tool_name(
+            tool_name,
+        )
 }
 
 fn is_read_only_filesystem_tool(tool_name: &str) -> bool {
@@ -263,10 +267,7 @@ fn is_mail_read_latest_tool(tool_name: &str) -> bool {
 }
 
 fn is_mail_reply_tool(tool_name: &str) -> bool {
-    matches!(
-        tool_name,
-        "wallet_network__mail_reply" | "wallet_mail_reply" | "mail__reply"
-    )
+    is_mail_reply_provider_tool(tool_name)
 }
 
 #[cfg(test)]
@@ -302,6 +303,8 @@ mod tests {
         assert!(is_mail_read_latest_tool("wallet_network__mail_read_latest"));
         assert!(is_mail_reply_tool("wallet_network__mail_reply"));
         assert!(is_mail_reply_tool("mail__reply"));
+        assert!(is_mail_reply_tool("connector__google__gmail_send_email"));
+        assert!(is_mail_reply_tool("connector__google__gmail_draft_email"));
         assert!(!is_mail_reply_tool("wallet_network__mail_read_latest"));
     }
 }

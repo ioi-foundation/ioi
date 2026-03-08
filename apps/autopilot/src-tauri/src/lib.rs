@@ -172,6 +172,24 @@ pub fn run() {
                 eprintln!("[Studio] Failed to initialize SCS. Persistence disabled.");
             }
 
+            let google_automation_manager = kernel::connectors::GoogleAutomationManager::new(
+                app.handle().clone(),
+                kernel::connectors::registry_path_for(&data_dir),
+            );
+            std::env::set_var(
+                "IOI_SHIELD_POLICY_PATH",
+                kernel::connectors::policy_state_path_for(&data_dir),
+            );
+            let _ = app.manage(google_automation_manager.clone());
+            let _ = app.manage(kernel::connectors::ShieldPolicyManager::new(
+                kernel::connectors::policy_state_path_for(&data_dir),
+            ));
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = google_automation_manager.bootstrap().await {
+                    eprintln!("[Autopilot] Failed to bootstrap Google automation manager: {}", error);
+                }
+            });
+
             let inference_runtime = create_inference_runtime();
             {
                 let state: State<Mutex<AppState>> = app_handle.state();
@@ -285,6 +303,15 @@ pub fn run() {
             kernel::connectors::wallet_mail_list_recent,
             kernel::connectors::wallet_mail_delete_spam,
             kernel::connectors::wallet_mail_reply,
+            kernel::connectors::connector_list_actions,
+            kernel::connectors::connector_configure,
+            kernel::connectors::connector_run_action,
+            kernel::connectors::connector_list_subscriptions,
+            kernel::connectors::connector_stop_subscription,
+            kernel::connectors::connector_resume_subscription,
+            kernel::connectors::connector_renew_subscription,
+            kernel::connectors::connector_policy_get,
+            kernel::connectors::connector_policy_set,
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,
             kernel::artifacts::get_thread_events,

@@ -52,9 +52,9 @@ export function SpotlightGateDock({
             title={gateInfo.title}
             description={gateInfo.description}
             risk={gateInfo.risk}
-            approveLabel={isPiiGate ? "Approve Transform" : "Approve"}
+            approveLabel={gateInfo.approve_label || (isPiiGate ? "Approve Transform" : "Approve action")}
             showDeny={true}
-            denyLabel="Deny"
+            denyLabel={gateInfo.deny_label || "Deny action"}
             deadlineMs={gateDeadlineMs}
             targetLabel={gateInfo.pii?.target_label}
             spanSummary={gateInfo.pii?.span_summary}

@@ -128,6 +128,7 @@ pub(super) async fn handle_pending_approval(
 
     agent_state.pending_tool_jcs = Some(tool_jcs);
     agent_state.pending_tool_hash = Some(hash_arr);
+    agent_state.pending_request_nonce = Some(agent_state.step_count as u64);
     agent_state.pending_visual_hash = Some(final_visual_phash);
     agent_state.pending_tool_call = Some(tool_call_result.to_string());
     agent_state.last_screen_phash = Some(final_visual_phash);

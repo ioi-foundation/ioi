@@ -144,6 +144,91 @@ impl InferenceRuntime for MockInferenceRuntime {
             return Ok(response.to_string().into_bytes());
         }
 
+        if input_str.contains("Extract a connector-agnostic instruction contract") {
+            let lower = input_str.to_ascii_lowercase();
+            let side_effect_mode = if lower.contains("do not send")
+                || lower.contains("draft an email")
+            {
+                "draft_only"
+            } else if lower.contains("send an email") || lower.contains("send email") {
+                "send"
+            } else {
+                "unknown"
+            };
+            let operation = if lower.contains("email") {
+                "mail.reply"
+            } else {
+                "unknown"
+            };
+
+            let subject = input_str
+                .split("subject \"")
+                .nth(1)
+                .and_then(|rest| rest.split('"').next())
+                .unwrap_or_default();
+            let body = input_str
+                .split("Body: \"")
+                .nth(1)
+                .and_then(|rest| rest.split('"').next())
+                .unwrap_or_default();
+
+            let to_binding = if lower.contains("connected google address")
+                || lower.contains("connected google email")
+                || lower.contains("connected gmail address")
+                || lower.contains("connected address")
+                || lower.contains("connected email")
+            {
+                json!({
+                    "slot": "to",
+                    "bindingKind": "symbolic_ref",
+                    "value": "connected_account.email",
+                    "origin": "state_ref",
+                    "protectedSlotKind": "email_address"
+                })
+            } else {
+                json!({
+                    "slot": "to",
+                    "bindingKind": "unresolved",
+                    "value": null,
+                    "origin": "model_inferred",
+                    "protectedSlotKind": "email_address"
+                })
+            };
+
+            let response = json!({
+                "operation": operation,
+                "sideEffectMode": side_effect_mode,
+                "slotBindings": [
+                    to_binding,
+                    {
+                        "slot": "subject",
+                        "bindingKind": "user_literal",
+                        "value": subject,
+                        "origin": "user_span",
+                        "protectedSlotKind": "unknown"
+                    },
+                    {
+                        "slot": "body",
+                        "bindingKind": "user_literal",
+                        "value": body,
+                        "origin": "user_span",
+                        "protectedSlotKind": "unknown"
+                    }
+                ],
+                "negativeConstraints": if side_effect_mode == "draft_only" {
+                    json!(["do_not_send"])
+                } else {
+                    json!([])
+                },
+                "successCriteria": if operation == "mail.reply" {
+                    json!(["mail.reply.completed"])
+                } else {
+                    json!([])
+                }
+            });
+            return Ok(response.to_string().into_bytes());
+        }
+
         // 1. Intent Resolver Logic (Control Plane)
         // Detect if this is a request to map Natural Language -> Transaction.
         // We look for keywords from the System Prompt or specific user intent triggers.

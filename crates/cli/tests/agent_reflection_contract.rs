@@ -104,6 +104,7 @@ fn reflection_test_agent_state(session_id: [u8; 32]) -> AgentState {
         pending_tool_call: None,
         pending_tool_jcs: None,
         pending_tool_hash: None,
+        pending_request_nonce: None,
         pending_visual_hash: None,
         recent_actions: vec!["attempt::TargetNotFound::deadbeef".to_string()],
         mode: AgentMode::Agent,

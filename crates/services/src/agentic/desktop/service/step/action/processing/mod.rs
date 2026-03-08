@@ -82,6 +82,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 mod child_session;
 mod command_history;
 mod duplicate_guard;
+mod grounding;
 mod phases;
 mod refusal;
 mod web_helpers;
@@ -91,6 +92,7 @@ use self::duplicate_guard::{
     duplicate_command_completion_summary, duplicate_command_execution_summary,
     find_matching_command_history_entry,
 };
+use self::grounding::apply_instruction_contract_grounding;
 use self::phases::{
     apply_post_execution_guards, execute_tool_phase, finalize_action_processing,
     ActionProcessingState, ApplyPostExecutionGuardsContext, ExecuteToolPhaseContext,
@@ -199,6 +201,23 @@ pub async fn process_tool_output(
         }
     }
 
+    let tool_call = match tool_call {
+        Ok(tool) => Ok(
+            apply_instruction_contract_grounding(
+                service,
+                agent_state,
+                tool,
+                session_id,
+                pre_state_summary.step_index,
+                &resolved_intent_id(agent_state),
+                None,
+                &mut processing_state.verification_checks,
+            )
+            .await?,
+        ),
+        Err(error) => Err(error),
+    };
+
     let (_req_hash, req_hash_hex) = match tool_call.as_ref() {
         Ok(t) => {
             let target = t.target();
@@ -251,6 +270,7 @@ pub async fn process_tool_output(
                 agent_state.step_count += 1;
                 agent_state.pending_tool_call = None;
                 agent_state.pending_tool_jcs = None;
+                agent_state.pending_request_nonce = None;
                 agent_state.pending_approval = None;
                 agent_state.status = AgentStatus::Running;
                 state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
@@ -438,6 +458,8 @@ mod tests {
             score: 0.92,
             top_k: vec![],
             required_capabilities: vec![],
+            required_receipts: vec![],
+            required_postconditions: vec![],
             risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "v1".to_string(),
@@ -450,6 +472,8 @@ mod tests {
             query_normalization_version: "v1".to_string(),
             matrix_source_hash: [0u8; 32],
             receipt_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
             constrained: false,
         }
     }

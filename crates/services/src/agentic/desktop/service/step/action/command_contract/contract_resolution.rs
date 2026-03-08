@@ -1,7 +1,11 @@
-pub fn capability_route_label(tool: &AgentTool) -> Option<&'static str> {
+use crate::agentic::desktop::service::step::intent_resolver::tool_provider_route_label;
+
+pub fn capability_route_label(tool: &AgentTool, tool_name: &str) -> Option<String> {
     match tool {
-        AgentTool::SysInstallPackage { .. } => Some("enablement_request"),
-        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => Some("script_backend"),
+        AgentTool::SysInstallPackage { .. } => Some("enablement_request".to_string()),
+        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
+            Some("script_backend".to_string())
+        }
         _ => match tool.target() {
             ActionTarget::WindowFocus
             | ActionTarget::ClipboardWrite
@@ -11,8 +15,8 @@ pub fn capability_route_label(tool: &AgentTool) -> Option<&'static str> {
             | ActionTarget::GuiClick
             | ActionTarget::GuiType
             | ActionTarget::GuiScroll
-            | ActionTarget::GuiInspect => Some("native_integration"),
-            _ => None,
+            | ActionTarget::GuiInspect => Some("native_integration".to_string()),
+            _ => tool_provider_route_label(tool_name).map(str::to_string),
         },
     }
 }
@@ -33,6 +37,7 @@ pub fn is_cec_terminal_error(error: Option<&str>) -> bool {
         Some(
             "ExecutionContractViolation"
                 | "DiscoveryMissing"
+                | "GroundingMissing"
                 | "SynthesisFailed"
                 | "ExecutionFailedTerminal"
                 | "VerificationMissing"
@@ -61,6 +66,8 @@ pub fn execution_contract_violation_error(missing_keys: &str) -> String {
         .any(|receipt| receipt == "host_discovery")
     {
         ("DiscoveryMissing", "discovery")
+    } else if missing_receipts.iter().any(|receipt| receipt == "grounding") {
+        ("GroundingMissing", "grounding")
     } else if missing_receipts
         .iter()
         .any(|receipt| receipt == "provider_selection" || receipt == "provider_selection_commit")
@@ -176,8 +183,19 @@ fn resolved_contract_requirements(
         .as_ref()
         .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
         .unwrap_or(false);
-    let resolved_from_matrix = agent_state.resolved_intent.as_ref().and_then(|resolved| {
-        matrix.and_then(|entries| required_markers_from_matrix(&resolved.intent_id, entries))
+    let resolved_contract = agent_state.resolved_intent.as_ref().and_then(|resolved| {
+        let receipts = canonical_contract_markers(&resolved.required_receipts);
+        let postconditions = canonical_contract_markers(&resolved.required_postconditions);
+        if receipts.is_empty() && postconditions.is_empty() {
+            None
+        } else {
+            Some((receipts, postconditions))
+        }
+    });
+    let resolved_from_matrix = resolved_contract.or_else(|| {
+        agent_state.resolved_intent.as_ref().and_then(|resolved| {
+            matrix.and_then(|entries| required_markers_from_matrix(&resolved.intent_id, entries))
+        })
     });
 
     let mut required_receipts = resolved_from_matrix

@@ -323,8 +323,9 @@ pub async fn handle_step(
         {
             existing
         } else {
-            intent_resolver::resolve_step_intent(
+            intent_resolver::resolve_step_intent_with_state(
                 service,
+                Some(state),
                 &agent_state,
                 &rules,
                 &active_window_title,
@@ -332,8 +333,14 @@ pub async fn handle_step(
             .await?
         }
     } else {
-        intent_resolver::resolve_step_intent(service, &agent_state, &rules, &active_window_title)
-            .await?
+        intent_resolver::resolve_step_intent_with_state(
+            service,
+            Some(state),
+            &agent_state,
+            &rules,
+            &active_window_title,
+        )
+        .await?
     };
     let locality_scope_required =
         queue::web_pipeline::query_requires_runtime_locality_scope(&agent_state.goal);
@@ -496,6 +503,7 @@ pub async fn handle_step(
             );
             agent_state.pending_tool_jcs = None;
             agent_state.pending_tool_hash = None;
+            agent_state.pending_request_nonce = None;
             agent_state.pending_visual_hash = None;
             agent_state.pending_approval = None;
             agent_state.pending_tool_call = None;
@@ -703,6 +711,7 @@ mod tests {
             pending_tool_call: None,
             pending_tool_jcs: None,
             pending_tool_hash: None,
+            pending_request_nonce: None,
             pending_visual_hash: None,
             recent_actions: vec![],
             mode: AgentMode::Agent,

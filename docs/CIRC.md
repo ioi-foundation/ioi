@@ -141,6 +141,11 @@ For retrieval-oriented intents:
 - semantic ranking MUST still select the intent without regard to provider names, provider families, or domain-specific affordance labels.
 - any post-ranking retrieval planning MUST operate only on typed retrieval requirements and typed feasibility constraints.
 
+For connector-backed intents:
+- semantic ranking MUST select the intent without regard to connector IDs, provider families, tool-name prefixes, or account labels.
+- post-ranking provider selection MUST operate only on required primitive capabilities plus runtime-discovered provider candidates admitted by registered connector probes.
+- connector additions MUST enter routing through registry metadata and discovery evidence, not through intent-matrix keyword patches or provider-specific winner rules.
+
 ### 5.2 Prohibited Patterns
 Resolver logic MUST NOT:
 - route by ad hoc keyword, substring tests, or lexicographic assertions.
@@ -157,6 +162,7 @@ Resolver logic MAY:
 - use aliases and exemplars for observability and analytics.
 - include deterministic post-ranking feasibility filtering.
 - produce typed structural retrieval requirements after intent selection, provided those outputs are provider-agnostic.
+- use connector/provider registries that map tools to provider families and expose discovery-backed provider candidates, provided those registries are query-agnostic and versioned.
 
 ## 6. Determinism and Replayability
 Resolver receipts MUST commit to model and policy state so selection is replayable.

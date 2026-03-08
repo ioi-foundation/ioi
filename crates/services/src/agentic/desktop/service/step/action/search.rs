@@ -69,6 +69,8 @@ mod tests {
             score: 0.99,
             top_k: vec![],
             required_capabilities: vec![],
+            required_receipts: vec![],
+            required_postconditions: vec![],
             risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "v1".to_string(),
@@ -81,6 +83,8 @@ mod tests {
             query_normalization_version: "v1".to_string(),
             matrix_source_hash: [0u8; 32],
             receipt_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
             constrained: false,
         };
         assert!(is_search_scope(Some(&state)));

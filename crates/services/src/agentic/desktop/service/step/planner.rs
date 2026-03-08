@@ -706,6 +706,8 @@ mod tests {
                 score: 0.99,
             }],
             required_capabilities: vec![CapabilityId::from("command.exec")],
+            required_receipts: vec![],
+            required_postconditions: vec![],
             risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "intent-matrix-test".to_string(),
@@ -718,6 +720,8 @@ mod tests {
             query_normalization_version: "intent_query_norm_v1".to_string(),
             matrix_source_hash: [4u8; 32],
             receipt_hash: [5u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
             constrained: false,
         }
     }
@@ -733,6 +737,8 @@ mod tests {
                 score: 0.99,
             }],
             required_capabilities: vec![CapabilityId::from("browser.interact")],
+            required_receipts: vec![],
+            required_postconditions: vec![],
             risk_class: "low".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "intent-matrix-test".to_string(),
@@ -745,6 +751,8 @@ mod tests {
             query_normalization_version: "intent_query_norm_v1".to_string(),
             matrix_source_hash: [4u8; 32],
             receipt_hash: [5u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
             constrained: false,
         }
     }
@@ -798,6 +806,7 @@ mod tests {
             pending_tool_call: None,
             pending_tool_jcs: None,
             pending_tool_hash: None,
+            pending_request_nonce: None,
             pending_visual_hash: None,
             recent_actions: vec![],
             mode: AgentMode::Agent,

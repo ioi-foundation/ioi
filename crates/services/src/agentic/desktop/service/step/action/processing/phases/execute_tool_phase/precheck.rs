@@ -12,7 +12,7 @@ pub(super) fn run_execution_prechecks(
     session_id: [u8; 32],
     step_index: u32,
     resolved_intent_id: &str,
-    route_label: Option<&'static str>,
+    route_label: Option<&str>,
     synthesized_payload_hash: Option<String>,
     verification_checks: &mut Vec<String>,
     policy_decision: &mut String,

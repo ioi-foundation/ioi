@@ -1,3 +1,4 @@
+use crate::agentic::desktop::connectors::google_workspace;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::{LlmToolDefinition, ResolvedIntentState};
 use ioi_types::codec;
@@ -55,6 +56,12 @@ fn has_discovered_mail_connector_tools(tools: &[LlmToolDefinition]) -> bool {
     tools
         .iter()
         .any(|tool| is_mail_connector_tool_name(tool.name.as_str()))
+}
+
+fn has_discovered_google_connector_tools(tools: &[LlmToolDefinition]) -> bool {
+    tools
+        .iter()
+        .any(|tool| google_workspace::is_google_connector_tool_name(tool.name.as_str()))
 }
 
 fn push_mail_connector_fallback_tools(tools: &mut Vec<LlmToolDefinition>) {
@@ -124,6 +131,11 @@ fn push_mail_connector_fallback_tools(tools: &mut Vec<LlmToolDefinition>) {
     });
 }
 
+fn push_google_connector_tools(tools: &mut Vec<LlmToolDefinition>) {
+    let mut discovered = google_workspace::google_connector_tool_definitions();
+    tools.append(&mut discovered);
+}
+
 pub(super) fn inject_mail_connector_fallback_tools_if_needed(
     resolved_intent: Option<&ResolvedIntentState>,
     tools: &mut Vec<LlmToolDefinition>,
@@ -138,6 +150,13 @@ pub(super) fn inject_mail_connector_fallback_tools_if_needed(
         "No mail connector tools discovered from active service metadata; injecting canonical wallet mail tool fallback for mail intent."
     );
     push_mail_connector_fallback_tools(tools);
+}
+
+pub(super) fn inject_google_connector_tools_if_needed(tools: &mut Vec<LlmToolDefinition>) {
+    if has_discovered_google_connector_tools(tools) {
+        return;
+    }
+    push_google_connector_tools(tools);
 }
 
 pub(super) fn push_service_tools(
@@ -205,7 +224,10 @@ pub(super) fn push_service_tools(
 
 #[cfg(test)]
 mod tests {
-    use super::{inject_mail_connector_fallback_tools_if_needed, push_service_tools};
+    use super::{
+        inject_google_connector_tools_if_needed, inject_mail_connector_fallback_tools_if_needed,
+        push_service_tools,
+    };
     use ioi_api::state::namespaced::ReadOnlyNamespacedStateAccess;
     use ioi_api::state::service_namespace_prefix;
     use ioi_api::state::StateAccess;
@@ -318,6 +340,8 @@ mod tests {
             score: 0.95,
             top_k: vec![],
             required_capabilities,
+            required_receipts: vec![],
+            required_postconditions: vec![],
             risk_class: "medium".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: "intent-matrix-v2".to_string(),
@@ -330,6 +354,8 @@ mod tests {
             query_normalization_version: "v1".to_string(),
             matrix_source_hash: [1u8; 32],
             receipt_hash: [2u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
             constrained: false,
         }
     }
@@ -399,6 +425,25 @@ mod tests {
         assert_eq!(
             reply_count, 1,
             "fallback must not duplicate discovered mail tools"
+        );
+    }
+
+    #[test]
+    fn injects_google_connector_tools_once() {
+        let mut tools = vec![];
+
+        inject_google_connector_tools_if_needed(&mut tools);
+        inject_google_connector_tools_if_needed(&mut tools);
+
+        let gmail_send_count = tools
+            .iter()
+            .filter(|tool| tool.name == "connector__google__gmail_send_email")
+            .count();
+        assert_eq!(gmail_send_count, 1);
+        assert!(
+            tools
+                .iter()
+                .any(|tool| tool.name == "connector__google__workflow_file_announce")
         );
     }
 }

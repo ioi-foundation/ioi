@@ -38,6 +38,11 @@ For `remote_retrieval` and the remote-retrieval portions of `mixed` intents:
 - query text MAY influence typed retrieval requirements, but MUST NOT directly emit provider IDs, provider order, hostnames, or domain-specific execution branches.
 - provider selection MUST NOT depend on static query-to-provider shortcuts, domain allowlists keyed by query class, or lexical asset/subject slug extraction used as a stand-in for discovery.
 
+For connector-backed execution:
+- `discovery` MUST construct provider candidates from registered connector probes and currently connected accounts.
+- provider selection MUST bind execution to one discovered connector/provider route only after candidate admission.
+- execution MUST NOT select connectors via ad hoc lexical heuristics, tool-name prefix tests, or provider-specific branches embedded in the intent matrix.
+
 ## 3. Execution State Machine
 Execution MUST follow this state machine:
 1. `contract_loaded`
@@ -213,9 +218,10 @@ To migrate a heuristic executor to Draft v0.5:
 3. Introduce a provider registry whose entries advertise structural affordances and admissibility predicates rather than domain semantics.
 4. Make State 2 discovery produce typed provider-candidate receipts and require State 3 provider selection to reference those receipts.
 5. Move provider-specific URL builders, parsers, and challenge handling behind adapters that are only reachable after discovery-backed provider admission.
-6. Normalize execution and verification outputs into typed receipt and observation structures with `probe_source` and `observed_value`.
-7. Make completion gates, local judges, and arbiters consume typed evidence directly; demote reply text and shorthand markers to observability-only.
-8. Add conformance coverage for provider-discovery integrity, source-independence enforcement, and judge-integrity invariants.
+6. For connector-backed systems, register connector route metadata and candidate probes in the provider registry so new connectors participate without intent-pipeline heuristics.
+7. Normalize execution and verification outputs into typed receipt and observation structures with `probe_source` and `observed_value`.
+8. Make completion gates, local judges, and arbiters consume typed evidence directly; demote reply text and shorthand markers to observability-only.
+9. Add conformance coverage for provider-discovery integrity, source-independence enforcement, connector-registry routing integrity, and judge-integrity invariants.
 
 ## 14. Change Control and Versioning
 CEC changes MUST be versioned.

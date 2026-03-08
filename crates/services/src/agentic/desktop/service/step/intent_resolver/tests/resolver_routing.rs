@@ -1,4 +1,13 @@
 use super::*;
+use ioi_api::state::StateAccess;
+use ioi_state::primitives::hash::HashCommitmentScheme;
+use ioi_state::tree::iavl::IAVLTree;
+use ioi_types::app::wallet_network::{
+    MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
+    MailConnectorRecord, MailConnectorSecretAliases, MailConnectorTlsMode,
+};
+use ioi_types::codec;
+use std::collections::BTreeMap;
 
 #[tokio::test(flavor = "current_thread")]
 async fn resolver_never_emits_constrained_true() {
@@ -337,6 +346,83 @@ async fn resolver_routes_mail_send_queries_to_mail_reply_not_clock() {
         .required_capabilities
         .iter()
         .any(|capability| capability.as_str() == "mail.reply"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_auto_selects_single_available_mail_provider_family() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(MailReplyIntentRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal =
+        "Draft an email to team@ioi.network saying tomorrow's standup is moved to 2 PM and send it."
+            .to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version = "intent-matrix-v15-mail-send-test".into();
+
+    let mut state = IAVLTree::new(HashCommitmentScheme::new());
+    let record = MailConnectorRecord {
+        mailbox: "primary".to_string(),
+        config: MailConnectorConfig {
+            provider: MailConnectorProvider::ImapSmtp,
+            auth_mode: MailConnectorAuthMode::Password,
+            account_email: "local-mail@example.com".to_string(),
+            sender_display_name: Some("Local Mail".to_string()),
+            imap: MailConnectorEndpoint {
+                host: "imap.example.com".to_string(),
+                port: 993,
+                tls_mode: MailConnectorTlsMode::Tls,
+            },
+            smtp: MailConnectorEndpoint {
+                host: "smtp.example.com".to_string(),
+                port: 465,
+                tls_mode: MailConnectorTlsMode::Tls,
+            },
+            secret_aliases: MailConnectorSecretAliases {
+                imap_username_alias: "imap_username".to_string(),
+                imap_password_alias: "imap_password".to_string(),
+                smtp_username_alias: "smtp_username".to_string(),
+                smtp_password_alias: "smtp_password".to_string(),
+            },
+            metadata: BTreeMap::new(),
+        },
+        created_at_ms: 0,
+        updated_at_ms: 0,
+    };
+    state
+        .insert(
+            b"mail_connector::primary",
+            &codec::to_bytes_canonical(&record).expect("encode mail connector"),
+        )
+        .expect("insert mail connector");
+
+    let resolved = resolve_step_intent_with_state(
+        &service,
+        Some(&state),
+        &agent_state,
+        &rules,
+        "terminal",
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(resolved.intent_id, "mail.reply");
+    let provider_selection = resolved
+        .provider_selection
+        .expect("provider selection should be synthesized");
+    assert_eq!(provider_selection.mode, ProviderSelectionMode::DynamicSynthesis);
+    assert!(
+        provider_selection
+            .candidates
+            .iter()
+            .any(|candidate| candidate.provider_family == "mail.wallet_network"
+                && candidate.route_label == "mail_connector"),
+        "generic mail provider candidates should include the wallet mail connector route"
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]

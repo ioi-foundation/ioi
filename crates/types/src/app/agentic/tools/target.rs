@@ -134,6 +134,31 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                     "os__launch_app" => ActionTarget::Custom("os::launch_app".to_string()),
                     "math__eval" => ActionTarget::Custom("math::eval".to_string()),
                     "sys__install_package" => ActionTarget::SysInstallPackage,
+                    "connector__google__bigquery_execute_query" => {
+                        let query = val
+                            .get("arguments")
+                            .and_then(|arguments| arguments.get("query"))
+                            .and_then(|query| query.as_str())
+                            .unwrap_or_default()
+                            .trim_start()
+                            .trim_start_matches(|ch: char| ch == '(')
+                            .trim_start()
+                            .to_ascii_lowercase();
+                        let label = if query.starts_with("select")
+                            || query.starts_with("with")
+                            || query.starts_with("show")
+                            || query.starts_with("describe")
+                            || query.starts_with("explain")
+                        {
+                            "connector__google__bigquery_execute_query__read"
+                        } else {
+                            "connector__google__bigquery_execute_query__write"
+                        };
+                        ActionTarget::Custom(label.to_string())
+                    }
+                    name if name.starts_with("connector__google__") => {
+                        ActionTarget::Custom(name.to_string())
+                    }
                     _ => ActionTarget::Custom(name.to_string()),
                 }
             } else {

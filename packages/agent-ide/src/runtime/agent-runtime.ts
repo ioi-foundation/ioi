@@ -54,9 +54,13 @@ export interface MarketplaceAgent {
 
 // Connector Types
 export type ConnectorStatus = "connected" | "needs_auth" | "degraded" | "disabled";
+export type ConnectorPluginId = "wallet_mail" | "google_workspace" | string;
+export type ConnectorFieldType = "text" | "textarea" | "email" | "number" | "select";
+export type ConnectorActionKind = "read" | "write" | "workflow" | "admin" | "expert";
 
 export interface ConnectorSummary {
   id: string;
+  pluginId: ConnectorPluginId;
   name: string;
   provider: string;
   category: "communication" | "productivity" | "storage" | "developer";
@@ -66,6 +70,101 @@ export interface ConnectorSummary {
   scopes: string[];
   lastSyncAtUtc?: string;
   notes?: string;
+}
+
+export interface ConnectorFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface ConnectorFieldDefinition {
+  id: string;
+  label: string;
+  type: ConnectorFieldType;
+  required?: boolean;
+  placeholder?: string;
+  description?: string;
+  defaultValue?: string | number;
+  options?: ConnectorFieldOption[];
+}
+
+export interface ConnectorActionDefinition {
+  id: string;
+  service?: string;
+  serviceLabel?: string;
+  toolName?: string;
+  label: string;
+  description: string;
+  kind: ConnectorActionKind;
+  confirmBeforeRun?: boolean;
+  fields: ConnectorFieldDefinition[];
+  requiredScopes?: string[];
+}
+
+export interface ConnectorActionRequest {
+  connectorId: string;
+  actionId: string;
+  input: Record<string, unknown>;
+}
+
+export interface ConnectorActionResult {
+  connectorId: string;
+  actionId: string;
+  toolName?: string;
+  provider: string;
+  summary: string;
+  data: unknown;
+  rawOutput?: string;
+  executedAtUtc: string;
+}
+
+export interface ConnectorConfigureRequest {
+  connectorId: string;
+  input?: Record<string, unknown>;
+}
+
+export interface ConnectorConfigureResult {
+  connectorId: string;
+  provider: string;
+  status: ConnectorStatus;
+  summary: string;
+  data?: unknown;
+  executedAtUtc: string;
+}
+
+export type ConnectorSubscriptionStatus =
+  | "active"
+  | "paused"
+  | "stopped"
+  | "degraded"
+  | "reauth_required"
+  | "renewing";
+
+export interface ConnectorSubscriptionSummary {
+  subscriptionId: string;
+  connectorId: string;
+  kind: string;
+  status: ConnectorSubscriptionStatus;
+  accountEmail?: string;
+  projectId?: string;
+  pubsubTopic: string;
+  pubsubSubscription: string;
+  googleResourceName?: string;
+  labelIds: string[];
+  eventTypes: string[];
+  targetResource?: string;
+  gmailHistoryId?: string;
+  maxMessages: number;
+  pollIntervalSeconds: number;
+  expiresAtUtc?: string;
+  renewAtUtc?: string;
+  lastAckAtUtc?: string;
+  lastDeliveryAtUtc?: string;
+  lastError?: string;
+  automationActionId?: string;
+  threadId: string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
 }
 
 export interface WalletMailMessage {
@@ -247,6 +346,26 @@ export interface AgentRuntime {
 
   // Integrations / Connectors
   getConnectors?(): Promise<ConnectorSummary[]>;
+  getConnectorActions?(connectorId: string): Promise<ConnectorActionDefinition[]>;
+  runConnectorAction?(
+    request: ConnectorActionRequest
+  ): Promise<ConnectorActionResult>;
+  configureConnector?(
+    request: ConnectorConfigureRequest
+  ): Promise<ConnectorConfigureResult>;
+  listConnectorSubscriptions?(connectorId: string): Promise<ConnectorSubscriptionSummary[]>;
+  stopConnectorSubscription?(
+    connectorId: string,
+    subscriptionId: string
+  ): Promise<ConnectorSubscriptionSummary>;
+  resumeConnectorSubscription?(
+    connectorId: string,
+    subscriptionId: string
+  ): Promise<ConnectorSubscriptionSummary>;
+  renewConnectorSubscription?(
+    connectorId: string,
+    subscriptionId: string
+  ): Promise<ConnectorSubscriptionSummary>;
   walletMailReadLatest?(
     input: WalletMailReadLatestInput
   ): Promise<WalletMailReadLatestResult>;

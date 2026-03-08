@@ -1,7 +1,18 @@
 use super::*;
+use ioi_api::state::StateAccess;
 
 pub async fn resolve_step_intent(
     service: &DesktopAgentService,
+    agent_state: &AgentState,
+    rules: &ActionRules,
+    active_window_title: &str,
+) -> Result<ResolvedIntentState, TransactionError> {
+    resolve_step_intent_with_state(service, None, agent_state, rules, active_window_title).await
+}
+
+pub async fn resolve_step_intent_with_state(
+    service: &DesktopAgentService,
+    state: Option<&dyn StateAccess>,
     agent_state: &AgentState,
     rules: &ActionRules,
     active_window_title: &str,
@@ -18,6 +29,8 @@ pub async fn resolve_step_intent(
                 score: 1.0,
             }],
             required_capabilities: vec![],
+            required_receipts: vec![],
+            required_postconditions: vec![],
             risk_class: "unknown".to_string(),
             preferred_tier: "tool_first".to_string(),
             matrix_version: policy.matrix_version.clone(),
@@ -30,6 +43,8 @@ pub async fn resolve_step_intent(
             query_normalization_version: INTENT_QUERY_NORMALIZATION_VERSION.to_string(),
             matrix_source_hash: [0u8; 32],
             receipt_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
             constrained: false,
         });
     }
@@ -251,7 +266,17 @@ pub async fn resolve_step_intent(
         }
     }
 
-    let (scope, preferred_tier, score, band, required_capabilities, risk_class) =
+    let (
+        scope,
+        preferred_tier,
+        score,
+        band,
+        required_capabilities,
+        required_receipts,
+        required_postconditions,
+        risk_class,
+        provider_selection,
+    ) =
         if winner.intent_id == "resolver.unclassified" {
             (
                 IntentScopeProfile::Unknown,
@@ -259,7 +284,10 @@ pub async fn resolve_step_intent(
                 0.0,
                 IntentConfidenceBand::Low,
                 vec![],
+                vec![],
+                vec![],
                 "unknown".to_string(),
+                None,
             )
         } else {
             let entry = matrix
@@ -292,15 +320,39 @@ pub async fn resolve_step_intent(
                 policy,
                 base_band,
             );
+            let provider_selection = resolve_provider_selection_state(
+                service,
+                state,
+                &runtime,
+                agent_state.session_id,
+                &query,
+                entry,
+                &entry.required_capabilities,
+                &bindings,
+            )
+            .await;
             (
                 scope,
                 preferred_tier,
                 score,
                 band,
                 entry.required_capabilities.clone(),
+                entry.required_receipts.clone(),
+                entry.required_postconditions.clone(),
                 entry.risk_class.clone(),
+                provider_selection,
             )
         };
+    let instruction_contract = synthesize_instruction_contract(
+        service,
+        &runtime,
+        agent_state.session_id,
+        &query,
+        &winner.intent_id,
+        &required_capabilities,
+        provider_selection.as_ref(),
+    )
+    .await;
     let mut resolved = ResolvedIntentState {
         intent_id: winner.intent_id,
         scope,
@@ -308,6 +360,8 @@ pub async fn resolve_step_intent(
         score,
         top_k: routed_top_k,
         required_capabilities,
+        required_receipts,
+        required_postconditions,
         risk_class,
         preferred_tier,
         matrix_version: policy.matrix_version.clone(),
@@ -320,6 +374,8 @@ pub async fn resolve_step_intent(
         query_normalization_version: INTENT_QUERY_NORMALIZATION_VERSION.to_string(),
         matrix_source_hash: matrix_hash,
         receipt_hash: [0u8; 32],
+        provider_selection,
+        instruction_contract,
         // Constrained routing is deprecated (compat field only). We rely on policy gates + ontology.
         constrained: false,
     };
