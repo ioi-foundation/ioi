@@ -10,6 +10,8 @@ export interface GateInfo {
   title: string;
   description: string;
   risk: "low" | "medium" | "high";
+  approve_label?: string;
+  deny_label?: string;
   deadline_ms?: number;
   pii?: {
     decision_hash: string;

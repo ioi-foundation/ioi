@@ -126,7 +126,7 @@ async fn build_determinism_context(
             session_id: Some(session_id),
             window_id: window_binding,
         },
-        nonce: step_index as u64,
+        nonce: execution_request_nonce(agent_state, step_index),
     };
 
     let request_hash = request.try_hash().map_err(|e| {

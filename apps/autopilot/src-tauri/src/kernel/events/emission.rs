@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use uuid::Uuid;
 
-pub(super) fn register_event(app: &tauri::AppHandle, mut event: AgentEvent) {
+pub(crate) fn register_event(app: &tauri::AppHandle, mut event: AgentEvent) {
     let mut scs_handle = None;
 
     {
@@ -41,7 +41,7 @@ pub(super) fn register_event(app: &tauri::AppHandle, mut event: AgentEvent) {
     let _ = app.emit("agent-event", &event);
 }
 
-pub(super) fn register_artifact(app: &tauri::AppHandle, artifact: Artifact) {
+pub(crate) fn register_artifact(app: &tauri::AppHandle, artifact: Artifact) {
     let thread_id = artifact.thread_id.clone();
     let mut run_bundle_id = None;
     let mut scs_handle = None;
@@ -207,7 +207,7 @@ pub(super) fn create_macro_artifacts_for_action(
     refs
 }
 
-pub(super) fn build_event(
+pub(crate) fn build_event(
     thread_id: &str,
     step_index: u32,
     event_type: EventType,

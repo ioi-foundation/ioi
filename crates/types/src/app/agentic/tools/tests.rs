@@ -197,6 +197,31 @@ fn filesystem_delete_target_maps_to_fs_write_scope() {
 }
 
 #[test]
+fn google_bigquery_dynamic_target_distinguishes_read_and_write_queries() {
+    let read_tool = AgentTool::Dynamic(serde_json::json!({
+        "name": "connector__google__bigquery_execute_query",
+        "arguments": { "query": "select * from dataset.table" }
+    }));
+    assert_eq!(
+        read_tool.target(),
+        crate::app::ActionTarget::Custom(
+            "connector__google__bigquery_execute_query__read".into()
+        )
+    );
+
+    let write_tool = AgentTool::Dynamic(serde_json::json!({
+        "name": "connector__google__bigquery_execute_query",
+        "arguments": { "query": "delete from dataset.table where id = 1" }
+    }));
+    assert_eq!(
+        write_tool.target(),
+        crate::app::ActionTarget::Custom(
+            "connector__google__bigquery_execute_query__write".into()
+        )
+    );
+}
+
+#[test]
 fn filesystem_create_directory_target_maps_to_custom_scope() {
     let tool = AgentTool::FsCreateDirectory {
         path: "/tmp/work".to_string(),

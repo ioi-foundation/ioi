@@ -252,6 +252,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             && !receipt_can_assert_clarification_wait
         {
             t.phase = AgentPhase::Gate;
+            t.current_step = "Waiting for approval".to_string();
             if t.gate_info.is_none() {
                 t.gate_info = Some(GateInfo {
                     title: "Restricted Action Intercepted".to_string(),
@@ -260,13 +261,23 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
                         receipt.tool_name
                     ),
                     risk: "high".to_string(),
+                    approve_label: Some("Approve action".to_string()),
+                    deny_label: Some("Deny action".to_string()),
                     deadline_ms: None,
                     pii: None,
                 });
             }
         }
 
-        if !effective_waiting_for_sudo && !effective_waiting_for_clarification {
+        if !effective_waiting_for_sudo
+            && !effective_waiting_for_clarification
+            && !receipt.policy_decision.eq_ignore_ascii_case("require_approval")
+        {
+            t.gate_info = None;
+            t.pending_request_hash = None;
+            if t.phase == AgentPhase::Gate {
+                t.phase = AgentPhase::Running;
+            }
             t.current_step = format!(
                 "Routing: {} ({})",
                 receipt.tool_name, receipt.policy_decision

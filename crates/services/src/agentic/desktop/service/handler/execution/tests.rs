@@ -1,4 +1,5 @@
 use super::approvals::is_runtime_secret_install_retry_approved;
+use super::execution_request_nonce;
 use super::focus::is_focus_sensitive_tool;
 use super::normalize_web_research_tool_call;
 use super::query_active_window_with_timeout;
@@ -37,6 +38,7 @@ fn test_agent_state() -> AgentState {
         pending_tool_call: None,
         pending_tool_jcs: None,
         pending_tool_hash: None,
+        pending_request_nonce: None,
         pending_visual_hash: None,
         recent_actions: vec![],
         mode: AgentMode::Agent,
@@ -187,6 +189,17 @@ fn runtime_secret_retry_is_approved_only_for_matching_pending_install() {
     ));
 }
 
+#[test]
+fn pending_request_nonce_is_reused_for_canonical_resume() {
+    let mut state = test_agent_state();
+    state.pending_request_nonce = Some(7);
+
+    assert_eq!(execution_request_nonce(&state, 11), 7);
+
+    state.pending_request_nonce = None;
+    assert_eq!(execution_request_nonce(&state, 11), 11);
+}
+
 fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
     ResolvedIntentState {
         intent_id: "test".to_string(),
@@ -195,6 +208,8 @@ fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
         score: 0.95,
         top_k: vec![],
         required_capabilities: vec![],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "v1".to_string(),
@@ -207,6 +222,8 @@ fn resolved(scope: IntentScopeProfile) -> ResolvedIntentState {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [0u8; 32],
         receipt_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     }
 }
@@ -637,6 +654,15 @@ fn runtime_target_maps_dynamic_tools_to_mcp_adapter() {
         super::runtime_target_for_tool(&tool),
         RuntimeTarget::McpAdapter
     );
+}
+
+#[test]
+fn runtime_target_maps_google_connector_dynamic_tools_to_network() {
+    let tool = AgentTool::Dynamic(serde_json::json!({
+        "name": "connector__google__gmail_read_emails",
+        "arguments": { "query": "is:unread" }
+    }));
+    assert_eq!(super::runtime_target_for_tool(&tool), RuntimeTarget::Network);
 }
 
 #[test]

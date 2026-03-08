@@ -22,6 +22,7 @@ fn test_agent_state() -> AgentState {
         pending_tool_call: None,
         pending_tool_jcs: None,
         pending_tool_hash: None,
+        pending_request_nonce: None,
         pending_visual_hash: None,
         recent_actions: vec![],
         mode: AgentMode::Agent,
@@ -358,6 +359,8 @@ fn routing_honors_intent_preferred_tier_on_first_step() {
         score: 0.95,
         top_k: vec![],
         required_capabilities: vec![],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "visual_last".to_string(),
         matrix_version: "intent-matrix-v2".to_string(),
@@ -370,6 +373,8 @@ fn routing_honors_intent_preferred_tier_on_first_step() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [0u8; 32],
         receipt_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     });
 
@@ -439,6 +444,8 @@ fn routing_keeps_no_effect_failures_tool_first_for_command_scope() {
         score: 0.95,
         top_k: vec![],
         required_capabilities: vec![],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "intent-matrix-v2".to_string(),
@@ -451,6 +458,8 @@ fn routing_keeps_no_effect_failures_tool_first_for_command_scope() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [0u8; 32],
         receipt_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     });
     state
@@ -480,6 +489,8 @@ fn routing_keeps_no_effect_failures_tool_first_for_workspace_scope() {
         score: 0.95,
         top_k: vec![],
         required_capabilities: vec![],
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "intent-matrix-v2".to_string(),
@@ -492,6 +503,8 @@ fn routing_keeps_no_effect_failures_tool_first_for_workspace_scope() {
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [0u8; 32],
         receipt_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     });
     state

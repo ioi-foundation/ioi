@@ -45,7 +45,8 @@ mod routing;
 mod web_pipeline;
 
 use self::completion::{
-    maybe_complete_command_probe, maybe_complete_open_app, maybe_complete_screenshot_capture,
+    maybe_complete_command_probe, maybe_complete_mail_reply, maybe_complete_open_app,
+    maybe_complete_screenshot_capture, normalize_output_only_success,
 };
 use self::failure::{apply_queue_failure_policies, QueueFailureHandlingOutcome};
 use self::routing::{is_web_research_scope, resolve_queue_routing_context as resolve_routing};
@@ -273,6 +274,7 @@ async fn enter_wait_for_sudo_password(
     agent_state.pending_approval = None;
     agent_state.pending_tool_call = Some(action_json.to_string());
     agent_state.pending_tool_jcs = Some(tool_jcs.to_vec());
+    agent_state.pending_request_nonce = Some(agent_state.step_count as u64);
     agent_state.pending_visual_hash = Some(agent_state.last_screen_phash.unwrap_or([0u8; 32]));
     let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(tool_jcs).map_err(|e| {
         TransactionError::Invalid(format!("Failed to hash queued install tool JCS: {}", e))
@@ -319,6 +321,7 @@ async fn enter_wait_for_clarification(
     agent_state.pending_tool_call = None;
     agent_state.pending_tool_jcs = None;
     agent_state.pending_tool_hash = None;
+    agent_state.pending_request_nonce = None;
     agent_state.pending_visual_hash = None;
     agent_state.execution_queue.clear();
 
@@ -565,6 +568,7 @@ pub async fn process_queue_item(
 
             agent_state.pending_tool_jcs = Some(tool_jcs.clone());
             agent_state.pending_tool_hash = Some(hash_arr);
+            agent_state.pending_request_nonce = Some(agent_state.step_count as u64);
             agent_state.pending_visual_hash = Some(pending_visual_hash);
             agent_state.pending_tool_call = Some(action_json.clone());
             agent_state.status = AgentStatus::Paused("Waiting for approval".into());
@@ -608,6 +612,13 @@ pub async fn process_queue_item(
             hex::encode(visual_hash)
         ));
     }
+    normalize_output_only_success(
+        &tool_name,
+        &mut success,
+        &out,
+        &err,
+        &mut verification_checks,
+    );
     if !is_gated
         && command_scope
         && !success
@@ -738,6 +749,16 @@ pub async fn process_queue_item(
     maybe_complete_screenshot_capture(
         agent_state,
         &tool_wrapper,
+        is_gated,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        p.session_id,
+    );
+    maybe_complete_mail_reply(
+        agent_state,
+        &tool_name,
         is_gated,
         &mut success,
         &mut out,

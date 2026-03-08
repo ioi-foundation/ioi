@@ -61,6 +61,12 @@ struct DeterminismContext {
     signing_context: Option<(ChainId, AccountId)>,
 }
 
+fn execution_request_nonce(agent_state: &AgentState, step_index: u32) -> u64 {
+    agent_state
+        .pending_request_nonce
+        .unwrap_or(step_index as u64)
+}
+
 include!("execution/determinism.rs");
 
 include!("execution/workload_spec.rs");

@@ -520,6 +520,7 @@ pub(crate) async fn finalize_action_processing(
         agent_state.step_count += 1;
         agent_state.pending_tool_call = None;
         agent_state.pending_tool_jcs = None;
+        agent_state.pending_request_nonce = None;
         agent_state.pending_approval = None;
     }
 

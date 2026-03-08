@@ -163,6 +163,7 @@ pub async fn gate_respond(
     app: AppHandle,
     approved: bool,
     action: Option<String>,
+    request_hash: Option<String>,
 ) -> Result<(), String> {
     let mut session_id_hex = None;
     let mut request_hash_hex = None;
@@ -183,24 +184,26 @@ pub async fn gate_respond(
                     .and_then(|info| info.pii.as_ref())
                     .is_some();
                 session_id_hex = task.session_id.clone().or_else(|| Some(task.id.clone()));
-                request_hash_hex = task.pending_request_hash.clone().or_else(|| {
-                    task.events.iter().rev().find_map(|event| {
-                        if event.event_type != EventType::Warning {
-                            return None;
-                        }
-                        let verdict = event
-                            .digest
-                            .get("verdict")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or_default();
-                        if !verdict.eq_ignore_ascii_case("REQUIRE_APPROVAL") {
-                            return None;
-                        }
-                        event
-                            .digest
-                            .get("request_hash")
-                            .and_then(|v| v.as_str())
-                            .map(str::to_string)
+                request_hash_hex = request_hash.clone().or_else(|| {
+                    task.pending_request_hash.clone().or_else(|| {
+                        task.events.iter().rev().find_map(|event| {
+                            if event.event_type != EventType::Warning {
+                                return None;
+                            }
+                            let verdict = event
+                                .digest
+                                .get("verdict")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or_default();
+                            if !verdict.eq_ignore_ascii_case("REQUIRE_APPROVAL") {
+                                return None;
+                            }
+                            event
+                                .digest
+                                .get("request_hash")
+                                .and_then(|v| v.as_str())
+                                .map(str::to_string)
+                        })
                     })
                 });
                 visual_hash_hex = task.visual_hash.clone(); // Capture visual hash

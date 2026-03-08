@@ -1,0 +1,236 @@
+use super::subscriptions::{
+    build_registration_from_result, GoogleAutomationManager, GoogleConnectorSubscriptionView,
+};
+use super::policy::{
+    approval_marker_present, approval_required_error, AutomationPolicyMode, PolicyDecisionMode,
+    ShieldApprovalRequest, ShieldPolicyManager,
+};
+use ioi_services::agentic::desktop::connectors::google_workspace as shared;
+use serde_json::{json, Value};
+use tauri::State;
+
+pub use shared::{
+    ConnectorActionDefinition, ConnectorActionResult, ConnectorConfigureResult,
+};
+
+pub async fn connector_list_actions(
+    connector_id: String,
+) -> Result<Vec<ConnectorActionDefinition>, String> {
+    if shared::matches_google_connector_id(&connector_id) {
+        Ok(shared::google_connector_actions())
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+pub async fn connector_configure(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    input: Value,
+) -> Result<ConnectorConfigureResult, String> {
+    let mut result = shared::connector_configure(&connector_id, input).await?;
+    if shared::matches_google_connector_id(&connector_id) {
+        let subscriptions = manager.list_subscriptions(shared::GOOGLE_CONNECTOR_ID).await?;
+        result.data = Some(merge_data_with_subscriptions(result.data.take(), subscriptions)?);
+    }
+    Ok(result)
+}
+
+pub async fn connector_run_action(
+    manager: State<'_, GoogleAutomationManager>,
+    policy_manager: State<'_, ShieldPolicyManager>,
+    connector_id: String,
+    action_id: String,
+    input: Value,
+) -> Result<ConnectorActionResult, String> {
+    enforce_google_connector_policy(&policy_manager, &connector_id, &action_id, &input)?;
+    let mut result = shared::connector_run_action(&connector_id, &action_id, input.clone()).await?;
+    if shared::matches_google_connector_id(&connector_id) {
+        if let Some(registration) =
+            build_registration_from_result(&action_id, &input, &result).await?
+        {
+            let subscription = manager.register_subscription(registration).await?;
+            result.summary = match action_id.as_str() {
+                "gmail.watch_emails" => "Started durable Gmail watch automation.".to_string(),
+                "events.subscribe" => "Started durable Workspace Events automation.".to_string(),
+                _ => result.summary,
+            };
+            result.data = merge_data_with_subscription(result.data, subscription)?;
+        }
+    }
+    Ok(result)
+}
+
+pub async fn connector_list_subscriptions(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+) -> Result<Vec<GoogleConnectorSubscriptionView>, String> {
+    if shared::matches_google_connector_id(&connector_id) {
+        manager.list_subscriptions(shared::GOOGLE_CONNECTOR_ID).await
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+fn enforce_google_connector_policy(
+    policy_manager: &State<'_, ShieldPolicyManager>,
+    connector_id: &str,
+    action_id: &str,
+    input: &Value,
+) -> Result<(), String> {
+    if !shared::matches_google_connector_id(connector_id) {
+        return Ok(());
+    }
+
+    let Some(action) = shared::google_connector_actions()
+        .into_iter()
+        .find(|candidate| candidate.id == action_id) else {
+        return Ok(());
+    };
+
+    let policy = policy_manager.resolve_connector_policy(shared::GOOGLE_CONNECTOR_ID);
+    let approved = approval_marker_present(input);
+    let action_id_owned = action.id.clone();
+    let action_label = action.label.clone();
+    let requires_confirmation = match action.kind.as_str() {
+        "read" => match policy.reads {
+            PolicyDecisionMode::Auto => false,
+            PolicyDecisionMode::Confirm => true,
+            PolicyDecisionMode::Block => {
+                return Err(format!(
+                    "Blocked by Shield policy: {} is disabled for this connector.",
+                    action_label
+                ));
+            }
+        },
+        "write" | "workflow" => match policy.writes {
+            PolicyDecisionMode::Auto => false,
+            PolicyDecisionMode::Confirm => true,
+            PolicyDecisionMode::Block => {
+                return Err(format!(
+                    "Blocked by Shield policy: {} is disabled for this connector.",
+                    action_label
+                ));
+            }
+        },
+        "expert" => match policy.expert {
+            PolicyDecisionMode::Auto => false,
+            PolicyDecisionMode::Confirm => true,
+            PolicyDecisionMode::Block => {
+                return Err(format!(
+                    "Blocked by Shield policy: expert Google actions are disabled for this connector.",
+                ));
+            }
+        },
+        "admin" if is_automation_action(action_id) => match policy.automations {
+            AutomationPolicyMode::ConfirmOnCreate
+            | AutomationPolicyMode::ConfirmOnRun
+            | AutomationPolicyMode::ManualOnly => true,
+        },
+        "admin" => match policy.admin {
+            PolicyDecisionMode::Auto => false,
+            PolicyDecisionMode::Confirm => true,
+            PolicyDecisionMode::Block => {
+                return Err(format!(
+                    "Blocked by Shield policy: {} is disabled for this connector.",
+                    action_label
+                ));
+            }
+        },
+        _ => false,
+    };
+
+    if requires_confirmation && !approved {
+        return Err(approval_required_error(&ShieldApprovalRequest {
+            connector_id: connector_id.to_string(),
+            action_id: action_id_owned,
+            action_label: action_label.clone(),
+            message: format!(
+                "Shield policy requires explicit approval before running {}.",
+                action_label
+            ),
+        }));
+    }
+
+    Ok(())
+}
+
+fn is_automation_action(action_id: &str) -> bool {
+    matches!(action_id, "gmail.watch_emails" | "events.subscribe" | "events.renew")
+}
+
+pub async fn connector_stop_subscription(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    subscription_id: String,
+) -> Result<GoogleConnectorSubscriptionView, String> {
+    if shared::matches_google_connector_id(&connector_id) {
+        manager.stop_subscription(&subscription_id).await
+    } else {
+        Err(format!("Unsupported connector '{}'.", connector_id))
+    }
+}
+
+pub async fn connector_resume_subscription(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    subscription_id: String,
+) -> Result<GoogleConnectorSubscriptionView, String> {
+    if shared::matches_google_connector_id(&connector_id) {
+        manager.resume_subscription(&subscription_id).await
+    } else {
+        Err(format!("Unsupported connector '{}'.", connector_id))
+    }
+}
+
+pub async fn connector_renew_subscription(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    subscription_id: String,
+) -> Result<GoogleConnectorSubscriptionView, String> {
+    if shared::matches_google_connector_id(&connector_id) {
+        manager.renew_subscription_now(&subscription_id).await
+    } else {
+        Err(format!("Unsupported connector '{}'.", connector_id))
+    }
+}
+
+fn merge_data_with_subscriptions(
+    data: Option<Value>,
+    subscriptions: Vec<GoogleConnectorSubscriptionView>,
+) -> Result<Value, String> {
+    let mut payload = match data.unwrap_or_else(|| json!({})) {
+        Value::Object(map) => map,
+        other => {
+            let mut map = serde_json::Map::new();
+            map.insert("result".to_string(), other);
+            map
+        }
+    };
+    payload.insert(
+        "subscriptions".to_string(),
+        serde_json::to_value(subscriptions)
+            .map_err(|error| format!("Failed to serialize Google subscriptions: {}", error))?,
+    );
+    Ok(Value::Object(payload))
+}
+
+fn merge_data_with_subscription(
+    data: Value,
+    subscription: GoogleConnectorSubscriptionView,
+) -> Result<Value, String> {
+    let mut payload = match data {
+        Value::Object(map) => map,
+        other => {
+            let mut map = serde_json::Map::new();
+            map.insert("result".to_string(), other);
+            map
+        }
+    };
+    payload.insert(
+        "subscriptionRuntime".to_string(),
+        serde_json::to_value(subscription)
+            .map_err(|error| format!("Failed to serialize Google subscription runtime: {}", error))?,
+    );
+    Ok(Value::Object(payload))
+}

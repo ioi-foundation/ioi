@@ -115,6 +115,11 @@ fn conversation_mail_reply_no_effect_skips_incident_recovery() {
         "mail__reply",
         FailureClass::UnexpectedState
     ));
+    assert!(should_skip_incident_recovery_for_intent(
+        IntentClass::ConversationTask,
+        "connector__google__gmail_send_email",
+        FailureClass::NoEffectAfterAction
+    ));
     assert!(!should_skip_incident_recovery_for_intent(
         IntentClass::ConversationTask,
         "wallet_network__mail_list_recent",

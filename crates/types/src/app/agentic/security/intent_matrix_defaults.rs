@@ -20,8 +20,13 @@ IntentMatrixEntry {
     preferred_tier: "tool_first".to_string(),
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
-    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
     required_postconditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
@@ -50,8 +55,13 @@ IntentMatrixEntry {
     preferred_tier: "tool_first".to_string(),
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
-    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
     required_postconditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
@@ -82,8 +92,13 @@ IntentMatrixEntry {
     preferred_tier: "tool_first".to_string(),
     applicability_class: ExecutionApplicabilityClass::RemoteRetrieval,
     requires_host_discovery: Some(false),
-    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
     required_postconditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
@@ -114,8 +129,13 @@ IntentMatrixEntry {
     preferred_tier: "tool_first".to_string(),
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
-    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
     required_postconditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
@@ -206,8 +226,13 @@ IntentMatrixEntry {
     preferred_tier: "visual_last".to_string(),
     applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
     requires_host_discovery: Some(false),
-    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
     required_postconditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
@@ -235,8 +260,13 @@ IntentMatrixEntry {
     preferred_tier: "tool_first".to_string(),
     applicability_class: ExecutionApplicabilityClass::Mixed,
     requires_host_discovery: Some(false),
-    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
     required_postconditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
@@ -264,8 +294,13 @@ IntentMatrixEntry {
     preferred_tier: "tool_first".to_string(),
     applicability_class: ExecutionApplicabilityClass::Mixed,
     requires_host_discovery: Some(false),
-    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
     required_postconditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
@@ -293,8 +328,13 @@ IntentMatrixEntry {
     preferred_tier: "tool_first".to_string(),
     applicability_class: ExecutionApplicabilityClass::Mixed,
     requires_host_discovery: Some(false),
-    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
     required_postconditions: vec![],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
@@ -322,9 +362,15 @@ IntentMatrixEntry {
     preferred_tier: "tool_first".to_string(),
     applicability_class: ExecutionApplicabilityClass::Mixed,
     requires_host_discovery: Some(false),
-    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
-    required_receipts: vec!["execution".to_string(), "verification".to_string()],
-    required_postconditions: vec![],
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "grounding".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
+    required_postconditions: vec!["mail.reply.completed".to_string()],
     verification_mode: Some(VerificationMode::DeterministicCheck),
     aliases: vec![
         "send email".to_string(),
@@ -508,5 +554,68 @@ IntentMatrixEntry {
         "spawn researcher agent".to_string(),
     ],
 },
-    ]
+]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conversation_reply_does_not_inherit_mail_grounding_contract() {
+        let entry = default_intent_matrix()
+            .into_iter()
+            .find(|entry| entry.intent_id == "conversation.reply")
+            .expect("conversation.reply entry should exist");
+
+        assert!(
+            !entry.required_receipts.iter().any(|receipt| receipt == "grounding"),
+            "conversation.reply should not require connector grounding receipts"
+        );
+        assert!(
+            !entry
+                .required_postconditions
+                .iter()
+                .any(|postcondition| postcondition == "mail.reply.completed"),
+            "conversation.reply should not require mail completion postconditions"
+        );
+    }
+
+    #[test]
+    fn generic_mail_reply_defaults_to_dynamic_provider_selection() {
+        let entry = default_intent_matrix()
+            .into_iter()
+            .find(|entry| entry.intent_id == "mail.reply")
+            .expect("mail.reply entry should exist");
+
+        assert_eq!(
+            entry.provider_selection_mode,
+            Some(ProviderSelectionMode::DynamicSynthesis)
+        );
+        assert!(
+            entry
+                .required_receipts
+                .iter()
+                .any(|receipt| receipt == "provider_selection"),
+            "mail.reply should require provider selection receipts"
+        );
+        assert!(
+            entry
+                .required_receipts
+                .iter()
+                .any(|receipt| receipt == "provider_selection_commit"),
+            "mail.reply should require provider selection commit receipts"
+        );
+        assert!(
+            entry.required_receipts.iter().any(|receipt| receipt == "grounding"),
+            "mail.reply should require grounding receipts"
+        );
+        assert!(
+            entry
+                .required_postconditions
+                .iter()
+                .any(|postcondition| postcondition == "mail.reply.completed"),
+            "mail.reply should require verified completion postconditions"
+        );
+    }
 }

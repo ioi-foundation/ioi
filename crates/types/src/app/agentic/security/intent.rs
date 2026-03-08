@@ -281,6 +281,172 @@ pub struct ToolCapabilityBinding {
     pub capabilities: Vec<CapabilityId>,
 }
 
+/// Dynamic provider candidate considered for satisfying an intent capability family.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderRouteCandidate {
+    /// Stable provider-family identifier used for tool filtering.
+    pub provider_family: String,
+    /// Stable provider route label used for CEC receipt emission.
+    pub route_label: String,
+    /// Connector/runtime source that owns this provider route.
+    pub connector_id: String,
+    /// Optional concrete provider/account identifier.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+    /// Optional human-readable account or mailbox label.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_label: Option<String>,
+    /// Capabilities satisfiable through this provider route.
+    #[serde(default)]
+    pub capabilities: Vec<CapabilityId>,
+    /// Human-readable candidate summary for synthesis/audit.
+    #[serde(default)]
+    pub summary: String,
+}
+
+/// Provider-selection material attached to a resolved intent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSelectionState {
+    /// Effective provider-selection mode applied to this intent.
+    #[serde(default)]
+    pub mode: ProviderSelectionMode,
+    /// Selected provider-family identifier, when disambiguated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_provider_family: Option<String>,
+    /// Selected provider route label used by CEC receipts, when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_route_label: Option<String>,
+    /// Selected concrete provider/account identifier, when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_provider_id: Option<String>,
+    /// Selected connector/runtime owner, when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_connector_id: Option<String>,
+    /// Deterministic selection basis (`single_available`, `semantic_match`, `unresolved`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selection_basis: Option<String>,
+    /// Candidate provider routes evaluated for this intent.
+    #[serde(default)]
+    pub candidates: Vec<ProviderRouteCandidate>,
+}
+
+/// Origin provenance for a concrete argument value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ArgumentOrigin {
+    /// Exact user-specified span or literal.
+    UserSpan,
+    /// Resolved from runtime/session state.
+    StateRef,
+    /// Resolved from post-tool evidence.
+    EvidenceRef,
+    /// Filled by deterministic tool defaults.
+    ToolDefault,
+    /// Proposed by the model without admissible grounding.
+    #[default]
+    ModelInferred,
+}
+
+/// Protected slot family requiring explicit grounding before execution.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtectedSlotKind {
+    /// Arbitrary email address destination/source.
+    EmailAddress,
+    /// Connected account email for the selected provider route.
+    AccountEmail,
+    /// Calendar identifier.
+    CalendarId,
+    /// Generic remote or local resource identifier.
+    ResourceId,
+    /// Cloud project identifier.
+    ProjectId,
+    /// File identifier or storage handle.
+    FileId,
+    /// Non-protected or unspecified slot kind.
+    #[default]
+    Unknown,
+}
+
+/// Side-effect mode inferred from the user's requested end state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum InstructionSideEffectMode {
+    /// No external state mutation is requested.
+    None,
+    /// Read-only or observational operation.
+    ReadOnly,
+    /// Create a draft or staged mutation without final dispatch.
+    DraftOnly,
+    /// Final outbound dispatch or commit.
+    Send,
+    /// Create a new resource.
+    Create,
+    /// Update an existing resource.
+    Update,
+    /// Delete an existing resource.
+    Delete,
+    /// Unknown side-effect semantics.
+    #[default]
+    Unknown,
+}
+
+/// Binding mode for an instruction slot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum InstructionBindingKind {
+    /// Slot should be grounded from a symbolic runtime reference.
+    SymbolicRef,
+    /// Slot is an explicit user-provided literal.
+    UserLiteral,
+    /// Slot remains unresolved and must not execute if protected.
+    #[default]
+    Unresolved,
+}
+
+/// Single slot binding extracted from the user request.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InstructionSlotBinding {
+    /// Tool argument / slot name.
+    pub slot: String,
+    /// Binding mode for the slot.
+    #[serde(default)]
+    pub binding_kind: InstructionBindingKind,
+    /// Symbolic reference or literal value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    /// Provenance for the resolved value.
+    #[serde(default)]
+    pub origin: ArgumentOrigin,
+    /// Protected slot class, when the slot must be grounded.
+    #[serde(default)]
+    pub protected_slot_kind: ProtectedSlotKind,
+}
+
+/// Generic instruction contract synthesized from a user request.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InstructionContract {
+    /// Normalized requested operation.
+    #[serde(default)]
+    pub operation: String,
+    /// Side-effect mode for end-state verification and approval semantics.
+    #[serde(default)]
+    pub side_effect_mode: InstructionSideEffectMode,
+    /// Slot bindings derived from the user's request.
+    #[serde(default)]
+    pub slot_bindings: Vec<InstructionSlotBinding>,
+    /// Explicit negative constraints from the user's request.
+    #[serde(default)]
+    pub negative_constraints: Vec<String>,
+    /// Required postconditions implied by the user's requested end state.
+    #[serde(default)]
+    pub success_criteria: Vec<String>,
+}
+
 /// Global policy for the step/action intent resolver.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct IntentRoutingPolicy {
@@ -362,6 +528,12 @@ pub struct ResolvedIntentState {
     /// Required capabilities copied from the winning intent profile.
     #[serde(default)]
     pub required_capabilities: Vec<CapabilityId>,
+    /// Required execution receipts copied from the winning intent profile.
+    #[serde(default)]
+    pub required_receipts: Vec<String>,
+    /// Required execution postconditions copied from the winning intent profile.
+    #[serde(default)]
+    pub required_postconditions: Vec<String>,
     /// Risk class copied from winning intent profile.
     #[serde(default)]
     pub risk_class: String,
@@ -394,6 +566,12 @@ pub struct ResolvedIntentState {
     pub matrix_source_hash: [u8; 32],
     /// Deterministic receipt hash over resolution material.
     pub receipt_hash: [u8; 32],
+    /// Optional provider-selection material for connector-backed execution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_selection: Option<ProviderSelectionState>,
+    /// Optional generic instruction contract synthesized from the user request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instruction_contract: Option<InstructionContract>,
     /// Deprecated/compat: always false (constrained mode removed).
     #[serde(default)]
     pub constrained: bool,

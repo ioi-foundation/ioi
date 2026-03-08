@@ -10,6 +10,7 @@ use super::recovery::{
 use super::store::{clear_incident_state, load_incident_state, persist_incident_state};
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::step::anti_loop::FailureClass;
+use crate::agentic::desktop::service::step::intent_resolver::is_mail_reply_provider_tool;
 use crate::agentic::desktop::service::step::ontology::{
     classify_intent_from_resolved, default_strategy_for, GateState, IncidentStage, IntentClass,
     ResolutionAction, StrategyNode,
@@ -76,10 +77,7 @@ pub(crate) fn should_skip_incident_recovery_for_intent(
                     | FailureClass::ContextDrift
                     | FailureClass::UnexpectedState
             )
-            && matches!(
-                root_tool_name.trim().to_ascii_lowercase().as_str(),
-                "wallet_network__mail_reply" | "wallet_mail_reply" | "mail__reply"
-            ))
+            && is_mail_reply_provider_tool(root_tool_name))
 }
 
 pub async fn emit_incident_chat_progress(

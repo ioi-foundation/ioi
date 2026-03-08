@@ -1,23 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AgentRuntime,
+  ConnectorConfigureResult,
   ConnectorSummary,
   ConnectorStatus,
   WalletMailConfigureAccountResult,
 } from "../../runtime/agent-runtime";
 import { Icons } from "../../ui/icons";
 import { ConnectorsHeader } from "./components/ConnectorsHeader";
+import { GoogleWorkspaceConnectorPanel } from "./components/GoogleWorkspaceConnectorPanel";
 import { MailConnectorPanel } from "./components/MailConnectorPanel";
 import { useMailConnectorActions } from "./hooks/useMailConnectorActions";
 import "./ConnectorsView.css";
 
 interface ConnectorsViewProps {
   runtime: AgentRuntime;
+  getConnectorPolicySummary?: (
+    connector: ConnectorSummary
+  ) => { headline: string; detail: string } | null;
+  onOpenPolicyCenter?: (connector: ConnectorSummary) => void;
 }
 
 const FALLBACK_CONNECTORS: ConnectorSummary[] = [
   {
     id: "mail.primary",
+    pluginId: "wallet_mail",
     name: "Mail",
     provider: "wallet.network",
     category: "communication",
@@ -30,19 +37,36 @@ const FALLBACK_CONNECTORS: ConnectorSummary[] = [
       "Uses delegated wallet session policy and mailbox-scoped credentials.",
   },
   {
-    id: "calendar.primary",
-    name: "Calendar",
-    provider: "wallet.network",
+    id: "google.workspace",
+    pluginId: "google_workspace",
+    name: "Google",
+    provider: "google",
     category: "productivity",
-    description: "Scaffold for delegated calendar read/write operations.",
-    status: "disabled",
-    authMode: "wallet_network_session",
-    scopes: ["calendar.read.events"],
+    description:
+      "Single Google connector for Gmail, Calendar, Docs, Sheets, BigQuery, Drive, Tasks, Chat, workflows, events, and expert raw access.",
+    status: "needs_auth",
+    authMode: "oauth",
+    scopes: [
+      "gmail",
+      "calendar",
+      "docs",
+      "sheets",
+      "bigquery",
+      "drive",
+      "tasks",
+      "chat",
+      "events",
+      "workflow",
+      "expert",
+    ],
+    notes:
+      "Uses native Google OAuth and direct Google APIs for curated tools plus an expert raw request path.",
   },
 ];
 
 const MAIL_CONNECTOR_DEFAULT: ConnectorSummary = {
   id: "mail.primary",
+  pluginId: "wallet_mail",
   name: "Mail",
   provider: "wallet.network",
   category: "communication",
@@ -85,6 +109,22 @@ function patchMailConnectorFromConfiguredAccount(
   ];
 }
 
+function patchConnectorFromConfigurationResult(
+  connectors: ConnectorSummary[],
+  result: ConnectorConfigureResult
+): ConnectorSummary[] {
+  return connectors.map((connector) =>
+    connector.id !== result.connectorId
+      ? connector
+      : {
+          ...connector,
+          status: result.status,
+          lastSyncAtUtc: result.executedAtUtc,
+          notes: result.summary,
+        }
+  );
+}
+
 function statusLabel(status: ConnectorStatus): string {
   switch (status) {
     case "connected":
@@ -100,7 +140,11 @@ function statusLabel(status: ConnectorStatus): string {
   }
 }
 
-export function ConnectorsView({ runtime }: ConnectorsViewProps) {
+export function ConnectorsView({
+  runtime,
+  getConnectorPolicySummary,
+  onOpenPolicyCenter,
+}: ConnectorsViewProps) {
   const [connectors, setConnectors] = useState<ConnectorSummary[]>(FALLBACK_CONNECTORS);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ConnectorStatus | "all">("all");
@@ -111,6 +155,9 @@ export function ConnectorsView({ runtime }: ConnectorsViewProps) {
     },
     []
   );
+  const onConnectorConfigured = useCallback((result: ConnectorConfigureResult) => {
+    setConnectors((current) => patchConnectorFromConfigurationResult(current, result));
+  }, []);
   const mail = useMailConnectorActions(runtime, {
     onAccountConfigured: onMailAccountConfigured,
   });
@@ -175,6 +222,8 @@ export function ConnectorsView({ runtime }: ConnectorsViewProps) {
       <section className="connectors-grid">
         {filtered.map((connector) => {
           const isMailConnector = connector.id.startsWith("mail.");
+          const isGoogleConnector = connector.pluginId === "google_workspace";
+          const policySummary = getConnectorPolicySummary?.(connector) ?? null;
           const connectorStatus: ConnectorStatus =
             connector.id === "mail.primary" && mail.connectedMailAccounts.length > 0
               ? "connected"
@@ -208,17 +257,59 @@ export function ConnectorsView({ runtime }: ConnectorsViewProps) {
                 {connector.lastSyncAtUtc ? <span>Last sync: {connector.lastSyncAtUtc}</span> : null}
               </div>
 
-              <div className="connector-scopes">
-                {connector.scopes.map((scope) => (
-                  <code key={scope}>{scope}</code>
-                ))}
-              </div>
+              {isGoogleConnector ? (
+                <div className="connector-scopes connector-scopes-google">
+                  {["Gmail", "Calendar", "Docs", "Sheets", "BigQuery", "Automations"].map(
+                    (bundle) => (
+                      <span key={bundle} className="workspace-bundle-chip">
+                        {bundle}
+                      </span>
+                    )
+                  )}
+                </div>
+              ) : (
+                <div className="connector-scopes">
+                  {connector.scopes.map((scope) => (
+                    <code key={scope}>{scope}</code>
+                  ))}
+                </div>
+              )}
 
-              {connector.notes ? <p className="connector-notes">{connector.notes}</p> : null}
+              {connector.notes && !isGoogleConnector ? (
+                <p className="connector-notes">{connector.notes}</p>
+              ) : null}
+
+              {policySummary ? (
+                <div className="connector-policy-summary">
+                  <div>
+                    <span className="connector-policy-kicker">Policy</span>
+                    <strong>{policySummary.headline}</strong>
+                    <p>{policySummary.detail}</p>
+                  </div>
+                  {onOpenPolicyCenter ? (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => onOpenPolicyCenter(connector)}
+                    >
+                      Manage policy
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
 
               {connector.id === "mail.primary" ? <MailConnectorPanel mail={mail} /> : null}
+              {connector.pluginId === "google_workspace" ? (
+                <GoogleWorkspaceConnectorPanel
+                  runtime={runtime}
+                  connector={connector}
+                  onConfigured={onConnectorConfigured}
+                  onOpenPolicyCenter={onOpenPolicyCenter}
+                  policySummary={policySummary ?? undefined}
+                />
+              ) : null}
 
-              {!isMailConnector ? (
+              {!isMailConnector && connector.pluginId !== "google_workspace" ? (
                 <div className="connector-actions">
                   <button type="button" className="btn-secondary">
                     Configure

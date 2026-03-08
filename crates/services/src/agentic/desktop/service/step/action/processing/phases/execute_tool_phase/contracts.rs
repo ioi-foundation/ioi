@@ -7,7 +7,7 @@ pub(super) struct ContractBootstrap {
     pub command_scope: bool,
     pub resolved_intent_id: String,
     pub synthesized_payload_hash: Option<String>,
-    pub route_label: Option<&'static str>,
+    pub route_label: Option<String>,
 }
 
 pub(super) fn bootstrap_contract(
@@ -26,7 +26,7 @@ pub(super) fn bootstrap_contract(
         .unwrap_or(false);
     let resolved_intent_id = resolved_intent_id(agent_state);
     let synthesized_payload_hash = synthesized_payload_hash_for_tool(tool);
-    let route_label = capability_route_label(tool);
+    let route_label = capability_route_label(tool, current_tool_name);
 
     if route_label.is_some()
         && !has_execution_receipt(&agent_state.tool_execution_log, "host_discovery")
@@ -89,7 +89,7 @@ pub(super) fn bootstrap_contract(
         );
     }
 
-    if let Some(route_label) = route_label {
+    if let Some(route_label) = route_label.as_deref() {
         verification_checks.push(format!("capability_route_selected={}", route_label));
         record_provider_selection_receipts(
             &mut agent_state.tool_execution_log,
@@ -242,6 +242,7 @@ mod tests {
             pending_tool_call: None,
             pending_tool_jcs: None,
             pending_tool_hash: None,
+            pending_request_nonce: None,
             pending_visual_hash: None,
             recent_actions: vec![],
             mode: AgentMode::Agent,

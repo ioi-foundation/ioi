@@ -88,6 +88,7 @@ export function useGateState({
   }, [hasPendingApproval, task?.gate_info, task?.pending_request_hash]);
 
   const isPiiGate = !!gateInfo?.pii;
+  const activeRequestHash = task?.pending_request_hash || undefined;
   const isGated =
     !showPasswordPrompt &&
     !showClarificationPrompt &&
@@ -98,7 +99,7 @@ export function useGateState({
   const handleApprove = useCallback(async () => {
     setGateActionError(null);
     try {
-      await invoke("gate_respond", { approved: true });
+      await invoke("gate_respond", { approved: true, requestHash: activeRequestHash });
       setChatEvents((prev) =>
         prev.map((m) => (m.isGate ? { ...m, isGate: false, text: "✓ Approved" } : m)),
       );
@@ -106,12 +107,16 @@ export function useGateState({
       const reason = err instanceof Error ? err.message : String(err || "Gate action failed");
       setGateActionError(`Submit failed: ${reason}`);
     }
-  }, [setChatEvents]);
+  }, [activeRequestHash, setChatEvents]);
 
   const handleDeny = useCallback(async () => {
     setGateActionError(null);
     try {
-      await invoke("gate_respond", { approved: false, action: "deny" });
+      await invoke("gate_respond", {
+        approved: false,
+        action: "deny",
+        requestHash: activeRequestHash,
+      });
       setChatEvents((prev) =>
         prev.map((m) => (m.isGate ? { ...m, isGate: false, text: "✗ Denied" } : m)),
       );
@@ -119,7 +124,7 @@ export function useGateState({
       const reason = err instanceof Error ? err.message : String(err || "Gate action failed");
       setGateActionError(`Submit failed: ${reason}`);
     }
-  }, [setChatEvents]);
+  }, [activeRequestHash, setChatEvents]);
 
   const handleGrantScopedException = useCallback(async () => {
     setGateActionError(null);
@@ -127,6 +132,7 @@ export function useGateState({
       await invoke("gate_respond", {
         approved: true,
         action: "grant_scoped_exception",
+        requestHash: activeRequestHash,
       });
       setChatEvents((prev) =>
         prev.map((m) =>
@@ -137,7 +143,7 @@ export function useGateState({
       const reason = err instanceof Error ? err.message : String(err || "Gate action failed");
       setGateActionError(`Submit failed: ${reason}`);
     }
-  }, [setChatEvents]);
+  }, [activeRequestHash, setChatEvents]);
 
   useEffect(() => {
     if (task && task.phase === "Gate" && task.gate_info) {

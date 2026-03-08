@@ -27,6 +27,81 @@ pub(crate) struct LifecycleStatusPhaseContext<'a, 's> {
     pub log_visual_hash: [u8; 32],
 }
 
+fn normalize_resumed_output_only_success(
+    tool_name: &str,
+    success: &mut bool,
+    out: &Option<String>,
+    err: &Option<String>,
+    verification_checks: &mut Vec<String>,
+) {
+    if *success || err.is_some() {
+        return;
+    }
+    let has_output = out
+        .as_deref()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false);
+    if !has_output {
+        return;
+    }
+    *success = true;
+    verification_checks.push("resume_output_only_success_normalized=true".to_string());
+    verification_checks.push(format!(
+        "resume_output_only_success_tool={}",
+        tool_name
+    ));
+}
+
+fn remaining_queue_is_only_mail_reply_provider_fallbacks(agent_state: &AgentState) -> bool {
+    let mut saw_mail_reply_fallback = false;
+    for request in &agent_state.execution_queue {
+        let target = request.target.canonical_label();
+        if crate::agentic::desktop::service::step::intent_resolver::tool_has_capability(
+            &target,
+            "mail.reply",
+        ) || crate::agentic::desktop::service::step::intent_resolver::tool_has_capability(
+            &target,
+            "mail.send",
+        ) {
+            saw_mail_reply_fallback = true;
+            continue;
+        }
+        return false;
+    }
+    saw_mail_reply_fallback
+}
+
+fn should_terminalize_mail_reply_intent(agent_state: &AgentState, tool_name: &str) -> bool {
+    let resolved_mail_reply_intent = agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| {
+            resolved.intent_id == "mail.reply"
+                || resolved
+                    .required_capabilities
+                    .iter()
+                    .any(|capability| capability.as_str() == "mail.reply")
+        })
+        .unwrap_or(false);
+    let fallback_only_queue = remaining_queue_is_only_mail_reply_provider_fallbacks(agent_state);
+    crate::agentic::desktop::service::step::intent_resolver::tool_has_capability(
+            tool_name,
+            "mail.reply",
+        )
+        && (resolved_mail_reply_intent || fallback_only_queue)
+}
+
+fn mail_reply_completion_summary(out: Option<&str>) -> String {
+    out.and_then(|value| {
+        value.split("\n\n")
+            .next()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    })
+    .unwrap_or_else(|| "Email request completed.".to_string())
+}
+
 pub(crate) async fn run_lifecycle_status_phase(
     ctx: LifecycleStatusPhaseContext<'_, '_>,
 ) -> Result<(), TransactionError> {
@@ -67,6 +142,14 @@ pub(crate) async fn run_lifecycle_status_phase(
     let mut awaiting_clarification = false;
     let mut terminal_response_emitted = false;
     let prior_consecutive_failures = agent_state.consecutive_failures;
+
+    normalize_resumed_output_only_success(
+        &tool_name,
+        &mut success,
+        &out,
+        &err,
+        verification_checks,
+    );
 
     let is_install_package_tool = matches!(tool, AgentTool::SysInstallPackage { .. });
     let clarification_required = !success
@@ -289,6 +372,24 @@ pub(crate) async fn run_lifecycle_status_phase(
     }
 
     if !reflexive_completion && !awaiting_sudo_password && !awaiting_clarification {
+        if success && should_terminalize_mail_reply_intent(agent_state, &tool_name) {
+            let summary = mail_reply_completion_summary(out.as_deref());
+            agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+            agent_state.execution_queue.clear();
+            verification_checks.push("mail_reply_terminalized=true".to_string());
+            verification_checks.push("terminal_chat_reply_ready=true".to_string());
+            evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
+            if let Some(tx) = &service.event_sender {
+                emit_terminal_completion_events(
+                    tx,
+                    session_id,
+                    agent_state.step_count,
+                    &summary,
+                    status::status_str(&agent_state.status),
+                );
+                terminal_response_emitted = true;
+            }
+        } else {
         match &tool {
             AgentTool::AgentComplete { result } => {
                 let missing_contract_markers =
@@ -585,6 +686,7 @@ pub(crate) async fn run_lifecycle_status_phase(
             _ => {
                 agent_state.status = AgentStatus::Running;
             }
+        }
         }
     }
 
@@ -937,4 +1039,115 @@ pub(crate) async fn run_lifecycle_status_phase(
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agentic::desktop::types::{AgentMode, ExecutionTier};
+    use ioi_types::app::agentic::{
+        CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    };
+    use std::collections::{BTreeMap, VecDeque};
+
+    fn mail_reply_resolved_intent() -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: "mail.reply".to_string(),
+            scope: IntentScopeProfile::Conversation,
+            band: IntentConfidenceBand::High,
+            score: 1.0,
+            top_k: vec![],
+            required_capabilities: vec![CapabilityId::from("mail.reply")],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "medium".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "test".to_string(),
+            embedding_model_id: String::new(),
+            embedding_model_version: String::new(),
+            similarity_function_id: String::new(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: String::new(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
+            constrained: false,
+        }
+    }
+
+    fn agent_state_with_mail_reply() -> AgentState {
+        AgentState {
+            session_id: [4u8; 32],
+            goal: "send the email".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 10,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 0,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_request_nonce: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::default(),
+            current_tier: ExecutionTier::default(),
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: None,
+            planner_state: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: Some(mail_reply_resolved_intent()),
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: VecDeque::new(),
+            active_lens: None,
+        }
+    }
+
+    #[test]
+    fn terminalizes_mail_reply_resume_when_intent_is_mail_reply() {
+        let agent_state = agent_state_with_mail_reply();
+        assert!(should_terminalize_mail_reply_intent(
+            &agent_state,
+            "connector__google__gmail_send_email"
+        ));
+    }
+
+    #[test]
+    fn terminalizes_mail_reply_resume_when_only_fallback_provider_actions_remain() {
+        let mut agent_state = agent_state_with_mail_reply();
+        agent_state.resolved_intent = None;
+        agent_state.execution_queue.push(ioi_types::app::ActionRequest {
+            target: ioi_types::app::ActionTarget::Custom(
+                "connector__google__gmail_draft_email".to_string(),
+            ),
+            params: vec![],
+            context: ioi_types::app::ActionContext {
+                agent_id: "desktop_agent".to_string(),
+                session_id: Some(agent_state.session_id),
+                window_id: None,
+            },
+            nonce: 0,
+        });
+
+        assert!(should_terminalize_mail_reply_intent(
+            &agent_state,
+            "connector__google__gmail_send_email"
+        ));
+    }
 }

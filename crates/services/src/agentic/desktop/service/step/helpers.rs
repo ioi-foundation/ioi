@@ -1,5 +1,6 @@
 // Path: crates/services/src/agentic/desktop/service/step/helpers.rs
 
+use crate::agentic::desktop::connectors::google_workspace;
 use crate::agentic::desktop::service::step::signals;
 use crate::agentic::rules::{
     ActionRules, IntentFailureOverride, OntologyPolicy, Rule, RuleConditions, Verdict,
@@ -18,6 +19,133 @@ fn browser_allow_apps() -> Vec<String> {
 }
 
 pub fn default_safe_policy() -> ActionRules {
+    let mut rules = vec![
+        // Lifecycle / Meta-Tools
+        Rule {
+            rule_id: Some("allow-complete".into()),
+            target: "agent__complete".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-pause".into()),
+            target: "agent__pause".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-await".into()),
+            target: "agent__await_result".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        // Read-Only Capability Defaults
+        Rule {
+            rule_id: Some("gate-ui-screenshot".into()),
+            target: "gui::screenshot".into(),
+            conditions: Default::default(),
+            action: Verdict::RequireApproval,
+        },
+        Rule {
+            rule_id: Some("gate-ui-inspect".into()),
+            target: "gui::inspect".into(),
+            conditions: Default::default(),
+            action: Verdict::RequireApproval,
+        },
+        Rule {
+            rule_id: Some("allow-browser-inspect".into()),
+            target: "browser::inspect".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-web-retrieve".into()),
+            target: "web::retrieve".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        // Memory (SCS-backed, read-only) defaults.
+        Rule {
+            rule_id: Some("allow-memory-search".into()),
+            target: "memory::search".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-memory-inspect".into()),
+            target: "memory::inspect".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("gate-memory-inspect-observation".into()),
+            target: "memory::inspect_observation".into(),
+            conditions: Default::default(),
+            action: Verdict::RequireApproval,
+        },
+        // Low-risk browser interaction defaults.
+        Rule {
+            rule_id: Some("allow-browser-gui-click".into()),
+            target: "gui::click".into(),
+            conditions: RuleConditions {
+                allow_apps: Some(browser_allow_apps()),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-browser-gui-type".into()),
+            target: "gui::type".into(),
+            conditions: RuleConditions {
+                allow_apps: Some(browser_allow_apps()),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-browser-gui-scroll".into()),
+            target: "gui::scroll".into(),
+            conditions: RuleConditions {
+                allow_apps: Some(browser_allow_apps()),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        },
+        // Allow Chat Reply
+        Rule {
+            rule_id: Some("allow-chat-reply".into()),
+            target: "chat__reply".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        // Deterministic local arithmetic evaluation.
+        Rule {
+            rule_id: Some("allow-math-eval".into()),
+            target: "math::eval".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        // [NEW] Allow Echo for testing/feedback
+        // The PolicyEngine's internal allowlist ensures this is safe (only allows safe commands)
+        Rule {
+            rule_id: Some("allow-sys-exec-echo".into()),
+            target: "sys::exec".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+    ];
+
+    rules.extend(
+        google_workspace::google_read_policy_targets()
+            .into_iter()
+            .map(|target| Rule {
+                rule_id: Some(format!("allow-{}", target.replace("__", "-"))),
+                target,
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            }),
+    );
+
     ActionRules {
         policy_id: "default-safe".to_string(),
         defaults: crate::agentic::rules::DefaultPolicy::RequireApproval,
@@ -39,121 +167,7 @@ pub fn default_safe_policy() -> ActionRules {
             ..OntologyPolicy::default()
         },
         pii_controls: Default::default(),
-        rules: vec![
-            // Lifecycle / Meta-Tools
-            Rule {
-                rule_id: Some("allow-complete".into()),
-                target: "agent__complete".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-pause".into()),
-                target: "agent__pause".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-await".into()),
-                target: "agent__await_result".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            // Read-Only Capability Defaults
-            Rule {
-                rule_id: Some("gate-ui-screenshot".into()),
-                target: "gui::screenshot".into(),
-                conditions: Default::default(),
-                action: Verdict::RequireApproval,
-            },
-            Rule {
-                rule_id: Some("gate-ui-inspect".into()),
-                target: "gui::inspect".into(),
-                conditions: Default::default(),
-                action: Verdict::RequireApproval,
-            },
-            Rule {
-                rule_id: Some("allow-browser-inspect".into()),
-                target: "browser::inspect".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-web-retrieve".into()),
-                target: "web::retrieve".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            // Memory (SCS-backed, read-only) defaults.
-            Rule {
-                rule_id: Some("allow-memory-search".into()),
-                target: "memory::search".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-memory-inspect".into()),
-                target: "memory::inspect".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("gate-memory-inspect-observation".into()),
-                target: "memory::inspect_observation".into(),
-                conditions: Default::default(),
-                action: Verdict::RequireApproval,
-            },
-            // Low-risk browser interaction defaults.
-            Rule {
-                rule_id: Some("allow-browser-gui-click".into()),
-                target: "gui::click".into(),
-                conditions: RuleConditions {
-                    allow_apps: Some(browser_allow_apps()),
-                    ..Default::default()
-                },
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-browser-gui-type".into()),
-                target: "gui::type".into(),
-                conditions: RuleConditions {
-                    allow_apps: Some(browser_allow_apps()),
-                    ..Default::default()
-                },
-                action: Verdict::Allow,
-            },
-            Rule {
-                rule_id: Some("allow-browser-gui-scroll".into()),
-                target: "gui::scroll".into(),
-                conditions: RuleConditions {
-                    allow_apps: Some(browser_allow_apps()),
-                    ..Default::default()
-                },
-                action: Verdict::Allow,
-            },
-            // Allow Chat Reply
-            Rule {
-                rule_id: Some("allow-chat-reply".into()),
-                target: "chat__reply".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            // Deterministic local arithmetic evaluation.
-            Rule {
-                rule_id: Some("allow-math-eval".into()),
-                target: "math::eval".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-            // [NEW] Allow Echo for testing/feedback
-            // The PolicyEngine's internal allowlist ensures this is safe (only allows safe commands)
-            Rule {
-                rule_id: Some("allow-sys-exec-echo".into()),
-                target: "sys::exec".into(),
-                conditions: Default::default(),
-                action: Verdict::Allow,
-            },
-        ],
+        rules,
     }
 }
 

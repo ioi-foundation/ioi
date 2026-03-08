@@ -12,7 +12,17 @@ const CONTEXT_BLOB_UNAVAILABLE_MIME: &str = "application/x-ioi-context-unavailab
 
 #[tauri::command]
 pub async fn get_available_tools() -> Result<Vec<LlmToolDefinition>, String> {
-    Ok(execution::get_active_mcp_tools().await)
+    let mut tools = execution::get_active_mcp_tools().await;
+    let existing = tools
+        .iter()
+        .map(|tool| tool.name.clone())
+        .collect::<std::collections::HashSet<_>>();
+    tools.extend(
+        ioi_services::agentic::desktop::connectors::google_workspace::google_connector_tool_definitions()
+            .into_iter()
+            .filter(|tool| !existing.contains(&tool.name)),
+    );
+    Ok(tools)
 }
 
 #[tauri::command]

@@ -5,9 +5,10 @@ use async_trait::async_trait;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{
-    CapabilityId, ExecutionApplicabilityClass, IntentAmbiguityAction, IntentCandidateScore,
-    IntentConfidenceBand, IntentMatrixEntry, IntentQueryBindingClass, IntentRoutingPolicy,
-    IntentScopeProfile, ResolvedIntentState, ToolCapabilityBinding,
+    CapabilityId, ExecutionApplicabilityClass, InstructionContract, IntentAmbiguityAction,
+    IntentCandidateScore, IntentConfidenceBand, IntentMatrixEntry, IntentQueryBindingClass,
+    IntentRoutingPolicy, IntentScopeProfile, ProviderRouteCandidate, ProviderSelectionState,
+    ResolvedIntentState, ToolCapabilityBinding,
 };
 use ioi_types::app::{ActionTarget, IntentResolutionReceiptEvent, KernelEvent};
 use ioi_types::error::{TransactionError, VmError};
@@ -28,6 +29,12 @@ const INTENT_MODEL_RANK_SIMILARITY_FUNCTION_ID: &str = "llm_descriptor_rank_v1";
 const INTENT_QUERY_BINDING_MODEL_ID: &str = "inference.execute_inference";
 const INTENT_QUERY_BINDING_MODEL_VERSION: &str = "v1";
 const INTENT_QUERY_BINDING_SCHEMA_ID: &str = "query_binding_profile_v1";
+const INTENT_PROVIDER_SELECTION_MODEL_ID: &str = "inference.execute_inference";
+const INTENT_PROVIDER_SELECTION_MODEL_VERSION: &str = "v1";
+const INTENT_PROVIDER_SELECTION_SCHEMA_ID: &str = "provider_selection_state_v1";
+const INTENT_INSTRUCTION_CONTRACT_MODEL_ID: &str = "inference.execute_inference";
+const INTENT_INSTRUCTION_CONTRACT_MODEL_VERSION: &str = "v1";
+const INTENT_INSTRUCTION_CONTRACT_SCHEMA_ID: &str = "instruction_contract_v1";
 const CIRC_CONTRACT_VERSION: &str = "circ.v0.5";
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -44,18 +51,26 @@ struct QueryBindingProfile {
 
 mod capabilities;
 mod contract_hash;
+mod instruction_contract;
 mod policy;
+mod providers;
 mod ranking;
 mod resolve;
 
 use capabilities::*;
 use contract_hash::*;
+use instruction_contract::*;
 use policy::*;
+use providers::*;
 use ranking::*;
 
-pub use capabilities::is_tool_allowed_for_resolution;
+pub(crate) use capabilities::{
+    is_mail_reply_provider_tool, is_tool_allowed_for_resolution,
+    is_tool_allowed_for_selected_provider, tool_has_capability,
+};
+pub(crate) use capabilities::tool_provider_route_label;
 pub use ranking::{preferred_tier, should_pause_for_clarification};
-pub use resolve::resolve_step_intent;
+pub use resolve::{resolve_step_intent, resolve_step_intent_with_state};
 
 #[cfg(test)]
 #[path = "tests/mod.rs"]

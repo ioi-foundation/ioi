@@ -23,6 +23,10 @@ pub struct GateInfo {
     pub description: String,
     pub risk: String,
     #[serde(default)]
+    pub approve_label: Option<String>,
+    #[serde(default)]
+    pub deny_label: Option<String>,
+    #[serde(default)]
     pub deadline_ms: Option<u64>,
     #[serde(default)]
     pub pii: Option<PiiReviewInfo>,

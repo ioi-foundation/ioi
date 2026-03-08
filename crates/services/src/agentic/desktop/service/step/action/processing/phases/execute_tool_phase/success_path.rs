@@ -3,6 +3,7 @@ use super::events::{
 };
 use super::tool_outcome::{apply_tool_outcome_and_followups, ToolOutcomeContext};
 use super::*;
+use crate::agentic::desktop::connectors::connector_postcondition_verifier_bindings;
 
 fn record_browser_marker_receipt(
     service: &DesktopAgentService,
@@ -352,6 +353,79 @@ fn record_browser_success_markers(
     }
 }
 
+async fn verify_non_command_postconditions(
+    service: &DesktopAgentService,
+    agent_state: &mut AgentState,
+    current_tool_name: &str,
+    tool_args: &serde_json::Value,
+    history_entry: Option<&str>,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    synthesized_payload_hash: Option<String>,
+    verification_checks: &mut Vec<String>,
+) -> Result<(), String> {
+    let Some(resolved) = agent_state.resolved_intent.as_ref() else {
+        return Ok(());
+    };
+    if resolved.required_postconditions.is_empty() {
+        return Ok(());
+    }
+    let connector_id = resolved
+        .provider_selection
+        .as_ref()
+        .and_then(|selection| selection.selected_connector_id.as_deref())
+        .ok_or_else(|| {
+            "ERROR_CLASS=GroundingMissing Postcondition verification requires a selected connector."
+                .to_string()
+        })?;
+    let verifier = connector_postcondition_verifier_bindings()
+        .into_iter()
+        .find(|binding| binding.connector_id == connector_id)
+        .ok_or_else(|| {
+            format!(
+                "ERROR_CLASS=VerificationMissing No postcondition verifier is registered for connector '{}'.",
+                connector_id
+            )
+        })?;
+    let history_entry = history_entry.ok_or_else(|| {
+        "ERROR_CLASS=VerificationMissing Postcondition verification requires structured tool output."
+            .to_string()
+    })?;
+    let Some(proof) = (verifier.verify)(agent_state, current_tool_name, tool_args, history_entry)
+        .await
+        .map_err(|error| format!("ERROR_CLASS=PostconditionFailed {}", error))?
+    else {
+        return Err(
+            "ERROR_CLASS=VerificationMissing Connector verifier returned no postcondition proof."
+                .to_string(),
+        );
+    };
+
+    for evidence in proof.evidence {
+        mark_execution_postcondition(&mut agent_state.tool_execution_log, &evidence.key);
+        verification_checks.push(postcondition_marker(&evidence.key));
+        emit_execution_contract_receipt_event_with_observation(
+            service,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            "verification",
+            &evidence.key,
+            true,
+            &evidence.evidence,
+            Some("connector_verifier"),
+            evidence.observed_value.as_deref(),
+            evidence.evidence_type.as_deref(),
+            None,
+            evidence.provider_id,
+            synthesized_payload_hash.clone(),
+        );
+    }
+
+    Ok(())
+}
+
 pub(super) struct ExecutionSuccessContext<'a, 's> {
     pub service: &'a DesktopAgentService,
     pub state: &'s mut dyn StateAccess,
@@ -634,6 +708,7 @@ pub(super) async fn handle_execution_success(
         }
         agent_state.pending_approval = None;
         agent_state.pending_tool_jcs = None;
+        agent_state.pending_request_nonce = None;
     }
 
     if *success {
@@ -837,6 +912,27 @@ pub(super) async fn handle_execution_success(
                 None,
                 synthesized_payload_hash.clone(),
             );
+
+            if let Err(error) = verify_non_command_postconditions(
+                service,
+                agent_state,
+                current_tool_name,
+                tool_args,
+                history_entry.as_deref(),
+                session_id,
+                step_index,
+                resolved_intent_id,
+                synthesized_payload_hash.clone(),
+                verification_checks,
+            )
+            .await
+            {
+                *success = false;
+                *error_msg = Some(error.clone());
+                *history_entry = Some(error.clone());
+                *action_output = Some(error);
+                return Ok(());
+            }
 
             mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
             verification_checks.push(receipt_marker("verification"));

@@ -62,14 +62,14 @@ pub(crate) async fn run_approval_validation_phase(
         .as_ref()
         .map(|resolved| resolved.scope == IntentScopeProfile::CommandExecution)
         .unwrap_or(false);
-    if let Some(route_label) = capability_route_label(&tool) {
+    if let Some(route_label) = capability_route_label(&tool, &tool_name) {
         verification_checks.push(format!("capability_route_selected={}", route_label));
         if command_scope {
             record_provider_selection_receipts(
                 &mut agent_state.tool_execution_log,
                 verification_checks,
                 &tool_name,
-                route_label,
+                &route_label,
             );
         }
     }

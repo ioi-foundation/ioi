@@ -278,6 +278,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
 
         t.credential_request = None;
         t.clarification_request = None;
+        if t.phase == AgentPhase::Gate && !res.agent_status.eq_ignore_ascii_case("paused") {
+            t.gate_info = None;
+            t.pending_request_hash = None;
+            t.phase = AgentPhase::Running;
+        }
 
         match res.agent_status.as_str() {
             "Completed" => {
