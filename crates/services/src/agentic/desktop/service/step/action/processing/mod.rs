@@ -6,10 +6,11 @@ use super::command_contract::{
     record_timer_notification_contract_requirement, record_verification_receipts,
     requires_timer_notification_contract, runtime_host_environment_receipt,
     synthesize_allowlisted_timer_notification_tool, sys_exec_arms_timer_delay_backend,
-    sys_exec_command_preview, sys_exec_foreign_absolute_home_path, sys_exec_timer_delay_seconds,
-    sys_exec_satisfies_clock_read_contract, CLOCK_TIMESTAMP_POSTCONDITION,
-    PROVIDER_SELECTION_COMMIT_RECEIPT, TIMER_NOTIFICATION_PATH_POSTCONDITION,
-    TIMER_SLEEP_BACKEND_POSTCONDITION, VERIFICATION_COMMIT_RECEIPT,
+    sys_exec_command_preview, sys_exec_foreign_absolute_home_path,
+    sys_exec_satisfies_clock_read_contract, sys_exec_timer_delay_seconds,
+    CLOCK_TIMESTAMP_POSTCONDITION, PROVIDER_SELECTION_COMMIT_RECEIPT,
+    TIMER_NOTIFICATION_PATH_POSTCONDITION, TIMER_SLEEP_BACKEND_POSTCONDITION,
+    VERIFICATION_COMMIT_RECEIPT,
 };
 use super::probe::{
     is_command_probe_intent, is_system_clock_read_intent, summarize_command_probe_output,
@@ -87,6 +88,7 @@ mod phases;
 mod refusal;
 mod web_helpers;
 
+pub(crate) use self::duplicate_guard::verified_command_probe_completion_summary;
 use self::duplicate_guard::{
     duplicate_command_cached_completion_summary, duplicate_command_cached_success_summary,
     duplicate_command_completion_summary, duplicate_command_execution_summary,
@@ -102,7 +104,6 @@ pub(crate) use self::phases::{
     emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
     resolved_intent_id,
 };
-pub(crate) use self::duplicate_guard::verified_command_probe_completion_summary;
 use self::web_helpers::{
     extract_web_read_url_from_payload, is_empty_memory_search_output,
     is_transient_browser_snapshot_unexpected_state, queue_web_search_bootstrap,
@@ -164,7 +165,7 @@ pub async fn process_tool_output(
     // Check for Skill / Macro Match
     if let Ok(AgentTool::Dynamic(ref val)) = tool_call {
         if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
-            if let Some((macro_def, skill_hash)) = service.fetch_skill_macro(name) {
+            if let Some((macro_def, skill_hash)) = service.fetch_skill_macro(state, name) {
                 let args_map = val
                     .get("arguments")
                     .and_then(|a| a.as_object())
@@ -202,19 +203,17 @@ pub async fn process_tool_output(
     }
 
     let tool_call = match tool_call {
-        Ok(tool) => Ok(
-            apply_instruction_contract_grounding(
-                service,
-                agent_state,
-                tool,
-                session_id,
-                pre_state_summary.step_index,
-                &resolved_intent_id(agent_state),
-                None,
-                &mut processing_state.verification_checks,
-            )
-            .await?,
-        ),
+        Ok(tool) => Ok(apply_instruction_contract_grounding(
+            service,
+            agent_state,
+            tool,
+            session_id,
+            pre_state_summary.step_index,
+            &resolved_intent_id(agent_state),
+            None,
+            &mut processing_state.verification_checks,
+        )
+        .await?),
         Err(error) => Err(error),
     };
 

@@ -436,7 +436,10 @@ pub(crate) fn excerpt_has_query_grounding_signal_with_contract(
         .constraints
         .scopes
         .contains(&ConstraintScope::TimeSensitive)
-        && projection.constraints.required_facets.contains(&MetricAxis::Price);
+        && projection
+            .constraints
+            .required_facets
+            .contains(&MetricAxis::Price);
     if current_price_required && !has_price_quote_payload(trimmed) {
         return false;
     }

@@ -1,4 +1,13 @@
 use super::*;
+use crate::agentic::desktop::keys::get_skill_external_evidence_key;
+use crate::agentic::skill_registry::{
+    canonical_skill_hash, generate_published_skill_doc, now_ms, upsert_published_skill_doc,
+    upsert_skill_record,
+};
+use ioi_api::state::StateAccess;
+use ioi_types::app::agentic::{
+    ExternalSkillEvidence, SkillLifecycleState, SkillRecord, SkillSourceType,
+};
 
 fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> ActionTarget {
     match target {
@@ -103,6 +112,7 @@ impl OptimizerService {
         &self,
         frame_id: u64,
         definition: &LlmToolDefinition,
+        skill_hash: [u8; 32],
     ) -> Result<(), TransactionError> {
         let runtime = self.inference.as_ref().ok_or(TransactionError::Invalid(
             "Optimizer has no inference runtime for embedding".into(),
@@ -131,7 +141,7 @@ impl OptimizerService {
                 .lock()
                 .map_err(|_| TransactionError::Invalid("Index lock".into()))?;
             if let Some(idx) = index.as_mut() {
-                idx.insert_with_metadata(frame_id, vector, FrameType::Skill, [0u8; 32])
+                idx.insert_with_metadata(frame_id, vector, FrameType::Skill, skill_hash)
                     .map_err(|e| {
                         TransactionError::Invalid(format!("Index insert failed: {}", e))
                     })?;
@@ -139,6 +149,69 @@ impl OptimizerService {
         }
 
         Ok(())
+    }
+
+    pub(crate) async fn persist_skill_record(
+        &self,
+        state: &mut dyn StateAccess,
+        source_session_id: Option<[u8; 32]>,
+        source_evidence_hash: Option<[u8; 32]>,
+        skill: AgentMacro,
+        source_type: SkillSourceType,
+        lifecycle_state: SkillLifecycleState,
+    ) -> Result<SkillRecord, TransactionError> {
+        self.validate_skill(&skill)?;
+
+        let scs_mutex = self
+            .scs
+            .as_ref()
+            .ok_or(TransactionError::Invalid("SCS not available".into()))?;
+        let skill_hash = canonical_skill_hash(&skill)?;
+        let skill_bytes =
+            codec::to_bytes_canonical(&skill).map_err(TransactionError::Serialization)?;
+
+        let frame_id = {
+            let mut store = scs_mutex
+                .lock()
+                .map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
+            store
+                .append_frame(
+                    FrameType::Skill,
+                    &skill_bytes,
+                    0,
+                    [0u8; 32],
+                    source_session_id.unwrap_or([0u8; 32]),
+                    RetentionClass::Archival,
+                )
+                .map_err(|e| TransactionError::Invalid(e.to_string()))?
+        };
+
+        self.index_skill(frame_id, &skill.definition, skill_hash)
+            .await?;
+
+        let timestamp = now_ms();
+        let mut record = SkillRecord {
+            skill_hash,
+            frame_id,
+            macro_body: skill,
+            lifecycle_state,
+            source_type,
+            source_session_id,
+            source_evidence_hash,
+            benchmark: None,
+            publication: None,
+            created_at: timestamp,
+            updated_at: timestamp,
+        };
+
+        if lifecycle_state == SkillLifecycleState::Promoted {
+            let (doc, publication) = generate_published_skill_doc(&record)?;
+            record.publication = Some(publication);
+            upsert_published_skill_doc(state, &doc)?;
+        }
+
+        upsert_skill_record(state, &record)?;
+        Ok(record)
     }
     /// [NEW] Generalizes a raw execution trace into a reusable skill macro.
     pub async fn synthesize_skill_from_trace(
@@ -263,13 +336,10 @@ impl OptimizerService {
     /// This is the "System 2" intervention.
     pub async fn synthesize_recovery_skill(
         &self,
+        state: &mut dyn StateAccess,
         session_id: [u8; 32],
         trace: &StepTrace,
-    ) -> Result<AgentMacro, TransactionError> {
-        let scs_mutex = self
-            .scs
-            .as_ref()
-            .ok_or(TransactionError::Invalid("SCS not available".into()))?;
+    ) -> Result<SkillRecord, TransactionError> {
         let runtime = self
             .inference
             .as_ref()
@@ -359,48 +429,36 @@ impl OptimizerService {
             }
         }
 
+        let trace_hash = sha256(&codec::to_bytes_canonical(trace)?)
+            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        let mut source_trace_hash = [0u8; 32];
+        source_trace_hash.copy_from_slice(trace_hash.as_ref());
+
         let skill = AgentMacro {
             definition,
             steps,
-            source_trace_hash: [0u8; 32],
+            source_trace_hash,
             fitness: 0.5, // Initial tentative score
         };
 
-        // 3. Persist to SCS (Hotfix)
-        let skill_bytes =
-            codec::to_bytes_canonical(&skill).map_err(TransactionError::Serialization)?;
-        let hash = sha256(&skill_bytes).map_err(|e| TransactionError::Invalid(e.to_string()))?;
-        let mut hash_arr = [0u8; 32];
-        hash_arr.copy_from_slice(hash.as_ref());
-
-        // Scope the lock
-        let frame_id = {
-            let mut store = scs_mutex
-                .lock()
-                .map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
-            store
-                .append_frame(
-                    FrameType::Skill,
-                    &skill_bytes,
-                    0,
-                    [0u8; 32],
-                    session_id,
-                    // [FIX] Added retention policy (Archival for learned skills)
-                    RetentionClass::Archival,
-                )
-                .map_err(|e| TransactionError::Invalid(e.to_string()))?
-        };
-
-        // 4. Index immediately so it's discoverable
-        self.index_skill(frame_id, &skill.definition).await?;
+        let record = self
+            .persist_skill_record(
+                state,
+                Some(session_id),
+                None,
+                skill,
+                SkillSourceType::Recovery,
+                SkillLifecycleState::Candidate,
+            )
+            .await?;
 
         log::info!(
             "Optimizer: Synthesized Recovery Skill '{}' (Hash: {})",
-            skill.definition.name,
-            hex::encode(hash_arr)
+            record.macro_body.definition.name,
+            hex::encode(record.skill_hash)
         );
 
-        Ok(skill)
+        Ok(record)
     }
     pub async fn compile_trace(
         &self,
@@ -475,16 +533,12 @@ impl OptimizerService {
 
     pub async fn crystallize_skill_internal(
         &self,
+        state: &mut dyn StateAccess,
         session_id: [u8; 32],
         trace_hash: [u8; 32],
         // [NEW] Added optional trace injection for direct synthesis
         trace_data: Option<(&[StepTrace], &str)>,
-    ) -> Result<AgentMacro, TransactionError> {
-        let scs_mutex = self
-            .scs
-            .as_ref()
-            .ok_or(TransactionError::Invalid("SCS not available".into()))?;
-
+    ) -> Result<SkillRecord, TransactionError> {
         // 1. Synthesize or Load
         let skill = if let Some((trace, goal)) = trace_data {
             let mut s = self.synthesize_skill_from_trace(trace, goal).await?;
@@ -497,42 +551,153 @@ impl OptimizerService {
             ));
         };
 
-        // 2. Validate
-        self.validate_skill(&skill)?;
-
-        // 3. Persist to SCS
-        let skill_bytes =
-            codec::to_bytes_canonical(&skill).map_err(TransactionError::Serialization)?;
-        let hash = sha256(&skill_bytes).map_err(|e| TransactionError::Invalid(e.to_string()))?;
-        let mut hash_arr = [0u8; 32];
-        hash_arr.copy_from_slice(hash.as_ref());
-
-        let frame_id = {
-            let mut store = scs_mutex
-                .lock()
-                .map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
-            store
-                .append_frame(
-                    FrameType::Skill,
-                    &skill_bytes,
-                    0,
-                    [0u8; 32],
-                    session_id,
-                    RetentionClass::Archival,
-                )
-                .map_err(|e| TransactionError::Invalid(e.to_string()))?
-        };
-
-        // 4. Index
-        self.index_skill(frame_id, &skill.definition).await?;
+        let record = self
+            .persist_skill_record(
+                state,
+                Some(session_id),
+                None,
+                skill,
+                SkillSourceType::Trace,
+                SkillLifecycleState::Candidate,
+            )
+            .await?;
 
         log::info!(
             "Optimizer: Crystallized skill '{}' (Hash: {})",
-            skill.definition.name,
-            hex::encode(hash_arr)
+            record.macro_body.definition.name,
+            hex::encode(record.skill_hash)
         );
 
-        Ok(skill)
+        Ok(record)
+    }
+
+    pub async fn synthesize_skill_from_evidence(
+        &self,
+        evidence: &ExternalSkillEvidence,
+    ) -> Result<AgentMacro, TransactionError> {
+        let runtime = self
+            .inference
+            .as_ref()
+            .ok_or(TransactionError::Invalid("Inference not available".into()))?;
+
+        let prompt = format!(
+            "SYSTEM: You are the IOI Skill Extractor.
+
+SOURCE TYPE: {:?}
+SOURCE URI: {}
+TITLE: {}
+
+NORMALIZED PROCEDURE:
+{}
+
+STRUCTURED HINTS:
+{}
+
+TASK:
+Convert the normalized procedure into a reusable JSON skill macro.
+- Preserve only actions that can be executed by IOI tools.
+- Generalize concrete values into parameters.
+- Prefer the highest-level safe tool that preserves determinism.
+- Return JSON only.
+
+OUTPUT SCHEMA:
+{{
+  \"name\": \"snake_case_skill_name\",
+  \"description\": \"What this skill does\",
+  \"parameters\": {{ \"type\": \"object\", \"properties\": {{ }} }},
+  \"steps\": [
+    {{ \"target\": \"tool_name\", \"params\": {{ }} }}
+  ]
+}}",
+            evidence.source_type,
+            evidence.source_uri.as_deref().unwrap_or(""),
+            evidence.title.as_deref().unwrap_or(""),
+            evidence.normalized_procedure,
+            evidence.structured_hints_json.as_deref().unwrap_or("{}"),
+        );
+
+        let options = InferenceOptions {
+            temperature: 0.1,
+            json_mode: true,
+            ..Default::default()
+        };
+        let output_bytes = runtime
+            .execute_inference([0u8; 32], prompt.as_bytes(), options)
+            .await
+            .map_err(|e| {
+                TransactionError::Invalid(format!("External skill synthesis failed: {}", e))
+            })?;
+        let output_str = String::from_utf8(output_bytes).unwrap_or_default();
+        let json_start = output_str.find('{').unwrap_or(0);
+        let json_end = output_str
+            .rfind('}')
+            .map(|i| i + 1)
+            .unwrap_or(output_str.len());
+        let skill_json: serde_json::Value = serde_json::from_str(&output_str[json_start..json_end])
+            .map_err(|e| TransactionError::Invalid(format!("Skill synthesis failed: {}", e)))?;
+
+        let definition = LlmToolDefinition {
+            name: skill_json["name"]
+                .as_str()
+                .unwrap_or("external_skill")
+                .to_string(),
+            description: skill_json["description"]
+                .as_str()
+                .unwrap_or("External evidence skill")
+                .to_string(),
+            parameters: skill_json["parameters"].to_string(),
+        };
+
+        let mut steps = Vec::new();
+        if let Some(steps_arr) = skill_json["steps"].as_array() {
+            for s in steps_arr {
+                let target_str = s["target"].as_str().unwrap_or("");
+                let target = action_target_for_macro_step(target_str, &s["params"]);
+                let args = macro_step_params_with_queue_metadata(target_str, &s["params"]);
+                let params = serde_json::to_vec(&args).unwrap_or_default();
+                steps.push(ActionRequest {
+                    target,
+                    params,
+                    context: ActionContext {
+                        agent_id: "macro".into(),
+                        session_id: None,
+                        window_id: None,
+                    },
+                    nonce: 0,
+                });
+            }
+        }
+
+        Ok(AgentMacro {
+            definition,
+            steps,
+            source_trace_hash: evidence.source_trace_hash.unwrap_or([0u8; 32]),
+            fitness: 0.5,
+        })
+    }
+
+    pub async fn ingest_external_skill_evidence_internal(
+        &self,
+        state: &mut dyn StateAccess,
+        evidence: ExternalSkillEvidence,
+    ) -> Result<SkillRecord, TransactionError> {
+        let evidence_hash_bytes = sha256(&codec::to_bytes_canonical(&evidence)?)
+            .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        let mut evidence_hash = [0u8; 32];
+        evidence_hash.copy_from_slice(evidence_hash_bytes.as_ref());
+        let evidence_key = get_skill_external_evidence_key(&evidence_hash);
+        state.insert(&evidence_key, &codec::to_bytes_canonical(&evidence)?)?;
+
+        let skill = self.synthesize_skill_from_evidence(&evidence).await?;
+        self.persist_skill_record(
+            state,
+            evidence.source_session_id,
+            Some(evidence_hash),
+            skill,
+            evidence.source_type,
+            SkillLifecycleState::Candidate,
+        )
+        .await
     }
 }
 
@@ -623,7 +788,8 @@ mod tests {
 
     #[test]
     fn macro_step_media_extract_multimodal_maps_to_web_retrieve_and_injects_queue_tool_name() {
-        let params = json!({"url": "https://example.com/video", "language": "en", "frame_limit": 6});
+        let params =
+            json!({"url": "https://example.com/video", "language": "en", "frame_limit": 6});
         let target = action_target_for_macro_step("media__extract_multimodal_evidence", &params);
         assert_eq!(target, ActionTarget::WebRetrieve);
 

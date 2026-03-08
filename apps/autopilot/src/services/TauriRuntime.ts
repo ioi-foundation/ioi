@@ -211,6 +211,10 @@ export class TauriRuntime implements AgentRuntime {
         return invoke("get_available_tools");
     }
 
+    async getSkillCatalog(): Promise<any[]> {
+        return invoke("get_skill_catalog");
+    }
+
     async runNode(nodeType: string, config: any, input: string): Promise<any> {
         return invoke("test_node_execution", { 
             nodeType, 

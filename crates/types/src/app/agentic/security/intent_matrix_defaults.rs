@@ -569,7 +569,10 @@ mod tests {
             .expect("conversation.reply entry should exist");
 
         assert!(
-            !entry.required_receipts.iter().any(|receipt| receipt == "grounding"),
+            !entry
+                .required_receipts
+                .iter()
+                .any(|receipt| receipt == "grounding"),
             "conversation.reply should not require connector grounding receipts"
         );
         assert!(
@@ -607,7 +610,10 @@ mod tests {
             "mail.reply should require provider selection commit receipts"
         );
         assert!(
-            entry.required_receipts.iter().any(|receipt| receipt == "grounding"),
+            entry
+                .required_receipts
+                .iter()
+                .any(|receipt| receipt == "grounding"),
             "mail.reply should require grounding receipts"
         );
         assert!(

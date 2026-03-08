@@ -31,7 +31,8 @@ pub(super) fn complete_with_summary(
 fn completion_summary_from_output(output: Option<&str>, fallback: &str) -> String {
     output
         .and_then(|value| {
-            value.split("\n\n")
+            value
+                .split("\n\n")
                 .next()
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
@@ -72,10 +73,7 @@ pub(super) fn normalize_output_only_success(
     }
     *success = true;
     verification_checks.push("queue_output_only_success_normalized=true".to_string());
-    verification_checks.push(format!(
-        "queue_output_only_success_tool={}",
-        tool_name
-    ));
+    verification_checks.push(format!("queue_output_only_success_tool={}", tool_name));
 }
 
 pub(super) fn maybe_complete_mail_reply(
@@ -112,10 +110,7 @@ pub(super) fn maybe_complete_mail_reply(
         return;
     }
 
-    let summary = completion_summary_from_output(
-        out.as_deref(),
-        "Email request completed.",
-    );
+    let summary = completion_summary_from_output(out.as_deref(), "Email request completed.");
     complete_with_summary(
         agent_state,
         summary,
@@ -364,16 +359,18 @@ mod tests {
     fn completes_mail_reply_after_first_successful_provider_action() {
         let mut agent_state = agent_state_with_mail_reply();
         let session_id = agent_state.session_id;
-        agent_state.execution_queue.push(ioi_types::app::ActionRequest {
-            target: ioi_types::app::ActionTarget::Custom("mail.reply".to_string()),
-            params: vec![],
-            context: ioi_types::app::ActionContext {
-                agent_id: "desktop_agent".to_string(),
-                session_id: Some(session_id),
-                window_id: None,
-            },
-            nonce: 0,
-        });
+        agent_state
+            .execution_queue
+            .push(ioi_types::app::ActionRequest {
+                target: ioi_types::app::ActionTarget::Custom("mail.reply".to_string()),
+                params: vec![],
+                context: ioi_types::app::ActionContext {
+                    agent_id: "desktop_agent".to_string(),
+                    session_id: Some(session_id),
+                    window_id: None,
+                },
+                nonce: 0,
+            });
         let mut success = true;
         let mut out = Some("Drafted the email successfully.".to_string());
         let mut err = None;
@@ -403,18 +400,20 @@ mod tests {
         let mut agent_state = agent_state_with_mail_reply();
         let session_id = agent_state.session_id;
         agent_state.resolved_intent = None;
-        agent_state.execution_queue.push(ioi_types::app::ActionRequest {
-            target: ioi_types::app::ActionTarget::Custom(
-                "connector__google__gmail_draft_email".to_string(),
-            ),
-            params: vec![],
-            context: ioi_types::app::ActionContext {
-                agent_id: "desktop_agent".to_string(),
-                session_id: Some(session_id),
-                window_id: None,
-            },
-            nonce: 0,
-        });
+        agent_state
+            .execution_queue
+            .push(ioi_types::app::ActionRequest {
+                target: ioi_types::app::ActionTarget::Custom(
+                    "connector__google__gmail_draft_email".to_string(),
+                ),
+                params: vec![],
+                context: ioi_types::app::ActionContext {
+                    agent_id: "desktop_agent".to_string(),
+                    session_id: Some(session_id),
+                    window_id: None,
+                },
+                nonce: 0,
+            });
 
         let mut success = true;
         let mut out = Some("Sent the email successfully.".to_string());

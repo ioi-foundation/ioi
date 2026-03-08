@@ -38,31 +38,15 @@ pub(super) async fn handle_refusal(
 
 pub(super) async fn evaluate_and_crystallize(
     service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
     agent_state: &AgentState,
     session_id: [u8; 32],
-    result: &str,
 ) {
     if let Some(eval) = &service.evaluator {
-        let history = service
-            .hydrate_session_history(session_id)
-            .unwrap_or_default();
-        let reconstructed_trace: Vec<ioi_types::app::agentic::StepTrace> = history
-            .iter()
-            .enumerate()
-            .map(|(i, msg)| ioi_types::app::agentic::StepTrace {
-                session_id: session_id,
-                step_index: i as u32,
-                visual_hash: [0; 32],
-                full_prompt: format!("{}: {}", msg.role, msg.content),
-                raw_output: msg.content.clone(),
-                success: true,
-                error: None,
-                cost_incurred: 0,
-                fitness_score: None,
-                skill_hash: None,
-                timestamp: msg.timestamp / 1000,
-            })
-            .collect();
+        let traces = match service.fetch_session_traces(state, session_id) {
+            Ok(traces) if !traces.is_empty() => traces,
+            _ => return,
+        };
 
         let contract = ioi_types::app::IntentContract {
             max_price: agent_state.budget + agent_state.tokens_used,
@@ -73,15 +57,24 @@ pub(super) async fn evaluate_and_crystallize(
             optimize_for: ioi_types::app::OptimizationObjective::Reliability,
         };
 
-        if let Ok(report) = eval.evaluate(&reconstructed_trace, &contract).await {
+        if let Ok(report) = eval.evaluate(&traces, &contract).await {
             if report.score >= 0.8 && report.passed_hard_constraints {
                 if let Some(opt) = &service.optimizer {
-                    let trace_hash_bytes = ioi_crypto::algorithms::hash::sha256(result.as_bytes())
-                        .unwrap_or([0u8; 32]);
+                    let trace_bytes = match codec::to_bytes_canonical(&traces) {
+                        Ok(bytes) => bytes,
+                        Err(_) => return,
+                    };
+                    let trace_hash_bytes =
+                        ioi_crypto::algorithms::hash::sha256(&trace_bytes).unwrap_or([0u8; 32]);
                     let mut trace_hash_arr = [0u8; 32];
                     trace_hash_arr.copy_from_slice(trace_hash_bytes.as_ref());
                     let _ = opt
-                        .crystallize_skill_internal(session_id, trace_hash_arr, None)
+                        .crystallize_skill_internal(
+                            state,
+                            session_id,
+                            trace_hash_arr,
+                            Some((&traces, &agent_state.goal)),
+                        )
                         .await;
                 }
             }

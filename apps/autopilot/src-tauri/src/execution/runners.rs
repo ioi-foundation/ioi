@@ -290,22 +290,20 @@ pub(super) async fn run_web_search_execution(
     let query_contract = config
         .get("query_contract")
         .and_then(|value| value.as_str());
-    let retrieval_contract = match ioi_services::agentic::web::derive_web_retrieval_contract(
-        &query,
-        query_contract,
-    ) {
-        Ok(contract) => contract,
-        Err(err) => {
-            return Ok(build_result(
-                "error",
-                format!("Could not infer web retrieval contract: {}", err),
-                None,
-                Some(latency_metrics(start)),
-                Some(input_obj),
-                None,
-            ));
-        }
-    };
+    let retrieval_contract =
+        match ioi_services::agentic::web::derive_web_retrieval_contract(&query, query_contract) {
+            Ok(contract) => contract,
+            Err(err) => {
+                return Ok(build_result(
+                    "error",
+                    format!("Could not infer web retrieval contract: {}", err),
+                    None,
+                    Some(latency_metrics(start)),
+                    Some(input_obj),
+                    None,
+                ));
+            }
+        };
 
     match ioi_services::agentic::web::edge_web_search(
         &*BROWSER_DRIVER,

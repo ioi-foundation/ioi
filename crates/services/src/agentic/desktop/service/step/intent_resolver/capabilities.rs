@@ -1,5 +1,5 @@
-use crate::agentic::desktop::connectors::{connector_tool_route_bindings, google_workspace};
 use super::*;
+use crate::agentic::desktop::connectors::{connector_tool_route_bindings, google_workspace};
 
 pub(super) fn capability(id: &str) -> CapabilityId {
     CapabilityId::from(id)

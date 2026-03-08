@@ -271,7 +271,9 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
 
         if !effective_waiting_for_sudo
             && !effective_waiting_for_clarification
-            && !receipt.policy_decision.eq_ignore_ascii_case("require_approval")
+            && !receipt
+                .policy_decision
+                .eq_ignore_ascii_case("require_approval")
         {
             t.gate_info = None;
             t.pending_request_hash = None;

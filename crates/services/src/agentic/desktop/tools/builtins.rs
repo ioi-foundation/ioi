@@ -22,7 +22,9 @@ pub(super) fn push_builtin_tools(
 ) {
     include!("builtins/native_capabilities.rs");
     include!("builtins/typed_web_retrieval_intent_gated.rs");
-    include!("builtins/tier_1_deterministic_http_fetch_apis_docs_governed_by_actiontarget_netfetch.rs");
+    include!(
+        "builtins/tier_1_deterministic_http_fetch_apis_docs_governed_by_actiontarget_netfetch.rs"
+    );
     include!("builtins/app_launching_global_capability.rs");
     include!("builtins/semantic_click_global_capability_tier_independent.rs");
     include!("builtins/tier_2_ui_inspection_primitive_semantic_accessibility_dom.rs");

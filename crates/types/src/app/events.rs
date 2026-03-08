@@ -235,8 +235,7 @@ pub struct IntentResolutionReceiptEvent {
     pub receipt_hash: [u8; 32],
     /// Optional provider-selection material synthesized for this intent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provider_selection:
-        Option<crate::app::agentic::ProviderSelectionState>,
+    pub provider_selection: Option<crate::app::agentic::ProviderSelectionState>,
     /// Optional resolver failure class when classification is unclassified/blocked/infeasible.
     #[serde(default)]
     pub error_class: Option<String>,

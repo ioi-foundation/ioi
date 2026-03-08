@@ -2,42 +2,24 @@
 
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::AgentState;
-use crate::agentic::fitness::Evaluator;
+use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::StepTrace;
 use ioi_types::app::{IntentContract, OptimizationObjective, OutcomeType};
-// [FIX] Change import to dcrypt
-use dcrypt::algorithms::ByteSerializable;
+use ioi_types::codec;
 
 pub async fn evaluate_and_crystallize(
     service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
     agent_state: &AgentState,
     session_id: [u8; 32],
-    result: &str,
 ) {
     if let Some(eval) = &service.evaluator {
         log::info!("Agent Complete. Running fitness evaluation...");
 
-        let history = service
-            .hydrate_session_history(session_id)
-            .unwrap_or_default();
-        let reconstructed_trace: Vec<StepTrace> = history
-            .iter()
-            .enumerate()
-            .map(|(i, msg)| StepTrace {
-                session_id: session_id,
-                step_index: i as u32,
-                visual_hash: [0; 32],
-                full_prompt: format!("{}: {}", msg.role, msg.content),
-                raw_output: msg.content.clone(),
-                success: true,
-                error: None,
-                cost_incurred: 0,
-                fitness_score: None,
-                skill_hash: None,
-                timestamp: msg.timestamp / 1000,
-            })
-            .collect();
+        let traces = match service.fetch_session_traces(state, session_id) {
+            Ok(traces) if !traces.is_empty() => traces,
+            _ => return,
+        };
 
         let contract = IntentContract {
             max_price: agent_state.budget + agent_state.tokens_used,
@@ -48,7 +30,7 @@ pub async fn evaluate_and_crystallize(
             optimize_for: OptimizationObjective::Reliability,
         };
 
-        if let Ok(report) = eval.evaluate(&reconstructed_trace, &contract).await {
+        if let Ok(report) = eval.evaluate(&traces, &contract).await {
             log::info!(
                 "Evaluation Complete. Score: {:.2}. Rationale: {}",
                 report.score,
@@ -59,12 +41,21 @@ pub async fn evaluate_and_crystallize(
                 if let Some(opt) = &service.optimizer {
                     log::info!("High fitness detected! Crystallizing skill...");
 
-                    let trace_hash_bytes = sha256(result.as_bytes()).unwrap_or([0u8; 32]);
+                    let trace_bytes = match codec::to_bytes_canonical(&traces) {
+                        Ok(bytes) => bytes,
+                        Err(_) => return,
+                    };
+                    let trace_hash_bytes = sha256(&trace_bytes).unwrap_or([0u8; 32]);
                     let mut trace_hash_arr = [0u8; 32];
                     trace_hash_arr.copy_from_slice(trace_hash_bytes.as_ref());
 
                     if let Ok(skill) = opt
-                        .crystallize_skill_internal(session_id, trace_hash_arr, None)
+                        .crystallize_skill_internal(
+                            state,
+                            session_id,
+                            trace_hash_arr,
+                            Some((&traces, &agent_state.goal)),
+                        )
                         .await
                     {
                         if let Some(tx) = &service.event_sender {
@@ -72,7 +63,7 @@ pub async fn evaluate_and_crystallize(
                                 component: "Optimizer".to_string(),
                                 status: format!(
                                     "Crystallized skill '{}' (Fitness: {:.2})",
-                                    skill.definition.name, report.score
+                                    skill.macro_body.definition.name, report.score
                                 ),
                             });
                         }

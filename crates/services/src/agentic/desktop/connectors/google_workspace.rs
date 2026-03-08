@@ -1,28 +1,27 @@
 use super::{
     google_api, google_auth, ConnectorPostconditionEvidence, ConnectorPostconditionProof,
     ConnectorPostconditionVerifierBinding, ConnectorProtectedSlotBinding,
-    ConnectorProviderProbeBinding,
-    ConnectorSymbolicReferenceBinding, ConnectorSymbolicReferenceInferenceBinding,
-    ConnectorToolRouteBinding, PostconditionVerificationFuture,
-    ProviderCandidateDiscoveryFuture, ResolvedSymbolicReference,
+    ConnectorProviderProbeBinding, ConnectorSymbolicReferenceBinding,
+    ConnectorSymbolicReferenceInferenceBinding, ConnectorToolRouteBinding,
+    PostconditionVerificationFuture, ProviderCandidateDiscoveryFuture, ResolvedSymbolicReference,
     SymbolicReferenceInferenceFuture, SymbolicReferenceResolutionFuture,
 };
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::AgentState;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::KernelEvent;
 use ioi_types::app::agentic::{
     ArgumentOrigin, CapabilityId, LlmToolDefinition, ProtectedSlotKind, ToolCapabilityBinding,
 };
 use ioi_types::app::ActionTarget;
+use ioi_types::app::KernelEvent;
 use ioi_types::error::TransactionError;
 use lettre::message::Mailbox;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::path::PathBuf;
 use std::collections::BTreeSet;
 use std::fs;
+use std::path::PathBuf;
 use time::format_description::well_known::Rfc3339;
 use time::{Duration as TimeDuration, OffsetDateTime};
 
@@ -265,7 +264,10 @@ fn resolve_google_shield_policy(service: Option<&DesktopAgentService>) -> Resolv
 }
 
 fn is_automation_action_id(action_id: &str) -> bool {
-    matches!(action_id, "gmail.watch_emails" | "events.subscribe" | "events.renew")
+    matches!(
+        action_id,
+        "gmail.watch_emails" | "events.subscribe" | "events.renew"
+    )
 }
 
 fn shield_decision_for_action(
@@ -325,8 +327,9 @@ fn compute_google_shield_request_hash(
         "input": input,
     }))
     .map_err(|error| TransactionError::Serialization(error.to_string()))?;
-    let digest = sha256(&canonical)
-        .map_err(|error| TransactionError::Invalid(format!("Failed to hash Shield request: {}", error)))?;
+    let digest = sha256(&canonical).map_err(|error| {
+        TransactionError::Invalid(format!("Failed to hash Shield request: {}", error))
+    })?;
     let mut hash = [0u8; 32];
     hash.copy_from_slice(digest.as_ref());
     Ok(hash)
@@ -623,10 +626,7 @@ fn resolve_google_symbolic_reference_boxed<'a>(
                 Ok(Some(ResolvedSymbolicReference {
                     value: Value::String(email.clone()),
                     origin: ArgumentOrigin::StateRef,
-                    evidence: format!(
-                        "symbolic_ref=connected_account.email;resolved={}",
-                        email
-                    ),
+                    evidence: format!("symbolic_ref=connected_account.email;resolved={}", email),
                     provider_id: google_selected_provider_id(agent_state),
                 }))
             }
@@ -834,16 +834,14 @@ fn verify_google_postconditions_boxed<'a>(
                         .and_then(Value::as_str)
                         .map(str::to_string)
                         .ok_or_else(|| {
-                            "Google draft verification payload was missing message.id."
-                                .to_string()
+                            "Google draft verification payload was missing message.id.".to_string()
                         })?,
                     "DRAFT",
                 )
             }
             "connector__google__gmail_send_email" => {
                 let payload = parse_json_payload_from_history(history_entry).ok_or_else(|| {
-                    "Google send verification could not parse structured action output."
-                        .to_string()
+                    "Google send verification could not parse structured action output.".to_string()
                 })?;
                 (
                     payload
@@ -851,8 +849,7 @@ fn verify_google_postconditions_boxed<'a>(
                         .and_then(Value::as_str)
                         .map(str::to_string)
                         .ok_or_else(|| {
-                            "Google send verification payload was missing message id."
-                                .to_string()
+                            "Google send verification payload was missing message id.".to_string()
                         })?,
                     "SENT",
                 )
@@ -860,18 +857,21 @@ fn verify_google_postconditions_boxed<'a>(
             _ => return Ok(None),
         };
 
-        let expected_to = tool_args
-            .get("to")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "Google mail verification requires a grounded `to` argument.".to_string())?;
+        let expected_to = tool_args.get("to").and_then(Value::as_str).ok_or_else(|| {
+            "Google mail verification requires a grounded `to` argument.".to_string()
+        })?;
         let expected_subject = tool_args
             .get("subject")
             .and_then(Value::as_str)
-            .ok_or_else(|| "Google mail verification requires a grounded `subject` argument.".to_string())?;
+            .ok_or_else(|| {
+                "Google mail verification requires a grounded `subject` argument.".to_string()
+            })?;
         let expected_body = tool_args
             .get("body")
             .and_then(Value::as_str)
-            .ok_or_else(|| "Google mail verification requires a grounded `body` argument.".to_string())?;
+            .ok_or_else(|| {
+                "Google mail verification requires a grounded `body` argument.".to_string()
+            })?;
         let readback = google_api::gmail_readback_message(&message_id).await?;
         let to_match = gmail_to_header_matches(readback.to.as_deref(), expected_to);
         let subject_match = readback
@@ -910,8 +910,8 @@ fn verify_google_postconditions_boxed<'a>(
     })
 }
 
-pub fn google_connector_postcondition_verifier_bindings() -> Vec<ConnectorPostconditionVerifierBinding>
-{
+pub fn google_connector_postcondition_verifier_bindings(
+) -> Vec<ConnectorPostconditionVerifierBinding> {
     vec![ConnectorPostconditionVerifierBinding {
         connector_id: GOOGLE_CONNECTOR_ID,
         verify: verify_google_postconditions_boxed,
@@ -989,8 +989,12 @@ pub async fn connector_configure(
     let mode = optional_string(&input, "mode").unwrap_or_else(|| "status".to_string());
     match mode.as_str() {
         "login" | "connect" => configure_google_login(&input).await,
-        "cancel_login" | "cancel_pending_auth" | "abort_login" => configure_google_cancel_login().await,
-        "save_oauth_client" | "set_oauth_client" => configure_google_save_oauth_client(&input).await,
+        "cancel_login" | "cancel_pending_auth" | "abort_login" => {
+            configure_google_cancel_login().await
+        }
+        "save_oauth_client" | "set_oauth_client" => {
+            configure_google_save_oauth_client(&input).await
+        }
         "clear_oauth_client" => configure_google_clear_oauth_client().await,
         "logout" | "disconnect" => configure_google_logout().await,
         _ => configure_google_status().await,
@@ -1010,8 +1014,12 @@ pub async fn connector_run_action(
         .ok_or_else(|| format!("Unsupported Google connector action '{}'", action_id))?;
     let normalized_input = normalize_google_action_input(&spec, &input).await?;
     let args = build_google_workspace_args(&spec, &normalized_input)?;
-    let output = run_gws_command(&args, command_timeout_secs_for_action(spec.id), spec.required_scopes)
-        .await?;
+    let output = run_gws_command(
+        &args,
+        command_timeout_secs_for_action(spec.id),
+        spec.required_scopes,
+    )
+    .await?;
     let data = parse_jsonish_output(&output.stdout);
     let summary = summarize_action(&spec, &data, &normalized_input);
 
@@ -2267,7 +2275,10 @@ fn connector_fields_to_schema(fields: &[ConnectorFieldDefinition]) -> Value {
 
         schema.insert("title".to_string(), Value::String(field.label.clone()));
         if let Some(description) = field.description.as_ref() {
-            schema.insert("description".to_string(), Value::String(description.clone()));
+            schema.insert(
+                "description".to_string(),
+                Value::String(description.clone()),
+            );
         }
         if let Some(default_value) = field.default_value.as_ref() {
             schema.insert("default".to_string(), default_value.clone());
@@ -2333,7 +2344,9 @@ async fn configure_google_login(input: &Value) -> Result<ConnectorConfigureResul
     })
 }
 
-async fn configure_google_save_oauth_client(input: &Value) -> Result<ConnectorConfigureResult, String> {
+async fn configure_google_save_oauth_client(
+    input: &Value,
+) -> Result<ConnectorConfigureResult, String> {
     google_auth::save_oauth_client(
         required_string(input, "clientId")?,
         optional_string(input, "clientSecret"),
@@ -3063,7 +3076,11 @@ fn build_google_raw_request_args(input: &Value) -> Result<Vec<String>, String> {
         args.push("--page-limit".into());
         args.push(optional_u64(input, "pageLimit").unwrap_or(25).to_string());
         args.push("--page-delay-ms".into());
-        args.push(optional_u64(input, "pageDelayMs").unwrap_or(100).to_string());
+        args.push(
+            optional_u64(input, "pageDelayMs")
+                .unwrap_or(100)
+                .to_string(),
+        );
     }
     args.push("--format".into());
     args.push("json".into());
@@ -3235,17 +3252,27 @@ fn summarize_action(spec: &GoogleConnectorActionSpec, data: &Value, input: &Valu
             let count = data
                 .as_array()
                 .map(|items| items.len())
-                .or_else(|| data.get("messages").and_then(Value::as_array).map(|items| items.len()))
+                .or_else(|| {
+                    data.get("messages")
+                        .and_then(Value::as_array)
+                        .map(|items| items.len())
+                })
                 .unwrap_or(0);
             format!("Loaded {} Gmail messages.", count)
         }
         "gmail.send_email" => format!(
             "Sent Gmail message to {}.",
-            input.get("to").and_then(Value::as_str).unwrap_or("recipient")
+            input
+                .get("to")
+                .and_then(Value::as_str)
+                .unwrap_or("recipient")
         ),
         "gmail.draft_email" => format!(
             "Created Gmail draft for {}.",
-            input.get("to").and_then(Value::as_str).unwrap_or("recipient")
+            input
+                .get("to")
+                .and_then(Value::as_str)
+                .unwrap_or("recipient")
         ),
         "gmail.mark_as_read" => "Marked Gmail message as read.".to_string(),
         "gmail.archive_email" => "Archived Gmail message.".to_string(),
@@ -3275,8 +3302,12 @@ fn summarize_action(spec: &GoogleConnectorActionSpec, data: &Value, input: &Valu
         }
         "gmail.watch_emails" => "Initialized Gmail watch flow.".to_string(),
         "bigquery.execute_query" => {
-            if is_bigquery_read_query(input.get("query").and_then(Value::as_str).unwrap_or_default())
-            {
+            if is_bigquery_read_query(
+                input
+                    .get("query")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
+            ) {
                 let rows = data
                     .get("rows")
                     .and_then(Value::as_array)
@@ -3343,7 +3374,10 @@ fn summarize_action(spec: &GoogleConnectorActionSpec, data: &Value, input: &Valu
         ),
         "drive.share_file" => format!(
             "Shared Drive file with {}.",
-            input.get("email").and_then(Value::as_str).unwrap_or("recipient")
+            input
+                .get("email")
+                .and_then(Value::as_str)
+                .unwrap_or("recipient")
         ),
         "tasks.list_tasks" => {
             let count = data
@@ -3463,7 +3497,8 @@ fn optional_u64(input: &Value, key: &str) -> Option<u64> {
 
 fn required_json_value(input: &Value, key: &str) -> Result<Value, String> {
     let raw = required_string(input, key)?;
-    serde_json::from_str::<Value>(&raw).map_err(|error| format!("'{}' must be valid JSON: {}", key, error))
+    serde_json::from_str::<Value>(&raw)
+        .map_err(|error| format!("'{}' must be valid JSON: {}", key, error))
 }
 
 fn optional_json_string(input: &Value, key: &str) -> Result<Option<String>, String> {
@@ -3525,12 +3560,20 @@ fn is_bigquery_read_query(query: &str) -> bool {
 fn date_to_day_bounds(date: &str) -> Result<(String, String), String> {
     let format = time::format_description::parse("[year]-[month]-[day]")
         .map_err(|error| format!("Failed to build date parser: {}", error))?;
-    let parsed =
-        time::Date::parse(date, &format).map_err(|error| format!("Invalid date '{}': {}", date, error))?;
-    let start = parsed.with_hms(0, 0, 0).map_err(|error| error.to_string())?;
+    let parsed = time::Date::parse(date, &format)
+        .map_err(|error| format!("Invalid date '{}': {}", date, error))?;
+    let start = parsed
+        .with_hms(0, 0, 0)
+        .map_err(|error| error.to_string())?;
     let end = start + TimeDuration::days(1);
-    let start_rfc3339 = start.assume_utc().format(&Rfc3339).map_err(|error| error.to_string())?;
-    let end_rfc3339 = end.assume_utc().format(&Rfc3339).map_err(|error| error.to_string())?;
+    let start_rfc3339 = start
+        .assume_utc()
+        .format(&Rfc3339)
+        .map_err(|error| error.to_string())?;
+    let end_rfc3339 = end
+        .assume_utc()
+        .format(&Rfc3339)
+        .map_err(|error| error.to_string())?;
     Ok((start_rfc3339, end_rfc3339))
 }
 
@@ -3655,12 +3698,11 @@ mod tests {
         compute_google_shield_request_hash, connector_fields_to_schema,
         enforce_google_tool_shield_policy, find_action_by_id, google_connector_actions,
         google_connector_protected_slot_bindings, google_connector_tool_bindings,
-        google_connector_tool_definitions,
-        google_dynamic_tool_target, infer_google_symbolic_reference_from_query_boxed,
-        is_bigquery_read_query, looks_like_connected_account_alias,
-        normalize_sheet_values, parse_jsonish_output, query_mentions_connected_account_alias,
-        resolve_connected_account_alias, BIGQUERY_READ_TARGET, BIGQUERY_WRITE_TARGET,
-        GOOGLE_CONNECTOR_ID,
+        google_connector_tool_definitions, google_dynamic_tool_target,
+        infer_google_symbolic_reference_from_query_boxed, is_bigquery_read_query,
+        looks_like_connected_account_alias, normalize_sheet_values, parse_jsonish_output,
+        query_mentions_connected_account_alias, resolve_connected_account_alias,
+        BIGQUERY_READ_TARGET, BIGQUERY_WRITE_TARGET, GOOGLE_CONNECTOR_ID,
     };
     use crate::agentic::desktop::service::DesktopAgentService;
     use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
@@ -3863,10 +3905,18 @@ mod tests {
     #[test]
     fn connector_catalog_contains_langchain_surface() {
         let actions = google_connector_actions();
-        assert!(actions.iter().any(|action| action.id == "gmail.read_emails"));
-        assert!(actions.iter().any(|action| action.id == "bigquery.execute_query"));
-        assert!(actions.iter().any(|action| action.id == "docs.replace_text"));
-        assert!(actions.iter().any(|action| action.id == "sheets.get_spreadsheet"));
+        assert!(actions
+            .iter()
+            .any(|action| action.id == "gmail.read_emails"));
+        assert!(actions
+            .iter()
+            .any(|action| action.id == "bigquery.execute_query"));
+        assert!(actions
+            .iter()
+            .any(|action| action.id == "docs.replace_text"));
+        assert!(actions
+            .iter()
+            .any(|action| action.id == "sheets.get_spreadsheet"));
     }
 
     #[test]
@@ -3895,7 +3945,9 @@ mod tests {
     #[test]
     fn bigquery_read_detection_handles_common_select_forms() {
         assert!(is_bigquery_read_query("SELECT * FROM table"));
-        assert!(is_bigquery_read_query("with sample as (select 1) select * from sample"));
+        assert!(is_bigquery_read_query(
+            "with sample as (select 1) select * from sample"
+        ));
         assert!(!is_bigquery_read_query("INSERT INTO table values (1)"));
         assert!(!is_bigquery_read_query("CREATE TABLE x AS SELECT 1"));
     }
@@ -4070,9 +4122,14 @@ mod tests {
             other => panic!("expected pending approval, got {:?}", other),
         }
 
-        let event = rx.recv().await.expect("interception event should be emitted");
+        let event = rx
+            .recv()
+            .await
+            .expect("interception event should be emitted");
         match event {
-            KernelEvent::FirewallInterception { verdict, target, .. } => {
+            KernelEvent::FirewallInterception {
+                verdict, target, ..
+            } => {
                 assert_eq!(verdict, "REQUIRE_APPROVAL");
                 assert_eq!(target, spec.tool_name);
             }
@@ -4132,7 +4189,10 @@ mod tests {
             &input,
             false,
         );
-        assert!(result.is_ok(), "matching approval token should allow execution");
+        assert!(
+            result.is_ok(),
+            "matching approval token should allow execution"
+        );
 
         let _ = std::fs::remove_file(policy_path);
     }
@@ -4255,7 +4315,9 @@ mod tests {
 
         let event = rx.recv().await.expect("block event should be emitted");
         match event {
-            KernelEvent::FirewallInterception { verdict, target, .. } => {
+            KernelEvent::FirewallInterception {
+                verdict, target, ..
+            } => {
                 assert_eq!(verdict, "BLOCK");
                 assert_eq!(target, spec.tool_name);
             }

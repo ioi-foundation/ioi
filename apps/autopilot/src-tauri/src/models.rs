@@ -1,7 +1,7 @@
 // apps/autopilot/src-tauri/src/models.rs
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
-use ioi_types::app::agentic::PiiTarget;
+use ioi_types::app::agentic::{LlmToolDefinition, PiiTarget};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -141,6 +141,26 @@ pub struct Artifact {
     pub metadata: Value,
     pub version: Option<u32>,
     pub parent_artifact_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillCatalogEntry {
+    pub skill_hash: String,
+    pub name: String,
+    pub description: String,
+    pub lifecycle_state: String,
+    pub source_type: String,
+    pub success_rate_bps: u32,
+    pub sample_size: u32,
+    pub frame_id: u64,
+    #[serde(default)]
+    pub source_session_id: Option<String>,
+    #[serde(default)]
+    pub source_evidence_hash: Option<String>,
+    #[serde(default)]
+    pub relative_path: Option<String>,
+    pub stale: bool,
+    pub definition: LlmToolDefinition,
 }
 
 // Structured chat message for persistent history

@@ -1,9 +1,8 @@
-use super::profile::provider_supports_affordance;
 use super::super::parsers::{
     fetch_bing_news_rss_sources, fetch_bing_search_rss_sources, fetch_google_news_rss_sources,
     fetch_google_news_top_stories_rss_sources, parse_bing_sources_from_html,
-    parse_brave_sources_from_html, parse_ddg_sources_from_html, parse_generic_page_source_from_html,
-    parse_google_sources_from_html,
+    parse_brave_sources_from_html, parse_ddg_sources_from_html,
+    parse_generic_page_source_from_html, parse_google_sources_from_html,
 };
 use super::super::readability::{extract_non_html_read_blocks, extract_read_blocks};
 use super::super::transport::{
@@ -13,12 +12,15 @@ use super::super::transport::{
 };
 use super::super::types::{SearchProviderStage, SearchStructuralAffordance};
 use super::super::urls::{
-    build_bing_news_rss_url, build_bing_search_rss_url, build_bing_serp_url,
-    build_brave_serp_url, build_ddg_serp_url, build_google_news_rss_url,
-    build_google_news_serp_url, build_google_news_top_stories_rss_url, build_google_serp_url,
+    build_bing_news_rss_url, build_bing_search_rss_url, build_bing_serp_url, build_brave_serp_url,
+    build_ddg_serp_url, build_google_news_rss_url, build_google_news_serp_url,
+    build_google_news_top_stories_rss_url, build_google_serp_url,
     build_weather_gov_locality_lookup_url,
 };
-use super::super::util::{compact_ws, domain_for_url, normalize_url_for_id, now_ms, source_id_for_url};
+use super::super::util::{
+    compact_ws, domain_for_url, normalize_url_for_id, now_ms, source_id_for_url,
+};
+use super::profile::provider_supports_affordance;
 use super::{
     extraction::*,
     profile::{
@@ -32,19 +34,19 @@ use crate::agentic::desktop::service::step::queue::web_pipeline::{
     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
     effective_locality_scope_hint, explicit_query_scope_hint, retrieval_contract_min_sources,
 };
+use crate::agentic::desktop::service::step::signals::analyze_metric_schema;
+use crate::agentic::web::constants::EDGE_WEB_SEARCH_TOTAL_BUDGET_MS;
 use crate::agentic::web::{
     contract_requires_geo_scoped_entity_expansion, contract_requires_semantic_source_alignment,
     query_matching_source_urls, WEB_SOURCE_ALIGNMENT_MAX_SOURCES,
 };
-use crate::agentic::web::constants::EDGE_WEB_SEARCH_TOTAL_BUDGET_MS;
 use anyhow::Result;
 use ioi_drivers::browser::BrowserDriver;
+use ioi_types::app::agentic::WebRetrievalContract;
 use ioi_types::app::agentic::{
     WebEvidenceBundle, WebProviderCandidate, WebSource, WebSourceExpansionAffordance,
     WebSourceObservation,
 };
-use crate::agentic::desktop::service::step::signals::analyze_metric_schema;
-use ioi_types::app::agentic::WebRetrievalContract;
 use std::collections::HashSet;
 
 include!("orchestration/source_selection.rs");
@@ -146,9 +148,11 @@ mod tests {
 
     #[test]
     fn provider_request_query_preserves_raw_query_when_no_contract_is_available() {
-        let retrieval_contract =
-            crate::agentic::web::derive_web_retrieval_contract("bitcoin price -site:thestreet.com", None)
-                .expect("contract should derive");
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(
+            "bitcoin price -site:thestreet.com",
+            None,
+        )
+        .expect("contract should derive");
         let query = provider_request_query(
             "bitcoin price -site:thestreet.com",
             None,

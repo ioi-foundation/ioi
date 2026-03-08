@@ -530,6 +530,20 @@ pub(crate) async fn finalize_action_processing(
         agent_state.status = AgentStatus::Completed(None);
     }
 
+    match agent_state.status {
+        AgentStatus::Completed(_) => {
+            let _ = service
+                .update_skill_reputation(state, session_id, true, block_height)
+                .await;
+        }
+        AgentStatus::Failed(_) => {
+            let _ = service
+                .update_skill_reputation(state, session_id, false, block_height)
+                .await;
+        }
+        _ => {}
+    }
+
     let mut artifacts = extract_artifacts(error_msg.as_deref(), history_entry.as_deref());
     artifacts.push(format!(
         "trace://agent_step/{}",

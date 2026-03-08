@@ -183,26 +183,24 @@ pub async fn handle_step(
             if let Ok(Some(bytes)) = state.get(&trace_key) {
                 if let Ok(last_trace) = codec::from_bytes_canonical::<StepTrace>(&bytes) {
                     match optimizer
-                        .synthesize_recovery_skill(p.session_id, &last_trace)
+                        .synthesize_recovery_skill(state, p.session_id, &last_trace)
                         .await
                     {
-                        Ok(skill) => {
+                        Ok(record) => {
                             log::info!(
                                 "Recovery successful. Injected skill: {}",
-                                skill.definition.name
+                                record.macro_body.definition.name
                             );
 
                             let parent_skill_hash = agent_state.active_skill_hash;
-                            let skill_bytes = codec::to_bytes_canonical(&skill)?;
-                            let skill_hash = sha256(&skill_bytes).map_err(|e| {
-                                TransactionError::Invalid(format!("Skill hash failed: {}", e))
-                            })?;
-                            let mut child_skill_hash = [0u8; 32];
-                            child_skill_hash.copy_from_slice(skill_hash.as_ref());
+                            let child_skill_hash = record.skill_hash;
                             agent_state.active_skill_hash = Some(child_skill_hash);
                             agent_state.consecutive_failures = 0;
 
-                            let msg = format!("SYSTEM: I noticed you are stuck. I have synthesized a new tool '{}' to help you. Try using it.", skill.definition.name);
+                            let msg = format!(
+                                "SYSTEM: I noticed you are stuck. I have synthesized a new tool '{}' to help you. Try using it.",
+                                record.macro_body.definition.name
+                            );
                             let sys_msg = ioi_types::app::agentic::ChatMessage {
                                 role: "system".to_string(),
                                 content: msg,
@@ -232,7 +230,7 @@ pub async fn handle_step(
                                     "source_trace_hash": hex::encode(trace_hash),
                                     "rationale": format!(
                                         "Auto-synthesized recovery skill '{}'",
-                                        skill.definition.name
+                                        record.macro_body.definition.name
                                     ),
                                 }))
                                 .map_err(|e| TransactionError::Serialization(e.to_string()))?;

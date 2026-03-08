@@ -440,10 +440,8 @@ mod tests {
             .filter(|tool| tool.name == "connector__google__gmail_send_email")
             .count();
         assert_eq!(gmail_send_count, 1);
-        assert!(
-            tools
-                .iter()
-                .any(|tool| tool.name == "connector__google__workflow_file_announce")
-        );
+        assert!(tools
+            .iter()
+            .any(|tool| tool.name == "connector__google__workflow_file_announce"));
     }
 }

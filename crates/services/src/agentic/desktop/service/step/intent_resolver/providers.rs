@@ -23,10 +23,11 @@ fn binding_matches_required_capabilities(
     required_capabilities: &[CapabilityId],
 ) -> bool {
     !required_capabilities.is_empty()
-        && binding
-            .capabilities
-            .iter()
-            .any(|capability| required_capabilities.iter().any(|required| required == capability))
+        && binding.capabilities.iter().any(|capability| {
+            required_capabilities
+                .iter()
+                .any(|required| required == capability)
+        })
 }
 
 fn provider_family_catalog(
@@ -48,7 +49,10 @@ fn provider_family_catalog(
             .entry(provider_family.to_string())
             .or_insert_with(|| (route_label, BTreeSet::new()));
         for capability in &binding.capabilities {
-            if required_capabilities.iter().any(|required| required == capability) {
+            if required_capabilities
+                .iter()
+                .any(|required| required == capability)
+            {
                 entry.1.insert(capability.clone());
             }
         }
@@ -92,7 +96,9 @@ fn extract_first_json_object(raw: &str) -> Option<String> {
     None
 }
 
-fn parse_provider_selection_payload(raw: &str) -> Result<ProviderSelectionPayload, TransactionError> {
+fn parse_provider_selection_payload(
+    raw: &str,
+) -> Result<ProviderSelectionPayload, TransactionError> {
     serde_json::from_str::<ProviderSelectionPayload>(raw).or_else(|_| {
         let extracted = extract_first_json_object(raw).ok_or_else(|| {
             TransactionError::Invalid(
@@ -259,7 +265,8 @@ pub(super) async fn resolve_provider_selection_state(
         else {
             continue;
         };
-        candidates.extend((probe.discover)(state, provider_family, route_label, capabilities).await);
+        candidates
+            .extend((probe.discover)(state, provider_family, route_label, capabilities).await);
     }
 
     candidates.sort_by(|left, right| {
@@ -357,7 +364,7 @@ mod tests {
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_state::primitives::hash::HashCommitmentScheme;
     use ioi_state::tree::iavl::IAVLTree;
-    use ioi_types::app::{ActionRequest, ContextSlice};
+    use ioi_types::app::agentic::CapabilityId;
     use ioi_types::app::agentic::{
         ExecutionApplicabilityClass, IntentMatrixEntry, IntentQueryBindingClass,
         IntentScopeProfile, ProviderSelectionMode, VerificationMode,
@@ -366,7 +373,7 @@ mod tests {
         MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
         MailConnectorRecord, MailConnectorSecretAliases, MailConnectorTlsMode,
     };
-    use ioi_types::app::agentic::CapabilityId;
+    use ioi_types::app::{ActionRequest, ContextSlice};
     use ioi_types::codec;
     use ioi_types::error::VmError;
     use std::collections::BTreeMap;
@@ -433,23 +440,16 @@ mod tests {
             ),
         ];
 
-        let catalog =
-            provider_family_catalog(&bindings, &[CapabilityId::from("mail.reply")]);
+        let catalog = provider_family_catalog(&bindings, &[CapabilityId::from("mail.reply")]);
 
         assert!(catalog.contains_key("mail.wallet_network"));
         assert!(catalog.contains_key("mail.google.gmail"));
         assert_eq!(
-            catalog
-                .get("mail.wallet_network")
-                .expect("mail family")
-                .0,
+            catalog.get("mail.wallet_network").expect("mail family").0,
             "mail_connector"
         );
         assert_eq!(
-            catalog
-                .get("mail.google.gmail")
-                .expect("google family")
-                .0,
+            catalog.get("mail.google.gmail").expect("google family").0,
             "google_gmail"
         );
     }
@@ -460,7 +460,7 @@ mod tests {
             .into_iter()
             .filter_map(|binding| tool_provider_family(&binding.tool_name))
             .collect::<BTreeSet<_>>();
-    let covered = connector_provider_probe_bindings()
+        let covered = connector_provider_probe_bindings()
             .into_iter()
             .map(|binding| binding.provider_family)
             .collect::<BTreeSet<_>>();

@@ -204,9 +204,7 @@ fn google_bigquery_dynamic_target_distinguishes_read_and_write_queries() {
     }));
     assert_eq!(
         read_tool.target(),
-        crate::app::ActionTarget::Custom(
-            "connector__google__bigquery_execute_query__read".into()
-        )
+        crate::app::ActionTarget::Custom("connector__google__bigquery_execute_query__read".into())
     );
 
     let write_tool = AgentTool::Dynamic(serde_json::json!({
@@ -215,9 +213,7 @@ fn google_bigquery_dynamic_target_distinguishes_read_and_write_queries() {
     }));
     assert_eq!(
         write_tool.target(),
-        crate::app::ActionTarget::Custom(
-            "connector__google__bigquery_execute_query__write".into()
-        )
+        crate::app::ActionTarget::Custom("connector__google__bigquery_execute_query__write".into())
     );
 }
 

@@ -26,8 +26,10 @@ pub use action::*;
 pub use consensus::*;
 // Explicitly re-export the new agentic types
 pub use agentic::{
-    AgentSkill, CommitteeCertificate, InferenceOptions, LlmToolDefinition, RedactionEntry,
-    RedactionMap, RedactionType, StepTrace,
+    AgentMacro, AgentSkill, CommitteeCertificate, ExternalSkillEvidence, InferenceOptions,
+    LlmToolDefinition, PublishedSkillDoc, RedactionEntry, RedactionMap, RedactionType,
+    SkillBenchmarkReport, SkillCatalogIndex, SkillLifecycleState, SkillPublicationInfo,
+    SkillRecord, SkillSourceType, SkillStats, StepTrace,
 };
 pub use events::*;
 pub use identity::{

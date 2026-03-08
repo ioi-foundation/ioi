@@ -46,10 +46,7 @@ fn normalize_resumed_output_only_success(
     }
     *success = true;
     verification_checks.push("resume_output_only_success_normalized=true".to_string());
-    verification_checks.push(format!(
-        "resume_output_only_success_tool={}",
-        tool_name
-    ));
+    verification_checks.push(format!("resume_output_only_success_tool={}", tool_name));
 }
 
 fn remaining_queue_is_only_mail_reply_provider_fallbacks(agent_state: &AgentState) -> bool {
@@ -85,21 +82,34 @@ fn should_terminalize_mail_reply_intent(agent_state: &AgentState, tool_name: &st
         .unwrap_or(false);
     let fallback_only_queue = remaining_queue_is_only_mail_reply_provider_fallbacks(agent_state);
     crate::agentic::desktop::service::step::intent_resolver::tool_has_capability(
-            tool_name,
-            "mail.reply",
-        )
-        && (resolved_mail_reply_intent || fallback_only_queue)
+        tool_name,
+        "mail.reply",
+    ) && (resolved_mail_reply_intent || fallback_only_queue)
 }
 
 fn mail_reply_completion_summary(out: Option<&str>) -> String {
     out.and_then(|value| {
-        value.split("\n\n")
+        value
+            .split("\n\n")
             .next()
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_string)
     })
     .unwrap_or_else(|| "Email request completed.".to_string())
+}
+
+async fn crystallize_successful_session(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    agent_state: &AgentState,
+    session_id: [u8; 32],
+    block_height: u64,
+) {
+    evaluate_and_crystallize(service, state, agent_state, session_id).await;
+    let _ = service
+        .update_skill_reputation(state, session_id, true, block_height)
+        .await;
 }
 
 pub(crate) async fn run_lifecycle_status_phase(
@@ -356,11 +366,12 @@ pub(crate) async fn run_lifecycle_status_phase(
                                     terminal_response_emitted = true;
                                 }
 
-                                evaluate_and_crystallize(
+                                crystallize_successful_session(
                                     service,
+                                    state,
                                     agent_state,
                                     session_id,
-                                    &completed_result,
+                                    block_height,
                                 )
                                 .await;
                             }
@@ -378,7 +389,8 @@ pub(crate) async fn run_lifecycle_status_phase(
             agent_state.execution_queue.clear();
             verification_checks.push("mail_reply_terminalized=true".to_string());
             verification_checks.push("terminal_chat_reply_ready=true".to_string());
-            evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
+            crystallize_successful_session(service, state, agent_state, session_id, block_height)
+                .await;
             if let Some(tx) = &service.event_sender {
                 emit_terminal_completion_events(
                     tx,
@@ -390,145 +402,119 @@ pub(crate) async fn run_lifecycle_status_phase(
                 terminal_response_emitted = true;
             }
         } else {
-        match &tool {
-            AgentTool::AgentComplete { result } => {
-                let missing_contract_markers =
-                    missing_execution_contract_markers_with_rules(agent_state, &rules);
-                if !missing_contract_markers.is_empty() {
-                    let missing = missing_contract_markers.join(",");
-                    let contract_error = execution_contract_violation_error(&missing);
-                    success = false;
-                    err = Some(contract_error.clone());
-                    out = Some(contract_error);
-                    verification_checks.push("execution_contract_gate_blocked=true".to_string());
-                    verification_checks
-                        .push(format!("execution_contract_missing_keys={}", missing));
-                    agent_state.status = AgentStatus::Running;
-                } else {
-                    let completed_result =
-                        if is_system_clock_read_intent(agent_state.resolved_intent.as_ref()) {
-                            summarize_system_clock_output(result).unwrap_or_else(|| result.clone())
-                        } else {
-                            result.clone()
-                        };
-                    let completed_result =
-                        enrich_command_scope_summary(&completed_result, agent_state);
-                    let composed = compose_terminal_chat_reply(&completed_result);
-                    let completed_result = composed.output;
-                    agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
-                    evaluate_and_crystallize(service, agent_state, session_id, &completed_result)
+            match &tool {
+                AgentTool::AgentComplete { result } => {
+                    let missing_contract_markers =
+                        missing_execution_contract_markers_with_rules(agent_state, &rules);
+                    if !missing_contract_markers.is_empty() {
+                        let missing = missing_contract_markers.join(",");
+                        let contract_error = execution_contract_violation_error(&missing);
+                        success = false;
+                        err = Some(contract_error.clone());
+                        out = Some(contract_error);
+                        verification_checks
+                            .push("execution_contract_gate_blocked=true".to_string());
+                        verification_checks
+                            .push(format!("execution_contract_missing_keys={}", missing));
+                        agent_state.status = AgentStatus::Running;
+                    } else {
+                        let completed_result =
+                            if is_system_clock_read_intent(agent_state.resolved_intent.as_ref()) {
+                                summarize_system_clock_output(result)
+                                    .unwrap_or_else(|| result.clone())
+                            } else {
+                                result.clone()
+                            };
+                        let completed_result =
+                            enrich_command_scope_summary(&completed_result, agent_state);
+                        let composed = compose_terminal_chat_reply(&completed_result);
+                        let completed_result = composed.output;
+                        agent_state.status = AgentStatus::Completed(Some(completed_result.clone()));
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
                         .await;
 
-                    if let Some(tx) = &service.event_sender {
-                        emit_terminal_completion_events(
-                            tx,
-                            session_id,
-                            agent_state.step_count,
-                            &completed_result,
-                            status::status_str(&agent_state.status),
-                        );
-                        terminal_response_emitted = true;
+                        if let Some(tx) = &service.event_sender {
+                            emit_terminal_completion_events(
+                                tx,
+                                session_id,
+                                agent_state.step_count,
+                                &completed_result,
+                                status::status_str(&agent_state.status),
+                            );
+                            terminal_response_emitted = true;
+                        }
                     }
                 }
-            }
-            AgentTool::ChatReply { message } => {
-                let missing_contract_markers =
-                    missing_execution_contract_markers_with_rules(agent_state, &rules);
-                if !missing_contract_markers.is_empty() {
-                    let missing = missing_contract_markers.join(",");
-                    let contract_error = execution_contract_violation_error(&missing);
-                    success = false;
-                    err = Some(contract_error.clone());
-                    out = Some(contract_error);
-                    verification_checks.push("execution_contract_gate_blocked=true".to_string());
-                    verification_checks
-                        .push(format!("execution_contract_missing_keys={}", missing));
-                    agent_state.status = AgentStatus::Running;
-                } else {
-                    let message = enrich_command_scope_summary(message, agent_state);
-                    let composed = compose_terminal_chat_reply(&message);
-                    let message = composed.output;
-                    agent_state.status = AgentStatus::Completed(Some(message.clone()));
-                    evaluate_and_crystallize(service, agent_state, session_id, &message).await;
+                AgentTool::ChatReply { message } => {
+                    let missing_contract_markers =
+                        missing_execution_contract_markers_with_rules(agent_state, &rules);
+                    if !missing_contract_markers.is_empty() {
+                        let missing = missing_contract_markers.join(",");
+                        let contract_error = execution_contract_violation_error(&missing);
+                        success = false;
+                        err = Some(contract_error.clone());
+                        out = Some(contract_error);
+                        verification_checks
+                            .push("execution_contract_gate_blocked=true".to_string());
+                        verification_checks
+                            .push(format!("execution_contract_missing_keys={}", missing));
+                        agent_state.status = AgentStatus::Running;
+                    } else {
+                        let message = enrich_command_scope_summary(message, agent_state);
+                        let composed = compose_terminal_chat_reply(&message);
+                        let message = composed.output;
+                        agent_state.status = AgentStatus::Completed(Some(message.clone()));
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
 
-                    if let Some(tx) = &service.event_sender {
-                        let _ = tx.send(KernelEvent::AgentActionResult {
-                            session_id,
-                            step_index: agent_state.step_count,
-                            tool_name: "chat__reply".to_string(),
-                            output: message.clone(),
-                            error_class: None,
-                            agent_status: status::status_str(&agent_state.status),
-                        });
-                        terminal_response_emitted = true;
+                        if let Some(tx) = &service.event_sender {
+                            let _ = tx.send(KernelEvent::AgentActionResult {
+                                session_id,
+                                step_index: agent_state.step_count,
+                                tool_name: "chat__reply".to_string(),
+                                output: message.clone(),
+                                error_class: None,
+                                agent_status: status::status_str(&agent_state.status),
+                            });
+                            terminal_response_emitted = true;
+                        }
                     }
                 }
-            }
-            AgentTool::SysChangeDir { .. } => {
-                if success {
-                    agent_state.working_directory = content.clone();
-                }
-                agent_state.status = AgentStatus::Running;
-            }
-            AgentTool::Computer(ComputerAction::Screenshot) => {
-                if success && is_ui_capture_screenshot_intent(agent_state.resolved_intent.as_ref())
-                {
-                    let summary = "Screenshot captured.".to_string();
-                    agent_state.status = AgentStatus::Completed(Some(summary.clone()));
-                    agent_state.execution_queue.clear();
-                    verification_checks.push("screenshot_capture_terminalized=true".to_string());
-                    evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
-                    if let Some(tx) = &service.event_sender {
-                        emit_terminal_completion_events(
-                            tx,
-                            session_id,
-                            agent_state.step_count,
-                            &summary,
-                            status::status_str(&agent_state.status),
-                        );
-                        terminal_response_emitted = true;
+                AgentTool::SysChangeDir { .. } => {
+                    if success {
+                        agent_state.working_directory = content.clone();
                     }
-                } else {
                     agent_state.status = AgentStatus::Running;
                 }
-            }
-            AgentTool::OsLaunchApp { app_name } => {
-                if success
-                    && should_auto_complete_open_app_goal(
-                        &agent_state.goal,
-                        app_name,
-                        agent_state
-                            .target
-                            .as_ref()
-                            .and_then(|target| target.app_hint.as_deref()),
-                    )
-                {
-                    let summary = format!("Opened {}.", app_name);
-                    agent_state.status = AgentStatus::Completed(Some(summary.clone()));
-                    evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
-                    if let Some(tx) = &service.event_sender {
-                        emit_terminal_completion_events(
-                            tx,
-                            session_id,
-                            agent_state.step_count,
-                            &summary,
-                            status::status_str(&agent_state.status),
-                        );
-                        terminal_response_emitted = true;
-                    }
-                } else {
-                    agent_state.status = AgentStatus::Running;
-                }
-            }
-            AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
-                if success && is_command_probe_intent(agent_state.resolved_intent.as_ref()) {
-                    if let Some(summary) = out
-                        .as_deref()
-                        .and_then(|raw| summarize_command_probe_output(&tool, raw))
+                AgentTool::Computer(ComputerAction::Screenshot) => {
+                    if success
+                        && is_ui_capture_screenshot_intent(agent_state.resolved_intent.as_ref())
                     {
+                        let summary = "Screenshot captured.".to_string();
                         agent_state.status = AgentStatus::Completed(Some(summary.clone()));
                         agent_state.execution_queue.clear();
-                        evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
+                        verification_checks
+                            .push("screenshot_capture_terminalized=true".to_string());
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
                         if let Some(tx) = &service.event_sender {
                             emit_terminal_completion_events(
                                 tx,
@@ -542,151 +528,246 @@ pub(crate) async fn run_lifecycle_status_phase(
                     } else {
                         agent_state.status = AgentStatus::Running;
                     }
-                } else if success
-                    && is_system_clock_read_intent(agent_state.resolved_intent.as_ref())
-                {
-                    let summary = out
-                        .as_deref()
-                        .and_then(summarize_system_clock_or_plain_output)
-                        .unwrap_or_else(|| "<unavailable>".to_string());
-                    agent_state.status = AgentStatus::Completed(Some(summary.clone()));
-                    agent_state.execution_queue.clear();
-                    evaluate_and_crystallize(service, agent_state, session_id, &summary).await;
-                    if let Some(tx) = &service.event_sender {
-                        emit_terminal_completion_events(
-                            tx,
-                            session_id,
-                            agent_state.step_count,
-                            &summary,
-                            status::status_str(&agent_state.status),
-                        );
-                        terminal_response_emitted = true;
-                    }
-                } else if success && command_scope {
-                    if let Some(summary) = out.as_deref().and_then(|raw| {
-                        summarize_structured_command_receipt_output(
-                            raw,
+                }
+                AgentTool::OsLaunchApp { app_name } => {
+                    if success
+                        && should_auto_complete_open_app_goal(
+                            &agent_state.goal,
+                            app_name,
                             agent_state
-                                .command_history
-                                .back()
-                                .map(|entry| entry.timestamp_ms),
+                                .target
+                                .as_ref()
+                                .and_then(|target| target.app_hint.as_deref()),
                         )
-                    }) {
-                        let summary = enrich_command_scope_summary(&summary, agent_state);
-                        let missing_contract_markers =
-                            missing_execution_contract_markers_with_rules(agent_state, &rules);
-                        if !missing_contract_markers.is_empty() {
-                            let missing = missing_contract_markers.join(",");
-                            let contract_error = execution_contract_violation_error(&missing);
-                            success = false;
-                            err = Some(contract_error.clone());
-                            out = Some(contract_error);
-                            verification_checks
-                                .push("execution_contract_gate_blocked=true".to_string());
-                            verification_checks
-                                .push(format!("execution_contract_missing_keys={}", missing));
-                            agent_state.status = AgentStatus::Running;
-                        } else {
-                            agent_state.status = AgentStatus::Completed(Some(summary.clone()));
-                            agent_state.execution_queue.clear();
-                            verification_checks
-                                .push("structured_command_receipt_terminalized=true".to_string());
-                            verification_checks.push("terminal_chat_reply_ready=true".to_string());
-                            evaluate_and_crystallize(service, agent_state, session_id, &summary)
-                                .await;
-                            if let Some(tx) = &service.event_sender {
-                                emit_terminal_completion_events(
-                                    tx,
-                                    session_id,
-                                    agent_state.step_count,
-                                    &summary,
-                                    status::status_str(&agent_state.status),
-                                );
-                                terminal_response_emitted = true;
-                            }
-                        }
-                    } else if let Some(summary) =
-                        timer_completion_summary(&tool, agent_state.command_history.back())
                     {
-                        let missing_contract_markers =
-                            missing_execution_contract_markers_with_rules(agent_state, &rules);
-                        if !missing_contract_markers.is_empty() {
-                            let missing = missing_contract_markers.join(",");
-                            let contract_error = execution_contract_violation_error(&missing);
-                            success = false;
-                            err = Some(contract_error.clone());
-                            out = Some(contract_error);
-                            verification_checks
-                                .push("execution_contract_gate_blocked=true".to_string());
-                            verification_checks
-                                .push(format!("execution_contract_missing_keys={}", missing));
-                            agent_state.status = AgentStatus::Running;
-                        } else {
-                            agent_state.status = AgentStatus::Completed(Some(summary.clone()));
-                            agent_state.execution_queue.clear();
-                            verification_checks
-                                .push("timer_schedule_terminalized=true".to_string());
-                            verification_checks.push("terminal_chat_reply_ready=true".to_string());
-                            evaluate_and_crystallize(service, agent_state, session_id, &summary)
-                                .await;
-                            if let Some(tx) = &service.event_sender {
-                                emit_terminal_completion_events(
-                                    tx,
-                                    session_id,
-                                    agent_state.step_count,
-                                    &summary,
-                                    status::status_str(&agent_state.status),
-                                );
-                                terminal_response_emitted = true;
-                            }
-                        }
-                    } else if let Some(summary) =
-                        verified_command_probe_completion_summary(&tool, &agent_state.command_history)
-                    {
-                        let summary = enrich_command_scope_summary(&summary, agent_state);
-                        let missing_contract_markers =
-                            missing_execution_contract_markers_with_rules(agent_state, &rules);
-                        if !missing_contract_markers.is_empty() {
-                            let missing = missing_contract_markers.join(",");
-                            let contract_error = execution_contract_violation_error(&missing);
-                            success = false;
-                            err = Some(contract_error.clone());
-                            out = Some(contract_error);
-                            verification_checks
-                                .push("execution_contract_gate_blocked=true".to_string());
-                            verification_checks
-                                .push(format!("execution_contract_missing_keys={}", missing));
-                            agent_state.status = AgentStatus::Running;
-                        } else {
-                            agent_state.status = AgentStatus::Completed(Some(summary.clone()));
-                            agent_state.execution_queue.clear();
-                            verification_checks
-                                .push("verified_command_probe_terminalized=true".to_string());
-                            verification_checks.push("terminal_chat_reply_ready=true".to_string());
-                            evaluate_and_crystallize(service, agent_state, session_id, &summary)
-                                .await;
-                            if let Some(tx) = &service.event_sender {
-                                emit_terminal_completion_events(
-                                    tx,
-                                    session_id,
-                                    agent_state.step_count,
-                                    &summary,
-                                    status::status_str(&agent_state.status),
-                                );
-                                terminal_response_emitted = true;
-                            }
+                        let summary = format!("Opened {}.", app_name);
+                        agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
+                        if let Some(tx) = &service.event_sender {
+                            emit_terminal_completion_events(
+                                tx,
+                                session_id,
+                                agent_state.step_count,
+                                &summary,
+                                status::status_str(&agent_state.status),
+                            );
+                            terminal_response_emitted = true;
                         }
                     } else {
                         agent_state.status = AgentStatus::Running;
                     }
-                } else {
+                }
+                AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
+                    if success && is_command_probe_intent(agent_state.resolved_intent.as_ref()) {
+                        if let Some(summary) = out
+                            .as_deref()
+                            .and_then(|raw| summarize_command_probe_output(&tool, raw))
+                        {
+                            agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                            agent_state.execution_queue.clear();
+                            crystallize_successful_session(
+                                service,
+                                state,
+                                agent_state,
+                                session_id,
+                                block_height,
+                            )
+                            .await;
+                            if let Some(tx) = &service.event_sender {
+                                emit_terminal_completion_events(
+                                    tx,
+                                    session_id,
+                                    agent_state.step_count,
+                                    &summary,
+                                    status::status_str(&agent_state.status),
+                                );
+                                terminal_response_emitted = true;
+                            }
+                        } else {
+                            agent_state.status = AgentStatus::Running;
+                        }
+                    } else if success
+                        && is_system_clock_read_intent(agent_state.resolved_intent.as_ref())
+                    {
+                        let summary = out
+                            .as_deref()
+                            .and_then(summarize_system_clock_or_plain_output)
+                            .unwrap_or_else(|| "<unavailable>".to_string());
+                        agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        agent_state.execution_queue.clear();
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
+                        if let Some(tx) = &service.event_sender {
+                            emit_terminal_completion_events(
+                                tx,
+                                session_id,
+                                agent_state.step_count,
+                                &summary,
+                                status::status_str(&agent_state.status),
+                            );
+                            terminal_response_emitted = true;
+                        }
+                    } else if success && command_scope {
+                        if let Some(summary) = out.as_deref().and_then(|raw| {
+                            summarize_structured_command_receipt_output(
+                                raw,
+                                agent_state
+                                    .command_history
+                                    .back()
+                                    .map(|entry| entry.timestamp_ms),
+                            )
+                        }) {
+                            let summary = enrich_command_scope_summary(&summary, agent_state);
+                            let missing_contract_markers =
+                                missing_execution_contract_markers_with_rules(agent_state, &rules);
+                            if !missing_contract_markers.is_empty() {
+                                let missing = missing_contract_markers.join(",");
+                                let contract_error = execution_contract_violation_error(&missing);
+                                success = false;
+                                err = Some(contract_error.clone());
+                                out = Some(contract_error);
+                                verification_checks
+                                    .push("execution_contract_gate_blocked=true".to_string());
+                                verification_checks
+                                    .push(format!("execution_contract_missing_keys={}", missing));
+                                agent_state.status = AgentStatus::Running;
+                            } else {
+                                agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                                agent_state.execution_queue.clear();
+                                verification_checks.push(
+                                    "structured_command_receipt_terminalized=true".to_string(),
+                                );
+                                verification_checks
+                                    .push("terminal_chat_reply_ready=true".to_string());
+                                crystallize_successful_session(
+                                    service,
+                                    state,
+                                    agent_state,
+                                    session_id,
+                                    block_height,
+                                )
+                                .await;
+                                if let Some(tx) = &service.event_sender {
+                                    emit_terminal_completion_events(
+                                        tx,
+                                        session_id,
+                                        agent_state.step_count,
+                                        &summary,
+                                        status::status_str(&agent_state.status),
+                                    );
+                                    terminal_response_emitted = true;
+                                }
+                            }
+                        } else if let Some(summary) =
+                            timer_completion_summary(&tool, agent_state.command_history.back())
+                        {
+                            let missing_contract_markers =
+                                missing_execution_contract_markers_with_rules(agent_state, &rules);
+                            if !missing_contract_markers.is_empty() {
+                                let missing = missing_contract_markers.join(",");
+                                let contract_error = execution_contract_violation_error(&missing);
+                                success = false;
+                                err = Some(contract_error.clone());
+                                out = Some(contract_error);
+                                verification_checks
+                                    .push("execution_contract_gate_blocked=true".to_string());
+                                verification_checks
+                                    .push(format!("execution_contract_missing_keys={}", missing));
+                                agent_state.status = AgentStatus::Running;
+                            } else {
+                                agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                                agent_state.execution_queue.clear();
+                                verification_checks
+                                    .push("timer_schedule_terminalized=true".to_string());
+                                verification_checks
+                                    .push("terminal_chat_reply_ready=true".to_string());
+                                crystallize_successful_session(
+                                    service,
+                                    state,
+                                    agent_state,
+                                    session_id,
+                                    block_height,
+                                )
+                                .await;
+                                if let Some(tx) = &service.event_sender {
+                                    emit_terminal_completion_events(
+                                        tx,
+                                        session_id,
+                                        agent_state.step_count,
+                                        &summary,
+                                        status::status_str(&agent_state.status),
+                                    );
+                                    terminal_response_emitted = true;
+                                }
+                            }
+                        } else if let Some(summary) = verified_command_probe_completion_summary(
+                            &tool,
+                            &agent_state.command_history,
+                        ) {
+                            let summary = enrich_command_scope_summary(&summary, agent_state);
+                            let missing_contract_markers =
+                                missing_execution_contract_markers_with_rules(agent_state, &rules);
+                            if !missing_contract_markers.is_empty() {
+                                let missing = missing_contract_markers.join(",");
+                                let contract_error = execution_contract_violation_error(&missing);
+                                success = false;
+                                err = Some(contract_error.clone());
+                                out = Some(contract_error);
+                                verification_checks
+                                    .push("execution_contract_gate_blocked=true".to_string());
+                                verification_checks
+                                    .push(format!("execution_contract_missing_keys={}", missing));
+                                agent_state.status = AgentStatus::Running;
+                            } else {
+                                agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                                agent_state.execution_queue.clear();
+                                verification_checks
+                                    .push("verified_command_probe_terminalized=true".to_string());
+                                verification_checks
+                                    .push("terminal_chat_reply_ready=true".to_string());
+                                crystallize_successful_session(
+                                    service,
+                                    state,
+                                    agent_state,
+                                    session_id,
+                                    block_height,
+                                )
+                                .await;
+                                if let Some(tx) = &service.event_sender {
+                                    emit_terminal_completion_events(
+                                        tx,
+                                        session_id,
+                                        agent_state.step_count,
+                                        &summary,
+                                        status::status_str(&agent_state.status),
+                                    );
+                                    terminal_response_emitted = true;
+                                }
+                            }
+                        } else {
+                            agent_state.status = AgentStatus::Running;
+                        }
+                    } else {
+                        agent_state.status = AgentStatus::Running;
+                    }
+                }
+                _ => {
                     agent_state.status = AgentStatus::Running;
                 }
             }
-            _ => {
-                agent_state.status = AgentStatus::Running;
-            }
-        }
         }
     }
 
@@ -1036,6 +1117,12 @@ pub(crate) async fn run_lifecycle_status_phase(
     };
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 
+    if matches!(agent_state.status, AgentStatus::Failed(_)) {
+        let _ = service
+            .update_skill_reputation(state, session_id, false, block_height)
+            .await;
+    }
+
     state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
 
     Ok(())
@@ -1132,18 +1219,20 @@ mod tests {
     fn terminalizes_mail_reply_resume_when_only_fallback_provider_actions_remain() {
         let mut agent_state = agent_state_with_mail_reply();
         agent_state.resolved_intent = None;
-        agent_state.execution_queue.push(ioi_types::app::ActionRequest {
-            target: ioi_types::app::ActionTarget::Custom(
-                "connector__google__gmail_draft_email".to_string(),
-            ),
-            params: vec![],
-            context: ioi_types::app::ActionContext {
-                agent_id: "desktop_agent".to_string(),
-                session_id: Some(agent_state.session_id),
-                window_id: None,
-            },
-            nonce: 0,
-        });
+        agent_state
+            .execution_queue
+            .push(ioi_types::app::ActionRequest {
+                target: ioi_types::app::ActionTarget::Custom(
+                    "connector__google__gmail_draft_email".to_string(),
+                ),
+                params: vec![],
+                context: ioi_types::app::ActionContext {
+                    agent_id: "desktop_agent".to_string(),
+                    session_id: Some(agent_state.session_id),
+                    window_id: None,
+                },
+                nonce: 0,
+            });
 
         assert!(should_terminalize_mail_reply_intent(
             &agent_state,

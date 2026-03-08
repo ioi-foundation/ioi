@@ -85,11 +85,7 @@ fn query_attests_phrase_literal(query: &str, raw: &str) -> bool {
         && normalized_query.contains(&format!(" {} ", normalized_candidate))
 }
 
-fn query_attests_protected_literal(
-    query: &str,
-    slot: &InstructionSlotBinding,
-    raw: &str,
-) -> bool {
+fn query_attests_protected_literal(query: &str, slot: &InstructionSlotBinding, raw: &str) -> bool {
     match slot.protected_slot_kind {
         ProtectedSlotKind::EmailAddress | ProtectedSlotKind::AccountEmail => {
             query_attests_email_literal(query, raw) || query_attests_phrase_literal(query, raw)
@@ -102,10 +98,7 @@ fn query_attests_protected_literal(
     }
 }
 
-fn current_argument_literal<'a>(
-    arguments: &'a Map<String, Value>,
-    slot: &str,
-) -> Option<&'a str> {
+fn current_argument_literal<'a>(arguments: &'a Map<String, Value>, slot: &str) -> Option<&'a str> {
     arguments.get(slot).and_then(Value::as_str)
 }
 
@@ -140,7 +133,8 @@ fn merge_slot_binding_with_protected_slot_metadata(
         existing.protected_slot_kind = protected_slot.protected_slot_kind;
     }
     if existing.value.is_none() {
-        existing.value = current_argument_literal(arguments, &protected_slot.slot).map(str::to_string);
+        existing.value =
+            current_argument_literal(arguments, &protected_slot.slot).map(str::to_string);
     }
     if matches!(existing.origin, ArgumentOrigin::ToolDefault) {
         existing.origin = ArgumentOrigin::ModelInferred;
@@ -201,7 +195,9 @@ async fn resolve_symbolic_reference(
 ) -> Result<ResolvedSymbolicReference, TransactionError> {
     let Some(resolved_reference) = (resolver_binding.resolve)(agent_state, reference)
         .await
-        .map_err(|error| TransactionError::Invalid(format!("ERROR_CLASS=GroundingMissing {}", error)))?
+        .map_err(|error| {
+            TransactionError::Invalid(format!("ERROR_CLASS=GroundingMissing {}", error))
+        })?
     else {
         return Err(TransactionError::Invalid(format!(
             "ERROR_CLASS=GroundingMissing Symbolic reference '{}' for slot '{}' could not be resolved.",
@@ -222,7 +218,9 @@ async fn infer_symbolic_reference_from_query(
     };
     (inference_binding.infer)(agent_state, &slot.slot, query, slot.protected_slot_kind)
         .await
-        .map_err(|error| TransactionError::Invalid(format!("ERROR_CLASS=GroundingMissing {}", error)))
+        .map_err(|error| {
+            TransactionError::Invalid(format!("ERROR_CLASS=GroundingMissing {}", error))
+        })
 }
 
 fn record_grounded_symbolic_reference(
@@ -284,7 +282,10 @@ pub(super) async fn apply_instruction_contract_grounding(
     let Some(resolved) = agent_state.resolved_intent.as_ref() else {
         return Ok(tool);
     };
-    let requires_grounding = resolved.required_receipts.iter().any(|receipt| receipt == "grounding");
+    let requires_grounding = resolved
+        .required_receipts
+        .iter()
+        .any(|receipt| receipt == "grounding");
     if !requires_grounding {
         return Ok(tool);
     }
@@ -318,8 +319,8 @@ pub(super) async fn apply_instruction_contract_grounding(
     let user_query = agent_state.goal.clone();
 
     let mut grounded_slots = Vec::<Value>::new();
-    for binding in protected_slot_bindings_by_name(resolved, tool_name.as_deref(), arguments)
-        .into_values()
+    for binding in
+        protected_slot_bindings_by_name(resolved, tool_name.as_deref(), arguments).into_values()
     {
         match binding.binding_kind {
             InstructionBindingKind::SymbolicRef => {
@@ -350,16 +351,16 @@ pub(super) async fn apply_instruction_contract_grounding(
                 let literal = current_argument_literal(arguments, &binding.slot)
                     .or_else(|| binding.value.as_deref())
                     .ok_or_else(|| {
-                    TransactionError::Invalid(format!(
+                        TransactionError::Invalid(format!(
                         "ERROR_CLASS=GroundingMissing User literal slot '{}' was missing a value.",
                         binding.slot
                     ))
-                })?;
+                    })?;
                 let attested = query_attests_protected_literal(&user_query, &binding, literal);
                 let validated_literal = validate_protected_literal(&binding, literal).ok();
                 if matches!(binding.protected_slot_kind, ProtectedSlotKind::Unknown) {
-                    let grounded_value = validated_literal
-                        .unwrap_or(Value::String(literal.trim().to_string()));
+                    let grounded_value =
+                        validated_literal.unwrap_or(Value::String(literal.trim().to_string()));
                     arguments.insert(binding.slot.clone(), grounded_value.clone());
                     grounded_slots.push(json!({
                         "slot": binding.slot,
@@ -368,10 +369,8 @@ pub(super) async fn apply_instruction_contract_grounding(
                         "origin": binding.origin,
                         "protectedSlotKind": binding.protected_slot_kind,
                     }));
-                    verification_checks.push(format!(
-                        "grounding_slot={}::user_literal",
-                        binding.slot
-                    ));
+                    verification_checks
+                        .push(format!("grounding_slot={}::user_literal", binding.slot));
                     continue;
                 }
 
@@ -401,9 +400,13 @@ pub(super) async fn apply_instruction_contract_grounding(
                 )
                 .await?
                 {
-                    let resolved_reference =
-                        resolve_symbolic_reference(resolver_binding, agent_state, &binding, &reference)
-                            .await?;
+                    let resolved_reference = resolve_symbolic_reference(
+                        resolver_binding,
+                        agent_state,
+                        &binding,
+                        &reference,
+                    )
+                    .await?;
                     record_grounded_symbolic_reference(
                         service,
                         arguments,
@@ -486,7 +489,11 @@ pub(super) async fn apply_instruction_contract_grounding(
         .and_then(|bytes| sha256(&bytes).ok())
         .map(|digest| format!("sha256:{}", hex::encode(digest.as_ref())))
         .unwrap_or_else(|| "sha256:unavailable".to_string());
-    mark_execution_receipt_with_value(&mut agent_state.tool_execution_log, "grounding", grounding_commit.clone());
+    mark_execution_receipt_with_value(
+        &mut agent_state.tool_execution_log,
+        "grounding",
+        grounding_commit.clone(),
+    );
     verification_checks.push(receipt_marker("grounding"));
     verification_checks.push(format!("grounding_commit={}", grounding_commit));
 
@@ -588,6 +595,9 @@ mod tests {
         assert_eq!(to.binding_kind, InstructionBindingKind::UserLiteral);
         assert_eq!(to.origin, ArgumentOrigin::ModelInferred);
         assert_eq!(to.protected_slot_kind, ProtectedSlotKind::EmailAddress);
-        assert_eq!(to.value.as_deref(), Some("your-connected-email@example.com"));
+        assert_eq!(
+            to.value.as_deref(),
+            Some("your-connected-email@example.com")
+        );
     }
 }

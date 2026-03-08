@@ -1,17 +1,15 @@
-use super::subscriptions::{
-    build_registration_from_result, GoogleAutomationManager, GoogleConnectorSubscriptionView,
-};
 use super::policy::{
     approval_marker_present, approval_required_error, AutomationPolicyMode, PolicyDecisionMode,
     ShieldApprovalRequest, ShieldPolicyManager,
+};
+use super::subscriptions::{
+    build_registration_from_result, GoogleAutomationManager, GoogleConnectorSubscriptionView,
 };
 use ioi_services::agentic::desktop::connectors::google_workspace as shared;
 use serde_json::{json, Value};
 use tauri::State;
 
-pub use shared::{
-    ConnectorActionDefinition, ConnectorActionResult, ConnectorConfigureResult,
-};
+pub use shared::{ConnectorActionDefinition, ConnectorActionResult, ConnectorConfigureResult};
 
 pub async fn connector_list_actions(
     connector_id: String,
@@ -30,8 +28,13 @@ pub async fn connector_configure(
 ) -> Result<ConnectorConfigureResult, String> {
     let mut result = shared::connector_configure(&connector_id, input).await?;
     if shared::matches_google_connector_id(&connector_id) {
-        let subscriptions = manager.list_subscriptions(shared::GOOGLE_CONNECTOR_ID).await?;
-        result.data = Some(merge_data_with_subscriptions(result.data.take(), subscriptions)?);
+        let subscriptions = manager
+            .list_subscriptions(shared::GOOGLE_CONNECTOR_ID)
+            .await?;
+        result.data = Some(merge_data_with_subscriptions(
+            result.data.take(),
+            subscriptions,
+        )?);
     }
     Ok(result)
 }
@@ -66,7 +69,9 @@ pub async fn connector_list_subscriptions(
     connector_id: String,
 ) -> Result<Vec<GoogleConnectorSubscriptionView>, String> {
     if shared::matches_google_connector_id(&connector_id) {
-        manager.list_subscriptions(shared::GOOGLE_CONNECTOR_ID).await
+        manager
+            .list_subscriptions(shared::GOOGLE_CONNECTOR_ID)
+            .await
     } else {
         Ok(Vec::new())
     }
@@ -84,7 +89,8 @@ fn enforce_google_connector_policy(
 
     let Some(action) = shared::google_connector_actions()
         .into_iter()
-        .find(|candidate| candidate.id == action_id) else {
+        .find(|candidate| candidate.id == action_id)
+    else {
         return Ok(());
     };
 
@@ -156,7 +162,10 @@ fn enforce_google_connector_policy(
 }
 
 fn is_automation_action(action_id: &str) -> bool {
-    matches!(action_id, "gmail.watch_emails" | "events.subscribe" | "events.renew")
+    matches!(
+        action_id,
+        "gmail.watch_emails" | "events.subscribe" | "events.renew"
+    )
 }
 
 pub async fn connector_stop_subscription(
@@ -229,8 +238,9 @@ fn merge_data_with_subscription(
     };
     payload.insert(
         "subscriptionRuntime".to_string(),
-        serde_json::to_value(subscription)
-            .map_err(|error| format!("Failed to serialize Google subscription runtime: {}", error))?,
+        serde_json::to_value(subscription).map_err(|error| {
+            format!("Failed to serialize Google subscription runtime: {}", error)
+        })?,
     );
     Ok(Value::Object(payload))
 }

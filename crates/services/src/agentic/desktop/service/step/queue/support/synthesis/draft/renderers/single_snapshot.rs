@@ -215,7 +215,9 @@ pub(super) fn render_single_snapshot_layout(
                     ));
                 }
             } else {
-                lines.push("- Next step: Open the cited sources for live metric details.".to_string());
+                lines.push(
+                    "- Next step: Open the cited sources for live metric details.".to_string(),
+                );
             }
         }
 

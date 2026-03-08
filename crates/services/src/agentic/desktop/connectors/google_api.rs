@@ -303,7 +303,10 @@ async fn bootstrap_gmail_profile(
                         .unwrap_or(&id)
                         .trim()
                         .to_string();
-                    let label_type = label.get("type").and_then(Value::as_str).unwrap_or_default();
+                    let label_type = label
+                        .get("type")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
                     Some(option_entry(
                         if label_type.eq_ignore_ascii_case("system") {
                             format!("{} (system)", name)
@@ -332,7 +335,10 @@ async fn bootstrap_gmail_profile(
                 default_value,
                 Vec::new(),
                 suggestions.clone(),
-                Some("Autocomplete discovered Gmail labels instead of typing raw label IDs.".to_string()),
+                Some(
+                    "Autocomplete discovered Gmail labels instead of typing raw label IDs."
+                        .to_string(),
+                ),
                 Some("chips".to_string()),
             );
 
@@ -340,7 +346,10 @@ async fn bootstrap_gmail_profile(
                 "gmail".to_string(),
                 service_state(
                     "ready",
-                    format!("Discovered {} Gmail labels for this account.", suggestions.len()),
+                    format!(
+                        "Discovered {} Gmail labels for this account.",
+                        suggestions.len()
+                    ),
                     Vec::new(),
                     Some(json!({ "labelCount": suggestions.len() })),
                 ),
@@ -404,7 +413,11 @@ async fn bootstrap_calendar_profile(
             let mut discovered = value_array(response.get("items"))
                 .into_iter()
                 .filter_map(|calendar| {
-                    let id = calendar.get("id").and_then(Value::as_str)?.trim().to_string();
+                    let id = calendar
+                        .get("id")
+                        .and_then(Value::as_str)?
+                        .trim()
+                        .to_string();
                     let summary = calendar
                         .get("summary")
                         .and_then(Value::as_str)
@@ -428,7 +441,10 @@ async fn bootstrap_calendar_profile(
             discovered.sort_by(|left, right| option_label(left).cmp(&option_label(right)));
             for option in discovered {
                 let value = option_value(&option);
-                if options.iter().any(|existing| option_value(existing) == value) {
+                if options
+                    .iter()
+                    .any(|existing| option_value(existing) == value)
+                {
                     continue;
                 }
                 options.push(option);
@@ -439,9 +455,8 @@ async fn bootstrap_calendar_profile(
                 .find(|option| option_value(option) == "primary")
                 .map(option_value)
                 .or_else(|| options.first().map(option_value));
-            let description = Some(
-                "Use a discovered calendar instead of typing a raw calendar ID.".to_string(),
-            );
+            let description =
+                Some("Use a discovered calendar instead of typing a raw calendar ID.".to_string());
 
             insert_field_profile(
                 field_profiles,
@@ -530,7 +545,11 @@ async fn bootstrap_tasks_profile(
             let mut discovered = value_array(response.get("items"))
                 .into_iter()
                 .filter_map(|tasklist| {
-                    let id = tasklist.get("id").and_then(Value::as_str)?.trim().to_string();
+                    let id = tasklist
+                        .get("id")
+                        .and_then(Value::as_str)?
+                        .trim()
+                        .to_string();
                     let title = tasklist
                         .get("title")
                         .and_then(Value::as_str)
@@ -549,8 +568,10 @@ async fn bootstrap_tasks_profile(
                 Some("@default".to_string()),
                 options.clone(),
                 Vec::new(),
-                Some("Choose a discovered task list instead of typing the task list ID manually."
-                    .to_string()),
+                Some(
+                    "Choose a discovered task list instead of typing the task list ID manually."
+                        .to_string(),
+                ),
                 Some("select".to_string()),
             );
 
@@ -623,7 +644,10 @@ async fn bootstrap_projects_profile(
 
     let mut options = Vec::new();
     if let Some(project_id) = env_project.clone() {
-        options.push(option_entry(format!("Default project ({})", project_id), project_id));
+        options.push(option_entry(
+            format!("Default project ({})", project_id),
+            project_id,
+        ));
     }
 
     match google_json_request(
@@ -659,7 +683,10 @@ async fn bootstrap_projects_profile(
             discovered.sort_by(|left, right| option_label(left).cmp(&option_label(right)));
             for option in discovered {
                 let value = option_value(&option);
-                if options.iter().any(|existing| option_value(existing) == value) {
+                if options
+                    .iter()
+                    .any(|existing| option_value(existing) == value)
+                {
                     continue;
                 }
                 options.push(option);
@@ -675,9 +702,10 @@ async fn bootstrap_projects_profile(
 
     if !options.is_empty() {
         let default_value = env_project.or_else(|| options.first().map(option_value));
-        let description =
-            Some("Select a discovered Google Cloud project instead of typing a raw project ID."
-                .to_string());
+        let description = Some(
+            "Select a discovered Google Cloud project instead of typing a raw project ID."
+                .to_string(),
+        );
         for field_id in ["projectId", "project"] {
             insert_field_profile(
                 field_profiles,
@@ -693,7 +721,10 @@ async fn bootstrap_projects_profile(
             "bigquery".to_string(),
             service_state(
                 "ready",
-                format!("{} Google Cloud projects are available for BigQuery defaults.", options.len()),
+                format!(
+                    "{} Google Cloud projects are available for BigQuery defaults.",
+                    options.len()
+                ),
                 Vec::new(),
                 Some(json!({ "projectCount": options.len(), "defaultProjectId": default_value })),
             ),
@@ -918,7 +949,10 @@ async fn execute_google_command(
     access_token: &str,
     command: ParsedGoogleCommand,
 ) -> Result<Value, String> {
-    match (command.service.as_str(), command.path.first().map(String::as_str)) {
+    match (
+        command.service.as_str(),
+        command.path.first().map(String::as_str),
+    ) {
         ("gmail", Some("+triage")) => execute_gmail_triage(client, access_token, &command).await,
         ("gmail", Some("+send")) => execute_gmail_send(client, access_token, &command).await,
         ("gmail", Some("+watch")) => execute_gmail_watch(client, access_token, &command).await,
@@ -981,7 +1015,10 @@ async fn execute_gmail_triage(
 
     let include_labels = option_bool(command, "labels").unwrap_or(false);
     let mut messages = Vec::new();
-    for message in value_array(list.get("messages")).into_iter().take(max_results as usize) {
+    for message in value_array(list.get("messages"))
+        .into_iter()
+        .take(max_results as usize)
+    {
         let message_id = message
             .get("id")
             .and_then(Value::as_str)
@@ -999,10 +1036,7 @@ async fn execute_gmail_triage(
         entry.insert("id".to_string(), Value::String(message_id.to_string()));
         entry.insert(
             "threadId".to_string(),
-            detail
-                .get("threadId")
-                .cloned()
-                .unwrap_or(Value::Null),
+            detail.get("threadId").cloned().unwrap_or(Value::Null),
         );
         entry.insert(
             "from".to_string(),
@@ -1165,7 +1199,11 @@ async fn execute_calendar_insert(
         client,
         access_token,
         Method::POST,
-        &format!("{}/calendars/{}/events", CALENDAR_BASE_URL, url_encode(&calendar_id)),
+        &format!(
+            "{}/calendars/{}/events",
+            CALENDAR_BASE_URL,
+            url_encode(&calendar_id)
+        ),
         None,
         Some(body),
     )
@@ -1273,8 +1311,12 @@ async fn execute_drive_upload(
         .get(1)
         .cloned()
         .ok_or_else(|| "Drive upload requires a file path.".to_string())?;
-    let bytes = fs::read(&file_path)
-        .map_err(|error| format!("Failed to read Drive upload file '{}': {}", file_path, error))?;
+    let bytes = fs::read(&file_path).map_err(|error| {
+        format!(
+            "Failed to read Drive upload file '{}': {}",
+            file_path, error
+        )
+    })?;
     let file_name = option_string(command, "name").unwrap_or_else(|| {
         Path::new(&file_path)
             .file_name()
@@ -1326,7 +1368,10 @@ async fn execute_workflow_standup_report(
             page_delay_ms: 100,
             options: HashMap::from([
                 ("max".to_string(), vec!["10".to_string()]),
-                ("query".to_string(), vec!["is:unread newer_than:7d".to_string()]),
+                (
+                    "query".to_string(),
+                    vec!["is:unread newer_than:7d".to_string()],
+                ),
             ]),
         },
     )
@@ -1379,7 +1424,11 @@ async fn execute_workflow_meeting_prep(
         client,
         access_token,
         Method::GET,
-        &format!("{}/calendars/{}/events", CALENDAR_BASE_URL, url_encode(&calendar_id)),
+        &format!(
+            "{}/calendars/{}/events",
+            CALENDAR_BASE_URL,
+            url_encode(&calendar_id)
+        ),
         Some(vec![
             ("timeMin".to_string(), now),
             ("singleEvents".to_string(), "true".to_string()),
@@ -1389,7 +1438,10 @@ async fn execute_workflow_meeting_prep(
         None,
     )
     .await?;
-    let next_event = value_array(events.get("items")).into_iter().next().unwrap_or(Value::Null);
+    let next_event = value_array(events.get("items"))
+        .into_iter()
+        .next()
+        .unwrap_or(Value::Null);
     let unread = execute_gmail_triage(
         client,
         access_token,
@@ -1404,7 +1456,10 @@ async fn execute_workflow_meeting_prep(
             page_delay_ms: 100,
             options: HashMap::from([
                 ("max".to_string(), vec!["5".to_string()]),
-                ("query".to_string(), vec!["is:unread newer_than:3d".to_string()]),
+                (
+                    "query".to_string(),
+                    vec!["is:unread newer_than:3d".to_string()],
+                ),
             ]),
         },
     )
@@ -1423,8 +1478,14 @@ async fn execute_workflow_email_to_task(
 ) -> Result<Value, String> {
     let message_id = required_option(command, "message-id")?;
     let tasklist = option_string(command, "tasklist").unwrap_or_else(|| "@default".to_string());
-    let message = gmail_get_message(client, access_token, &message_id, "metadata", Some("From,Subject,Date"))
-        .await?;
+    let message = gmail_get_message(
+        client,
+        access_token,
+        &message_id,
+        "metadata",
+        Some("From,Subject,Date"),
+    )
+    .await?;
     let headers = gmail_header_map(&message);
     let title = headers
         .get("subject")
@@ -1434,7 +1495,10 @@ async fn execute_workflow_email_to_task(
         "From: {}\nDate: {}\nSnippet: {}\nMessage ID: {}",
         headers.get("from").cloned().unwrap_or_default(),
         headers.get("date").cloned().unwrap_or_default(),
-        message.get("snippet").and_then(Value::as_str).unwrap_or_default(),
+        message
+            .get("snippet")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
         message_id
     );
     let task = google_json_request(
@@ -1524,10 +1588,7 @@ async fn execute_workflow_file_announce(
         None,
     )
     .await?;
-    let name = file
-        .get("name")
-        .and_then(Value::as_str)
-        .unwrap_or("file");
+    let name = file.get("name").and_then(Value::as_str).unwrap_or("file");
     let link = file
         .get("webViewLink")
         .and_then(Value::as_str)
@@ -1561,7 +1622,9 @@ async fn execute_workspace_events_subscribe(
 ) -> Result<Value, String> {
     let project = option_string(command, "project")
         .or_else(default_google_project_id)
-        .ok_or_else(|| "Workspace Events subscribe requires `project` or GOOGLE_CLOUD_PROJECT.".to_string())?;
+        .ok_or_else(|| {
+            "Workspace Events subscribe requires `project` or GOOGLE_CLOUD_PROJECT.".to_string()
+        })?;
     let topic_name = normalize_pubsub_topic_name(
         Some(project.clone()),
         format!("autopilot-workspace-events-{}", short_timestamp_suffix()),
@@ -1597,7 +1660,8 @@ async fn execute_workspace_events_subscribe(
         })),
     )
     .await?;
-    let subscription = workspace_events_wait_for_subscription_operation(client, access_token, &create).await?;
+    let subscription =
+        workspace_events_wait_for_subscription_operation(client, access_token, &create).await?;
 
     Ok(json!({
         "subscription": subscription,
@@ -1643,12 +1707,14 @@ async fn execute_workspace_events_renew(
                     Some(json!({})),
                 )
                 .await?;
-                renewed.push(workspace_events_wait_for_subscription_operation(
-                    client,
-                    access_token,
-                    &operation,
-                )
-                .await?);
+                renewed.push(
+                    workspace_events_wait_for_subscription_operation(
+                        client,
+                        access_token,
+                        &operation,
+                    )
+                    .await?,
+                );
             }
         }
         return Ok(json!({ "subscriptions": renewed }));
@@ -1684,7 +1750,9 @@ async fn execute_google_raw_command(
         "drive" => execute_drive_raw_command(client, access_token, command).await,
         "tasks" => execute_tasks_raw_command(client, access_token, command).await,
         "chat" => execute_chat_raw_command(client, access_token, command).await,
-        "bigquery:v2" | "bigquery" => execute_bigquery_raw_command(client, access_token, command).await,
+        "bigquery:v2" | "bigquery" => {
+            execute_bigquery_raw_command(client, access_token, command).await
+        }
         "workspaceevents:v1" | "workspaceevents" | "events:v1" => {
             execute_workspace_events_raw_command(client, access_token, command).await
         }
@@ -1769,7 +1837,11 @@ async fn execute_gmail_raw_command(
                 client,
                 access_token,
                 Method::POST,
-                &format!("{}/users/{}/messages/send", GMAIL_BASE_URL, url_encode(&user)),
+                &format!(
+                    "{}/users/{}/messages/send",
+                    GMAIL_BASE_URL,
+                    url_encode(&user)
+                ),
                 Some(map_to_query_pairs(params)),
                 command.body.clone(),
             )
@@ -2102,7 +2174,10 @@ async fn execute_drive_raw_command(
                 .clone()
                 .ok_or_else(|| "drive.files.create upload requires `uploadPath`.".to_string())?;
             let bytes = fs::read(&upload_path).map_err(|error| {
-                format!("Failed to read Drive upload file '{}': {}", upload_path, error)
+                format!(
+                    "Failed to read Drive upload file '{}': {}",
+                    upload_path, error
+                )
             })?;
             google_drive_multipart_upload(client, access_token, metadata, bytes).await
         }
@@ -2165,7 +2240,9 @@ async fn execute_chat_raw_command(
             let mut params = object_map(command.params.clone())?;
             let space = take_string(&mut params, "parent")
                 .or_else(|| take_string(&mut params, "space"))
-                .ok_or_else(|| "chat.spaces.messages.create requires `parent` or `space`.".to_string())?;
+                .ok_or_else(|| {
+                    "chat.spaces.messages.create requires `parent` or `space`.".to_string()
+                })?;
             google_json_request(
                 client,
                 access_token,
@@ -2198,7 +2275,11 @@ async fn execute_bigquery_raw_command(
                 client,
                 access_token,
                 Method::POST,
-                &format!("{}/projects/{}/queries", BIGQUERY_BASE_URL, url_encode(&project_id)),
+                &format!(
+                    "{}/projects/{}/queries",
+                    BIGQUERY_BASE_URL,
+                    url_encode(&project_id)
+                ),
                 Some(map_to_query_pairs(params)),
                 command.body.clone(),
             )
@@ -2258,8 +2339,9 @@ async fn execute_workspace_events_raw_command(
             .await
         }
         ["subscriptions", "patch"] => {
-            let name = take_string(&mut params, "name")
-                .ok_or_else(|| "workspaceevents.subscriptions.patch requires `name`.".to_string())?;
+            let name = take_string(&mut params, "name").ok_or_else(|| {
+                "workspaceevents.subscriptions.patch requires `name`.".to_string()
+            })?;
             google_json_request(
                 client,
                 access_token,
@@ -2283,8 +2365,9 @@ async fn execute_workspace_events_raw_command(
             workspace_events_wait_for_subscription_operation(client, access_token, &operation).await
         }
         ["subscriptions", "reactivate"] => {
-            let name = take_string(&mut params, "name")
-                .ok_or_else(|| "workspaceevents.subscriptions.reactivate requires `name`.".to_string())?;
+            let name = take_string(&mut params, "name").ok_or_else(|| {
+                "workspaceevents.subscriptions.reactivate requires `name`.".to_string()
+            })?;
             let operation = google_json_request(
                 client,
                 access_token,
@@ -2348,7 +2431,11 @@ async fn gmail_get_message(
         client,
         access_token,
         Method::GET,
-        &format!("{}/users/me/messages/{}", GMAIL_BASE_URL, url_encode(message_id)),
+        &format!(
+            "{}/users/me/messages/{}",
+            GMAIL_BASE_URL,
+            url_encode(message_id)
+        ),
         Some(query),
         None,
     )
@@ -2429,11 +2516,16 @@ async fn workspace_events_wait_for_subscription_operation(
     let url = if name.starts_with("http://") || name.starts_with("https://") {
         name.to_string()
     } else {
-        format!("{}/{}", WORKSPACE_EVENTS_BASE_URL, name.trim_start_matches('/'))
+        format!(
+            "{}/{}",
+            WORKSPACE_EVENTS_BASE_URL,
+            name.trim_start_matches('/')
+        )
     };
 
     for _ in 0..20 {
-        let polled = google_json_request(client, access_token, Method::GET, &url, None, None).await?;
+        let polled =
+            google_json_request(client, access_token, Method::GET, &url, None, None).await?;
         if polled.get("done").and_then(Value::as_bool).unwrap_or(false) {
             if let Some(error) = polled.get("error") {
                 return Err(format!("Workspace Events operation failed: {}", error));
@@ -2536,7 +2628,15 @@ async fn paginate_google_collection(
             retain_query_key(&mut query, "pageToken");
             query.push(("pageToken".to_string(), token));
         }
-        let page = google_json_request(client, access_token, Method::GET, url, Some(query.clone()), None).await?;
+        let page = google_json_request(
+            client,
+            access_token,
+            Method::GET,
+            url,
+            Some(query.clone()),
+            None,
+        )
+        .await?;
         collected.extend(value_array(page.get(items_key)));
         next_page_token = page
             .get("nextPageToken")
@@ -2584,7 +2684,10 @@ async fn parse_google_response(response: reqwest::Response) -> Result<Value, Str
         .await
         .map_err(|error| format!("Failed to read Google API response: {}", error))?;
     if !status.is_success() {
-        return Err(format!("Google API request failed with {}: {}", status, text));
+        return Err(format!(
+            "Google API request failed with {}: {}",
+            status, text
+        ));
     }
     if text.trim().is_empty() {
         return Ok(json!({ "ok": true, "status": status.as_u16() }));
@@ -2666,7 +2769,8 @@ fn option_string(command: &ParsedGoogleCommand, key: &str) -> Option<String> {
 }
 
 fn required_option(command: &ParsedGoogleCommand, key: &str) -> Result<String, String> {
-    option_string(command, key).ok_or_else(|| format!("Google command option '--{}' is required.", key))
+    option_string(command, key)
+        .ok_or_else(|| format!("Google command option '--{}' is required.", key))
 }
 
 fn option_values(command: &ParsedGoogleCommand, key: &str) -> Vec<String> {
@@ -2682,11 +2786,13 @@ fn option_values(command: &ParsedGoogleCommand, key: &str) -> Vec<String> {
 
 fn option_bool(command: &ParsedGoogleCommand, key: &str) -> Option<bool> {
     command.options.get(key).and_then(|values| {
-        values.last().and_then(|value| match value.trim().to_ascii_lowercase().as_str() {
-            "true" | "1" | "yes" => Some(true),
-            "false" | "0" | "no" => Some(false),
-            _ => None,
-        })
+        values
+            .last()
+            .and_then(|value| match value.trim().to_ascii_lowercase().as_str() {
+                "true" | "1" | "yes" => Some(true),
+                "false" | "0" | "no" => Some(false),
+                _ => None,
+            })
     })
 }
 
@@ -2699,10 +2805,7 @@ fn option_u64(command: &ParsedGoogleCommand, key: &str) -> Option<u64> {
 }
 
 fn value_array(value: Option<&Value>) -> Vec<Value> {
-    value
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
+    value.and_then(Value::as_array).cloned().unwrap_or_default()
 }
 
 fn split_csv_like(raw: &str) -> Vec<String> {
@@ -2713,16 +2816,13 @@ fn split_csv_like(raw: &str) -> Vec<String> {
         .collect()
 }
 
-fn normalize_pubsub_topic_name(
-    project: Option<String>,
-    topic: String,
-) -> Result<String, String> {
+fn normalize_pubsub_topic_name(project: Option<String>, topic: String) -> Result<String, String> {
     if topic.starts_with("projects/") {
         return Ok(topic);
     }
-    let project = project
-        .or_else(default_google_project_id)
-        .ok_or_else(|| "A Google Cloud project ID is required to build a Pub/Sub topic name.".to_string())?;
+    let project = project.or_else(default_google_project_id).ok_or_else(|| {
+        "A Google Cloud project ID is required to build a Pub/Sub topic name.".to_string()
+    })?;
     Ok(format!(
         "projects/{}/topics/{}",
         project,
@@ -2737,12 +2837,9 @@ fn normalize_pubsub_subscription_name(
     if subscription.starts_with("projects/") {
         return Ok(subscription);
     }
-    let project = project
-        .or_else(default_google_project_id)
-        .ok_or_else(|| {
-            "A Google Cloud project ID is required to build a Pub/Sub subscription name."
-                .to_string()
-        })?;
+    let project = project.or_else(default_google_project_id).ok_or_else(|| {
+        "A Google Cloud project ID is required to build a Pub/Sub subscription name.".to_string()
+    })?;
     Ok(format!(
         "projects/{}/subscriptions/{}",
         project,
@@ -2772,8 +2869,7 @@ fn today_ymd() -> String {
     OffsetDateTime::now_utc()
         .date()
         .format(
-            &time::format_description::parse("[year]-[month]-[day]")
-                .expect("valid date format"),
+            &time::format_description::parse("[year]-[month]-[day]").expect("valid date format"),
         )
         .unwrap_or_else(|_| "1970-01-01".to_string())
 }
@@ -2791,11 +2887,16 @@ fn day_end_rfc3339(date: &str) -> Result<String, String> {
 fn date_to_day_bounds(date: &str) -> Result<(String, String), String> {
     let format = time::format_description::parse("[year]-[month]-[day]")
         .map_err(|error| format!("Failed to build date parser: {}", error))?;
-    let parsed =
-        time::Date::parse(date, &format).map_err(|error| format!("Invalid date '{}': {}", date, error))?;
-    let start = parsed.with_hms(0, 0, 0).map_err(|error| error.to_string())?;
+    let parsed = time::Date::parse(date, &format)
+        .map_err(|error| format!("Invalid date '{}': {}", date, error))?;
+    let start = parsed
+        .with_hms(0, 0, 0)
+        .map_err(|error| error.to_string())?;
     let end = start + TimeDuration::days(1);
-    Ok((format_time(start.assume_utc()), format_time(end.assume_utc())))
+    Ok((
+        format_time(start.assume_utc()),
+        format_time(end.assume_utc()),
+    ))
 }
 
 fn now_rfc3339() -> String {
@@ -2863,8 +2964,9 @@ mod tests {
 
     #[test]
     fn normalizes_pubsub_topic_names() {
-        let full = normalize_pubsub_topic_name(Some("demo-project".to_string()), "demo-topic".to_string())
-            .expect("topic");
+        let full =
+            normalize_pubsub_topic_name(Some("demo-project".to_string()), "demo-topic".to_string())
+                .expect("topic");
         assert_eq!(full, "projects/demo-project/topics/demo-topic");
     }
 }

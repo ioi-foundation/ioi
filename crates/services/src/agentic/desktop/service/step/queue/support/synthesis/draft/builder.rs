@@ -183,15 +183,15 @@ pub(crate) fn build_deterministic_story_draft(
     let local_business_entity_diversity_required =
         retrieval_contract_entity_diversity_required(retrieval_contract, &query);
     let local_business_entity_targets = if local_business_entity_diversity_required {
-            merged_local_business_target_names(
-                &pending.attempted_urls,
-                &pending.successful_reads,
-                locality_scope.as_deref(),
-                required_story_count,
-            )
-        } else {
-            Vec::new()
-        };
+        merged_local_business_target_names(
+            &pending.attempted_urls,
+            &pending.successful_reads,
+            locality_scope.as_deref(),
+            required_story_count,
+        )
+    } else {
+        Vec::new()
+    };
     let mut selected_sources = if local_business_entity_targets.is_empty() {
         Vec::new()
     } else {

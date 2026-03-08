@@ -1,3 +1,4 @@
+use crate::agentic::desktop::types::AgentState;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::ArgumentOrigin;
 use ioi_types::app::agentic::{CapabilityId, ProtectedSlotKind, ProviderRouteCandidate};
@@ -5,7 +6,6 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 use std::future::Future;
 use std::pin::Pin;
-use crate::agentic::desktop::types::AgentState;
 
 pub mod google_api;
 pub mod google_auth;
@@ -23,10 +23,8 @@ pub type ProviderCandidateDiscoverer = for<'a> fn(
 
 pub type SymbolicReferenceResolutionFuture<'a> =
     Pin<Box<dyn Future<Output = Result<Option<ResolvedSymbolicReference>, String>> + Send + 'a>>;
-pub type SymbolicReferenceResolver = for<'a> fn(
-    &'a AgentState,
-    &'a str,
-) -> SymbolicReferenceResolutionFuture<'a>;
+pub type SymbolicReferenceResolver =
+    for<'a> fn(&'a AgentState, &'a str) -> SymbolicReferenceResolutionFuture<'a>;
 
 pub type SymbolicReferenceInferenceFuture<'a> =
     Pin<Box<dyn Future<Output = Result<Option<String>, String>> + Send + 'a>>;
@@ -39,12 +37,8 @@ pub type SymbolicReferenceInferencer = for<'a> fn(
 
 pub type PostconditionVerificationFuture<'a> =
     Pin<Box<dyn Future<Output = Result<Option<ConnectorPostconditionProof>, String>> + Send + 'a>>;
-pub type PostconditionVerifier = for<'a> fn(
-    &'a AgentState,
-    &'a str,
-    &'a Value,
-    &'a str,
-) -> PostconditionVerificationFuture<'a>;
+pub type PostconditionVerifier =
+    for<'a> fn(&'a AgentState, &'a str, &'a Value, &'a str) -> PostconditionVerificationFuture<'a>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ConnectorToolRouteBinding {

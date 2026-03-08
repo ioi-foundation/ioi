@@ -5,8 +5,8 @@ use crate::agentic::desktop::service::step::queue::support::{
     matched_local_business_target_names, merged_local_business_target_names,
     retrieval_contract_entity_diversity_required,
     retrieval_contract_is_generic_headline_collection, retrieval_contract_required_story_count,
-    selected_local_business_target_sources,
-    retrieval_contract_requires_runtime_locality, synthesis_query_contract,
+    retrieval_contract_requires_runtime_locality, selected_local_business_target_sources,
+    synthesis_query_contract,
 };
 
 pub(in super::super) async fn maybe_handle_web_read(

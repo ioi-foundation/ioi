@@ -400,27 +400,27 @@ async fn resolver_auto_selects_single_available_mail_provider_family() {
         )
         .expect("insert mail connector");
 
-    let resolved = resolve_step_intent_with_state(
-        &service,
-        Some(&state),
-        &agent_state,
-        &rules,
-        "terminal",
-    )
-    .await
-    .unwrap();
+    let resolved =
+        resolve_step_intent_with_state(&service, Some(&state), &agent_state, &rules, "terminal")
+            .await
+            .unwrap();
 
     assert_eq!(resolved.intent_id, "mail.reply");
     let provider_selection = resolved
         .provider_selection
         .expect("provider selection should be synthesized");
-    assert_eq!(provider_selection.mode, ProviderSelectionMode::DynamicSynthesis);
+    assert_eq!(
+        provider_selection.mode,
+        ProviderSelectionMode::DynamicSynthesis
+    );
     assert!(
         provider_selection
             .candidates
             .iter()
-            .any(|candidate| candidate.provider_family == "mail.wallet_network"
-                && candidate.route_label == "mail_connector"),
+            .any(
+                |candidate| candidate.provider_family == "mail.wallet_network"
+                    && candidate.route_label == "mail_connector"
+            ),
         "generic mail provider candidates should include the wallet mail connector route"
     );
 }

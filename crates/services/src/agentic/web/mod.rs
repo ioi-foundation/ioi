@@ -14,16 +14,16 @@ mod util;
 #[cfg(test)]
 mod tests;
 
+pub use contract::derive_web_retrieval_contract;
 pub(crate) use contract::{
     contract_requires_geo_scoped_entity_expansion, contract_requires_semantic_source_alignment,
-    infer_query_matching_source_urls, infer_web_retrieval_contract,
-    query_matching_source_urls, WEB_SOURCE_ALIGNMENT_MAX_SOURCES,
+    infer_query_matching_source_urls, infer_web_retrieval_contract, query_matching_source_urls,
+    WEB_SOURCE_ALIGNMENT_MAX_SOURCES,
 };
-pub use contract::derive_web_retrieval_contract;
+pub(crate) use media::media_provider_candidate_receipt;
+pub use media::{edge_media_extract_multimodal_evidence, edge_media_extract_transcript};
 pub(crate) use parsers::parse_json_ld_item_list_sources_from_html;
 pub(crate) use parsers::parse_same_host_child_collection_sources_from_html;
-pub use media::{edge_media_extract_multimodal_evidence, edge_media_extract_transcript};
-pub(crate) use media::media_provider_candidate_receipt;
 pub use readability::edge_web_read;
 pub use search::edge_web_search;
 pub(crate) use transport::{
