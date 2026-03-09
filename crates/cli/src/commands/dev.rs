@@ -18,7 +18,8 @@ use ioi_types::app::agentic::{
     SkillLifecycleState, SkillRecord,
 };
 use ioi_types::app::{
-    ActionContext, ActionRequest, ActionTarget, MailConnectorAuthMode, MailConnectorConfig,
+    ActionContext, ActionRequest, ActionTarget, ConnectorAuthProtocol, ConnectorAuthRecord,
+    ConnectorAuthState, ConnectorAuthUpsertParams, MailConnectorAuthMode, MailConnectorConfig,
     MailConnectorEndpoint, MailConnectorProvider, MailConnectorSecretAliases, MailConnectorTlsMode,
     MailConnectorUpsertParams, SecretKind, SystemPayload, VaultSecretRecord,
 };
@@ -149,6 +150,7 @@ struct LocalMailSecretSpec {
     secret_id: String,
     alias: String,
     value: String,
+    kind: SecretKind,
 }
 
 struct PublishedSkillBundle {
@@ -361,7 +363,7 @@ async fn run_bootstrap_mail(rpc: &str, env_file: PathBuf) -> Result<()> {
         let record = VaultSecretRecord {
             secret_id: spec.secret_id.clone(),
             alias: spec.alias.clone(),
-            kind: SecretKind::AccessToken,
+            kind: spec.kind.clone(),
             ciphertext: spec.value.as_bytes().to_vec(),
             metadata: BTreeMap::new(),
             created_at_ms: now_ms,
@@ -422,12 +424,74 @@ async fn run_bootstrap_mail(rpc: &str, env_file: PathBuf) -> Result<()> {
         params,
     };
     let tx = create_cli_tx(&keypair, payload, nonce);
+    nonce = nonce.saturating_add(1);
     let tx_hash = submit_tx_and_wait(&mut client, &tx).await?;
 
     println!(
         "Mail connector upserted for mailbox='{}' account='{}'. tx_hash={}",
         upsert.mailbox, upsert.config.account_email, tx_hash
     );
+
+    let auth_record = ConnectorAuthRecord {
+        connector_id: format!("mail.{}", upsert.mailbox),
+        provider_family: "mail.wallet_network".to_string(),
+        auth_protocol: match config.auth_mode {
+            MailConnectorAuthMode::Password => ConnectorAuthProtocol::StaticPassword,
+            MailConnectorAuthMode::Oauth2 => ConnectorAuthProtocol::OAuth2Bearer,
+        },
+        state: ConnectorAuthState::Connected,
+        account_label: Some(config.account_email.clone()),
+        mailbox: Some(config.mailbox.clone()),
+        granted_scopes: vec![
+            "mail.read.latest".to_string(),
+            "mail.list.recent".to_string(),
+            "mail.delete.spam".to_string(),
+            "mail.reply".to_string(),
+        ],
+        credential_aliases: BTreeMap::from([
+            (
+                "imap_username".to_string(),
+                config.imap_username_alias.clone(),
+            ),
+            ("imap_secret".to_string(), config.imap_secret_alias.clone()),
+            (
+                "smtp_username".to_string(),
+                config.smtp_username_alias.clone(),
+            ),
+            ("smtp_secret".to_string(), config.smtp_secret_alias.clone()),
+        ]),
+        metadata: {
+            let mut metadata = BTreeMap::new();
+            if let Some(driver) = config.provider_driver.clone() {
+                metadata.insert("driver".to_string(), driver);
+            }
+            metadata.insert(
+                "configured_by".to_string(),
+                "cli.dev.bootstrap_mail".to_string(),
+            );
+            metadata
+        },
+        created_at_ms: now_ms,
+        updated_at_ms: now_ms,
+        expires_at_ms: None,
+        last_validated_at_ms: Some(now_ms),
+    };
+    let params = codec::to_bytes_canonical(&ConnectorAuthUpsertParams {
+        record: auth_record,
+    })
+    .map_err(|e| anyhow!("Failed to encode connector auth record: {}", e))?;
+    let payload = SystemPayload::CallService {
+        service_id: "wallet_network".to_string(),
+        method: "connector_auth_upsert@v1".to_string(),
+        params,
+    };
+    let tx = create_cli_tx(&keypair, payload, nonce);
+    let tx_hash = submit_tx_and_wait(&mut client, &tx).await?;
+    println!(
+        "Connector auth upserted for mailbox='{}' account='{}'. tx_hash={}",
+        config.mailbox, config.account_email, tx_hash
+    );
+
     println!(
         "Bootstrap complete from '{}' via CLI.",
         env_path.canonicalize().unwrap_or(env_path).display()
@@ -736,26 +800,34 @@ fn parse_mail_bootstrap_config(map: &BTreeMap<String, String>) -> Result<LocalMa
 }
 
 fn build_secret_specs(config: &LocalMailBootstrapConfig) -> Vec<LocalMailSecretSpec> {
+    let auth_secret_kind = match config.auth_mode {
+        MailConnectorAuthMode::Password => SecretKind::Password,
+        MailConnectorAuthMode::Oauth2 => SecretKind::AccessToken,
+    };
     vec![
         LocalMailSecretSpec {
             secret_id: config.imap_username_secret_id.clone(),
             alias: config.imap_username_alias.clone(),
             value: config.imap_username.clone(),
+            kind: SecretKind::Custom("username".to_string()),
         },
         LocalMailSecretSpec {
             secret_id: config.imap_secret_secret_id.clone(),
             alias: config.imap_secret_alias.clone(),
             value: config.imap_secret.clone(),
+            kind: auth_secret_kind.clone(),
         },
         LocalMailSecretSpec {
             secret_id: config.smtp_username_secret_id.clone(),
             alias: config.smtp_username_alias.clone(),
             value: config.smtp_username.clone(),
+            kind: SecretKind::Custom("username".to_string()),
         },
         LocalMailSecretSpec {
             secret_id: config.smtp_secret_secret_id.clone(),
             alias: config.smtp_secret_alias.clone(),
             value: config.smtp_secret.clone(),
+            kind: auth_secret_kind,
         },
     ]
 }

@@ -1,3 +1,4 @@
+use super::auth;
 use super::policy::{
     approval_marker_present, approval_required_error, AutomationPolicyMode, PolicyDecisionMode,
     ShieldApprovalRequest, ShieldPolicyManager,
@@ -5,8 +6,10 @@ use super::policy::{
 use super::subscriptions::{
     build_registration_from_result, GoogleAutomationManager, GoogleConnectorSubscriptionView,
 };
+use crate::models::AppState;
 use ioi_services::agentic::desktop::connectors::google_workspace as shared;
 use serde_json::{json, Value};
+use std::sync::Mutex;
 use tauri::State;
 
 pub use shared::{ConnectorActionDefinition, ConnectorActionResult, ConnectorConfigureResult};
@@ -22,12 +25,15 @@ pub async fn connector_list_actions(
 }
 
 pub async fn connector_configure(
+    state: State<'_, Mutex<AppState>>,
     manager: State<'_, GoogleAutomationManager>,
     connector_id: String,
     input: Value,
 ) -> Result<ConnectorConfigureResult, String> {
+    let _ = auth::sync_google_auth_from_wallet(&state).await;
     let mut result = shared::connector_configure(&connector_id, input).await?;
     if shared::matches_google_connector_id(&connector_id) {
+        auth::sync_google_auth_to_wallet(&state).await?;
         let subscriptions = manager
             .list_subscriptions(shared::GOOGLE_CONNECTOR_ID)
             .await?;

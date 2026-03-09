@@ -50,7 +50,7 @@ const MOCK_CONNECTORS: ConnectorSummary[] = [
     description:
       "Mail connector scaffold for delegated agent inbox workflows with bounded wallet session authority.",
     status: "needs_auth",
-    authMode: "wallet_network_session",
+    authMode: "wallet_capability",
     scopes: ["mail.read.latest", "mail.read.thread"],
     notes: "Web demo data: auth flow not active in this runtime.",
   },
@@ -63,7 +63,7 @@ const MOCK_CONNECTORS: ConnectorSummary[] = [
     description:
       "Single Google connector with Gmail, Calendar, Docs, Sheets, BigQuery, Drive, Tasks, Chat, workflows, events, and expert raw access.",
     status: "connected",
-    authMode: "oauth",
+    authMode: "wallet_capability",
     scopes: [
       "gmail",
       "calendar",
@@ -77,7 +77,7 @@ const MOCK_CONNECTORS: ConnectorSummary[] = [
       "workflow",
       "expert",
     ],
-    notes: "Web demo data: simulated native Google OAuth provider.",
+    notes: "Web demo data: simulated wallet-backed Google connector auth.",
   },
 ];
 

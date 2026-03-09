@@ -3,7 +3,7 @@
 use crate::wallet_network::keys::{mail_connector_key, secret_alias_key, secret_key};
 use crate::wallet_network::mail_ontology::classify_mail_spam;
 use crate::wallet_network::mail_transport::{MailProviderCredentials, MailProviderMessage};
-use crate::wallet_network::support::load_typed;
+use crate::wallet_network::support::{decrypt_secret_payload, load_typed};
 use crate::wallet_network::LeaseActionReplayWindowState;
 use ioi_api::state::StateAccess;
 use ioi_types::app::wallet_network::{
@@ -282,7 +282,8 @@ fn resolve_secret_alias_utf8(
             secret_id
         )));
     }
-    let value = String::from_utf8(secret.ciphertext).map_err(|_| {
+    let decrypted = decrypt_secret_payload(&secret.ciphertext)?;
+    let value = String::from_utf8(decrypted).map_err(|_| {
         TransactionError::Invalid(format!(
             "mail connector secret '{}' is not utf-8 decodable",
             secret_id

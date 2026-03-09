@@ -66,7 +66,7 @@ export interface ConnectorSummary {
   category: "communication" | "productivity" | "storage" | "developer";
   description: string;
   status: ConnectorStatus;
-  authMode: "wallet_network_session" | "oauth" | "api_key";
+  authMode: "wallet_capability" | "wallet_network_session" | "oauth" | "api_key";
   scopes: string[];
   lastSyncAtUtc?: string;
   notes?: string;

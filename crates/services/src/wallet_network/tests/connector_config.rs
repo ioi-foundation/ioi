@@ -211,6 +211,7 @@ fn mail_connector_ensure_binding_provisions_and_reuses_binding() {
             mailbox: "primary".to_string(),
             audience: None,
             lease_ttl_ms: None,
+            requested_capability: None,
         };
         let ensure_a_params = codec::to_bytes_canonical(&ensure_a).expect("encode");
         run_async(service.handle_service_call(
@@ -267,6 +268,7 @@ fn mail_connector_ensure_binding_provisions_and_reuses_binding() {
             mailbox: "primary".to_string(),
             audience: None,
             lease_ttl_ms: None,
+            requested_capability: None,
         };
         let ensure_b_params = codec::to_bytes_canonical(&ensure_b).expect("encode");
         run_async(service.handle_service_call(

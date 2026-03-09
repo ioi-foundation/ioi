@@ -72,6 +72,7 @@ async fn execute_wallet_mail_dynamic_tool_on_state(
                     state,
                     wallet_service,
                     call_context,
+                    method,
                     mailbox_hint,
                     session_id,
                     step_index,

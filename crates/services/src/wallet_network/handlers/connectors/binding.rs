@@ -28,16 +28,38 @@ const LEASE_TTL_MS_DEFAULT: u64 = 12 * 60 * 60 * 1_000;
 const LEASE_TTL_MS_MIN: u64 = 60 * 1_000;
 const LEASE_TTL_MS_MAX: u64 = CHANNEL_TTL_MS;
 
-fn default_mail_capability_set() -> Vec<String> {
+fn read_capability_set() -> Vec<String> {
     vec![
         "mail.read.latest".to_string(),
         "mail.read".to_string(),
         "email:read".to_string(),
+    ]
+}
+
+fn list_capability_set() -> Vec<String> {
+    vec![
         "mail.list.recent".to_string(),
         "mail.list".to_string(),
         "email:list".to_string(),
+        "mail.read.latest".to_string(),
+        "mail.read".to_string(),
+        "email:read".to_string(),
+    ]
+}
+
+fn delete_capability_set() -> Vec<String> {
+    vec![
         "mail.delete.spam".to_string(),
         "mail.delete".to_string(),
+        "mail.write".to_string(),
+        "email:write".to_string(),
+        "mail.modify".to_string(),
+        "email:modify".to_string(),
+    ]
+}
+
+fn reply_capability_set() -> Vec<String> {
+    vec![
         "mail.reply".to_string(),
         "mail.send".to_string(),
         "email:send".to_string(),
@@ -50,11 +72,74 @@ fn default_mail_capability_set() -> Vec<String> {
     ]
 }
 
-fn binding_has_required_mail_capabilities(capabilities: &[String]) -> bool {
-    contains_mail_read_capability(capabilities)
-        && contains_mail_list_capability(capabilities)
-        && contains_mail_delete_capability(capabilities)
-        && contains_mail_reply_capability(capabilities)
+fn default_mail_capability_set(requested_capability: Option<&str>) -> Vec<String> {
+    let normalized = requested_capability
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty());
+    match normalized.as_deref() {
+        Some("mail.read.latest") | Some("mail:read") | Some("mail.read") | Some("email:read") => {
+            read_capability_set()
+        }
+        Some("mail.list.recent") | Some("mail:list") | Some("mail.list") | Some("email:list") => {
+            list_capability_set()
+        }
+        Some("mail.delete.spam")
+        | Some("mail.delete")
+        | Some("mail.write")
+        | Some("mail:write")
+        | Some("email:write")
+        | Some("mail.modify")
+        | Some("email:modify") => delete_capability_set(),
+        Some("mail.reply")
+        | Some("mail.send")
+        | Some("email:send")
+        | Some("mail.compose")
+        | Some("email:compose") => reply_capability_set(),
+        _ => {
+            let mut out = list_capability_set();
+            out.extend(delete_capability_set());
+            out.extend(reply_capability_set());
+            out.sort();
+            out.dedup();
+            out
+        }
+    }
+}
+
+fn binding_has_required_mail_capabilities(
+    capabilities: &[String],
+    requested_capability: Option<&str>,
+) -> bool {
+    match requested_capability
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+        .as_deref()
+    {
+        Some("mail.read.latest") | Some("mail:read") | Some("mail.read") | Some("email:read") => {
+            contains_mail_read_capability(capabilities)
+        }
+        Some("mail.list.recent") | Some("mail:list") | Some("mail.list") | Some("email:list") => {
+            contains_mail_list_capability(capabilities)
+        }
+        Some("mail.delete.spam")
+        | Some("mail.delete")
+        | Some("mail.write")
+        | Some("mail:write")
+        | Some("email:write")
+        | Some("mail.modify")
+        | Some("email:modify") => contains_mail_delete_capability(capabilities),
+        Some("mail.reply")
+        | Some("mail.send")
+        | Some("email:send")
+        | Some("mail.compose")
+        | Some("email:compose") => contains_mail_reply_capability(capabilities),
+        _ => {
+            contains_mail_read_capability(capabilities)
+                && contains_mail_list_capability(capabilities)
+                && contains_mail_delete_capability(capabilities)
+                && contains_mail_reply_capability(capabilities)
+        }
+    }
 }
 
 fn mailbox_constraint_matches(constraint: Option<&String>, mailbox: &str) -> bool {
@@ -93,6 +178,7 @@ fn find_existing_binding(
     state: &dyn StateAccess,
     mailbox: &str,
     audience: [u8; 32],
+    requested_capability: Option<&str>,
     now_ms: u64,
 ) -> Result<Option<(SessionLease, SessionChannelRecord)>, TransactionError> {
     let mut best: Option<(SessionLease, SessionChannelRecord)> = None;
@@ -107,7 +193,7 @@ fn find_existing_binding(
         if lease.audience != audience || now_ms > lease.expires_at_ms {
             continue;
         }
-        if !binding_has_required_mail_capabilities(&lease.capability_subset) {
+        if !binding_has_required_mail_capabilities(&lease.capability_subset, requested_capability) {
             continue;
         }
         if !mailbox_constraint_matches(lease.constraints_subset.get("mailbox"), mailbox) {
@@ -122,7 +208,10 @@ fn find_existing_binding(
         if channel.state != SessionChannelState::Open || now_ms > channel.envelope.expires_at_ms {
             continue;
         }
-        if !binding_has_required_mail_capabilities(&channel.envelope.capability_set) {
+        if !binding_has_required_mail_capabilities(
+            &channel.envelope.capability_set,
+            requested_capability,
+        ) {
             continue;
         }
         if !mailbox_constraint_matches(channel.envelope.constraints.get("mailbox"), mailbox) {
@@ -152,6 +241,11 @@ pub(crate) fn mail_connector_ensure_binding(
     }
 
     let mailbox = normalize_mailbox(&params.mailbox);
+    let requested_capability = params
+        .requested_capability
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     let audience = params.audience.unwrap_or(ctx.signer_account_id.0);
     if audience != ctx.signer_account_id.0 {
         return Err(TransactionError::Invalid(
@@ -170,8 +264,10 @@ pub(crate) fn mail_connector_ensure_binding(
     // Connector must exist before a channel/lease can be bound.
     let _connector = load_mail_connector_record(state, &mailbox)?;
 
-    let capability_set = default_mail_capability_set();
-    if let Some((lease, channel)) = find_existing_binding(state, &mailbox, audience, now_ms)? {
+    let capability_set = default_mail_capability_set(requested_capability);
+    if let Some((lease, channel)) =
+        find_existing_binding(state, &mailbox, audience, requested_capability, now_ms)?
+    {
         let receipt = MailConnectorEnsureBindingReceipt {
             request_id: params.request_id,
             mailbox: mailbox.clone(),

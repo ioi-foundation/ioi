@@ -14,6 +14,7 @@ use super::types::{
 use crate::kernel::state::get_rpc_client;
 use crate::models::AppState;
 use ioi_types::app::{
+    ConnectorAuthProtocol, ConnectorAuthRecord, ConnectorAuthState, ConnectorAuthUpsertParams,
     MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
     MailConnectorSecretAliases, MailConnectorTlsMode, MailConnectorUpsertParams, SecretKind,
     VaultSecretRecord,
@@ -106,7 +107,7 @@ pub(super) async fn wallet_mail_configure_account(
             secret_id_for_mailbox(&mailbox, "imap-username"),
             imap_username_alias.clone(),
             imap_username,
-            SecretKind::AccessToken,
+            SecretKind::Custom("username".to_string()),
         ),
         (
             secret_id_for_mailbox(&mailbox, "imap-secret"),
@@ -118,7 +119,7 @@ pub(super) async fn wallet_mail_configure_account(
             secret_id_for_mailbox(&mailbox, "smtp-username"),
             smtp_username_alias.clone(),
             smtp_username,
-            SecretKind::AccessToken,
+            SecretKind::Custom("username".to_string()),
         ),
         (
             secret_id_for_mailbox(&mailbox, "smtp-secret"),
@@ -179,6 +180,48 @@ pub(super) async fn wallet_mail_configure_account(
     };
     let params_bytes = codec::to_bytes_canonical(&connector).map_err(|e| e.to_string())?;
     let tx = build_wallet_call_tx("mail_connector_upsert@v1", params_bytes)?;
+    submit_tx_and_wait(&mut client, tx).await?;
+
+    let auth_record = ConnectorAuthRecord {
+        connector_id: format!("mail.{}", mailbox),
+        provider_family: "mail.wallet_network".to_string(),
+        auth_protocol: match auth_mode {
+            MailConnectorAuthMode::Password => ConnectorAuthProtocol::StaticPassword,
+            MailConnectorAuthMode::Oauth2 => ConnectorAuthProtocol::OAuth2Bearer,
+        },
+        state: ConnectorAuthState::Connected,
+        account_label: Some(account_email.clone()),
+        mailbox: Some(mailbox.clone()),
+        granted_scopes: vec![
+            "mail.read.latest".to_string(),
+            "mail.list.recent".to_string(),
+            "mail.delete.spam".to_string(),
+            "mail.reply".to_string(),
+        ],
+        credential_aliases: BTreeMap::from([
+            ("imap_username".to_string(), imap_username_alias.clone()),
+            ("imap_secret".to_string(), imap_secret_alias.clone()),
+            ("smtp_username".to_string(), smtp_username_alias.clone()),
+            ("smtp_secret".to_string(), smtp_secret_alias.clone()),
+        ]),
+        metadata: BTreeMap::from([
+            (
+                "configured_by".to_string(),
+                "autopilot.integrations".to_string(),
+            ),
+            ("imap_host".to_string(), imap_host.clone()),
+            ("smtp_host".to_string(), smtp_host.clone()),
+        ]),
+        created_at_ms: now_ms,
+        updated_at_ms: now_ms,
+        expires_at_ms: None,
+        last_validated_at_ms: Some(now_ms),
+    };
+    let auth_params = ConnectorAuthUpsertParams {
+        record: auth_record,
+    };
+    let auth_params_bytes = codec::to_bytes_canonical(&auth_params).map_err(|e| e.to_string())?;
+    let tx = build_wallet_call_tx("connector_auth_upsert@v1", auth_params_bytes)?;
     submit_tx_and_wait(&mut client, tx).await?;
 
     Ok(WalletMailConfigureAccountResult {

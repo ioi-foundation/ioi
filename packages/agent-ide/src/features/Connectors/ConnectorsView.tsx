@@ -31,10 +31,10 @@ const FALLBACK_CONNECTORS: ConnectorSummary[] = [
     description:
       "Connect one or more inboxes for safe delegated read/send operations.",
     status: "needs_auth",
-    authMode: "wallet_network_session",
+    authMode: "wallet_capability",
     scopes: ["mail.read.latest", "mail.list.recent", "mail.delete.spam", "mail.reply"],
     notes:
-      "Uses delegated wallet session policy and mailbox-scoped credentials.",
+      "Uses wallet-backed connector auth, mailbox-scoped credentials, and delegated capability leases.",
   },
   {
     id: "google.workspace",
@@ -45,7 +45,7 @@ const FALLBACK_CONNECTORS: ConnectorSummary[] = [
     description:
       "Single Google connector for Gmail, Calendar, Docs, Sheets, BigQuery, Drive, Tasks, Chat, workflows, events, and expert raw access.",
     status: "needs_auth",
-    authMode: "oauth",
+    authMode: "wallet_capability",
     scopes: [
       "gmail",
       "calendar",
@@ -60,7 +60,7 @@ const FALLBACK_CONNECTORS: ConnectorSummary[] = [
       "expert",
     ],
     notes:
-      "Uses native Google OAuth and direct Google APIs for curated tools plus an expert raw request path.",
+      "Uses native Google OAuth for consent, with refreshable auth persisted through wallet-backed connector state.",
   },
 ];
 
@@ -72,9 +72,9 @@ const MAIL_CONNECTOR_DEFAULT: ConnectorSummary = {
   category: "communication",
   description: "Connect one or more inboxes for safe delegated read/send operations.",
   status: "needs_auth",
-  authMode: "wallet_network_session",
+  authMode: "wallet_capability",
   scopes: ["mail.read.latest", "mail.list.recent", "mail.delete.spam", "mail.reply"],
-  notes: "Uses delegated wallet session policy and mailbox-scoped credentials.",
+  notes: "Uses wallet-backed connector auth, mailbox-scoped credentials, and delegated capability leases.",
 };
 
 function patchMailConnectorFromConfiguredAccount(

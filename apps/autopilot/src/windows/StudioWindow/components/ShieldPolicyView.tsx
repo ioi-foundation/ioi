@@ -34,7 +34,7 @@ const FALLBACK_CONNECTORS: ConnectorSummary[] = [
     category: "communication",
     description: "Delegated inbox reads and safe outbound mail actions.",
     status: "needs_auth",
-    authMode: "wallet_network_session",
+    authMode: "wallet_capability",
     scopes: ["mail.read.latest", "mail.list.recent", "mail.reply"],
   },
   {
@@ -45,7 +45,7 @@ const FALLBACK_CONNECTORS: ConnectorSummary[] = [
     category: "productivity",
     description: "Gmail, Calendar, Docs, Sheets, BigQuery, and durable Google automations.",
     status: "connected",
-    authMode: "oauth",
+    authMode: "wallet_capability",
     scopes: ["gmail", "calendar", "docs", "sheets", "bigquery", "automations"],
   },
 ];
@@ -441,10 +441,11 @@ export function ShieldPolicyView({
               </p>
             </article>
             <article className="shield-guidance-card">
-              <strong>Connector settings stay local</strong>
+              <strong>Policy is separate from connector auth</strong>
               <p>
-                OAuth clients, token paths, reconnect, and destructive reset remain connector-local
-                operational settings. They do not belong in policy.
+                Wallet-backed connector auth stores durable credentials and consent state, while
+                Shield policy defines whether reads, writes, admin actions, and automations should
+                run automatically.
               </p>
             </article>
             <article className="shield-guidance-card">

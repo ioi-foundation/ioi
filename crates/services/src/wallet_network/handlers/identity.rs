@@ -2,8 +2,8 @@
 
 use crate::wallet_network::keys::{policy_key, secret_alias_key, secret_key, IDENTITY_KEY};
 use crate::wallet_network::support::{
-    append_audit_event, base_audit_metadata, block_timestamp_ms, load_typed, require_identity,
-    store_typed,
+    append_audit_event, base_audit_metadata, block_timestamp_ms, encrypt_secret_payload,
+    is_encrypted_secret_payload, load_typed, require_identity, store_typed,
 };
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
@@ -81,7 +81,7 @@ pub(crate) fn link_owner(
 pub(crate) fn store_secret_record(
     state: &mut dyn StateAccess,
     ctx: &TxContext<'_>,
-    secret: VaultSecretRecord,
+    mut secret: VaultSecretRecord,
 ) -> Result<(), TransactionError> {
     if secret.secret_id.trim().is_empty() || secret.alias.trim().is_empty() {
         return Err(TransactionError::Invalid(
@@ -92,6 +92,9 @@ pub(crate) fn store_secret_record(
         return Err(TransactionError::Invalid(
             "secret record ciphertext must not be empty".to_string(),
         ));
+    }
+    if !is_encrypted_secret_payload(&secret.ciphertext) {
+        secret.ciphertext = encrypt_secret_payload(&secret.ciphertext)?;
     }
 
     let key = secret_key(&secret.secret_id);

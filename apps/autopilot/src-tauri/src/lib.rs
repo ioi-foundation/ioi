@@ -195,10 +195,34 @@ pub fn run() {
             let _ = app.manage(kernel::connectors::ShieldPolicyManager::new(
                 kernel::connectors::policy_state_path_for(&data_dir),
             ));
+            let wallet_auth_handle = app.handle().clone();
+            let wallet_policy_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = google_automation_manager.bootstrap().await {
                     eprintln!(
                         "[Autopilot] Failed to bootstrap Google automation manager: {}",
+                        error
+                    );
+                }
+            });
+            tauri::async_runtime::spawn(async move {
+                let state: State<Mutex<AppState>> = wallet_auth_handle.state();
+                if let Err(error) = kernel::connectors::bootstrap_google_wallet_auth(&state).await {
+                    eprintln!(
+                        "[Autopilot] Failed to bootstrap wallet-backed Google auth state: {}",
+                        error
+                    );
+                }
+            });
+            tauri::async_runtime::spawn(async move {
+                let state: State<Mutex<AppState>> = wallet_policy_handle.state();
+                let policy_manager: State<kernel::connectors::ShieldPolicyManager> =
+                    wallet_policy_handle.state();
+                if let Err(error) =
+                    kernel::connectors::bootstrap_wallet_policy_state(&state, &policy_manager).await
+                {
+                    eprintln!(
+                        "[Autopilot] Failed to bootstrap wallet-backed Shield policy state: {}",
                         error
                     );
                 }
@@ -317,6 +341,10 @@ pub fn run() {
             kernel::connectors::wallet_mail_list_recent,
             kernel::connectors::wallet_mail_delete_spam,
             kernel::connectors::wallet_mail_reply,
+            kernel::connectors::wallet_connector_auth_get,
+            kernel::connectors::wallet_connector_auth_list,
+            kernel::connectors::wallet_connector_auth_export,
+            kernel::connectors::wallet_connector_auth_import,
             kernel::connectors::connector_list_actions,
             kernel::connectors::connector_configure,
             kernel::connectors::connector_run_action,

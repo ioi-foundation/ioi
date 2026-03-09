@@ -80,3 +80,58 @@ pub struct WalletMailConfigureAccountResult {
     pub smtp_secret_alias: String,
     pub updated_at_ms: u64,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletConnectorAuthRecordView {
+    pub connector_id: String,
+    pub provider_family: String,
+    pub auth_protocol: String,
+    pub state: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mailbox: Option<String>,
+    pub granted_scopes: Vec<String>,
+    pub credential_aliases: std::collections::BTreeMap<String, String>,
+    pub metadata: std::collections::BTreeMap<String, String>,
+    pub updated_at_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_validated_at_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletConnectorAuthGetResult {
+    pub fetched_at_ms: u64,
+    pub record: WalletConnectorAuthRecordView,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletConnectorAuthListResult {
+    pub listed_at_ms: u64,
+    pub records: Vec<WalletConnectorAuthRecordView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletConnectorAuthExportResult {
+    pub request_id_hex: String,
+    pub exported_at_ms: u64,
+    pub connector_ids: Vec<String>,
+    pub bundle_base64: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletConnectorAuthImportResult {
+    pub request_id_hex: String,
+    pub imported_at_ms: u64,
+    pub connector_ids: Vec<String>,
+    pub secret_ids: Vec<String>,
+    pub policy_rule_ids: Vec<String>,
+    pub mailboxes: Vec<String>,
+}

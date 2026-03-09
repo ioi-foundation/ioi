@@ -115,3 +115,23 @@ pub(crate) async fn query_wallet_state(
     }
     Ok(resp.value)
 }
+
+pub(crate) async fn query_wallet_state_optional(
+    client: &mut PublicApiClient<Channel>,
+    local_key: Vec<u8>,
+) -> Result<Option<Vec<u8>>, String> {
+    let full_key = [
+        service_namespace_prefix("wallet_network").as_slice(),
+        &local_key,
+    ]
+    .concat();
+    let resp = client
+        .query_raw_state(tonic::Request::new(QueryRawStateRequest { key: full_key }))
+        .await
+        .map_err(|e| format!("Failed to query wallet state: {}", e))?
+        .into_inner();
+    if !resp.found || resp.value.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(resp.value))
+}
