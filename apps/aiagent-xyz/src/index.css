@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* High-density utility styling */
+:root {
+  --bg-app: #f0f2f5;
+  --bg-card: #ffffff;
+  --border: #e1e4e8;
+  --text-main: #1f2937;
+  --text-muted: #6b7280;
+  --primary: #2563eb;    /* Trust Blue */
+  --accent: #d97706;     /* Freelance Gold */
+  --success: #10b981;    /* Profit Green */
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-app);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+
+/* Utility Classes */
+.badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.badge-new { background: #dbeafe; color: #1e40af; }
+.badge-hot { background: #fee2e2; color: #991b1b; }
+.badge-verified { background: #d1fae5; color: #065f46; }
