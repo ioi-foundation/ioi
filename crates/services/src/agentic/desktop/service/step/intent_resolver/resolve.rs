@@ -188,6 +188,35 @@ pub async fn resolve_step_intent_with_state(
                 .then_some(candidate.clone())
         })
         .collect::<Vec<_>>();
+    let preferred_selection_top_k = if query_binding_profile.available
+        && query_binding_profile.durable_automation_requested
+    {
+        let durable_candidates = selection_top_k
+            .iter()
+            .filter_map(|candidate| {
+                let entry = matrix
+                    .iter()
+                    .find(|entry| entry.intent_id == candidate.intent_id)?;
+                matches!(
+                    entry.query_binding,
+                    IntentQueryBindingClass::DurableAutomation
+                )
+                .then_some(candidate.clone())
+            })
+            .collect::<Vec<_>>();
+        if durable_candidates.is_empty() {
+            selection_top_k.clone()
+        } else {
+            log::info!(
+                "IntentResolver narrowed winner candidates to durable automation intents session={} candidate_count={}",
+                session_prefix,
+                durable_candidates.len()
+            );
+            durable_candidates
+        }
+    } else {
+        selection_top_k.clone()
+    };
     let mut resolver_error_class: Option<String> = None;
     if selection_top_k.is_empty() {
         log::warn!(
@@ -202,7 +231,8 @@ pub async fn resolve_step_intent_with_state(
             &query_binding_profile,
         ));
     }
-    let unclassified = selection_top_k.is_empty() || all_candidate_scores_zero(&selection_top_k);
+    let unclassified = preferred_selection_top_k.is_empty()
+        || all_candidate_scores_zero(&preferred_selection_top_k);
     if unclassified && resolver_error_class.is_none() {
         resolver_error_class = Some("IntentUnclassified".to_string());
     }
@@ -212,7 +242,7 @@ pub async fn resolve_step_intent_with_state(
             score: 0.0,
         }
     } else {
-        select_deterministic_winner(&selection_top_k, &matrix, policy).unwrap_or(
+        select_deterministic_winner(&preferred_selection_top_k, &matrix, policy).unwrap_or(
             IntentCandidateScore {
                 intent_id: "resolver.unclassified".to_string(),
                 score: 0.0,
@@ -220,7 +250,7 @@ pub async fn resolve_step_intent_with_state(
         )
     };
     if winner.intent_id != "resolver.unclassified"
-        && should_abstain_for_ambiguity(&selection_top_k, &winner, policy)
+        && should_abstain_for_ambiguity(&preferred_selection_top_k, &winner, policy)
         && !is_ambiguity_abstain_exempt(policy, &winner.intent_id)
     {
         log::info!(
@@ -315,7 +345,7 @@ pub async fn resolve_step_intent_with_state(
         let base_band = resolve_band(score, policy);
         let band = maybe_promote_low_band_for_policy_exempt_winner(
             &winner,
-            &selection_top_k,
+            &preferred_selection_top_k,
             policy,
             base_band,
         );

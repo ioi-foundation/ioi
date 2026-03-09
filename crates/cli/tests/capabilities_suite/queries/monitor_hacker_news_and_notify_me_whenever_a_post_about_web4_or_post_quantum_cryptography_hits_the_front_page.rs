@@ -60,12 +60,16 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "env_receipt::hacker_news_monitor_fixture_manifest_seeded_satisfied",
     )
     .unwrap_or(false);
-    let registry_absent_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_registry_absent_satisfied")
-            .unwrap_or(false);
-    let receipts_absent_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_receipts_absent_satisfied")
-            .unwrap_or(false);
+    let registry_absent_satisfied = verification_bool(
+        obs,
+        "env_receipt::hacker_news_monitor_registry_absent_satisfied",
+    )
+    .unwrap_or(false);
+    let receipts_absent_satisfied = verification_bool(
+        obs,
+        "env_receipt::hacker_news_monitor_receipts_absent_satisfied",
+    )
+    .unwrap_or(false);
     let cleanup_satisfied =
         verification_bool(obs, "env_receipt::hacker_news_monitor_cleanup_satisfied")
             .unwrap_or(false);
@@ -74,9 +78,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         verification_value(obs, "env_receipt::hacker_news_monitor_workflow_id").unwrap_or_default();
     let registry_count =
         verification_u64(obs, "env_receipt::hacker_news_monitor_registry_count").unwrap_or(0);
-    let registry_path_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_registry_path_satisfied")
-            .unwrap_or(false);
+    let registry_path_satisfied = verification_bool(
+        obs,
+        "env_receipt::hacker_news_monitor_registry_path_satisfied",
+    )
+    .unwrap_or(false);
     let workflow_status =
         verification_value(obs, "env_receipt::hacker_news_monitor_workflow_status")
             .unwrap_or_default();
@@ -85,9 +91,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "env_receipt::hacker_news_monitor_workflow_status_satisfied",
     )
     .unwrap_or(false);
-    let artifact_path_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_artifact_path_satisfied")
-            .unwrap_or(false);
+    let artifact_path_satisfied = verification_bool(
+        obs,
+        "env_receipt::hacker_news_monitor_artifact_path_satisfied",
+    )
+    .unwrap_or(false);
     let state_path_satisfied =
         verification_bool(obs, "env_receipt::hacker_news_monitor_state_path_satisfied")
             .unwrap_or(false);
@@ -96,12 +104,13 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "env_receipt::hacker_news_monitor_install_receipt_path_satisfied",
     )
     .unwrap_or(false);
-    let spec_version =
-        verification_value(obs, "env_receipt::hacker_news_monitor_spec_version")
-            .unwrap_or_default();
-    let spec_version_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_spec_version_satisfied")
-            .unwrap_or(false);
+    let spec_version = verification_value(obs, "env_receipt::hacker_news_monitor_spec_version")
+        .unwrap_or_default();
+    let spec_version_satisfied = verification_bool(
+        obs,
+        "env_receipt::hacker_news_monitor_spec_version_satisfied",
+    )
+    .unwrap_or(false);
     let source_url =
         verification_value(obs, "env_receipt::hacker_news_monitor_source_url").unwrap_or_default();
     let source_url_satisfied =
@@ -109,44 +118,36 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             .unwrap_or(false);
     let source_type =
         verification_value(obs, "env_receipt::hacker_news_monitor_source_type").unwrap_or_default();
-    let source_type_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_source_type_satisfied")
-            .unwrap_or(false);
-    let extractor_type = verification_value(
+    let source_type_satisfied = verification_bool(
         obs,
-        "env_receipt::hacker_news_monitor_extractor_type",
+        "env_receipt::hacker_news_monitor_source_type_satisfied",
     )
-    .unwrap_or_default();
+    .unwrap_or(false);
+    let extractor_type = verification_value(obs, "env_receipt::hacker_news_monitor_extractor_type")
+        .unwrap_or_default();
     let extractor_type_satisfied = verification_bool(
         obs,
         "env_receipt::hacker_news_monitor_extractor_type_satisfied",
     )
     .unwrap_or(false);
-    let extractor_selector = verification_value(
-        obs,
-        "env_receipt::hacker_news_monitor_extractor_selector",
-    )
-    .unwrap_or_default();
+    let extractor_selector =
+        verification_value(obs, "env_receipt::hacker_news_monitor_extractor_selector")
+            .unwrap_or_default();
     let extractor_selector_satisfied = verification_bool(
         obs,
         "env_receipt::hacker_news_monitor_extractor_selector_satisfied",
     )
     .unwrap_or(false);
-    let predicate_type = verification_value(
-        obs,
-        "env_receipt::hacker_news_monitor_predicate_type",
-    )
-    .unwrap_or_default();
+    let predicate_type = verification_value(obs, "env_receipt::hacker_news_monitor_predicate_type")
+        .unwrap_or_default();
     let predicate_type_satisfied = verification_bool(
         obs,
         "env_receipt::hacker_news_monitor_predicate_type_satisfied",
     )
     .unwrap_or(false);
-    let keywords_normalized = verification_value(
-        obs,
-        "env_receipt::hacker_news_monitor_keywords_normalized",
-    )
-    .unwrap_or_default();
+    let keywords_normalized =
+        verification_value(obs, "env_receipt::hacker_news_monitor_keywords_normalized")
+            .unwrap_or_default();
     let keywords_satisfied = verification_bool(
         obs,
         "env_receipt::hacker_news_monitor_keywords_normalized_satisfied",
@@ -185,37 +186,33 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let allowlist_satisfied =
         verification_bool(obs, "env_receipt::hacker_news_monitor_allowlist_satisfied")
             .unwrap_or(false);
-    let graph_shape_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_graph_shape_satisfied")
-            .unwrap_or(false);
+    let graph_shape_satisfied = verification_bool(
+        obs,
+        "env_receipt::hacker_news_monitor_graph_shape_satisfied",
+    )
+    .unwrap_or(false);
     let next_run_at_ms =
         verification_u64(obs, "env_receipt::hacker_news_monitor_next_run_at_ms").unwrap_or(0);
-    let next_run_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_next_run_at_ms_satisfied")
-            .unwrap_or(false);
+    let next_run_satisfied = verification_bool(
+        obs,
+        "env_receipt::hacker_news_monitor_next_run_at_ms_satisfied",
+    )
+    .unwrap_or(false);
     let state_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_state_satisfied")
-            .unwrap_or(false);
-    let state_seen_key_count = verification_u64(
-        obs,
-        "env_receipt::hacker_news_monitor_state_seen_key_count",
-    )
-    .unwrap_or(0);
-    let state_last_run_ms = verification_u64(
-        obs,
-        "env_receipt::hacker_news_monitor_state_last_run_ms",
-    )
-    .unwrap_or(u64::MAX);
+        verification_bool(obs, "env_receipt::hacker_news_monitor_state_satisfied").unwrap_or(false);
+    let state_seen_key_count =
+        verification_u64(obs, "env_receipt::hacker_news_monitor_state_seen_key_count").unwrap_or(0);
+    let state_last_run_ms =
+        verification_u64(obs, "env_receipt::hacker_news_monitor_state_last_run_ms")
+            .unwrap_or(u64::MAX);
     let state_last_success_ms = verification_u64(
         obs,
         "env_receipt::hacker_news_monitor_state_last_success_ms",
     )
     .unwrap_or(u64::MAX);
-    let state_failure_count = verification_u64(
-        obs,
-        "env_receipt::hacker_news_monitor_state_failure_count",
-    )
-    .unwrap_or(u64::MAX);
+    let state_failure_count =
+        verification_u64(obs, "env_receipt::hacker_news_monitor_state_failure_count")
+            .unwrap_or(u64::MAX);
     let install_receipt_satisfied = verification_bool(
         obs,
         "env_receipt::hacker_news_monitor_install_receipt_satisfied",
@@ -226,22 +223,24 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "env_receipt::hacker_news_monitor_install_authoring_tool",
     )
     .unwrap_or_default();
-    let install_trigger_kind = verification_value(
-        obs,
-        "env_receipt::hacker_news_monitor_install_trigger_kind",
-    )
-    .unwrap_or_default();
-    let install_valid =
-        verification_value(obs, "env_receipt::hacker_news_monitor_install_valid")
+    let install_trigger_kind =
+        verification_value(obs, "env_receipt::hacker_news_monitor_install_trigger_kind")
             .unwrap_or_default();
-    let source_prompt_satisfied =
-        verification_bool(obs, "env_receipt::hacker_news_monitor_source_prompt_satisfied")
-            .unwrap_or(false);
+    let install_valid = verification_value(obs, "env_receipt::hacker_news_monitor_install_valid")
+        .unwrap_or_default();
+    let source_prompt_satisfied = verification_bool(
+        obs,
+        "env_receipt::hacker_news_monitor_source_prompt_satisfied",
+    )
+    .unwrap_or(false);
 
     let automation_plans = obs
         .planned_tool_calls
         .iter()
-        .filter(|call| call.tool_name.eq_ignore_ascii_case("automation__create_monitor"))
+        .filter(|call| {
+            call.tool_name
+                .eq_ignore_ascii_case("automation__create_monitor")
+        })
         .collect::<Vec<_>>();
     let automation_plan_count = automation_plans.len();
     let planned_keywords = automation_plans
@@ -276,7 +275,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .action_evidence
         .iter()
         .filter(|entry| {
-            entry.tool_name.eq_ignore_ascii_case("automation__create_monitor")
+            entry
+                .tool_name
+                .eq_ignore_ascii_case("automation__create_monitor")
                 && entry.error_class.is_none()
         })
         .count();

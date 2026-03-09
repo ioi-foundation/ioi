@@ -71,6 +71,17 @@ pub(super) fn intent_supports_remote_public_fact_grounding(entry: &IntentMatrixE
     }
 }
 
+fn intent_can_defer_remote_public_fact_grounding(
+    entry: &IntentMatrixEntry,
+    query_binding_profile: &QueryBindingProfile,
+) -> bool {
+    query_binding_profile.durable_automation_requested
+        && matches!(
+            query_binding_for_intent(entry),
+            IntentQueryBindingClass::DurableAutomation
+        )
+}
+
 fn extract_first_json_object(raw: &str) -> Option<String> {
     let start = raw.find('{')?;
     let mut brace_depth = 0usize;
@@ -243,6 +254,18 @@ pub(super) async fn infer_query_binding_profile(
                 INTENT_QUERY_BINDING_MODEL_VERSION,
                 INTENT_QUERY_BINDING_SCHEMA_ID
             );
+            log::info!(
+                "IntentResolver query binding profile session={} remote_public_fact_required={} host_local_clock_targeted={} command_directed={} durable_automation_requested={} app_launch_directed={} direct_ui_input={} desktop_screenshot_requested={} temporal_filesystem_filter={}",
+                hex::encode(&session_id[..4]),
+                profile.remote_public_fact_required,
+                profile.host_local_clock_targeted,
+                profile.command_directed,
+                profile.durable_automation_requested,
+                profile.app_launch_directed,
+                profile.direct_ui_input,
+                profile.desktop_screenshot_requested,
+                profile.temporal_filesystem_filter
+            );
             profile
         }
         Err(err) => {
@@ -261,6 +284,7 @@ pub(super) fn query_binding_satisfied(
     }
     if query_binding_profile.remote_public_fact_required
         && !intent_supports_remote_public_fact_grounding(entry)
+        && !intent_can_defer_remote_public_fact_grounding(entry, query_binding_profile)
     {
         return false;
     }

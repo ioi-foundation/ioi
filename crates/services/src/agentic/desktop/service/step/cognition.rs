@@ -80,8 +80,7 @@ pub async fn think(
         resolved_scope,
         is_browser,
         &perception.available_tools,
-    )
-    {
+    ) {
         log::info!(
             "Preflight: Missing required capability '{}'. Forcing escalation.",
             missing_capability
@@ -476,7 +475,10 @@ OPERATING RULES:
     let system_instructions = if automation_monitor_instruction.is_empty() {
         system_instructions
     } else {
-        format!("{}\n{}", system_instructions, automation_monitor_instruction)
+        format!(
+            "{}\n{}",
+            system_instructions, automation_monitor_instruction
+        )
     };
 
     let include_screenshot =
@@ -705,40 +707,45 @@ mod tests {
     #[test]
     fn command_execution_does_not_require_clipboard() {
         let tools = vec![tool("sys__exec")];
-        assert!(
-            preflight_missing_capability(None, IntentScopeProfile::CommandExecution, false, &tools)
-                .is_none()
-        );
+        assert!(preflight_missing_capability(
+            None,
+            IntentScopeProfile::CommandExecution,
+            false,
+            &tools
+        )
+        .is_none());
     }
 
     #[test]
     fn command_execution_does_not_require_clipboard_when_exec_session_available() {
         let tools = vec![tool("sys__exec_session")];
-        assert!(
-            preflight_missing_capability(None, IntentScopeProfile::CommandExecution, false, &tools)
-                .is_none()
-        );
+        assert!(preflight_missing_capability(
+            None,
+            IntentScopeProfile::CommandExecution,
+            false,
+            &tools
+        )
+        .is_none());
     }
 
     #[test]
     fn command_execution_accepts_install_package_tooling() {
         let tools = vec![tool("sys__install_package")];
-        assert!(
-            preflight_missing_capability(None, IntentScopeProfile::CommandExecution, false, &tools)
-                .is_none()
-        );
+        assert!(preflight_missing_capability(
+            None,
+            IntentScopeProfile::CommandExecution,
+            false,
+            &tools
+        )
+        .is_none());
     }
 
     #[test]
     fn command_execution_requires_sys_exec_when_missing() {
         let tools = vec![tool("chat__reply")];
-        let missing = preflight_missing_capability(
-            None,
-            IntentScopeProfile::CommandExecution,
-            false,
-            &tools,
-        )
-        .expect("missing capability");
+        let missing =
+            preflight_missing_capability(None, IntentScopeProfile::CommandExecution, false, &tools)
+                .expect("missing capability");
         assert_eq!(missing.0, "sys__exec");
     }
 

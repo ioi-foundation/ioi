@@ -15,6 +15,7 @@ use crate::kernel::state::update_task_state;
 use crate::models::AppState;
 use crate::models::{AgentPhase, ChatMessage, CredentialRequest, EventType, Receipt};
 use ioi_ipc::public::AgentActionResult;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{Manager, State};
 
@@ -71,6 +72,14 @@ fn completion_message_for_history(tool_name: &str, output: &str) -> Option<Strin
         candidate,
         MAX_COMPLETION_MESSAGE_CHARS,
     ))
+}
+
+fn automation_artifact_path_from_output(output: &str) -> Option<PathBuf> {
+    output.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("Artifact path: ")
+            .map(|value| PathBuf::from(value.trim()))
+    })
 }
 
 pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActionResult) {
@@ -427,15 +436,29 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         return;
     }
 
-    if res.tool_name.eq_ignore_ascii_case("automation__create_monitor")
-        && res.agent_status.eq_ignore_ascii_case("completed")
+    if res
+        .tool_name
+        .eq_ignore_ascii_case("automation__create_monitor")
+        && !res.has_error_class
     {
         let manager: State<crate::kernel::workflows::WorkflowManager> = app.state();
-        if let Err(error) = manager.sync_from_disk().await {
-            eprintln!(
-                "[Autopilot] Failed to sync workflow manager after automation install: {}",
-                error
-            );
+        if let Some(artifact_path) = automation_artifact_path_from_output(&res.output) {
+            if let Err(error) = manager
+                .import_workflow_from_artifact_path(&artifact_path)
+                .await
+            {
+                eprintln!(
+                    "[Autopilot] Failed to import workflow artifact after automation install: {}",
+                    error
+                );
+            }
+        } else if res.output.contains("Scheduled workflow:") {
+            if let Err(error) = manager.sync_from_disk().await {
+                eprintln!(
+                    "[Autopilot] Failed to sync workflow manager after automation install: {}",
+                    error
+                );
+            }
         }
     }
 
@@ -518,8 +541,8 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
 #[cfg(test)]
 mod tests {
     use super::{
-        completion_message_for_history, is_chat_reply_tool, is_planner_execute_tool,
-        truncate_message_chars,
+        automation_artifact_path_from_output, completion_message_for_history, is_chat_reply_tool,
+        is_planner_execute_tool, truncate_message_chars,
     };
 
     #[test]
@@ -562,5 +585,15 @@ mod tests {
     #[test]
     fn empty_completion_output_yields_none() {
         assert!(completion_message_for_history("planner::execute", "   ").is_none());
+    }
+
+    #[test]
+    fn automation_artifact_path_is_parsed_from_tool_output() {
+        let output = "Scheduled workflow: Monitor Hacker News\nWorkflow ID: monitor_hn\nArtifact path: /tmp/ioi-data/automation/artifacts/monitor_hn.json";
+        let path = automation_artifact_path_from_output(output).expect("artifact path");
+        assert_eq!(
+            path,
+            std::path::PathBuf::from("/tmp/ioi-data/automation/artifacts/monitor_hn.json")
+        );
     }
 }

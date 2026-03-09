@@ -299,6 +299,19 @@ pub fn automation_root_path_from_env() -> Option<PathBuf> {
     std::env::var_os(AUTOMATION_ROOT_ENV_VAR).map(PathBuf::from)
 }
 
+pub fn automation_root_path_from_workspace(workspace_path: &str) -> Option<PathBuf> {
+    let trimmed = workspace_path.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(root_path_for(Path::new(trimmed)))
+}
+
+pub fn resolve_automation_root_path(workspace_path: Option<&str>) -> Option<PathBuf> {
+    automation_root_path_from_env()
+        .or_else(|| workspace_path.and_then(automation_root_path_from_workspace))
+}
+
 pub fn install_monitor_request(
     root_dir: &Path,
     request: CreateMonitorRequest,
@@ -431,12 +444,11 @@ pub fn install_workflow_artifact(
     };
     write_json_atomic(&state_path_for(root_dir, &artifact.workflow_id), &state)?;
 
-    let mut registry = load_json::<WorkflowRegistry>(&registry_path_for(root_dir)).unwrap_or(
-        WorkflowRegistry {
+    let mut registry =
+        load_json::<WorkflowRegistry>(&registry_path_for(root_dir)).unwrap_or(WorkflowRegistry {
             version: AUTOMATION_REGISTRY_VERSION,
             workflows: Vec::new(),
-        },
-    );
+        });
     let next_run_at_ms = Some(installed_at_ms);
     let summary = if let Some(existing) = registry
         .workflows
@@ -799,14 +811,14 @@ mod tests {
 
         assert_eq!(
             artifact.monitor.predicate.keywords,
-            vec![
-                "post-quantum cryptography".to_string(),
-                "web4".to_string()
-            ]
+            vec!["post-quantum cryptography".to_string(), "web4".to_string()]
         );
         assert_eq!(artifact.trigger.every_seconds, 60);
         assert_eq!(artifact.monitor.source.url, HACKER_NEWS_FRONT_PAGE_URL);
-        assert_eq!(artifact.provenance.authoring_tool, "automation.create_monitor");
+        assert_eq!(
+            artifact.provenance.authoring_tool,
+            "automation.create_monitor"
+        );
     }
 
     #[test]
@@ -828,11 +840,9 @@ mod tests {
         assert!(registry_path_for(&root).exists());
         assert!(artifact_path_for(&root, &summary.workflow_id).exists());
         assert!(state_path_for(&root, &summary.workflow_id).exists());
-        assert!(
-            receipt_dir_for(&root, &summary.workflow_id)
-                .join("install.json")
-                .exists()
-        );
+        assert!(receipt_dir_for(&root, &summary.workflow_id)
+            .join("install.json")
+            .exists());
 
         let _ = fs::remove_dir_all(root);
     }
