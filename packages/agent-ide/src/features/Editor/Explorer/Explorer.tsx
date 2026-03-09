@@ -1,15 +1,21 @@
 // packages/agent-ide/src/features/Editor/Explorer/Explorer.tsx
 import React, { useState, useEffect } from "react";
-import { AgentRuntime } from "../../../runtime/agent-runtime";
+import {
+  AgentRuntime,
+  InstalledWorkflowSummary,
+  WorkflowRunReceipt,
+} from "../../../runtime/agent-runtime";
+import { ProjectFile } from "../../../types/graph";
 import { Icons } from "../../../ui/icons"; 
 import "./Explorer.css";
 
 interface ExplorerProps {
   runtime: AgentRuntime;
   onDragStart: (e: React.DragEvent, type: string, name: string, schema?: string) => void;
+  onLoadProject?: (project: ProjectFile, workflow?: InstalledWorkflowSummary) => void;
 }
 
-type Tab = "LIBRARY" | "ONTOLOGY" | "MEMORY";
+type Tab = "LIBRARY" | "AUTOMATIONS" | "ONTOLOGY" | "MEMORY";
 
 interface TreeItem {
   id: string;
@@ -61,11 +67,14 @@ const staticLibrary: LibraryItem[] = [
   { id: "web_read", name: "Web Read", icon: <span>📄</span>, type: "web_read", description: "Read a URL and extract quote spans for citations" },
 ];
 
-export function Explorer({ runtime, onDragStart }: ExplorerProps) {
+export function Explorer({ runtime, onDragStart, onLoadProject }: ExplorerProps) {
   const [activeTab, setActiveTab] = useState<Tab>("LIBRARY");
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>(staticLibrary);
   const [ontology, setOntology] = useState(initialOntology);
   const [searchQuery, setSearchQuery] = useState("");
+  const [workflows, setWorkflows] = useState<InstalledWorkflowSummary[]>([]);
+  const [workflowBusyId, setWorkflowBusyId] = useState<string | null>(null);
+  const [workflowMessage, setWorkflowMessage] = useState<string | null>(null);
 
   useEffect(() => {
     runtime.getAvailableTools().then((tools: any[]) => {
@@ -85,6 +94,11 @@ export function Explorer({ runtime, onDragStart }: ExplorerProps) {
     });
   }, [runtime]);
 
+  useEffect(() => {
+    if (!runtime.listInstalledWorkflows) return;
+    void refreshWorkflows();
+  }, [runtime]);
+
   const toggleExpand = (id: string) => {
     const updateTree = (items: TreeItem[]): TreeItem[] => {
       return items.map((item) => {
@@ -100,6 +114,89 @@ export function Explorer({ runtime, onDragStart }: ExplorerProps) {
     i.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const filteredWorkflows = workflows.filter((workflow) => {
+    const haystack = [
+      workflow.title,
+      workflow.description,
+      workflow.sourceLabel,
+      ...workflow.keywords,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(searchQuery.toLowerCase());
+  });
+
+  async function refreshWorkflows() {
+    if (!runtime.listInstalledWorkflows) return;
+    try {
+      const items = await runtime.listInstalledWorkflows();
+      setWorkflows(items);
+      setWorkflowMessage(null);
+    } catch (error) {
+      setWorkflowMessage(String(error));
+    }
+  }
+
+  async function openWorkflow(workflow: InstalledWorkflowSummary) {
+    if (!runtime.getInstalledWorkflowProject || !onLoadProject) return;
+    try {
+      setWorkflowBusyId(workflow.workflowId);
+      const project = await runtime.getInstalledWorkflowProject(workflow.workflowId);
+      onLoadProject(project, workflow);
+      setWorkflowMessage(null);
+    } catch (error) {
+      setWorkflowMessage(String(error));
+    } finally {
+      setWorkflowBusyId(null);
+    }
+  }
+
+  async function runWorkflow(workflow: InstalledWorkflowSummary) {
+    if (!runtime.runWorkflowNow) return;
+    try {
+      setWorkflowBusyId(workflow.workflowId);
+      const receipt: WorkflowRunReceipt = await runtime.runWorkflowNow(workflow.workflowId);
+      setWorkflowMessage(
+        `Ran ${workflow.title}: ${receipt.status} at ${new Date(receipt.completedAtMs).toLocaleTimeString()}`
+      );
+      await refreshWorkflows();
+    } catch (error) {
+      setWorkflowMessage(String(error));
+    } finally {
+      setWorkflowBusyId(null);
+    }
+  }
+
+  async function toggleWorkflow(workflow: InstalledWorkflowSummary) {
+    const action =
+      workflow.status === "paused" ? runtime.resumeWorkflow : runtime.pauseWorkflow;
+    if (!action) return;
+    try {
+      setWorkflowBusyId(workflow.workflowId);
+      await action(workflow.workflowId);
+      await refreshWorkflows();
+      setWorkflowMessage(null);
+    } catch (error) {
+      setWorkflowMessage(String(error));
+    } finally {
+      setWorkflowBusyId(null);
+    }
+  }
+
+  async function deleteWorkflow(workflow: InstalledWorkflowSummary) {
+    if (!runtime.deleteWorkflow) return;
+    try {
+      setWorkflowBusyId(workflow.workflowId);
+      await runtime.deleteWorkflow(workflow.workflowId);
+      await refreshWorkflows();
+      setWorkflowMessage(null);
+    } catch (error) {
+      setWorkflowMessage(String(error));
+    } finally {
+      setWorkflowBusyId(null);
+    }
+  }
+
   return (
     <div className="explorer-panel">
       {/* Tabs */}
@@ -109,6 +206,12 @@ export function Explorer({ runtime, onDragStart }: ExplorerProps) {
             onClick={() => setActiveTab("LIBRARY")}
         >
             ASSETS
+        </button>
+        <button 
+            className={`explorer-tab ${activeTab === "AUTOMATIONS" ? "active" : ""}`} 
+            onClick={() => setActiveTab("AUTOMATIONS")}
+        >
+            AUTOMATIONS
         </button>
         <button 
             className={`explorer-tab ${activeTab === "ONTOLOGY" ? "active" : ""}`} 
@@ -148,6 +251,76 @@ export function Explorer({ runtime, onDragStart }: ExplorerProps) {
               >
                 <span className="explorer-item-icon">{item.icon}</span>
                 <span>{item.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "AUTOMATIONS" && (
+          <div className="workflow-list">
+            <div className="workflow-toolbar">
+              <button className="workflow-action quiet" onClick={() => void refreshWorkflows()}>
+                Refresh
+              </button>
+            </div>
+            {workflowMessage && <div className="workflow-message">{workflowMessage}</div>}
+            {filteredWorkflows.length === 0 && (
+              <div className="workflow-empty">
+                No installed workflows are visible from this runtime.
+              </div>
+            )}
+            {filteredWorkflows.map((workflow) => (
+              <div key={workflow.workflowId} className="workflow-card">
+                <div className="workflow-card-header">
+                  <div>
+                    <div className="workflow-title">{workflow.title}</div>
+                    <div className="workflow-meta">
+                      {workflow.status} • every {workflow.pollIntervalSeconds}s
+                    </div>
+                  </div>
+                  <div className={`workflow-status ${workflow.status}`}>
+                    {workflow.status}
+                  </div>
+                </div>
+                <div className="workflow-description">{workflow.description}</div>
+                <div className="workflow-meta-line">{workflow.sourceLabel}</div>
+                <div className="workflow-keywords">
+                  {workflow.keywords.map((keyword) => (
+                    <span key={keyword} className="workflow-keyword">
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+                <div className="workflow-actions">
+                  <button
+                    className="workflow-action primary"
+                    disabled={workflowBusyId === workflow.workflowId || !onLoadProject || !runtime.getInstalledWorkflowProject}
+                    onClick={() => void openWorkflow(workflow)}
+                  >
+                    Open
+                  </button>
+                  <button
+                    className="workflow-action"
+                    disabled={workflowBusyId === workflow.workflowId || !runtime.runWorkflowNow}
+                    onClick={() => void runWorkflow(workflow)}
+                  >
+                    Run now
+                  </button>
+                  <button
+                    className="workflow-action"
+                    disabled={workflowBusyId === workflow.workflowId || (!runtime.pauseWorkflow && !runtime.resumeWorkflow)}
+                    onClick={() => void toggleWorkflow(workflow)}
+                  >
+                    {workflow.status === "paused" ? "Resume" : "Pause"}
+                  </button>
+                  <button
+                    className="workflow-action danger"
+                    disabled={workflowBusyId === workflow.workflowId || !runtime.deleteWorkflow}
+                    onClick={() => void deleteWorkflow(workflow)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>

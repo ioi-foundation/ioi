@@ -44,7 +44,12 @@ export type {
     WalletMailConnectorAuthMode,
     WalletMailConnectorTlsMode,
     WalletMailConfigureAccountInput,
-    WalletMailConfigureAccountResult
+    WalletMailConfigureAccountResult,
+    InstalledWorkflowStatus,
+    InstalledWorkflowKind,
+    InstalledWorkflowSummary,
+    WorkflowRunReceipt,
+    CreateMonitorWorkflowRequest,
 } from "./runtime/agent-runtime";
 
 export * from "./types/graph";

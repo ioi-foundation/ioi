@@ -13,5 +13,6 @@ pub mod session;
 pub mod state;
 pub mod task;
 pub mod thresholds;
+pub mod workflows;
 
 pub use events::monitor_kernel_events;

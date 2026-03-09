@@ -204,6 +204,131 @@
   border-radius: 4px;
 }
 
+.workflow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workflow-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.workflow-card {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.workflow-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.workflow-title {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.workflow-description {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.workflow-meta,
+.workflow-meta-line {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.workflow-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workflow-keyword {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.workflow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workflow-action {
+  border: 1px solid var(--border-default);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workflow-action.primary {
+  color: var(--text-primary);
+  border-color: var(--accent-blue);
+}
+
+.workflow-action.danger {
+  border-color: rgba(255, 92, 92, 0.45);
+  color: #ff9a9a;
+}
+
+.workflow-action.quiet {
+  padding-inline: 10px;
+}
+
+.workflow-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.workflow-status {
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.workflow-status.active {
+  color: #74d39a;
+}
+
+.workflow-status.paused {
+  color: #d4b774;
+}
+
+.workflow-status.degraded {
+  color: #ff9a9a;
+}
+
+.workflow-message,
+.workflow-empty {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 8px;
+}
+
 .file-name {
   flex: 1;
   font-size: 11px;

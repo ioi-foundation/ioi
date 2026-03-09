@@ -161,6 +161,13 @@ mod tests {
         }
     }
 
+    fn resolved_with_capability(intent_id: &str, capability: &str) -> ResolvedIntentState {
+        let mut state = resolved(IntentScopeProfile::CommandExecution);
+        state.intent_id = intent_id.to_string();
+        state.required_capabilities = vec![CapabilityId::from(capability)];
+        state
+    }
+
     fn mail_provider_candidate(
         provider_family: &str,
         route_label: &str,
@@ -319,6 +326,30 @@ mod tests {
             .iter()
             .any(|t| t.name == "media__extract_multimodal_evidence"));
         assert!(tools.iter().any(|t| t.name == "chat__reply"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn automation_monitor_intent_exposes_automation_tool_and_hides_sys_exec() {
+        let intent = resolved_with_capability("automation.monitor", "automation.monitor.install");
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "monitor hacker news and notify me whenever a post about web4 hits the front page",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools
+            .iter()
+            .any(|tool| tool.name == "automation__create_monitor"));
+        assert!(!tools.iter().any(|tool| tool.name == "sys__exec"));
+        assert!(!tools.iter().any(|tool| tool.name == "sys__exec_session"));
     }
 
     #[tokio::test(flavor = "current_thread")]

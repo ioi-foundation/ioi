@@ -49,6 +49,12 @@ fn has_review_request_for_hash(
 
 fn seeded_required_capabilities(scope: IntentScopeProfile, intent_id: &str) -> Vec<CapabilityId> {
     let normalized_intent_id = intent_id.trim().to_ascii_lowercase();
+    if normalized_intent_id == "automation.monitor" {
+        return vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("automation.monitor.install"),
+        ];
+    }
     if normalized_intent_id == "mail.read.latest" {
         return vec![
             CapabilityId::from("agent.lifecycle"),
@@ -637,6 +643,19 @@ pub async fn run_case(
             &fixture.probe_script_path.to_string_lossy(),
         );
     }
+    let hacker_news_monitor_fixture = bootstrap_optional_fixture(
+        should_bootstrap_hacker_news_monitor_fixture(case.id),
+        || bootstrap_hacker_news_monitor_fixture_runtime(&run_unique_num),
+        |fixture| {
+            environment_evidence_batch_from_checks(hacker_news_monitor_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
+        },
+        &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
+    )?;
     let mail_reply_mock_fixture = bootstrap_optional_fixture(
         should_bootstrap_mail_reply_mock_fixture(case.id),
         || bootstrap_mail_reply_mock_fixture_runtime(&run_unique_num),
@@ -1265,6 +1284,21 @@ pub async fn run_case(
         },
         Some(|fixture| {
             environment_evidence_batch_from_checks(shutdown_schedule_fixture_cleanup_checks(
+                fixture,
+            ))
+        }),
+    );
+    insert_fixture_evidence(
+        &mut verification_checks,
+        &mut environment_receipts,
+        hacker_news_monitor_fixture.as_ref(),
+        |fixture| {
+            environment_evidence_batch_from_checks(hacker_news_monitor_fixture_post_run_checks(
+                fixture,
+            ))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(hacker_news_monitor_fixture_cleanup_checks(
                 fixture,
             ))
         }),

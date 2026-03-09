@@ -220,6 +220,19 @@ pub async fn handle_action_execution(
         AgentTool::AgentComplete { .. } => Ok(handlers::handle_agent_complete_tool()),
         AgentTool::CommerceCheckout { .. } => Ok(handlers::handle_commerce_checkout_tool()),
         AgentTool::ChatReply { message } => Ok(handlers::handle_chat_reply_tool(message)),
+        AgentTool::AutomationCreateMonitor {
+            title,
+            description,
+            keywords,
+            interval_seconds,
+            source_prompt,
+        } => Ok(handlers::handle_automation_create_monitor_tool(
+            title,
+            description,
+            keywords,
+            interval_seconds,
+            source_prompt,
+        )),
         AgentTool::OsFocusWindow { title } => {
             Ok(handlers::handle_os_focus_window_tool(os_driver, title).await)
         }

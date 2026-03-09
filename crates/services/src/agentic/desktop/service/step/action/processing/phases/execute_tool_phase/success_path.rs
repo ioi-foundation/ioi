@@ -693,6 +693,32 @@ pub(super) async fn handle_execution_success(
         );
     }
 
+    if command_scope && *success && matches!(tool, AgentTool::AutomationCreateMonitor { .. }) {
+        verification_checks.push("capability_execution_evidence=tool_output".to_string());
+        mark_execution_postcondition(&mut agent_state.tool_execution_log, "execution_artifact");
+        verification_checks.push(postcondition_marker("execution_artifact"));
+        let artifact_evidence = format!(
+            "automation_monitor_install=true;tool_output_chars={}",
+            history_entry
+                .as_ref()
+                .map(|entry| entry.chars().count())
+                .unwrap_or(0)
+        );
+        emit_execution_contract_receipt_event(
+            service,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            "execution",
+            "execution_artifact",
+            true,
+            &artifact_evidence,
+            None,
+            None,
+            synthesized_payload_hash.clone(),
+        );
+    }
+
     if (*success || *command_probe_completed) && !req_hash_hex.is_empty() {
         agent_state.tool_execution_log.insert(
             req_hash_hex.to_string(),

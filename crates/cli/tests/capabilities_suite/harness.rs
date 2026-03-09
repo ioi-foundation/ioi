@@ -193,6 +193,13 @@ const SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE: &str = "harness.shutdown_schedule_
 const SHUTDOWN_SCHEDULE_PROBE_SCRIPT_NAME: &str = "shutdown_schedule_probe";
 const SHUTDOWN_SCHEDULE_PROVIDER_IDS: [&str; 3] = ["shutdown", "systemctl", "at"];
 const SHUTDOWN_SCHEDULE_TARGET_LOCAL_TIME: &str = "23:00";
+const HACKER_NEWS_MONITOR_CASE_ID: &str =
+    "monitor_hacker_news_and_notify_me_whenever_a_post_about_web4_or_post_quantum_cryptography_hits_the_front_page";
+const HACKER_NEWS_MONITOR_FIXTURE_MODE: &str = "hacker_news_front_page_monitor_fixture_v1";
+const HACKER_NEWS_MONITOR_FIXTURE_PROBE_SOURCE: &str =
+    "harness.hacker_news_front_page_monitor_fixture";
+const HACKER_NEWS_MONITOR_FIXTURE_MANIFEST_NAME: &str =
+    "hacker_news_front_page_monitor_fixture_manifest.txt";
 const MAIL_REPLY_SEND_CASE_ID: &str =
     "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it";
 const MAIL_REPLY_MOCK_FIXTURE_MODE: &str = "mail_reply_mock_driver_fixture_v1";

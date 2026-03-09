@@ -177,6 +177,9 @@ impl InferenceRuntime for NoEmbeddingRuntime {
 #[derive(Debug, Default, Clone)]
 struct NoEmbeddingModelRankRuntime;
 
+#[derive(Debug, Default, Clone)]
+struct AutomationMonitorIntentRuntime;
+
 #[async_trait]
 impl InferenceRuntime for NoEmbeddingModelRankRuntime {
     async fn execute_inference(
@@ -223,6 +226,63 @@ impl InferenceRuntime for NoEmbeddingModelRankRuntime {
         })
         .to_string()
         .into_bytes())
+    }
+
+    async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+        Err(VmError::HostError("embeddings unavailable".to_string()))
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl InferenceRuntime for AutomationMonitorIntentRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        if prompt.contains("durable_automation_requested")
+            && query.contains("monitor hacker news")
+            && query.contains("notify me whenever")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "durable_automation_requested": true,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if query.contains("monitor hacker news")
+            && query.contains("notify me whenever")
+            && query.contains("post-quantum cryptography")
+        {
+            return Ok(serde_json::json!({
+                "scores": [
+                    {"intent_id": "automation.monitor", "score": 0.98},
+                    {"intent_id": "command.exec", "score": 0.61},
+                    {"intent_id": "web.research", "score": 0.18}
+                ]
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Ok(serde_json::json!({ "scores": [] }).to_string().into_bytes())
     }
 
     async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {

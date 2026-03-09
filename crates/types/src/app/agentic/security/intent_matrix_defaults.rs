@@ -384,6 +384,41 @@ IntentMatrixEntry {
     ],
 },
 IntentMatrixEntry {
+    intent_id: "automation.monitor".to_string(),
+    semantic_descriptor:
+        "install a durable local automation monitor that keeps checking a source on a schedule stores dedupe state and notifies later when a predicate matches"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::DurableAutomation,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("automation.monitor.install"),
+    ],
+    risk_class: "medium".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "monitor".to_string(),
+        "watch".to_string(),
+        "notify me whenever".to_string(),
+        "alert me if".to_string(),
+    ],
+    exemplars: vec![
+        "monitor a site and notify me when something happens".to_string(),
+        "watch a source every few minutes and alert on matches".to_string(),
+    ],
+},
+IntentMatrixEntry {
     intent_id: "command.probe".to_string(),
     semantic_descriptor:
         "check whether a binary or tool is available in PATH without mutating host state"

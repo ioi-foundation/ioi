@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 use std::future::Future;
 use std::pin::Pin;
 
+pub mod automation;
 pub mod google_api;
 pub mod google_auth;
 pub mod google_workspace;
@@ -101,13 +102,15 @@ pub struct ConnectorPostconditionVerifierBinding {
 }
 
 pub fn connector_tool_route_bindings() -> Vec<ConnectorToolRouteBinding> {
-    let mut bindings = mail_connector::mail_connector_tool_route_bindings();
+    let mut bindings = automation::automation_tool_route_bindings();
+    bindings.extend(mail_connector::mail_connector_tool_route_bindings());
     bindings.extend(google_workspace::google_connector_tool_route_bindings());
     bindings
 }
 
 pub fn connector_provider_probe_bindings() -> Vec<ConnectorProviderProbeBinding> {
-    let mut bindings = mail_connector::mail_connector_provider_probe_bindings();
+    let mut bindings = automation::automation_provider_probe_bindings();
+    bindings.extend(mail_connector::mail_connector_provider_probe_bindings());
     bindings.extend(google_workspace::google_connector_provider_probe_bindings());
     bindings
 }
