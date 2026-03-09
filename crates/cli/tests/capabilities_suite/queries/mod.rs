@@ -1,8 +1,10 @@
 mod back_up_my_desktop_and_documents_folders_to_an_external_drive;
 mod check_which_apps_are_using_the_most_memory_right_now_and_list_them;
 mod compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop;
+mod create_a_google_calendar_event_for_tomorrows_standup_at_2_pm;
 mod create_a_new_folder_on_my_desktop_called_project_some_number;
 mod download_and_install_vlc_media_player;
+mod draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_save_it_as_a_gmail_draft;
 mod draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it;
 mod find_all_pdf_files_on_my_computer_modified_in_the_last_week;
 mod find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus;
@@ -12,6 +14,7 @@ mod open_calculator_app;
 mod read_me_the_last_email_i_received;
 mod rename_every_file_in_my_downloads_folder_to_lowercase;
 mod schedule_my_computer_to_shut_down_at_11_pm_tonight;
+mod send_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_via_gmail;
 mod set_timer_15_minutes;
 mod summarize_the_contents_of_the_most_recent_document_in_my_documents_folder;
 mod summarize_the_key_points_from_this_45_minute_youtube_video;
@@ -35,6 +38,9 @@ pub fn all_cases() -> Vec<QueryCase> {
         set_timer_15_minutes::case(),
         schedule_my_computer_to_shut_down_at_11_pm_tonight::case(),
         draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it::case(),
+        draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_save_it_as_a_gmail_draft::case(),
+        send_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_via_gmail::case(),
+        create_a_google_calendar_event_for_tomorrows_standup_at_2_pm::case(),
         find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus::case(),
         compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop::case(),
         create_a_new_folder_on_my_desktop_called_project_some_number::case(),

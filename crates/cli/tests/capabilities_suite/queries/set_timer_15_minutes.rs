@@ -57,10 +57,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         LocalCheck::new(
             "timer_contract_evidence_present",
             timer_backend_observed && notification_path_observed,
-            truncate_chars(
-                &format!("timer_delay_seconds={}", timer_delay_seconds),
-                120,
-            ),
+            truncate_chars(&format!("timer_delay_seconds={}", timer_delay_seconds), 120),
         ),
         LocalCheck::new(
             "15_minute_signal_present",

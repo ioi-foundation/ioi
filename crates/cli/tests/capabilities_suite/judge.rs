@@ -38,7 +38,8 @@ fn typed_action_evidence(action_evidence: &RunObservation) -> Vec<Value> {
 }
 
 fn local_check_payload(local: &LocalJudgeResult) -> Vec<Value> {
-    local.checks
+    local
+        .checks
         .iter()
         .map(|check| {
             json!({
@@ -394,8 +395,8 @@ Payload:\n{}",
         if verdict.confidence == "high" {
             verdict.confidence = "medium".to_string();
         }
-        verdict.rationale = "Completion gate not satisfied: completion.completed=false."
-            .to_string();
+        verdict.rationale =
+            "Completion gate not satisfied: completion.completed=false.".to_string();
     }
 
     Ok(verdict)
@@ -537,6 +538,7 @@ mod tests {
                 no_gui_snapshot_fallback: true,
             }),
             mail: None,
+            google: None,
             event_excerpt: vec!["debug line".to_string()],
             kernel_event_count: 3,
             kernel_log_lines: vec!["kernel log line".to_string()],

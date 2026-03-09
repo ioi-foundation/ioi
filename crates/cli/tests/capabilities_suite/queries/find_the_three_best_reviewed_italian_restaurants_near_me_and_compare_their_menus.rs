@@ -91,8 +91,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             ),
         ]);
     };
-    let fixture_mode = environment_value(obs, "env_receipt::restaurants_near_me_fixture_mode")
-        .unwrap_or_default();
+    let fixture_mode =
+        environment_value(obs, "env_receipt::restaurants_near_me_fixture_mode").unwrap_or_default();
     let fixture_probe_source =
         environment_value(obs, "env_receipt::restaurants_near_me_fixture_probe_source")
             .unwrap_or_else(|| EXPECTED_FIXTURE_PROBE_SOURCE.to_string());
@@ -108,8 +108,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     )
     .unwrap_or(false);
 
-    let locality_env_key = environment_value(obs, "env_receipt::restaurants_near_me_locality_env_key")
-        .unwrap_or_default();
+    let locality_env_key =
+        environment_value(obs, "env_receipt::restaurants_near_me_locality_env_key")
+            .unwrap_or_default();
     let locality_observed_value = environment_value(
         obs,
         "env_receipt::restaurants_near_me_locality_observed_value",
@@ -194,8 +195,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let selected_source_subject_alignment_floor_met = web
         .selected_source_subject_alignment_floor_met
         .unwrap_or(!semantic_subject_alignment_required);
-    let selected_source_subject_alignment_urls =
-        web.selected_source_subject_alignment_urls.clone();
+    let selected_source_subject_alignment_urls = web.selected_source_subject_alignment_urls.clone();
     let final_selected_source_distinct_domains = web.selected_source_distinct_domains.unwrap_or(0);
     let local_business_entity_floor_met = web.local_business_entity_floor_met.unwrap_or(false);
     let local_business_entity_matched_names = web.local_business_entity_names.clone();
@@ -217,10 +217,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && final_story_slot_floor_met
         && final_story_citation_floor_met
         && (!final_comparison_required || final_comparison_ready);
-    let final_selected_source_urls_match_entity_sources =
-        !selected_source_urls.is_empty()
-            && normalized_url_set(&selected_source_urls)
-                == normalized_url_set(&local_business_entity_source_urls);
+    let final_selected_source_urls_match_entity_sources = !selected_source_urls.is_empty()
+        && normalized_url_set(&selected_source_urls)
+            == normalized_url_set(&local_business_entity_source_urls);
     let semantic_subject_alignment_receipts_present = if !semantic_subject_alignment_required {
         true
     } else if geo_scoped_entity_expansion_flow {

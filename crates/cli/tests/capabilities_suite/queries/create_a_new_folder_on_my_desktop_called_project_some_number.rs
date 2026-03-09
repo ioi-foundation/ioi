@@ -11,10 +11,16 @@ use super::super::types::{
 
 const CASE_ID: &str = "create_a_new_folder_on_my_desktop_called_project_some_number";
 const EXPECTED_FIXTURE_MODE: &str = "desktop_project_create_fixture_v1";
-const CREATE_TOOL_NAMES: [&str; 3] =
-    ["filesystem__create_directory", "sys__exec", "sys__exec_session"];
-const VERIFICATION_TOOL_NAMES: [&str; 3] =
-    ["filesystem__list_directory", "sys__exec", "sys__exec_session"];
+const CREATE_TOOL_NAMES: [&str; 3] = [
+    "filesystem__create_directory",
+    "sys__exec",
+    "sys__exec_session",
+];
+const VERIFICATION_TOOL_NAMES: [&str; 3] = [
+    "filesystem__list_directory",
+    "sys__exec",
+    "sys__exec_session",
+];
 const DISALLOWED_MUTATING_TOOL_NAMES: [&str; 6] = [
     "filesystem__write_file",
     "filesystem__patch",
@@ -63,9 +69,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             .unwrap_or(obs.run_timestamp_ms);
     let fixture_satisfied =
         environment_bool(obs, "env_receipt::desktop_project_fixture_satisfied").unwrap_or(false);
-    let expected_absent_satisfied =
-        environment_bool(obs, "env_receipt::desktop_project_expected_absent_satisfied")
-            .unwrap_or(false);
+    let expected_absent_satisfied = environment_bool(
+        obs,
+        "env_receipt::desktop_project_expected_absent_satisfied",
+    )
+    .unwrap_or(false);
 
     let expected_path =
         environment_value(obs, "env_receipt::desktop_project_expected_path").unwrap_or_default();
@@ -82,15 +90,21 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let desktop_entries =
         environment_value(obs, "env_receipt::desktop_project_desktop_entries").unwrap_or_default();
-    let desktop_entries_probe_source =
-        environment_value(obs, "env_receipt::desktop_project_desktop_entries_probe_source")
-            .unwrap_or_default();
-    let desktop_entries_timestamp_ms =
-        environment_u64(obs, "env_receipt::desktop_project_desktop_entries_timestamp_ms")
-            .unwrap_or(obs.run_timestamp_ms);
-    let desktop_entries_satisfied =
-        environment_bool(obs, "env_receipt::desktop_project_desktop_entries_satisfied")
-            .unwrap_or(false);
+    let desktop_entries_probe_source = environment_value(
+        obs,
+        "env_receipt::desktop_project_desktop_entries_probe_source",
+    )
+    .unwrap_or_default();
+    let desktop_entries_timestamp_ms = environment_u64(
+        obs,
+        "env_receipt::desktop_project_desktop_entries_timestamp_ms",
+    )
+    .unwrap_or(obs.run_timestamp_ms);
+    let desktop_entries_satisfied = environment_bool(
+        obs,
+        "env_receipt::desktop_project_desktop_entries_satisfied",
+    )
+    .unwrap_or(false);
     let scope_satisfied =
         environment_bool(obs, "env_receipt::desktop_project_scope_satisfied").unwrap_or(false);
 

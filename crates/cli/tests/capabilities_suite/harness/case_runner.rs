@@ -73,6 +73,34 @@ fn seeded_required_capabilities(scope: IntentScopeProfile, intent_id: &str) -> V
             CapabilityId::from("mail.reply"),
         ];
     }
+    if normalized_intent_id == "gmail.send_email"
+        || normalized_intent_id == "google.gmail.send_email"
+    {
+        return vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("mail.reply"),
+            CapabilityId::from("mail.send"),
+            CapabilityId::from("gmail.write"),
+        ];
+    }
+    if normalized_intent_id == "gmail.draft_email"
+        || normalized_intent_id == "google.gmail.draft_email"
+    {
+        return vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("mail.reply"),
+            CapabilityId::from("mail.send"),
+            CapabilityId::from("gmail.write"),
+        ];
+    }
+    if normalized_intent_id == "calendar.create_event"
+        || normalized_intent_id == "google.calendar.create_event"
+    {
+        return vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("calendar.write"),
+        ];
+    }
 
     let mut caps = match scope {
         IntentScopeProfile::Conversation => vec![CapabilityId::from("conversation.reply")],
@@ -137,6 +165,8 @@ fn seed_resolved_intent(
         score: 0.99,
         top_k: vec![],
         required_capabilities: seeded_required_capabilities(scope, intent_id),
+        required_receipts: vec![],
+        required_postconditions: vec![],
         risk_class: "low".to_string(),
         preferred_tier: "tool_first".to_string(),
         matrix_version: "test".to_string(),
@@ -149,6 +179,8 @@ fn seed_resolved_intent(
         query_normalization_version: "v1".to_string(),
         matrix_source_hash: [0u8; 32],
         receipt_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     });
     agent_state.awaiting_intent_clarification = false;
@@ -410,7 +442,12 @@ pub async fn run_case(
     let vlc_install_fixture = bootstrap_optional_fixture(
         should_bootstrap_vlc_install_fixture(case.id),
         bootstrap_vlc_install_fixture_runtime,
-        |fixture| environment_evidence_batch_from_checks(vlc_install_fixture_preflight_checks(fixture, run_timestamp_ms)),
+        |fixture| {
+            environment_evidence_batch_from_checks(vlc_install_fixture_preflight_checks(
+                fixture,
+                run_timestamp_ms,
+            ))
+        },
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
     )?;
@@ -430,14 +467,24 @@ pub async fn run_case(
     let projects_zip_fixture = bootstrap_optional_fixture(
         should_bootstrap_projects_zip_fixture(case.id),
         bootstrap_projects_zip_fixture_runtime,
-        |fixture| environment_evidence_batch_from_checks(projects_zip_fixture_preflight_checks(fixture, run_timestamp_ms)),
+        |fixture| {
+            environment_evidence_batch_from_checks(projects_zip_fixture_preflight_checks(
+                fixture,
+                run_timestamp_ms,
+            ))
+        },
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
     )?;
     let downloads_lowercase_fixture = bootstrap_optional_fixture(
         should_bootstrap_downloads_lowercase_fixture(case.id),
         || bootstrap_downloads_lowercase_fixture_runtime(&run_unique_num),
-        |fixture| environment_evidence_batch_from_checks(downloads_lowercase_fixture_preflight_checks(fixture, run_timestamp_ms)),
+        |fixture| {
+            environment_evidence_batch_from_checks(downloads_lowercase_fixture_preflight_checks(
+                fixture,
+                run_timestamp_ms,
+            ))
+        },
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
     )?;
@@ -445,13 +492,11 @@ pub async fn run_case(
         should_bootstrap_downloads_png_move_fixture(case.id),
         || bootstrap_downloads_png_move_fixture_runtime(&run_unique_num),
         |fixture| {
-            environment_evidence_batch_from_checks(
-                downloads_png_move_fixture_preflight_checks(
-                    fixture,
-                    &run_unique_num,
-                    run_timestamp_ms,
-                ),
-            )
+            environment_evidence_batch_from_checks(downloads_png_move_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
         },
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
@@ -466,11 +511,13 @@ pub async fn run_case(
         should_bootstrap_desktop_documents_backup_fixture(case.id),
         || bootstrap_desktop_documents_backup_fixture_runtime(&run_unique_num),
         |fixture| {
-            environment_evidence_batch_from_checks(desktop_documents_backup_fixture_preflight_checks(
-                fixture,
-                &run_unique_num,
-                run_timestamp_ms,
-            ))
+            environment_evidence_batch_from_checks(
+                desktop_documents_backup_fixture_preflight_checks(
+                    fixture,
+                    &run_unique_num,
+                    run_timestamp_ms,
+                ),
+            )
         },
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
@@ -603,6 +650,19 @@ pub async fn run_case(
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
     )?;
+    let google_connector_fixture = bootstrap_optional_fixture(
+        should_bootstrap_google_connector_fixture(case.id),
+        || bootstrap_google_connector_fixture_runtime(&run_unique_num),
+        |fixture| {
+            environment_evidence_batch_from_checks(google_connector_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            ))
+        },
+        &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
+    )?;
     let restaurants_near_me_fixture = bootstrap_optional_fixture(
         should_bootstrap_restaurants_near_me_fixture(case.id),
         || bootstrap_restaurants_near_me_fixture_runtime(&run_unique_num),
@@ -624,6 +684,7 @@ pub async fn run_case(
                 run_index,
                 run_timestamp_ms,
                 mail_provider_driver_override,
+                Some(case.seeded_intent_id),
             )
             .await?,
         );
@@ -779,12 +840,36 @@ pub async fn run_case(
     let mut mail_reply_failure_count = 0usize;
     let mut mail_read_latest_payloads = Vec::<MailReadLatestPayloadObservation>::new();
     let mut mail_reply_payloads = Vec::<MailReplyPayloadObservation>::new();
+    let mut google_gmail_draft_success_count = 0usize;
+    let mut google_gmail_draft_failure_count = 0usize;
+    let mut google_gmail_send_success_count = 0usize;
+    let mut google_gmail_send_failure_count = 0usize;
+    let mut google_calendar_create_success_count = 0usize;
+    let mut google_calendar_create_failure_count = 0usize;
+    let mut google_gmail_draft_payloads = Vec::<GoogleGmailPayloadObservation>::new();
+    let mut google_gmail_send_payloads = Vec::<GoogleGmailPayloadObservation>::new();
+    let mut google_calendar_create_payloads = Vec::<GoogleCalendarPayloadObservation>::new();
 
     for event in &captured_events {
         match event {
             KernelEvent::AgentStep(trace) => {
                 if let Some(entry) = planned_tool_call_from_step(trace) {
                     planned_tool_calls.push(entry);
+                }
+                if let Some(payload) = parse_google_gmail_draft_payload(&trace.raw_output) {
+                    google_gmail_draft_success_count =
+                        google_gmail_draft_success_count.saturating_add(1);
+                    google_gmail_draft_payloads.push(payload);
+                }
+                if let Some(payload) = parse_google_gmail_send_payload(&trace.raw_output) {
+                    google_gmail_send_success_count =
+                        google_gmail_send_success_count.saturating_add(1);
+                    google_gmail_send_payloads.push(payload);
+                }
+                if let Some(payload) = parse_google_calendar_create_payload(&trace.raw_output) {
+                    google_calendar_create_success_count =
+                        google_calendar_create_success_count.saturating_add(1);
+                    google_calendar_create_payloads.push(payload);
                 }
             }
             KernelEvent::AgentActionResult {
@@ -836,6 +921,51 @@ pub async fn run_case(
                         }
                     } else {
                         mail_reply_failure_count = mail_reply_failure_count.saturating_add(1);
+                    }
+                }
+                if is_google_gmail_draft_tool_name(tool_name) {
+                    if !hard_error {
+                        if let Some(payload) = parse_google_gmail_draft_payload(output) {
+                            google_gmail_draft_success_count =
+                                google_gmail_draft_success_count.saturating_add(1);
+                            google_gmail_draft_payloads.push(payload);
+                        } else if agent_status.eq_ignore_ascii_case("failed") {
+                            google_gmail_draft_failure_count =
+                                google_gmail_draft_failure_count.saturating_add(1);
+                        }
+                    } else {
+                        google_gmail_draft_failure_count =
+                            google_gmail_draft_failure_count.saturating_add(1);
+                    }
+                }
+                if is_google_gmail_send_tool_name(tool_name) {
+                    if !hard_error {
+                        if let Some(payload) = parse_google_gmail_send_payload(output) {
+                            google_gmail_send_success_count =
+                                google_gmail_send_success_count.saturating_add(1);
+                            google_gmail_send_payloads.push(payload);
+                        } else if agent_status.eq_ignore_ascii_case("failed") {
+                            google_gmail_send_failure_count =
+                                google_gmail_send_failure_count.saturating_add(1);
+                        }
+                    } else {
+                        google_gmail_send_failure_count =
+                            google_gmail_send_failure_count.saturating_add(1);
+                    }
+                }
+                if is_google_calendar_create_tool_name(tool_name) {
+                    if !hard_error {
+                        if let Some(payload) = parse_google_calendar_create_payload(output) {
+                            google_calendar_create_success_count =
+                                google_calendar_create_success_count.saturating_add(1);
+                            google_calendar_create_payloads.push(payload);
+                        } else if agent_status.eq_ignore_ascii_case("failed") {
+                            google_calendar_create_failure_count =
+                                google_calendar_create_failure_count.saturating_add(1);
+                        }
+                    } else {
+                        google_calendar_create_failure_count =
+                            google_calendar_create_failure_count.saturating_add(1);
                     }
                 }
                 action_evidence.push(ActionEvidence {
@@ -983,7 +1113,9 @@ pub async fn run_case(
         &mut verification_checks,
         &mut environment_receipts,
         vlc_install_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(vlc_install_fixture_post_run_checks(fixture)),
+        |fixture| {
+            environment_evidence_batch_from_checks(vlc_install_fixture_post_run_checks(fixture))
+        },
         None,
     );
     insert_fixture_evidence(
@@ -1005,57 +1137,109 @@ pub async fn run_case(
         &mut verification_checks,
         &mut environment_receipts,
         projects_zip_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(projects_zip_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(projects_zip_fixture_cleanup_checks(fixture))),
+        |fixture| {
+            environment_evidence_batch_from_checks(projects_zip_fixture_post_run_checks(fixture))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(projects_zip_fixture_cleanup_checks(fixture))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
         &mut environment_receipts,
         downloads_lowercase_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(downloads_lowercase_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(downloads_lowercase_fixture_cleanup_checks(fixture))),
+        |fixture| {
+            environment_evidence_batch_from_checks(downloads_lowercase_fixture_post_run_checks(
+                fixture,
+            ))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(downloads_lowercase_fixture_cleanup_checks(
+                fixture,
+            ))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
         &mut environment_receipts,
         downloads_png_move_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(downloads_png_move_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(downloads_png_move_fixture_cleanup_checks(fixture))),
+        |fixture| {
+            environment_evidence_batch_from_checks(downloads_png_move_fixture_post_run_checks(
+                fixture,
+            ))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(downloads_png_move_fixture_cleanup_checks(
+                fixture,
+            ))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
         &mut environment_receipts,
         desktop_documents_backup_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(desktop_documents_backup_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(desktop_documents_backup_fixture_cleanup_checks(fixture))),
+        |fixture| {
+            environment_evidence_batch_from_checks(
+                desktop_documents_backup_fixture_post_run_checks(fixture),
+            )
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(desktop_documents_backup_fixture_cleanup_checks(
+                fixture,
+            ))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
         &mut environment_receipts,
         documents_summary_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(documents_summary_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(documents_summary_fixture_cleanup_checks(fixture))),
+        |fixture| {
+            environment_evidence_batch_from_checks(documents_summary_fixture_post_run_checks(
+                fixture,
+            ))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(documents_summary_fixture_cleanup_checks(
+                fixture,
+            ))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
         &mut environment_receipts,
         pdf_last_week_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(pdf_last_week_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(pdf_last_week_fixture_cleanup_checks(fixture))),
+        |fixture| {
+            environment_evidence_batch_from_checks(pdf_last_week_fixture_post_run_checks(fixture))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(pdf_last_week_fixture_cleanup_checks(fixture))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
         &mut environment_receipts,
         spotify_uninstall_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(spotify_uninstall_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(spotify_uninstall_fixture_cleanup_checks(fixture))),
+        |fixture| {
+            environment_evidence_batch_from_checks(spotify_uninstall_fixture_post_run_checks(
+                fixture,
+            ))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(spotify_uninstall_fixture_cleanup_checks(
+                fixture,
+            ))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
         &mut environment_receipts,
         top_memory_apps_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(top_memory_apps_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(top_memory_apps_fixture_cleanup_checks(fixture))),
+        |fixture| {
+            environment_evidence_batch_from_checks(top_memory_apps_fixture_post_run_checks(fixture))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(top_memory_apps_fixture_cleanup_checks(fixture))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
@@ -1067,7 +1251,20 @@ pub async fn run_case(
             ))
         },
         Some(|fixture| {
-            environment_evidence_batch_from_checks(media_transcript_fixture_cleanup_checks(
+            environment_evidence_batch_from_checks(media_transcript_fixture_cleanup_checks(fixture))
+        }),
+    );
+    insert_fixture_evidence(
+        &mut verification_checks,
+        &mut environment_receipts,
+        shutdown_schedule_fixture.as_ref(),
+        |fixture| {
+            environment_evidence_batch_from_checks(shutdown_schedule_fixture_post_run_checks(
+                fixture,
+            ))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(shutdown_schedule_fixture_cleanup_checks(
                 fixture,
             ))
         }),
@@ -1075,16 +1272,26 @@ pub async fn run_case(
     insert_fixture_evidence(
         &mut verification_checks,
         &mut environment_receipts,
-        shutdown_schedule_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(shutdown_schedule_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(shutdown_schedule_fixture_cleanup_checks(fixture))),
+        mail_reply_mock_fixture.as_ref(),
+        |fixture| {
+            environment_evidence_batch_from_checks(mail_reply_mock_fixture_post_run_checks(fixture))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(mail_reply_mock_fixture_cleanup_checks(fixture))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
         &mut environment_receipts,
-        mail_reply_mock_fixture.as_ref(),
-        |fixture| environment_evidence_batch_from_checks(mail_reply_mock_fixture_post_run_checks(fixture)),
-        Some(|fixture| environment_evidence_batch_from_checks(mail_reply_mock_fixture_cleanup_checks(fixture))),
+        google_connector_fixture.as_ref(),
+        |fixture| {
+            environment_evidence_batch_from_checks(google_connector_fixture_post_run_checks(
+                fixture,
+            ))
+        },
+        Some(|fixture| {
+            environment_evidence_batch_from_checks(google_connector_fixture_cleanup_checks(fixture))
+        }),
     );
     insert_fixture_evidence(
         &mut verification_checks,
@@ -1141,6 +1348,7 @@ pub async fn run_case(
         web: None,
         screenshot: None,
         mail: None,
+        google: None,
         event_excerpt,
         kernel_event_count: captured_events.len(),
         kernel_log_lines,
@@ -1155,6 +1363,18 @@ pub async fn run_case(
         mail_reply_failure_count,
         mail_read_latest_payloads,
         mail_reply_payloads,
+    );
+    observation.google = derive_google_observation(
+        &observation,
+        google_gmail_draft_success_count,
+        google_gmail_draft_failure_count,
+        google_gmail_send_success_count,
+        google_gmail_send_failure_count,
+        google_calendar_create_success_count,
+        google_calendar_create_failure_count,
+        google_gmail_draft_payloads,
+        google_gmail_send_payloads,
+        google_calendar_create_payloads,
     );
 
     Ok(observation)

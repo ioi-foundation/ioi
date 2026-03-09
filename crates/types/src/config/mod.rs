@@ -665,6 +665,11 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
     // Wallet Network
     let mut wallet_methods = BTreeMap::new();
     for method in [
+        "configure_control_root@v1",
+        "register_client@v1",
+        "revoke_client@v1",
+        "get_client@v1",
+        "list_clients@v1",
         "issue_session_grant@v1",
         "store_secret_record@v1",
         "connector_auth_upsert@v1",

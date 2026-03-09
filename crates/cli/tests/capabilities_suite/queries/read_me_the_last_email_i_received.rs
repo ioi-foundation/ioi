@@ -119,12 +119,19 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && received_timestamp_present
         && mailbox_output_present;
 
-    let setup_env_loaded = has_verification_pair(obs, "env_receipt::mail_env_file_loaded", "true");
+    let setup_root_configured = has_verification_pair(
+        obs,
+        "env_receipt::mail_wallet_control_root_configured",
+        "true",
+    );
+    let setup_client_registered = has_verification_pair(
+        obs,
+        "env_receipt::mail_wallet_capability_client_registered",
+        "true",
+    );
     let setup_connector_bootstrap =
         has_verification_pair(obs, "env_receipt::mail_connector_bootstrap", "true");
-    let setup_channel_seeded =
-        has_verification_pair(obs, "env_receipt::mail_channel_seeded", "true");
-    let setup_lease_seeded = has_verification_pair(obs, "env_receipt::mail_lease_seeded", "true");
+    let setup_binding_ready = has_verification_pair(obs, "env_receipt::mail_binding_ready", "true");
     let setup_receipt_timestamp_present =
         verification_value(obs, "env_receipt::mail_setup_timestamp_ms").is_some();
     let setup_mailbox = verification_value(obs, "env_receipt::mail_mailbox")
@@ -138,10 +145,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .map(|(expected, observed)| expected.eq_ignore_ascii_case(observed))
         .unwrap_or(false);
 
-    let connector_environment_setup_receipts_present = setup_env_loaded
+    let connector_environment_setup_receipts_present = setup_root_configured
+        && setup_client_registered
         && setup_connector_bootstrap
-        && setup_channel_seeded
-        && setup_lease_seeded
+        && setup_binding_ready
         && setup_receipt_timestamp_present;
 
     let no_mailbox_fallback_markers = !mail.fallback_marker_present;
@@ -293,14 +300,31 @@ fn build_environment_receipts(
 ) -> Vec<EnvironmentEvidenceReceipt> {
     vec![
         EnvironmentEvidenceReceipt {
-            key: "mail_env_bootstrap_loaded",
+            key: "mail_wallet_control_plane_configured",
             observed_value: format!(
-                "env_receipt::mail_env_file_loaded={}",
-                has_verification_pair(obs, "env_receipt::mail_env_file_loaded", "true")
+                "root_configured={} client_registered={}",
+                has_verification_pair(
+                    obs,
+                    "env_receipt::mail_wallet_control_root_configured",
+                    "true"
+                ),
+                has_verification_pair(
+                    obs,
+                    "env_receipt::mail_wallet_capability_client_registered",
+                    "true"
+                )
             ),
             probe_source: "RunObservation.verification_facts",
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: has_verification_pair(obs, "env_receipt::mail_env_file_loaded", "true"),
+            satisfied: has_verification_pair(
+                obs,
+                "env_receipt::mail_wallet_control_root_configured",
+                "true"
+            ) && has_verification_pair(
+                obs,
+                "env_receipt::mail_wallet_capability_client_registered",
+                "true"
+            ),
         },
         EnvironmentEvidenceReceipt {
             key: "mail_connector_runtime_configured",

@@ -4,8 +4,7 @@ use serde::Serialize;
 use super::super::types::{
     has_cec_receipt, has_cec_stage, has_contract_failure_evidence, has_tool_with_token,
     has_verification_pair, truncate_chars, uri_scheme, verification_bool, verification_u64,
-    verification_value, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase,
-    RunObservation,
+    verification_value, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 const CASE_ID: &str =
@@ -119,14 +118,21 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && mailto_citation_present
         && payload_synthesis_receipt_present;
 
-    let setup_env_loaded = has_verification_pair(obs, "env_receipt::mail_env_file_loaded", "true");
+    let setup_root_configured = has_verification_pair(
+        obs,
+        "env_receipt::mail_wallet_control_root_configured",
+        "true",
+    );
+    let setup_client_registered = has_verification_pair(
+        obs,
+        "env_receipt::mail_wallet_capability_client_registered",
+        "true",
+    );
     let setup_connector_bootstrap =
         has_verification_pair(obs, "env_receipt::mail_connector_bootstrap", "true");
-    let setup_channel_seeded =
-        has_verification_pair(obs, "env_receipt::mail_channel_seeded", "true");
-    let setup_lease_seeded = has_verification_pair(obs, "env_receipt::mail_lease_seeded", "true");
-    let setup_send_capability_seeded =
-        has_verification_pair(obs, "env_receipt::mail_send_capability_seeded", "true");
+    let setup_binding_ready = has_verification_pair(obs, "env_receipt::mail_binding_ready", "true");
+    let setup_send_capability_bound =
+        has_verification_pair(obs, "env_receipt::mail_send_capability_bound", "true");
     let setup_provider_driver =
         verification_value(obs, "env_receipt::mail_provider_driver").unwrap_or_default();
     let setup_provider_driver_source =
@@ -152,11 +158,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         verification_bool(obs, "env_receipt::mail_reply_fixture_run_unique_satisfied")
             .unwrap_or(false);
 
-    let connector_environment_setup_receipts_present = setup_env_loaded
+    let connector_environment_setup_receipts_present = setup_root_configured
+        && setup_client_registered
         && setup_connector_bootstrap
-        && setup_channel_seeded
-        && setup_lease_seeded
-        && setup_send_capability_seeded
+        && setup_binding_ready
+        && setup_send_capability_bound
         && setup_provider_driver_satisfied
         && setup_receipt_timestamp_present;
 
@@ -184,7 +190,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         connector_environment_setup_receipts_present,
         setup_provider_driver.clone(),
         setup_provider_driver_source.clone(),
-        setup_send_capability_seeded,
+        setup_send_capability_bound,
         mail_reply_success_count,
         mail_reply_failure_count,
         recipient_binding_present,
@@ -331,7 +337,7 @@ fn build_environment_receipts(
     connector_environment_setup_receipts_present: bool,
     setup_provider_driver: String,
     setup_provider_driver_source: String,
-    setup_send_capability_seeded: bool,
+    setup_send_capability_bound: bool,
     mail_reply_success_count: usize,
     mail_reply_failure_count: usize,
     recipient_binding_present: bool,
@@ -361,18 +367,18 @@ fn build_environment_receipts(
         EnvironmentEvidenceReceipt {
             key: "mail_connector_runtime_configured",
             observed_value: format!(
-                "connector_setup_receipts_present={} provider_driver={} provider_driver_source={} setup_send_capability_seeded={}",
+                "connector_setup_receipts_present={} provider_driver={} provider_driver_source={} setup_send_capability_bound={}",
                 connector_environment_setup_receipts_present,
                 setup_provider_driver,
                 setup_provider_driver_source,
-                setup_send_capability_seeded
+                setup_send_capability_bound
             ),
             probe_source: "RunObservation.verification_facts".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: connector_environment_setup_receipts_present
                 && setup_provider_driver.eq_ignore_ascii_case("mock")
                 && setup_provider_driver_source.eq_ignore_ascii_case("fixture_override")
-                && setup_send_capability_seeded,
+                && setup_send_capability_bound,
         },
         EnvironmentEvidenceReceipt {
             key: "mail_reply_execution_observed",

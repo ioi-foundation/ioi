@@ -61,6 +61,12 @@ pub struct WalletApprovalDecision {
 pub enum VaultAuditEventKind {
     /// A new vault identity was created.
     IdentityCreated,
+    /// The control-plane root authority was configured or rotated.
+    ControlRootConfigured,
+    /// A wallet client was registered or updated.
+    ClientRegistered,
+    /// A wallet client was suspended or revoked.
+    ClientRevoked,
     /// An owner wallet anchor was linked/updated.
     OwnerLinked,
     /// A secret record was created.

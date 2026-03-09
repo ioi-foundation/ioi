@@ -78,57 +78,72 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let transcript_segment_count =
         cec_receipt_usize(obs, "verification", "media_transcript_segment_count").unwrap_or(0);
     let transcript_source_kind =
-        cec_receipt_value(obs, "verification", "media_transcript_source_kind")
-            .unwrap_or_default();
+        cec_receipt_value(obs, "verification", "media_transcript_source_kind").unwrap_or_default();
     let transcript_language =
-        cec_receipt_value(obs, "verification", "media_transcript_language")
-            .unwrap_or_default();
+        cec_receipt_value(obs, "verification", "media_transcript_language").unwrap_or_default();
     let visual_frame_count =
         cec_receipt_usize(obs, "verification", "media_visual_frame_count").unwrap_or(0);
     let visual_char_count =
         cec_receipt_usize(obs, "verification", "media_visual_char_count").unwrap_or(0);
-    let visual_hash = cec_receipt_value(obs, "verification", "media_visual_hash").unwrap_or_default();
+    let visual_hash =
+        cec_receipt_value(obs, "verification", "media_visual_hash").unwrap_or_default();
     let selected_source_url =
         cec_receipt_value(obs, "verification", "selected_source_url").unwrap_or_default();
     let selected_source_total =
         cec_receipt_usize(obs, "verification", "selected_source_total").unwrap_or(0);
     let selected_source_distinct_domains =
-        cec_receipt_usize(obs, "verification", "selected_source_distinct_domains")
-            .unwrap_or(0);
+        cec_receipt_usize(obs, "verification", "selected_source_distinct_domains").unwrap_or(0);
 
     let completion_gate_satisfied =
         has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
     let completion_evidence_present =
         obs.completed && !obs.failed && obs.chat_reply_count > 0 && completion_gate_satisfied;
-    let media_tool_path_evidence_present = observation_has_tool_name(
-        obs,
-        "media__extract_multimodal_evidence",
-    ) && !observation_has_tool_name(obs, "web__search")
-        && !observation_has_tool_name(obs, "web__read")
-        && !observation_has_tool_name(obs, "net__fetch")
-        && !observation_has_tool_name(obs, "browser__navigate")
-        && !observation_has_tool_name(obs, "sys__exec")
-        && !observation_has_tool_name(obs, "sys__exec_session");
+    let media_tool_path_evidence_present =
+        observation_has_tool_name(obs, "media__extract_multimodal_evidence")
+            && !observation_has_tool_name(obs, "web__search")
+            && !observation_has_tool_name(obs, "web__read")
+            && !observation_has_tool_name(obs, "net__fetch")
+            && !observation_has_tool_name(obs, "browser__navigate")
+            && !observation_has_tool_name(obs, "sys__exec")
+            && !observation_has_tool_name(obs, "sys__exec_session");
     let cec_phase_receipts_present = has_cec_stage(obs, "discovery", Some(true))
         && has_cec_stage(obs, "provider_selection", Some(true))
         && has_cec_stage(obs, "execution", Some(true))
         && has_cec_stage(obs, "verification", Some(true))
-        && has_cec_receipt(obs, "verification", "media_multimodal_evidence_available", Some(true))
-        && has_cec_receipt(obs, "verification", "media_transcript_available", Some(true))
-        && has_cec_receipt(obs, "verification", "media_visual_evidence_available", Some(true))
+        && has_cec_receipt(
+            obs,
+            "verification",
+            "media_multimodal_evidence_available",
+            Some(true),
+        )
+        && has_cec_receipt(
+            obs,
+            "verification",
+            "media_transcript_available",
+            Some(true),
+        )
+        && has_cec_receipt(
+            obs,
+            "verification",
+            "media_visual_evidence_available",
+            Some(true),
+        )
         && completion_gate_satisfied;
     let provider_discovery_evidence_present = provider_candidate_count >= 3
         && selected_provider_count >= 2
         && transcript_provider_selected
         && visual_provider_selected;
-    let selected_modalities_ok = selected_modalities.contains("transcript")
-        && selected_modalities.contains("visual");
+    let selected_modalities_ok =
+        selected_modalities.contains("transcript") && selected_modalities.contains("visual");
     let objective_media_receipts_present = !media_title.trim().is_empty()
         && duration_seconds >= 2_400
         && duration_seconds <= 4_200
         && transcript_char_count >= 3_000
         && transcript_segment_count >= 100
-        && matches!(transcript_source_kind.trim(), "manual" | "automatic" | "stt")
+        && matches!(
+            transcript_source_kind.trim(),
+            "manual" | "automatic" | "stt"
+        )
         && transcript_language
             .trim()
             .to_ascii_lowercase()
@@ -142,7 +157,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && selected_source_total == 1
         && selected_source_distinct_domains == 1;
 
-    let final_reply_compact = obs.final_reply.split_whitespace().collect::<Vec<_>>().join(" ");
+    let final_reply_compact = obs
+        .final_reply
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
     let reply_delivery_present = !final_reply_compact.is_empty()
         && !final_reply_compact.starts_with('{')
         && !final_reply_compact.contains("\"transcript_text\"")
@@ -155,8 +174,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let environment_receipts_present =
         fixture_mode_matches && environment_receipts.iter().all(|receipt| receipt.satisfied);
     let cleanup_evidence_present =
-        environment_bool(obs, "env_receipt::media_multimodal_cleanup_satisfied")
-            .unwrap_or(false);
+        environment_bool(obs, "env_receipt::media_multimodal_cleanup_satisfied").unwrap_or(false);
     let contract_failure_marker = has_typed_contract_failure_evidence(obs);
 
     let checks = vec![
@@ -257,8 +275,7 @@ fn collect_environment_receipts(obs: &RunObservation) -> Vec<EnvironmentEvidence
             .unwrap_or_default(),
         timestamp_ms: environment_u64(obs, &format!("env_receipt::{key}_timestamp_ms"))
             .unwrap_or(obs.run_timestamp_ms),
-        satisfied: environment_bool(obs, &format!("env_receipt::{key}_satisfied"))
-            .unwrap_or(false),
+        satisfied: environment_bool(obs, &format!("env_receipt::{key}_satisfied")).unwrap_or(false),
     })
     .collect()
 }

@@ -146,15 +146,14 @@ impl InferenceRuntime for MockInferenceRuntime {
 
         if input_str.contains("Extract a connector-agnostic instruction contract") {
             let lower = input_str.to_ascii_lowercase();
-            let side_effect_mode = if lower.contains("do not send")
-                || lower.contains("draft an email")
-            {
-                "draft_only"
-            } else if lower.contains("send an email") || lower.contains("send email") {
-                "send"
-            } else {
-                "unknown"
-            };
+            let side_effect_mode =
+                if lower.contains("do not send") || lower.contains("draft an email") {
+                    "draft_only"
+                } else if lower.contains("send an email") || lower.contains("send email") {
+                    "send"
+                } else {
+                    "unknown"
+                };
             let operation = if lower.contains("email") {
                 "mail.reply"
             } else {
