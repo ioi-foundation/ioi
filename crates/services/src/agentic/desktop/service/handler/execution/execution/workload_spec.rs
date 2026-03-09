@@ -66,6 +66,7 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         }
         AgentTool::MathEval { .. }
         | AgentTool::ChatReply { .. }
+        | AgentTool::AutomationCreateMonitor { .. }
         | AgentTool::AgentDelegate { .. }
         | AgentTool::AgentAwait { .. }
         | AgentTool::AgentPause { .. }

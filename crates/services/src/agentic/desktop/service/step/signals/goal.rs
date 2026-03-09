@@ -604,6 +604,9 @@ pub fn infer_intent_surface(
     if tool.starts_with("sys__exec") || tool.starts_with("sys__change_directory") {
         return IntentSurface::CommandExecution;
     }
+    if tool.starts_with("automation__") {
+        return IntentSurface::CommandExecution;
+    }
 
     if target_hint.is_some_and(|hint| !hint.trim().is_empty()) {
         return IntentSurface::AppLaunch;

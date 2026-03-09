@@ -158,6 +158,8 @@ pub enum IntentQueryBindingClass {
     DirectUiInput,
     /// Query must request desktop screenshot capture.
     DesktopScreenshot,
+    /// Query must request a durable local automation or monitor that keeps running.
+    DurableAutomation,
 }
 
 /// A single canonical intent matrix row.

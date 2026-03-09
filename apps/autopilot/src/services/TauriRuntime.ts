@@ -10,7 +10,8 @@ import {
   WalletMailReplyInput, WalletMailReplyResult,
   WalletMailListRecentInput, WalletMailListRecentResult,
   WalletMailReadLatestInput, WalletMailReadLatestResult,
-  WalletMailConfigureAccountInput, WalletMailConfigureAccountResult
+  WalletMailConfigureAccountInput, WalletMailConfigureAccountResult,
+  InstalledWorkflowSummary, WorkflowRunReceipt, CreateMonitorWorkflowRequest
 } from "@ioi/agent-ide";
 import type {
   ActiveContextSnapshot,
@@ -553,6 +554,48 @@ export class TauriRuntime implements AgentRuntime {
       });
       this.connectors = patchMailConnectorConnected(this.connectors, result);
       return result;
+    }
+
+    async listInstalledWorkflows(): Promise<InstalledWorkflowSummary[]> {
+      return invoke("workflow_list");
+    }
+
+    async getInstalledWorkflowProject(workflowId: string): Promise<ProjectFile> {
+      return invoke("workflow_export_project", {
+        workflowId,
+      });
+    }
+
+    async pauseWorkflow(workflowId: string): Promise<InstalledWorkflowSummary> {
+      return invoke("workflow_pause", {
+        workflowId,
+      });
+    }
+
+    async resumeWorkflow(workflowId: string): Promise<InstalledWorkflowSummary> {
+      return invoke("workflow_resume", {
+        workflowId,
+      });
+    }
+
+    async deleteWorkflow(workflowId: string): Promise<InstalledWorkflowSummary> {
+      return invoke("workflow_delete", {
+        workflowId,
+      });
+    }
+
+    async runWorkflowNow(workflowId: string): Promise<WorkflowRunReceipt> {
+      return invoke("workflow_run_now", {
+        workflowId,
+      });
+    }
+
+    async createMonitorWorkflow(
+      request: CreateMonitorWorkflowRequest
+    ): Promise<InstalledWorkflowSummary> {
+      return invoke("automation_create_monitor", {
+        request,
+      });
     }
 
     onEvent(callback: (event: GraphEvent) => void): () => void {

@@ -39,5 +39,6 @@ pub(super) fn push_builtin_tools(
     include!("builtins/os_control_tools.rs");
     include!("builtins/clipboard_tier_1_deterministic_primitive.rs");
     include!("builtins/common_tools_chat_fs.rs");
+    include!("builtins/automation_monitor_local_workflow_runtime.rs");
     include!("builtins/meta_tool_explicit_failure_trigger_escalation.rs");
 }

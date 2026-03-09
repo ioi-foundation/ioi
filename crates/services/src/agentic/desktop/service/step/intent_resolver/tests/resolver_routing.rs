@@ -707,6 +707,45 @@ async fn resolver_uses_model_ranking_when_embeddings_are_unavailable() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn resolver_routes_durable_monitor_queries_to_automation_monitor() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(AutomationMonitorIntentRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Monitor Hacker News and notify me whenever a post about Web4 or post-quantum cryptography hits the front page.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v15-automation-monitor-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "automation.monitor" | "command.exec" | "web.research"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+    assert_eq!(resolved.intent_id, "automation.monitor");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    assert!(resolved
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "automation.monitor.install"));
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn resolver_abstains_when_embeddings_and_model_ranking_fail() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());

@@ -43,6 +43,7 @@ struct QueryBindingProfile {
     remote_public_fact_required: bool,
     host_local_clock_targeted: bool,
     command_directed: bool,
+    durable_automation_requested: bool,
     app_launch_directed: bool,
     direct_ui_input: bool,
     desktop_screenshot_requested: bool,

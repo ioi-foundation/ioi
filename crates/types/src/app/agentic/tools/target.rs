@@ -64,6 +64,9 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         AgentTool::MathEval { .. } => ActionTarget::Custom("math::eval".into()),
 
         AgentTool::ChatReply { .. } => ActionTarget::Custom("chat__reply".into()),
+        AgentTool::AutomationCreateMonitor { .. } => {
+            ActionTarget::Custom("automation__create_monitor".into())
+        }
 
         AgentTool::Computer(action) => match action {
             ComputerAction::LeftClickId { .. }
@@ -131,6 +134,9 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                     | "sys__change_directory" => ActionTarget::SysExec,
                     "os__launch_app" => ActionTarget::Custom("os::launch_app".to_string()),
                     "math__eval" => ActionTarget::Custom("math::eval".to_string()),
+                    "automation__create_monitor" => {
+                        ActionTarget::Custom("automation__create_monitor".to_string())
+                    }
                     "sys__install_package" => ActionTarget::SysInstallPackage,
                     "connector__google__bigquery_execute_query" => {
                         let query = val

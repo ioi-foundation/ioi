@@ -16,7 +16,7 @@ use crate::models::AppState;
 use crate::models::{AgentPhase, ChatMessage, CredentialRequest, EventType, Receipt};
 use ioi_ipc::public::AgentActionResult;
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Manager, State};
 
 const MAX_COMPLETION_MESSAGE_CHARS: usize = 1200;
 
@@ -425,6 +425,18 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
     });
     if !accepted_for_processing {
         return;
+    }
+
+    if res.tool_name.eq_ignore_ascii_case("automation__create_monitor")
+        && res.agent_status.eq_ignore_ascii_case("completed")
+    {
+        let manager: State<crate::kernel::workflows::WorkflowManager> = app.state();
+        if let Err(error) = manager.sync_from_disk().await {
+            eprintln!(
+                "[Autopilot] Failed to sync workflow manager after automation install: {}",
+                error
+            );
+        }
     }
 
     let kind = event_type_for_tool(&res.tool_name);

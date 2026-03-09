@@ -1,9 +1,11 @@
+mod automation;
 mod agent;
 mod chat;
 mod memory;
 mod os;
 mod system;
 
+pub(super) use automation::handle_automation_create_monitor_tool;
 pub(super) use agent::{
     handle_agent_await_tool, handle_agent_complete_tool, handle_agent_delegate_tool,
     handle_agent_pause_tool, handle_commerce_checkout_tool,

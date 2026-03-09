@@ -85,6 +85,7 @@ pub fn is_command_execution_provider_tool(tool: &AgentTool) -> bool {
         AgentTool::SysExec { .. }
             | AgentTool::SysExecSession { .. }
             | AgentTool::SysInstallPackage { .. }
+            | AgentTool::AutomationCreateMonitor { .. }
     )
 }
 

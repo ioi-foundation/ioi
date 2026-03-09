@@ -187,20 +187,39 @@ pub fn run() {
                 app.handle().clone(),
                 kernel::connectors::registry_path_for(&data_dir),
             );
+            let workflow_manager = kernel::workflows::WorkflowManager::new(
+                app.handle().clone(),
+                kernel::workflows::root_path_for(&data_dir),
+            );
             std::env::set_var(
                 "IOI_SHIELD_POLICY_PATH",
                 kernel::connectors::policy_state_path_for(&data_dir),
             );
+            std::env::set_var(
+                "IOI_AUTOMATION_ROOT_PATH",
+                kernel::workflows::root_path_for(&data_dir),
+            );
             let _ = app.manage(google_automation_manager.clone());
+            let _ = app.manage(workflow_manager.clone());
             let _ = app.manage(kernel::connectors::ShieldPolicyManager::new(
                 kernel::connectors::policy_state_path_for(&data_dir),
             ));
             let wallet_auth_handle = app.handle().clone();
             let wallet_policy_handle = app.handle().clone();
+            let workflow_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = google_automation_manager.bootstrap().await {
                     eprintln!(
                         "[Autopilot] Failed to bootstrap Google automation manager: {}",
+                        error
+                    );
+                }
+            });
+            tauri::async_runtime::spawn(async move {
+                let manager: State<kernel::workflows::WorkflowManager> = workflow_handle.state();
+                if let Err(error) = manager.bootstrap().await {
+                    eprintln!(
+                        "[Autopilot] Failed to bootstrap workflow manager: {}",
                         error
                     );
                 }
@@ -393,6 +412,15 @@ pub fn run() {
             kernel::graph::test_node_execution,
             kernel::graph::run_studio_graph,
             kernel::graph::check_node_cache,
+            kernel::workflows::automation_create_monitor,
+            kernel::workflows::workflow_install,
+            kernel::workflows::workflow_list,
+            kernel::workflows::workflow_get,
+            kernel::workflows::workflow_pause,
+            kernel::workflows::workflow_resume,
+            kernel::workflows::workflow_delete,
+            kernel::workflows::workflow_run_now,
+            kernel::workflows::workflow_export_project,
             ingestion::ingest_file,
             project::save_project,
             project::load_project

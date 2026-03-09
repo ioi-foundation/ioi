@@ -31,6 +31,11 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("conversation.reply")],
         },
         ToolCapabilityBinding {
+            tool_name: "automation__create_monitor".to_string(),
+            action_target: ActionTarget::Custom("automation__create_monitor".to_string()),
+            capabilities: vec![capability("automation.monitor.install")],
+        },
+        ToolCapabilityBinding {
             tool_name: "math__eval".to_string(),
             action_target: ActionTarget::Custom("math::eval".to_string()),
             capabilities: vec![capability("conversation.reply")],

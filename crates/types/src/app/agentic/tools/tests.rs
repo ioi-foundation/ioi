@@ -62,6 +62,7 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::AgentAwait { .. }
         | AgentTool::AgentPause { .. }
         | AgentTool::AgentComplete { .. }
+        | AgentTool::AutomationCreateMonitor { .. }
         | AgentTool::SystemFail { .. }
         | AgentTool::Dynamic(_) => false,
     }

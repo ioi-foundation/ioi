@@ -531,6 +531,25 @@ pub enum AgentTool {
         message: String,
     },
 
+    /// Install a durable local monitor workflow that polls a source and notifies on matches.
+    #[serde(rename = "automation__create_monitor")]
+    AutomationCreateMonitor {
+        /// Optional human-facing title for the installed workflow.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        /// Optional human-facing description for the installed workflow.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        /// Match keywords for the monitor predicate.
+        keywords: Vec<String>,
+        /// Optional polling interval in seconds. Runtime enforces a minimum.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        interval_seconds: Option<u64>,
+        /// Optional original user prompt or query contract used to author the workflow.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source_prompt: Option<String>,
+    },
+
     /// Meta Tool: Delegates a task to a sub-agent.
     #[serde(rename = "agent__delegate")]
     AgentDelegate {
@@ -662,6 +681,7 @@ impl AgentTool {
                 | "os__launch_app"
                 | "math__eval"
                 | "chat__reply"
+                | "automation__create_monitor"
                 | "agent__delegate"
                 | "agent__await_result"
                 | "agent__pause"

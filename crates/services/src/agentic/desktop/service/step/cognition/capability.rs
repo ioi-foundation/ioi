@@ -1,9 +1,10 @@
 use crate::agentic::desktop::service::step::signals::{
     is_mail_connector_tool_name, is_mailbox_connector_intent,
 };
-use ioi_types::app::agentic::{IntentScopeProfile, LlmToolDefinition};
+use ioi_types::app::agentic::{IntentScopeProfile, LlmToolDefinition, ResolvedIntentState};
 
 pub(super) fn preflight_missing_capability(
+    resolved: Option<&ResolvedIntentState>,
     scope: IntentScopeProfile,
     is_browser_active: bool,
     tools: &[LlmToolDefinition],
@@ -19,6 +20,14 @@ pub(super) fn preflight_missing_capability(
     let requires_browser_interaction = matches!(scope, IntentScopeProfile::WebResearch);
     let requires_command_execution = matches!(scope, IntentScopeProfile::CommandExecution);
     let requires_workspace_ops = matches!(scope, IntentScopeProfile::WorkspaceOps);
+    let requires_automation_monitor_install = resolved
+        .map(|resolved| {
+            resolved
+                .required_capabilities
+                .iter()
+                .any(|capability| capability.as_str() == "automation.monitor.install")
+        })
+        .unwrap_or(false);
 
     let has_browser_tooling = has_tool("web__search")
         || has_tool("web__read")
@@ -33,6 +42,7 @@ pub(super) fn preflight_missing_capability(
 
     let has_command_tool = has_tool("sys__exec") || has_tool("sys__exec_session");
     let has_install_package_tool = has_tool("sys__install_package");
+    let has_automation_tool = has_tool("automation__create_monitor");
     let has_filesystem_tooling = tools.iter().any(|t| t.name.starts_with("filesystem__"));
     let has_google_workspace_tooling = tools.iter().any(|t| {
         crate::agentic::desktop::connectors::google_workspace::is_google_connector_tool_name(
@@ -63,7 +73,19 @@ pub(super) fn preflight_missing_capability(
         ));
     }
 
-    if requires_command_execution && !has_command_tool && !has_install_package_tool {
+    if requires_automation_monitor_install && !has_automation_tool {
+        return Some((
+            "automation__create_monitor".to_string(),
+            "Resolver selected automation.monitor but automation__create_monitor is unavailable."
+                .to_string(),
+        ));
+    }
+
+    if requires_command_execution
+        && !requires_automation_monitor_install
+        && !has_command_tool
+        && !has_install_package_tool
+    {
         return Some((
             "sys__exec".to_string(),
             "Resolver selected command_execution scope but neither sys__exec nor sys__exec_session is available."

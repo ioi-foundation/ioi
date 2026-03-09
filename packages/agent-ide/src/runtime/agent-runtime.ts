@@ -289,6 +289,54 @@ export interface WalletMailConfigureAccountResult {
   updatedAtMs: number;
 }
 
+export type InstalledWorkflowStatus = "active" | "paused" | "degraded";
+export type InstalledWorkflowKind = "monitor";
+
+export interface InstalledWorkflowSummary {
+  workflowId: string;
+  kind: InstalledWorkflowKind;
+  status: InstalledWorkflowStatus;
+  title: string;
+  description: string;
+  artifactHash: string;
+  specVersion: string;
+  pollIntervalSeconds: number;
+  sourceLabel: string;
+  keywords: string[];
+  installedAtMs: number;
+  updatedAtMs: number;
+  nextRunAtMs?: number;
+  lastRunAtMs?: number;
+  lastSuccessAtMs?: number;
+  lastError?: string;
+  runCount: number;
+  failureCount: number;
+}
+
+export interface WorkflowRunReceipt {
+  receiptVersion: number;
+  workflowId: string;
+  runId: string;
+  triggerKind: string;
+  status: string;
+  startedAtMs: number;
+  completedAtMs: number;
+  artifactHash: string;
+  workflowStatus: InstalledWorkflowStatus;
+  nextRunAtMs?: number;
+  observation: Record<string, unknown>;
+  notificationIds: string[];
+  error?: string;
+}
+
+export interface CreateMonitorWorkflowRequest {
+  title?: string;
+  description?: string;
+  keywords: string[];
+  intervalSeconds?: number;
+  sourcePrompt?: string;
+}
+
 // Fleet Types
 export interface Zone {
   id: string;
@@ -381,6 +429,15 @@ export interface AgentRuntime {
   walletMailConfigureAccount?(
     input: WalletMailConfigureAccountInput
   ): Promise<WalletMailConfigureAccountResult>;
+  listInstalledWorkflows?(): Promise<InstalledWorkflowSummary[]>;
+  getInstalledWorkflowProject?(workflowId: string): Promise<ProjectFile>;
+  pauseWorkflow?(workflowId: string): Promise<InstalledWorkflowSummary>;
+  resumeWorkflow?(workflowId: string): Promise<InstalledWorkflowSummary>;
+  deleteWorkflow?(workflowId: string): Promise<InstalledWorkflowSummary>;
+  runWorkflowNow?(workflowId: string): Promise<WorkflowRunReceipt>;
+  createMonitorWorkflow?(
+    request: CreateMonitorWorkflowRequest
+  ): Promise<InstalledWorkflowSummary>;
 
   // Event Subscription
   onEvent(callback: (event: GraphEvent) => void): () => void;

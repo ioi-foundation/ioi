@@ -8,6 +8,7 @@ mod draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm
 mod draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it;
 mod find_all_pdf_files_on_my_computer_modified_in_the_last_week;
 mod find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus;
+mod monitor_hacker_news_and_notify_me_whenever_a_post_about_web4_or_post_quantum_cryptography_hits_the_front_page;
 mod move_all_png_files_from_downloads_into_a_new_folder_called_images;
 mod multiply_247_by_38;
 mod open_calculator_app;
@@ -47,6 +48,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         download_and_install_vlc_media_player::case(),
         download_and_install_vlc_media_player::case_unseeded(),
         find_all_pdf_files_on_my_computer_modified_in_the_last_week::case(),
+        monitor_hacker_news_and_notify_me_whenever_a_post_about_web4_or_post_quantum_cryptography_hits_the_front_page::case(),
         move_all_png_files_from_downloads_into_a_new_folder_called_images::case(),
         rename_every_file_in_my_downloads_folder_to_lowercase::case(),
         summarize_the_contents_of_the_most_recent_document_in_my_documents_folder::case(),

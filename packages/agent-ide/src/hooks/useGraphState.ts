@@ -9,17 +9,32 @@ import {
   Node as FlowNode,
   Edge as FlowEdge
 } from "@xyflow/react";
-import { Node, Edge, NodeLogic, FirewallPolicy } from "../types/graph";
+import { Node, Edge, NodeLogic, FirewallPolicy, ProjectFile } from "../types/graph";
+
+function toFlowNodes(nodes: Node[]): FlowNode[] {
+  return nodes.map((node) => ({
+    id: node.id,
+    type: node.type,
+    position: { x: node.x, y: node.y },
+    data: { ...node },
+  }));
+}
+
+function toFlowEdges(edges: Edge[]): FlowEdge[] {
+  return edges.map((edge) => ({
+    id: edge.id,
+    source: edge.from,
+    target: edge.to,
+    sourceHandle: edge.fromPort,
+    targetHandle: edge.toPort,
+    data: { ...(edge.data ?? {}) },
+  }));
+}
 
 export function useGraphState(initialNodes: Node[] = [], initialEdges: Edge[] = []) {
   // Convert domain types to ReactFlow types
-  const flowNodes = initialNodes.map(n => ({
-      id: n.id, type: n.type, position: {x: n.x, y: n.y}, data: {...n}
-  }));
-  const flowEdges = initialEdges.map(e => ({
-      id: e.id, source: e.from, target: e.to, sourceHandle: e.fromPort, targetHandle: e.toPort,
-      data: { ...e.data }
-  }));
+  const flowNodes = toFlowNodes(initialNodes);
+  const flowEdges = toFlowEdges(initialEdges);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(flowEdges);
@@ -83,9 +98,15 @@ export function useGraphState(initialNodes: Node[] = [], initialEdges: Edge[] = 
     setNodes(prev => [...prev, newNode]);
   }, [screenToFlowPosition, setNodes]);
 
+  const replaceGraph = useCallback((project: ProjectFile) => {
+    setNodes(toFlowNodes((project.nodes ?? []) as Node[]));
+    setEdges(toFlowEdges((project.edges ?? []) as Edge[]));
+    setSelectedNodeId(null);
+  }, [setEdges, setNodes]);
+
   return {
     nodes, edges, setNodes, setEdges, onNodesChange, onEdgesChange,
     onConnect, selectedNodeId, handleNodeSelect, handleNodeUpdate, handleCanvasDrop,
-    fitView, zoomIn, zoomOut
+    fitView, zoomIn, zoomOut, replaceGraph
   };
 }

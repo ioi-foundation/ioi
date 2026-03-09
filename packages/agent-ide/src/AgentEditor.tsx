@@ -1,10 +1,10 @@
 // packages/agent-ide/src/AgentEditor.tsx
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { AgentRuntime } from "./runtime/agent-runtime";
 import { useGraphState } from "./hooks/useGraphState";
 import { useGraphExecution } from "./hooks/useGraphExecution";
-import { GraphGlobalConfig } from "./types/graph";
+import { GraphGlobalConfig, ProjectFile } from "./types/graph";
 
 // Sub-components
 import { Canvas } from "./features/Editor/Canvas/Canvas";
@@ -20,12 +20,19 @@ export interface AgentEditorProps {
   initialFile?: any; 
 }
 
-function AgentEditorContent({ runtime }: AgentEditorProps) {
+const DEFAULT_GLOBAL_CONFIG: GraphGlobalConfig = {
+  env: "{}",
+  policy: { maxBudget: 5.0, maxSteps: 50, timeoutMs: 30000 },
+  contract: { developerBond: 0, adjudicationRubric: "" },
+  meta: { name: "Untitled Agent", description: "" }
+};
+
+function AgentEditorContent({ runtime, initialFile }: AgentEditorProps) {
   const { 
     nodes, edges, setNodes, setEdges, 
     onNodesChange, onEdgesChange, onConnect, 
     handleCanvasDrop, selectedNodeId, handleNodeSelect, handleNodeUpdate,
-    fitView, zoomIn, zoomOut
+    fitView, zoomIn, zoomOut, replaceGraph
   } = useGraphState();
 
   const execution = useGraphExecution(runtime, nodes, edges, setNodes, setEdges);
@@ -44,16 +51,24 @@ function AgentEditorContent({ runtime }: AgentEditorProps) {
       : null;
 
   // Global Config State
-  const [globalConfig, setGlobalConfig] = useState<GraphGlobalConfig>({
-      env: "{}",
-      policy: { maxBudget: 5.0, maxSteps: 50, timeoutMs: 30000 },
-      contract: { developerBond: 0, adjudicationRubric: "" },
-      meta: { name: "Untitled Agent", description: "" }
-  });
+  const [globalConfig, setGlobalConfig] = useState<GraphGlobalConfig>(DEFAULT_GLOBAL_CONFIG);
 
   // Layout State
   const [consoleHeight] = useState(200); 
   const [showConsole, setShowConsole] = useState(true);
+
+  const loadProjectIntoEditor = useCallback((project: ProjectFile) => {
+    replaceGraph(project);
+    setGlobalConfig(project.global_config ?? DEFAULT_GLOBAL_CONFIG);
+    requestAnimationFrame(() => {
+      fitView({ padding: 0.2 });
+    });
+  }, [fitView, replaceGraph]);
+
+  useEffect(() => {
+    if (!initialFile) return;
+    loadProjectIntoEditor(initialFile as ProjectFile);
+  }, [initialFile, loadProjectIntoEditor]);
 
   return (
     <div className="agent-ide-root" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: 'var(--bg-dark)', color: 'var(--text-primary)' }}>
@@ -75,6 +90,7 @@ function AgentEditorContent({ runtime }: AgentEditorProps) {
         {/* LEFT: EXPLORER */}
         <Explorer 
             runtime={runtime} 
+            onLoadProject={loadProjectIntoEditor}
             onDragStart={(e, type) => {
                 e.dataTransfer.setData("nodeType", type);
             }} 

@@ -75,8 +75,12 @@ pub async fn think(
     // 2. PREFLIGHT: Missing Capability Check (Code-Level Guardrail)
     let is_browser = is_browser_surface("", &perception.active_window_title);
 
-    if let Some((missing_capability, reason)) =
-        preflight_missing_capability(resolved_scope, is_browser, &perception.available_tools)
+    if let Some((missing_capability, reason)) = preflight_missing_capability(
+        agent_state.resolved_intent.as_ref(),
+        resolved_scope,
+        is_browser,
+        &perception.available_tools,
+    )
     {
         log::info!(
             "Preflight: Missing required capability '{}'. Forcing escalation.",
@@ -337,6 +341,22 @@ pub async fn think(
     } else {
         String::new()
     };
+    let automation_monitor_instruction = if agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.intent_id == "automation.monitor")
+        .unwrap_or(false)
+    {
+        "AUTOMATION MONITOR CONTRACT:\n\
+         - This goal is a durable local automation install, not a shell session.\n\
+         - Use `automation__create_monitor` to install the workflow.\n\
+         - Do NOT use `sys__exec`, `sys__exec_session`, cron, systemd timers, launchd, or ad hoc sleep loops for this intent.\n\
+         - Encode the workflow semantics directly in the tool arguments: keywords, optional title/description, poll interval, and source_prompt.\n\
+         - After successful install, finalize with the installed workflow summary."
+            .to_string()
+    } else {
+        String::new()
+    };
 
     let system_instructions = format!(
  "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.
@@ -453,6 +473,11 @@ OPERATING RULES:
     } else {
         format!("{}\n{}", system_instructions, workspace_scope_instruction)
     };
+    let system_instructions = if automation_monitor_instruction.is_empty() {
+        system_instructions
+    } else {
+        format!("{}\n{}", system_instructions, automation_monitor_instruction)
+    };
 
     let include_screenshot =
         perception.screenshot_base64.is_some() && matches!(mode, AttentionMode::VisualAction);
@@ -470,7 +495,14 @@ OPERATING RULES:
             ]}
         ])
     } else {
-        let user_instruction = if matches!(resolved_scope, IntentScopeProfile::CommandExecution) {
+        let user_instruction = if agent_state
+            .resolved_intent
+            .as_ref()
+            .map(|resolved| resolved.intent_id == "automation.monitor")
+            .unwrap_or(false)
+        {
+            "Install the durable monitor workflow now using `automation__create_monitor`. Do not use shell commands."
+        } else if matches!(resolved_scope, IntentScopeProfile::CommandExecution) {
             "Execute the next step using command tools. Rely on terminal output and command history; visual artifacts are non-blocking."
         } else {
             "Execute the next step based on the goal and history."
@@ -628,7 +660,10 @@ mod tests {
         preflight_missing_capability,
     };
     use crate::agentic::desktop::types::CommandExecution;
-    use ioi_types::app::agentic::{IntentScopeProfile, LlmToolDefinition};
+    use ioi_types::app::agentic::{
+        CapabilityId, IntentConfidenceBand, IntentScopeProfile, LlmToolDefinition,
+        ResolvedIntentState,
+    };
     use std::collections::VecDeque;
 
     fn tool(name: &str) -> LlmToolDefinition {
@@ -639,11 +674,39 @@ mod tests {
         }
     }
 
+    fn automation_resolved_intent() -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: "automation.monitor".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            band: IntentConfidenceBand::High,
+            score: 0.99,
+            top_k: vec![],
+            required_capabilities: vec![CapabilityId::from("automation.monitor.install")],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "medium".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
+            constrained: false,
+        }
+    }
+
     #[test]
     fn command_execution_does_not_require_clipboard() {
         let tools = vec![tool("sys__exec")];
         assert!(
-            preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
+            preflight_missing_capability(None, IntentScopeProfile::CommandExecution, false, &tools)
                 .is_none()
         );
     }
@@ -652,7 +715,7 @@ mod tests {
     fn command_execution_does_not_require_clipboard_when_exec_session_available() {
         let tools = vec![tool("sys__exec_session")];
         assert!(
-            preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
+            preflight_missing_capability(None, IntentScopeProfile::CommandExecution, false, &tools)
                 .is_none()
         );
     }
@@ -661,7 +724,7 @@ mod tests {
     fn command_execution_accepts_install_package_tooling() {
         let tools = vec![tool("sys__install_package")];
         assert!(
-            preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
+            preflight_missing_capability(None, IntentScopeProfile::CommandExecution, false, &tools)
                 .is_none()
         );
     }
@@ -669,10 +732,27 @@ mod tests {
     #[test]
     fn command_execution_requires_sys_exec_when_missing() {
         let tools = vec![tool("chat__reply")];
-        let missing =
-            preflight_missing_capability(IntentScopeProfile::CommandExecution, false, &tools)
-                .expect("missing capability");
+        let missing = preflight_missing_capability(
+            None,
+            IntentScopeProfile::CommandExecution,
+            false,
+            &tools,
+        )
+        .expect("missing capability");
         assert_eq!(missing.0, "sys__exec");
+    }
+
+    #[test]
+    fn automation_monitor_requires_automation_tool_not_sys_exec() {
+        let tools = vec![tool("chat__reply")];
+        let missing = preflight_missing_capability(
+            Some(&automation_resolved_intent()),
+            IntentScopeProfile::CommandExecution,
+            false,
+            &tools,
+        )
+        .expect("missing capability");
+        assert_eq!(missing.0, "automation__create_monitor");
     }
 
     #[test]
