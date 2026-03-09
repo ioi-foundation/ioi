@@ -29,7 +29,7 @@ examples/
 crates/cli/ioi-data/
 apps/autopilot/src/generated/
 apps/autopilot/src-tauri/gen/schemas/
-
+docs/context-atlas-implementation-plan.md
 
 # Python cache/build artifacts
 __pycache__/

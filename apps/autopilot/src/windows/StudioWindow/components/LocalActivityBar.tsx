@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AgentsIcon,
+  AtlasIcon,
   AutopilotIcon,
   ComposeIcon,
   FleetIcon,
@@ -152,12 +153,13 @@ function RailButton({
 
 const NAV_ITEMS: NavItem[] = [
   { id: "autopilot", label: "Autopilot", icon: <AutopilotIcon />, shortcut: "⌘1" },
-  { id: "compose", label: "Compose", icon: <ComposeIcon />, shortcut: "⌘2" },
-  { id: "agents", label: "Agents", icon: <AgentsIcon />, shortcut: "⌘3" },
-  { id: "fleet", label: "Fleet", icon: <FleetIcon />, shortcut: "⌘4" },
-  { id: "marketplace", label: "Marketplace", icon: <MarketplaceIcon />, shortcut: "⌘5" },
-  { id: "integrations", label: "Integrations", icon: <IntegrationsIcon />, shortcut: "⌘6" },
-  { id: "shield", label: "Shield", icon: <ShieldIcon />, shortcut: "⌘7" },
+  { id: "atlas", label: "Context Atlas", icon: <AtlasIcon />, shortcut: "⌘2" },
+  { id: "compose", label: "Compose", icon: <ComposeIcon />, shortcut: "⌘3" },
+  { id: "agents", label: "Agents", icon: <AgentsIcon />, shortcut: "⌘4" },
+  { id: "fleet", label: "Fleet", icon: <FleetIcon />, shortcut: "⌘5" },
+  { id: "marketplace", label: "Marketplace", icon: <MarketplaceIcon />, shortcut: "⌘6" },
+  { id: "integrations", label: "Integrations", icon: <IntegrationsIcon />, shortcut: "⌘7" },
+  { id: "shield", label: "Shield", icon: <ShieldIcon />, shortcut: "⌘8" },
 ];
 
 const GHOST_ITEM: NavItem = { id: "ghost", label: "Ghost Mode", icon: <GhostIcon />, shortcut: "⌘G" };

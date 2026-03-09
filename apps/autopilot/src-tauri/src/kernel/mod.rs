@@ -4,6 +4,7 @@ pub mod artifacts;
 pub mod connectors;
 pub mod cosmic;
 pub mod data;
+pub mod dev;
 pub mod events;
 pub mod governance;
 pub mod graph;

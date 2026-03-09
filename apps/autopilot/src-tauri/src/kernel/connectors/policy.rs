@@ -151,6 +151,10 @@ impl ShieldPolicyManager {
         Ok(normalized)
     }
 
+    pub fn reset_to_default(&self) -> Result<ShieldPolicyState, String> {
+        self.replace_state(ShieldPolicyState::default())
+    }
+
     pub fn resolve_connector_policy(&self, connector_id: &str) -> ResolvedConnectorPolicy {
         let state = self.state.lock().expect("shield policy lock poisoned");
         resolve_connector_policy_from_state(&state, connector_id)

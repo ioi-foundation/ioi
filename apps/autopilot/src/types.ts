@@ -84,6 +84,191 @@ export interface Artifact {
   parent_artifact_id?: string | null;
 }
 
+export interface SkillCatalogEntry {
+  skill_hash: string;
+  name: string;
+  description: string;
+  lifecycle_state: string;
+  source_type: string;
+  success_rate_bps: number;
+  sample_size: number;
+  frame_id: number;
+  source_session_id?: string | null;
+  source_evidence_hash?: string | null;
+  relative_path?: string | null;
+  stale: boolean;
+  definition: {
+    name: string;
+    description: string;
+    parameters: string;
+  };
+}
+
+export interface ActiveContextItem {
+  id: string;
+  kind: string;
+  title: string;
+  summary: string;
+  badge?: string | null;
+  secondary_badge?: string | null;
+  success_rate_bps?: number | null;
+  sample_size?: number | null;
+  focus_id?: string | null;
+  skill_hash?: string | null;
+  source_session_id?: string | null;
+  source_evidence_hash?: string | null;
+  relative_path?: string | null;
+  stale?: boolean | null;
+}
+
+export interface ContextConstraint {
+  id: string;
+  label: string;
+  value: string;
+  severity: string;
+  summary: string;
+}
+
+export interface AtlasNode {
+  id: string;
+  kind: string;
+  label: string;
+  summary: string;
+  status?: string | null;
+  emphasis?: number | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface AtlasEdge {
+  id: string;
+  source_id: string;
+  target_id: string;
+  relation: string;
+  summary?: string | null;
+  weight: number;
+}
+
+export interface AtlasNeighborhood {
+  lens: string;
+  title: string;
+  summary: string;
+  focus_id?: string | null;
+  nodes: AtlasNode[];
+  edges: AtlasEdge[];
+}
+
+export interface SkillMacroStepView {
+  index: number;
+  tool_name: string;
+  target: string;
+  params_json: Record<string, unknown> | string | number | boolean | null | Array<unknown>;
+}
+
+export interface SkillBenchmarkView {
+  sample_size: number;
+  success_rate_bps: number;
+  intervention_rate_bps: number;
+  policy_incident_rate_bps: number;
+  avg_cost: number;
+  avg_latency_ms: number;
+  passed: boolean;
+  last_evaluated_height: number;
+}
+
+export interface SkillDetailView {
+  skill_hash: string;
+  name: string;
+  description: string;
+  lifecycle_state: string;
+  source_type: string;
+  frame_id: number;
+  success_rate_bps: number;
+  sample_size: number;
+  source_session_id?: string | null;
+  source_evidence_hash?: string | null;
+  relative_path?: string | null;
+  stale: boolean;
+  used_tools: string[];
+  steps: SkillMacroStepView[];
+  benchmark: SkillBenchmarkView;
+  markdown?: string | null;
+  neighborhood: AtlasNeighborhood;
+}
+
+export interface SubstrateProofReceipt {
+  event_id: string;
+  timestamp: string;
+  step_index: number;
+  tool_name: string;
+  query_hash: string;
+  index_root: string;
+  k: number;
+  ef_search: number;
+  candidate_limit: number;
+  candidate_total: number;
+  candidate_reranked: number;
+  candidate_truncated: boolean;
+  distance_metric: string;
+  embedding_normalized: boolean;
+  proof_hash?: string | null;
+  proof_ref?: string | null;
+  certificate_mode?: string | null;
+  success: boolean;
+  error_class?: string | null;
+}
+
+export interface SubstrateProofView {
+  session_id?: string | null;
+  skill_hash?: string | null;
+  summary: string;
+  index_roots: string[];
+  receipts: SubstrateProofReceipt[];
+  neighborhood: AtlasNeighborhood;
+}
+
+export interface ActiveContextSnapshot {
+  session_id: string;
+  goal: string;
+  status: string;
+  mode: string;
+  current_tier: string;
+  focus_id: string;
+  active_skill_id?: string | null;
+  skills: ActiveContextItem[];
+  tools: ActiveContextItem[];
+  evidence: ActiveContextItem[];
+  constraints: ContextConstraint[];
+  recent_actions: string[];
+  neighborhood: AtlasNeighborhood;
+  substrate?: SubstrateProofView | null;
+}
+
+export interface AtlasSearchResult {
+  id: string;
+  kind: string;
+  title: string;
+  summary: string;
+  score: number;
+  lens: string;
+}
+
+export interface ResetAutopilotDataResult {
+  dataDir: string;
+  removedPaths: string[];
+  identityPreserved: boolean;
+  remoteHistoryMayPersist: boolean;
+}
+
+export type ContextAtlasLens = "Context" | "Skills" | "Substrate";
+export type ContextAtlasMode = "List" | "Split" | "3D";
+
+export interface ContextAtlasFocusRequest {
+  sessionId?: string | null;
+  focusId?: string | null;
+  lens?: ContextAtlasLens;
+  mode?: ContextAtlasMode;
+}
+
 export interface ArtifactContentPayload {
   artifact_id: string;
   encoding: "utf-8" | "base64" | string;
@@ -366,6 +551,7 @@ export interface PlanSummary {
 }
 
 export type ArtifactHubViewKey =
+  | "active_context"
   | "thoughts"
   | "substrate"
   | "sources"

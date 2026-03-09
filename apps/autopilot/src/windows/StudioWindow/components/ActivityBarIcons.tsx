@@ -30,6 +30,27 @@ export const AutopilotIcon = () => (
   </svg>
 );
 
+export const AtlasIcon = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="1.9" />
+    <circle cx="6" cy="6" r="1.6" />
+    <circle cx="18" cy="6" r="1.6" />
+    <circle cx="6" cy="18" r="1.6" />
+    <circle cx="18" cy="18" r="1.6" />
+    <path d="M12 10.2L6.9 7.1M13.8 10.1L17 7.7M10.2 13.8L7.2 17M13.8 13.8L16.8 17" />
+    <path d="M7.6 6h8.8M7.6 18h8.8" />
+  </svg>
+);
+
 export const ComposeIcon = () => (
   <svg
     width="22"

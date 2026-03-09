@@ -2,6 +2,7 @@ import type {
   AgentEvent,
   Artifact,
   ArtifactHubViewKey,
+  ContextAtlasFocusRequest,
   SourceSummary,
   ThoughtSummary,
 } from "../../../types";
@@ -10,6 +11,7 @@ import { ArtifactSidebar } from "./ArtifactSidebar";
 
 interface SpotlightArtifactPanelProps {
   visible: boolean;
+  threadId?: string | null;
   artifactHubView: ArtifactHubViewKey | null;
   artifactHubTurnId: string | null;
   events: AgentEvent[];
@@ -18,11 +20,13 @@ interface SpotlightArtifactPanelProps {
   sourceSummary: SourceSummary | null;
   thoughtSummary: ThoughtSummary | null;
   onOpenArtifact: (artifactId: string) => void;
+  onOpenAtlasFocus?: (request: ContextAtlasFocusRequest) => void;
   onClose: () => void;
 }
 
 export function SpotlightArtifactPanel({
   visible,
+  threadId,
   artifactHubView,
   artifactHubTurnId,
   events,
@@ -31,6 +35,7 @@ export function SpotlightArtifactPanel({
   sourceSummary,
   thoughtSummary,
   onOpenArtifact,
+  onOpenAtlasFocus,
   onClose,
 }: SpotlightArtifactPanelProps) {
   if (!visible) {
@@ -40,6 +45,7 @@ export function SpotlightArtifactPanel({
   if (artifactHubView) {
     return (
       <ArtifactHubSidebar
+        threadId={threadId}
         initialView={artifactHubView}
         initialTurnId={artifactHubTurnId}
         events={events}
@@ -47,6 +53,7 @@ export function SpotlightArtifactPanel({
         sourceSummary={sourceSummary}
         thoughtSummary={thoughtSummary}
         onOpenArtifact={onOpenArtifact}
+        onOpenAtlasFocus={onOpenAtlasFocus}
         onClose={onClose}
       />
     );

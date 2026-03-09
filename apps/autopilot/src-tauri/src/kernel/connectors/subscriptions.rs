@@ -257,6 +257,26 @@ impl GoogleAutomationManager {
         Ok(())
     }
 
+    pub async fn reset_registry(&self) -> Result<(), String> {
+        let mut inner = self.inner.lock().await;
+        for (_, handle) in inner.workers.drain() {
+            handle.abort();
+        }
+        if let Some(handle) = inner.renew_loop.take() {
+            handle.abort();
+        }
+        inner.registry = GoogleAutomationRegistry {
+            version: GOOGLE_AUTOMATION_REGISTRY_VERSION,
+            subscriptions: Vec::new(),
+            receipts: Vec::new(),
+        };
+        persist_registry(&self.registry_path, &inner.registry)?;
+        drop(inner);
+        self.ensure_renew_loop().await?;
+        self.emit_subscription_change().await;
+        Ok(())
+    }
+
     pub async fn register_subscription(
         &self,
         registration: GoogleSubscriptionRegistration,

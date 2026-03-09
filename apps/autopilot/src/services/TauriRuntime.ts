@@ -12,6 +12,15 @@ import {
   WalletMailReadLatestInput, WalletMailReadLatestResult,
   WalletMailConfigureAccountInput, WalletMailConfigureAccountResult
 } from "@ioi/agent-ide";
+import type {
+  ActiveContextSnapshot,
+  AtlasNeighborhood,
+  AtlasSearchResult,
+  ResetAutopilotDataResult,
+  SkillCatalogEntry,
+  SkillDetailView,
+  SubstrateProofView,
+} from "../types";
 
 // Mock Data
 const MOCK_AGENTS: AgentSummary[] = [
@@ -211,8 +220,39 @@ export class TauriRuntime implements AgentRuntime {
         return invoke("get_available_tools");
     }
 
-    async getSkillCatalog(): Promise<any[]> {
+    async getSkillCatalog(): Promise<SkillCatalogEntry[]> {
         return invoke("get_skill_catalog");
+    }
+
+    async getActiveContext(sessionId: string): Promise<ActiveContextSnapshot> {
+        return invoke("get_active_context", { sessionId });
+    }
+
+    async getAtlasNeighborhood(params: {
+        sessionId?: string | null;
+        focusId?: string | null;
+        lens?: string | null;
+    }): Promise<AtlasNeighborhood> {
+        return invoke("get_atlas_neighborhood", params);
+    }
+
+    async getSkillDetail(skillHash: string): Promise<SkillDetailView> {
+        return invoke("get_skill_detail", { skillHash });
+    }
+
+    async getSubstrateProof(params: {
+        sessionId?: string | null;
+        skillHash?: string | null;
+    }): Promise<SubstrateProofView> {
+        return invoke("get_substrate_proof", params);
+    }
+
+    async searchAtlas(query: string, lens?: string | null): Promise<AtlasSearchResult[]> {
+        return invoke("search_atlas", { query, lens });
+    }
+
+    async resetAutopilotData(): Promise<ResetAutopilotDataResult> {
+        return invoke("reset_autopilot_data");
     }
 
     async runNode(nodeType: string, config: any, input: string): Promise<any> {
