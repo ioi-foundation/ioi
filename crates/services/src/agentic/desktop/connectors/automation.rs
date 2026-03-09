@@ -1,4 +1,6 @@
-use super::{ConnectorProviderProbeBinding, ConnectorToolRouteBinding, ProviderCandidateDiscoveryFuture};
+use super::{
+    ConnectorProviderProbeBinding, ConnectorToolRouteBinding, ProviderCandidateDiscoveryFuture,
+};
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::{CapabilityId, ProviderRouteCandidate};
 use std::collections::BTreeSet;

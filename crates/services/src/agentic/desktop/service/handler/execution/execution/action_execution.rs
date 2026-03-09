@@ -227,6 +227,7 @@ pub async fn handle_action_execution(
             interval_seconds,
             source_prompt,
         } => Ok(handlers::handle_automation_create_monitor_tool(
+            Some(&service.workspace_path),
             title,
             description,
             keywords,

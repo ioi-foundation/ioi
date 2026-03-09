@@ -445,12 +445,10 @@ impl WorkflowManager {
 
     pub async fn sync_from_disk(&self) -> Result<(), String> {
         ensure_runtime_dirs(&self.root_dir)?;
-        let registry =
-            load_json::<WorkflowRegistry>(&registry_path_for(&self.root_dir)).unwrap_or_else(|_| {
-                WorkflowRegistry {
-                    version: AUTOMATION_REGISTRY_VERSION,
-                    workflows: Vec::new(),
-                }
+        let registry = load_json::<WorkflowRegistry>(&registry_path_for(&self.root_dir))
+            .unwrap_or_else(|_| WorkflowRegistry {
+                version: AUTOMATION_REGISTRY_VERSION,
+                workflows: Vec::new(),
             });
         let desired_active = registry
             .workflows
@@ -716,6 +714,14 @@ impl WorkflowManager {
     pub async fn export_project(&self, workflow_id: &str) -> Result<WorkflowProjectFile, String> {
         let artifact = self.load_artifact(workflow_id)?;
         Ok(project_from_artifact(&artifact))
+    }
+
+    pub async fn import_workflow_from_artifact_path(
+        &self,
+        artifact_path: &Path,
+    ) -> Result<InstalledWorkflowSummary, String> {
+        let artifact = load_json::<WorkflowArtifact>(artifact_path)?;
+        self.install_workflow(artifact, None).await
     }
 
     async fn spawn_worker_if_needed(&self, workflow_id: &str) -> Result<(), String> {

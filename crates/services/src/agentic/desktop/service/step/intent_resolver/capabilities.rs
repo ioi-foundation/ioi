@@ -727,11 +727,43 @@ mod tests {
         }
     }
 
+    fn automation_monitor_entry() -> IntentMatrixEntry {
+        IntentMatrixEntry {
+            intent_id: "automation.monitor".to_string(),
+            semantic_descriptor:
+                "install a durable local automation monitor that watches a source on a schedule"
+                    .to_string(),
+            query_binding: IntentQueryBindingClass::DurableAutomation,
+            required_capabilities: vec![capability("automation.monitor.install")],
+            risk_class: "medium".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            preferred_tier: "tool_first".to_string(),
+            applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+            requires_host_discovery: Some(false),
+            provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            verification_mode: Some(VerificationMode::DeterministicCheck),
+            aliases: vec![],
+            exemplars: vec![],
+        }
+    }
+
     fn temporal_files_profile() -> QueryBindingProfile {
         QueryBindingProfile {
             available: true,
             command_directed: true,
             temporal_filesystem_filter: true,
+            ..Default::default()
+        }
+    }
+
+    fn durable_remote_monitor_profile() -> QueryBindingProfile {
+        QueryBindingProfile {
+            available: true,
+            remote_public_fact_required: true,
+            command_directed: true,
+            durable_automation_requested: true,
             ..Default::default()
         }
     }
@@ -753,6 +785,19 @@ mod tests {
     fn command_exec_remains_feasible_for_temporal_file_queries() {
         let entry = command_exec_entry();
         let profile = temporal_files_profile();
+        let bindings = tool_capability_bindings();
+        let rules = ActionRules::default();
+
+        assert!(intent_feasible_without_policy(&entry, &bindings, &profile));
+        assert!(intent_feasible_for_execution(
+            &entry, &bindings, &rules, &profile
+        ));
+    }
+
+    #[test]
+    fn durable_automation_remains_feasible_when_monitoring_public_sources() {
+        let entry = automation_monitor_entry();
+        let profile = durable_remote_monitor_profile();
         let bindings = tool_capability_bindings();
         let rules = ActionRules::default();
 
