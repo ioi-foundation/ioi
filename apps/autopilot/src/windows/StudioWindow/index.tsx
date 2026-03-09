@@ -11,6 +11,7 @@ import {
 } from "@ioi/agent-ide";
 import type { AgentSummary } from "@ioi/agent-ide";
 import { TauriRuntime } from "../../services/TauriRuntime";
+import type { ContextAtlasFocusRequest } from "../../types";
 
 // Shell Components
 import { StudioCopilotView } from "./components/StudioCopilot";
@@ -19,7 +20,10 @@ import { CommandPalette } from "../../components/CommandPalette";
 import { StatusBar } from "../../components/StatusBar";
 import { VisionHUD } from "../../components/VisionHUD";
 import { LocalActivityBar } from "./components/LocalActivityBar";
+import { ContextAtlasView } from "./components/ContextAtlasView";
+import { SettingsView } from "./components/SettingsView";
 import { ShieldPolicyView } from "./components/ShieldPolicyView";
+import { listenForAutopilotDataReset } from "../../services/autopilotReset";
 import {
   buildConnectorPolicySummary,
   fetchShieldPolicyStateFromRuntime,
@@ -40,6 +44,7 @@ export function StudioWindow() {
   const [activeView, setActiveView] = useState("compose");
   const [interfaceMode, setInterfaceMode] = useState<"GHOST" | "COMPOSE">("COMPOSE");
   const [focusedPolicyConnectorId, setFocusedPolicyConnectorId] = useState<string | null>(null);
+  const [atlasRequest, setAtlasRequest] = useState<ContextAtlasFocusRequest | null>(null);
   const [shieldPolicy, setShieldPolicy] = useState<ShieldPolicyState>(() =>
     loadShieldPolicyState(),
   );
@@ -60,7 +65,25 @@ export function StudioWindow() {
     const unlistenPromise = listen<string>("request-studio-view", (event) => {
       setActiveView(event.payload === "copilot" ? "autopilot" : event.payload);
     });
-    return () => { unlistenPromise.then((unlisten) => unlisten()); };
+    const atlasFocusUnlistenPromise = listen<ContextAtlasFocusRequest>(
+      "request-context-atlas-focus",
+      (event) => {
+        setAtlasRequest(event.payload);
+        setActiveView("atlas");
+      },
+    );
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+      atlasFocusUnlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
+
+  useEffect(() => {
+    const resetUnlistenPromise = listenForAutopilotDataReset();
+
+    return () => {
+      resetUnlistenPromise.then((unlisten) => unlisten());
+    };
   }, []);
 
   useEffect(() => {
@@ -165,6 +188,13 @@ export function StudioWindow() {
           {/* VIEW: AUTOPILOT */}
           {activeView === "autopilot" && <StudioCopilotView />}
 
+          {activeView === "atlas" && (
+            <ContextAtlasView
+              runtime={runtime}
+              request={atlasRequest}
+            />
+          )}
+
           {/* VIEW: MARKETPLACE */}
           {activeView === "marketplace" && (
             <MarketplaceView 
@@ -197,6 +227,8 @@ export function StudioWindow() {
               onOpenIntegrations={() => setActiveView("integrations")}
             />
           )}
+
+          {activeView === "settings" && <SettingsView runtime={runtime} />}
 
           {/* VIEW: AGENTS (Dashboard + Builder) */}
           {activeView === "agents" && (

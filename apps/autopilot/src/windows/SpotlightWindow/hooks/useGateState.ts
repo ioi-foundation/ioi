@@ -40,7 +40,7 @@ export function useGateState({
   const hasPendingApproval = !!task?.pending_request_hash;
   const credentialRequest: CredentialRequest | undefined = task?.credential_request;
   const clarificationRequest: ClarificationRequest | undefined = task?.clarification_request;
-  const activeSessionId = task?.id || task?.session_id || null;
+  const activeSessionId = task?.session_id || task?.id || null;
 
   const waitingForSudoByStep = (task?.current_step || "")
     .toLowerCase()

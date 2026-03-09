@@ -971,3 +971,166 @@
   padding: 2px 7px;
   font-family: var(--spot-font-mono);
 }
+
+.artifact-hub-active-context {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.artifact-hub-active-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.artifact-hub-active-kicker {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7dd3fc;
+}
+
+.artifact-hub-active-head h3 {
+  margin: 4px 0 6px;
+  font-size: 16px;
+  color: var(--spot-text);
+}
+
+.artifact-hub-active-head p {
+  margin: 0;
+  color: var(--spot-text-muted);
+}
+
+.artifact-hub-active-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.artifact-hub-active-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.artifact-hub-active-section-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--spot-text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.artifact-hub-active-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.artifact-hub-active-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--spot-text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.artifact-hub-active-item:hover {
+  border-color: rgba(125, 211, 252, 0.35);
+  transform: translateY(-1px);
+}
+
+.artifact-hub-active-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.artifact-hub-active-item-head span,
+.artifact-hub-active-pill {
+  font-size: 10px;
+  color: var(--spot-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.artifact-hub-active-item p {
+  margin: 7px 0 0;
+  color: var(--spot-text-muted);
+}
+
+.artifact-hub-active-footer,
+.artifact-hub-active-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.artifact-hub-active-pill {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.context-atlas-graph-card {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.48), rgba(2, 6, 23, 0.88)),
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 36%);
+  overflow: hidden;
+}
+
+.context-atlas-graph-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.context-atlas-graph-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--spot-text);
+}
+
+.context-atlas-graph-badge {
+  font-size: 11px;
+  color: var(--spot-text-dim);
+}
+
+.context-atlas-graph-canvas {
+  flex: 1;
+  min-height: 220px;
+}
+
+.context-atlas-graph-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--spot-text-muted);
+  padding: 20px;
+  text-align: center;
+}
+
+@media (max-width: 920px) {
+  .artifact-hub-active-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

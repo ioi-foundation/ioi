@@ -1,10 +1,13 @@
 import type {
+  ActiveContextSnapshot,
   Artifact,
   ArtifactHubViewKey,
+  ContextAtlasFocusRequest,
   SourceBrowseRow,
   SourceSearchRow,
   ThoughtAgentSummary,
 } from "../../../types";
+import { ContextAtlasGraph3D } from "../../../components/ContextAtlasGraph3D";
 import { icons } from "./Icons";
 import { SubstrateGlassBox } from "./SubstrateGlassBox";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
@@ -61,6 +64,8 @@ function clipText(value: string, maxChars: number): string {
 
 interface ArtifactHubDetailViewProps {
   activeView: ArtifactHubViewKey;
+  activeContext: ActiveContextSnapshot | null;
+  activeContextLoading: boolean;
   searches: SourceSearchRow[];
   browses: SourceBrowseRow[];
   thoughtAgents: ThoughtAgentSummary[];
@@ -72,6 +77,7 @@ interface ArtifactHubDetailViewProps {
   screenshotReceipts: ScreenshotReceiptEvidence[];
   substrateReceipts: SubstrateReceiptRow[];
   onOpenArtifact?: (artifactId: string) => void;
+  onOpenAtlasFocus?: (request: ContextAtlasFocusRequest) => void;
   openExternalUrl: (url: string) => Promise<void>;
   extractArtifactUrl: (artifact: Artifact) => string | null;
   formatTimestamp: (value: string) => string;
@@ -213,6 +219,138 @@ function SourcesView({
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ActiveContextView({
+  activeContext,
+  activeContextLoading,
+  onOpenAtlasFocus,
+}: {
+  activeContext: ActiveContextSnapshot | null;
+  activeContextLoading: boolean;
+  onOpenAtlasFocus?: (request: ContextAtlasFocusRequest) => void;
+}) {
+  if (activeContextLoading) {
+    return <p className="artifact-hub-empty">Loading active context…</p>;
+  }
+
+  if (!activeContext) {
+    return <p className="artifact-hub-empty">No active context snapshot is available for this session.</p>;
+  }
+
+  return (
+    <div className="artifact-hub-active-context">
+      <div className="artifact-hub-active-head">
+        <div>
+          <div className="artifact-hub-active-kicker">Turn-local memory</div>
+          <h3>{activeContext.goal || "Active Context"}</h3>
+          <p>{activeContext.status} · {activeContext.mode} · {activeContext.current_tier}</p>
+        </div>
+        <button
+          className="artifact-hub-open-btn"
+          onClick={() =>
+            onOpenAtlasFocus?.({
+              sessionId: activeContext.session_id,
+              focusId: activeContext.active_skill_id || activeContext.focus_id,
+              lens: "Context",
+              mode: "Split",
+            })
+          }
+          type="button"
+        >
+          Open in Atlas
+        </button>
+      </div>
+
+      <ContextAtlasGraph3D
+        neighborhood={activeContext.neighborhood}
+        maxNodes={18}
+        title="Active Context Neighborhood"
+        className="artifact-hub-active-graph"
+      />
+
+      <div className="artifact-hub-active-grid">
+        <section className="artifact-hub-active-section">
+          <div className="artifact-hub-active-section-head">
+            <span>Skills</span>
+            <span>{activeContext.skills.length}</span>
+          </div>
+          <div className="artifact-hub-active-list">
+            {activeContext.skills.map((item) => (
+              <button
+                className="artifact-hub-active-item"
+                key={item.id}
+                onClick={() =>
+                  onOpenAtlasFocus?.({
+                    sessionId: activeContext.session_id,
+                    focusId: item.focus_id || item.id,
+                    lens: "Skills",
+                    mode: "Split",
+                  })
+                }
+                type="button"
+              >
+                <div className="artifact-hub-active-item-head">
+                  <strong>{item.title}</strong>
+                  <span>{[item.badge, item.secondary_badge].filter(Boolean).join(" · ")}</span>
+                </div>
+                <p>{item.summary}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="artifact-hub-active-section">
+          <div className="artifact-hub-active-section-head">
+            <span>Evidence</span>
+            <span>{activeContext.evidence.length}</span>
+          </div>
+          <div className="artifact-hub-active-list">
+            {activeContext.evidence.map((item) => (
+              <button
+                className="artifact-hub-active-item"
+                key={item.id}
+                onClick={() =>
+                  onOpenAtlasFocus?.({
+                    sessionId: activeContext.session_id,
+                    focusId: item.focus_id || item.id,
+                    lens: item.kind === "published_doc" ? "Skills" : "Context",
+                    mode: "Split",
+                  })
+                }
+                type="button"
+              >
+                <div className="artifact-hub-active-item-head">
+                  <strong>{item.title}</strong>
+                  <span>{[item.badge, item.secondary_badge].filter(Boolean).join(" · ")}</span>
+                </div>
+                <p>{item.summary}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {(activeContext.constraints.length > 0 || activeContext.tools.length > 0) && (
+        <div className="artifact-hub-active-footer">
+          <div className="artifact-hub-active-meta">
+            {activeContext.constraints.map((constraint) => (
+              <span className="artifact-hub-active-pill" key={constraint.id}>
+                {constraint.label}: {constraint.value}
+              </span>
+            ))}
+          </div>
+          <div className="artifact-hub-active-meta">
+            {activeContext.tools.map((item) => (
+              <span className="artifact-hub-active-pill" key={item.id}>
+                {item.title}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -436,6 +574,8 @@ function SubstrateView({
 
 export function ArtifactHubDetailView({
   activeView,
+  activeContext,
+  activeContextLoading,
   searches,
   browses,
   thoughtAgents,
@@ -447,11 +587,20 @@ export function ArtifactHubDetailView({
   screenshotReceipts,
   substrateReceipts,
   onOpenArtifact,
+  onOpenAtlasFocus,
   openExternalUrl,
   extractArtifactUrl,
   formatTimestamp,
 }: ArtifactHubDetailViewProps) {
   switch (activeView) {
+    case "active_context":
+      return (
+        <ActiveContextView
+          activeContext={activeContext}
+          activeContextLoading={activeContextLoading}
+          onOpenAtlasFocus={onOpenAtlasFocus}
+        />
+      );
     case "thoughts":
       return (
         <ThoughtsView

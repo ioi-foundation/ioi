@@ -1,9 +1,9 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, State,
+    AppHandle, Manager, State,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -80,6 +80,27 @@ fn derive_studio_scs_config(data_dir: &Path) -> StoreConfig {
     config
 }
 
+pub(crate) fn autopilot_data_dir_for(app: &AppHandle) -> PathBuf {
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("./ioi-data"))
+}
+
+pub(crate) fn open_or_create_studio_scs(data_dir: &Path) -> Result<SovereignContextStore, String> {
+    let scs_path = data_dir.join("studio.scs");
+    let scs_config = derive_studio_scs_config(data_dir);
+
+    if scs_path.exists() {
+        SovereignContextStore::open_with_config(&scs_path, scs_config.clone())
+            .map_err(|error| format!("Failed to open studio store: {}", error))
+    } else {
+        std::fs::create_dir_all(data_dir)
+            .map_err(|error| format!("Failed to create app data directory: {}", error))?;
+        SovereignContextStore::create(&scs_path, scs_config)
+            .map_err(|error| format!("Failed to create studio store: {}", error))
+    }
+}
+
 fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
     let openai_key = std::env::var("OPENAI_API_KEY").ok();
     let local_url = std::env::var("LOCAL_LLM_URL").ok();
@@ -150,19 +171,9 @@ pub fn run() {
             }
 
             let app_handle = app.handle();
-            let data_dir = app_handle
-                .path()
-                .app_data_dir()
-                .unwrap_or_else(|_| std::path::PathBuf::from("./ioi-data"));
+            let data_dir = autopilot_data_dir_for(&app_handle);
 
-            let scs_path = data_dir.join("studio.scs");
-            let scs_config = derive_studio_scs_config(&data_dir);
-            let studio_scs = if scs_path.exists() {
-                SovereignContextStore::open_with_config(&scs_path, scs_config.clone()).ok()
-            } else {
-                std::fs::create_dir_all(&data_dir).ok();
-                SovereignContextStore::create(&scs_path, scs_config).ok()
-            };
+            let studio_scs = open_or_create_studio_scs(&data_dir).ok();
 
             if let Some(scs) = studio_scs {
                 let state: State<Mutex<AppState>> = app_handle.state();
@@ -318,6 +329,11 @@ pub fn run() {
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,
             kernel::data::get_skill_catalog,
+            kernel::data::get_active_context,
+            kernel::data::get_atlas_neighborhood,
+            kernel::data::get_skill_detail,
+            kernel::data::get_substrate_proof,
+            kernel::data::search_atlas,
             kernel::artifacts::get_thread_events,
             kernel::artifacts::get_thread_artifacts,
             kernel::artifacts::get_artifact_content,
@@ -326,6 +342,7 @@ pub fn run() {
             kernel::session::get_session_history,
             kernel::session::load_session,
             kernel::session::delete_session,
+            kernel::dev::reset_autopilot_data,
             kernel::graph::test_node_execution,
             kernel::graph::run_studio_graph,
             kernel::graph::check_node_cache,
