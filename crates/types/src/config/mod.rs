@@ -667,6 +667,11 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
     for method in [
         "issue_session_grant@v1",
         "store_secret_record@v1",
+        "connector_auth_upsert@v1",
+        "connector_auth_get@v1",
+        "connector_auth_list@v1",
+        "connector_auth_export@v1",
+        "connector_auth_import@v1",
         "mail_connector_upsert@v1",
         "mail_connector_get@v1",
         "mail_connector_ensure_binding@v1",

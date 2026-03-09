@@ -54,6 +54,20 @@ interface ShieldApprovalRequest {
   message: string;
 }
 
+interface WalletConnectorAuthRecordView {
+  connectorId: string;
+  authProtocol: string;
+  state: string;
+  updatedAtMs: number;
+  accountLabel?: string | null;
+  grantedScopes: string[];
+}
+
+interface WalletConnectorAuthListResult {
+  listedAtMs: number;
+  records: WalletConnectorAuthRecordView[];
+}
+
 const INITIAL_CONNECTORS: ConnectorSummary[] = [
   {
     id: "mail.primary",
@@ -64,10 +78,10 @@ const INITIAL_CONNECTORS: ConnectorSummary[] = [
     description:
       "Planned first wallet_network integration. Enables inbox listing and latest-email read under delegated wallet session policy.",
     status: "needs_auth",
-    authMode: "wallet_network_session",
+    authMode: "wallet_capability",
     scopes: ["mail.read.latest", "mail.list.recent", "mail.delete.spam", "mail.reply"],
     notes:
-      "E2E target: request session channel, approve bounded read lease, perform check-inbox and read-latest-email ops.",
+      "Wallet-backed connector auth with delegated mailbox capabilities and bounded leases.",
   },
   {
     id: "google.workspace",
@@ -78,7 +92,7 @@ const INITIAL_CONNECTORS: ConnectorSummary[] = [
     description:
       "Single Google connector exposing Gmail, Calendar, Docs, Sheets, BigQuery, Drive, Tasks, Chat, events, workflows, and expert raw access.",
     status: "needs_auth",
-    authMode: "oauth",
+    authMode: "wallet_capability",
     scopes: [
       "gmail",
       "calendar",
@@ -93,7 +107,7 @@ const INITIAL_CONNECTORS: ConnectorSummary[] = [
       "expert",
     ],
     notes:
-      "Uses native Google OAuth and direct Google APIs for curated tools plus an expert raw request path.",
+      "Uses native Google OAuth for consent, with wallet-backed durable auth and direct Google APIs for execution.",
   },
 ];
 
@@ -138,7 +152,7 @@ function patchMailConnectorConnected(
       description:
         "Planned first wallet_network integration. Enables inbox listing and latest-email read under delegated wallet session policy.",
       status: "connected" as ConnectorStatus,
-      authMode: "wallet_network_session",
+      authMode: "wallet_capability",
       scopes: ["mail.read.latest", "mail.list.recent", "mail.delete.spam", "mail.reply"],
       lastSyncAtUtc: connectedAt,
       notes: connectedNote,
@@ -166,6 +180,57 @@ function patchConnectorConfigured(
 
   if (found) return next;
   return next;
+}
+
+function connectorStatusFromWalletAuthState(state: string): ConnectorStatus {
+  switch (state) {
+    case "connected":
+      return "connected";
+    case "expired":
+    case "revoked":
+    case "degraded":
+      return "degraded";
+    case "needs_auth":
+    default:
+      return "needs_auth";
+  }
+}
+
+function connectorNotesFromWalletRecord(
+  connector: ConnectorSummary,
+  record: WalletConnectorAuthRecordView
+): string {
+  const account = record.accountLabel?.trim();
+  if (account) {
+    return `${connector.name} is connected for ${account} via wallet-backed connector auth.`;
+  }
+  if (record.state === "needs_auth") {
+    return `${connector.name} is registered but still needs wallet-backed authorization.`;
+  }
+  return `${connector.name} is tracked through wallet-backed connector auth.`;
+}
+
+function patchConnectorsFromWalletAuth(
+  connectors: ConnectorSummary[],
+  auth: WalletConnectorAuthListResult
+): ConnectorSummary[] {
+  const recordsById = new Map(
+    auth.records.map((record) => [record.connectorId, record] as const)
+  );
+
+  return connectors.map((connector) => {
+    const record = recordsById.get(connector.id);
+    if (!record) return connector;
+    return {
+      ...connector,
+      status: connectorStatusFromWalletAuthState(record.state),
+      authMode: "wallet_capability",
+      lastSyncAtUtc:
+        record.updatedAtMs > 0 ? new Date(record.updatedAtMs).toISOString() : connector.lastSyncAtUtc,
+      notes: connectorNotesFromWalletRecord(connector, record),
+      scopes: record.grantedScopes.length > 0 ? [...record.grantedScopes] : connector.scopes,
+    };
+  });
 }
 
 function parseShieldApprovalRequest(error: unknown): ShieldApprovalRequest | null {
@@ -318,7 +383,17 @@ export class TauriRuntime implements AgentRuntime {
     }
 
     async getConnectors(): Promise<ConnectorSummary[]> {
-        return cloneConnectors(this.connectors);
+        let next = cloneConnectors(this.connectors);
+        try {
+          const auth = await invoke<WalletConnectorAuthListResult>("wallet_connector_auth_list", {
+            providerFamily: null,
+          });
+          next = patchConnectorsFromWalletAuth(next, auth);
+          this.connectors = cloneConnectors(next);
+        } catch (_error) {
+          // Keep local connector scaffold when wallet auth receipts are unavailable.
+        }
+        return next;
     }
 
     async getConnectorActions(connectorId: string): Promise<ConnectorActionDefinition[]> {

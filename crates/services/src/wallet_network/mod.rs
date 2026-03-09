@@ -5,14 +5,16 @@ use ioi_api::services::{BlockchainService, UpgradableService};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::wallet_network::{
-    MailConnectorEnsureBindingParams, MailConnectorGetParams, MailConnectorUpsertParams,
-    MailDeleteSpamParams, MailListRecentParams, MailReadLatestParams, MailReplyParams,
-    MailboxTotalCountParams, OwnerAnchor, SecretInjectionGrant, SecretInjectionRequestRecord,
-    SessionChannelClose, SessionChannelDelegationRules, SessionChannelOpenAck,
-    SessionChannelOpenConfirm, SessionChannelOpenInit, SessionChannelOpenTry,
-    SessionChannelOrdering, SessionGrant, SessionLease, SessionLeaseMode, SessionReceiptCommit,
-    SessionReceiptCommitDirection, VaultIdentity, VaultPolicyRule, VaultSecretRecord,
-    WalletApprovalDecision, WalletInterceptionContext,
+    ConnectorAuthExportParams, ConnectorAuthGetParams, ConnectorAuthImportParams,
+    ConnectorAuthListParams, ConnectorAuthUpsertParams, MailConnectorEnsureBindingParams,
+    MailConnectorGetParams, MailConnectorUpsertParams, MailDeleteSpamParams, MailListRecentParams,
+    MailReadLatestParams, MailReplyParams, MailboxTotalCountParams, OwnerAnchor,
+    SecretInjectionGrant, SecretInjectionRequestRecord, SessionChannelClose,
+    SessionChannelDelegationRules, SessionChannelOpenAck, SessionChannelOpenConfirm,
+    SessionChannelOpenInit, SessionChannelOpenTry, SessionChannelOrdering, SessionGrant,
+    SessionLease, SessionLeaseMode, SessionReceiptCommit, SessionReceiptCommitDirection,
+    VaultIdentity, VaultPolicyRule, VaultSecretRecord, WalletApprovalDecision,
+    WalletInterceptionContext,
 };
 use ioi_types::app::ActionTarget;
 use ioi_types::codec;
@@ -218,6 +220,26 @@ impl BlockchainService for WalletNetworkService {
             "store_secret_record@v1" => {
                 let secret: VaultSecretRecord = codec::from_bytes_canonical(params)?;
                 handlers::identity::store_secret_record(state, ctx, secret)
+            }
+            "connector_auth_upsert@v1" => {
+                let request: ConnectorAuthUpsertParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::connector_auth_upsert(state, ctx, request)
+            }
+            "connector_auth_get@v1" => {
+                let request: ConnectorAuthGetParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::connector_auth_get(state, ctx, request)
+            }
+            "connector_auth_list@v1" => {
+                let request: ConnectorAuthListParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::connector_auth_list(state, ctx, request)
+            }
+            "connector_auth_export@v1" => {
+                let request: ConnectorAuthExportParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::connector_auth_export(state, ctx, request)
+            }
+            "connector_auth_import@v1" => {
+                let request: ConnectorAuthImportParams = codec::from_bytes_canonical(params)?;
+                handlers::connectors::connector_auth_import(state, ctx, request)
             }
             "upsert_policy_rule@v1" => {
                 let policy: VaultPolicyRule = codec::from_bytes_canonical(params)?;

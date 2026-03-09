@@ -125,6 +125,7 @@ async fn ensure_wallet_mail_binding(
     state: &mut dyn StateAccess,
     wallet_service: &std::sync::Arc<dyn ioi_api::services::BlockchainService>,
     call_context: ServiceCallContext<'_>,
+    method: WalletMailToolMethod,
     mailbox: &str,
     session_id: [u8; 32],
     step_index: u32,
@@ -142,6 +143,9 @@ async fn ensure_wallet_mail_binding(
         mailbox: normalize_mailbox(mailbox),
         audience: Some(call_context.signer_account_id.0),
         lease_ttl_ms: None,
+        requested_capability: capability_aliases(method)
+            .first()
+            .map(|value| value.to_string()),
     };
     let payload = codec::to_bytes_canonical(&params)?;
     let mut wallet_ctx = TxContext {

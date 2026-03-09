@@ -1,3 +1,4 @@
+mod auth;
 mod commands;
 mod config;
 mod constants;
@@ -14,13 +15,16 @@ use serde_json::Value;
 use std::sync::Mutex;
 use tauri::State;
 
+pub(crate) use auth::bootstrap_google_wallet_auth;
+pub(crate) use policy::bootstrap_wallet_policy_state;
 pub use policy::{policy_state_path_for, ShieldPolicyManager, ShieldPolicyState};
 pub use subscriptions::{
     registry_path_for, GoogleAutomationManager, GoogleConnectorSubscriptionView,
 };
 pub use types::{
-    WalletMailConfigureAccountResult, WalletMailDeleteSpamResult, WalletMailListRecentResult,
-    WalletMailReadLatestResult, WalletMailReplyResult,
+    WalletConnectorAuthExportResult, WalletConnectorAuthGetResult, WalletConnectorAuthImportResult,
+    WalletConnectorAuthListResult, WalletMailConfigureAccountResult, WalletMailDeleteSpamResult,
+    WalletMailListRecentResult, WalletMailReadLatestResult, WalletMailReplyResult,
 };
 
 #[tauri::command]
@@ -124,6 +128,41 @@ pub async fn wallet_mail_reply(
 }
 
 #[tauri::command]
+pub async fn wallet_connector_auth_get(
+    state: State<'_, Mutex<AppState>>,
+    connector_id: String,
+) -> Result<WalletConnectorAuthGetResult, String> {
+    auth::wallet_connector_auth_get(state, connector_id).await
+}
+
+#[tauri::command]
+pub async fn wallet_connector_auth_list(
+    state: State<'_, Mutex<AppState>>,
+    provider_family: Option<String>,
+) -> Result<WalletConnectorAuthListResult, String> {
+    auth::wallet_connector_auth_list(state, provider_family).await
+}
+
+#[tauri::command]
+pub async fn wallet_connector_auth_export(
+    state: State<'_, Mutex<AppState>>,
+    connector_ids: Option<Vec<String>>,
+    passphrase: String,
+) -> Result<WalletConnectorAuthExportResult, String> {
+    auth::wallet_connector_auth_export(state, connector_ids, passphrase).await
+}
+
+#[tauri::command]
+pub async fn wallet_connector_auth_import(
+    state: State<'_, Mutex<AppState>>,
+    bundle_base64: String,
+    passphrase: String,
+    replace_existing: Option<bool>,
+) -> Result<WalletConnectorAuthImportResult, String> {
+    auth::wallet_connector_auth_import(state, bundle_base64, passphrase, replace_existing).await
+}
+
+#[tauri::command]
 pub async fn connector_list_actions(
     connector_id: String,
 ) -> Result<Vec<google_workspace::ConnectorActionDefinition>, String> {
@@ -132,11 +171,12 @@ pub async fn connector_list_actions(
 
 #[tauri::command]
 pub async fn connector_configure(
+    state: State<'_, Mutex<AppState>>,
     manager: State<'_, GoogleAutomationManager>,
     connector_id: String,
     input: Value,
 ) -> Result<google_workspace::ConnectorConfigureResult, String> {
-    google_workspace::connector_configure(manager, connector_id, input).await
+    google_workspace::connector_configure(state, manager, connector_id, input).await
 }
 
 #[tauri::command]
@@ -187,16 +227,18 @@ pub async fn connector_renew_subscription(
 }
 
 #[tauri::command]
-pub fn connector_policy_get(
+pub async fn connector_policy_get(
+    state: State<'_, Mutex<AppState>>,
     manager: State<'_, ShieldPolicyManager>,
 ) -> Result<ShieldPolicyState, String> {
-    policy::current_policy_state(manager)
+    policy::current_policy_state(state, manager).await
 }
 
 #[tauri::command]
-pub fn connector_policy_set(
+pub async fn connector_policy_set(
+    state: State<'_, Mutex<AppState>>,
     manager: State<'_, ShieldPolicyManager>,
     policy: ShieldPolicyState,
 ) -> Result<ShieldPolicyState, String> {
-    policy::replace_policy_state(manager, policy)
+    policy::replace_policy_state(state, manager, policy).await
 }

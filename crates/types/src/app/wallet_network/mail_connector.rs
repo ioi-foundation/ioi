@@ -141,6 +141,9 @@ pub struct MailConnectorEnsureBindingParams {
     /// Optional lease ttl in milliseconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lease_ttl_ms: Option<u64>,
+    /// Optional requested capability to narrow the issued binding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requested_capability: Option<String>,
 }
 
 /// Persisted receipt for `mail_connector_ensure_binding@v1`.

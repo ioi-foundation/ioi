@@ -1,6 +1,8 @@
 // Path: crates/types/src/app/wallet_network/mod.rs
 //! Data structures for wallet.network control-plane and session artifacts.
 
+/// Canonical connector auth records plus import/export artifacts.
+pub mod connector_auth;
 /// Mail connector operation payloads and receipts.
 pub mod mail_connector;
 /// Policy interception, approval decisions, and audit events.
@@ -14,6 +16,7 @@ pub mod session_channel;
 /// Vault identity, secret, and policy-rule primitives.
 pub mod vault;
 
+pub use connector_auth::*;
 pub use mail_connector::*;
 pub use policy::*;
 pub use secret_injection::*;

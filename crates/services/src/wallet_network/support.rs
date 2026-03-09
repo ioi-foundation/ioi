@@ -6,11 +6,16 @@ use crate::wallet_network::keys::{
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
+use ioi_crypto::key_store::{decrypt_key, encrypt_key};
 use ioi_types::app::wallet_network::{VaultAuditEvent, VaultAuditEventKind, VaultIdentity};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use parity_scale_codec::{Decode, Encode};
 use std::collections::BTreeMap;
+
+const WALLET_SECRET_PASS_ENV: &str = "IOI_WALLET_SECRET_PASS";
+const GUARDIAN_SECRET_PASS_ENV: &str = "IOI_GUARDIAN_KEY_PASS";
+const ENCRYPTED_SECRET_MAGIC: &[u8; 8] = b"IOI-GKEY";
 
 pub(super) fn load_revocation_epoch(state: &dyn StateAccess) -> Result<u64, TransactionError> {
     Ok(load_typed(state, REVOCATION_EPOCH_KEY)?.unwrap_or(0))
@@ -110,4 +115,38 @@ pub(super) fn base_audit_metadata(ctx: &TxContext<'_>) -> BTreeMap<String, Strin
 
 pub(super) fn block_timestamp_ms(ctx: &TxContext<'_>) -> u64 {
     ctx.block_timestamp / 1_000_000
+}
+
+fn wallet_secret_passphrase() -> String {
+    std::env::var(WALLET_SECRET_PASS_ENV)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            std::env::var(GUARDIAN_SECRET_PASS_ENV)
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or_else(|| "local-mode".to_string())
+}
+
+pub(super) fn is_encrypted_secret_payload(payload: &[u8]) -> bool {
+    payload.starts_with(ENCRYPTED_SECRET_MAGIC)
+}
+
+pub(super) fn encrypt_secret_payload(plaintext: &[u8]) -> Result<Vec<u8>, TransactionError> {
+    encrypt_key(plaintext, &wallet_secret_passphrase())
+        .map_err(|e| TransactionError::Invalid(format!("wallet secret encryption failed: {}", e)))
+}
+
+pub(super) fn decrypt_secret_payload(payload: &[u8]) -> Result<Vec<u8>, TransactionError> {
+    if is_encrypted_secret_payload(payload) {
+        return decrypt_key(payload, &wallet_secret_passphrase())
+            .map(|value| value.0.clone())
+            .map_err(|e| {
+                TransactionError::Invalid(format!("wallet secret decryption failed: {}", e))
+            });
+    }
+    Ok(payload.to_vec())
 }

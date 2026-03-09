@@ -48,6 +48,29 @@ pub struct GoogleAccessContext {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GoogleAuthSnapshot {
+    pub account_email: Option<String>,
+    pub access_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at_utc: Option<String>,
+    #[serde(default)]
+    pub granted_scopes: Vec<String>,
+    #[serde(default = "default_token_type")]
+    pub token_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleOauthClientSnapshot {
+    pub client_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub client_secret: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GoogleAuthRecord {
     account_email: Option<String>,
     access_token: String,
@@ -356,6 +379,76 @@ pub async fn cancel_pending_login() -> Result<GoogleAuthStatus, String> {
     let mut auth = status().await?;
     auth.summary = "Canceled the in-progress Google sign-in attempt.".to_string();
     Ok(auth)
+}
+
+pub fn current_auth_snapshot() -> Result<Option<GoogleAuthSnapshot>, String> {
+    Ok(load_google_auth_record()?.map(|record| GoogleAuthSnapshot {
+        account_email: record.account_email,
+        access_token: record.access_token,
+        refresh_token: record.refresh_token,
+        expires_at_utc: record.expires_at_utc,
+        granted_scopes: record.granted_scopes,
+        token_type: record.token_type,
+    }))
+}
+
+pub fn replace_local_auth_snapshot(snapshot: Option<GoogleAuthSnapshot>) -> Result<(), String> {
+    match snapshot {
+        Some(snapshot) => save_google_auth_record(&GoogleAuthRecord {
+            account_email: snapshot.account_email,
+            access_token: snapshot.access_token,
+            refresh_token: snapshot.refresh_token,
+            expires_at_utc: snapshot.expires_at_utc,
+            granted_scopes: snapshot.granted_scopes,
+            token_type: snapshot.token_type,
+        }),
+        None => {
+            let path = google_auth_storage_path()?;
+            if path.exists() {
+                fs::remove_file(&path).map_err(|error| {
+                    format!(
+                        "Failed to remove Google auth state '{}': {}",
+                        path.display(),
+                        error
+                    )
+                })?;
+            }
+            Ok(())
+        }
+    }
+}
+
+pub fn current_oauth_client_snapshot() -> Result<Option<GoogleOauthClientSnapshot>, String> {
+    Ok(
+        load_google_oauth_client_record()?.map(|record| GoogleOauthClientSnapshot {
+            client_id: record.client_id,
+            client_secret: record.client_secret,
+        }),
+    )
+}
+
+pub fn replace_local_oauth_client_snapshot(
+    snapshot: Option<GoogleOauthClientSnapshot>,
+) -> Result<(), String> {
+    match snapshot {
+        Some(snapshot) => save_google_oauth_client_record(&GoogleOauthClientRecord {
+            client_id: snapshot.client_id,
+            client_secret: snapshot.client_secret,
+        }),
+        None => {
+            let path = google_client_storage_path()?;
+            if path.exists() {
+                fs::remove_file(&path).map_err(|error| {
+                    format!(
+                        "Failed to remove Google OAuth client config '{}': {}",
+                        path.display(),
+                        error
+                    )
+                })?;
+            }
+            Ok(())
+        }
+    }
 }
 
 pub async fn access_context(required_scopes: &[&str]) -> Result<GoogleAccessContext, String> {

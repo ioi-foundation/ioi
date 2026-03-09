@@ -5,6 +5,11 @@ use ioi_types::app::wallet_network::SessionReceiptCommitDirection;
 pub(super) const IDENTITY_KEY: &[u8] = b"identity";
 pub(super) const SECRET_PREFIX: &[u8] = b"secret::";
 pub(super) const SECRET_ALIAS_PREFIX: &[u8] = b"secret_alias::";
+pub(super) const CONNECTOR_AUTH_PREFIX: &[u8] = b"connector_auth::";
+pub(super) const CONNECTOR_AUTH_GET_RECEIPT_PREFIX: &[u8] = b"connector_auth_get_receipt::";
+pub(super) const CONNECTOR_AUTH_LIST_RECEIPT_PREFIX: &[u8] = b"connector_auth_list_receipt::";
+pub(super) const CONNECTOR_AUTH_EXPORT_RECEIPT_PREFIX: &[u8] = b"connector_auth_export_receipt::";
+pub(super) const CONNECTOR_AUTH_IMPORT_RECEIPT_PREFIX: &[u8] = b"connector_auth_import_receipt::";
 pub(super) const POLICY_PREFIX: &[u8] = b"policy::";
 pub(super) const SESSION_PREFIX: &[u8] = b"session::";
 pub(super) const SESSION_DELEGATION_PREFIX: &[u8] = b"session_delegation::";
@@ -44,6 +49,27 @@ pub(super) fn secret_key(secret_id: &str) -> Vec<u8> {
 pub(super) fn secret_alias_key(alias: &str) -> Vec<u8> {
     let normalized = alias.trim().to_ascii_lowercase();
     [SECRET_ALIAS_PREFIX, normalized.as_bytes()].concat()
+}
+
+pub(super) fn connector_auth_key(connector_id: &str) -> Vec<u8> {
+    let normalized = connector_id.trim().to_ascii_lowercase();
+    [CONNECTOR_AUTH_PREFIX, normalized.as_bytes()].concat()
+}
+
+pub(super) fn connector_auth_get_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [CONNECTOR_AUTH_GET_RECEIPT_PREFIX, request_id.as_slice()].concat()
+}
+
+pub(super) fn connector_auth_list_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [CONNECTOR_AUTH_LIST_RECEIPT_PREFIX, request_id.as_slice()].concat()
+}
+
+pub(super) fn connector_auth_export_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [CONNECTOR_AUTH_EXPORT_RECEIPT_PREFIX, request_id.as_slice()].concat()
+}
+
+pub(super) fn connector_auth_import_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [CONNECTOR_AUTH_IMPORT_RECEIPT_PREFIX, request_id.as_slice()].concat()
 }
 
 pub(super) fn policy_key(rule_id: &str) -> Vec<u8> {
