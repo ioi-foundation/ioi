@@ -31,9 +31,7 @@ use ioi_types::app::agentic::{
 use ioi_types::app::{
     ActionRequest, ContextSlice, KernelEvent, MailConnectorAuthMode, MailConnectorConfig,
     MailConnectorEndpoint, MailConnectorProvider, MailConnectorSecretAliases, MailConnectorTlsMode,
-    MailConnectorUpsertParams, RoutingReceiptEvent, SecretKind, SessionChannelDelegationRules,
-    SessionChannelEnvelope, SessionChannelMode, SessionChannelOrdering, SessionChannelRecord,
-    SessionChannelState, SessionLease, SessionLeaseMode, SignatureSuite, VaultSecretRecord,
+    MailConnectorUpsertParams, RoutingReceiptEvent, SecretKind, SignatureSuite, VaultSecretRecord,
     WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt,
 };
 use ioi_types::keys::active_service_key;
@@ -56,9 +54,10 @@ use super::types::{
     cec_receipt_bool, cec_receipt_usize, cec_receipt_value, cec_receipt_values,
     has_policy_decision, has_verification_pair, observation_has_any_tool_name,
     observation_has_tool_name, parse_verification_fact, parse_verification_facts, ActionEvidence,
-    CecReceiptEvidence, CommandHistoryEvidence, EnvironmentReceiptObservation, MailObservation,
-    MailReadLatestPayloadObservation, MailReplyPayloadObservation, PlannedToolCallEvidence,
-    QueryCase, RunObservation, ScreenshotObservation, WebObservation,
+    CecReceiptEvidence, CommandHistoryEvidence, EnvironmentReceiptObservation,
+    GoogleCalendarPayloadObservation, GoogleGmailPayloadObservation, GoogleObservation,
+    MailObservation, MailReadLatestPayloadObservation, MailReplyPayloadObservation,
+    PlannedToolCallEvidence, QueryCase, RunObservation, ScreenshotObservation, WebObservation,
 };
 
 include!("harness/gui_mock.rs");
@@ -112,8 +111,7 @@ const VLC_INSTALL_FIXTURE_PROBE_SOURCE: &str = "harness.vlc_install_fixture";
 const DESKTOP_PROJECT_CREATE_CASE_ID: &str =
     "create_a_new_folder_on_my_desktop_called_project_some_number";
 const DESKTOP_PROJECT_CREATE_FIXTURE_MODE: &str = "desktop_project_create_fixture_v1";
-const DESKTOP_PROJECT_CREATE_FIXTURE_PROBE_SOURCE: &str =
-    "harness.desktop_project_create_fixture";
+const DESKTOP_PROJECT_CREATE_FIXTURE_PROBE_SOURCE: &str = "harness.desktop_project_create_fixture";
 const PROJECTS_ZIP_CASE_ID: &str =
     "compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop";
 const PROJECTS_ZIP_FIXTURE_MODE: &str = "desktop_projects_zip_fixture_v1";
@@ -188,8 +186,7 @@ const MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_MODE: &str = "media_multimodal_tool_home_
 const MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE: &str =
     "harness.media_multimodal_summary_fixture";
 const MEDIA_TRANSCRIPT_SUMMARY_TOOL_HOME_ENV_KEY: &str = "IOI_MEDIA_TOOL_HOME";
-const MEDIA_TRANSCRIPT_SUMMARY_EXPECTED_URL: &str =
-    "https://www.youtube.com/watch?v=9Tm2c6NJH4Y";
+const MEDIA_TRANSCRIPT_SUMMARY_EXPECTED_URL: &str = "https://www.youtube.com/watch?v=9Tm2c6NJH4Y";
 const SHUTDOWN_SCHEDULE_CASE_ID: &str = "schedule_my_computer_to_shut_down_at_11_pm_tonight";
 const SHUTDOWN_SCHEDULE_FIXTURE_MODE: &str = "shutdown_schedule_fixture_v1";
 const SHUTDOWN_SCHEDULE_FIXTURE_PROBE_SOURCE: &str = "harness.shutdown_schedule_fixture";
@@ -200,6 +197,15 @@ const MAIL_REPLY_SEND_CASE_ID: &str =
     "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it";
 const MAIL_REPLY_MOCK_FIXTURE_MODE: &str = "mail_reply_mock_driver_fixture_v1";
 const MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE: &str = "harness.mail_reply_mock_driver_fixture";
+const GOOGLE_GMAIL_DRAFT_CASE_ID: &str =
+    "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_save_it_as_a_gmail_draft";
+const GOOGLE_GMAIL_SEND_CASE_ID: &str =
+    "send_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_via_gmail";
+const GOOGLE_CALENDAR_CREATE_CASE_ID: &str =
+    "create_a_google_calendar_event_for_tomorrows_standup_at_2_pm";
+const GOOGLE_CONNECTOR_FIXTURE_MODE: &str = "google_connector_mock_fixture_v1";
+const GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE: &str = "harness.google_connector_mock_fixture";
+const GOOGLE_CONNECTOR_FIXTURE_ENV_KEY: &str = "IOI_GOOGLE_MOCK_FIXTURE_PATH";
 const RESTAURANTS_NEAR_ME_CASE_ID: &str =
     "find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus";
 const RESTAURANTS_NEAR_ME_FIXTURE_MODE: &str = "runtime_locality_observation_fixture_v2";
@@ -515,11 +521,8 @@ fn derive_web_observation(observation: &RunObservation) -> Option<WebObservation
         "discovery",
         "semantic_subject_alignment_required",
     );
-    let semantic_subject_alignment_floor_met = typed_receipt_state(
-        observation,
-        "discovery",
-        "semantic_subject_alignment_floor",
-    );
+    let semantic_subject_alignment_floor_met =
+        typed_receipt_state(observation, "discovery", "semantic_subject_alignment_floor");
     let semantic_subject_alignment_urls = collect_unique_urls(cec_receipt_values(
         observation,
         "discovery",
@@ -715,6 +718,18 @@ fn is_mail_reply_tool_name(tool_name: &str) -> bool {
         || tool_name.eq_ignore_ascii_case("mail__reply")
 }
 
+fn is_google_gmail_draft_tool_name(tool_name: &str) -> bool {
+    tool_name.eq_ignore_ascii_case("connector__google__gmail_draft_email")
+}
+
+fn is_google_gmail_send_tool_name(tool_name: &str) -> bool {
+    tool_name.eq_ignore_ascii_case("connector__google__gmail_send_email")
+}
+
+fn is_google_calendar_create_tool_name(tool_name: &str) -> bool {
+    tool_name.eq_ignore_ascii_case("connector__google__calendar_create_event")
+}
+
 fn json_string_field(value: &serde_json::Value, key: &str) -> Option<String> {
     value
         .get(key)
@@ -724,6 +739,58 @@ fn json_string_field(value: &serde_json::Value, key: &str) -> Option<String> {
 
 fn json_u64_field(value: &serde_json::Value, key: &str) -> Option<u64> {
     value.get(key).and_then(serde_json::Value::as_u64)
+}
+
+fn json_string_array_field(value: &serde_json::Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .map(ToString::to_string)
+        .collect()
+}
+
+fn extract_first_json_object(raw: &str) -> Option<String> {
+    let start = raw.find('{')?;
+    let mut brace_depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (idx, ch) in raw[start..].char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if ch == '\\' {
+            escaped = true;
+            continue;
+        }
+        if ch == '"' {
+            in_string = !in_string;
+            continue;
+        }
+        if in_string {
+            continue;
+        }
+        if ch == '{' {
+            brace_depth = brace_depth.saturating_add(1);
+            continue;
+        }
+        if ch == '}' {
+            brace_depth = brace_depth.saturating_sub(1);
+            if brace_depth == 0 {
+                let end = start + idx + 1;
+                return Some(raw[start..end].to_string());
+            }
+        }
+    }
+    None
+}
+
+fn parse_google_connector_payload(output: &str) -> Option<serde_json::Value> {
+    extract_first_json_object(output)
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
 }
 
 fn parse_mail_read_latest_payload(output: &str) -> Option<MailReadLatestPayloadObservation> {
@@ -760,6 +827,63 @@ fn parse_mail_reply_payload(output: &str) -> Option<MailReplyPayloadObservation>
         body: json_string_field(&value, "body"),
         sent_message_id: json_string_field(&value, "sent_message_id"),
         citation: json_string_field(&value, "citation"),
+    })
+}
+
+fn parse_google_gmail_draft_payload(output: &str) -> Option<GoogleGmailPayloadObservation> {
+    let value = parse_google_connector_payload(output)?;
+    let message = value.get("message")?;
+    let message_id = json_string_field(message, "id")?;
+
+    Some(GoogleGmailPayloadObservation {
+        action_id: Some("gmail.draft_email".to_string()),
+        message_id: Some(message_id),
+        thread_id: json_string_field(message, "threadId"),
+        to: json_string_field(message, "to"),
+        subject: json_string_field(message, "subject"),
+        body_text: json_string_field(message, "bodyText"),
+        label_ids: json_string_array_field(message, "labelIds"),
+    })
+}
+
+fn parse_google_gmail_send_payload(output: &str) -> Option<GoogleGmailPayloadObservation> {
+    let value = parse_google_connector_payload(output)?;
+    let message_id = json_string_field(&value, "id")?;
+
+    Some(GoogleGmailPayloadObservation {
+        action_id: Some("gmail.send_email".to_string()),
+        message_id: Some(message_id),
+        thread_id: json_string_field(&value, "threadId"),
+        to: json_string_field(&value, "to"),
+        subject: json_string_field(&value, "subject"),
+        body_text: json_string_field(&value, "bodyText"),
+        label_ids: json_string_array_field(&value, "labelIds"),
+    })
+}
+
+fn parse_google_calendar_create_payload(output: &str) -> Option<GoogleCalendarPayloadObservation> {
+    let value = parse_google_connector_payload(output)?;
+    let event_id = json_string_field(&value, "id")?;
+
+    Some(GoogleCalendarPayloadObservation {
+        action_id: Some("calendar.create_event".to_string()),
+        event_id: Some(event_id),
+        calendar_id: json_string_field(&value, "calendarId"),
+        summary: json_string_field(&value, "summary"),
+        start: value
+            .get("start")
+            .and_then(|start| json_string_field(start, "dateTime")),
+        end: value
+            .get("end")
+            .and_then(|end| json_string_field(end, "dateTime")),
+        html_link: json_string_field(&value, "htmlLink"),
+        attendee_emails: value
+            .get("attendees")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| json_string_field(entry, "email"))
+            .collect(),
     })
 }
 
@@ -819,6 +943,52 @@ fn derive_mail_observation(
         invalid_tool_call_fail_fast,
         system_fail_degraded_to_reply,
         fallback_marker_present,
+    })
+}
+
+fn derive_google_observation(
+    observation: &RunObservation,
+    gmail_draft_success_count: usize,
+    gmail_draft_failure_count: usize,
+    gmail_send_success_count: usize,
+    gmail_send_failure_count: usize,
+    calendar_create_success_count: usize,
+    calendar_create_failure_count: usize,
+    gmail_draft_payloads: Vec<GoogleGmailPayloadObservation>,
+    gmail_send_payloads: Vec<GoogleGmailPayloadObservation>,
+    calendar_create_payloads: Vec<GoogleCalendarPayloadObservation>,
+) -> Option<GoogleObservation> {
+    let evidence_present = gmail_draft_success_count > 0
+        || gmail_draft_failure_count > 0
+        || gmail_send_success_count > 0
+        || gmail_send_failure_count > 0
+        || calendar_create_success_count > 0
+        || calendar_create_failure_count > 0
+        || !gmail_draft_payloads.is_empty()
+        || !gmail_send_payloads.is_empty()
+        || !calendar_create_payloads.is_empty()
+        || observation_has_any_tool_name(
+            observation,
+            &[
+                "connector__google__gmail_draft_email",
+                "connector__google__gmail_send_email",
+                "connector__google__calendar_create_event",
+            ],
+        );
+    if !evidence_present {
+        return None;
+    }
+
+    Some(GoogleObservation {
+        gmail_draft_success_count,
+        gmail_draft_failure_count,
+        gmail_send_success_count,
+        gmail_send_failure_count,
+        calendar_create_success_count,
+        calendar_create_failure_count,
+        gmail_draft_payloads,
+        gmail_send_payloads,
+        calendar_create_payloads,
     })
 }
 
@@ -909,7 +1079,10 @@ fn desktop_project_create_fixture_cleanup_checks(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64;
-    let probe_source = format!("{}.cleanup_probe", DESKTOP_PROJECT_CREATE_FIXTURE_PROBE_SOURCE);
+    let probe_source = format!(
+        "{}.cleanup_probe",
+        DESKTOP_PROJECT_CREATE_FIXTURE_PROBE_SOURCE
+    );
     let _ = std::fs::remove_dir_all(&fixture.expected_project_dir);
     let remaining_entries = list_directory_entry_names(&fixture.desktop_dir);
     let cleanup_satisfied = !fixture.expected_project_dir.exists() && remaining_entries.is_empty();
@@ -1185,25 +1358,12 @@ fn mail_reply_mock_fixture_cleanup_checks(
     batch
 }
 
-fn wallet_channel_key(channel_id: &[u8; 32]) -> Vec<u8> {
-    [b"channel::".as_slice(), channel_id.as_slice()].concat()
-}
-
-fn wallet_lease_key(channel_id: &[u8; 32], lease_id: &[u8; 32]) -> Vec<u8> {
-    [
-        b"lease::".as_slice(),
-        channel_id.as_slice(),
-        b"::",
-        lease_id.as_slice(),
-    ]
-    .concat()
-}
-
 fn action_output_excerpt_limit(tool_name: &str) -> usize {
     let lower = tool_name.to_ascii_lowercase();
     if lower.starts_with("wallet_network__mail_")
         || lower.starts_with("wallet_mail_")
         || lower.starts_with("mail__")
+        || lower.starts_with("connector__google__")
     {
         1_400
     } else {
@@ -1214,8 +1374,20 @@ fn action_output_excerpt_limit(tool_name: &str) -> usize {
 fn upsert_wallet_network_service_meta(state: &mut IAVLTree<HashCommitmentScheme>) -> Result<()> {
     let mut methods = BTreeMap::new();
     for method in [
+        "configure_control_root@v1",
+        "register_client@v1",
+        "revoke_client@v1",
+        "get_client@v1",
+        "list_clients@v1",
         "store_secret_record@v1",
+        "connector_auth_upsert@v1",
+        "connector_auth_get@v1",
+        "connector_auth_list@v1",
+        "connector_auth_export@v1",
+        "connector_auth_import@v1",
         "mail_connector_upsert@v1",
+        "mail_connector_get@v1",
+        "mail_connector_ensure_binding@v1",
         "mail_read_latest@v1",
         "mail_list_recent@v1",
         "mail_delete_spam@v1",

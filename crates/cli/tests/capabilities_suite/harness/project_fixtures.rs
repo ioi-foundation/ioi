@@ -137,6 +137,15 @@ struct MailReplyMockDriverFixtureRuntime {
     manifest_path: PathBuf,
 }
 
+struct GoogleConnectorFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    _env_mock_path: ScopedEnvVar,
+    fixture_root: PathBuf,
+    state_path: PathBuf,
+    manifest_path: PathBuf,
+    account_email: String,
+}
+
 struct RestaurantsNearMeFixtureRuntime {
     _temp_dir: tempfile::TempDir,
     fixture_root: PathBuf,
@@ -264,6 +273,12 @@ fn should_bootstrap_shutdown_schedule_fixture(case_id: &str) -> bool {
 
 fn should_bootstrap_mail_reply_mock_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(MAIL_REPLY_SEND_CASE_ID)
+}
+
+fn should_bootstrap_google_connector_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(GOOGLE_GMAIL_DRAFT_CASE_ID)
+        || case_id.eq_ignore_ascii_case(GOOGLE_GMAIL_SEND_CASE_ID)
+        || case_id.eq_ignore_ascii_case(GOOGLE_CALENDAR_CREATE_CASE_ID)
 }
 
 fn should_bootstrap_restaurants_near_me_fixture(case_id: &str) -> bool {
@@ -1879,7 +1894,11 @@ fn pdf_last_week_fixture_preflight_checks(
     let fixture_satisfied =
         expected_seeded_files_present && expected_pdf_paths_satisfied && run_unique_satisfied;
     let mut batch = EnvironmentEvidenceBatch::default();
-    push_environment_observation(&mut batch, "pdf_last_week_fixture_mode", PDF_LAST_WEEK_FIXTURE_MODE);
+    push_environment_observation(
+        &mut batch,
+        "pdf_last_week_fixture_mode",
+        PDF_LAST_WEEK_FIXTURE_MODE,
+    );
     push_environment_observation(
         &mut batch,
         "pdf_last_week_home_dir",
@@ -3041,7 +3060,10 @@ fn media_transcript_fixture_post_run_checks(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64;
-    let probe_source = format!("{}.receipt_probe", MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE);
+    let probe_source = format!(
+        "{}.receipt_probe",
+        MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE
+    );
     let receipt_present_satisfied = fixture.receipt_path.is_file();
     let receipt = if receipt_present_satisfied {
         parse_media_transcript_fixture_receipt(&fixture.receipt_path)
@@ -3061,8 +3083,7 @@ fn media_transcript_fixture_post_run_checks(
         .transcript_provider_binary_path
         .clone()
         .unwrap_or_default();
-    let transcript_provider_binary_path_buf =
-        PathBuf::from(transcript_provider_binary_path.trim());
+    let transcript_provider_binary_path_buf = PathBuf::from(transcript_provider_binary_path.trim());
     let transcript_provider_binary_satisfied = transcript_provider_binary_path_buf.is_file()
         && transcript_provider_binary_path_buf.starts_with(&fixture.tool_home);
     let transcript_provider_model_id = receipt
@@ -3073,19 +3094,17 @@ fn media_transcript_fixture_post_run_checks(
         .transcript_provider_model_path
         .clone()
         .unwrap_or_default();
-    let transcript_provider_model_path_buf =
-        PathBuf::from(transcript_provider_model_path.trim());
+    let transcript_provider_model_path_buf = PathBuf::from(transcript_provider_model_path.trim());
     let transcript_provider_id = receipt.transcript_provider_id.clone().unwrap_or_default();
-    let transcript_provider_model_satisfied = if transcript_provider_id
-        .eq_ignore_ascii_case("yt_dlp.whisper_rs_audio")
-    {
-        !transcript_provider_model_id.trim().is_empty()
-            && transcript_provider_model_path_buf.is_file()
-            && transcript_provider_model_path_buf.starts_with(&fixture.tool_home)
-    } else {
-        transcript_provider_model_id.trim().is_empty()
-            && transcript_provider_model_path.trim().is_empty()
-    };
+    let transcript_provider_model_satisfied =
+        if transcript_provider_id.eq_ignore_ascii_case("yt_dlp.whisper_rs_audio") {
+            !transcript_provider_model_id.trim().is_empty()
+                && transcript_provider_model_path_buf.is_file()
+                && transcript_provider_model_path_buf.starts_with(&fixture.tool_home)
+        } else {
+            transcript_provider_model_id.trim().is_empty()
+                && transcript_provider_model_path.trim().is_empty()
+        };
     let transcript_selected_audio_format_id = receipt
         .transcript_selected_audio_format_id
         .clone()
@@ -3098,17 +3117,16 @@ fn media_transcript_fixture_post_run_checks(
         .transcript_selected_audio_acodec
         .clone()
         .unwrap_or_default();
-    let transcript_selected_audio_satisfied = if transcript_provider_id
-        .eq_ignore_ascii_case("yt_dlp.whisper_rs_audio")
-    {
-        !transcript_selected_audio_format_id.trim().is_empty()
-            && !transcript_selected_audio_ext.trim().is_empty()
-            && !transcript_selected_audio_acodec.trim().is_empty()
-    } else {
-        transcript_selected_audio_format_id.trim().is_empty()
-            && transcript_selected_audio_ext.trim().is_empty()
-            && transcript_selected_audio_acodec.trim().is_empty()
-    };
+    let transcript_selected_audio_satisfied =
+        if transcript_provider_id.eq_ignore_ascii_case("yt_dlp.whisper_rs_audio") {
+            !transcript_selected_audio_format_id.trim().is_empty()
+                && !transcript_selected_audio_ext.trim().is_empty()
+                && !transcript_selected_audio_acodec.trim().is_empty()
+        } else {
+            transcript_selected_audio_format_id.trim().is_empty()
+                && transcript_selected_audio_ext.trim().is_empty()
+                && transcript_selected_audio_acodec.trim().is_empty()
+        };
     let visual_provider_binary_path = receipt
         .visual_provider_binary_path
         .clone()
@@ -3118,10 +3136,12 @@ fn media_transcript_fixture_post_run_checks(
         && visual_provider_binary_path_buf.starts_with(&fixture.tool_home);
     let visual_ffprobe_path = receipt.visual_ffprobe_path.clone().unwrap_or_default();
     let visual_ffprobe_path_buf = PathBuf::from(visual_ffprobe_path.trim());
-    let visual_ffprobe_satisfied =
-        visual_ffprobe_path_buf.is_file() && visual_ffprobe_path_buf.starts_with(&fixture.tool_home);
-    let requested_url_satisfied =
-        receipt.requested_url.trim().eq_ignore_ascii_case(MEDIA_TRANSCRIPT_SUMMARY_EXPECTED_URL);
+    let visual_ffprobe_satisfied = visual_ffprobe_path_buf.is_file()
+        && visual_ffprobe_path_buf.starts_with(&fixture.tool_home);
+    let requested_url_satisfied = receipt
+        .requested_url
+        .trim()
+        .eq_ignore_ascii_case(MEDIA_TRANSCRIPT_SUMMARY_EXPECTED_URL);
     let canonical_url_satisfied = receipt.canonical_url.contains("9Tm2c6NJH4Y");
     let title_satisfied = receipt
         .title
@@ -3410,7 +3430,10 @@ fn media_transcript_fixture_cleanup_checks(
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64;
-    let probe_source = format!("{}.cleanup_probe", MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE);
+    let probe_source = format!(
+        "{}.cleanup_probe",
+        MEDIA_TRANSCRIPT_SUMMARY_FIXTURE_PROBE_SOURCE
+    );
     let _ = std::fs::remove_dir_all(&fixture.fixture_root);
     let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
     let receipt_exists_after_cleanup = fixture.receipt_path.exists();
@@ -4068,6 +4091,208 @@ fn bootstrap_mail_reply_mock_fixture_runtime(
     })
 }
 
+fn bootstrap_google_connector_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<GoogleConnectorFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let fixture_root = temp_dir
+        .path()
+        .join(format!("ioi_google_connector_fixture_{}", run_unique_num));
+    std::fs::create_dir_all(&fixture_root)?;
+    let state_path = fixture_root.join("mock_state.json");
+    let manifest_path = fixture_root.join("fixture_manifest.txt");
+    let account_email = "fixtures.google@ioi.invalid".to_string();
+    let state = serde_json::json!({
+        "accountEmail": account_email,
+        "grantedScopes": [
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/calendar.readonly",
+            "https://www.googleapis.com/auth/calendar"
+        ],
+        "messages": [],
+        "events": [],
+        "nextMessageSeq": 1,
+        "nextThreadSeq": 1,
+        "nextEventSeq": 1
+    });
+    std::fs::write(&state_path, serde_json::to_vec_pretty(&state)?)?;
+    std::fs::write(
+        &manifest_path,
+        format!(
+            "mode={}\nrun_unique_num={}\naccount_email={}\nstate_path={}\n",
+            GOOGLE_CONNECTOR_FIXTURE_MODE,
+            run_unique_num,
+            account_email,
+            state_path.to_string_lossy()
+        ),
+    )?;
+
+    Ok(GoogleConnectorFixtureRuntime {
+        _temp_dir: temp_dir,
+        _env_mock_path: ScopedEnvVar::set(
+            GOOGLE_CONNECTOR_FIXTURE_ENV_KEY,
+            state_path.to_string_lossy().to_string(),
+        ),
+        fixture_root,
+        state_path,
+        manifest_path,
+        account_email,
+    })
+}
+
+fn google_connector_fixture_preflight_checks(
+    fixture: &GoogleConnectorFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> EnvironmentEvidenceBatch {
+    let probe_source = format!("{}.preflight", GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE);
+    let fixture_root = fixture.fixture_root.to_string_lossy().to_string();
+    let run_unique_satisfied = fixture_root.contains(run_unique_num);
+    let state_ready = fixture.state_path.is_file();
+    let manifest_ready = fixture.manifest_path.is_file();
+    let fixture_satisfied = run_unique_satisfied && state_ready && manifest_ready;
+
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_mode",
+        GOOGLE_CONNECTOR_FIXTURE_MODE,
+        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_root",
+        fixture.fixture_root.to_string_lossy().to_string(),
+        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_state_path",
+        fixture.state_path.to_string_lossy().to_string(),
+        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(state_ready),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_account",
+        fixture.account_email.clone(),
+        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_env_key",
+        GOOGLE_CONNECTOR_FIXTURE_ENV_KEY,
+        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_probe",
+        probe_source,
+        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "google_connector_fixture",
+        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
+}
+
+fn google_connector_fixture_post_run_checks(
+    fixture: &GoogleConnectorFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let state = std::fs::read_to_string(&fixture.state_path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    let message_count = state
+        .get("messages")
+        .and_then(serde_json::Value::as_array)
+        .map(|entries| entries.len())
+        .unwrap_or(0);
+    let event_count = state
+        .get("events")
+        .and_then(serde_json::Value::as_array)
+        .map(|entries| entries.len())
+        .unwrap_or(0);
+
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_message_count",
+        message_count.to_string(),
+        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_event_count",
+        event_count.to_string(),
+        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(timestamp_ms),
+        Some(true),
+    );
+    batch
+}
+
+fn google_connector_fixture_cleanup_checks(
+    fixture: &GoogleConnectorFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.cleanup_probe", GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE);
+    let state_exists_before_cleanup = fixture.state_path.exists();
+    let manifest_exists_before_cleanup = fixture.manifest_path.exists();
+    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
+    let cleanup_satisfied = !fixture.fixture_root.exists();
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_cleanup_state_exists",
+        state_exists_before_cleanup.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(state_exists_before_cleanup),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "google_connector_fixture_cleanup_manifest_exists",
+        manifest_exists_before_cleanup.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(manifest_exists_before_cleanup),
+    );
+    push_environment_metadata(
+        &mut batch,
+        "google_connector_fixture_cleanup",
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
+}
+
 fn bootstrap_restaurants_near_me_fixture_runtime(
     run_unique_num: &str,
 ) -> Result<RestaurantsNearMeFixtureRuntime> {
@@ -4368,16 +4593,200 @@ async fn bootstrap_mailbox_runtime_state(
     run_index: usize,
     run_timestamp_ms: u64,
     provider_driver_override: Option<&str>,
+    requested_capability: Option<&str>,
 ) -> Result<EnvironmentEvidenceBatch> {
-    let config = parse_mail_runtime_bootstrap_config()?;
+    fn read_wallet_receipt<T: parity_scale_codec::Decode>(
+        state: &IAVLTree<HashCommitmentScheme>,
+        key: &[u8],
+        label: &str,
+    ) -> Result<T> {
+        let bytes = state
+            .get(key)?
+            .ok_or_else(|| anyhow!("missing wallet receipt '{}'", label))?;
+        codec::from_bytes_canonical(&bytes)
+            .map_err(|e| anyhow!("failed to decode wallet receipt '{}': {}", label, e))
+    }
+
+    fn wallet_mail_connector_get_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+        [
+            b"mail_connector_get_receipt::".as_slice(),
+            request_id.as_slice(),
+        ]
+        .concat()
+    }
+
+    fn wallet_mail_binding_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+        [
+            b"mail_connector_binding_receipt::".as_slice(),
+            request_id.as_slice(),
+        ]
+        .concat()
+    }
+
+    #[derive(Debug, Clone)]
+    struct WalletHarnessIdentity {
+        account_id: [u8; 32],
+        public_key: Vec<u8>,
+        signature_suite: SignatureSuite,
+    }
+
+    fn build_wallet_harness_identity(
+        run_index: usize,
+        primary_salt: u8,
+        secondary_salt: u8,
+    ) -> Result<WalletHarnessIdentity> {
+        let mut public_key = deterministic_id(run_index, primary_salt).to_vec();
+        public_key.extend_from_slice(&deterministic_id(run_index, secondary_salt));
+        let signature_suite = SignatureSuite::HYBRID_ED25519_ML_DSA_44;
+        let account_id = ioi_types::app::account_id_from_key_material(signature_suite, &public_key)
+            .map_err(|error| anyhow!("failed to derive wallet harness account id: {}", error))?;
+        Ok(WalletHarnessIdentity {
+            account_id,
+            public_key,
+            signature_suite,
+        })
+    }
+
+    fn build_mail_connector_config(
+        config: &MailRuntimeBootstrapConfig,
+        provider_driver: Option<&str>,
+    ) -> MailConnectorConfig {
+        let mut metadata = BTreeMap::new();
+        if let Some(driver) = provider_driver {
+            metadata.insert("driver".to_string(), driver.to_string());
+        }
+        MailConnectorConfig {
+            provider: MailConnectorProvider::ImapSmtp,
+            auth_mode: config.auth_mode,
+            account_email: config.account_email.clone(),
+            sender_display_name: None,
+            imap: MailConnectorEndpoint {
+                host: config.imap_host.clone(),
+                port: config.imap_port,
+                tls_mode: config.imap_tls_mode,
+            },
+            smtp: MailConnectorEndpoint {
+                host: config.smtp_host.clone(),
+                port: config.smtp_port,
+                tls_mode: config.smtp_tls_mode,
+            },
+            secret_aliases: MailConnectorSecretAliases {
+                imap_username_alias: config.imap_username_alias.clone(),
+                imap_password_alias: config.imap_secret_alias.clone(),
+                smtp_username_alias: config.smtp_username_alias.clone(),
+                smtp_password_alias: config.smtp_secret_alias.clone(),
+            },
+            metadata,
+        }
+    }
+
+    fn build_connector_auth_record(
+        config: &MailRuntimeBootstrapConfig,
+        provider_driver: Option<&str>,
+        requested_capability: Option<&str>,
+        timestamp_ms: u64,
+    ) -> ioi_types::app::ConnectorAuthRecord {
+        let mut credential_aliases = BTreeMap::new();
+        credential_aliases.insert(
+            "imap_username".to_string(),
+            config.imap_username_alias.clone(),
+        );
+        credential_aliases.insert("imap_secret".to_string(), config.imap_secret_alias.clone());
+        credential_aliases.insert(
+            "smtp_username".to_string(),
+            config.smtp_username_alias.clone(),
+        );
+        credential_aliases.insert("smtp_secret".to_string(), config.smtp_secret_alias.clone());
+
+        let mut metadata = BTreeMap::new();
+        if let Some(driver) = provider_driver {
+            metadata.insert("driver".to_string(), driver.to_string());
+        }
+
+        ioi_types::app::ConnectorAuthRecord {
+            connector_id: format!("mail.{}", config.mailbox),
+            provider_family: "mail.wallet_network".to_string(),
+            auth_protocol: match config.auth_mode {
+                MailConnectorAuthMode::Password => {
+                    ioi_types::app::ConnectorAuthProtocol::StaticPassword
+                }
+                MailConnectorAuthMode::Oauth2 => {
+                    ioi_types::app::ConnectorAuthProtocol::OAuth2Bearer
+                }
+            },
+            state: ioi_types::app::ConnectorAuthState::Connected,
+            account_label: Some(config.account_email.clone()),
+            mailbox: Some(config.mailbox.clone()),
+            granted_scopes: requested_capability
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .into_iter()
+                .collect(),
+            credential_aliases,
+            metadata,
+            created_at_ms: timestamp_ms,
+            updated_at_ms: timestamp_ms,
+            expires_at_ms: None,
+            last_validated_at_ms: Some(timestamp_ms),
+        }
+    }
+
+    let (config, bootstrap_source) =
+        resolve_mail_runtime_bootstrap_config(run_index, provider_driver_override)?;
     upsert_wallet_network_service_meta(state)?;
+
+    let root = build_wallet_harness_identity(run_index, 0xC1, 0xC2)?;
+    let capability_client = build_wallet_harness_identity(run_index, 0xC3, 0xC4)?;
+    ctx.signer_account_id = ioi_types::app::AccountId(root.account_id);
+
+    let root_record = ioi_types::app::WalletControlPlaneRootRecord {
+        account_id: root.account_id,
+        signature_suite: root.signature_suite,
+        public_key: root.public_key.clone(),
+        registered_at_ms: run_timestamp_ms,
+        updated_at_ms: run_timestamp_ms,
+        metadata: BTreeMap::from([("bootstrap_source".to_string(), bootstrap_source.to_string())]),
+    };
+    invoke_wallet_method(
+        wallet_service,
+        state,
+        ctx,
+        "configure_control_root@v1",
+        &ioi_types::app::WalletConfigureControlRootParams { root: root_record },
+    )
+    .await?;
+
+    let client_record = ioi_types::app::WalletRegisteredClientRecord {
+        client_id: capability_client.account_id,
+        label: format!("capabilities-suite-client-{}", run_index),
+        surface: ioi_types::app::VaultSurface::Desktop,
+        signature_suite: capability_client.signature_suite,
+        public_key: capability_client.public_key.clone(),
+        role: ioi_types::app::WalletClientRole::Capability,
+        state: ioi_types::app::WalletClientState::Active,
+        registered_at_ms: run_timestamp_ms,
+        updated_at_ms: run_timestamp_ms,
+        expires_at_ms: None,
+        allowed_provider_families: vec!["mail.wallet_network".to_string()],
+        metadata: BTreeMap::from([("bootstrap_source".to_string(), bootstrap_source.to_string())]),
+    };
+    invoke_wallet_method(
+        wallet_service,
+        state,
+        ctx,
+        "register_client@v1",
+        &ioi_types::app::WalletRegisterClientParams {
+            client: client_record,
+        },
+    )
+    .await?;
 
     let secret_specs = build_mail_runtime_secret_specs(&config);
     for spec in secret_specs {
         let record = VaultSecretRecord {
             secret_id: spec.secret_id,
             alias: spec.alias,
-            kind: SecretKind::AccessToken,
+            kind: spec.kind,
             ciphertext: spec.value.as_bytes().to_vec(),
             metadata: BTreeMap::new(),
             created_at_ms: run_timestamp_ms,
@@ -4404,67 +4813,20 @@ async fn bootstrap_mailbox_runtime_state(
         .is_some()
     {
         "fixture_override"
-    } else if config.provider_driver.is_some() {
+    } else if bootstrap_source == "workspace_env" && config.provider_driver.is_some() {
         "env"
+    } else if bootstrap_source == "wallet_synthetic_mock" {
+        "wallet_synthetic"
     } else {
         "default"
     };
-    let mut connector_metadata = BTreeMap::new();
-    if let Some(driver) = provider_driver.clone() {
-        connector_metadata.insert("driver".to_string(), driver);
-    }
-
-    let channel_capability_set = vec![
-        "mail.read.latest".to_string(),
-        "mail.read".to_string(),
-        "email:read".to_string(),
-        "mail.list.recent".to_string(),
-        "mail.list".to_string(),
-        "email:list".to_string(),
-        "mail.reply".to_string(),
-        "mail.send".to_string(),
-        "email:send".to_string(),
-        "mail.write".to_string(),
-        "email:write".to_string(),
-        "mail.compose".to_string(),
-        "email:compose".to_string(),
-    ];
-    let lease_capability_subset = channel_capability_set.clone();
-    let mail_send_capability_seeded = channel_capability_set
-        .iter()
-        .any(|capability| capability == "mail.reply" || capability == "mail.send")
-        && lease_capability_subset
-            .iter()
-            .any(|capability| capability == "mail.reply" || capability == "mail.send");
     let provider_driver_label = provider_driver
         .clone()
         .unwrap_or_else(|| "live".to_string());
 
     let upsert = MailConnectorUpsertParams {
         mailbox: config.mailbox.clone(),
-        config: MailConnectorConfig {
-            provider: MailConnectorProvider::ImapSmtp,
-            auth_mode: config.auth_mode,
-            account_email: config.account_email.clone(),
-            sender_display_name: None,
-            imap: MailConnectorEndpoint {
-                host: config.imap_host.clone(),
-                port: config.imap_port,
-                tls_mode: config.imap_tls_mode,
-            },
-            smtp: MailConnectorEndpoint {
-                host: config.smtp_host.clone(),
-                port: config.smtp_port,
-                tls_mode: config.smtp_tls_mode,
-            },
-            secret_aliases: MailConnectorSecretAliases {
-                imap_username_alias: config.imap_username_alias.clone(),
-                imap_password_alias: config.imap_secret_alias.clone(),
-                smtp_username_alias: config.smtp_username_alias.clone(),
-                smtp_password_alias: config.smtp_secret_alias.clone(),
-            },
-            metadata: connector_metadata,
-        },
+        config: build_mail_connector_config(&config, provider_driver.as_deref()),
     };
     invoke_wallet_method(
         wallet_service,
@@ -4475,89 +4837,101 @@ async fn bootstrap_mailbox_runtime_state(
     )
     .await?;
 
-    let channel_id = deterministic_id(run_index, 0xB1);
-    let lease_id = deterministic_id(run_index, 0xB2);
-    let policy_hash = deterministic_id(run_index, 0xB3);
-    let envelope_hash = deterministic_id(run_index, 0xB4);
-    let root_grant_id = deterministic_id(run_index, 0xB5);
-    let issuer_id = deterministic_id(run_index, 0xB6);
-    let subject_id = deterministic_id(run_index, 0xB7);
-    let lease_nonce = deterministic_id(run_index, 0xB8);
-    let channel_expires_at_ms = run_timestamp_ms.saturating_add(30 * 60 * 1_000);
-    let lease_expires_at_ms = run_timestamp_ms.saturating_add(15 * 60 * 1_000);
-
-    let mut constraints = BTreeMap::new();
-    constraints.insert("mailbox".to_string(), config.mailbox.clone());
-
-    let envelope = SessionChannelEnvelope {
-        channel_id,
-        lc_id: issuer_id,
-        rc_id: subject_id,
-        ordering: SessionChannelOrdering::Ordered,
-        mode: SessionChannelMode::AttestedRemoteExecution,
-        policy_hash,
-        policy_version: 1,
-        root_grant_id,
-        capability_set: channel_capability_set.clone(),
-        constraints: constraints.clone(),
-        delegation_rules: SessionChannelDelegationRules {
-            max_depth: 0,
-            can_redelegate: false,
-            issuance_budget: Some(0),
+    let connector_auth = build_connector_auth_record(
+        &config,
+        provider_driver.as_deref(),
+        requested_capability,
+        run_timestamp_ms,
+    );
+    invoke_wallet_method(
+        wallet_service,
+        state,
+        ctx,
+        "connector_auth_upsert@v1",
+        &ioi_types::app::ConnectorAuthUpsertParams {
+            record: connector_auth,
         },
-        revocation_epoch: 0,
-        expires_at_ms: channel_expires_at_ms,
-    };
-    let channel = SessionChannelRecord {
-        envelope,
-        state: SessionChannelState::Open,
-        envelope_hash,
-        opened_at_ms: Some(run_timestamp_ms),
-        closed_at_ms: None,
-        last_seq: 0,
-        close_reason: None,
-    };
-    state.insert(
-        &wallet_channel_key(&channel_id),
-        &codec::to_bytes_canonical(&channel)
-            .map_err(|e| anyhow!("failed to encode seeded SessionChannelRecord: {}", e))?,
+    )
+    .await?;
+
+    let connector_get_request_id = deterministic_id(run_index, 0xB1);
+    invoke_wallet_method(
+        wallet_service,
+        state,
+        ctx,
+        "mail_connector_get@v1",
+        &ioi_types::app::MailConnectorGetParams {
+            request_id: connector_get_request_id,
+            mailbox: config.mailbox.clone(),
+        },
+    )
+    .await?;
+    let connector_receipt: ioi_types::app::MailConnectorGetReceipt = read_wallet_receipt(
+        state,
+        &wallet_mail_connector_get_receipt_key(&connector_get_request_id),
+        "mail_connector_get",
     )?;
 
-    let lease = SessionLease {
-        lease_id,
-        channel_id,
-        issuer_id,
-        subject_id,
-        policy_hash,
-        grant_id: root_grant_id,
-        capability_subset: lease_capability_subset.clone(),
-        constraints_subset: constraints,
-        mode: SessionLeaseMode::Lease,
-        expires_at_ms: lease_expires_at_ms,
-        revocation_epoch: 0,
-        audience: ctx.signer_account_id.0,
-        nonce: lease_nonce,
-        counter: 1,
-        issued_at_ms: run_timestamp_ms,
-        sig_hybrid_lc: vec![1u8],
-    };
-    state.insert(
-        &wallet_lease_key(&channel_id, &lease_id),
-        &codec::to_bytes_canonical(&lease)
-            .map_err(|e| anyhow!("failed to encode seeded SessionLease: {}", e))?,
+    ctx.signer_account_id = ioi_types::app::AccountId(capability_client.account_id);
+
+    let binding_request_id = deterministic_id(run_index, 0xB2);
+    invoke_wallet_method(
+        wallet_service,
+        state,
+        ctx,
+        "mail_connector_ensure_binding@v1",
+        &ioi_types::app::MailConnectorEnsureBindingParams {
+            request_id: binding_request_id,
+            mailbox: connector_receipt.mailbox.clone(),
+            audience: Some(capability_client.account_id),
+            lease_ttl_ms: None,
+            requested_capability: requested_capability
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(|value| value.to_string()),
+        },
+    )
+    .await?;
+    let binding_receipt: ioi_types::app::MailConnectorEnsureBindingReceipt = read_wallet_receipt(
+        state,
+        &wallet_mail_binding_receipt_key(&binding_request_id),
+        "mail_connector_ensure_binding",
     )?;
+
+    let mail_send_capability_bound = binding_receipt.capability_set.iter().any(|capability| {
+        matches!(
+            capability.trim().to_ascii_lowercase().as_str(),
+            "mail.reply" | "mail.send" | "email:send"
+        )
+    });
 
     let auth_mode_label = match config.auth_mode {
         MailConnectorAuthMode::Password => "password",
         MailConnectorAuthMode::Oauth2 => "oauth2",
     };
 
-    let probe_source = "harness.mail_runtime_bootstrap".to_string();
+    let probe_source = "harness.mail_runtime_wallet_bootstrap".to_string();
     let mut batch = EnvironmentEvidenceBatch::default();
     push_environment_receipt(
         &mut batch,
-        "mail_env_file_loaded",
+        "mail_wallet_control_root_configured",
         "true",
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_wallet_capability_client_registered",
+        "true",
+        Some(probe_source.clone()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "mail_wallet_auth_source",
+        bootstrap_source,
         Some(probe_source.clone()),
         Some(run_timestamp_ms),
         Some(true),
@@ -4580,7 +4954,7 @@ async fn bootstrap_mailbox_runtime_state(
     );
     push_environment_receipt(
         &mut batch,
-        "mail_channel_seeded",
+        "mail_binding_ready",
         "true",
         Some(probe_source.clone()),
         Some(run_timestamp_ms),
@@ -4588,32 +4962,35 @@ async fn bootstrap_mailbox_runtime_state(
     );
     push_environment_receipt(
         &mut batch,
-        "mail_lease_seeded",
-        "true",
+        "mail_binding_reused_existing",
+        binding_receipt.reused_existing.to_string(),
         Some(probe_source.clone()),
         Some(run_timestamp_ms),
         Some(true),
     );
     push_environment_receipt(
         &mut batch,
-        "mail_send_capability_seeded",
-        mail_send_capability_seeded.to_string(),
+        "mail_send_capability_bound",
+        mail_send_capability_bound.to_string(),
         Some(probe_source.clone()),
         Some(run_timestamp_ms),
-        Some(mail_send_capability_seeded),
+        Some(mail_send_capability_bound),
     );
     push_environment_receipt(
         &mut batch,
-        "mail_channel_capabilities",
-        channel_capability_set.join(","),
+        "mail_binding_capabilities",
+        binding_receipt.capability_set.join(","),
         Some(probe_source.clone()),
         Some(run_timestamp_ms),
         Some(true),
     );
     push_environment_receipt(
         &mut batch,
-        "mail_lease_capabilities",
-        lease_capability_subset.join(","),
+        "mail_requested_capability",
+        requested_capability
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("*"),
         Some(probe_source.clone()),
         Some(run_timestamp_ms),
         Some(true),
@@ -4645,7 +5022,7 @@ async fn bootstrap_mailbox_runtime_state(
     push_environment_receipt(
         &mut batch,
         "mail_mailbox",
-        config.mailbox,
+        connector_receipt.mailbox,
         Some(probe_source.clone()),
         Some(run_timestamp_ms),
         Some(true),

@@ -2,8 +2,8 @@ use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
     cec_receipt_value, is_retry_blocked_terminal, observation_has_tool_name,
-    observation_has_tool_namespace, truncate_chars, ExecutionProfile, LocalCheck,
-    LocalJudgeResult, QueryCase, RunObservation, ToolNamespace,
+    observation_has_tool_namespace, truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult,
+    QueryCase, RunObservation, ToolNamespace,
 };
 
 pub fn case() -> QueryCase {

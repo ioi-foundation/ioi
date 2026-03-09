@@ -14,7 +14,8 @@ use ioi_types::app::wallet_network::{
     SessionChannelOpenInit, SessionChannelOpenTry, SessionChannelOrdering, SessionGrant,
     SessionLease, SessionLeaseMode, SessionReceiptCommit, SessionReceiptCommitDirection,
     VaultIdentity, VaultPolicyRule, VaultSecretRecord, WalletApprovalDecision,
-    WalletInterceptionContext,
+    WalletConfigureControlRootParams, WalletGetClientParams, WalletInterceptionContext,
+    WalletListClientsParams, WalletRegisterClientParams, WalletRevokeClientParams,
 };
 use ioi_types::app::ActionTarget;
 use ioi_types::codec;
@@ -208,7 +209,29 @@ impl BlockchainService for WalletNetworkService {
         params: &[u8],
         ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError> {
+        handlers::client_auth::authorize_wallet_method(state, ctx, method)?;
         match method {
+            "configure_control_root@v1" => {
+                let request: WalletConfigureControlRootParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::client_auth::configure_control_root(state, ctx, request)
+            }
+            "register_client@v1" => {
+                let request: WalletRegisterClientParams = codec::from_bytes_canonical(params)?;
+                handlers::client_auth::register_client(state, ctx, request)
+            }
+            "revoke_client@v1" => {
+                let request: WalletRevokeClientParams = codec::from_bytes_canonical(params)?;
+                handlers::client_auth::revoke_client(state, ctx, request)
+            }
+            "get_client@v1" => {
+                let request: WalletGetClientParams = codec::from_bytes_canonical(params)?;
+                handlers::client_auth::get_client(state, ctx, request)
+            }
+            "list_clients@v1" => {
+                let request: WalletListClientsParams = codec::from_bytes_canonical(params)?;
+                handlers::client_auth::list_clients(state, ctx, request)
+            }
             "create_identity@v1" => {
                 let identity: VaultIdentity = codec::from_bytes_canonical(params)?;
                 handlers::identity::create_identity(state, ctx, identity)

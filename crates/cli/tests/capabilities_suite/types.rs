@@ -180,6 +180,42 @@ pub struct MailObservation {
     pub fallback_marker_present: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct GoogleGmailPayloadObservation {
+    pub action_id: Option<String>,
+    pub message_id: Option<String>,
+    pub thread_id: Option<String>,
+    pub to: Option<String>,
+    pub subject: Option<String>,
+    pub body_text: Option<String>,
+    pub label_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct GoogleCalendarPayloadObservation {
+    pub action_id: Option<String>,
+    pub event_id: Option<String>,
+    pub calendar_id: Option<String>,
+    pub summary: Option<String>,
+    pub start: Option<String>,
+    pub end: Option<String>,
+    pub html_link: Option<String>,
+    pub attendee_emails: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct GoogleObservation {
+    pub gmail_draft_success_count: usize,
+    pub gmail_draft_failure_count: usize,
+    pub gmail_send_success_count: usize,
+    pub gmail_send_failure_count: usize,
+    pub calendar_create_success_count: usize,
+    pub calendar_create_failure_count: usize,
+    pub gmail_draft_payloads: Vec<GoogleGmailPayloadObservation>,
+    pub gmail_send_payloads: Vec<GoogleGmailPayloadObservation>,
+    pub calendar_create_payloads: Vec<GoogleCalendarPayloadObservation>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RunObservation {
     pub case_id: String,
@@ -212,6 +248,7 @@ pub struct RunObservation {
     pub web: Option<WebObservation>,
     pub screenshot: Option<ScreenshotObservation>,
     pub mail: Option<MailObservation>,
+    pub google: Option<GoogleObservation>,
     pub event_excerpt: Vec<String>,
     pub kernel_event_count: usize,
     pub kernel_log_lines: Vec<String>,
@@ -346,20 +383,26 @@ pub fn tool_namespace(tool_name: &str) -> Option<ToolNamespace> {
 }
 
 pub fn has_tool_name(tools: &[String], expected: &str) -> bool {
-    tools.iter()
+    tools
+        .iter()
         .any(|tool| tool.trim().eq_ignore_ascii_case(expected.trim()))
 }
 
 pub fn has_any_tool_name(tools: &[String], expected: &[&str]) -> bool {
-    expected.iter().any(|tool_name| has_tool_name(tools, tool_name))
+    expected
+        .iter()
+        .any(|tool_name| has_tool_name(tools, tool_name))
 }
 
 pub fn has_all_tool_names(tools: &[String], expected: &[&str]) -> bool {
-    expected.iter().all(|tool_name| has_tool_name(tools, tool_name))
+    expected
+        .iter()
+        .all(|tool_name| has_tool_name(tools, tool_name))
 }
 
 pub fn has_tool_namespace(tools: &[String], expected: ToolNamespace) -> bool {
-    tools.iter()
+    tools
+        .iter()
         .filter_map(|tool| tool_namespace(tool))
         .any(|namespace| namespace == expected)
 }
@@ -834,6 +877,7 @@ mod tests {
             web: None,
             screenshot: None,
             mail: None,
+            google: None,
             event_excerpt: Vec::new(),
             kernel_event_count: 0,
             kernel_log_lines: Vec::new(),
@@ -848,23 +892,33 @@ mod tests {
             value: Some("string_fallback".to_string()),
         });
 
-        assert_eq!(environment_value(&observation, "env_receipt::fixture_mode"), None);
-        assert_eq!(verification_value(&observation, "env_receipt::fixture_mode"), None);
-        assert!(
-            !has_verification_pair(&observation, "env_receipt::fixture_mode", "string_fallback")
+        assert_eq!(
+            environment_value(&observation, "env_receipt::fixture_mode"),
+            None
         );
+        assert_eq!(
+            verification_value(&observation, "env_receipt::fixture_mode"),
+            None
+        );
+        assert!(!has_verification_pair(
+            &observation,
+            "env_receipt::fixture_mode",
+            "string_fallback"
+        ));
     }
 
     #[test]
     fn environment_receipt_queries_read_typed_environment_observations() {
         let mut observation = empty_observation();
-        observation.environment_receipts.push(EnvironmentReceiptObservation {
-            key: "fixture_mode".to_string(),
-            observed_values: vec!["typed_runtime".to_string()],
-            probe_source: Some("harness.fixture".to_string()),
-            timestamp_ms: Some(42),
-            satisfied: Some(true),
-        });
+        observation
+            .environment_receipts
+            .push(EnvironmentReceiptObservation {
+                key: "fixture_mode".to_string(),
+                observed_values: vec!["typed_runtime".to_string()],
+                probe_source: Some("harness.fixture".to_string()),
+                timestamp_ms: Some(42),
+                satisfied: Some(true),
+            });
 
         assert_eq!(
             environment_value(&observation, "env_receipt::fixture_mode").as_deref(),

@@ -3,6 +3,10 @@
 use ioi_types::app::wallet_network::SessionReceiptCommitDirection;
 
 pub(super) const IDENTITY_KEY: &[u8] = b"identity";
+pub(super) const CONTROL_ROOT_KEY: &[u8] = b"control_root";
+pub(super) const REGISTERED_CLIENT_PREFIX: &[u8] = b"registered_client::";
+pub(super) const REGISTERED_CLIENT_GET_RECEIPT_PREFIX: &[u8] = b"registered_client_get_receipt::";
+pub(super) const REGISTERED_CLIENT_LIST_RECEIPT_PREFIX: &[u8] = b"registered_client_list_receipt::";
 pub(super) const SECRET_PREFIX: &[u8] = b"secret::";
 pub(super) const SECRET_ALIAS_PREFIX: &[u8] = b"secret_alias::";
 pub(super) const CONNECTOR_AUTH_PREFIX: &[u8] = b"connector_auth::";
@@ -44,6 +48,18 @@ pub(super) const PANIC_FLAG_KEY: &[u8] = b"panic";
 
 pub(super) fn secret_key(secret_id: &str) -> Vec<u8> {
     [SECRET_PREFIX, secret_id.as_bytes()].concat()
+}
+
+pub(super) fn registered_client_key(client_id: &[u8; 32]) -> Vec<u8> {
+    [REGISTERED_CLIENT_PREFIX, client_id.as_slice()].concat()
+}
+
+pub(super) fn registered_client_get_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [REGISTERED_CLIENT_GET_RECEIPT_PREFIX, request_id.as_slice()].concat()
+}
+
+pub(super) fn registered_client_list_receipt_key(request_id: &[u8; 32]) -> Vec<u8> {
+    [REGISTERED_CLIENT_LIST_RECEIPT_PREFIX, request_id.as_slice()].concat()
 }
 
 pub(super) fn secret_alias_key(alias: &str) -> Vec<u8> {

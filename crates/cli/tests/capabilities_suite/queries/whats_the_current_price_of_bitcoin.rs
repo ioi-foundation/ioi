@@ -2,9 +2,8 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    has_cec_receipt, has_cec_stage, has_typed_contract_failure_evidence,
-    observation_has_tool_name, truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult,
-    QueryCase, RunObservation,
+    has_cec_receipt, has_cec_stage, has_typed_contract_failure_evidence, observation_has_tool_name,
+    truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 const CASE_ID: &str = "whats_the_current_price_of_bitcoin";
@@ -71,18 +70,20 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             .map(|scope| !scope.trim().is_empty())
             .unwrap_or(false);
     let currentness_required = web.currentness_required.unwrap_or(false);
-    let temporal_contract_receipts_present = has_cec_receipt(obs, "execution", "query_contract", Some(true))
-        && has_cec_receipt(obs, "execution", "currentness_required", Some(true))
-        && currentness_required
-        && !runtime_query_contract.trim().is_empty()
-        && (!runtime_locality_required || runtime_locality_satisfied);
+    let temporal_contract_receipts_present =
+        has_cec_receipt(obs, "execution", "query_contract", Some(true))
+            && has_cec_receipt(obs, "execution", "currentness_required", Some(true))
+            && currentness_required
+            && !runtime_query_contract.trim().is_empty()
+            && (!runtime_locality_required || runtime_locality_satisfied);
 
     let web_min_sources = web.min_sources.unwrap_or(0);
     let web_sources_success = web.sources_success.unwrap_or(0);
-    let source_floor_receipts_present = has_cec_receipt(obs, "verification", "source_floor", Some(true))
-        && web.source_floor_met.unwrap_or(false)
-        && web_min_sources >= required_independent_sources
-        && web_sources_success >= required_independent_sources;
+    let source_floor_receipts_present =
+        has_cec_receipt(obs, "verification", "source_floor", Some(true))
+            && web.source_floor_met.unwrap_or(false)
+            && web_min_sources >= required_independent_sources
+            && web_sources_success >= required_independent_sources;
 
     let selected_source_quality_floor_met = web.selected_source_quality_floor_met.unwrap_or(false);
     let selected_source_urls = web.selected_source_urls.clone();
@@ -90,11 +91,14 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .selected_source_count
         .unwrap_or_else(|| selected_source_urls.len());
     let selected_source_distinct_domains = web.selected_source_distinct_domains.unwrap_or(0);
-    let selected_source_quality_receipts_present =
-        has_cec_receipt(obs, "verification", "selected_source_quality_floor", Some(true))
-            && selected_source_quality_floor_met
-            && selected_source_count >= required_independent_sources
-            && selected_source_distinct_domains >= required_independent_sources;
+    let selected_source_quality_receipts_present = has_cec_receipt(
+        obs,
+        "verification",
+        "selected_source_quality_floor",
+        Some(true),
+    ) && selected_source_quality_floor_met
+        && selected_source_count >= required_independent_sources
+        && selected_source_distinct_domains >= required_independent_sources;
 
     let final_story_slots_observed = web.story_slots_observed.unwrap_or(0);
     let final_story_slot_floor_met = web.story_slot_floor_met.unwrap_or(false);
@@ -127,10 +131,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let completion_evidence_present =
         obs.completed && !obs.failed && obs.chat_reply_count > 0 && cec_contract_gate_satisfied;
 
-    let evidence_receipts = build_evidence_receipts(
-        obs,
-        currentness_required,
-    );
+    let evidence_receipts = build_evidence_receipts(obs, currentness_required);
     let evidence_receipts_satisfied = evidence_receipts.iter().all(|receipt| receipt.satisfied);
 
     let independent_channel_count = [
@@ -263,7 +264,12 @@ fn build_evidence_receipts(
     currentness_required: bool,
 ) -> Vec<EvidenceReceipt> {
     vec![
-        observed_receipt(obs, "execution", "query_contract", "bitcoin_runtime_query_contract_observed"),
+        observed_receipt(
+            obs,
+            "execution",
+            "query_contract",
+            "bitcoin_runtime_query_contract_observed",
+        ),
         observed_receipt(
             obs,
             "execution",
@@ -276,7 +282,12 @@ fn build_evidence_receipts(
             "min_sources_required",
             "bitcoin_min_sources_contract_observed",
         ),
-        observed_receipt(obs, "verification", "source_floor", "bitcoin_source_floor_observed"),
+        observed_receipt(
+            obs,
+            "verification",
+            "source_floor",
+            "bitcoin_source_floor_observed",
+        ),
         observed_receipt(
             obs,
             "verification",
@@ -311,14 +322,9 @@ fn observed_receipt(
     key: &str,
     logical_key: &str,
 ) -> EvidenceReceipt {
-    if let Some(receipt) = obs
-        .cec_receipts
-        .iter()
-        .rev()
-        .find(|receipt| {
-            receipt.stage.eq_ignore_ascii_case(stage) && receipt.key.eq_ignore_ascii_case(key)
-        })
-    {
+    if let Some(receipt) = obs.cec_receipts.iter().rev().find(|receipt| {
+        receipt.stage.eq_ignore_ascii_case(stage) && receipt.key.eq_ignore_ascii_case(key)
+    }) {
         return EvidenceReceipt {
             key: logical_key.to_string(),
             observed_value: receipt

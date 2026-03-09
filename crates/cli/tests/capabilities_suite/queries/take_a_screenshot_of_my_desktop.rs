@@ -2,9 +2,9 @@ use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    has_contract_failure_evidence, has_policy_decision, has_tool_with_token,
-    has_verification_pair, is_retry_blocked_terminal, truncate_chars, ExecutionProfile,
-    LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_contract_failure_evidence, has_policy_decision, has_tool_with_token, has_verification_pair,
+    is_retry_blocked_terminal, truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult,
+    QueryCase, RunObservation,
 };
 
 #[derive(Debug, Clone, Serialize)]

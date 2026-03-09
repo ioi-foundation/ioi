@@ -5,8 +5,8 @@ use std::collections::BTreeSet;
 use super::super::types::{
     action_has_hard_error_class, has_cec_receipt, has_cec_stage, has_contract_failure_evidence,
     has_tool_with_token, is_timeout_terminal, observation_has_any_tool_name, truncate_chars,
-    verification_bool, verification_u64, verification_value, verification_values,
-    ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    verification_bool, verification_u64, verification_value, verification_values, ExecutionProfile,
+    LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 const CASE_ID: &str = "check_which_apps_are_using_the_most_memory_right_now_and_list_them";
@@ -428,11 +428,7 @@ fn parse_top_memory_rows(markers: &[String]) -> Vec<TopMemoryRow> {
             if app.is_empty() || pid == 0 || rss_kb == 0 {
                 return None;
             }
-            Some(TopMemoryRow {
-                rank,
-                pid,
-                rss_kb,
-            })
+            Some(TopMemoryRow { rank, pid, rss_kb })
         })
         .collect::<Vec<_>>();
     rows.sort_by_key(|row| row.rank);

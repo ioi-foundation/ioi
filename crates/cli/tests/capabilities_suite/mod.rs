@@ -1,7 +1,7 @@
-mod harness;
+pub(crate) mod harness;
 mod judge;
-mod queries;
-mod types;
+pub(crate) mod queries;
+pub(crate) mod types;
 
 use anyhow::{anyhow, Result};
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
@@ -111,26 +111,18 @@ fn configured_model_candidates(explicit_env: &str, default_env: &str) -> Vec<Str
     candidates
 }
 
-async fn probe_http_inference_model(
-    api_url: &str,
-    api_key: &str,
-    model: &str,
-) -> Result<()> {
-    let runtime = HttpInferenceRuntime::new(
-        api_url.to_string(),
-        api_key.to_string(),
-        model.to_string(),
-    );
+async fn probe_http_inference_model(api_url: &str, api_key: &str, model: &str) -> Result<()> {
+    let runtime =
+        HttpInferenceRuntime::new(api_url.to_string(), api_key.to_string(), model.to_string());
     let response = runtime
-        .execute_inference(
-            [0u8; 32],
-            b"Reply with ok.",
-            InferenceOptions::default(),
-        )
+        .execute_inference([0u8; 32], b"Reply with ok.", InferenceOptions::default())
         .await
         .map_err(|err| anyhow!("model probe failed for '{}': {}", model, err))?;
     if response.is_empty() {
-        return Err(anyhow!("model probe returned empty response for '{}'", model));
+        return Err(anyhow!(
+            "model probe returned empty response for '{}'",
+            model
+        ));
     }
     Ok(())
 }
@@ -173,18 +165,14 @@ pub async fn run_capabilities_suite() -> Result<()> {
         .unwrap_or_else(|_| "https://api.openai.com/v1/chat/completions".to_string());
     let agent_model_candidates =
         configured_model_candidates("CAPABILITIES_E2E_AGENT_MODELS", "OPENAI_MODEL");
-    let agent_model = select_http_inference_model(
-        &api_url,
-        &openai_api_key,
-        &agent_model_candidates,
-        "agent",
-    )
-    .await?;
-    let arbiter_model_candidates =
-        configured_model_candidates("CAPABILITIES_E2E_ARBITER_MODELS", "CAPABILITIES_E2E_ARBITER_MODEL");
-    let arbiter_model = if arbiter_model_candidates.is_empty()
-        && !agent_model.trim().is_empty()
-    {
+    let agent_model =
+        select_http_inference_model(&api_url, &openai_api_key, &agent_model_candidates, "agent")
+            .await?;
+    let arbiter_model_candidates = configured_model_candidates(
+        "CAPABILITIES_E2E_ARBITER_MODELS",
+        "CAPABILITIES_E2E_ARBITER_MODEL",
+    );
+    let arbiter_model = if arbiter_model_candidates.is_empty() && !agent_model.trim().is_empty() {
         agent_model.clone()
     } else {
         select_http_inference_model(

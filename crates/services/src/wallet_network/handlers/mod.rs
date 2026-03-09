@@ -2,6 +2,7 @@
 
 pub(super) mod approval;
 pub(super) mod channel;
+pub(super) mod client_auth;
 pub(super) mod connectors;
 pub(super) mod identity;
 pub(super) mod secrets;
