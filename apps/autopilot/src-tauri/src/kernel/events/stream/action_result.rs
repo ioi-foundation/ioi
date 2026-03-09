@@ -10,6 +10,7 @@ use crate::kernel::events::support::{
     is_sudo_password_required_install, is_waiting_for_identity_clarification_step,
     thread_id_from_session, ClarificationPreset,
 };
+use crate::kernel::notifications;
 use crate::kernel::state::update_task_state;
 use crate::models::AppState;
 use crate::models::{AgentPhase, ChatMessage, CredentialRequest, EventType, Receipt};
@@ -74,6 +75,7 @@ fn completion_message_for_history(tool_name: &str, output: &str) -> Option<Strin
 
 pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActionResult) {
     let password_required = is_sudo_password_required_install(&res.tool_name, &res.output);
+    let thread_id = thread_id_from_session(&app, &res.session_id);
     let clarification_preset = if res.agent_status.eq_ignore_ascii_case("paused") {
         detect_clarification_preset(&res.tool_name, &res.output)
     } else {
@@ -86,6 +88,19 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         clarification_wait_step_for_preset(effective_clarification_preset);
     let clarification_prompt = clarification_prompt_for_preset(effective_clarification_preset);
     let clarification_request = if clarification_required {
+        let clarification_kind = match effective_clarification_preset {
+            ClarificationPreset::IdentityLookup => "identity_lookup",
+            ClarificationPreset::InstallLookup => "install_lookup",
+            ClarificationPreset::LaunchLookup => "launch_lookup",
+            ClarificationPreset::IntentClarification => "intent_clarification",
+        };
+        notifications::record_clarification_intervention(
+            app,
+            &thread_id,
+            &res.session_id,
+            clarification_kind,
+            clarification_prompt,
+        );
         Some(
             build_clarification_request_with_inference(
                 &app,
@@ -98,6 +113,15 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
     } else {
         None
     };
+    if password_required {
+        notifications::record_credential_intervention(
+            app,
+            &thread_id,
+            &res.session_id,
+            "sudo_password",
+            "A one-time sudo password is required to continue the install.",
+        );
+    }
 
     let dedup_key = format!("{}:{}", res.step_index, res.tool_name);
     let already_processed = {
@@ -403,11 +427,22 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         return;
     }
 
-    let thread_id = thread_id_from_session(&app, &res.session_id);
     let kind = event_type_for_tool(&res.tool_name);
     let status = event_status_from_agent_status(&res.agent_status);
     let artifact_refs =
         create_macro_artifacts_for_action(&app, &thread_id, &kind, &res.tool_name, &res.output);
+    if res.agent_status.eq_ignore_ascii_case("completed") {
+        let summary = completion_message_for_history(&res.tool_name, &res.output)
+            .unwrap_or_else(|| "Task completed successfully.".to_string());
+        notifications::record_valuable_completion(
+            app,
+            &thread_id,
+            &res.session_id,
+            "Workflow completed",
+            &summary,
+            artifact_refs.clone(),
+        );
+    }
 
     let event = match kind {
         EventType::CodeSearch => emit_code_search(

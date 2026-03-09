@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
-use time::format_description::well_known::Rfc3339;
+use time::format_description::well_known::{Rfc2822, Rfc3339};
 use time::{Duration as TimeDuration, OffsetDateTime};
 use tokio::time::{sleep, timeout, Duration};
 
@@ -32,6 +32,44 @@ pub struct GmailMessageReadback {
     pub subject: Option<String>,
     pub body_text: Option<String>,
     pub label_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GmailFollowUpCandidate {
+    pub message_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub received_at_utc: Option<String>,
+    #[serde(default)]
+    pub label_ids: Vec<String>,
+    pub age_minutes: u64,
+    pub external_sender: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarMeetingPrepCandidate {
+    pub event_id: String,
+    pub calendar_id: String,
+    pub summary: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_at_utc: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_at_utc: Option<String>,
+    #[serde(default)]
+    pub attendee_emails: Vec<String>,
+    pub external_attendee_count: usize,
+    pub minutes_until_start: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub html_link: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -73,7 +111,20 @@ struct MockGoogleFixtureMessage {
     to: String,
     subject: String,
     body_text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    in_reply_to: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    references: Option<String>,
     label_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+struct ParsedMockGmailRawMessage {
+    to: String,
+    subject: String,
+    body_text: String,
+    in_reply_to: Option<String>,
+    references: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,7 +208,7 @@ fn next_mock_event_id(state: &mut MockGoogleFixtureState) -> String {
     id
 }
 
-fn parse_mock_gmail_raw_message(raw: &str) -> Result<(String, String, String), String> {
+fn parse_mock_gmail_raw_message(raw: &str) -> Result<ParsedMockGmailRawMessage, String> {
     let decoded = URL_SAFE_NO_PAD
         .decode(raw.as_bytes())
         .map_err(|error| format!("Failed to decode Gmail raw message: {}", error))?;
@@ -169,19 +220,28 @@ fn parse_mock_gmail_raw_message(raw: &str) -> Result<(String, String, String), S
         .ok_or_else(|| "Gmail raw message was missing header/body separator.".to_string())?;
     let mut to = None::<String>;
     let mut subject = None::<String>;
+    let mut in_reply_to = None::<String>;
+    let mut references = None::<String>;
     for line in headers.lines() {
         let trimmed = line.trim();
         if let Some(value) = trimmed.strip_prefix("To:") {
             to = Some(value.trim().to_string());
         } else if let Some(value) = trimmed.strip_prefix("Subject:") {
             subject = Some(value.trim().to_string());
+        } else if let Some(value) = trimmed.strip_prefix("In-Reply-To:") {
+            in_reply_to = Some(value.trim().to_string());
+        } else if let Some(value) = trimmed.strip_prefix("References:") {
+            references = Some(value.trim().to_string());
         }
     }
-    Ok((
-        to.ok_or_else(|| "Gmail raw message was missing To header.".to_string())?,
-        subject.ok_or_else(|| "Gmail raw message was missing Subject header.".to_string())?,
-        body.trim().to_string(),
-    ))
+    Ok(ParsedMockGmailRawMessage {
+        to: to.ok_or_else(|| "Gmail raw message was missing To header.".to_string())?,
+        subject: subject
+            .ok_or_else(|| "Gmail raw message was missing Subject header.".to_string())?,
+        body_text: body.trim().to_string(),
+        in_reply_to,
+        references,
+    })
 }
 
 fn mock_option_value(options: &HashMap<String, Vec<String>>, key: &str) -> Option<String> {
@@ -246,15 +306,25 @@ fn execute_mock_google_command(path: &Path, parsed: ParsedGoogleCommand) -> Resu
                 .and_then(|value| value.get("raw"))
                 .and_then(Value::as_str)
                 .ok_or_else(|| "Google mock draft create requires message.raw.".to_string())?;
-            let (to, subject, body_text) = parse_mock_gmail_raw_message(raw)?;
+            let parsed_raw = parse_mock_gmail_raw_message(raw)?;
             let message_id = next_mock_message_id(&mut state);
-            let thread_id = next_mock_thread_id(&mut state);
+            let thread_id = parsed
+                .body
+                .as_ref()
+                .and_then(|value| value.get("message"))
+                .and_then(|value| value.get("threadId"))
+                .and_then(Value::as_str)
+                .map(str::to_string)
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| next_mock_thread_id(&mut state));
             let message = MockGoogleFixtureMessage {
                 id: message_id.clone(),
                 thread_id: thread_id.clone(),
-                to: to.clone(),
-                subject: subject.clone(),
-                body_text: body_text.clone(),
+                to: parsed_raw.to.clone(),
+                subject: parsed_raw.subject.clone(),
+                body_text: parsed_raw.body_text.clone(),
+                in_reply_to: parsed_raw.in_reply_to.clone(),
+                references: parsed_raw.references.clone(),
                 label_ids: vec!["DRAFT".to_string()],
             };
             state.messages.push(message.clone());
@@ -278,13 +348,17 @@ fn execute_mock_google_command(path: &Path, parsed: ParsedGoogleCommand) -> Resu
             let body_text = mock_option_value(&parsed.options, "body")
                 .ok_or_else(|| "Google mock send requires --body.".to_string())?;
             let message_id = next_mock_message_id(&mut state);
-            let thread_id = next_mock_thread_id(&mut state);
+            let thread_id = mock_option_value(&parsed.options, "thread-id")
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| next_mock_thread_id(&mut state));
             let message = MockGoogleFixtureMessage {
                 id: message_id.clone(),
                 thread_id: thread_id.clone(),
                 to: to.clone(),
                 subject: subject.clone(),
                 body_text: body_text.clone(),
+                in_reply_to: mock_option_value(&parsed.options, "in-reply-to"),
+                references: mock_option_value(&parsed.options, "references"),
                 label_ids: vec!["SENT".to_string()],
             };
             state.messages.push(message.clone());
@@ -510,6 +584,246 @@ pub async fn gmail_readback_message(message_id: &str) -> Result<GmailMessageRead
         body_text: gmail_plaintext_body(&message),
         label_ids,
     })
+}
+
+pub async fn gmail_follow_up_candidates(
+    max_results: usize,
+    min_age_minutes: u64,
+) -> Result<Vec<GmailFollowUpCandidate>, String> {
+    let auth = google_auth::access_context(&["gmail.readonly", "gmail.modify"]).await?;
+    let client = Client::builder()
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|error| format!("Failed to build Google Gmail detector client: {}", error))?;
+    let account_domain = auth
+        .account_email
+        .as_deref()
+        .and_then(email_domain_from_address)
+        .map(str::to_string);
+    let list = google_json_request(
+        &client,
+        &auth.access_token,
+        Method::GET,
+        &format!("{}/users/me/messages", GMAIL_BASE_URL),
+        Some(vec![
+            ("userId".to_string(), "me".to_string()),
+            (
+                "maxResults".to_string(),
+                max_results.saturating_mul(3).max(10).to_string(),
+            ),
+            (
+                "q".to_string(),
+                "is:unread -label:sent -label:drafts -category:promotions -category:social newer_than:14d".to_string(),
+            ),
+        ]),
+        None,
+    )
+    .await?;
+
+    let now = OffsetDateTime::now_utc();
+    let mut candidates = Vec::new();
+    for message in value_array(list.get("messages")) {
+        let message_id = match message.get("id").and_then(Value::as_str) {
+            Some(message_id) if !message_id.trim().is_empty() => message_id,
+            _ => continue,
+        };
+        let detail = gmail_get_message(
+            &client,
+            &auth.access_token,
+            message_id,
+            "metadata",
+            Some("From,Subject,Date"),
+        )
+        .await?;
+        let headers = gmail_header_map(&detail);
+        let from = headers.get("from").cloned();
+        if is_likely_automated_sender(from.as_deref()) {
+            continue;
+        }
+
+        let sender_email = from.as_deref().and_then(extract_email_address);
+        let external_sender = sender_email
+            .as_deref()
+            .zip(account_domain.as_deref())
+            .map(|(sender_email, account_domain)| {
+                !sender_email.ends_with(&format!("@{}", account_domain))
+                    && sender_email
+                        .rsplit_once('@')
+                        .map(|(_, sender_domain)| sender_domain != account_domain)
+                        .unwrap_or(true)
+            })
+            .unwrap_or(false);
+        let received_at = headers
+            .get("date")
+            .and_then(|header| parse_gmail_header_datetime(header));
+        let age_minutes = received_at
+            .map(|received_at| {
+                let delta = (now - received_at).whole_minutes();
+                if delta.is_negative() {
+                    0
+                } else {
+                    delta as u64
+                }
+            })
+            .unwrap_or(min_age_minutes);
+        if age_minutes < min_age_minutes {
+            continue;
+        }
+
+        let label_ids = value_array(detail.get("labelIds"))
+            .into_iter()
+            .filter_map(|label| label.as_str().map(str::to_string))
+            .collect::<Vec<_>>();
+        if label_ids
+            .iter()
+            .any(|label| label.eq_ignore_ascii_case("SENT") || label.eq_ignore_ascii_case("DRAFT"))
+        {
+            continue;
+        }
+
+        candidates.push(GmailFollowUpCandidate {
+            message_id: message_id.to_string(),
+            thread_id: detail
+                .get("threadId")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            from,
+            subject: headers.get("subject").cloned(),
+            sender_email,
+            received_at_utc: received_at.and_then(|value| value.format(&Rfc3339).ok()),
+            label_ids,
+            age_minutes,
+            external_sender,
+        });
+
+        if candidates.len() >= max_results {
+            break;
+        }
+    }
+
+    Ok(candidates)
+}
+
+pub async fn calendar_meeting_prep_candidates(
+    calendar_id: &str,
+    within_minutes: u64,
+    max_results: usize,
+) -> Result<Vec<CalendarMeetingPrepCandidate>, String> {
+    let auth = google_auth::access_context(&["calendar.readonly", "calendar"]).await?;
+    let client = Client::builder()
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|error| format!("Failed to build Google Calendar detector client: {}", error))?;
+    let now = OffsetDateTime::now_utc();
+    let time_min = now
+        .format(&Rfc3339)
+        .map_err(|error| format!("Failed to format Calendar lower time bound: {}", error))?;
+    let time_max = (now + TimeDuration::minutes(within_minutes as i64))
+        .format(&Rfc3339)
+        .map_err(|error| format!("Failed to format Calendar upper time bound: {}", error))?;
+    let events = google_json_request(
+        &client,
+        &auth.access_token,
+        Method::GET,
+        &format!(
+            "{}/calendars/{}/events",
+            CALENDAR_BASE_URL,
+            url_encode(calendar_id)
+        ),
+        Some(vec![
+            ("timeMin".to_string(), time_min),
+            ("timeMax".to_string(), time_max),
+            ("singleEvents".to_string(), "true".to_string()),
+            ("orderBy".to_string(), "startTime".to_string()),
+            ("maxResults".to_string(), max_results.max(3).to_string()),
+        ]),
+        None,
+    )
+    .await?;
+
+    let account_domain = auth
+        .account_email
+        .as_deref()
+        .and_then(email_domain_from_address)
+        .map(str::to_string);
+    let mut candidates = Vec::new();
+    for event in value_array(events.get("items")) {
+        let start_at = match calendar_event_datetime(event.get("start")) {
+            Some(start_at) => start_at,
+            None => continue,
+        };
+        let minutes_until_start = (start_at - now).whole_minutes();
+        if minutes_until_start.is_negative() || minutes_until_start > within_minutes as i64 {
+            continue;
+        }
+
+        let attendee_emails = value_array(event.get("attendees"))
+            .into_iter()
+            .filter_map(|attendee| {
+                attendee
+                    .get("email")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(str::to_string)
+            })
+            .collect::<Vec<_>>();
+        if attendee_emails.is_empty() {
+            continue;
+        }
+        let external_attendee_count = attendee_emails
+            .iter()
+            .filter(|email| {
+                account_domain
+                    .as_deref()
+                    .map(|domain| {
+                        !email.ends_with(&format!("@{}", domain))
+                            && email
+                                .rsplit_once('@')
+                                .map(|(_, attendee_domain)| attendee_domain != domain)
+                                .unwrap_or(true)
+                    })
+                    .unwrap_or(false)
+            })
+            .count();
+        let summary = event
+            .get("summary")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("Upcoming event")
+            .to_string();
+
+        candidates.push(CalendarMeetingPrepCandidate {
+            event_id: event
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            calendar_id: event
+                .get("calendarId")
+                .and_then(Value::as_str)
+                .unwrap_or(calendar_id)
+                .to_string(),
+            summary,
+            start_at_utc: start_at.format(&Rfc3339).ok(),
+            end_at_utc: calendar_event_datetime(event.get("end"))
+                .and_then(|value| value.format(&Rfc3339).ok()),
+            attendee_emails,
+            external_attendee_count,
+            minutes_until_start,
+            html_link: event
+                .get("htmlLink")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+        });
+
+        if candidates.len() >= max_results {
+            break;
+        }
+    }
+
+    Ok(candidates)
 }
 
 pub async fn bootstrap_workspace_profile() -> Result<Value, String> {
@@ -1513,14 +1827,20 @@ async fn execute_gmail_send(
         &required_option(command, "to")?,
         &required_option(command, "subject")?,
         &required_option(command, "body")?,
+        option_string(command, "in-reply-to").as_deref(),
+        option_string(command, "references").as_deref(),
     );
+    let mut body = json!({ "raw": raw });
+    if let Some(thread_id) = option_string(command, "thread-id") {
+        body["threadId"] = Value::String(thread_id);
+    }
     google_json_request(
         client,
         access_token,
         Method::POST,
         &format!("{}/users/me/messages/send", GMAIL_BASE_URL),
         Some(vec![("userId".to_string(), "me".to_string())]),
-        Some(json!({ "raw": raw })),
+        Some(body),
     )
     .await
 }
@@ -2876,6 +3196,62 @@ fn gmail_header_map(message: &Value) -> HashMap<String, String> {
     .collect()
 }
 
+fn parse_gmail_header_datetime(raw: &str) -> Option<OffsetDateTime> {
+    OffsetDateTime::parse(raw.trim(), &Rfc2822).ok()
+}
+
+fn extract_email_address(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some((_, after_open)) = trimmed.rsplit_once('<') {
+        if let Some((email, _)) = after_open.split_once('>') {
+            let email = email.trim().to_ascii_lowercase();
+            if email.contains('@') {
+                return Some(email);
+            }
+        }
+    }
+    trimmed
+        .split_whitespace()
+        .find(|token| token.contains('@'))
+        .map(|token| {
+            token
+                .trim_matches(|ch: char| matches!(ch, '<' | '>' | '"' | '\'' | ',' | ';'))
+                .to_ascii_lowercase()
+        })
+}
+
+fn email_domain_from_address(raw: &str) -> Option<&str> {
+    raw.trim().rsplit_once('@').map(|(_, domain)| domain.trim())
+}
+
+fn is_likely_automated_sender(from: Option<&str>) -> bool {
+    let Some(from) = from else {
+        return false;
+    };
+    let lowered = from.trim().to_ascii_lowercase();
+    lowered.contains("no-reply")
+        || lowered.contains("noreply")
+        || lowered.contains("do-not-reply")
+        || lowered.contains("mailer-daemon")
+        || lowered.contains("notifications@")
+}
+
+fn calendar_event_datetime(raw: Option<&Value>) -> Option<OffsetDateTime> {
+    let value = raw?;
+    value
+        .get("dateTime")
+        .and_then(Value::as_str)
+        .and_then(|date_time| OffsetDateTime::parse(date_time.trim(), &Rfc3339).ok())
+        .or_else(|| {
+            value.get("date").and_then(Value::as_str).and_then(|date| {
+                OffsetDateTime::parse(&format!("{}T09:00:00Z", date.trim()), &Rfc3339).ok()
+            })
+        })
+}
+
 fn gmail_plaintext_body(message: &Value) -> Option<String> {
     let payload = message.get("payload")?;
     gmail_plaintext_body_from_part(payload)
@@ -3274,13 +3650,25 @@ fn google_project_from_pubsub_resource(resource: &str, kind: &str) -> Option<Str
     None
 }
 
-fn build_gmail_raw_message(to: &str, subject: &str, body: &str) -> String {
-    let mime = format!(
-        "To: {}\r\nSubject: {}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n{}",
-        to.trim(),
-        subject.trim(),
-        body
-    );
+fn build_gmail_raw_message(
+    to: &str,
+    subject: &str,
+    body: &str,
+    in_reply_to: Option<&str>,
+    references: Option<&str>,
+) -> String {
+    let mut headers = vec![
+        format!("To: {}", to.trim()),
+        format!("Subject: {}", subject.trim()),
+    ];
+    if let Some(value) = in_reply_to.map(str::trim).filter(|value| !value.is_empty()) {
+        headers.push(format!("In-Reply-To: {}", value));
+    }
+    if let Some(value) = references.map(str::trim).filter(|value| !value.is_empty()) {
+        headers.push(format!("References: {}", value));
+    }
+    headers.push("Content-Type: text/plain; charset=UTF-8".to_string());
+    let mime = format!("{}\r\n\r\n{}", headers.join("\r\n"), body);
     URL_SAFE_NO_PAD.encode(mime.as_bytes())
 }
 
@@ -3338,7 +3726,11 @@ fn url_encode(raw: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{map_to_query_pairs, normalize_pubsub_topic_name, parse_google_command};
+    use super::{
+        build_gmail_raw_message, map_to_query_pairs, normalize_pubsub_topic_name,
+        parse_google_command,
+    };
+    use base64::Engine as _;
     use serde_json::json;
 
     #[test]
@@ -3387,5 +3779,25 @@ mod tests {
             normalize_pubsub_topic_name(Some("demo-project".to_string()), "demo-topic".to_string())
                 .expect("topic");
         assert_eq!(full, "projects/demo-project/topics/demo-topic");
+    }
+
+    #[test]
+    fn gmail_raw_message_includes_reply_headers() {
+        let raw = build_gmail_raw_message(
+            "user@example.com",
+            "Subject",
+            "Body",
+            Some("<message-1@example.com>"),
+            Some("<message-0@example.com> <message-1@example.com>"),
+        );
+        let decoded = String::from_utf8(
+            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(raw.as_bytes())
+                .expect("raw message should decode"),
+        )
+        .expect("decoded raw should be valid utf-8");
+
+        assert!(decoded.contains("In-Reply-To: <message-1@example.com>\r\n"));
+        assert!(decoded.contains("References: <message-0@example.com> <message-1@example.com>\r\n"));
     }
 }

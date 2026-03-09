@@ -5,6 +5,7 @@ use crate::kernel::events::support::{
     detect_clarification_preset, is_hard_terminal_task, is_sudo_password_required_install,
     thread_id_from_session, ClarificationPreset,
 };
+use crate::kernel::notifications;
 use crate::kernel::state::update_task_state;
 use crate::models::AppState;
 use crate::models::CredentialRequest;
@@ -258,6 +259,13 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
             });
 
             if stream_password_required {
+                notifications::record_credential_intervention(
+                    app,
+                    &thread_id,
+                    &session_id,
+                    "sudo_password",
+                    "A one-time sudo password is required to continue the install.",
+                );
                 update_task_state(app, |t| {
                     t.phase = crate::models::AgentPhase::Complete;
                     t.current_step = "Waiting for sudo password".to_string();
@@ -298,6 +306,19 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                     }
                 });
             } else if stream_clarification_required {
+                let clarification_kind = match effective_stream_clarification_preset {
+                    ClarificationPreset::IdentityLookup => "identity_lookup",
+                    ClarificationPreset::InstallLookup => "install_lookup",
+                    ClarificationPreset::LaunchLookup => "launch_lookup",
+                    ClarificationPreset::IntentClarification => "intent_clarification",
+                };
+                notifications::record_clarification_intervention(
+                    app,
+                    &thread_id,
+                    &session_id,
+                    clarification_kind,
+                    stream_clarification_prompt,
+                );
                 update_task_state(app, |t| {
                     t.phase = crate::models::AgentPhase::Complete;
                     t.current_step = stream_clarification_wait_step.to_string();

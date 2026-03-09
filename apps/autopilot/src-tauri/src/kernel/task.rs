@@ -1,4 +1,5 @@
 use crate::identity;
+use crate::kernel::notifications;
 use crate::kernel::state::update_task_state;
 use crate::models::{
     AgentEvent, AgentPhase, AgentTask, AppState, ChatMessage, EventStatus, EventType,
@@ -441,6 +442,15 @@ pub async fn continue_task(
     });
 
     let session_arr = normalize_session_id(&session_id)?;
+    let normalized_session_id = hex::encode(session_arr);
+    notifications::resolve_intervention_by_dedupe_prefix(
+        &app,
+        &format!("clarification:{}:", session_id),
+    );
+    notifications::resolve_intervention_by_dedupe_prefix(
+        &app,
+        &format!("clarification:{}:", normalized_session_id),
+    );
     let params_bytes = encode_post_message_params(session_arr, user_input)?;
     let fallback_params_bytes = params_bytes.clone();
 

@@ -408,6 +408,312 @@ export interface AgentTask {
   clarification_request?: ClarificationRequest;
 }
 
+export type NotificationRail = "control" | "assistant";
+
+export type NotificationSeverity =
+  | "informational"
+  | "low"
+  | "medium"
+  | "high"
+  | "critical";
+
+export type InterventionStatus =
+  | "new"
+  | "seen"
+  | "pending"
+  | "responded"
+  | "resolved"
+  | "expired"
+  | "cancelled";
+
+export type AssistantNotificationStatus =
+  | "new"
+  | "seen"
+  | "acknowledged"
+  | "snoozed"
+  | "resolved"
+  | "dismissed"
+  | "expired"
+  | "archived";
+
+export type InterventionType =
+  | "approval_gate"
+  | "pii_review_gate"
+  | "clarification_gate"
+  | "credential_gate"
+  | "reauth_gate"
+  | "decision_gate"
+  | "intervention_outcome";
+
+export type AssistantNotificationClass =
+  | "follow_up_risk"
+  | "deadline_risk"
+  | "meeting_prep"
+  | "stalled_workflow"
+  | "valuable_completion"
+  | "digest"
+  | "automation_opportunity"
+  | "habitual_friction"
+  | "auth_attention";
+
+export type NotificationActionStyle = "primary" | "secondary" | "danger" | "quiet";
+
+export type NotificationPreviewMode = "redacted" | "compact" | "full";
+
+export type ObservationTier =
+  | "workflow_state"
+  | "connector_metadata"
+  | "redacted_connector_content"
+  | "coarse_host_context"
+  | "deep_ambient_behavior";
+
+export interface NotificationAction {
+  id: string;
+  label: string;
+  style?: NotificationActionStyle | null;
+}
+
+export interface NotificationDeliveryState {
+  toastSent: boolean;
+  inboxVisible: boolean;
+  badgeCounted: boolean;
+  pillVisible: boolean;
+  lastToastAtMs?: number | null;
+}
+
+export interface NotificationPrivacy {
+  previewMode: NotificationPreviewMode;
+  containsSensitiveData: boolean;
+  observationTier: ObservationTier;
+}
+
+export interface NotificationSource {
+  serviceName: string;
+  workflowName: string;
+  stepName: string;
+}
+
+export interface NotificationPolicyRefs {
+  policyHash?: string | null;
+  requestHash?: string | null;
+}
+
+export type NotificationTarget =
+  | {
+      kind: "gmail_thread";
+      connectorId: string;
+      threadId: string;
+      messageId?: string | null;
+    }
+  | {
+      kind: "calendar_event";
+      connectorId: string;
+      calendarId: string;
+      eventId: string;
+    }
+  | {
+      kind: "connector_auth";
+      connectorId: string;
+    }
+  | {
+      kind: "connector_subscription";
+      connectorId: string;
+      subscriptionId: string;
+    };
+
+export interface GmailThreadMessageDetail {
+  id: string;
+  from?: string;
+  to?: string;
+  subject?: string;
+  date?: string;
+  snippet?: string;
+  rfcMessageId?: string;
+  references?: string;
+  labelIds: string[];
+}
+
+export interface GmailThreadDetail {
+  threadId: string;
+  historyId?: string;
+  snippet?: string;
+  messages: GmailThreadMessageDetail[];
+}
+
+export interface CalendarAttendeeDetail {
+  email?: string;
+  displayName?: string;
+  responseStatus?: string;
+  organizer?: boolean;
+}
+
+export interface CalendarEventDetail {
+  calendarId: string;
+  eventId: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  status?: string;
+  start?: string;
+  end?: string;
+  htmlLink?: string;
+  attendees: CalendarAttendeeDetail[];
+}
+
+export type AssistantWorkbenchSession =
+  | {
+      kind: "gmail_reply";
+      connectorId: string;
+      thread: GmailThreadDetail;
+      sourceNotificationId?: string | null;
+    }
+  | {
+      kind: "meeting_prep";
+      connectorId: string;
+      event: CalendarEventDetail;
+      sourceNotificationId?: string | null;
+    };
+
+export interface InterventionRecord {
+  itemId: string;
+  rail: NotificationRail;
+  interventionType: InterventionType;
+  status: InterventionStatus;
+  severity: NotificationSeverity;
+  blocking: boolean;
+  title: string;
+  summary: string;
+  reason?: string | null;
+  recommendedAction?: string | null;
+  consequenceIfIgnored?: string | null;
+  createdAtMs: number;
+  updatedAtMs: number;
+  dueAtMs?: number | null;
+  expiresAtMs?: number | null;
+  snoozedUntilMs?: number | null;
+  dedupeKey: string;
+  threadId?: string | null;
+  sessionId?: string | null;
+  workflowId?: string | null;
+  runId?: string | null;
+  deliveryState: NotificationDeliveryState;
+  privacy: NotificationPrivacy;
+  source: NotificationSource;
+  artifactRefs: ArtifactRef[];
+  sourceEventIds: string[];
+  policyRefs: NotificationPolicyRefs;
+  actions: NotificationAction[];
+  target?: NotificationTarget | null;
+  requestHash?: string | null;
+  policyHash?: string | null;
+  approvalScope?: string | null;
+  sensitiveActionType?: string | null;
+  errorClass?: string | null;
+  blockedStage?: string | null;
+  retryAvailable?: boolean | null;
+  recoveryHint?: string | null;
+}
+
+export interface AssistantNotificationRecord {
+  itemId: string;
+  rail: NotificationRail;
+  notificationClass: AssistantNotificationClass;
+  status: AssistantNotificationStatus;
+  severity: NotificationSeverity;
+  title: string;
+  summary: string;
+  reason?: string | null;
+  recommendedAction?: string | null;
+  consequenceIfIgnored?: string | null;
+  createdAtMs: number;
+  updatedAtMs: number;
+  dueAtMs?: number | null;
+  expiresAtMs?: number | null;
+  snoozedUntilMs?: number | null;
+  dedupeKey: string;
+  threadId?: string | null;
+  sessionId?: string | null;
+  workflowId?: string | null;
+  runId?: string | null;
+  deliveryState: NotificationDeliveryState;
+  privacy: NotificationPrivacy;
+  source: NotificationSource;
+  artifactRefs: ArtifactRef[];
+  sourceEventIds: string[];
+  policyRefs: NotificationPolicyRefs;
+  actions: NotificationAction[];
+  target?: NotificationTarget | null;
+  priorityScore: number;
+  confidenceScore: number;
+  rankingReason: string[];
+}
+
+export interface WalletConnectorAuthRecordView {
+  connectorId: string;
+  providerFamily: string;
+  authProtocol: string;
+  state: string;
+  accountLabel?: string | null;
+  mailbox?: string | null;
+  grantedScopes: string[];
+  credentialAliases: Record<string, string>;
+  metadata: Record<string, string>;
+  updatedAtMs: number;
+  expiresAtMs?: number | null;
+  lastValidatedAtMs?: number | null;
+}
+
+export interface WalletConnectorAuthGetResult {
+  fetchedAtMs: number;
+  record: WalletConnectorAuthRecordView;
+}
+
+export interface DetectorPolicyConfig {
+  enabled: boolean;
+  minScore?: number | null;
+  minAgeMinutes?: number | null;
+  leadTimeMinutes?: number | null;
+  toastMinScore?: number | null;
+}
+
+export interface AssistantAttentionGlobalPolicy {
+  toastsEnabled: boolean;
+  badgeEnabled: boolean;
+  digestEnabled: boolean;
+  hostedInferenceAllowed: boolean;
+}
+
+export interface ConnectorAttentionPolicy {
+  scanMode?: string | null;
+}
+
+export interface AssistantAttentionPolicy {
+  version: number;
+  global: AssistantAttentionGlobalPolicy;
+  detectors: Record<string, DetectorPolicyConfig>;
+  connectors: Record<string, ConnectorAttentionPolicy>;
+}
+
+export interface AssistantAttentionProfile {
+  version: number;
+  preferredSurfaces: string[];
+  highValueContacts: string[];
+  focusWindows: string[];
+  notificationFeedback: Record<string, Record<string, number>>;
+}
+
+export interface AssistantUserProfile {
+  version: number;
+  displayName: string;
+  preferredName?: string | null;
+  roleLabel?: string | null;
+  timezone: string;
+  locale: string;
+  primaryEmail?: string | null;
+  avatarSeed: string;
+  groundingAllowed: boolean;
+}
+
 export interface SessionSummary {
     session_id: string;
     title: string;

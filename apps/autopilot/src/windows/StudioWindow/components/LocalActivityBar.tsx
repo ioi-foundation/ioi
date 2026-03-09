@@ -24,6 +24,7 @@ interface NavItem {
   label: string;
   icon: ReactNode;
   shortcut?: string;
+  badgeCount?: number;
 }
 
 function Tooltip({ label, shortcut, rect }: { label: string; shortcut?: string; rect: DOMRect }) {
@@ -144,6 +145,29 @@ function RailButton({
           }}
         />
         {item.icon}
+        {item.badgeCount && item.badgeCount > 0 ? (
+          <span
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 7,
+              minWidth: 16,
+              height: 16,
+              padding: "0 4px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 999,
+              background: isActive ? activeColor : "#2563eb",
+              color: "#fafafa",
+              fontSize: 10,
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
+            {item.badgeCount > 9 ? "9+" : item.badgeCount}
+          </span>
+        ) : null}
       </button>
 
       {tooltipRect && <Tooltip label={item.label} shortcut={item.shortcut} rect={tooltipRect} />}

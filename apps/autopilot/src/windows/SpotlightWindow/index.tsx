@@ -53,13 +53,19 @@ import "./styles/MicroEventCard.css";
 
 type SpotlightWindowProps = {
   variant?: "overlay" | "studio";
+  seedIntent?: string | null;
+  onConsumeSeedIntent?: () => void;
 };
 
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
-export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
+export function SpotlightWindow({
+  variant = "overlay",
+  seedIntent = null,
+  onConsumeSeedIntent,
+}: SpotlightWindowProps) {
   const isStudioVariant = variant === "studio";
 
   // Layout management (synced with Tauri backend)
@@ -182,6 +188,18 @@ export function SpotlightWindow({ variant = "overlay" }: SpotlightWindowProps) {
       root?.classList.remove(className);
     };
   }, [isStudioVariant]);
+
+  useEffect(() => {
+    if (!seedIntent?.trim()) {
+      return;
+    }
+
+    setIntent(seedIntent);
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+    onConsumeSeedIntent?.();
+  }, [inputRef, onConsumeSeedIntent, seedIntent, setIntent]);
 
   useEffect(() => {
     const resetUnlistenPromise = listenForAutopilotDataReset();

@@ -7,6 +7,7 @@ use crate::kernel::events::support::{
     is_waiting_for_identity_clarification_step, thread_id_from_session, ClarificationPreset,
     CLARIFICATION_WAIT_STEP,
 };
+use crate::kernel::notifications;
 use crate::kernel::state::update_task_state;
 use crate::models::AppState;
 use crate::models::{AgentPhase, ArtifactRef, ArtifactType, ChatMessage, GateInfo};
@@ -16,6 +17,7 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: RoutingReceipt) {
+    let thread_id = thread_id_from_session(&app, &receipt.session_id);
     let receipt_is_install_tool = is_install_package_tool(&receipt.tool_name);
     let receipt_is_identity_lookup_tool =
         clarification_preset_for_tool(&receipt.tool_name).is_some();
@@ -100,10 +102,32 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
     let receipt_clarification_request = if receipt_waiting_for_clarification {
         let preset = clarification_preset_for_tool(&receipt.tool_name)
             .unwrap_or(ClarificationPreset::IdentityLookup);
+        let clarification_kind = match preset {
+            ClarificationPreset::IdentityLookup => "identity_lookup",
+            ClarificationPreset::InstallLookup => "install_lookup",
+            ClarificationPreset::LaunchLookup => "launch_lookup",
+            ClarificationPreset::IntentClarification => "intent_clarification",
+        };
+        notifications::record_clarification_intervention(
+            app,
+            &thread_id,
+            &receipt.session_id,
+            clarification_kind,
+            "Clarification is required before the workflow can continue.",
+        );
         Some(build_clarification_request_with_inference(&app, preset, &receipt.tool_name, "").await)
     } else {
         None
     };
+    if receipt_waiting_for_sudo {
+        notifications::record_credential_intervention(
+            app,
+            &thread_id,
+            &receipt.session_id,
+            "sudo_password",
+            "A one-time sudo password is required to continue the install.",
+        );
+    }
 
     let failure_class = if receipt.failure_class_name.is_empty() {
         None
@@ -295,7 +319,6 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         return;
     }
 
-    let thread_id = thread_id_from_session(&app, &receipt.session_id);
     let receipt_id = format!("{}:{}:{}", thread_id, receipt.step_index, receipt.tool_name);
 
     let report_ref = {

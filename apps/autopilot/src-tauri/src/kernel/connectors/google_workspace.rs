@@ -210,6 +210,60 @@ pub async fn connector_renew_subscription(
     }
 }
 
+pub async fn connector_get_subscription(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    subscription_id: String,
+) -> Result<GoogleConnectorSubscriptionView, String> {
+    if shared::matches_google_connector_id(&connector_id) {
+        manager
+            .get_view(&subscription_id)
+            .await?
+            .ok_or_else(|| format!("Unknown Google subscription '{}'.", subscription_id))
+    } else {
+        Err(format!("Unsupported connector '{}'.", connector_id))
+    }
+}
+
+pub async fn connector_fetch_gmail_thread(
+    policy_manager: State<'_, ShieldPolicyManager>,
+    connector_id: String,
+    thread_id: String,
+) -> Result<ConnectorActionResult, String> {
+    enforce_google_connector_policy(
+        &policy_manager,
+        &connector_id,
+        "gmail.get_thread",
+        &json!({
+            "threadId": thread_id,
+            "format": "full"
+        }),
+    )?;
+    shared::connector_run_action(
+        &connector_id,
+        "gmail.get_thread",
+        json!({
+            "threadId": thread_id,
+            "format": "full"
+        }),
+    )
+    .await
+}
+
+pub async fn connector_fetch_calendar_event(
+    policy_manager: State<'_, ShieldPolicyManager>,
+    connector_id: String,
+    calendar_id: String,
+    event_id: String,
+) -> Result<ConnectorActionResult, String> {
+    let input = json!({
+        "calendarId": calendar_id,
+        "eventId": event_id
+    });
+    enforce_google_connector_policy(&policy_manager, &connector_id, "calendar.get_event", &input)?;
+    shared::connector_run_action(&connector_id, "calendar.get_event", input).await
+}
+
 fn merge_data_with_subscriptions(
     data: Option<Value>,
     subscriptions: Vec<GoogleConnectorSubscriptionView>,

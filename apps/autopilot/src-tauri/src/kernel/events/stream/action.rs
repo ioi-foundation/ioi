@@ -5,8 +5,9 @@ use crate::kernel::events::support::{
     is_identity_resolution_kind, is_install_package_tool,
     is_waiting_for_identity_clarification_step, thread_id_from_session,
 };
+use crate::kernel::notifications;
 use crate::kernel::state::update_task_state;
-use crate::models::{AgentPhase, EventStatus, EventType, GateInfo};
+use crate::models::{AgentPhase, EventStatus, EventType, GateInfo, NotificationSeverity};
 use ioi_ipc::public::ActionIntercepted;
 use serde_json::json;
 use tauri::Manager;
@@ -62,6 +63,14 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
     if action.verdict == "PII_REVIEW_REQUESTED" {
         let pii_info = fetch_pii_review_info(&app, &action.reason).await;
         if let Some(pii) = pii_info {
+            let thread_id = thread_id_from_session(&app, &action.session_id);
+            notifications::record_pii_review_intervention(
+                app,
+                &thread_id,
+                &action.session_id,
+                &action.reason,
+                Some(pii.deadline_ms),
+            );
             update_task_state(&app, |t| {
                 t.gate_info = Some(GateInfo {
                     title: "PII Review".to_string(),
@@ -139,6 +148,22 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
 
         if !already_gating && !suppress_gate_for_wait && !hard_terminal_task {
             println!("[Autopilot] Policy Gate Triggered for {}", action.target);
+            let thread_id = thread_id_from_session(&app, &action.session_id);
+            let summary = connector_gate_presentation(&action.target)
+                .map(|(_, description, _, _, _)| description)
+                .unwrap_or_else(|| {
+                    format!("The agent is attempting to execute: {}", action.target)
+                });
+            notifications::record_approval_intervention(
+                app,
+                &thread_id,
+                &action.session_id,
+                &action.reason,
+                "Approval required",
+                &summary,
+                NotificationSeverity::High,
+                None,
+            );
 
             update_task_state(app, |t| {
                 t.phase = AgentPhase::Gate;
