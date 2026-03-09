@@ -227,6 +227,40 @@ pub async fn connector_renew_subscription(
 }
 
 #[tauri::command]
+pub async fn connector_get_subscription(
+    manager: State<'_, GoogleAutomationManager>,
+    connector_id: String,
+    subscription_id: String,
+) -> Result<GoogleConnectorSubscriptionView, String> {
+    google_workspace::connector_get_subscription(manager, connector_id, subscription_id).await
+}
+
+#[tauri::command]
+pub async fn connector_fetch_gmail_thread(
+    policy_manager: State<'_, ShieldPolicyManager>,
+    connector_id: String,
+    thread_id: String,
+) -> Result<google_workspace::ConnectorActionResult, String> {
+    google_workspace::connector_fetch_gmail_thread(policy_manager, connector_id, thread_id).await
+}
+
+#[tauri::command]
+pub async fn connector_fetch_calendar_event(
+    policy_manager: State<'_, ShieldPolicyManager>,
+    connector_id: String,
+    calendar_id: String,
+    event_id: String,
+) -> Result<google_workspace::ConnectorActionResult, String> {
+    google_workspace::connector_fetch_calendar_event(
+        policy_manager,
+        connector_id,
+        calendar_id,
+        event_id,
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn connector_policy_get(
     state: State<'_, Mutex<AppState>>,
     manager: State<'_, ShieldPolicyManager>,

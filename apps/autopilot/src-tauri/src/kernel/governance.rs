@@ -1,3 +1,4 @@
+use crate::kernel::notifications;
 use crate::kernel::state::{get_rpc_client, now, update_task_state};
 use crate::models::{AgentPhase, AppState, ChatMessage, EventType, GateResponse};
 use crate::windows;
@@ -460,6 +461,7 @@ pub async fn gate_respond(
                     timestamp: now(),
                 });
             });
+            notifications::resolve_intervention_by_request_hash(&app, &hash_hex);
             windows::hide_gate(app.clone());
             let _ = app.emit("gate-response", approved);
         }
@@ -603,6 +605,14 @@ pub async fn submit_runtime_password(
             timestamp: now(),
         });
     });
+    notifications::resolve_intervention_by_dedupe_prefix(
+        &app,
+        &format!("credential:{}:sudo_password", session_id),
+    );
+    notifications::resolve_intervention_by_dedupe_prefix(
+        &app,
+        &format!("credential:{}:sudo_password", session_id_hex),
+    );
 
     Ok(())
 }

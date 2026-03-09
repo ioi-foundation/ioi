@@ -1,4 +1,7 @@
-use crate::models::{AgentEvent, AgentTask, Artifact, SessionSummary};
+use crate::models::{
+    AgentEvent, AgentTask, Artifact, AssistantAttentionPolicy, AssistantAttentionProfile,
+    AssistantNotificationRecord, AssistantUserProfile, InterventionRecord, SessionSummary,
+};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_scs::{FrameType, RetentionClass, SovereignContextStore};
 use serde::Deserialize;
@@ -6,6 +9,31 @@ use std::sync::{Arc, Mutex};
 
 pub const SESSION_INDEX_KEY: [u8; 32] = [
     0x53, 0x45, 0x53, 0x53, 0x49, 0x4F, 0x4E, 0x5F, 0x49, 0x4E, 0x44, 0x45, 0x53, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+];
+
+pub const INTERVENTION_INDEX_KEY: [u8; 32] = [
+    0x49, 0x4E, 0x54, 0x45, 0x52, 0x56, 0x45, 0x4E, 0x54, 0x49, 0x4F, 0x4E, 0x53, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+];
+
+pub const ASSISTANT_NOTIFICATION_INDEX_KEY: [u8; 32] = [
+    0x41, 0x53, 0x53, 0x49, 0x53, 0x54, 0x41, 0x4E, 0x54, 0x5F, 0x4E, 0x4F, 0x54, 0x49, 0x46, 0x59,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+];
+
+pub const ATTENTION_POLICY_KEY: [u8; 32] = [
+    0x41, 0x54, 0x54, 0x45, 0x4E, 0x54, 0x49, 0x4F, 0x4E, 0x5F, 0x50, 0x4F, 0x4C, 0x49, 0x43, 0x59,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+];
+
+pub const ATTENTION_PROFILE_KEY: [u8; 32] = [
+    0x41, 0x54, 0x54, 0x45, 0x4E, 0x54, 0x49, 0x4F, 0x4E, 0x5F, 0x50, 0x52, 0x4F, 0x46, 0x49, 0x4C,
+    0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+];
+
+pub const ASSISTANT_USER_PROFILE_KEY: [u8; 32] = [
+    0x55, 0x53, 0x45, 0x52, 0x5F, 0x50, 0x52, 0x4F, 0x46, 0x49, 0x4C, 0x45, 0x5F, 0x41, 0x50, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
 ];
 
@@ -247,4 +275,153 @@ pub fn load_local_task(
 
     let store = scs.lock().ok()?;
     read_latest_json::<AgentTask>(&store, &key)
+}
+
+fn write_latest_json<T: serde::Serialize>(
+    store: &mut SovereignContextStore,
+    key: [u8; 32],
+    value: &T,
+) {
+    let Ok(bytes) = serde_json::to_vec(value) else {
+        return;
+    };
+
+    let _ = store.append_frame(
+        FrameType::System,
+        &bytes,
+        0,
+        [0u8; 32],
+        key,
+        RetentionClass::Archival,
+    );
+}
+
+pub fn load_interventions(scs: &Arc<Mutex<SovereignContextStore>>) -> Vec<InterventionRecord> {
+    if let Ok(store) = scs.lock() {
+        read_latest_json::<Vec<InterventionRecord>>(&store, &INTERVENTION_INDEX_KEY)
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    }
+}
+
+pub fn load_assistant_notifications(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+) -> Vec<AssistantNotificationRecord> {
+    if let Ok(store) = scs.lock() {
+        read_latest_json::<Vec<AssistantNotificationRecord>>(
+            &store,
+            &ASSISTANT_NOTIFICATION_INDEX_KEY,
+        )
+        .unwrap_or_default()
+    } else {
+        Vec::new()
+    }
+}
+
+pub fn upsert_intervention(scs: &Arc<Mutex<SovereignContextStore>>, record: InterventionRecord) {
+    let Ok(mut store) = scs.lock() else {
+        return;
+    };
+
+    let mut records = read_latest_json::<Vec<InterventionRecord>>(&store, &INTERVENTION_INDEX_KEY)
+        .unwrap_or_default();
+    if let Some(index) = records
+        .iter()
+        .position(|item| item.item_id == record.item_id || item.dedupe_key == record.dedupe_key)
+    {
+        records[index] = record;
+    } else {
+        records.push(record);
+    }
+    records.sort_by(|a, b| b.updated_at_ms.cmp(&a.updated_at_ms));
+    write_latest_json(&mut store, INTERVENTION_INDEX_KEY, &records);
+}
+
+pub fn upsert_assistant_notification(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+    record: AssistantNotificationRecord,
+) {
+    let Ok(mut store) = scs.lock() else {
+        return;
+    };
+
+    let mut records = read_latest_json::<Vec<AssistantNotificationRecord>>(
+        &store,
+        &ASSISTANT_NOTIFICATION_INDEX_KEY,
+    )
+    .unwrap_or_default();
+    if let Some(index) = records
+        .iter()
+        .position(|item| item.item_id == record.item_id || item.dedupe_key == record.dedupe_key)
+    {
+        records[index] = record;
+    } else {
+        records.push(record);
+    }
+    records.sort_by(|a, b| b.updated_at_ms.cmp(&a.updated_at_ms));
+    write_latest_json(&mut store, ASSISTANT_NOTIFICATION_INDEX_KEY, &records);
+}
+
+pub fn save_assistant_attention_policy(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+    policy: &AssistantAttentionPolicy,
+) {
+    let Ok(mut store) = scs.lock() else {
+        return;
+    };
+    write_latest_json(&mut store, ATTENTION_POLICY_KEY, policy);
+}
+
+pub fn load_assistant_attention_policy(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+) -> AssistantAttentionPolicy {
+    if let Ok(store) = scs.lock() {
+        read_latest_json::<AssistantAttentionPolicy>(&store, &ATTENTION_POLICY_KEY)
+            .unwrap_or_default()
+    } else {
+        AssistantAttentionPolicy::default()
+    }
+}
+
+pub fn save_assistant_attention_profile(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+    profile: &AssistantAttentionProfile,
+) {
+    let Ok(mut store) = scs.lock() else {
+        return;
+    };
+    write_latest_json(&mut store, ATTENTION_PROFILE_KEY, profile);
+}
+
+pub fn load_assistant_attention_profile(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+) -> AssistantAttentionProfile {
+    if let Ok(store) = scs.lock() {
+        read_latest_json::<AssistantAttentionProfile>(&store, &ATTENTION_PROFILE_KEY)
+            .unwrap_or_default()
+    } else {
+        AssistantAttentionProfile::default()
+    }
+}
+
+pub fn save_assistant_user_profile(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+    profile: &AssistantUserProfile,
+) {
+    let Ok(mut store) = scs.lock() else {
+        return;
+    };
+    write_latest_json(&mut store, ASSISTANT_USER_PROFILE_KEY, profile);
+}
+
+pub fn load_assistant_user_profile(
+    scs: &Arc<Mutex<SovereignContextStore>>,
+) -> AssistantUserProfile {
+    if let Ok(store) = scs.lock() {
+        read_latest_json::<AssistantUserProfile>(&store, &ASSISTANT_USER_PROFILE_KEY)
+            .unwrap_or_default()
+    } else {
+        AssistantUserProfile::default()
+    }
 }

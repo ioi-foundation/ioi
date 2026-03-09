@@ -1,6 +1,12 @@
 // apps/autopilot/src/windows/StudioWindow/index.tsx
 import { useState, useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { 
     AgentEditor, 
     AgentsDashboard, 
@@ -11,7 +17,6 @@ import {
 } from "@ioi/agent-ide";
 import type { AgentSummary } from "@ioi/agent-ide";
 import { TauriRuntime } from "../../services/TauriRuntime";
-import type { ContextAtlasFocusRequest } from "../../types";
 
 // Shell Components
 import { StudioCopilotView } from "./components/StudioCopilot";
@@ -19,9 +24,12 @@ import { AgentInstallModal } from "../../components/AgentInstallModal";
 import { CommandPalette } from "../../components/CommandPalette";
 import { StatusBar } from "../../components/StatusBar";
 import { VisionHUD } from "../../components/VisionHUD";
+import { AssistantWorkbenchView } from "./components/AssistantWorkbenchView";
 import { LocalActivityBar } from "./components/LocalActivityBar";
 import { ContextAtlasView } from "./components/ContextAtlasView";
+import { NotificationsView } from "./components/NotificationsView";
 import { SettingsView } from "./components/SettingsView";
+import { StudioTopBar } from "./components/StudioTopBar";
 import { ShieldPolicyView } from "./components/ShieldPolicyView";
 import { listenForAutopilotDataReset } from "../../services/autopilotReset";
 import {
@@ -31,6 +39,12 @@ import {
   persistShieldPolicyStateToRuntime,
   type ShieldPolicyState,
 } from "./policyCenter";
+import type {
+  AssistantWorkbenchSession,
+  AssistantNotificationRecord,
+  ContextAtlasFocusRequest,
+  InterventionRecord,
+} from "../../types";
 
 // Ensure shared CSS is loaded
 import "@ioi/agent-ide/dist/style.css";
@@ -39,12 +53,40 @@ import "./StudioWindow.css";
 // Instantiate the adapter once
 const runtime = new TauriRuntime();
 
+type ToastCandidate = Pick<InterventionRecord, "title" | "summary" | "reason" | "privacy">;
+
+async function sendNativeAutopilotNotification(candidate: ToastCandidate): Promise<void> {
+  try {
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      const permission = await requestPermission();
+      granted = permission === "granted";
+    }
+    if (!granted) return;
+
+    const body =
+      candidate.privacy.previewMode === "redacted" && candidate.privacy.containsSensitiveData
+        ? candidate.reason?.trim() || "Open Autopilot for details."
+        : candidate.summary;
+
+    await sendNotification({
+      title: candidate.title,
+      body,
+    });
+  } catch {
+    // Native notification delivery is best-effort.
+  }
+}
+
 export function StudioWindow() {
   // --- Layout State ---
   const [activeView, setActiveView] = useState("compose");
   const [interfaceMode, setInterfaceMode] = useState<"GHOST" | "COMPOSE">("COMPOSE");
   const [focusedPolicyConnectorId, setFocusedPolicyConnectorId] = useState<string | null>(null);
   const [atlasRequest, setAtlasRequest] = useState<ContextAtlasFocusRequest | null>(null);
+  const [assistantWorkbench, setAssistantWorkbench] = useState<AssistantWorkbenchSession | null>(null);
+  const [autopilotSeedIntent, setAutopilotSeedIntent] = useState<string | null>(null);
+  const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
   const [shieldPolicy, setShieldPolicy] = useState<ShieldPolicyState>(() =>
     loadShieldPolicyState(),
   );
@@ -83,6 +125,43 @@ export function StudioWindow() {
 
     return () => {
       resetUnlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void invoke<number>("notification_badge_count_get")
+      .then((count) => {
+        if (!cancelled) {
+          setNotificationBadgeCount(count);
+        }
+      })
+      .catch(() => {
+        // Best-effort bootstrap only.
+      });
+
+    const badgeUnlistenPromise = listen<number>("notifications-badge-updated", (event) => {
+      setNotificationBadgeCount(event.payload);
+    });
+    const interventionToastUnlistenPromise = listen<InterventionRecord>(
+      "intervention-toast-candidate",
+      (event) => {
+        void sendNativeAutopilotNotification(event.payload);
+      },
+    );
+    const assistantToastUnlistenPromise = listen<AssistantNotificationRecord>(
+      "assistant-notification-toast-candidate",
+      (event) => {
+        void sendNativeAutopilotNotification(event.payload);
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      badgeUnlistenPromise.then((unlisten) => unlisten());
+      interventionToastUnlistenPromise.then((unlisten) => unlisten());
+      assistantToastUnlistenPromise.then((unlisten) => unlisten());
     };
   }, []);
 
@@ -140,22 +219,47 @@ export function StudioWindow() {
     setActiveView("shield");
   };
 
+  const handleViewChange = (view: string) => {
+    setActiveView(view);
+    if (view !== "agents") setEditingAgent(null);
+    if (view !== "shield") setFocusedPolicyConnectorId(null);
+  };
+
+  const openReplyComposer = (
+    session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
+  ) => {
+    setAssistantWorkbench(session);
+    setActiveView("reply-composer");
+  };
+
+  const openMeetingPrep = (
+    session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>,
+  ) => {
+    setAssistantWorkbench(session);
+    setActiveView("meeting-prep");
+  };
+
+  const openAutopilotWithIntent = (intent: string) => {
+    setAutopilotSeedIntent(intent);
+    setActiveView("autopilot");
+  };
+
   return (
     <div className="studio-window">
       <LocalActivityBar
         activeView={activeView} 
-        onViewChange={(view) => { 
-            setActiveView(view); 
-            // Reset sub-views when switching main tabs
-            if (view !== 'agents') setEditingAgent(null); 
-            if (view !== "shield") setFocusedPolicyConnectorId(null);
-        }}
+        onViewChange={handleViewChange}
         ghostMode={interfaceMode === "GHOST"}
         onToggleGhost={() => setInterfaceMode(prev => prev === "GHOST" ? "COMPOSE" : "GHOST")}
       />
       
       <div className="studio-main">
-        
+        <StudioTopBar
+          activeView={activeView}
+          notificationCount={notificationBadgeCount}
+          onOpenNotifications={() => handleViewChange("notifications")}
+          onOpenSettings={() => handleViewChange("settings")}
+        />
         <div className="studio-content">
           
           {/* VIEW: COMPOSE (The Graph Editor) */}
@@ -186,7 +290,33 @@ export function StudioWindow() {
           )}
 
           {/* VIEW: AUTOPILOT */}
-          {activeView === "autopilot" && <StudioCopilotView />}
+          {activeView === "autopilot" && (
+            <StudioCopilotView
+              seedIntent={autopilotSeedIntent}
+              onConsumeSeedIntent={() => setAutopilotSeedIntent(null)}
+            />
+          )}
+
+          {activeView === "notifications" && (
+            <NotificationsView
+              onOpenAutopilot={() => handleViewChange("autopilot")}
+              onOpenIntegrations={() => handleViewChange("integrations")}
+              onOpenShield={(connectorId) => openPolicyCenter(connectorId)}
+              onOpenSettings={() => handleViewChange("settings")}
+              onOpenReplyComposer={openReplyComposer}
+              onOpenMeetingPrep={openMeetingPrep}
+            />
+          )}
+
+          {(activeView === "reply-composer" || activeView === "meeting-prep") && (
+            <AssistantWorkbenchView
+              session={assistantWorkbench}
+              runtime={runtime}
+              onBack={() => handleViewChange("notifications")}
+              onOpenNotifications={() => handleViewChange("notifications")}
+              onOpenAutopilot={openAutopilotWithIntent}
+            />
+          )}
 
           {activeView === "atlas" && (
             <ContextAtlasView

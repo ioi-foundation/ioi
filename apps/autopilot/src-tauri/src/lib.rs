@@ -227,6 +227,11 @@ pub fn run() {
                     );
                 }
             });
+            kernel::notifications::bootstrap_notification_defaults(&app.handle());
+            let notification_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                kernel::notifications::spawn_notification_scheduler(notification_handle).await;
+            });
 
             let inference_runtime = create_inference_runtime();
             {
@@ -352,8 +357,22 @@ pub fn run() {
             kernel::connectors::connector_stop_subscription,
             kernel::connectors::connector_resume_subscription,
             kernel::connectors::connector_renew_subscription,
+            kernel::connectors::connector_get_subscription,
+            kernel::connectors::connector_fetch_gmail_thread,
+            kernel::connectors::connector_fetch_calendar_event,
             kernel::connectors::connector_policy_get,
             kernel::connectors::connector_policy_set,
+            kernel::notifications::notification_list_interventions,
+            kernel::notifications::notification_list_assistant,
+            kernel::notifications::notification_badge_count_get,
+            kernel::notifications::notification_update_intervention_status,
+            kernel::notifications::notification_update_assistant_status,
+            kernel::notifications::assistant_attention_policy_get,
+            kernel::notifications::assistant_attention_policy_set,
+            kernel::notifications::assistant_attention_profile_get,
+            kernel::notifications::assistant_user_profile_get,
+            kernel::notifications::assistant_user_profile_set,
+            kernel::notifications::assistant_attention_policy_apply_query,
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,
             kernel::data::get_skill_catalog,

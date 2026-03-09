@@ -8,6 +8,7 @@ pub mod dev;
 pub mod events;
 pub mod governance;
 pub mod graph;
+pub mod notifications;
 pub mod session;
 pub mod state;
 pub mod task;

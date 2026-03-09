@@ -1142,6 +1142,27 @@ fn google_connector_action_specs() -> Vec<GoogleConnectorActionSpec> {
                 email_field("to", "Recipient", true, Some("alice@example.com")),
                 text_field("subject", "Subject", None, true, None),
                 textarea_field("body", "Body", None, true, Some("Plain text message body.")),
+                text_field(
+                    "threadId",
+                    "Thread ID",
+                    None,
+                    false,
+                    Some("Optional Gmail thread to keep the send bound to an existing conversation."),
+                ),
+                text_field(
+                    "inReplyTo",
+                    "In-Reply-To",
+                    None,
+                    false,
+                    Some("Optional RFC Message-ID header for explicit reply threading."),
+                ),
+                text_field(
+                    "references",
+                    "References",
+                    None,
+                    false,
+                    Some("Optional References header for explicit reply threading."),
+                ),
             ],
         },
         GoogleConnectorActionSpec {
@@ -1165,6 +1186,27 @@ fn google_connector_action_specs() -> Vec<GoogleConnectorActionSpec> {
                 email_field("to", "Recipient", true, Some("alice@example.com")),
                 text_field("subject", "Subject", None, true, None),
                 textarea_field("body", "Body", None, true, Some("Plain text draft body.")),
+                text_field(
+                    "threadId",
+                    "Thread ID",
+                    None,
+                    false,
+                    Some("Optional Gmail thread to keep the draft bound to an existing conversation."),
+                ),
+                text_field(
+                    "inReplyTo",
+                    "In-Reply-To",
+                    None,
+                    false,
+                    Some("Optional RFC Message-ID header for explicit reply threading."),
+                ),
+                text_field(
+                    "references",
+                    "References",
+                    None,
+                    false,
+                    Some("Optional References header for explicit reply threading."),
+                ),
             ],
         },
         GoogleConnectorActionSpec {
@@ -2414,24 +2456,45 @@ fn build_google_workspace_args(
             }
             Ok(args)
         }
-        "gmail.send_email" => Ok(vec![
-            "gmail".into(),
-            "+send".into(),
-            "--to".into(),
-            required_string(input, "to")?,
-            "--subject".into(),
-            required_string(input, "subject")?,
-            "--body".into(),
-            required_string(input, "body")?,
-            "--format".into(),
-            "json".into(),
-        ]),
+        "gmail.send_email" => {
+            let mut args = vec![
+                "gmail".into(),
+                "+send".into(),
+                "--to".into(),
+                required_string(input, "to")?,
+                "--subject".into(),
+                required_string(input, "subject")?,
+                "--body".into(),
+                required_string(input, "body")?,
+                "--format".into(),
+                "json".into(),
+            ];
+            if let Some(thread_id) = optional_string(input, "threadId") {
+                args.push("--thread-id".into());
+                args.push(thread_id);
+            }
+            if let Some(in_reply_to) = optional_string(input, "inReplyTo") {
+                args.push("--in-reply-to".into());
+                args.push(in_reply_to);
+            }
+            if let Some(references) = optional_string(input, "references") {
+                args.push("--references".into());
+                args.push(references);
+            }
+            Ok(args)
+        }
         "gmail.draft_email" => {
             let raw = build_gmail_raw_message(
                 &required_string(input, "to")?,
                 &required_string(input, "subject")?,
                 &required_string(input, "body")?,
+                optional_string(input, "inReplyTo").as_deref(),
+                optional_string(input, "references").as_deref(),
             );
+            let mut message = json!({ "raw": raw });
+            if let Some(thread_id) = optional_string(input, "threadId") {
+                message["threadId"] = Value::String(thread_id);
+            }
             Ok(vec![
                 "gmail".into(),
                 "drafts".into(),
@@ -2439,7 +2502,7 @@ fn build_google_workspace_args(
                 "--params".into(),
                 json!({ "userId": "me" }).to_string(),
                 "--json".into(),
-                json!({ "message": { "raw": raw } }).to_string(),
+                json!({ "message": message }).to_string(),
                 "--format".into(),
                 "json".into(),
             ])
@@ -3440,13 +3503,25 @@ fn parse_dynamic_arguments(raw_json: &Value) -> Value {
     }
 }
 
-fn build_gmail_raw_message(to: &str, subject: &str, body: &str) -> String {
-    let mime = format!(
-        "To: {}\r\nSubject: {}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n{}",
-        to.trim(),
-        subject.trim(),
-        body
-    );
+fn build_gmail_raw_message(
+    to: &str,
+    subject: &str,
+    body: &str,
+    in_reply_to: Option<&str>,
+    references: Option<&str>,
+) -> String {
+    let mut headers = vec![
+        format!("To: {}", to.trim()),
+        format!("Subject: {}", subject.trim()),
+    ];
+    if let Some(value) = in_reply_to.map(str::trim).filter(|value| !value.is_empty()) {
+        headers.push(format!("In-Reply-To: {}", value));
+    }
+    if let Some(value) = references.map(str::trim).filter(|value| !value.is_empty()) {
+        headers.push(format!("References: {}", value));
+    }
+    headers.push("Content-Type: text/plain; charset=UTF-8".to_string());
+    let mime = format!("{}\r\n\r\n{}", headers.join("\r\n"), body);
     URL_SAFE_NO_PAD.encode(mime.as_bytes())
 }
 
@@ -4001,6 +4076,41 @@ mod tests {
         assert!(required
             .iter()
             .any(|value| value.as_str() == Some("subject")));
+    }
+
+    #[test]
+    fn gmail_send_action_exposes_optional_threading_fields() {
+        let action = find_action_by_id("gmail.send_email").expect("gmail send action present");
+        let field_ids = action
+            .fields
+            .iter()
+            .map(|field| field.id.as_str())
+            .collect::<Vec<_>>();
+        assert!(field_ids.contains(&"threadId"));
+        assert!(field_ids.contains(&"inReplyTo"));
+        assert!(field_ids.contains(&"references"));
+    }
+
+    #[test]
+    fn gmail_raw_message_includes_reply_headers_when_provided() {
+        use base64::Engine as _;
+
+        let raw = super::build_gmail_raw_message(
+            "user@example.com",
+            "Subject",
+            "Body",
+            Some("<message-1@example.com>"),
+            Some("<message-0@example.com> <message-1@example.com>"),
+        );
+        let decoded = String::from_utf8(
+            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(raw.as_bytes())
+                .expect("raw message should decode"),
+        )
+        .expect("decoded raw message should be utf-8");
+
+        assert!(decoded.contains("In-Reply-To: <message-1@example.com>\r\n"));
+        assert!(decoded.contains("References: <message-0@example.com> <message-1@example.com>\r\n"));
     }
 
     #[test]
