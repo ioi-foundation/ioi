@@ -27,7 +27,9 @@ packages/agent-ide/tsconfig.tsbuildinfo
 MARATHON.md
 examples/
 crates/cli/ioi-data/
-apps/autopilot/src/generated/
+apps/autopilot/src/generated/*
+!apps/autopilot/src/generated/autopilot-contracts/
+!apps/autopilot/src/generated/autopilot-contracts/**
 apps/autopilot/src-tauri/gen/schemas/
 docs/context-atlas-implementation-plan.md
 
