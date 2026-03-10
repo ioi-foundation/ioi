@@ -31,131 +31,80 @@ export interface ChatMessage {
   timestamp: number;
 }
 
-export type EventType =
-  | "COMMAND_RUN"
-  | "COMMAND_STREAM"
-  | "CODE_SEARCH"
-  | "FILE_READ"
-  | "FILE_EDIT"
-  | "DIFF_CREATED"
-  | "TEST_RUN"
-  | "BROWSER_NAVIGATE"
-  | "BROWSER_EXTRACT"
-  | "RECEIPT"
-  | "INFO_NOTE"
-  | "WARNING"
-  | "ERROR";
+import type {
+  ActiveContextItem as GeneratedActiveContextItem,
+  ActiveContextSnapshot as GeneratedActiveContextSnapshot,
+  AgentEvent as GeneratedAgentEvent,
+  Artifact as GeneratedArtifact,
+  ArtifactRef as GeneratedArtifactRef,
+  ArtifactType as GeneratedArtifactType,
+  AssistantNotificationClass as GeneratedAssistantNotificationClass,
+  AssistantNotificationRecord as GeneratedAssistantNotificationRecord,
+  AssistantNotificationStatus as GeneratedAssistantNotificationStatus,
+  AtlasEdge as GeneratedAtlasEdge,
+  AtlasNeighborhood as GeneratedAtlasNeighborhood,
+  AtlasNode as GeneratedAtlasNode,
+  ContextConstraint as GeneratedContextConstraint,
+  EventStatus as GeneratedEventStatus,
+  EventType as GeneratedEventType,
+  InterventionRecord as GeneratedInterventionRecord,
+  InterventionStatus as GeneratedInterventionStatus,
+  InterventionType as GeneratedInterventionType,
+  NotificationAction as GeneratedNotificationAction,
+  NotificationActionStyle as GeneratedNotificationActionStyle,
+  NotificationDeliveryState as GeneratedNotificationDeliveryState,
+  NotificationPolicyRefs as GeneratedNotificationPolicyRefs,
+  NotificationPreviewMode as GeneratedNotificationPreviewMode,
+  NotificationPrivacy as GeneratedNotificationPrivacy,
+  NotificationRail as GeneratedNotificationRail,
+  NotificationSeverity as GeneratedNotificationSeverity,
+  NotificationSource as GeneratedNotificationSource,
+  ObservationTier as GeneratedObservationTier,
+  SkillCatalogEntry as GeneratedSkillCatalogEntry,
+  SubstrateProofReceipt as GeneratedSubstrateProofReceipt,
+  SubstrateProofView as GeneratedSubstrateProofView,
+} from "./generated/autopilot-contracts";
 
-export type EventStatus = "SUCCESS" | "FAILURE" | "PARTIAL";
+type JsonRecord = Record<string, unknown>;
 
-export type ArtifactType = "DIFF" | "FILE" | "WEB" | "RUN_BUNDLE" | "REPORT" | "LOG";
+export type ActiveContextItem = GeneratedActiveContextItem;
+export type ArtifactType = GeneratedArtifactType;
+export type ArtifactRef = GeneratedArtifactRef;
+export type AssistantNotificationClass = GeneratedAssistantNotificationClass;
+export type AssistantNotificationStatus = GeneratedAssistantNotificationStatus;
+export type ContextConstraint = GeneratedContextConstraint;
+export type EventStatus = GeneratedEventStatus;
+export type EventType = GeneratedEventType | "BROWSER_EXTRACT";
+export type InterventionStatus = GeneratedInterventionStatus;
+export type InterventionType = GeneratedInterventionType;
+export type NotificationActionStyle = GeneratedNotificationActionStyle;
+export type NotificationPreviewMode = GeneratedNotificationPreviewMode;
+export type NotificationRail = GeneratedNotificationRail;
+export type NotificationSeverity = GeneratedNotificationSeverity;
+export type ObservationTier = GeneratedObservationTier;
+export type SkillCatalogEntry = GeneratedSkillCatalogEntry;
 
-export interface ArtifactRef {
-  artifact_id: string;
-  artifact_type: ArtifactType;
-}
-
-export interface AgentEvent {
-  event_id: string;
-  timestamp: string;
-  thread_id: string;
-  step_index: number;
+export type AgentEvent = Omit<GeneratedAgentEvent, "event_type" | "digest" | "details"> & {
   event_type: EventType;
-  title: string;
-  digest: Record<string, unknown>;
-  details: Record<string, unknown>;
-  artifact_refs: ArtifactRef[];
-  receipt_ref?: string | null;
-  input_refs: string[];
-  status: EventStatus;
-  duration_ms?: number | null;
-}
+  digest: JsonRecord;
+  details: JsonRecord;
+};
 
-export interface Artifact {
-  artifact_id: string;
-  created_at: string;
-  thread_id: string;
-  artifact_type: ArtifactType;
-  title: string;
-  description: string;
-  content_ref: string;
-  metadata: Record<string, unknown>;
-  version?: number | null;
-  parent_artifact_id?: string | null;
-}
+export type Artifact = Omit<GeneratedArtifact, "metadata"> & {
+  metadata: JsonRecord;
+};
 
-export interface SkillCatalogEntry {
-  skill_hash: string;
-  name: string;
-  description: string;
-  lifecycle_state: string;
-  source_type: string;
-  success_rate_bps: number;
-  sample_size: number;
-  frame_id: number;
-  source_session_id?: string | null;
-  source_evidence_hash?: string | null;
-  relative_path?: string | null;
-  stale: boolean;
-  definition: {
-    name: string;
-    description: string;
-    parameters: string;
-  };
-}
+export type AtlasEdge = GeneratedAtlasEdge;
 
-export interface ActiveContextItem {
-  id: string;
-  kind: string;
-  title: string;
-  summary: string;
-  badge?: string | null;
-  secondary_badge?: string | null;
-  success_rate_bps?: number | null;
-  sample_size?: number | null;
-  focus_id?: string | null;
-  skill_hash?: string | null;
-  source_session_id?: string | null;
-  source_evidence_hash?: string | null;
-  relative_path?: string | null;
-  stale?: boolean | null;
-}
+export type AtlasNode = Omit<GeneratedAtlasNode, "metadata"> & {
+  metadata: JsonRecord;
+};
 
-export interface ContextConstraint {
-  id: string;
-  label: string;
-  value: string;
-  severity: string;
-  summary: string;
-}
-
-export interface AtlasNode {
-  id: string;
-  kind: string;
-  label: string;
-  summary: string;
-  status?: string | null;
-  emphasis?: number | null;
-  metadata: Record<string, unknown>;
-}
-
-export interface AtlasEdge {
-  id: string;
-  source_id: string;
-  target_id: string;
-  relation: string;
-  summary?: string | null;
-  weight: number;
-}
-
-export interface AtlasNeighborhood {
-  lens: string;
-  title: string;
-  summary: string;
+export type AtlasNeighborhood = Omit<GeneratedAtlasNeighborhood, "focus_id" | "nodes" | "edges"> & {
   focus_id?: string | null;
   nodes: AtlasNode[];
   edges: AtlasEdge[];
-}
+};
 
 export interface SkillMacroStepView {
   index: number;
@@ -195,53 +144,132 @@ export interface SkillDetailView {
   neighborhood: AtlasNeighborhood;
 }
 
-export interface SubstrateProofReceipt {
-  event_id: string;
-  timestamp: string;
-  step_index: number;
-  tool_name: string;
-  query_hash: string;
-  index_root: string;
-  k: number;
-  ef_search: number;
-  candidate_limit: number;
-  candidate_total: number;
-  candidate_reranked: number;
-  candidate_truncated: boolean;
-  distance_metric: string;
-  embedding_normalized: boolean;
-  proof_hash?: string | null;
-  proof_ref?: string | null;
-  certificate_mode?: string | null;
-  success: boolean;
-  error_class?: string | null;
-}
+export type SubstrateProofReceipt = GeneratedSubstrateProofReceipt;
 
-export interface SubstrateProofView {
-  session_id?: string | null;
-  skill_hash?: string | null;
-  summary: string;
-  index_roots: string[];
-  receipts: SubstrateProofReceipt[];
+export type SubstrateProofView = Omit<GeneratedSubstrateProofView, "neighborhood" | "receipts"> & {
   neighborhood: AtlasNeighborhood;
-}
+  receipts: SubstrateProofReceipt[];
+};
 
-export interface ActiveContextSnapshot {
-  session_id: string;
-  goal: string;
-  status: string;
-  mode: string;
-  current_tier: string;
-  focus_id: string;
-  active_skill_id?: string | null;
-  skills: ActiveContextItem[];
-  tools: ActiveContextItem[];
-  evidence: ActiveContextItem[];
-  constraints: ContextConstraint[];
-  recent_actions: string[];
+export type ActiveContextSnapshot = Omit<
+  GeneratedActiveContextSnapshot,
+  "neighborhood" | "substrate"
+> & {
   neighborhood: AtlasNeighborhood;
   substrate?: SubstrateProofView | null;
+};
+
+export type NotificationAction = Omit<GeneratedNotificationAction, "style"> & {
+  style?: NotificationActionStyle | null;
+};
+
+export type NotificationDeliveryState = Omit<GeneratedNotificationDeliveryState, "lastToastAtMs"> & {
+  lastToastAtMs?: number | null;
+};
+
+export type NotificationPrivacy = GeneratedNotificationPrivacy;
+export type NotificationSource = GeneratedNotificationSource;
+
+export type NotificationPolicyRefs = Omit<
+  GeneratedNotificationPolicyRefs,
+  "policyHash" | "requestHash"
+> & {
+  policyHash?: string | null;
+  requestHash?: string | null;
+};
+
+export type NotificationTarget =
+  | {
+      kind: "gmail_thread";
+      connectorId?: string;
+      connector_id?: string;
+      threadId?: string;
+      thread_id?: string;
+      messageId?: string | null;
+      message_id?: string | null;
+    }
+  | {
+      kind: "calendar_event";
+      connectorId?: string;
+      connector_id?: string;
+      calendarId?: string;
+      calendar_id?: string;
+      eventId?: string;
+      event_id?: string;
+    }
+  | {
+      kind: "connector_auth";
+      connectorId?: string;
+      connector_id?: string;
+    }
+  | {
+      kind: "connector_subscription";
+      connectorId?: string;
+      connector_id?: string;
+      subscriptionId?: string;
+      subscription_id?: string;
+    };
+
+export interface GmailThreadMessageDetail {
+  id: string;
+  from?: string;
+  to?: string;
+  subject?: string;
+  date?: string;
+  snippet?: string;
+  rfcMessageId?: string;
+  references?: string;
+  labelIds: string[];
 }
+
+export interface GmailThreadDetail {
+  threadId: string;
+  historyId?: string;
+  snippet?: string;
+  messages: GmailThreadMessageDetail[];
+}
+
+export interface CalendarAttendeeDetail {
+  email?: string;
+  displayName?: string;
+  responseStatus?: string;
+  organizer?: boolean;
+}
+
+export interface CalendarEventDetail {
+  calendarId: string;
+  eventId: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  status?: string;
+  start?: string;
+  end?: string;
+  htmlLink?: string;
+  attendees: CalendarAttendeeDetail[];
+}
+
+export type AssistantWorkbenchSession =
+  | {
+      kind: "gmail_reply";
+      connectorId: string;
+      thread: GmailThreadDetail;
+      sourceNotificationId?: string | null;
+    }
+  | {
+      kind: "meeting_prep";
+      connectorId: string;
+      event: CalendarEventDetail;
+      sourceNotificationId?: string | null;
+    };
+
+export type InterventionRecord = Omit<GeneratedInterventionRecord, "target"> & {
+  target?: NotificationTarget | null;
+};
+
+export type AssistantNotificationRecord = Omit<GeneratedAssistantNotificationRecord, "target"> & {
+  target?: NotificationTarget | null;
+};
 
 export interface AtlasSearchResult {
   id: string;
@@ -406,246 +434,6 @@ export interface AgentTask {
   session_id?: string;
   credential_request?: CredentialRequest;
   clarification_request?: ClarificationRequest;
-}
-
-export type NotificationRail = "control" | "assistant";
-
-export type NotificationSeverity =
-  | "informational"
-  | "low"
-  | "medium"
-  | "high"
-  | "critical";
-
-export type InterventionStatus =
-  | "new"
-  | "seen"
-  | "pending"
-  | "responded"
-  | "resolved"
-  | "expired"
-  | "cancelled";
-
-export type AssistantNotificationStatus =
-  | "new"
-  | "seen"
-  | "acknowledged"
-  | "snoozed"
-  | "resolved"
-  | "dismissed"
-  | "expired"
-  | "archived";
-
-export type InterventionType =
-  | "approval_gate"
-  | "pii_review_gate"
-  | "clarification_gate"
-  | "credential_gate"
-  | "reauth_gate"
-  | "decision_gate"
-  | "intervention_outcome";
-
-export type AssistantNotificationClass =
-  | "follow_up_risk"
-  | "deadline_risk"
-  | "meeting_prep"
-  | "stalled_workflow"
-  | "valuable_completion"
-  | "digest"
-  | "automation_opportunity"
-  | "habitual_friction"
-  | "auth_attention";
-
-export type NotificationActionStyle = "primary" | "secondary" | "danger" | "quiet";
-
-export type NotificationPreviewMode = "redacted" | "compact" | "full";
-
-export type ObservationTier =
-  | "workflow_state"
-  | "connector_metadata"
-  | "redacted_connector_content"
-  | "coarse_host_context"
-  | "deep_ambient_behavior";
-
-export interface NotificationAction {
-  id: string;
-  label: string;
-  style?: NotificationActionStyle | null;
-}
-
-export interface NotificationDeliveryState {
-  toastSent: boolean;
-  inboxVisible: boolean;
-  badgeCounted: boolean;
-  pillVisible: boolean;
-  lastToastAtMs?: number | null;
-}
-
-export interface NotificationPrivacy {
-  previewMode: NotificationPreviewMode;
-  containsSensitiveData: boolean;
-  observationTier: ObservationTier;
-}
-
-export interface NotificationSource {
-  serviceName: string;
-  workflowName: string;
-  stepName: string;
-}
-
-export interface NotificationPolicyRefs {
-  policyHash?: string | null;
-  requestHash?: string | null;
-}
-
-export type NotificationTarget =
-  | {
-      kind: "gmail_thread";
-      connectorId: string;
-      threadId: string;
-      messageId?: string | null;
-    }
-  | {
-      kind: "calendar_event";
-      connectorId: string;
-      calendarId: string;
-      eventId: string;
-    }
-  | {
-      kind: "connector_auth";
-      connectorId: string;
-    }
-  | {
-      kind: "connector_subscription";
-      connectorId: string;
-      subscriptionId: string;
-    };
-
-export interface GmailThreadMessageDetail {
-  id: string;
-  from?: string;
-  to?: string;
-  subject?: string;
-  date?: string;
-  snippet?: string;
-  rfcMessageId?: string;
-  references?: string;
-  labelIds: string[];
-}
-
-export interface GmailThreadDetail {
-  threadId: string;
-  historyId?: string;
-  snippet?: string;
-  messages: GmailThreadMessageDetail[];
-}
-
-export interface CalendarAttendeeDetail {
-  email?: string;
-  displayName?: string;
-  responseStatus?: string;
-  organizer?: boolean;
-}
-
-export interface CalendarEventDetail {
-  calendarId: string;
-  eventId: string;
-  summary?: string;
-  description?: string;
-  location?: string;
-  status?: string;
-  start?: string;
-  end?: string;
-  htmlLink?: string;
-  attendees: CalendarAttendeeDetail[];
-}
-
-export type AssistantWorkbenchSession =
-  | {
-      kind: "gmail_reply";
-      connectorId: string;
-      thread: GmailThreadDetail;
-      sourceNotificationId?: string | null;
-    }
-  | {
-      kind: "meeting_prep";
-      connectorId: string;
-      event: CalendarEventDetail;
-      sourceNotificationId?: string | null;
-    };
-
-export interface InterventionRecord {
-  itemId: string;
-  rail: NotificationRail;
-  interventionType: InterventionType;
-  status: InterventionStatus;
-  severity: NotificationSeverity;
-  blocking: boolean;
-  title: string;
-  summary: string;
-  reason?: string | null;
-  recommendedAction?: string | null;
-  consequenceIfIgnored?: string | null;
-  createdAtMs: number;
-  updatedAtMs: number;
-  dueAtMs?: number | null;
-  expiresAtMs?: number | null;
-  snoozedUntilMs?: number | null;
-  dedupeKey: string;
-  threadId?: string | null;
-  sessionId?: string | null;
-  workflowId?: string | null;
-  runId?: string | null;
-  deliveryState: NotificationDeliveryState;
-  privacy: NotificationPrivacy;
-  source: NotificationSource;
-  artifactRefs: ArtifactRef[];
-  sourceEventIds: string[];
-  policyRefs: NotificationPolicyRefs;
-  actions: NotificationAction[];
-  target?: NotificationTarget | null;
-  requestHash?: string | null;
-  policyHash?: string | null;
-  approvalScope?: string | null;
-  sensitiveActionType?: string | null;
-  errorClass?: string | null;
-  blockedStage?: string | null;
-  retryAvailable?: boolean | null;
-  recoveryHint?: string | null;
-}
-
-export interface AssistantNotificationRecord {
-  itemId: string;
-  rail: NotificationRail;
-  notificationClass: AssistantNotificationClass;
-  status: AssistantNotificationStatus;
-  severity: NotificationSeverity;
-  title: string;
-  summary: string;
-  reason?: string | null;
-  recommendedAction?: string | null;
-  consequenceIfIgnored?: string | null;
-  createdAtMs: number;
-  updatedAtMs: number;
-  dueAtMs?: number | null;
-  expiresAtMs?: number | null;
-  snoozedUntilMs?: number | null;
-  dedupeKey: string;
-  threadId?: string | null;
-  sessionId?: string | null;
-  workflowId?: string | null;
-  runId?: string | null;
-  deliveryState: NotificationDeliveryState;
-  privacy: NotificationPrivacy;
-  source: NotificationSource;
-  artifactRefs: ArtifactRef[];
-  sourceEventIds: string[];
-  policyRefs: NotificationPolicyRefs;
-  actions: NotificationAction[];
-  target?: NotificationTarget | null;
-  priorityScore: number;
-  confidenceScore: number;
-  rankingReason: string[];
 }
 
 export interface WalletConnectorAuthRecordView {

@@ -18,6 +18,7 @@ const EVENT_ICONS: Record<EventType, string> = {
   DIFF_CREATED: "Δ",
   TEST_RUN: "✓",
   BROWSER_NAVIGATE: "🌐",
+  BROWSER_SNAPSHOT: "⇣",
   BROWSER_EXTRACT: "⇣",
   RECEIPT: "🧾",
   INFO_NOTE: "ℹ",

@@ -7,6 +7,7 @@ use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use tonic::transport::Channel;
+use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AgentPhase {
@@ -54,7 +55,8 @@ pub struct Receipt {
     pub cost: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EventType {
     CommandRun,
@@ -72,7 +74,8 @@ pub enum EventType {
     Error,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EventStatus {
     Success,
@@ -80,7 +83,8 @@ pub enum EventStatus {
     Partial,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ArtifactType {
     Diff,
@@ -91,7 +95,8 @@ pub enum ArtifactType {
     Log,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 pub struct ArtifactRef {
     pub artifact_id: String,
     pub artifact_type: ArtifactType,
@@ -110,7 +115,8 @@ pub struct ReceiptDigest {
     pub timestamp: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct AgentEvent {
     pub event_id: String,
     pub timestamp: String,
@@ -129,7 +135,8 @@ pub struct AgentEvent {
     pub duration_ms: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Artifact {
     pub artifact_id: String,
     pub created_at: String,
@@ -143,7 +150,8 @@ pub struct Artifact {
     pub parent_artifact_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct SkillCatalogEntry {
     pub skill_hash: String,
     pub name: String,
@@ -160,10 +168,12 @@ pub struct SkillCatalogEntry {
     #[serde(default)]
     pub relative_path: Option<String>,
     pub stale: bool,
+    #[ts(type = "{ name: string; description: string; parameters: string }")]
     pub definition: LlmToolDefinition,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct ActiveContextItem {
     pub id: String,
     pub kind: String,
@@ -191,7 +201,8 @@ pub struct ActiveContextItem {
     pub stale: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct ContextConstraint {
     pub id: String,
     pub label: String,
@@ -200,7 +211,8 @@ pub struct ContextConstraint {
     pub summary: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct AtlasNode {
     pub id: String,
     pub kind: String,
@@ -214,7 +226,8 @@ pub struct AtlasNode {
     pub metadata: Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct AtlasEdge {
     pub id: String,
     pub source_id: String,
@@ -226,7 +239,8 @@ pub struct AtlasEdge {
     pub weight: f32,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct AtlasNeighborhood {
     pub lens: String,
     #[serde(default)]
@@ -290,7 +304,8 @@ pub struct SkillDetailView {
     pub neighborhood: AtlasNeighborhood,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct SubstrateProofReceipt {
     pub event_id: String,
     pub timestamp: String,
@@ -317,7 +332,8 @@ pub struct SubstrateProofReceipt {
     pub error_class: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct SubstrateProofView {
     #[serde(default)]
     pub session_id: Option<String>,
@@ -332,7 +348,8 @@ pub struct SubstrateProofView {
     pub neighborhood: AtlasNeighborhood,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct ActiveContextSnapshot {
     pub session_id: String,
     pub goal: String,
@@ -499,7 +516,8 @@ pub struct GateResponse {
     pub approved: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationRail {
     Control,
@@ -512,7 +530,8 @@ impl Default for NotificationRail {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationSeverity {
     Informational,
@@ -528,7 +547,8 @@ impl Default for NotificationSeverity {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum InterventionStatus {
     New,
@@ -546,7 +566,8 @@ impl Default for InterventionStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum AssistantNotificationStatus {
     New,
@@ -565,7 +586,8 @@ impl Default for AssistantNotificationStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum InterventionType {
     ApprovalGate,
@@ -583,7 +605,8 @@ impl Default for InterventionType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum AssistantNotificationClass {
     FollowUpRisk,
@@ -603,7 +626,8 @@ impl Default for AssistantNotificationClass {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationActionStyle {
     Primary,
@@ -612,7 +636,8 @@ pub enum NotificationActionStyle {
     Quiet,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationPreviewMode {
     Redacted,
@@ -626,7 +651,8 @@ impl Default for NotificationPreviewMode {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(rename_all = "snake_case")]
 pub enum ObservationTier {
     WorkflowState,
@@ -642,7 +668,8 @@ impl Default for ObservationTier {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationAction {
     pub id: String,
@@ -651,7 +678,8 @@ pub struct NotificationAction {
     pub style: Option<NotificationActionStyle>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationDeliveryState {
     #[serde(default)]
@@ -666,7 +694,8 @@ pub struct NotificationDeliveryState {
     pub last_toast_at_ms: Option<u64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationPrivacy {
     #[serde(default)]
@@ -677,7 +706,8 @@ pub struct NotificationPrivacy {
     pub observation_tier: ObservationTier,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationSource {
     #[serde(default)]
@@ -688,7 +718,8 @@ pub struct NotificationSource {
     pub step_name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationPolicyRefs {
     #[serde(default)]
@@ -697,7 +728,8 @@ pub struct NotificationPolicyRefs {
     pub request_hash: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum NotificationTarget {
     GmailThread {
@@ -926,7 +958,8 @@ impl Default for AssistantAttentionProfile {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct InterventionRecord {
     pub item_id: String,
@@ -1003,7 +1036,8 @@ pub struct InterventionRecord {
     pub recovery_hint: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantNotificationRecord {
     pub item_id: String,

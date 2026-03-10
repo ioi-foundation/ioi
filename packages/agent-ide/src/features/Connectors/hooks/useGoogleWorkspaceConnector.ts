@@ -7,247 +7,37 @@ import type {
   ConnectorSubscriptionSummary,
   ConnectorSummary,
 } from "../../../runtime/agent-runtime";
+import {
+  buildDefaultInput,
+  coerceInput,
+  defaultOauthClientState,
+  defaultTokenStorageState,
+  formatJsonBlock,
+  isRecord,
+  readBootstrapWarnings,
+  readFieldProfiles,
+  readOauthClientState,
+  readServiceStates,
+  readString,
+  readStringArray,
+  readTokenStorageState,
+  type GoogleWorkspaceBootstrapWarning,
+  type GoogleWorkspaceConnectorState,
+  type GoogleWorkspaceFieldProfile,
+  type GoogleWorkspaceOauthClientState,
+  type GoogleWorkspaceServiceState,
+  type GoogleWorkspaceTokenStorageState,
+  type UseGoogleWorkspaceConnectorOptions,
+} from "./googleWorkspaceConnectorState";
 
-function buildDefaultInput(action: ConnectorActionDefinition | null): Record<string, string> {
-  if (!action) return {};
-  return action.fields.reduce<Record<string, string>>((next, field) => {
-    if (field.defaultValue !== undefined) {
-      next[field.id] = String(field.defaultValue);
-    } else {
-      next[field.id] = "";
-    }
-    return next;
-  }, {});
-}
-
-function formatJsonBlock(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (_error) {
-    return String(value);
-  }
-}
-
-function coerceInput(action: ConnectorActionDefinition, input: Record<string, string>) {
-  return action.fields.reduce<Record<string, unknown>>((next, field) => {
-    const rawValue = input[field.id] ?? "";
-    if (!rawValue.trim()) {
-      return next;
-    }
-
-    if (field.type === "number") {
-      const parsed = Number(rawValue);
-      if (!Number.isNaN(parsed)) {
-        next[field.id] = parsed;
-      }
-      return next;
-    }
-
-    next[field.id] = rawValue;
-    return next;
-  }, {});
-}
-
-interface UseGoogleWorkspaceConnectorOptions {
-  onConfigured?: (result: ConnectorConfigureResult) => void;
-}
-
-export interface GoogleWorkspaceFieldProfileOption {
-  label: string;
-  value: string;
-}
-
-export interface GoogleWorkspaceFieldProfile {
-  defaultValue?: string;
-  options: GoogleWorkspaceFieldProfileOption[];
-  suggestions: GoogleWorkspaceFieldProfileOption[];
-  description?: string;
-  inputMode?: string;
-}
-
-export interface GoogleWorkspaceServiceState {
-  status: string;
-  summary: string;
-  missingScopes: string[];
-  details?: Record<string, unknown>;
-}
-
-export interface GoogleWorkspaceBootstrapWarning {
-  service: string;
-  message: string;
-}
-
-export interface GoogleWorkspaceOauthClientState {
-  configured: boolean;
-  source: string;
-  clientIdPreview?: string;
-  hasClientSecret: boolean;
-  storagePath?: string;
-}
-
-export interface GoogleWorkspaceTokenStorageState {
-  source: string;
-  storagePath?: string;
-  present: boolean;
-}
-
-export interface GoogleWorkspaceConnectorState {
-  runtimeReady: boolean;
-  subscriptionRuntimeReady: boolean;
-  busy: boolean;
-  error: string | null;
-  notice: string | null;
-  authPending: boolean;
-  authUrl: string | null;
-  authStartedAtUtc: string | null;
-  authExpiresAtUtc: string | null;
-  connectionStatus: string | null;
-  oauthClient: GoogleWorkspaceOauthClientState;
-  requestedScopes: string[];
-  tokenStorage: GoogleWorkspaceTokenStorageState;
-  connectedAccountEmail: string | null;
-  grantedScopes: string[];
-  fieldProfiles: Record<string, GoogleWorkspaceFieldProfile>;
-  serviceStates: Record<string, GoogleWorkspaceServiceState>;
-  bootstrapWarnings: GoogleWorkspaceBootstrapWarning[];
-  lastConfiguredAtUtc: string | null;
-  actions: ConnectorActionDefinition[];
-  subscriptions: ConnectorSubscriptionSummary[];
-  selectedActionId: string;
-  setSelectedActionId: (actionId: string) => void;
-  selectAction: (actionId: string, presetInput?: Record<string, string>) => void;
-  selectedAction: ConnectorActionDefinition | null;
-  input: Record<string, string>;
-  setInputValue: (fieldId: string, value: string) => void;
-  formattedResult: string;
-  checkConnection: () => Promise<void>;
-  saveOauthClient: (clientId: string, clientSecret?: string) => Promise<void>;
-  clearOauthClient: () => Promise<void>;
-  beginAuth: (requestedScopes?: string[]) => Promise<void>;
-  cancelPendingAuth: () => Promise<void>;
-  disconnect: () => Promise<void>;
-  resetLocalSetup: () => Promise<void>;
-  runSelectedAction: () => Promise<void>;
-  refreshSubscriptions: () => Promise<void>;
-  stopSubscription: (subscriptionId: string) => Promise<void>;
-  resumeSubscription: (subscriptionId: string) => Promise<void>;
-  renewSubscription: (subscriptionId: string) => Promise<void>;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function readStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    : [];
-}
-
-function readFieldOptions(value: unknown): GoogleWorkspaceFieldProfileOption[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (!isRecord(item)) return null;
-      const label = readString(item.label);
-      const optionValue = readString(item.value);
-      if (!label || !optionValue) return null;
-      return { label, value: optionValue };
-    })
-    .filter((item): item is GoogleWorkspaceFieldProfileOption => Boolean(item));
-}
-
-function readFieldProfiles(
-  value: unknown
-): Record<string, GoogleWorkspaceFieldProfile> {
-  if (!isRecord(value)) return {};
-  return Object.entries(value).reduce<Record<string, GoogleWorkspaceFieldProfile>>(
-    (next, [fieldId, profile]) => {
-      if (!isRecord(profile)) return next;
-      next[fieldId] = {
-        defaultValue: readString(profile.defaultValue) ?? undefined,
-        options: readFieldOptions(profile.options),
-        suggestions: readFieldOptions(profile.suggestions),
-        description: readString(profile.description) ?? undefined,
-        inputMode: readString(profile.inputMode) ?? undefined,
-      };
-      return next;
-    },
-    {}
-  );
-}
-
-function readServiceStates(
-  value: unknown
-): Record<string, GoogleWorkspaceServiceState> {
-  if (!isRecord(value)) return {};
-  return Object.entries(value).reduce<Record<string, GoogleWorkspaceServiceState>>(
-    (next, [serviceId, state]) => {
-      if (!isRecord(state)) return next;
-      const summary = readString(state.summary);
-      const status = readString(state.status);
-      if (!summary || !status) return next;
-      next[serviceId] = {
-        status,
-        summary,
-        missingScopes: readStringArray(state.missingScopes),
-        details: isRecord(state.details) ? state.details : undefined,
-      };
-      return next;
-    },
-    {}
-  );
-}
-
-function readBootstrapWarnings(value: unknown): GoogleWorkspaceBootstrapWarning[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (!isRecord(item)) return null;
-      const service = readString(item.service);
-      const message = readString(item.message);
-      if (!service || !message) return null;
-      return { service, message };
-    })
-    .filter((item): item is GoogleWorkspaceBootstrapWarning => Boolean(item));
-}
-
-function readOauthClientState(value: unknown): GoogleWorkspaceOauthClientState {
-  if (!isRecord(value)) {
-    return {
-      configured: false,
-      source: "none",
-      hasClientSecret: false,
-      storagePath: undefined,
-    };
-  }
-  return {
-    configured: Boolean(value.configured),
-    source: readString(value.source) ?? "none",
-    clientIdPreview: readString(value.clientIdPreview) ?? undefined,
-    hasClientSecret: Boolean(value.hasClientSecret),
-    storagePath: readString(value.storagePath) ?? undefined,
-  };
-}
-
-function readTokenStorageState(value: unknown): GoogleWorkspaceTokenStorageState {
-  if (!isRecord(value)) {
-    return {
-      source: "none",
-      storagePath: undefined,
-      present: false,
-    };
-  }
-  return {
-    source: readString(value.source) ?? "none",
-    storagePath: readString(value.storagePath) ?? undefined,
-    present: Boolean(value.present),
-  };
-}
+export type {
+  GoogleWorkspaceBootstrapWarning,
+  GoogleWorkspaceConnectorState,
+  GoogleWorkspaceFieldProfile,
+  GoogleWorkspaceOauthClientState,
+  GoogleWorkspaceServiceState,
+  GoogleWorkspaceTokenStorageState,
+} from "./googleWorkspaceConnectorState";
 
 export function useGoogleWorkspaceConnector(
   runtime: AgentRuntime,
@@ -271,17 +61,13 @@ export function useGoogleWorkspaceConnector(
   const [authStartedAtUtc, setAuthStartedAtUtc] = useState<string | null>(null);
   const [authExpiresAtUtc, setAuthExpiresAtUtc] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
-  const [oauthClient, setOauthClient] = useState<GoogleWorkspaceOauthClientState>({
-    configured: false,
-    source: "none",
-    hasClientSecret: false,
-  });
+  const [oauthClient, setOauthClient] = useState<GoogleWorkspaceOauthClientState>(
+    defaultOauthClientState()
+  );
   const [requestedScopes, setRequestedScopes] = useState<string[]>([]);
-  const [tokenStorage, setTokenStorage] = useState<GoogleWorkspaceTokenStorageState>({
-    source: "none",
-    storagePath: undefined,
-    present: false,
-  });
+  const [tokenStorage, setTokenStorage] = useState<GoogleWorkspaceTokenStorageState>(
+    defaultTokenStorageState()
+  );
   const [connectedAccountEmail, setConnectedAccountEmail] = useState<string | null>(null);
   const [grantedScopes, setGrantedScopes] = useState<string[]>([]);
   const [fieldProfiles, setFieldProfiles] = useState<Record<string, GoogleWorkspaceFieldProfile>>(
