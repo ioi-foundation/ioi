@@ -136,10 +136,13 @@ If a successfully resolved intent fails downstream during CEC execution, the res
 ## 5. Clean Routing Requirements
 ### 5.1 Authoritative Inputs
 Resolver routing MUST depend only on canonical semantic ranking inputs plus explicit policy and feasibility checks.
+The user query is the authoritative semantic input, but any downstream routing state derived from it MUST be normalized into provider-agnostic typed outputs before planning or execution decisions are made.
 
 For retrieval-oriented intents:
 - semantic ranking MUST still select the intent without regard to provider names, provider families, or domain-specific affordance labels.
 - any post-ranking retrieval planning MUST operate only on typed retrieval requirements and typed feasibility constraints.
+- implementations MUST NOT insert predeclared query archetypes, domain buckets, or query-class switchboards as an intermediate stand-in for semantic interpretation.
+- reusable execution shapes MAY exist only when they are structural, cross-domain, and versioned ontology outputs inferred from the query (for example, a single-snapshot or document-briefing shape) rather than preassigned query families.
 
 For connector-backed intents:
 - semantic ranking MUST select the intent without regard to connector IDs, provider families, tool-name prefixes, or account labels.
@@ -151,6 +154,7 @@ Resolver logic MUST NOT:
 - route by ad hoc keyword, substring tests, or lexicographic assertions.
 - route by tool-name prefixes.
 - route by prompt-only exceptions.
+- route through predesignated query classes, archetypes, or domain buckets that directly choose providers, tools, or execution branches.
 - short-circuit to a tool before intent winner selection.
 - fallback to lower-ranked intents dynamically based on downstream execution failures.
 - introduce domain-named or provider-named ontology symbols to avoid proper structural modeling.

@@ -379,6 +379,9 @@ async fn capabilities_mail_read_case_passes_with_wallet_bootstrap_and_mock_runti
 #[tokio::test(flavor = "multi_thread")]
 async fn capabilities_mail_reply_case_passes_with_wallet_bootstrap_and_mock_runtime() -> Result<()>
 {
+    let _guard = google_fixture_test_lock()
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
     let case = capabilities_case(
         "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it",
     );

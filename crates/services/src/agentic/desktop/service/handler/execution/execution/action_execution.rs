@@ -242,67 +242,51 @@ pub async fn handle_action_execution(
         }
         AgentTool::OsPaste {} => Ok(handlers::handle_os_paste_tool(os_driver).await),
         AgentTool::Dynamic(value) => {
-            if let (Some(state), Some(call_context)) =
-                (execution_state.as_deref_mut(), execution_call_context)
+            let latest_user_message_raw = service
+                .hydrate_session_history_raw(agent_state.session_id)
+                .ok()
+                .and_then(|history| {
+                    history
+                        .iter()
+                        .rfind(|message| message.role == "user")
+                        .map(|message| message.content.clone())
+                })
+                .or_else(|| {
+                    let goal = agent_state.goal.trim();
+                    if goal.is_empty() {
+                        None
+                    } else {
+                        Some(goal.to_string())
+                    }
+                });
+            let adapter_state = execution_state.take();
+            if let Some(result) = adapters::execute_dynamic_tool(
+                service,
+                &value,
+                session_id,
+                step_index,
+                &determinism.workload_spec,
+                agent_state,
+                adapter_state,
+                execution_call_context,
+                latest_user_message_raw.as_deref(),
+            )
+            .await?
             {
-                let latest_user_message_raw = service
-                    .hydrate_session_history_raw(agent_state.session_id)
-                    .ok()
-                    .and_then(|history| {
-                        history
-                            .iter()
-                            .rfind(|message| message.role == "user")
-                            .map(|message| message.content.clone())
-                    })
-                    .or_else(|| {
-                        let goal = agent_state.goal.trim();
-                        if goal.is_empty() {
-                            None
-                        } else {
-                            Some(goal.to_string())
-                        }
-                    });
-                if let Some(result) = try_execute_wallet_mail_dynamic_tool(
-                    service,
-                    state,
-                    call_context,
-                    &value,
-                    latest_user_message_raw.as_deref(),
-                    session_id,
-                    step_index,
-                )
-                .await?
-                {
-                    let (success, out, err) = result;
-                    return Ok(no_visual(success, out, err));
-                }
+                return Ok(no_visual(result.success, result.history_entry, result.error));
             }
 
-            if let Some(result) =
-                crate::agentic::desktop::connectors::google_workspace::try_execute_dynamic_tool(
-                    service,
-                    agent_state,
-                    session_id,
-                    &value,
-                )
-                .await?
-            {
-                let (success, out, err) = result;
-                return Ok(no_visual(success, out, err));
-            }
-
-            let result = executor
-                .execute(
-                    AgentTool::Dynamic(value),
-                    session_id,
-                    step_index,
-                    visual_phash,
-                    agent_state.visual_som_map.as_ref(),
-                    agent_state.visual_semantic_map.as_ref(),
-                    agent_state.active_lens.as_deref(),
-                )
-                .await;
-            finalize_executor_result(result)
+            Ok(no_visual(
+                false,
+                None,
+                Some(format!(
+                    "ERROR_CLASS=UnsupportedTool No adapter admitted dynamic tool '{}'",
+                    value
+                        .get("name")
+                        .and_then(|entry| entry.as_str())
+                        .unwrap_or("unknown")
+                )),
+            ))
         }
 
         // Delegate Execution Tools

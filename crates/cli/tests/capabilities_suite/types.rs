@@ -600,12 +600,24 @@ pub fn cec_receipt_latest_values(
         return Vec::new();
     };
 
+    let latest_timestamp = observation.cec_receipts[last_idx].timestamp_ms;
     let mut first_idx = last_idx;
+    let mut crossed_interleaved_receipt = false;
     while first_idx > 0 {
         let prev = &observation.cec_receipts[first_idx - 1];
-        if !(prev.stage.eq_ignore_ascii_case(stage) && prev.key.eq_ignore_ascii_case(key)) {
+        let matches_key =
+            prev.stage.eq_ignore_ascii_case(stage) && prev.key.eq_ignore_ascii_case(key);
+        if matches_key {
+            if crossed_interleaved_receipt && prev.timestamp_ms != latest_timestamp {
+                break;
+            }
+            first_idx -= 1;
+            continue;
+        }
+        if prev.timestamp_ms != latest_timestamp {
             break;
         }
+        crossed_interleaved_receipt = true;
         first_idx -= 1;
     }
 
@@ -614,6 +626,9 @@ pub fn cec_receipt_latest_values(
         .iter()
         .skip(first_idx)
         .take(last_idx - first_idx + 1)
+        .filter(|receipt| {
+            receipt.stage.eq_ignore_ascii_case(stage) && receipt.key.eq_ignore_ascii_case(key)
+        })
         .filter_map(|receipt| receipt.observed_value.clone())
         .collect()
 }

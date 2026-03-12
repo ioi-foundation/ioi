@@ -594,7 +594,7 @@ async fn execute_wallet_mail_dynamic_tool_on_state(
     Ok((true, Some(output), None))
 }
 
-pub(super) async fn try_execute_wallet_mail_dynamic_tool(
+pub(crate) async fn try_execute_wallet_mail_dynamic_tool(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
     call_context: ServiceCallContext<'_>,

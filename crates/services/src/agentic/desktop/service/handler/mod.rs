@@ -10,6 +10,7 @@ pub(crate) use execution::{resolve_window_binding_for_target, target_requires_wi
 pub(crate) use web_research::{
     normalize_web_research_tool_call, reconcile_pending_web_research_tool_call,
 };
+pub(crate) use wallet_mail::try_execute_wallet_mail_dynamic_tool;
 
 pub(crate) use pii::{
     build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,

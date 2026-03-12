@@ -24,6 +24,8 @@ pub enum RuntimeTarget {
     McpAdapter,
     /// Agent lifecycle/control-plane substrate.
     ControlPlane,
+    /// Generic external adapter substrate.
+    Adapter,
 }
 
 impl RuntimeTarget {
@@ -38,6 +40,7 @@ impl RuntimeTarget {
             Self::Memory => "memory",
             Self::McpAdapter => "mcp_adapter",
             Self::ControlPlane => "control_plane",
+            Self::Adapter => "adapter",
         }
     }
 }

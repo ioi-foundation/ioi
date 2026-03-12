@@ -7,7 +7,7 @@ use ioi_types::service_configs::ActiveServiceMeta;
 use regex::Regex;
 use serde_json::json;
 
-fn should_expose_service_method_tool(service_id: &str, simple_name: &str) -> bool {
+pub(crate) fn should_expose_service_method_tool(service_id: &str, simple_name: &str) -> bool {
     if service_id.eq_ignore_ascii_case("wallet_network")
         && simple_name.starts_with("mail_connector_")
     {
@@ -16,7 +16,7 @@ fn should_expose_service_method_tool(service_id: &str, simple_name: &str) -> boo
     true
 }
 
-fn is_mail_connector_tool_name(name: &str) -> bool {
+pub(crate) fn is_mail_connector_tool_name(name: &str) -> bool {
     matches!(
         name,
         "wallet_network__mail_read_latest"
@@ -34,7 +34,9 @@ fn is_mail_connector_tool_name(name: &str) -> bool {
     )
 }
 
-fn resolved_intent_requires_mail_connector(resolved_intent: Option<&ResolvedIntentState>) -> bool {
+pub(crate) fn resolved_intent_requires_mail_connector(
+    resolved_intent: Option<&ResolvedIntentState>,
+) -> bool {
     let Some(resolved) = resolved_intent else {
         return false;
     };
@@ -52,19 +54,19 @@ fn resolved_intent_requires_mail_connector(resolved_intent: Option<&ResolvedInte
         .any(|cap| cap.as_str().starts_with("mail."))
 }
 
-fn has_discovered_mail_connector_tools(tools: &[LlmToolDefinition]) -> bool {
+pub(crate) fn has_discovered_mail_connector_tools(tools: &[LlmToolDefinition]) -> bool {
     tools
         .iter()
         .any(|tool| is_mail_connector_tool_name(tool.name.as_str()))
 }
 
-fn has_discovered_google_connector_tools(tools: &[LlmToolDefinition]) -> bool {
+pub(crate) fn has_discovered_google_connector_tools(tools: &[LlmToolDefinition]) -> bool {
     tools
         .iter()
         .any(|tool| google_workspace::is_google_connector_tool_name(tool.name.as_str()))
 }
 
-fn push_mail_connector_fallback_tools(tools: &mut Vec<LlmToolDefinition>) {
+pub(crate) fn push_mail_connector_fallback_tools(tools: &mut Vec<LlmToolDefinition>) {
     let read_latest_params = json!({
         "type": "object",
         "properties": {
@@ -131,12 +133,12 @@ fn push_mail_connector_fallback_tools(tools: &mut Vec<LlmToolDefinition>) {
     });
 }
 
-fn push_google_connector_tools(tools: &mut Vec<LlmToolDefinition>) {
+pub(crate) fn push_google_connector_tools(tools: &mut Vec<LlmToolDefinition>) {
     let mut discovered = google_workspace::google_connector_tool_definitions();
     tools.append(&mut discovered);
 }
 
-pub(super) fn inject_mail_connector_fallback_tools_if_needed(
+pub(crate) fn inject_mail_connector_fallback_tools_if_needed(
     resolved_intent: Option<&ResolvedIntentState>,
     tools: &mut Vec<LlmToolDefinition>,
 ) {
@@ -152,14 +154,14 @@ pub(super) fn inject_mail_connector_fallback_tools_if_needed(
     push_mail_connector_fallback_tools(tools);
 }
 
-pub(super) fn inject_google_connector_tools_if_needed(tools: &mut Vec<LlmToolDefinition>) {
+pub(crate) fn inject_google_connector_tools_if_needed(tools: &mut Vec<LlmToolDefinition>) {
     if has_discovered_google_connector_tools(tools) {
         return;
     }
     push_google_connector_tools(tools);
 }
 
-pub(super) fn push_service_tools(
+pub(crate) fn push_service_tools(
     state: &dyn StateAccess,
     active_window_title: &str,
     tools: &mut Vec<LlmToolDefinition>,
@@ -201,9 +203,8 @@ pub(super) fn push_service_tools(
 
                             let params_json = json!({
                                 "type": "object",
-                                "properties": {
-                                    "params": { "type": "string", "description": "JSON encoded parameters" }
-                                }
+                                "additionalProperties": true,
+                                "description": "JSON object parameters for the service method"
                             });
 
                             tools.push(LlmToolDefinition {

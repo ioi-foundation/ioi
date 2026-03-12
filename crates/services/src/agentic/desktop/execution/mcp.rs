@@ -12,10 +12,10 @@ pub async fn handle(exec: &ToolExecutor, raw_json: Value) -> ToolExecutionResult
 
         match exec
             .mcp
-            .execute_tool_with_spec(name, args, exec.workload_spec.as_ref())
+            .execute_tool_with_result(name, args, exec.workload_spec.as_ref())
             .await
         {
-            Ok(result) => ToolExecutionResult::success(result),
+            Ok(result) => ToolExecutionResult::success(result.result.to_string()),
             Err(e) => ToolExecutionResult::failure(format!("MCP Error: {}", e)),
         }
     } else {

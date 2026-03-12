@@ -879,27 +879,21 @@ fn firewall_attestation_signature_is_deterministic_for_same_signer_and_payload()
 }
 
 #[test]
-fn runtime_target_maps_dynamic_tools_to_mcp_adapter() {
+fn runtime_target_maps_dynamic_tools_to_adapter() {
     let tool = AgentTool::Dynamic(serde_json::json!({
         "name": "filesystem__read_file",
         "arguments": { "path": "README.md" }
     }));
-    assert_eq!(
-        super::runtime_target_for_tool(&tool),
-        RuntimeTarget::McpAdapter
-    );
+    assert_eq!(super::runtime_target_for_tool(&tool), RuntimeTarget::Adapter);
 }
 
 #[test]
-fn runtime_target_maps_google_connector_dynamic_tools_to_network() {
+fn runtime_target_maps_google_connector_dynamic_tools_to_adapter() {
     let tool = AgentTool::Dynamic(serde_json::json!({
         "name": "connector__google__gmail_read_emails",
         "arguments": { "query": "is:unread" }
     }));
-    assert_eq!(
-        super::runtime_target_for_tool(&tool),
-        RuntimeTarget::Network
-    );
+    assert_eq!(super::runtime_target_for_tool(&tool), RuntimeTarget::Adapter);
 }
 
 #[test]

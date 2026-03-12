@@ -188,6 +188,27 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
                 scs.success,
                 scs.error_class.as_deref().unwrap_or("none")
             ),
+            ioi_types::app::WorkloadReceipt::Adapter(adapter) => format!(
+                "WorkloadReceipt(Adapter) session={} step_index={} workload_id={} adapter_id={} tool_name={} kind={} success={} error_class={} artifacts={} redactions={} replay={}",
+                prefix_hex_4(&receipt.session_id),
+                receipt.step_index,
+                receipt.workload_id,
+                adapter.adapter_id,
+                adapter.tool_name,
+                adapter.kind.as_label(),
+                adapter.success,
+                adapter.error_class.as_deref().unwrap_or("none"),
+                adapter.artifact_pointers.len(),
+                adapter
+                    .redaction
+                    .as_ref()
+                    .map(|redaction| redaction.redaction_count.to_string())
+                    .unwrap_or_else(|| "0".to_string()),
+                adapter
+                    .replay_classification
+                    .map(|classification| classification.as_label().to_string())
+                    .unwrap_or_else(|| "none".to_string())
+            ),
         },
         Ev::RoutingReceipt(receipt) => format!(
             "RoutingReceipt session={} step_index={} tool_name={} policy_decision={} success={} action_json_{}",

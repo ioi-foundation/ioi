@@ -263,6 +263,82 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
                 }),
             })
         }
+        WorkloadReceiptKind::Adapter(adapter) => {
+            let response_hash = if adapter.has_response_hash {
+                Some(adapter.response_hash.clone())
+            } else {
+                None
+            };
+            let error_class = if adapter.has_error_class {
+                Some(adapter.error_class.clone())
+            } else {
+                None
+            };
+            let replay_classification = if adapter.has_replay_classification {
+                Some(adapter.replay_classification.clone())
+            } else {
+                None
+            };
+            let artifact_pointers = adapter
+                .artifact_pointers
+                .iter()
+                .map(|pointer| {
+                    json!({
+                        "uri": pointer.uri,
+                        "media_type": if pointer.has_media_type {
+                            Some(pointer.media_type.clone())
+                        } else {
+                            None::<String>
+                        },
+                        "sha256": if pointer.has_sha256 {
+                            Some(pointer.sha256.clone())
+                        } else {
+                            None::<String>
+                        },
+                        "label": if pointer.has_label {
+                            Some(pointer.label.clone())
+                        } else {
+                            None::<String>
+                        },
+                    })
+                })
+                .collect::<Vec<_>>();
+            Some(WorkloadReceiptSummary {
+                kind: "adapter",
+                tool_name: adapter.tool_name.clone(),
+                success: adapter.success,
+                summary: format!(
+                    "WorkloadReceipt(Adapter) adapter={} tool={} kind={} success={} artifacts={} redactions={}",
+                    adapter.adapter_id,
+                    adapter.tool_name,
+                    adapter.adapter_kind,
+                    adapter.success,
+                    adapter.artifact_pointers.len(),
+                    adapter.redaction_count
+                ),
+                digest: json!({
+                    "kind": "adapter",
+                    "adapter_id": adapter.adapter_id,
+                    "tool_name": adapter.tool_name,
+                    "adapter_kind": adapter.adapter_kind,
+                    "invocation_id": adapter.invocation_id,
+                    "idempotency_key": adapter.idempotency_key,
+                    "action_target": adapter.action_target,
+                    "request_hash": adapter.request_hash,
+                    "response_hash": response_hash,
+                    "success": adapter.success,
+                    "error_class": error_class,
+                    "replay_classification": replay_classification,
+                    "artifact_count": adapter.artifact_pointers.len(),
+                    "redaction_count": adapter.redaction_count,
+                    "redaction_version": adapter.redaction_version,
+                }),
+                details: json!({
+                    "artifact_pointers": artifact_pointers,
+                    "redacted_fields": adapter.redacted_fields,
+                }),
+            })
+        }
     }
 }
 
