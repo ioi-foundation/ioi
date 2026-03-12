@@ -87,6 +87,17 @@ fn web_pipeline_local_business_entity_anchor_ignores_quoted_locality_scope() {
 }
 
 #[test]
+fn web_pipeline_local_business_entity_anchor_derives_unquoted_cuisine_token() {
+    let search_query =
+        "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+
+    assert_eq!(
+        local_business_search_entity_anchor_tokens(search_query, Some("Anderson, SC")),
+        vec!["italian".to_string()]
+    );
+}
+
+#[test]
 fn web_pipeline_local_business_target_name_normalizes_numeric_parenthetical_modifier() {
     let attempted_urls = vec![format!(
         "ioi://local-business-expansion/query/{}",

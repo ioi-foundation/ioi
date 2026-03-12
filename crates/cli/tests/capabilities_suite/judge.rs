@@ -3,6 +3,7 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
@@ -107,6 +108,223 @@ fn screenshot_signals_payload(
     })
 }
 
+fn truncate_string_vec(values: &[String], max_items: usize, max_chars: usize) -> Vec<String> {
+    values
+        .iter()
+        .take(max_items)
+        .map(|value| truncate_chars(value, max_chars))
+        .collect::<Vec<_>>()
+}
+
+fn web_observation_payload(observation: &RunObservation) -> Value {
+    let Some(web) = observation.web.as_ref() else {
+        return Value::Null;
+    };
+
+    json!({
+        "query_contract": web
+            .query_contract
+            .as_deref()
+            .map(|value| truncate_chars(value, 220)),
+        "currentness_required": web.currentness_required,
+        "semantic_subject_alignment_required": web.semantic_subject_alignment_required,
+        "semantic_subject_alignment_floor_met": web.semantic_subject_alignment_floor_met,
+        "selected_source_quality_floor_met": web.selected_source_quality_floor_met,
+        "selected_source_subject_alignment_floor_met": web.selected_source_subject_alignment_floor_met,
+        "selected_source_count": web.selected_source_count,
+        "selected_source_distinct_domains": web.selected_source_distinct_domains,
+        "selected_source_urls": truncate_string_vec(&web.selected_source_urls, 8, 180),
+        "local_business_entity_anchor_floor_met": web.local_business_entity_anchor_floor_met,
+        "local_business_entity_anchor_source_urls": truncate_string_vec(
+            &web.local_business_entity_anchor_source_urls,
+            8,
+            180,
+        ),
+        "local_business_entity_anchor_mismatched_urls": truncate_string_vec(
+            &web.local_business_entity_anchor_mismatched_urls,
+            8,
+            180,
+        ),
+        "semantic_subject_alignment_urls": truncate_string_vec(
+            &web.semantic_subject_alignment_urls,
+            8,
+            180,
+        ),
+        "local_business_menu_inventory_floor_met": web.local_business_menu_inventory_floor_met,
+        "local_business_menu_inventory_total_item_count": web.local_business_menu_inventory_total_item_count,
+        "local_business_menu_inventory_source_urls": truncate_string_vec(
+            &web.local_business_menu_inventory_source_urls,
+            8,
+            180,
+        ),
+        "story_slots_observed": web.story_slots_observed,
+        "story_slot_floor_met": web.story_slot_floor_met,
+        "story_citation_floor_met": web.story_citation_floor_met,
+        "comparison_ready": web.comparison_ready,
+        "provider_candidates": web
+            .provider_candidates
+            .iter()
+            .take(8)
+            .map(|candidate| {
+                json!({
+                    "provider_id": candidate.provider_id,
+                    "source_count": candidate.source_count,
+                    "selected": candidate.selected,
+                    "success": candidate.success,
+                    "execution_attempted": candidate.execution_attempted,
+                    "execution_satisfied": candidate.execution_satisfied,
+                    "execution_failure_reason": candidate.execution_failure_reason,
+                    "challenge_reason": candidate.challenge_reason,
+                    "request_url": candidate
+                        .request_url
+                        .as_deref()
+                        .map(|value| truncate_chars(value, 180)),
+                })
+            })
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn nist_receipt_allowed(stage: &str, key: &str) -> bool {
+    matches!(
+        (stage, key),
+        ("execution", "query_contract")
+            | ("execution", "retrieval_contract")
+            | ("execution", "currentness_required")
+            | ("provider_selection", "provider_selected")
+            | ("discovery", "semantic_subject_alignment_required")
+            | ("discovery", "semantic_subject_alignment_floor")
+            | ("verification", "source_floor")
+            | ("verification", "selected_source_quality_floor")
+            | ("verification", "selected_source_identifier_coverage_floor")
+            | ("verification", "final_output_contract_ready")
+            | ("verification", "briefing_document_layout")
+            | ("verification", "briefing_render_heading_floor")
+            | (
+                "verification",
+                "briefing_rendered_required_section_label_floor"
+            )
+            | ("verification", "briefing_story_headers_absent")
+            | ("verification", "briefing_comparison_absent")
+            | ("verification", "briefing_required_section_floor")
+            | ("verification", "briefing_query_grounding_floor")
+            | ("verification", "briefing_standard_identifier_floor")
+            | (
+                "verification",
+                "briefing_authority_standard_identifier_floor"
+            )
+            | ("verification", "briefing_summary_inventory_floor")
+            | ("verification", "briefing_narrative_aggregation_floor")
+            | ("verification", "briefing_evidence_block_floor")
+            | ("verification", "briefing_primary_authority_source_floor")
+            | ("verification", "briefing_citation_read_backing_floor")
+            | ("verification", "briefing_temporal_anchor_floor")
+            | ("verification", "briefing_postamble_floor")
+            | ("verification", "selected_source_url")
+            | ("postcondition", "terminal_chat_reply_binding")
+            | ("postcondition", "terminal_chat_reply_layout_profile")
+            | ("postcondition", "terminal_chat_reply_story_headers_absent")
+            | ("postcondition", "terminal_chat_reply_comparison_absent")
+            | ("postcondition", "terminal_chat_reply_temporal_anchor_floor")
+            | ("postcondition", "terminal_chat_reply_postamble_floor")
+            | ("completion_gate", "contract_gate")
+    )
+}
+
+fn top_news_receipt_allowed(stage: &str, key: &str) -> bool {
+    matches!(
+        (stage, key),
+        ("provider_selection", "provider_selected")
+            | ("verification", "source_floor")
+            | ("verification", "selected_source_quality_floor")
+            | ("verification", "story_slots_observed")
+            | ("verification", "story_slot_floor")
+            | ("verification", "story_citation_floor")
+            | ("verification", "selected_source_url")
+            | ("completion_gate", "contract_gate")
+    )
+}
+
+fn receipt_identity(
+    stage: &str,
+    key: &str,
+    provider_id: Option<&str>,
+    observed_value: Option<&str>,
+) -> String {
+    let preserve_value = matches!(
+        (stage, key),
+        ("provider_selection", "provider_selected")
+            | ("verification", "selected_source_url")
+            | ("discovery", "provider_candidate")
+    );
+    format!(
+        "{}::{}::{}::{}",
+        stage,
+        key,
+        provider_id.unwrap_or_default(),
+        if preserve_value {
+            observed_value.unwrap_or_default()
+        } else {
+            ""
+        }
+    )
+}
+
+fn arbiter_cec_receipts_payload(case: &QueryCase, observation: &RunObservation) -> Vec<Value> {
+    let max_receipts = match case.id {
+        "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing" => 32,
+        "find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus" => 28,
+        "top_news_headlines" => 24,
+        _ => 20,
+    };
+    let mut seen = BTreeSet::new();
+    let mut kept = Vec::new();
+
+    for receipt in observation.cec_receipts.iter().rev() {
+        let stage = receipt.stage.as_str();
+        let key = receipt.key.as_str();
+        let allowed = match case.id {
+            "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing" => {
+                nist_receipt_allowed(stage, key)
+            }
+            "top_news_headlines" => top_news_receipt_allowed(stage, key),
+            _ => true,
+        };
+        if !allowed {
+            continue;
+        }
+
+        let identity = receipt_identity(
+            stage,
+            key,
+            receipt.provider_id.as_deref(),
+            receipt.observed_value.as_deref(),
+        );
+        if !seen.insert(identity) {
+            continue;
+        }
+
+        kept.push(json!({
+            "stage": stage,
+            "key": key,
+            "satisfied": receipt.satisfied,
+            "timestamp_ms": receipt.timestamp_ms,
+            "probe_source": receipt.probe_source,
+            "observed_value": receipt
+                .observed_value
+                .as_deref()
+                .map(|value| truncate_chars(value, 240)),
+            "provider_id": receipt.provider_id,
+        }));
+        if kept.len() >= max_receipts {
+            break;
+        }
+    }
+
+    kept.reverse();
+    kept
+}
+
 fn build_arbiter_payload(
     case: &QueryCase,
     observation: &RunObservation,
@@ -123,6 +341,7 @@ fn build_arbiter_payload(
             "completed": observation.completed,
             "failed": observation.failed,
             "final_status": observation.final_status,
+            "final_artifact_char_count": observation.final_reply.chars().count(),
             "elapsed_ms": observation.elapsed_ms,
             "chat_reply_count": observation.chat_reply_count,
         },
@@ -130,8 +349,8 @@ fn build_arbiter_payload(
             "action_tools": observation.action_tools,
             "routing_tools": observation.routing_tools,
             "workload_tools": observation.workload_tools,
-            "cec_receipts": observation.cec_receipts,
-            "web_observation": observation.web,
+            "cec_receipts": arbiter_cec_receipts_payload(case, observation),
+            "web_observation": web_observation_payload(observation),
             "screenshot_observation": observation.screenshot,
             "approval_required_events": observation.approval_required_events,
             "contract_failure_marker": contract_failure_marker,
@@ -176,8 +395,14 @@ Rules:\n\
 7) For `case_id=take_a_screenshot_of_my_desktop`, approval-gate evidence is mandatory before capture success: `screenshot_signals.approval_transition_seen=true`, `screenshot_signals.capture_runtime_evidence=true`, `screenshot_signals.capture_route_seen=true`, and `screenshot_signals.no_gui_snapshot_fallback=true`.\n\
 8) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
 9) For `case_id=take_a_screenshot_of_my_desktop`, if `local_judge.pass=true` and `screenshot_signals.contract_failure_marker=false`, pass MUST be true.\n\
-10) For non-strict cases (all except `top_news_headlines`), if `local_judge.pass=true`, `local_judge.failures=[]`, `completion.completed=true`, `completion.failed=false`, and `signals.contract_failure_marker=false`, pass SHOULD be true unless there is explicit contrary runtime evidence.\n\
-11) Treat the payload as typed runtime evidence. Do not infer pass/fail from omitted chat/debug excerpts.\n\
+10) For `case_id=research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
+11) For `case_id=research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing`, if `local_judge.pass=true`, `local_judge.failures=[]`, `completion.completed=true`, `completion.failed=false`, and `signals.contract_failure_marker=false`, pass MUST be true unless you can cite explicit contrary typed runtime evidence from `signals.cec_receipts`.\n\
+12) For `case_id=research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing`, rely on typed verification receipts for document layout, section floors, query grounding, authority coverage, temporal anchoring, and postamble readiness. Do not infer verdict from freeform prose.\n\
+13) For `case_id=find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus`, if `local_judge.failures` is non-empty then pass MUST be false.\n\
+14) For `case_id=find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus`, if `local_judge.pass=true`, `local_judge.failures=[]`, `completion.completed=true`, `completion.failed=false`, and `signals.contract_failure_marker=false`, pass MUST be true unless you can cite explicit contrary typed runtime evidence from `signals.cec_receipts`.\n\
+15) For `case_id=find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus`, rely on typed verification receipts for runtime locality, local-business entity anchoring, menu-surface selected sources, citation backing, and comparison readiness. Do not infer verdict from freeform prose.\n\
+16) For non-strict cases (all except `top_news_headlines`, `research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing`, and `find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus`), if `local_judge.pass=true`, `local_judge.failures=[]`, `completion.completed=true`, `completion.failed=false`, and `signals.contract_failure_marker=false`, pass SHOULD be true unless there is explicit contrary runtime evidence.\n\
+17) Treat the payload as typed runtime evidence. Do not infer pass/fail from freeform chat/debug excerpts.\n\
 Payload:\n{}",
         serde_json::to_string(&payload)?
     );
@@ -221,6 +446,7 @@ Payload:\n{}",
         Ok(bytes) => bytes,
         Err(err) => {
             return Ok(fallback_arbiter_verdict(
+                case,
                 observation,
                 local,
                 contract_failure_marker,
@@ -348,6 +574,73 @@ Payload:\n{}",
         }
     }
 
+    if case.id
+        == "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing"
+    {
+        if !local.pass || !local.failures.is_empty() || contract_failure_marker {
+            verdict.pass = false;
+            let mut failures = local.failures.clone();
+            if contract_failure_marker {
+                failures.push("contract_failure_marker=true".to_string());
+            }
+            failures.sort();
+            failures.dedup();
+            verdict.failures = failures;
+            if verdict.score > 0.49 {
+                verdict.score = 0.49;
+            }
+            if verdict.confidence == "high" {
+                verdict.confidence = "medium".to_string();
+            }
+            verdict.rationale =
+                "NIST briefing local verification or contract gates were not satisfied."
+                    .to_string();
+        } else if observation.completed && !observation.failed {
+            verdict.pass = true;
+            verdict.failures.clear();
+            if verdict.score < 0.8 {
+                verdict.score = 0.8;
+            }
+            if verdict.confidence == "low" {
+                verdict.confidence = "medium".to_string();
+            }
+            verdict.rationale = "NIST briefing local verification satisfied typed receipt gates; no contrary contract evidence was observed.".to_string();
+        }
+    }
+
+    if case.id == "find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus"
+    {
+        if !local.pass || !local.failures.is_empty() || contract_failure_marker {
+            verdict.pass = false;
+            let mut failures = local.failures.clone();
+            if contract_failure_marker {
+                failures.push("contract_failure_marker=true".to_string());
+            }
+            failures.sort();
+            failures.dedup();
+            verdict.failures = failures;
+            if verdict.score > 0.49 {
+                verdict.score = 0.49;
+            }
+            if verdict.confidence == "high" {
+                verdict.confidence = "medium".to_string();
+            }
+            verdict.rationale =
+                "Restaurant menu-comparison local verification or contract gates were not satisfied."
+                    .to_string();
+        } else if observation.completed && !observation.failed {
+            verdict.pass = true;
+            verdict.failures.clear();
+            if verdict.score < 0.8 {
+                verdict.score = 0.8;
+            }
+            if verdict.confidence == "low" {
+                verdict.confidence = "medium".to_string();
+            }
+            verdict.rationale = "Restaurant menu-comparison local verification satisfied typed receipt gates; no contrary contract evidence was observed.".to_string();
+        }
+    }
+
     if !is_strict_arbiter_case(case.id)
         && local.pass
         && local.failures.is_empty()
@@ -418,15 +711,33 @@ fn truncate_chars(input: &str, max_chars: usize) -> String {
 }
 
 fn is_strict_arbiter_case(case_id: &str) -> bool {
-    matches!(case_id, "top_news_headlines")
+    matches!(
+        case_id,
+        "top_news_headlines"
+            | "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing"
+            | "find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus"
+    )
 }
 
 fn fallback_arbiter_verdict(
+    case: &QueryCase,
     observation: &RunObservation,
     local: &LocalJudgeResult,
     contract_failure_marker: bool,
     reason: &str,
 ) -> ArbiterVerdict {
+    if is_strict_arbiter_case(case.id) {
+        return ArbiterVerdict {
+            pass: false,
+            confidence: "medium".to_string(),
+            rationale: format!(
+                "Arbiter inference unavailable for strict case; runtime artifact review is mandatory. {}",
+                truncate_chars(reason, 220)
+            ),
+            score: 0.0,
+            failures: vec!["arbiter_inference_unavailable".to_string()],
+        };
+    }
     let pass = local.pass
         && local.failures.is_empty()
         && observation.completed
@@ -523,6 +834,7 @@ mod tests {
                 evidence_type: None,
                 provider_id: None,
             }],
+            intent_resolution_evidence: Vec::new(),
             environment_receipts: Vec::new(),
             web: None,
             screenshot: Some(ScreenshotObservation {
@@ -558,6 +870,91 @@ mod tests {
         assert!(!payload_text.contains("event_excerpt"));
         assert!(!payload_text.contains("kernel_log_excerpt"));
         assert!(!payload_text.contains("command_history_evidence"));
+        assert!(!payload_text.contains("final_artifact_excerpt"));
+    }
+
+    #[test]
+    fn arbiter_payload_bounds_receipts_and_web_url_lists() {
+        let case = test_case(
+            "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+        );
+        let mut observation = test_observation();
+        observation.cec_receipts = (0..64)
+            .map(|idx| CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: if idx % 2 == 0 {
+                    "selected_source_url".to_string()
+                } else {
+                    format!("irrelevant_{idx}")
+                },
+                satisfied: true,
+                timestamp_ms: idx as u64,
+                probe_source: Some("probe".to_string()),
+                observed_value: Some(format!("https://example.com/{idx}")),
+                evidence_type: Some("url".to_string()),
+                provider_id: None,
+            })
+            .collect();
+        observation.web = Some(crate::capabilities_suite::types::WebObservation {
+            selected_source_urls: (0..20)
+                .map(|idx| format!("https://sources.example/{idx}"))
+                .collect(),
+            semantic_subject_alignment_urls: (0..20)
+                .map(|idx| format!("https://semantic.example/{idx}"))
+                .collect(),
+            ..Default::default()
+        });
+        let local = LocalJudgeResult::from_checks(vec![LocalCheck::new("typed", true, "detail")]);
+
+        let payload = build_arbiter_payload(&case, &observation, &local, false);
+        let cec_receipts = payload
+            .get("signals")
+            .and_then(Value::as_object)
+            .and_then(|signals| signals.get("cec_receipts"))
+            .and_then(Value::as_array)
+            .expect("cec_receipts should be an array");
+        let web_observation = payload
+            .get("signals")
+            .and_then(Value::as_object)
+            .and_then(|signals| signals.get("web_observation"))
+            .and_then(Value::as_object)
+            .expect("web_observation should be an object");
+        let selected_source_urls = web_observation
+            .get("selected_source_urls")
+            .and_then(Value::as_array)
+            .expect("selected_source_urls should be an array");
+
+        assert!(cec_receipts.len() <= 32);
+        assert!(selected_source_urls.len() <= 8);
+        assert!(cec_receipts.iter().all(|receipt| {
+            receipt
+                .get("key")
+                .and_then(Value::as_str)
+                .is_some_and(|key| {
+                    key == "selected_source_url"
+                        || key == "contract_gate"
+                        || key == "source_floor"
+                        || key == "selected_source_quality_floor"
+                        || key == "selected_source_identifier_coverage_floor"
+                        || key == "final_output_contract_ready"
+                        || key.starts_with("briefing_")
+                })
+        }));
+    }
+
+    #[test]
+    fn strict_case_fallback_does_not_auto_pass() {
+        let case = test_case(
+            "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+        );
+        let observation = test_observation();
+        let local = LocalJudgeResult::from_checks(vec![LocalCheck::new("typed", true, "detail")]);
+
+        let verdict = fallback_arbiter_verdict(&case, &observation, &local, false, "offline");
+
+        assert!(!verdict.pass);
+        assert_eq!(verdict.failures, vec!["arbiter_inference_unavailable"]);
     }
 
     #[test]

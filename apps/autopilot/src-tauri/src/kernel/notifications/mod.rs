@@ -1661,4 +1661,3 @@ impl IfEmptyThen for String {
         }
     }
 }
-

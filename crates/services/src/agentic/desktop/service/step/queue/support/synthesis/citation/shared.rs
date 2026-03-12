@@ -64,3 +64,72 @@ pub(super) fn headline_source_is_low_quality(source: &PendingSearchReadSummary) 
         source.excerpt.as_str(),
     )
 }
+
+fn document_briefing_excerpt_quality_key(
+    query_contract: &str,
+    url: &str,
+    source_label: &str,
+    excerpt: &str,
+) -> (usize, usize, usize, bool) {
+    let required_labels = briefing_standard_identifier_groups_for_query(query_contract)
+        .iter()
+        .filter(|group| group.required)
+        .map(|group| group.primary_label)
+        .collect::<BTreeSet<_>>();
+    let observed_labels = observed_briefing_standard_identifier_labels(
+        query_contract,
+        &format!("{} {} {}", url, source_label, excerpt),
+    );
+    let required_hits = observed_labels
+        .iter()
+        .filter(|label| required_labels.contains(label.as_str()))
+        .count();
+    let authority_hits = usize::from(source_has_document_authority(
+        query_contract,
+        url,
+        source_label,
+        excerpt,
+    ));
+    (
+        required_hits,
+        authority_hits,
+        observed_labels.len(),
+        !excerpt.trim().is_empty(),
+    )
+}
+
+pub(crate) fn preferred_citation_excerpt_with_contract(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    query_contract: &str,
+    min_sources: usize,
+    url: &str,
+    source_label: &str,
+    raw_excerpt: &str,
+    max_chars: usize,
+) -> String {
+    let prioritized = prioritized_query_grounding_excerpt_with_contract(
+        retrieval_contract,
+        query_contract,
+        min_sources.max(1),
+        url,
+        source_label,
+        raw_excerpt,
+        max_chars,
+    );
+    let document_briefing_layout = query_prefers_document_briefing_layout(query_contract)
+        && !retrieval_contract_requests_comparison(retrieval_contract, query_contract);
+    if !document_briefing_layout {
+        return prioritized;
+    }
+
+    let compact_raw = compact_excerpt(raw_excerpt, max_chars.saturating_mul(2).max(max_chars));
+    let prioritized_key =
+        document_briefing_excerpt_quality_key(query_contract, url, source_label, &prioritized);
+    let raw_key =
+        document_briefing_excerpt_quality_key(query_contract, url, source_label, &compact_raw);
+    if raw_key > prioritized_key {
+        compact_raw
+    } else {
+        prioritized
+    }
+}

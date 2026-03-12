@@ -23,7 +23,11 @@
             "type": "object",
             "properties": {
                 "url": { "type": "string", "description": "URL to read (http/https)." },
-                "max_chars": { "type": "integer", "description": "Optional max extracted characters." }
+                "max_chars": { "type": "integer", "description": "Optional max extracted characters." },
+                "allow_browser_fallback": {
+                    "type": "boolean",
+                    "description": "Optional strictness control. Set false to fail instead of escalating to browser-backed retrieval."
+                }
             },
             "required": ["url"]
         });

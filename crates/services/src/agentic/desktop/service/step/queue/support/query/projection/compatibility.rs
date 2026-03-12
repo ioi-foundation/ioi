@@ -120,6 +120,7 @@ pub(crate) fn candidate_constraint_compatibility(
     let query_anchor_count = query_tokens.len();
 
     let source_schema = analyze_metric_schema(&format!("{} {}", title, excerpt));
+    let source_signals = analyze_source_record_signals(url, title, excerpt);
     let axis_overlap_count = source_schema.axis_overlap_score(&constraints.required_facets);
     let has_current_observation_payload = source_schema.has_current_observation_payload();
     let has_time_sensitive_resolvable_payload =
@@ -231,6 +232,16 @@ pub(crate) fn candidate_constraint_compatibility(
     if query_facets.grounded_external_required && is_compatible {
         compatibility_score =
             compatibility_score.saturating_add(QUERY_COMPATIBILITY_GROUNDED_EXTERNAL_BONUS);
+    }
+    compatibility_score = compatibility_score.saturating_add(
+        source_signals.primary_status_surface_hits * QUERY_COMPATIBILITY_PRIMARY_STATUS_BONUS,
+    );
+    compatibility_score = compatibility_score.saturating_add(
+        source_signals.official_status_host_hits * QUERY_COMPATIBILITY_OFFICIAL_STATUS_HOST_BONUS,
+    );
+    if source_signals.low_priority_hits > 0 || source_signals.low_priority_dominates() {
+        compatibility_score = compatibility_score
+            .saturating_sub(QUERY_COMPATIBILITY_LOW_PRIORITY_PENALTY);
     }
     if search_hub {
         compatibility_score =

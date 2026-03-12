@@ -459,9 +459,10 @@ pub(crate) fn explicit_query_scope_hint(query: &str) -> Option<String> {
         return None;
     }
     let lower = compact.to_ascii_lowercase();
-    let structural_tokens = query_structural_directive_tokens(&compact);
+    let mut boundary_tokens = query_structural_directive_tokens(&compact);
+    boundary_tokens.extend(query_shape_boundary_tokens(&compact));
     for start in scope_anchor_starts(&lower) {
-        if let Some(scope) = explicit_scope_candidate(&compact, start, &structural_tokens) {
+        if let Some(scope) = explicit_scope_candidate(&compact, start, &boundary_tokens) {
             return Some(scope);
         }
     }

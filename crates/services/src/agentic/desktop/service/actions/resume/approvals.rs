@@ -69,8 +69,9 @@ pub(super) async fn validate_and_apply(
                 };
                 let (_scrubbed, _map, _report, routed, evidence) = service
                     .scrubber
-                    .inspect_route_transform(
+                    .inspect_route_transform_for_egress_field(
                         text,
+                        spec.field,
                         &spec.target,
                         to_shared_risk_surface(spec.risk_surface),
                         &rules.pii_controls,

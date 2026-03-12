@@ -25,16 +25,15 @@ use time::format_description::well_known::Rfc3339;
 use time::{Duration as TimeDuration, OffsetDateTime};
 
 pub use configure::connector_configure;
-use shield::{enforce_google_tool_shield_policy, runtime_resume_already_authorizes_google_tool};
 pub use shield::matches_google_connector_id;
+use shield::{enforce_google_tool_shield_policy, runtime_resume_already_authorizes_google_tool};
 pub use types::{
     ConnectorActionDefinition, ConnectorActionResult, ConnectorConfigureResult,
-    ConnectorFieldDefinition, ConnectorFieldOption, GOOGLE_CONNECTOR_ID,
-    GOOGLE_CONNECTOR_PROVIDER,
+    ConnectorFieldDefinition, ConnectorFieldOption, GOOGLE_CONNECTOR_ID, GOOGLE_CONNECTOR_PROVIDER,
 };
 use types::{
-    BIGQUERY_READ_TARGET, BIGQUERY_TOOL_NAME, BIGQUERY_WRITE_TARGET, GWS_DEFAULT_TIMEOUT_SECS,
-    GoogleConnectorActionSpec, GwsCommandOutput,
+    GoogleConnectorActionSpec, GwsCommandOutput, BIGQUERY_READ_TARGET, BIGQUERY_TOOL_NAME,
+    BIGQUERY_WRITE_TARGET, GWS_DEFAULT_TIMEOUT_SECS,
 };
 
 pub fn google_connector_actions() -> Vec<ConnectorActionDefinition> {
@@ -3281,15 +3280,16 @@ fn select_field(
 
 #[cfg(test)]
 mod tests {
+    use super::shield::compute_google_shield_request_hash;
     use super::{
-        compute_google_shield_request_hash, connector_fields_to_schema,
-        enforce_google_tool_shield_policy, find_action_by_id, google_connector_actions,
-        google_connector_protected_slot_bindings, google_connector_tool_bindings,
-        google_connector_tool_definitions, google_dynamic_tool_target,
-        infer_google_symbolic_reference_from_query_boxed, is_bigquery_read_query,
-        looks_like_connected_account_alias, normalize_sheet_values, parse_jsonish_output,
-        query_mentions_connected_account_alias, resolve_connected_account_alias,
-        BIGQUERY_READ_TARGET, BIGQUERY_WRITE_TARGET, GOOGLE_CONNECTOR_ID,
+        connector_fields_to_schema, enforce_google_tool_shield_policy, find_action_by_id,
+        google_connector_actions, google_connector_protected_slot_bindings,
+        google_connector_tool_bindings, google_connector_tool_definitions,
+        google_dynamic_tool_target, infer_google_symbolic_reference_from_query_boxed,
+        is_bigquery_read_query, looks_like_connected_account_alias, normalize_sheet_values,
+        parse_jsonish_output, query_mentions_connected_account_alias,
+        resolve_connected_account_alias, BIGQUERY_READ_TARGET, BIGQUERY_WRITE_TARGET,
+        GOOGLE_CONNECTOR_ID,
     };
     use crate::agentic::desktop::service::DesktopAgentService;
     use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};

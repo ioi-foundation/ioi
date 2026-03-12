@@ -64,7 +64,15 @@ pub fn analyze_query_facets(query: &str) -> QueryFacetProfile {
         || goal.filesystem_hits > 0
         || goal.command_hits > 0
         || goal.install_hits > 0;
-    let time_sensitive_public_fact = goal.recency_hits > 0 && goal.public_fact_hits > 0;
+    let live_external_lookup_pressure = goal.prefers_live_external_research()
+        || goal.external_hits > 0
+        || goal.browser_hits > 0
+        || goal.explicit_url_hits > 0
+        || goal.provenance_hits > 0;
+    let time_sensitive_public_fact = goal.recency_hits > 0
+        && !workspace_constrained
+        && !goal.prefers_mailbox_connector_flow()
+        && (goal.public_fact_hits > 0 || live_external_lookup_pressure);
     let metric_locality_sensitive = metric_schema.axis_hits.iter().any(|axis| {
         matches!(
             axis,

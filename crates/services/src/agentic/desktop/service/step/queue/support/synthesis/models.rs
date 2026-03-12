@@ -43,6 +43,7 @@ pub(crate) struct WeightedInsight {
 pub(crate) struct InsightHardPolicyGates {
     pub(crate) require_primary_status: bool,
     pub(crate) require_constraint_resolution: bool,
+    pub(crate) require_successful_read_backing: bool,
     pub(crate) reject_search_hub: bool,
     pub(crate) reject_low_priority_coverage: bool,
     pub(crate) reject_low_signal_excerpt: bool,

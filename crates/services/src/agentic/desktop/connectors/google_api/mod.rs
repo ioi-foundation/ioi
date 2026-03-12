@@ -20,9 +20,9 @@ use bootstrap::{default_google_project_id, parse_google_command};
 use fixture::{execute_mock_google_command, load_mock_fixture_state, mock_fixture_path};
 pub use types::{CalendarMeetingPrepCandidate, GmailFollowUpCandidate, GmailMessageReadback};
 use types::{
-    BIGQUERY_BASE_URL, CALENDAR_BASE_URL, CHAT_BASE_URL, DOCS_BASE_URL, DRIVE_BASE_URL,
-    DRIVE_UPLOAD_BASE_URL, GMAIL_BASE_URL, ParsedGoogleCommand, PUBSUB_BASE_URL,
-    SHEETS_BASE_URL, TASKS_BASE_URL, WORKSPACE_EVENTS_BASE_URL,
+    ParsedGoogleCommand, BIGQUERY_BASE_URL, CALENDAR_BASE_URL, CHAT_BASE_URL, DOCS_BASE_URL,
+    DRIVE_BASE_URL, DRIVE_UPLOAD_BASE_URL, GMAIL_BASE_URL, PUBSUB_BASE_URL, SHEETS_BASE_URL,
+    TASKS_BASE_URL, WORKSPACE_EVENTS_BASE_URL,
 };
 pub async fn run_google_command(
     args: &[String],

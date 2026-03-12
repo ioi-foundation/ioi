@@ -179,7 +179,7 @@ fn web_pipeline_local_business_comparison_defers_completion_until_targets_are_di
 }
 
 #[test]
-fn web_pipeline_local_business_comparison_completes_with_same_domain_distinct_target_sources() {
+fn web_pipeline_local_business_comparison_defers_completion_until_menu_surface_sources_are_selected() {
     let pending = PendingSearchCompletion {
         query: "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus."
             .to_string(),
@@ -265,7 +265,10 @@ fn web_pipeline_local_business_comparison_completes_with_same_domain_distinct_ta
         min_sources: 3,
     };
 
-    let reason = web_pipeline_completion_reason(&pending, 1_771_465_380_000)
-        .expect("same-domain distinct target sources should allow completion");
-    assert_eq!(reason, WebPipelineCompletionReason::MinSourcesReached);
+    let reason = web_pipeline_completion_reason(&pending, 1_771_465_380_000);
+    assert!(
+        reason.is_none(),
+        "menu-comparison queries should stay active until menu-surface sources are selected; got {:?}",
+        reason
+    );
 }

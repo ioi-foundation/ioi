@@ -32,6 +32,43 @@ fn url_in_alignment_set(url: &str, aligned_urls: &[String]) -> bool {
     })
 }
 
+fn effective_semantic_alignment_urls(discovery_sources: &[WebSource]) -> Vec<String> {
+    let mut urls = Vec::new();
+    let mut seen = BTreeSet::new();
+    for source in discovery_sources {
+        let trimmed = source.url.trim();
+        if !trimmed.is_empty() && seen.insert(trimmed.to_string()) {
+            urls.push(trimmed.to_string());
+        }
+    }
+
+    if discovery_sources.is_empty() {
+        return urls;
+    }
+
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "web.pipeline.semantic_subject_alignment".to_string(),
+        query: None,
+        url: None,
+        sources: discovery_sources.to_vec(),
+        source_observations: Vec::new(),
+        documents: Vec::new(),
+        provider_candidates: Vec::new(),
+        retrieval_contract: None,
+    };
+    for hint in candidate_source_hints_from_bundle(&bundle) {
+        let trimmed = hint.url.trim();
+        if !trimmed.is_empty() && seen.insert(trimmed.to_string()) {
+            urls.push(trimmed.to_string());
+        }
+    }
+
+    urls
+}
+
 fn merge_source_observations(
     existing: &[ioi_types::app::agentic::WebSourceObservation],
     incoming: Vec<ioi_types::app::agentic::WebSourceObservation>,
@@ -158,5 +195,24 @@ async fn filter_discovery_sources_by_semantic_alignment(
         return Err("semantic source alignment removed all discovery sources".to_string());
     }
 
-    Ok((filtered_sources, aligned_urls, true))
+    let effective_alignment_urls = effective_semantic_alignment_urls(&filtered_sources);
+    emit_web_string_receipts(
+        service,
+        session_id,
+        step_index,
+        intent_id,
+        "discovery",
+        "semantic_subject_alignment_selection_url",
+        "web.pipeline.semantic_subject_alignment.selection.v1",
+        "url",
+        &effective_alignment_urls,
+    );
+    if !effective_alignment_urls.is_empty() {
+        verification_checks.push(format!(
+            "web_semantic_subject_alignment_selection_url_values={}",
+            effective_alignment_urls.join(" | ")
+        ));
+    }
+
+    Ok((filtered_sources, effective_alignment_urls, true))
 }

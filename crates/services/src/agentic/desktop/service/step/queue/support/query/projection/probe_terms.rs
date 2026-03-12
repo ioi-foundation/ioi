@@ -158,6 +158,7 @@ pub(crate) fn projection_probe_conflict_exclusion_terms(
 }
 
 pub(crate) fn projection_probe_host_exclusion_terms(
+    query_contract: &str,
     projection: &QueryConstraintProjection,
     candidate_hints: &[PendingSearchReadSummary],
 ) -> Vec<String> {
@@ -192,6 +193,32 @@ pub(crate) fn projection_probe_host_exclusion_terms(
         }
         out.into_iter().collect()
     }
+
+    let protected_host_keys = if retrieval_contract_requires_document_briefing_identifier_evidence(
+        None,
+        query_contract,
+    ) {
+        let mut protected = BTreeSet::new();
+        for hint in candidate_hints {
+            let title = hint.title.as_deref().unwrap_or_default();
+            if !source_has_document_authority(query_contract, &hint.url, title, &hint.excerpt)
+                || !source_has_briefing_standard_identifier_signal(
+                    query_contract,
+                    &hint.url,
+                    title,
+                    &hint.excerpt,
+                )
+            {
+                continue;
+            }
+            if let Some(host) = source_host(&hint.url) {
+                protected.extend(collapsed_host_keys(&host));
+            }
+        }
+        protected
+    } else {
+        BTreeSet::new()
+    };
 
     let mut bad_host_hits = BTreeMap::<String, usize>::new();
     let mut good_host_hits = BTreeMap::<String, usize>::new();
@@ -232,7 +259,9 @@ pub(crate) fn projection_probe_host_exclusion_terms(
     let mut ranked_hosts = bad_host_hits
         .into_iter()
         .filter(|(host, hits)| {
-            *hits >= QUERY_PROBE_ESCALATION_MIN_CONFLICT_HITS && !good_host_hits.contains_key(host)
+            *hits >= QUERY_PROBE_ESCALATION_MIN_CONFLICT_HITS
+                && !good_host_hits.contains_key(host)
+                && !protected_host_keys.contains(host)
         })
         .collect::<Vec<_>>();
     ranked_hosts.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
@@ -254,6 +283,37 @@ pub(crate) fn projection_probe_host_exclusion_terms(
         .into_iter()
         .map(|host| format!("-site:{host}"))
         .collect()
+}
+
+#[cfg(test)]
+mod probe_terms_tests {
+    use super::*;
+
+    #[test]
+    fn probe_host_exclusions_preserve_discovered_authority_hosts_for_identifier_briefings() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let projection = build_query_constraint_projection(query, 2, &[]);
+        let candidate_hints = vec![
+            PendingSearchReadSummary {
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
+                        .to_string(),
+                ),
+                excerpt:
+                    "NIST finalized FIPS 203, FIPS 204, and FIPS 205 for post-quantum cryptography."
+                        .to_string(),
+            },
+        ];
+
+        let terms = projection_probe_host_exclusion_terms(query, &projection, &candidate_hints);
+
+        assert!(
+            !terms.iter().any(|term| term.eq_ignore_ascii_case("-site:nist.gov")),
+            "terms={terms:?}"
+        );
+    }
 }
 
 pub(crate) fn projection_probe_structural_terms(

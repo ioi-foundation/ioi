@@ -1,4 +1,5 @@
 use super::*;
+use ioi_types::app::agentic::WebRetrievalContract;
 
 pub(crate) fn push_pending_web_success(
     pending: &mut PendingSearchCompletion,
@@ -8,13 +9,6 @@ pub(crate) fn push_pending_web_success(
 ) {
     let trimmed = url.trim();
     if trimmed.is_empty() {
-        return;
-    }
-    if pending
-        .successful_reads
-        .iter()
-        .any(|existing| url_structurally_equivalent(existing.url.trim(), trimmed))
-    {
         return;
     }
 
@@ -50,6 +44,12 @@ pub(crate) fn push_pending_web_success(
             resolved_excerpt = hint_excerpt.to_string();
         }
     }
+    let menu_inventory_grounded_excerpt = local_business_menu_surface_grounded_excerpt(
+        pending.retrieval_contract.as_ref(),
+        &synthesis_query_contract(pending),
+        trimmed,
+        &resolved_excerpt,
+    );
     if source_has_human_challenge_signal(
         trimmed,
         resolved_title.as_deref().unwrap_or_default(),
@@ -127,15 +127,31 @@ pub(crate) fn push_pending_web_success(
         ) {
             return;
         }
-        pending.successful_reads.push(PendingSearchReadSummary {
-            url: resolved_url,
-            title: resolved_title,
-            excerpt: resolved_excerpt,
-        });
+        upsert_pending_web_success_record(
+            pending,
+            &query_contract,
+            PendingSearchReadSummary {
+                url: resolved_url,
+                title: resolved_title,
+                excerpt: resolved_excerpt,
+            },
+        );
         return;
     }
     if reject_search_hub && is_search_hub_url(trimmed) {
         return;
+    }
+    if let Some(hint_excerpt_text) = hint_excerpt.as_deref() {
+        // For grounded reads, retain the stronger same-URL surface between the
+        // read excerpt and the search hint so identifier/currentness evidence is
+        // not discarded simply because the read returned a weaker snippet.
+        if !menu_inventory_grounded_excerpt {
+            resolved_excerpt = prefer_excerpt_for_query(
+                &query_contract,
+                resolved_excerpt,
+                hint_excerpt_text.to_string(),
+            );
+        }
     }
     if projection.query_facets.grounded_external_required || time_sensitive {
         let compatibility = candidate_constraint_compatibility(
@@ -150,6 +166,9 @@ pub(crate) fn push_pending_web_success(
             &resolved_excerpt,
         );
         let mut compatibility_passes = compatibility_passes_projection(&projection, &compatibility);
+        if !compatibility_passes && menu_inventory_grounded_excerpt {
+            compatibility_passes = true;
+        }
         if !compatibility_passes {
             if let Some(hint_entry) = hint {
                 let hint_title = hint_entry.title.as_deref().unwrap_or_default().trim();
@@ -175,7 +194,7 @@ pub(crate) fn push_pending_web_success(
                     {
                         resolved_title = Some(hint_title.to_string());
                     }
-                    if !hint_excerpt.is_empty() {
+                    if !menu_inventory_grounded_excerpt && !hint_excerpt.is_empty() {
                         resolved_excerpt = hint_excerpt.to_string();
                     }
                 }
@@ -218,6 +237,23 @@ pub(crate) fn push_pending_web_success(
             {
                 return;
             }
+        }
+
+        if retrieval_contract_requires_document_briefing_identifier_evidence(
+            retrieval_contract,
+            &query_contract,
+        ) && !source_has_briefing_standard_identifier_signal(
+            &query_contract,
+            trimmed,
+            resolved_title.as_deref().unwrap_or_default(),
+            &resolved_excerpt,
+        ) && !source_has_document_authority(
+            &query_contract,
+            trimmed,
+            resolved_title.as_deref().unwrap_or_default(),
+            &resolved_excerpt,
+        ) {
+            return;
         }
 
         if time_sensitive {
@@ -308,11 +344,62 @@ pub(crate) fn push_pending_web_success(
         }
     }
 
-    pending.successful_reads.push(PendingSearchReadSummary {
-        url: trimmed.to_string(),
-        title: resolved_title,
-        excerpt: resolved_excerpt,
-    });
+    upsert_pending_web_success_record(
+        pending,
+        &query_contract,
+        PendingSearchReadSummary {
+            url: trimmed.to_string(),
+            title: resolved_title,
+            excerpt: resolved_excerpt,
+        },
+    );
+}
+
+fn local_business_menu_surface_grounded_excerpt(
+    retrieval_contract: Option<&WebRetrievalContract>,
+    query_contract: &str,
+    url: &str,
+    excerpt: &str,
+) -> bool {
+    let locality_hint = explicit_query_scope_hint(query_contract);
+    local_business_menu_surface_url(url)
+        && query_requires_local_business_menu_surface(
+            query_contract,
+            retrieval_contract,
+            locality_hint.as_deref(),
+        )
+        && local_business_menu_inventory_excerpt(excerpt, excerpt.chars().count()).is_some()
+}
+
+fn upsert_pending_web_success_record(
+    pending: &mut PendingSearchCompletion,
+    query_contract: &str,
+    incoming: PendingSearchReadSummary,
+) {
+    let trimmed = incoming.url.trim().to_string();
+    if trimmed.is_empty() {
+        return;
+    }
+    let normalized = PendingSearchReadSummary {
+        url: trimmed.clone(),
+        title: normalize_optional_title(incoming.title),
+        excerpt: incoming.excerpt.trim().to_string(),
+    };
+    if let Some(existing_idx) = pending
+        .successful_reads
+        .iter()
+        .position(|existing| url_structurally_equivalent(existing.url.trim(), &trimmed))
+    {
+        let merged = merge_pending_source_record_for_query(
+            query_contract,
+            pending.successful_reads[existing_idx].clone(),
+            normalized,
+        );
+        pending.successful_reads[existing_idx] = merged;
+        return;
+    }
+
+    pending.successful_reads.push(normalized);
 }
 
 fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> {
@@ -346,13 +433,52 @@ fn excerpt_without_source_url_metadata(excerpt: &str) -> String {
         .join(" ")
 }
 
+fn prioritized_success_excerpt_for_query(
+    pending: &PendingSearchCompletion,
+    url: &str,
+    title: &str,
+    input: &str,
+    max_chars: usize,
+) -> String {
+    let query_contract = synthesis_query_contract(pending);
+    let grounded = prioritized_query_grounding_excerpt_with_contract(
+        pending.retrieval_contract.as_ref(),
+        &query_contract,
+        pending.min_sources as usize,
+        url,
+        title,
+        input,
+        max_chars,
+    );
+    if !grounded.is_empty() {
+        return grounded;
+    }
+
+    prioritized_signal_excerpt(input, max_chars)
+}
+
 pub(crate) fn append_pending_web_success_fallback(
     pending: &mut PendingSearchCompletion,
     url: &str,
     raw_output: Option<&str>,
 ) {
-    let excerpt =
-        prioritized_signal_excerpt(raw_output.unwrap_or_default(), WEB_PIPELINE_EXCERPT_CHARS);
+    let raw_excerpt = prioritized_success_excerpt_for_query(
+        pending,
+        url,
+        "",
+        raw_output.unwrap_or_default(),
+        WEB_PIPELINE_EXCERPT_CHARS,
+    );
+    let excerpt = if raw_excerpt.is_empty()
+        || is_low_signal_excerpt(&raw_excerpt)
+        || raw_excerpt.contains("Final response emitted via chat__reply")
+        || raw_excerpt.starts_with("Recorded challenged source in fixed payload")
+        || raw_excerpt.starts_with("Source read failed in fixed payload")
+    {
+        String::new()
+    } else {
+        raw_excerpt
+    };
     push_pending_web_success(pending, url, None, excerpt);
 }
 
@@ -410,6 +536,14 @@ pub(crate) fn append_pending_web_success_from_bundle(
     bundle: &WebEvidenceBundle,
     fallback_url: &str,
 ) {
+    let blocked_urls = bundle_human_challenge_urls(bundle, fallback_url);
+    if !blocked_urls.is_empty() {
+        for url in blocked_urls {
+            mark_pending_web_blocked(pending, &url);
+        }
+        return;
+    }
+
     let query_contract = synthesis_query_contract(pending);
     let headline_collection_mode = retrieval_contract_is_generic_headline_collection(
         pending.retrieval_contract.as_ref(),
@@ -431,7 +565,13 @@ pub(crate) fn append_pending_web_success_from_bundle(
                         .and_then(|source| source.title.clone())
                 })
                 .filter(|value| !value.trim().is_empty());
-            let excerpt = prioritized_signal_excerpt(&doc.content_text, WEB_PIPELINE_EXCERPT_CHARS);
+            let excerpt = prioritized_success_excerpt_for_query(
+                pending,
+                doc.url.as_str(),
+                title.as_deref().unwrap_or_default(),
+                &doc.content_text,
+                WEB_PIPELINE_EXCERPT_CHARS,
+            );
             if try_append_headline_bundle_success(
                 pending,
                 fallback_trimmed,
@@ -446,8 +586,13 @@ pub(crate) fn append_pending_web_success_from_bundle(
 
         if !appended {
             for source in bundle.sources.iter().take(8) {
-                let excerpt =
-                    prioritized_signal_excerpt(source.snippet.as_deref().unwrap_or_default(), 180);
+                let excerpt = prioritized_success_excerpt_for_query(
+                    pending,
+                    source.url.as_str(),
+                    source.title.as_deref().unwrap_or_default(),
+                    source.snippet.as_deref().unwrap_or_default(),
+                    180,
+                );
                 if try_append_headline_bundle_success(
                     pending,
                     fallback_trimmed,
@@ -479,7 +624,13 @@ pub(crate) fn append_pending_web_success_from_bundle(
                     .and_then(|source| source.title.clone())
             })
             .filter(|value| !value.trim().is_empty());
-        let excerpt = prioritized_signal_excerpt(&doc.content_text, WEB_PIPELINE_EXCERPT_CHARS);
+        let excerpt = prioritized_success_excerpt_for_query(
+            pending,
+            doc.url.as_str(),
+            title.as_deref().unwrap_or_default(),
+            &doc.content_text,
+            WEB_PIPELINE_EXCERPT_CHARS,
+        );
         let before = pending.successful_reads.len();
         push_pending_web_success(pending, &doc.url, title.clone(), excerpt.clone());
         if pending.successful_reads.len() > before {
@@ -498,8 +649,13 @@ pub(crate) fn append_pending_web_success_from_bundle(
     }
 
     if let Some(source) = bundle.sources.first() {
-        let excerpt =
-            prioritized_signal_excerpt(source.snippet.as_deref().unwrap_or_default(), 180);
+        let excerpt = prioritized_success_excerpt_for_query(
+            pending,
+            source.url.as_str(),
+            source.title.as_deref().unwrap_or_default(),
+            source.snippet.as_deref().unwrap_or_default(),
+            180,
+        );
         let before = pending.successful_reads.len();
         push_pending_web_success(pending, &source.url, source.title.clone(), excerpt.clone());
         if pending.successful_reads.len() > before {
@@ -519,6 +675,45 @@ pub(crate) fn append_pending_web_success_from_bundle(
     }
 
     append_pending_web_success_fallback(pending, fallback_url, None);
+}
+
+fn bundle_human_challenge_urls(bundle: &WebEvidenceBundle, fallback_url: &str) -> Vec<String> {
+    let fallback_trimmed = fallback_url.trim();
+    let mut blocked = BTreeSet::new();
+
+    for doc in &bundle.documents {
+        if source_has_human_challenge_signal(
+            &doc.url,
+            doc.title.as_deref().unwrap_or_default(),
+            &doc.content_text,
+        ) {
+            if !fallback_trimmed.is_empty() {
+                blocked.insert(fallback_trimmed.to_string());
+            }
+            let trimmed = doc.url.trim();
+            if !trimmed.is_empty() {
+                blocked.insert(trimmed.to_string());
+            }
+        }
+    }
+
+    for source in &bundle.sources {
+        if source_has_human_challenge_signal(
+            &source.url,
+            source.title.as_deref().unwrap_or_default(),
+            source.snippet.as_deref().unwrap_or_default(),
+        ) {
+            if !fallback_trimmed.is_empty() {
+                blocked.insert(fallback_trimmed.to_string());
+            }
+            let trimmed = source.url.trim();
+            if !trimmed.is_empty() {
+                blocked.insert(trimmed.to_string());
+            }
+        }
+    }
+
+    blocked.into_iter().collect()
 }
 
 fn try_append_headline_bundle_success(
@@ -598,6 +793,7 @@ fn headline_read_success_url_allowed(url: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebSource};
 
     #[test]
     fn headline_read_success_url_rejects_root_homepages() {
@@ -617,5 +813,625 @@ mod tests {
         assert!(headline_read_success_url_allowed(
             "https://news.google.com/rss/articles/CBMiY2h0dHBzOi8vd3d3LmFwbmV3cy5jb20vYXJ0aWNsZS9leGFtcGxlLXN0b3J5LTIwMjYtMDMtMDFSAQA"
         ));
+    }
+
+    #[test]
+    fn push_pending_web_success_blocks_security_checkpoint_interstitials() {
+        let mut pending = PendingSearchCompletion {
+            query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                .to_string(),
+            query_contract:
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                    .to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(
+                    "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+                    None,
+                )
+                .expect("retrieval contract"),
+            ),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![
+                "https://www.hashicorp.com/en/blog/nist-s-post-quantum-cryptography-standards-our-plans"
+                    .to_string(),
+            ],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: "https://www.hashicorp.com/en/blog/nist-s-post-quantum-cryptography-standards-our-plans"
+                    .to_string(),
+                title: Some(
+                    "NIST's post-quantum cryptography standards: our plans".to_string(),
+                ),
+                excerpt:
+                    "HashiCorp outlines the newly finalized NIST post-quantum standards and migration planning."
+                        .to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 3,
+        };
+
+        push_pending_web_success(
+            &mut pending,
+            "https://www.hashicorp.com/en/blog/nist-s-post-quantum-cryptography-standards-our-plans",
+            Some("Vercel Security Checkpoint".to_string()),
+            "Please complete the security check to continue.".to_string(),
+        );
+
+        assert!(pending.successful_reads.is_empty());
+        assert_eq!(
+            pending.blocked_urls,
+            vec![
+                "https://www.hashicorp.com/en/blog/nist-s-post-quantum-cryptography-standards-our-plans"
+                    .to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn push_pending_web_success_upgrades_duplicate_url_with_identifier_bearing_excerpt() {
+        let requested_url = "https://www.nist.gov/pqc";
+        let mut pending = PendingSearchCompletion {
+            query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                .to_string(),
+            query_contract:
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                    .to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(
+                    "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+                    None,
+                )
+                .expect("retrieval contract"),
+            ),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("Post-quantum cryptography | NIST".to_string()),
+                excerpt: "NIST maintains migration guidance for post-quantum cryptography.".to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 3,
+        };
+
+        push_pending_web_success(
+            &mut pending,
+            requested_url,
+            Some("Post-quantum cryptography | NIST".to_string()),
+            "NIST maintains post-quantum cryptography migration guidance for agencies.".to_string(),
+        );
+        push_pending_web_success(
+            &mut pending,
+            requested_url,
+            Some("Post-quantum cryptography | NIST".to_string()),
+            "The Federal Information Processing Standards FIPS 203, FIPS 204, and FIPS 205 standardize ML-KEM, ML-DSA, and SLH-DSA."
+                .to_string(),
+        );
+
+        assert_eq!(pending.successful_reads.len(), 1);
+        assert!(
+            pending.successful_reads[0].excerpt.contains("FIPS 203")
+                && pending.successful_reads[0].excerpt.contains("FIPS 204")
+                && pending.successful_reads[0].excerpt.contains("FIPS 205"),
+            "expected upgraded identifier-bearing excerpt, got: {:?}",
+            pending.successful_reads[0]
+        );
+    }
+
+    #[test]
+    fn push_pending_web_success_prefers_hint_identifier_excerpt_for_document_briefing_queries() {
+        let requested_url =
+            "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards";
+        let mut pending = PendingSearchCompletion {
+            query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                .to_string(),
+            query_contract:
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                    .to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(
+                    "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+                    None,
+                )
+                .expect("retrieval contract"),
+            ),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some(
+                    "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
+                        .to_string(),
+                ),
+                excerpt:
+                    "NIST finalized FIPS 203, FIPS 204, and FIPS 205 as the first post-quantum standards."
+                        .to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 2,
+        };
+
+        push_pending_web_success(
+            &mut pending,
+            requested_url,
+            Some("NIST Releases First 3 Finalized Post-Quantum Encryption Standards".to_string()),
+            "NIST released the first finalized post-quantum encryption standards.".to_string(),
+        );
+
+        assert_eq!(pending.successful_reads.len(), 1);
+        assert!(
+            pending.successful_reads[0].excerpt.contains("FIPS 203")
+                && pending.successful_reads[0].excerpt.contains("FIPS 204")
+                && pending.successful_reads[0].excerpt.contains("FIPS 205"),
+            "expected hint-backed identifier coverage to be preserved, got: {:?}",
+            pending.successful_reads[0]
+        );
+    }
+
+    #[test]
+    fn append_pending_web_success_from_bundle_blocks_security_checkpoint_documents() {
+        let requested_url =
+            "https://www.hashicorp.com/en/blog/nist-s-post-quantum-cryptography-standards-our-plans";
+        let mut pending = PendingSearchCompletion {
+            query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                .to_string(),
+            query_contract:
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                    .to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(
+                    "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+                    None,
+                )
+                .expect("retrieval contract"),
+            ),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("NIST's post-quantum cryptography standards: our plans".to_string()),
+                excerpt:
+                    "HashiCorp outlines the newly finalized NIST post-quantum standards and migration planning."
+                        .to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 3,
+        };
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 1_773_117_248_754,
+            tool: "web__read".to_string(),
+            backend: "edge:read:http".to_string(),
+            query: None,
+            url: Some(requested_url.to_string()),
+            sources: vec![WebSource {
+                source_id: "hashicorp".to_string(),
+                rank: Some(1),
+                url: requested_url.to_string(),
+                title: Some(
+                    "HashiCorp hashicorp.com › en › blog › nist-s-post-quantum-cryptography-standards-our-plans NIST’s post-quantum cryptography standards: Our plans"
+                        .to_string(),
+                ),
+                snippet: Some(String::new()),
+                domain: Some("hashicorp.com".to_string()),
+            }],
+            source_observations: vec![],
+            documents: vec![WebDocument {
+                source_id: "hashicorp".to_string(),
+                url: requested_url.to_string(),
+                title: Some("Vercel Security Checkpoint".to_string()),
+                content_text: "Please complete the security check to continue.".to_string(),
+                content_hash: "hashicorp-checkpoint".to_string(),
+                quote_spans: vec![],
+            }],
+            provider_candidates: vec![],
+            retrieval_contract: None,
+        };
+
+        append_pending_web_success_from_bundle(&mut pending, &bundle, requested_url);
+
+        assert!(pending.successful_reads.is_empty());
+        assert_eq!(pending.blocked_urls, vec![requested_url.to_string()]);
+    }
+
+    #[test]
+    fn append_pending_web_success_from_bundle_prefers_identifier_bearing_excerpt_for_briefing_queries(
+    ) {
+        let requested_url = "https://www.nist.gov/pqc";
+        let mut pending = PendingSearchCompletion {
+            query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                .to_string(),
+            query_contract:
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                    .to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(
+                    "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+                    None,
+                )
+                .expect("retrieval contract"),
+            ),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("Post-quantum cryptography | NIST".to_string()),
+                excerpt: "December 8, 2025 - These Federal Information Processing Standards are mandatory for federal systems and adopted around the world.".to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 3,
+        };
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 1_773_117_248_754,
+            tool: "web__read".to_string(),
+            backend: "edge:read:http".to_string(),
+            query: None,
+            url: Some(requested_url.to_string()),
+            sources: vec![WebSource {
+                source_id: "nist-pqc".to_string(),
+                rank: Some(1),
+                url: requested_url.to_string(),
+                title: Some("Post-quantum cryptography | NIST".to_string()),
+                snippet: Some(
+                    "Federal Information Processing Standards FIPS 203, FIPS 204, and FIPS 205 are now available."
+                        .to_string(),
+                ),
+                domain: Some("nist.gov".to_string()),
+            }],
+            source_observations: vec![],
+            documents: vec![WebDocument {
+                source_id: "nist-pqc".to_string(),
+                url: requested_url.to_string(),
+                title: Some("Post-quantum cryptography | NIST".to_string()),
+                content_text: "NIST maintains resources for post-quantum cryptography migration. The Federal Information Processing Standards FIPS 203, FIPS 204, and FIPS 205 standardize ML-KEM, ML-DSA, and SLH-DSA for federal systems. Agencies should prepare transition plans.".to_string(),
+                content_hash: "nist-pqc-doc".to_string(),
+                quote_spans: vec![],
+            }],
+            provider_candidates: vec![],
+            retrieval_contract: None,
+        };
+
+        append_pending_web_success_from_bundle(&mut pending, &bundle, requested_url);
+
+        assert_eq!(pending.successful_reads.len(), 1);
+        assert_eq!(pending.successful_reads[0].url, requested_url);
+        assert!(
+            pending.successful_reads[0].excerpt.contains("FIPS 203")
+                && pending.successful_reads[0].excerpt.contains("FIPS 204")
+                && pending.successful_reads[0].excerpt.contains("FIPS 205"),
+            "expected identifier-bearing excerpt, got: {:?}",
+            pending.successful_reads[0]
+        );
+    }
+
+    #[test]
+    fn append_pending_web_success_from_bundle_preserves_inventory_excerpt_for_menu_comparisons() {
+        let query =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let requested_url =
+            "https://www.restaurantji.com/sc/anderson/brothers-italian-cuisine-/menu/";
+        let mut pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                    .expect("retrieval contract"),
+            ),
+            url: "https://www.restaurantji.com/sc/anderson/italian/".to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("Menu".to_string()),
+                excerpt:
+                    "Italian restaurant in Anderson, SC serving pasta, calzones, and sandwiches."
+                        .to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 3,
+        };
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 1_773_117_248_754,
+            tool: "web__read".to_string(),
+            backend: "edge:read:http".to_string(),
+            query: None,
+            url: Some(requested_url.to_string()),
+            sources: vec![WebSource {
+                source_id: "brothers-menu".to_string(),
+                rank: Some(1),
+                url: requested_url.to_string(),
+                title: Some("Menu".to_string()),
+                snippet: Some(String::new()),
+                domain: Some("restaurantji.com".to_string()),
+            }],
+            source_observations: vec![],
+            documents: vec![WebDocument {
+                source_id: "brothers-menu".to_string(),
+                url: requested_url.to_string(),
+                title: Some("Menu".to_string()),
+                content_text: "Item inventory includes Brothers Special Shrimp Pasta, Chef Salad, Italian Stromboli, Grilled Chicken Salad, and Meat Lovers Calzone. Related image gallery available with 6 images. Brothers Special Shrimp Pasta. Chef Salad.".to_string(),
+                content_hash: "brothers-menu-doc".to_string(),
+                quote_spans: vec![],
+            }],
+            provider_candidates: vec![],
+            retrieval_contract: None,
+        };
+
+        append_pending_web_success_from_bundle(&mut pending, &bundle, requested_url);
+
+        assert_eq!(pending.successful_reads.len(), 1);
+        assert_eq!(pending.successful_reads[0].url, requested_url);
+        assert!(
+            pending.successful_reads[0]
+                .excerpt
+                .contains("Item inventory includes"),
+            "expected structured inventory excerpt to survive read success, got: {:?}",
+            pending.successful_reads[0]
+        );
+    }
+
+    #[test]
+    fn append_pending_web_success_from_bundle_synthesizes_inventory_excerpt_from_line_list_menu_surface(
+    ) {
+        let query =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let requested_url =
+            "https://www.restaurantji.com/sc/anderson/red-tomato-and-wine-restaurant-/menu/";
+        let mut pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                    .expect("retrieval contract"),
+            ),
+            url: "https://www.restaurantji.com/sc/anderson/italian/".to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("Menu".to_string()),
+                excerpt:
+                    "Italian restaurant in Anderson, SC serving pizza, pasta, and Mediterranean starters."
+                        .to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 3,
+        };
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 1_773_117_248_754,
+            tool: "web__read".to_string(),
+            backend: "edge:read:http".to_string(),
+            query: None,
+            url: Some(requested_url.to_string()),
+            sources: vec![WebSource {
+                source_id: "red-tomato-menu".to_string(),
+                rank: Some(1),
+                url: requested_url.to_string(),
+                title: Some("Menu".to_string()),
+                snippet: Some(String::new()),
+                domain: Some("restaurantji.com".to_string()),
+            }],
+            source_observations: vec![],
+            documents: vec![WebDocument {
+                source_id: "red-tomato-menu".to_string(),
+                url: requested_url.to_string(),
+                title: Some("Menu".to_string()),
+                content_text: "Bread Sticks\n\nHummus\n\nDolmas\n\nOrganic Old Fashioned Chef Salad\n\nOrganic Antipasto Salad\n\nOrganic Chicken Salad\n\nCentral Avenue - 150 E Shockley Ferry Rd\n\nDomino's Pizza - 121 E Shockley Ferry Rd".to_string(),
+                content_hash: "red-tomato-menu-doc".to_string(),
+                quote_spans: vec![],
+            }],
+            provider_candidates: vec![],
+            retrieval_contract: None,
+        };
+
+        append_pending_web_success_from_bundle(&mut pending, &bundle, requested_url);
+
+        assert_eq!(pending.successful_reads.len(), 1);
+        assert_eq!(pending.successful_reads[0].url, requested_url);
+        assert!(
+            pending.successful_reads[0]
+                .excerpt
+                .contains("Item inventory includes Bread Sticks, Hummus, Dolmas"),
+            "expected synthesized inventory excerpt, got: {:?}",
+            pending.successful_reads[0]
+        );
+        assert!(
+            !pending.successful_reads[0]
+                .excerpt
+                .contains("Shockley Ferry Rd"),
+            "expected address-like tail lines to be excluded, got: {:?}",
+            pending.successful_reads[0]
+        );
+    }
+
+    #[test]
+    fn push_pending_web_success_preserves_inventory_excerpt_when_hint_is_more_generic() {
+        let query =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let requested_url =
+            "https://www.restaurantji.com/sc/anderson/coach-house-restaurant-/menu/";
+        let mut pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                    .expect("retrieval contract"),
+            ),
+            url: "https://www.restaurantji.com/sc/anderson/italian/".to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("Menu for Coach House Restaurant, Anderson, SC - Restaurantji".to_string()),
+                excerpt:
+                    "Coach House Restaurant in Anderson, SC offers a menu, reviews, photos, hours, and address."
+                        .to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 3,
+        };
+
+        push_pending_web_success(
+            &mut pending,
+            requested_url,
+            Some("Menu for Coach House Restaurant, Anderson, SC - Restaurantji".to_string()),
+            "Item inventory includes Served with Sauteed Onions and Brown Gravy, Tuesday Dinner Special Chopped Steak, Broccoli Stuffed Chicken Breast, Country Fried Steak Sandwich, and Assorted Home Made Cakes."
+                .to_string(),
+        );
+
+        assert_eq!(pending.successful_reads.len(), 1);
+        assert_eq!(pending.successful_reads[0].url, requested_url);
+        assert!(
+            pending.successful_reads[0]
+                .excerpt
+                .contains("Item inventory includes"),
+            "expected structured inventory excerpt to survive generic hint replacement, got: {:?}",
+            pending.successful_reads[0]
+        );
+    }
+
+    #[test]
+    fn push_pending_web_success_rejects_non_authority_non_identifier_briefing_source() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let requested_url =
+            "https://www.ibm.com/think/insights/post-quantum-cryptography-transition";
+        let mut pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(query, None)
+                    .expect("retrieval contract"),
+            ),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("Post-quantum cryptography transition guidance".to_string()),
+                excerpt:
+                    "March 2026 - IBM explains recent NIST post-quantum cryptography transition planning for enterprises."
+                        .to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 2,
+        };
+
+        push_pending_web_success(
+            &mut pending,
+            requested_url,
+            Some("Post-quantum cryptography transition guidance".to_string()),
+            "March 2026 - IBM explains recent NIST post-quantum cryptography transition planning for enterprises."
+                .to_string(),
+        );
+
+        assert!(
+            pending.successful_reads.is_empty(),
+            "unexpected retained sources: {:?}",
+            pending.successful_reads
+        );
+    }
+
+    #[test]
+    fn append_pending_web_success_fallback_backfills_hint_for_terminal_completion_notes() {
+        let requested_url = "https://www.nist.gov/pqc";
+        let mut pending = PendingSearchCompletion {
+            query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                .to_string(),
+            query_contract:
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                    .to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(
+                    "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+                    None,
+                )
+                .expect("retrieval contract"),
+            ),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1_773_117_248_754,
+            deadline_ms: 1_773_117_308_754,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("Post-quantum cryptography | NIST".to_string()),
+                excerpt: "December 8, 2025 - These Federal Information Processing Standards are mandatory for federal systems and adopted around the world.".to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 2,
+        };
+
+        append_pending_web_success_fallback(
+            &mut pending,
+            requested_url,
+            Some("Completed. Final response emitted via chat__reply."),
+        );
+
+        assert_eq!(pending.successful_reads.len(), 1);
+        assert_eq!(pending.successful_reads[0].url, requested_url);
+        assert_eq!(
+            pending.successful_reads[0].title.as_deref(),
+            Some("Post-quantum cryptography | NIST")
+        );
+        assert!(
+            pending.successful_reads[0]
+                .excerpt
+                .contains("Federal Information Processing Standards"),
+            "expected hint excerpt to be retained for fallback evidence: {:?}",
+            pending.successful_reads[0]
+        );
     }
 }

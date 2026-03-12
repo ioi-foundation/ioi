@@ -17,8 +17,8 @@ mod tests;
 pub use contract::derive_web_retrieval_contract;
 pub(crate) use contract::{
     contract_requires_geo_scoped_entity_expansion, contract_requires_semantic_source_alignment,
-    infer_query_matching_source_urls, infer_web_retrieval_contract, query_matching_source_urls,
-    WEB_SOURCE_ALIGNMENT_MAX_SOURCES,
+    infer_query_matching_source_urls, infer_web_retrieval_contract,
+    normalize_web_retrieval_contract, query_matching_source_urls, WEB_SOURCE_ALIGNMENT_MAX_SOURCES,
 };
 pub(crate) use media::media_provider_candidate_receipt;
 pub use media::{edge_media_extract_multimodal_evidence, edge_media_extract_transcript};

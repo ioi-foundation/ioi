@@ -1,5 +1,44 @@
 use super::*;
 
+fn blocked_web_read_note(read_url: &str, challenged: bool) -> String {
+    if challenged {
+        return format!(
+            "Recorded challenged source in fixed payload (no fallback retries): {}",
+            read_url
+        );
+    }
+
+    format!(
+        "Source read failed in fixed payload (no fallback retries): {}",
+        read_url
+    )
+}
+
+fn normalize_blocked_web_read_for_continuation(
+    success: &mut bool,
+    error_msg: &mut Option<String>,
+    history_entry: &mut Option<String>,
+    action_output: &mut Option<String>,
+    stop_condition_hit: &mut bool,
+    escalation_path: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    read_url: &str,
+    challenged: bool,
+) {
+    if *success {
+        return;
+    }
+
+    let note = blocked_web_read_note(read_url, challenged);
+    *success = true;
+    *error_msg = None;
+    *history_entry = Some(note.clone());
+    *action_output = Some(note);
+    *stop_condition_hit = false;
+    *escalation_path = None;
+    verification_checks.push("web_blocked_read_continues=true".to_string());
+}
+
 pub(crate) async fn apply_post_execution_guards(
     ctx: ApplyPostExecutionGuardsContext<'_, '_>,
     state_in: ActionProcessingState,
@@ -271,48 +310,121 @@ pub(crate) async fn apply_post_execution_guards(
             verification_checks.push(format!("web_constraint_search_probe_queued={}", false));
 
             if let Some(reason) = completion_reason {
-                append_final_web_completion_receipts(&pending, reason, &mut verification_checks);
-                let summary = if let Some(hybrid_summary) =
+                let mut summary_candidates = Vec::new();
+                if let Some(hybrid_summary) =
                     synthesize_web_pipeline_reply_hybrid(service, &pending, reason).await
                 {
-                    hybrid_summary
+                    summary_candidates.push(
+                        crate::agentic::desktop::service::step::queue::web_pipeline::FinalWebSummaryCandidate {
+                            provider: "hybrid",
+                            summary: hybrid_summary,
+                        },
+                    );
+                }
+                summary_candidates.push(
+                    crate::agentic::desktop::service::step::queue::web_pipeline::FinalWebSummaryCandidate {
+                        provider: "deterministic",
+                        summary: synthesize_web_pipeline_reply(&pending, reason),
+                    },
+                );
+                let selection =
+                    crate::agentic::desktop::service::step::queue::web_pipeline::select_final_web_summary_from_candidates(
+                        &pending,
+                        reason,
+                        summary_candidates,
+                    )
+                    .expect("web summary selection requires at least one candidate");
+                verification_checks
+                    .push(format!("web_final_summary_provider={}", selection.provider));
+                verification_checks.push(format!(
+                    "web_final_summary_contract_ready={}",
+                    selection.contract_ready
+                ));
+                for evaluation in &selection.evaluations {
+                    verification_checks.push(format!(
+                        "web_final_summary_candidate={}::contract_ready={}::rendered_layout={}::document_layout_met={}",
+                        evaluation.provider,
+                        evaluation.contract_ready,
+                        evaluation.facts.briefing_rendered_layout_profile,
+                        evaluation.facts.briefing_document_layout_met
+                    ));
+                }
+                let summary = selection.summary;
+                let final_facts =
+                    final_web_completion_facts_with_rendered_summary(&pending, reason, &summary);
+                let intent_id = resolved_intent_id(agent_state);
+                crate::agentic::desktop::service::step::queue::emit_final_web_completion_contract_receipts(
+                    service,
+                    session_id,
+                    agent_state.step_count,
+                    intent_id.as_str(),
+                    &final_facts,
+                );
+                append_final_web_completion_receipts_with_rendered_summary(
+                    &pending,
+                    reason,
+                    &summary,
+                    &mut verification_checks,
+                );
+                if !crate::agentic::desktop::service::step::queue::web_pipeline::final_web_completion_contract_ready(&final_facts) {
+                    agent_state.pending_search_completion = Some(pending);
+                    verification_checks.push("execution_contract_gate_blocked=true".to_string());
+                    verification_checks.push(
+                        "execution_contract_missing_keys=receipt::final_output_contract_ready=true"
+                            .to_string(),
+                    );
+                    verification_checks.push(
+                        "web_pipeline_terminalization_blocked_on_rendered_output=true"
+                            .to_string(),
+                    );
+                    verification_checks.push("web_pipeline_active=true".to_string());
+                    verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                    let blocked_by_challenge =
+                        is_human_challenge_error(error_msg.as_deref().unwrap_or(""));
+                    normalize_blocked_web_read_for_continuation(
+                        &mut success,
+                        &mut error_msg,
+                        &mut history_entry,
+                        &mut action_output,
+                        &mut stop_condition_hit,
+                        &mut escalation_path,
+                        &mut verification_checks,
+                        &read_url,
+                        blocked_by_challenge,
+                    );
+                    if success {
+                        agent_state.status = AgentStatus::Running;
+                    }
                 } else {
-                    synthesize_web_pipeline_reply(&pending, reason)
-                };
-                success = true;
-                error_msg = None;
-                action_output = Some(summary.clone());
-                history_entry = Some(summary.clone());
-                terminal_chat_reply_output = Some(summary.clone());
-                is_lifecycle_action = true;
-                agent_state.status = AgentStatus::Completed(Some(summary));
-                agent_state.pending_search_completion = None;
-                agent_state.execution_queue.clear();
-                agent_state.recent_actions.clear();
-                verification_checks.push("web_pipeline_active=false".to_string());
-                verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                    success = true;
+                    error_msg = None;
+                    action_output = Some(summary.clone());
+                    history_entry = Some(summary.clone());
+                    terminal_chat_reply_output = Some(summary.clone());
+                    is_lifecycle_action = true;
+                    agent_state.status = AgentStatus::Completed(Some(summary));
+                    agent_state.pending_search_completion = None;
+                    agent_state.execution_queue.clear();
+                    agent_state.recent_actions.clear();
+                    verification_checks.push("web_pipeline_active=false".to_string());
+                    verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                }
             } else {
                 let challenge = is_human_challenge_error(error_msg.as_deref().unwrap_or(""));
                 agent_state.pending_search_completion = Some(pending);
                 verification_checks.push("web_pipeline_active=true".to_string());
-                if !success {
-                    let note = if challenge {
-                        format!(
-                            "Recorded challenged source in fixed payload (no fallback retries): {}",
-                            read_url
-                        )
-                    } else {
-                        format!(
-                            "Source read failed in fixed payload (no fallback retries): {}",
-                            read_url
-                        )
-                    };
-                    success = true;
-                    error_msg = None;
-                    history_entry = Some(note.clone());
-                    action_output = Some(note);
-                    stop_condition_hit = false;
-                    escalation_path = None;
+                normalize_blocked_web_read_for_continuation(
+                    &mut success,
+                    &mut error_msg,
+                    &mut history_entry,
+                    &mut action_output,
+                    &mut stop_condition_hit,
+                    &mut escalation_path,
+                    &mut verification_checks,
+                    &read_url,
+                    challenge,
+                );
+                if success {
                     agent_state.status = AgentStatus::Running;
                 }
             }
@@ -346,4 +458,59 @@ pub(crate) async fn apply_post_execution_guards(
         invalid_tool_call_fail_fast_mailbox,
         terminal_chat_reply_output,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{blocked_web_read_note, normalize_blocked_web_read_for_continuation};
+
+    #[test]
+    fn blocked_web_read_note_distinguishes_challenge_from_generic_failure() {
+        assert_eq!(
+            blocked_web_read_note("https://example.com", true),
+            "Recorded challenged source in fixed payload (no fallback retries): https://example.com"
+        );
+        assert_eq!(
+            blocked_web_read_note("https://example.com", false),
+            "Source read failed in fixed payload (no fallback retries): https://example.com"
+        );
+    }
+
+    #[test]
+    fn normalize_blocked_web_read_for_continuation_clears_failure_state() {
+        let mut success = false;
+        let mut error_msg = Some("ERROR_CLASS=HumanChallengeRequired captcha".to_string());
+        let mut history_entry = None;
+        let mut action_output = None;
+        let mut stop_condition_hit = true;
+        let mut escalation_path = Some("pause".to_string());
+        let mut verification_checks = Vec::new();
+
+        normalize_blocked_web_read_for_continuation(
+            &mut success,
+            &mut error_msg,
+            &mut history_entry,
+            &mut action_output,
+            &mut stop_condition_hit,
+            &mut escalation_path,
+            &mut verification_checks,
+            "https://example.com",
+            true,
+        );
+
+        assert!(success);
+        assert!(error_msg.is_none());
+        assert_eq!(
+            history_entry.as_deref(),
+            Some(
+                "Recorded challenged source in fixed payload (no fallback retries): https://example.com"
+            )
+        );
+        assert_eq!(history_entry, action_output);
+        assert!(!stop_condition_hit);
+        assert!(escalation_path.is_none());
+        assert!(verification_checks
+            .iter()
+            .any(|check| check == "web_blocked_read_continues=true"));
+    }
 }

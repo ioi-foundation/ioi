@@ -595,6 +595,61 @@ fn web_pipeline_single_snapshot_completes_price_queries_when_explicit_quote_is_p
 }
 
 #[test]
+fn web_pipeline_single_snapshot_keeps_running_when_citation_floor_requires_another_read() {
+    let retrieval_contract = WebRetrievalContract {
+        entity_cardinality_min: 1,
+        comparison_required: false,
+        currentness_required: true,
+        runtime_locality_required: false,
+        source_independence_min: 1,
+        citation_count_min: 2,
+        structured_record_preferred: true,
+        ordered_collection_preferred: false,
+        link_collection_preferred: false,
+        canonical_link_out_preferred: false,
+        geo_scoped_detail_required: false,
+        discovery_surface_required: false,
+        entity_diversity_required: false,
+        scalar_measure_required: true,
+        browser_fallback_allowed: true,
+        ..WebRetrievalContract::default()
+    };
+    let pending = PendingSearchCompletion {
+        query: "What's the current price of Bitcoin?".to_string(),
+        query_contract: "What's the current price of Bitcoin?".to_string(),
+        retrieval_contract: Some(retrieval_contract),
+        url: "https://search.brave.com/search?q=current+bitcoin+price".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://www.coindesk.com/price/bitcoin".to_string(),
+            "https://www.coinbase.com/price/bitcoin".to_string(),
+        ],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: "https://www.coinbase.com/price/bitcoin".to_string(),
+            title: Some("Coinbase Bitcoin price".to_string()),
+            excerpt: "Current BTC quote: 86,744 USD.".to_string(),
+        }],
+        attempted_urls: vec!["https://www.coindesk.com/price/bitcoin".to_string()],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://www.coindesk.com/price/bitcoin".to_string(),
+            title: Some("CoinDesk Bitcoin price".to_string()),
+            excerpt: "Bitcoin price right now: $86,743.63 USD as of 17:23 UTC.".to_string(),
+        }],
+        min_sources: 2,
+    };
+
+    let reason = web_pipeline_completion_reason(&pending, 1_771_465_380_000);
+    assert!(
+        reason.is_none(),
+        "single-snapshot price query should keep running until the two-citation readable-source floor is met; got {:?}",
+        reason
+    );
+}
+
+#[test]
 fn web_pipeline_single_snapshot_keeps_running_for_stale_price_snippets() {
     let retrieval_contract = WebRetrievalContract {
         entity_cardinality_min: 1,

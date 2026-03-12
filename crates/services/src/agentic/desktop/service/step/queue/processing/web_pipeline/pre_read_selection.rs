@@ -95,6 +95,45 @@ fn selected_url_hint<'a>(
     })
 }
 
+fn pre_read_authority_source_required(
+    retrieval_contract: Option<&WebRetrievalContract>,
+    query_contract: &str,
+) -> bool {
+    query_prefers_document_briefing_layout(query_contract)
+        && !query_requests_comparison(query_contract)
+        && crate::agentic::desktop::service::step::signals::analyze_query_facets(query_contract)
+            .grounded_external_required
+        && retrieval_contract
+            .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
+            .unwrap_or(false)
+}
+
+fn pre_read_source_has_primary_authority(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    crate::agentic::desktop::service::step::queue::support::source_has_document_authority(
+        query_contract,
+        url,
+        title,
+        excerpt,
+    )
+}
+
+fn required_primary_authority_selection_floor(
+    authority_source_required: bool,
+    payload_primary_authority_sources: usize,
+    expected_count: usize,
+) -> usize {
+    if !authority_source_required {
+        0
+    } else {
+        payload_primary_authority_sources.min(expected_count)
+    }
+}
+
 fn payload_allows_external_article_url(
     retrieval_contract: Option<&WebRetrievalContract>,
     query_contract: &str,
@@ -337,8 +376,16 @@ fn lint_pre_read_payload_urls(
     }
 
     let source_hints = discovery_source_hints(discovery_sources);
+    let locality_hint =
+        if retrieval_contract_requires_runtime_locality(retrieval_contract, query_contract) {
+            effective_locality_scope_hint(None)
+        } else {
+            None
+        };
     let entity_diversity_required =
         retrieval_contract_entity_diversity_required(retrieval_contract, query_contract);
+    let authority_source_required =
+        pre_read_authority_source_required(retrieval_contract, query_contract);
     let required_domain_floor = if entity_diversity_required {
         0
     } else {
@@ -348,16 +395,45 @@ fn lint_pre_read_payload_urls(
     };
     let mut distinct_targets = std::collections::BTreeSet::new();
     let mut distinct_domains = std::collections::BTreeSet::new();
+    let mut selected_primary_authority_sources = 0usize;
+    let payload_primary_authority_sources = source_hints
+        .iter()
+        .filter(|hint| {
+            pre_read_url_has_allowed_affordance(
+                retrieval_contract,
+                query_contract,
+                required_count,
+                &source_hints,
+                locality_hint.as_deref(),
+                &hint.url,
+                hint.title.as_deref().unwrap_or_default(),
+                &hint.excerpt,
+            ) && pre_read_source_has_primary_authority(
+                query_contract,
+                &hint.url,
+                hint.title.as_deref().unwrap_or_default(),
+                &hint.excerpt,
+            )
+        })
+        .count();
+    let required_primary_authority_sources = required_primary_authority_selection_floor(
+        authority_source_required,
+        payload_primary_authority_sources,
+        expected_count,
+    );
     for url in &normalized {
         let trimmed = url.trim();
-        let Some(_matched_hint) = selected_url_hint(&source_hints, trimmed) else {
+        let Some(matched_hint) = selected_url_hint(&source_hints, trimmed) else {
             return Err(format!(
                 "selected URL was not present in the discovery payload: {}",
                 url
             ));
         };
         if !is_citable_web_url(trimmed) || is_search_hub_url(trimmed) {
-            return Err(format!("selected URL is not a citable source candidate: {}", url));
+            return Err(format!(
+                "selected URL is not a citable source candidate: {}",
+                url
+            ));
         }
         if *selection_mode == PreReadSelectionMode::DiscoverySeed {
             let Some(observation) = source_observation_for_url(source_observations, trimmed) else {
@@ -377,6 +453,14 @@ fn lint_pre_read_payload_urls(
         distinct_targets.insert(trimmed.to_ascii_lowercase());
         if let Some(domain) = selected_url_domain_key(&source_hints, trimmed) {
             distinct_domains.insert(domain);
+        }
+        if pre_read_source_has_primary_authority(
+            query_contract,
+            trimmed,
+            matched_hint.title.as_deref().unwrap_or_default(),
+            &matched_hint.excerpt,
+        ) {
+            selected_primary_authority_sources += 1;
         }
     }
 
@@ -398,14 +482,21 @@ fn lint_pre_read_payload_urls(
             distinct_domains.len()
         ));
     }
+    if *selection_mode == PreReadSelectionMode::DirectDetail
+        && authority_source_required
+        && required_primary_authority_sources > 0
+        && selected_primary_authority_sources < required_primary_authority_sources
+    {
+        return Err(format!(
+            "direct_detail selection must include {} primary authority source(s) when the payload contains {} admissible authority source(s)",
+            required_primary_authority_sources, payload_primary_authority_sources
+        ));
+    }
 
     Ok(normalized)
 }
 
-fn ranked_discovery_sources_with_limit(
-    bundle: &WebEvidenceBundle,
-    limit: usize,
-) -> Vec<WebSource> {
+fn ranked_discovery_sources_with_limit(bundle: &WebEvidenceBundle, limit: usize) -> Vec<WebSource> {
     let mut indexed = bundle
         .sources
         .iter()
@@ -489,20 +580,18 @@ fn build_pre_read_selection_payload(
     );
     let payload_sources = discovery_sources
         .iter()
-        .map(|source| {
-            PreReadDiscoverySource {
-                rank: source.rank,
-                url: source.url.trim().to_string(),
-                domain: source.domain.clone(),
-                title: source.title.clone(),
-                snippet: source.snippet.clone(),
-                affordances: source_observation_for_url(source_observations, &source.url)
-                    .map(|observation| observation.affordances.clone())
-                    .unwrap_or_default(),
-                expansion_affordances: source_observation_for_url(source_observations, &source.url)
-                    .map(|observation| observation.expansion_affordances.clone())
-                    .unwrap_or_default(),
-            }
+        .map(|source| PreReadDiscoverySource {
+            rank: source.rank,
+            url: source.url.trim().to_string(),
+            domain: source.domain.clone(),
+            title: source.title.clone(),
+            snippet: source.snippet.clone(),
+            affordances: source_observation_for_url(source_observations, &source.url)
+                .map(|observation| observation.affordances.clone())
+                .unwrap_or_default(),
+            expansion_affordances: source_observation_for_url(source_observations, &source.url)
+                .map(|observation| observation.expansion_affordances.clone())
+                .unwrap_or_default(),
         })
         .collect::<Vec<_>>();
     let mut constraints = vec![
@@ -527,10 +616,26 @@ fn build_pre_read_selection_payload(
                 .to_string(),
         );
     }
-    if retrieval_contract.source_independence_min > 1 && !retrieval_contract.entity_diversity_required
+    if retrieval_contract.source_independence_min > 1
+        && !retrieval_contract.entity_diversity_required
     {
         constraints.push(
             "When direct_detail is used, prefer independent sources from distinct domains when the payload permits."
+                .to_string(),
+        );
+    }
+    if pre_read_authority_source_required(Some(&retrieval_contract), query_contract)
+        && discovery_sources.iter().any(|source| {
+            pre_read_source_has_primary_authority(
+                query_contract,
+                &source.url,
+                source.title.as_deref().unwrap_or_default(),
+                source.snippet.as_deref().unwrap_or_default(),
+            )
+        })
+    {
+        constraints.push(
+            "For grounded current document briefings, direct_detail must include primary authority sources first. If the payload contains admissible primary authority sources, include min(required_url_count, admissible_primary_authority_sources)."
                 .to_string(),
         );
     }
@@ -639,6 +744,7 @@ async fn synthesize_pre_read_selection(
                  Requirements:\n\
                  - Use only payload URLs.\n\
                  - Use only the typed retrieval contract and payload source metadata.\n\
+                 - Satisfy every string in payload.constraints.\n\
                  - `direct_detail` means the returned URLs can be read directly as final evidence sources.\n\
                  {}\n\
                  - Prefer semantically aligned sources that satisfy locality/currentness constraints already encoded in the query contract.\n\
@@ -884,13 +990,27 @@ pub(super) fn headline_selection_quality_metrics(
     )
 }
 
+fn url_in_allowed_resolution_set(url: &str, allowed_urls: &[String]) -> bool {
+    let trimmed = url.trim();
+    allowed_urls.iter().any(|allowed| {
+        allowed.eq_ignore_ascii_case(trimmed) || url_structurally_equivalent(allowed, trimmed)
+    })
+}
+
 fn resolve_selected_urls_from_hints(
     selected_urls: &mut Vec<String>,
     source_hints: &[PendingSearchReadSummary],
+    allowed_resolution_urls: Option<&[String]>,
 ) {
     for selected in selected_urls.iter_mut() {
         let selected_trimmed = selected.trim().to_string();
         if selected_trimmed.is_empty() {
+            continue;
+        }
+        let selected_requires_resolution = !is_citable_web_url(&selected_trimmed)
+            || is_search_hub_url(&selected_trimmed)
+            || is_multi_item_listing_url(&selected_trimmed);
+        if !selected_requires_resolution {
             continue;
         }
         let resolved = source_hints
@@ -901,7 +1021,14 @@ fn resolve_selected_urls_from_hints(
                     || url_structurally_equivalent(hint_url, &selected_trimmed)
             })
             .and_then(|hint| source_url_from_metadata_excerpt(&hint.excerpt))
-            .filter(|resolved_url| is_citable_web_url(resolved_url) && !is_search_hub_url(resolved_url));
+            .filter(|resolved_url| {
+                is_citable_web_url(resolved_url) && !is_search_hub_url(resolved_url)
+            })
+            .filter(|resolved_url| {
+                allowed_resolution_urls
+                    .map(|allowed| url_in_allowed_resolution_set(resolved_url, allowed))
+                    .unwrap_or(true)
+            });
         if let Some(resolved_url) = resolved {
             *selected = resolved_url;
         }
@@ -912,6 +1039,152 @@ fn resolve_selected_urls_from_hints(
         let _ = push_unique_selected_url(&mut deduped, selected);
     }
     *selected_urls = deduped;
+}
+
+#[cfg(test)]
+mod pre_read_selection_tests {
+    use super::*;
+
+    #[test]
+    fn selected_url_resolution_does_not_escape_allowed_alignment_set() {
+        let mut selected_urls =
+            vec!["https://research.ibm.com/blog/nist-pqc-standards".to_string()];
+        let source_hints = vec![PendingSearchReadSummary {
+            url: "https://research.ibm.com/blog/nist-pqc-standards".to_string(),
+            title: Some("NIST's post-quantum cryptography standards are here".to_string()),
+            excerpt: "IBM Research | source_url=https://www.hashicorp.com/en/blog/nist-s-post-quantum-cryptography-standards-our-plans".to_string(),
+        }];
+        let allowed_resolution_urls = vec![
+            "https://research.ibm.com/blog/nist-pqc-standards".to_string(),
+            "https://www.nist.gov/pqc".to_string(),
+        ];
+
+        resolve_selected_urls_from_hints(
+            &mut selected_urls,
+            &source_hints,
+            Some(&allowed_resolution_urls),
+        );
+
+        assert_eq!(
+            selected_urls,
+            vec!["https://research.ibm.com/blog/nist-pqc-standards".to_string()]
+        );
+    }
+
+    #[test]
+    fn selected_url_resolution_keeps_resolved_url_within_allowed_alignment_set() {
+        let mut selected_urls =
+            vec!["https://news.google.com/rss/articles/CBMiUkFVX3lxTE0x?oc=5".to_string()];
+        let source_hints = vec![PendingSearchReadSummary {
+            url: "https://news.google.com/rss/articles/CBMiUkFVX3lxTE0x?oc=5".to_string(),
+            title: Some("NIST releases first 3 finalized post-quantum encryption standards".to_string()),
+            excerpt: "Google News | source_url=https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+        }];
+        let allowed_resolution_urls = vec![
+            "https://news.google.com/rss/articles/CBMiUkFVX3lxTE0x?oc=5".to_string(),
+            "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+        ];
+
+        resolve_selected_urls_from_hints(
+            &mut selected_urls,
+            &source_hints,
+            Some(&allowed_resolution_urls),
+        );
+
+        assert_eq!(
+            selected_urls,
+            vec![
+                "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn selected_url_resolution_preserves_deep_article_urls_when_metadata_points_to_root() {
+        let mut selected_urls = vec![
+            "https://www.cbsnews.com/live-updates/iran-war-us-israel-strait-of-hormuz-ship-attacks-persian-gulf-drones-missiles/".to_string(),
+        ];
+        let source_hints = vec![PendingSearchReadSummary {
+            url: "https://www.cbsnews.com/live-updates/iran-war-us-israel-strait-of-hormuz-ship-attacks-persian-gulf-drones-missiles/".to_string(),
+            title: Some("Live Updates".to_string()),
+            excerpt: "CBS News | source_url=https://www.cbsnews.com".to_string(),
+        }];
+
+        resolve_selected_urls_from_hints(&mut selected_urls, &source_hints, None);
+
+        assert_eq!(
+            selected_urls,
+            vec![
+                "https://www.cbsnews.com/live-updates/iran-war-us-israel-strait-of-hormuz-ship-attacks-persian-gulf-drones-missiles/"
+                    .to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn lint_requires_all_available_primary_authority_sources_up_to_required_count() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "official-nist-pqc".to_string(),
+                rank: Some(1),
+                url: "https://www.nist.gov/pqc".to_string(),
+                title: Some("Post-quantum cryptography | NIST".to_string()),
+                snippet: Some(
+                    "December 8, 2025 - These Federal Information Processing Standards (FIPS) are mandatory for federal systems and adopted around the world."
+                        .to_string(),
+                ),
+                domain: Some("nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-nist-news".to_string(),
+                rank: Some(2),
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST releases first 3 finalized post-quantum encryption standards"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 203, FIPS 204 and FIPS 205 for post-quantum cryptography."
+                        .to_string(),
+                ),
+                domain: Some("nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "secondary-cyberscoop".to_string(),
+                rank: Some(3),
+                url: "https://cyberscoop.com/why-federal-it-leaders-must-act-now-to-deliver-nists-post-quantum-cryptography-transition-op-ed/".to_string(),
+                title: Some(
+                    "Why federal IT leaders must act now to deliver NIST's post-quantum cryptography transition".to_string(),
+                ),
+                snippet: Some(
+                    "CyberScoop analysis of NIST post-quantum cryptography transition guidance."
+                        .to_string(),
+                ),
+                domain: Some("cyberscoop.com".to_string()),
+            },
+        ];
+
+        let err = lint_pre_read_payload_urls(
+            Some(&retrieval_contract),
+            query,
+            &discovery_sources,
+            &[],
+            &PreReadSelectionMode::DirectDetail,
+            &[
+                "https://www.nist.gov/pqc".to_string(),
+                "https://cyberscoop.com/why-federal-it-leaders-must-act-now-to-deliver-nists-post-quantum-cryptography-transition-op-ed/".to_string(),
+            ],
+            2,
+        )
+        .expect_err("secondary source should not replace available authority source");
+
+        assert!(err.contains("include 2 primary authority source(s)"));
+    }
 }
 
 fn merge_source_hints(

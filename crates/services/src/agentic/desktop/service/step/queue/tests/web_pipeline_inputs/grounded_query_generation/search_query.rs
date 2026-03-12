@@ -532,6 +532,42 @@ fn web_pipeline_constraint_grounded_search_query_adds_status_surface_terms_for_i
 }
 
 #[test]
+fn web_pipeline_constraint_grounded_search_query_adds_grounding_anchor_for_document_briefings()
+{
+    let query =
+        "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+    let grounded = constraint_grounded_search_query(query, 3);
+    let normalized = grounded.to_ascii_lowercase();
+
+    assert!(
+        normalized.contains("nist"),
+        "grounded query should preserve the subject anchor: {}",
+        grounded
+    );
+    assert!(
+        normalized.contains("post quantum cryptography"),
+        "grounded query should preserve the core topic anchor: {}",
+        grounded
+    );
+    assert!(
+        normalized.contains("standards"),
+        "grounded query should preserve the standards anchor: {}",
+        grounded
+    );
+    assert!(
+        normalized.contains('"'),
+        "document briefings should carry a grounded native anchor phrase: {}",
+        grounded
+    );
+    assert!(
+        !normalized.contains("\"one page briefing\"")
+            && !normalized.contains("\"write me a one page briefing\""),
+        "grounded anchor phrase should stay on the retrieval subject, not the output contract: {}",
+        grounded
+    );
+}
+
+#[test]
 fn web_pipeline_constraint_grounded_search_query_preserves_non_locality_queries() {
     let query = constraint_grounded_search_query("summarize this local file", 2);
     assert_eq!(query, "summarize this local file");

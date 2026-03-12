@@ -168,6 +168,12 @@ fn web_pipeline_final_receipts_capture_same_domain_restaurant_comparison_complet
     assert!(checks
         .iter()
         .any(|check| { check == "web_final_comparison_ready=true" }));
+    assert!(checks.iter().any(|check| {
+        check == "web_final_local_business_menu_surface_required=true"
+    }));
+    assert!(checks.iter().any(|check| {
+        check == "web_final_local_business_menu_surface_floor_met=false"
+    }));
     assert!(checks
         .iter()
         .any(|check| { check == "web_final_single_snapshot_metric_grounding=false" }));
@@ -463,4 +469,81 @@ fn web_pipeline_local_business_target_selection_prefers_primary_surface_over_rev
 
     assert_eq!(selected.len(), 1);
     assert_eq!(selected[0].url, "https://carbonenewyork.com/menu");
+}
+
+#[test]
+fn web_pipeline_local_business_target_selection_accepts_menu_child_url_with_generic_title() {
+    let selected = selected_local_business_target_sources(
+        "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.",
+        &["Coach House Restaurant".to_string()],
+        &[
+            PendingSearchReadSummary {
+                url: "https://www.restaurantji.com/sc/anderson/coach-house-restaurant-/"
+                    .to_string(),
+                title: Some(
+                    "Coach House Restaurant, Anderson - Menu, Reviews (242), Photos (52) - Restaurantji"
+                        .to_string(),
+                ),
+                excerpt:
+                    "Anderson steakhouse and Italian restaurant with lasagna, ravioli and house specials."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.restaurantji.com/sc/anderson/coach-house-restaurant-/menu/"
+                    .to_string(),
+                title: Some("Menu".to_string()),
+                excerpt:
+                    "View the menu, hours, phone number, address and map for Coach House Restaurant."
+                        .to_string(),
+            },
+        ],
+        Some("Anderson, SC"),
+        1,
+    );
+
+    assert_eq!(selected.len(), 1);
+    assert_eq!(
+        selected[0].url,
+        "https://www.restaurantji.com/sc/anderson/coach-house-restaurant-/menu/"
+    );
+}
+
+#[test]
+fn web_pipeline_local_business_target_selection_prefers_live_like_restaurantji_menu_child() {
+    let selected = selected_local_business_target_sources(
+        "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.",
+        &["Red Tomato and Wine Restaurant".to_string()],
+        &[
+            PendingSearchReadSummary {
+                url: "https://www.restaurantji.com/sc/anderson/red-tomato-and-wine-restaurant-/"
+                    .to_string(),
+                title: Some(
+                    "Red Tomato and Wine Restaurant, Anderson - Menu, Reviews (323), Photos (49) - Restaurantji"
+                        .to_string(),
+                ),
+                excerpt:
+                    "Latest reviews, photos and ratings for Red Tomato and Wine Restaurant at 3907 Clemson Blvd STE A in Anderson - view the menu, hours, phone number, address and map."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.restaurantji.com/sc/anderson/red-tomato-and-wine-restaurant-/menu/"
+                    .to_string(),
+                title: Some(
+                    "Menu for Red Tomato and Wine Restaurant, Anderson, SC - Restaurantji"
+                        .to_string(),
+                ),
+                excerpt:
+                    "3907 Clemson Blvd STE A, Anderson, SC 29621 return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));"
+                        .to_string(),
+            },
+        ],
+        Some("Anderson, SC"),
+        1,
+    );
+
+    assert_eq!(selected.len(), 1);
+    assert_eq!(
+        selected[0].url,
+        "https://www.restaurantji.com/sc/anderson/red-tomato-and-wine-restaurant-/menu/"
+    );
 }

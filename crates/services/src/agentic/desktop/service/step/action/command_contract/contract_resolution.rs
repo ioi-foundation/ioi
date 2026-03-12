@@ -1,13 +1,11 @@
-use crate::agentic::desktop::service::step::intent_resolver::tool_provider_route_label;
+use crate::agentic::desktop::service::step::intent_resolver::{
+    tool_has_capability, tool_provider_route_label,
+};
 
-pub fn capability_route_label(tool: &AgentTool, tool_name: &str) -> Option<String> {
-    match tool {
-        AgentTool::SysInstallPackage { .. } => Some("enablement_request".to_string()),
-        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
-            Some("script_backend".to_string())
-        }
-        _ => match tool.target() {
-            ActionTarget::WindowFocus
+fn uses_native_integration_route(tool_name: &str, target: &ActionTarget) -> bool {
+    matches!(
+        target,
+        ActionTarget::WindowFocus
             | ActionTarget::ClipboardWrite
             | ActionTarget::ClipboardRead
             | ActionTarget::BrowserInteract
@@ -15,9 +13,41 @@ pub fn capability_route_label(tool: &AgentTool, tool_name: &str) -> Option<Strin
             | ActionTarget::GuiClick
             | ActionTarget::GuiType
             | ActionTarget::GuiScroll
-            | ActionTarget::GuiInspect => Some("native_integration".to_string()),
-            _ => tool_provider_route_label(tool_name).map(str::to_string),
-        },
+            | ActionTarget::GuiInspect
+            | ActionTarget::FsRead
+            | ActionTarget::FsWrite
+    ) || [
+        "agent.lifecycle",
+        "app.launch",
+        "automation.monitor.install",
+        "clipboard.read",
+        "clipboard.write",
+        "conversation.reply",
+        "delegation.manage",
+        "filesystem.metadata",
+        "filesystem.read",
+        "filesystem.write",
+        "memory.access",
+    ]
+    .into_iter()
+    .any(|capability| tool_has_capability(tool_name, capability))
+}
+
+pub fn capability_route_label(tool: &AgentTool, tool_name: &str) -> Option<String> {
+    match tool {
+        AgentTool::SysInstallPackage { .. } => Some("enablement_request".to_string()),
+        AgentTool::SysExec { .. } | AgentTool::SysExecSession { .. } => {
+            Some("script_backend".to_string())
+        }
+        _ => {
+            if let Some(route_label) = tool_provider_route_label(tool_name) {
+                return Some(route_label.to_string());
+            }
+            if uses_native_integration_route(tool_name, &tool.target()) {
+                return Some("native_integration".to_string());
+            }
+            None
+        }
     }
 }
 
@@ -174,6 +204,21 @@ fn required_markers_from_matrix(
     ))
 }
 
+fn capability_contract_fallback_from_matrix(
+    agent_state: &AgentState,
+    matrix: &[IntentMatrixEntry],
+) -> Option<(Vec<String>, Vec<String>)> {
+    let resolved = agent_state.resolved_intent.as_ref()?;
+    if resolved
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "mail.reply")
+    {
+        return required_markers_from_matrix("mail.reply", matrix);
+    }
+    None
+}
+
 fn resolved_contract_requirements(
     agent_state: &AgentState,
     matrix: Option<&[IntentMatrixEntry]>,
@@ -194,7 +239,10 @@ fn resolved_contract_requirements(
     });
     let resolved_from_matrix = resolved_contract.or_else(|| {
         agent_state.resolved_intent.as_ref().and_then(|resolved| {
-            matrix.and_then(|entries| required_markers_from_matrix(&resolved.intent_id, entries))
+            matrix.and_then(|entries| {
+                required_markers_from_matrix(&resolved.intent_id, entries)
+                    .or_else(|| capability_contract_fallback_from_matrix(agent_state, entries))
+            })
         })
     });
 

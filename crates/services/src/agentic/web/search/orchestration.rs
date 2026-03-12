@@ -3,8 +3,9 @@ use super::super::parsers::{
     fetch_google_news_top_stories_rss_sources, parse_bing_sources_from_html,
     parse_brave_sources_from_html, parse_ddg_sources_from_html,
     parse_generic_page_source_from_html, parse_google_sources_from_html,
+    parse_same_host_child_collection_sources_from_html,
 };
-use super::super::readability::{extract_non_html_read_blocks, extract_read_blocks};
+use super::super::readability::{extract_non_html_read_blocks, extract_read_blocks_for_url};
 use super::super::transport::{
     detect_human_challenge, fetch_html_http_fallback_browser_ua,
     fetch_structured_detail_http_fallback_browser_ua,
@@ -15,7 +16,7 @@ use super::super::urls::{
     build_bing_news_rss_url, build_bing_search_rss_url, build_bing_serp_url, build_brave_serp_url,
     build_ddg_serp_url, build_google_news_rss_url, build_google_news_serp_url,
     build_google_news_top_stories_rss_url, build_google_serp_url,
-    build_weather_gov_locality_lookup_url,
+    build_restaurantji_locality_root_url, build_weather_gov_locality_lookup_url,
 };
 use super::super::util::{
     compact_ws, domain_for_url, normalize_url_for_id, now_ms, source_id_for_url,
@@ -184,6 +185,33 @@ mod tests {
         assert!(
             !normalized.contains("compare"),
             "entity discovery query should not include synthesis directives: {query}"
+        );
+    }
+
+    #[test]
+    fn provider_request_query_uses_query_contract_even_when_search_query_is_already_grounded() {
+        let query_contract =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(
+            "best-reviewed Italian restaurants near me",
+            Some(query_contract),
+        )
+        .expect("contract should derive");
+        let query = provider_request_query(
+            "italian restaurants menus in Anderson, SC \"italian restaurants menus\" \"Anderson, SC\"",
+            Some(query_contract),
+            &retrieval_contract,
+            Some("Anderson, SC"),
+        );
+        let normalized = query.to_ascii_lowercase();
+        assert!(
+            normalized.contains("italian restaurants in anderson")
+                || normalized.contains("restaurants in anderson"),
+            "expected query_contract to remain the discovery basis, got: {query}"
+        );
+        assert!(
+            !normalized.contains("\"italian restaurants menus\""),
+            "already-grounded menu phrases must not become the provider discovery basis: {query}"
         );
     }
 

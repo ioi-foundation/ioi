@@ -1,9 +1,11 @@
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::IntentScopeProfile;
 use serde::Serialize;
 
 use super::super::types::{
-    has_cec_receipt, has_cec_stage, has_typed_contract_failure_evidence, observation_has_tool_name,
-    truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    cec_receipt_value, has_cec_receipt, has_cec_stage, has_typed_contract_failure_evidence,
+    observation_has_tool_name, truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult,
+    QueryCase, RunObservation,
 };
 
 const CASE_ID: &str = "whats_the_current_price_of_bitcoin";
@@ -86,6 +88,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             && web_sources_success >= required_independent_sources;
 
     let selected_source_quality_floor_met = web.selected_source_quality_floor_met.unwrap_or(false);
+    let selected_source_subject_alignment_floor_met = web
+        .selected_source_subject_alignment_floor_met
+        .unwrap_or(false);
     let selected_source_urls = web.selected_source_urls.clone();
     let selected_source_count = web
         .selected_source_count
@@ -99,16 +104,93 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     ) && selected_source_quality_floor_met
         && selected_source_count >= required_independent_sources
         && selected_source_distinct_domains >= required_independent_sources;
+    let selected_source_subject_alignment_receipts_present = has_cec_receipt(
+        obs,
+        "verification",
+        "selected_source_subject_alignment_floor",
+        Some(true),
+    )
+        && selected_source_subject_alignment_floor_met
+        && !web.selected_source_subject_alignment_urls.is_empty();
 
     let final_story_slots_observed = web.story_slots_observed.unwrap_or(0);
-    let final_story_slot_floor_met = web.story_slot_floor_met.unwrap_or(false);
     let final_story_citation_floor_met = web.story_citation_floor_met.unwrap_or(false);
     let final_comparison_required = false;
     let final_comparison_ready = web.comparison_ready.unwrap_or(true);
     let final_single_snapshot_metric_grounding =
         web.single_snapshot_metric_grounding.unwrap_or(false);
+    let final_output_contract_ready = has_cec_receipt(
+        obs,
+        "verification",
+        "final_output_contract_ready",
+        Some(true),
+    );
+    let single_snapshot_output_quality_receipts_present = has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_rendered_layout",
+        Some(true),
+    ) && has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_metric_line_floor",
+        Some(true),
+    ) && has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_support_url_floor",
+        Some(true),
+    ) && has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_read_backed_url_floor",
+        Some(true),
+    ) && has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_temporal_signal",
+        Some(true),
+    );
+    let terminal_chat_reply_binding_digest =
+        cec_receipt_value(obs, "postcondition", "terminal_chat_reply_binding").unwrap_or_default();
+    let postcondition_terminal_chat_reply_binding_present = has_cec_receipt(
+        obs,
+        "postcondition",
+        "terminal_chat_reply_binding",
+        Some(true),
+    );
+    let terminal_chat_reply_binding_matches = postcondition_terminal_chat_reply_binding_present
+        && terminal_chat_reply_binding_digest == sha256_prefixed(&obs.final_reply);
+    let terminal_chat_reply_layout_profile =
+        cec_receipt_value(obs, "postcondition", "terminal_chat_reply_layout_profile")
+            .unwrap_or_default();
+    let postcondition_terminal_output_shape_receipts_present = terminal_chat_reply_layout_profile
+        == "single_snapshot"
+        && has_cec_receipt(
+            obs,
+            "postcondition",
+            "terminal_chat_reply_story_headers_absent",
+            Some(true),
+        )
+        && has_cec_receipt(
+            obs,
+            "postcondition",
+            "terminal_chat_reply_comparison_absent",
+            Some(true),
+        )
+        && has_cec_receipt(
+            obs,
+            "postcondition",
+            "terminal_chat_reply_temporal_anchor_floor",
+            Some(true),
+        )
+        && has_cec_receipt(
+            obs,
+            "postcondition",
+            "terminal_chat_reply_postamble_floor",
+            Some(true),
+        );
     let objective_specific_bitcoin_price_evidence_present = final_story_slots_observed >= 1
-        && has_cec_receipt(obs, "verification", "story_slot_floor", Some(true))
         && has_cec_receipt(obs, "verification", "story_citation_floor", Some(true))
         && has_cec_receipt(
             obs,
@@ -116,9 +198,14 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "single_snapshot_metric_grounding",
             Some(true),
         )
-        && final_story_slot_floor_met
+        && final_output_contract_ready
+        && single_snapshot_output_quality_receipts_present
+        && postcondition_terminal_output_shape_receipts_present
+        && postcondition_terminal_chat_reply_binding_present
+        && terminal_chat_reply_binding_matches
         && final_story_citation_floor_met
         && final_single_snapshot_metric_grounding
+        && selected_source_subject_alignment_receipts_present
         && (!final_comparison_required || final_comparison_ready);
 
     let cec_execution_seen = has_cec_stage(obs, "execution", Some(true));
@@ -128,8 +215,11 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let cec_contract_gate_satisfied =
         cec_contract_gate_seen || (cec_execution_seen && cec_verification_seen);
     let contract_failure_markers_absent = !has_typed_contract_failure_evidence(obs);
-    let completion_evidence_present =
-        obs.completed && !obs.failed && obs.chat_reply_count > 0 && cec_contract_gate_satisfied;
+    let completion_evidence_present = obs.completed
+        && !obs.failed
+        && obs.chat_reply_count > 0
+        && cec_contract_gate_satisfied
+        && final_output_contract_ready;
 
     let evidence_receipts = build_evidence_receipts(obs, currentness_required);
     let evidence_receipts_satisfied = evidence_receipts.iter().all(|receipt| receipt.satisfied);
@@ -141,6 +231,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         temporal_contract_receipts_present,
         source_floor_receipts_present,
         selected_source_quality_receipts_present,
+        selected_source_subject_alignment_receipts_present,
         cec_contract_gate_satisfied,
         evidence_receipts_satisfied,
         contract_failure_markers_absent,
@@ -156,23 +247,28 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "completion_evidence_present",
             completion_evidence_present,
             format!(
-                "status={} completed={} failed={} chat_reply_count={} cec_contract_gate_satisfied={}",
+                "status={} completed={} failed={} chat_reply_count={} cec_contract_gate_satisfied={} final_output_contract_ready={}",
                 obs.final_status,
                 obs.completed,
                 obs.failed,
                 obs.chat_reply_count,
-                cec_contract_gate_satisfied
+                cec_contract_gate_satisfied,
+                final_output_contract_ready
             ),
         ),
         LocalCheck::new(
             "objective_specific_bitcoin_price_evidence_present",
             objective_specific_bitcoin_price_evidence_present,
             format!(
-                "final_story_slots_observed={} story_slot_floor_met={} story_citation_floor_met={} final_single_snapshot_metric_grounding={}",
+                "final_story_slots_observed={} story_citation_floor_met={} final_single_snapshot_metric_grounding={} final_output_contract_ready={} single_snapshot_output_quality_receipts_present={} postcondition_terminal_output_shape_receipts_present={} terminal_chat_reply_binding_matches={} terminal_chat_reply_layout_profile={}",
                 final_story_slots_observed,
-                final_story_slot_floor_met,
                 final_story_citation_floor_met,
-                final_single_snapshot_metric_grounding
+                final_single_snapshot_metric_grounding,
+                final_output_contract_ready,
+                single_snapshot_output_quality_receipts_present,
+                postcondition_terminal_output_shape_receipts_present,
+                terminal_chat_reply_binding_matches,
+                terminal_chat_reply_layout_profile
             ),
         ),
         LocalCheck::new(
@@ -216,6 +312,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                 selected_source_distinct_domains,
                 required_independent_sources,
                 selected_source_urls
+            ),
+        ),
+        LocalCheck::new(
+            "selected_source_subject_alignment_receipts_present",
+            selected_source_subject_alignment_receipts_present,
+            format!(
+                "selected_source_subject_alignment_floor_met={} selected_source_subject_alignment_urls={:?}",
+                selected_source_subject_alignment_floor_met,
+                web.selected_source_subject_alignment_urls
             ),
         ),
         LocalCheck::new(
@@ -297,14 +402,68 @@ fn build_evidence_receipts(
         observed_receipt(
             obs,
             "verification",
+            "selected_source_subject_alignment_floor",
+            "bitcoin_selected_source_subject_alignment_observed",
+        ),
+        observed_receipt(
+            obs,
+            "verification",
             "single_snapshot_metric_grounding",
             "bitcoin_final_metric_grounding_observed",
+        ),
+        observed_receipt(
+            obs,
+            "verification",
+            "final_output_contract_ready",
+            "bitcoin_final_output_contract_observed",
+        ),
+        observed_receipt(
+            obs,
+            "verification",
+            "single_snapshot_rendered_layout",
+            "bitcoin_single_snapshot_layout_observed",
+        ),
+        observed_receipt(
+            obs,
+            "verification",
+            "single_snapshot_metric_line_floor",
+            "bitcoin_single_snapshot_metric_line_floor_observed",
+        ),
+        observed_receipt(
+            obs,
+            "verification",
+            "single_snapshot_support_url_floor",
+            "bitcoin_single_snapshot_support_url_floor_observed",
+        ),
+        observed_receipt(
+            obs,
+            "verification",
+            "single_snapshot_read_backed_url_floor",
+            "bitcoin_single_snapshot_read_backed_url_floor_observed",
+        ),
+        observed_receipt(
+            obs,
+            "verification",
+            "single_snapshot_temporal_signal",
+            "bitcoin_single_snapshot_temporal_signal_observed",
         ),
         observed_receipt(
             obs,
             "completion_gate",
             "contract_gate",
             "bitcoin_completion_gate_observed",
+        ),
+        observed_receipt(
+            obs,
+            "postcondition",
+            "terminal_chat_reply_layout_profile",
+            "bitcoin_terminal_layout_profile_observed",
+        ),
+        observed_receipt(
+            obs,
+            "postcondition",
+            "terminal_chat_reply_binding",
+            "bitcoin_terminal_binding_observed",
         ),
         EvidenceReceipt {
             key: "bitcoin_currentness_contract_true".to_string(),
@@ -351,4 +510,10 @@ fn observed_receipt(
 
 fn serialize_evidence_receipts(receipts: &[EvidenceReceipt]) -> String {
     serde_json::to_string(receipts).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn sha256_prefixed(value: &str) -> String {
+    sha256(value.as_bytes())
+        .map(|digest| format!("sha256:{}", hex::encode(digest.as_ref())))
+        .unwrap_or_else(|_| "sha256:unavailable".to_string())
 }

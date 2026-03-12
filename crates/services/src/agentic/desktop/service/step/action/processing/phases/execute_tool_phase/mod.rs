@@ -14,7 +14,8 @@ mod tool_outcome;
 mod web_followup;
 
 pub(crate) use events::{
-    emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
-    resolved_intent_id,
+    emit_completion_gate_status_event, emit_execution_contract_receipt_event,
+    emit_execution_contract_receipt_event_with_observation, resolved_intent_id,
 };
 pub(crate) use execute::execute_tool_phase;
+pub(crate) use success_path::record_non_command_success_receipts;

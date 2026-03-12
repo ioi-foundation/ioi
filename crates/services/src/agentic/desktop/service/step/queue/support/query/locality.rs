@@ -146,6 +146,61 @@ mod tests {
     }
 
     #[test]
+    fn local_business_discovery_query_contract_trims_post_scope_comparison_tail() {
+        let query =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let discovery = local_business_discovery_query_contract(query, Some("Anderson, SC"));
+
+        assert_eq!(
+            discovery,
+            "Find the three best-reviewed Italian restaurants in Anderson, SC"
+        );
+    }
+
+    #[test]
+    fn explicit_query_scope_hint_trims_post_scope_comparison_tail() {
+        let query =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+
+        assert_eq!(
+            explicit_query_scope_hint(query).as_deref(),
+            Some("Anderson, SC")
+        );
+    }
+
+    #[test]
+    fn local_business_entity_discovery_query_contract_uses_entity_class_not_comparison_axis() {
+        let query =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let discovery = local_business_entity_discovery_query_contract(query, Some("Anderson, SC"));
+        let normalized = discovery.to_ascii_lowercase();
+
+        assert!(
+            normalized.contains("italian restaurants in anderson")
+                || normalized.contains("restaurants in anderson"),
+            "query={discovery}"
+        );
+        assert!(!normalized.contains("compare"), "query={discovery}");
+        assert!(!normalized.contains("menus"), "query={discovery}");
+    }
+
+    #[test]
+    fn local_business_entity_discovery_query_contract_recovers_entity_class_from_inflated_search_query(
+    ) {
+        let query =
+            "italian restaurants menus in Anderson, SC \"italian restaurants menus\" \"Anderson, SC\"";
+        let discovery = local_business_entity_discovery_query_contract(query, Some("Anderson, SC"));
+        let normalized = discovery.to_ascii_lowercase();
+
+        assert!(
+            normalized.contains("italian restaurants in anderson")
+                || normalized.contains("restaurants in anderson"),
+            "query={discovery}"
+        );
+        assert!(!normalized.contains("menus"), "query={discovery}");
+    }
+
+    #[test]
     fn merged_targets_backfill_from_detail_sources_when_attempted_target_only_has_search_hub() {
         let attempted_urls = vec![
             format!(

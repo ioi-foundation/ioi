@@ -1,7 +1,7 @@
-use super::*;
 use super::types::{
     ResolvedShieldPolicy, ShieldAutomationMode, ShieldDecisionMode, ShieldPolicyState,
 };
+use super::*;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::AgentState;
 use ioi_crypto::algorithms::hash::sha256;
@@ -113,7 +113,7 @@ fn shield_decision_for_action(
     }
 }
 
-fn compute_google_shield_request_hash(
+pub(super) fn compute_google_shield_request_hash(
     spec: &GoogleConnectorActionSpec,
     input: &Value,
 ) -> Result<[u8; 32], TransactionError> {

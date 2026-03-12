@@ -79,6 +79,37 @@ pub use history::{append_command_history_entry, command_history_entry, command_h
 
 include!("command_contract/contract_resolution.rs");
 
+pub fn resolved_contract_requirements_with_rules(
+    agent_state: &AgentState,
+    rules: &ActionRules,
+) -> (Vec<String>, Vec<String>) {
+    resolved_contract_requirements(
+        agent_state,
+        Some(&rules.ontology_policy.intent_routing.matrix),
+    )
+}
+
+pub fn contract_requires_receipt_with_rules(
+    agent_state: &AgentState,
+    rules: &ActionRules,
+    receipt: &str,
+) -> bool {
+    let (required_receipts, _) = resolved_contract_requirements_with_rules(agent_state, rules);
+    required_receipts.iter().any(|marker| marker == receipt)
+}
+
+pub fn contract_requires_postcondition_with_rules(
+    agent_state: &AgentState,
+    rules: &ActionRules,
+    postcondition: &str,
+) -> bool {
+    let (_, required_postconditions) =
+        resolved_contract_requirements_with_rules(agent_state, rules);
+    required_postconditions
+        .iter()
+        .any(|marker| marker == postcondition)
+}
+
 pub fn is_command_execution_provider_tool(tool: &AgentTool) -> bool {
     matches!(
         tool,
@@ -535,10 +566,11 @@ fn push_unique_missing(missing: &mut Vec<String>, marker: String) {
 #[cfg(test)]
 mod tests {
     use super::{
-        compose_terminal_chat_reply, enrich_command_scope_summary,
-        execution_contract_violation_error, is_command_execution_provider_tool,
-        missing_execution_contract_markers_with_rules, record_verification_receipts,
-        synthesize_allowlisted_timer_notification_tool,
+        capability_route_label, compose_terminal_chat_reply,
+        contract_requires_postcondition_with_rules, contract_requires_receipt_with_rules,
+        enrich_command_scope_summary, execution_contract_violation_error,
+        is_command_execution_provider_tool, missing_execution_contract_markers_with_rules,
+        record_verification_receipts, synthesize_allowlisted_timer_notification_tool,
         timer_payload_requires_allowlisted_scheduler, VERIFICATION_COMMIT_RECEIPT,
         WEB_PIPELINE_TERMINAL_RECEIPT,
     };
@@ -549,7 +581,7 @@ mod tests {
         AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, ToolCallStatus,
     };
     use crate::agentic::rules::ActionRules;
-    use ioi_types::app::agentic::AgentTool;
+    use ioi_types::app::agentic::{AgentTool, CapabilityId};
     use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
     use std::collections::{BTreeMap, VecDeque};
 
@@ -800,6 +832,32 @@ mod tests {
     }
 
     #[test]
+    fn chat_reply_uses_native_integration_route_label() {
+        let tool = AgentTool::ChatReply {
+            message: "done".to_string(),
+        };
+
+        assert_eq!(
+            capability_route_label(&tool, "chat__reply").as_deref(),
+            Some("native_integration")
+        );
+    }
+
+    #[test]
+    fn filesystem_copy_uses_native_integration_route_label() {
+        let tool = AgentTool::FsCopy {
+            source_path: "/tmp/source".to_string(),
+            destination_path: "/tmp/destination".to_string(),
+            overwrite: true,
+        };
+
+        assert_eq!(
+            capability_route_label(&tool, "filesystem__copy_path").as_deref(),
+            Some("native_integration")
+        );
+    }
+
+    #[test]
     fn rrsa_network_domain_enforces_domain_binding_at_completion_gate() {
         let mut state = test_agent_state();
         state.resolved_intent = Some(command_scope_intent("command.probe"));
@@ -829,6 +887,68 @@ mod tests {
         let rules = ActionRules::default();
         let missing = missing_execution_contract_markers_with_rules(&state, &rules);
         assert!(missing.contains(&"receipt::rrsa_domain_binding=true".to_string()));
+    }
+
+    #[test]
+    fn matrix_fallback_requires_mail_reply_grounding_receipt() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(resolved_intent(
+            "mail.reply",
+            IntentScopeProfile::Conversation,
+        ));
+
+        let rules = ActionRules::default();
+        assert!(contract_requires_receipt_with_rules(
+            &state,
+            &rules,
+            "grounding"
+        ));
+    }
+
+    #[test]
+    fn matrix_fallback_requires_mail_reply_postcondition() {
+        let mut state = test_agent_state();
+        state.resolved_intent = Some(resolved_intent(
+            "mail.reply",
+            IntentScopeProfile::Conversation,
+        ));
+
+        let rules = ActionRules::default();
+        assert!(contract_requires_postcondition_with_rules(
+            &state,
+            &rules,
+            "mail.reply.completed"
+        ));
+    }
+
+    #[test]
+    fn mail_reply_capability_fallback_requires_gmail_draft_grounding_receipt() {
+        let mut state = test_agent_state();
+        let mut resolved = resolved_intent("gmail.draft_email", IntentScopeProfile::Conversation);
+        resolved.required_capabilities = vec![CapabilityId::from("mail.reply")];
+        state.resolved_intent = Some(resolved);
+
+        let rules = ActionRules::default();
+        assert!(contract_requires_receipt_with_rules(
+            &state,
+            &rules,
+            "grounding"
+        ));
+    }
+
+    #[test]
+    fn mail_reply_capability_fallback_requires_gmail_draft_postcondition() {
+        let mut state = test_agent_state();
+        let mut resolved = resolved_intent("gmail.draft_email", IntentScopeProfile::Conversation);
+        resolved.required_capabilities = vec![CapabilityId::from("mail.reply")];
+        state.resolved_intent = Some(resolved);
+
+        let rules = ActionRules::default();
+        assert!(contract_requires_postcondition_with_rules(
+            &state,
+            &rules,
+            "mail.reply.completed"
+        ));
     }
 
     #[test]

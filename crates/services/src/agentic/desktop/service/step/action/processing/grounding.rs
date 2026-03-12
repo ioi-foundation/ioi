@@ -1,26 +1,37 @@
 use super::*;
 use crate::agentic::desktop::connectors::{
-    connector_protected_slot_bindings, connector_symbolic_reference_bindings,
-    connector_symbolic_reference_inference_bindings, ConnectorProtectedSlotBinding,
-    ConnectorSymbolicReferenceBinding, ConnectorSymbolicReferenceInferenceBinding,
-    ResolvedSymbolicReference,
+    connector_id_for_tool_name, connector_protected_slot_bindings,
+    connector_symbolic_reference_bindings, connector_symbolic_reference_inference_bindings,
+    ConnectorProtectedSlotBinding, ConnectorSymbolicReferenceBinding,
+    ConnectorSymbolicReferenceInferenceBinding, ResolvedSymbolicReference,
 };
+use crate::agentic::desktop::service::step::action::command_contract::contract_requires_receipt_with_rules;
 use crate::agentic::desktop::service::step::action::support::{
     mark_execution_receipt_with_value, receipt_marker,
 };
+use crate::agentic::pii_substrate;
 use ioi_types::app::agentic::{
-    ArgumentOrigin, InstructionBindingKind, InstructionSlotBinding, ProtectedSlotKind,
+    ArgumentOrigin, InstructionBindingKind, InstructionSlotBinding, PiiClass, ProtectedSlotKind,
     ResolvedIntentState,
 };
 use lettre::message::Mailbox;
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 
-fn selected_connector_id(resolved: &ResolvedIntentState) -> Option<&str> {
+fn selected_connector_id(
+    resolved: &ResolvedIntentState,
+    tool_name: Option<&str>,
+) -> Option<String> {
     resolved
         .provider_selection
         .as_ref()
         .and_then(|selection| selection.selected_connector_id.as_deref())
+        .map(str::to_string)
+        .or_else(|| {
+            tool_name
+                .and_then(connector_id_for_tool_name)
+                .map(str::to_string)
+        })
 }
 
 fn lookup_symbolic_reference_binding(
@@ -76,6 +87,58 @@ fn query_attests_email_literal(query: &str, raw: &str) -> bool {
     let query_lower = query.to_ascii_lowercase();
     let candidate = raw.trim().to_ascii_lowercase();
     !candidate.is_empty() && query_lower.contains(&candidate)
+}
+
+fn is_redacted_email_placeholder(value: &str) -> bool {
+    let normalized = value.trim().to_ascii_lowercase();
+    normalized.contains("<redacted:email>")
+        || normalized == "redacted:email"
+        || normalized == "redacted_email"
+}
+
+fn recover_single_explicit_email_literal(query: &str) -> Option<String> {
+    let evidence = pii_substrate::build_evidence_graph(query).ok()?;
+    let mut emails = evidence
+        .spans
+        .iter()
+        .filter(|span| span.pii_class == PiiClass::Email)
+        .filter_map(|span| {
+            let start = usize::try_from(span.start_index).ok()?;
+            let end = usize::try_from(span.end_index).ok()?;
+            if start >= end
+                || end > query.len()
+                || !query.is_char_boundary(start)
+                || !query.is_char_boundary(end)
+            {
+                return None;
+            }
+            query[start..end].trim().parse::<Mailbox>().ok()
+        })
+        .map(|mailbox| mailbox.to_string())
+        .collect::<Vec<_>>();
+    emails.sort_by_key(|value| value.to_ascii_lowercase());
+    emails.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    if emails.len() == 1 {
+        emails.into_iter().next()
+    } else {
+        None
+    }
+}
+
+fn recover_redacted_protected_literal_from_query(
+    query: &str,
+    binding: &InstructionSlotBinding,
+    raw: &str,
+) -> Option<String> {
+    if !is_redacted_email_placeholder(raw) {
+        return None;
+    }
+    match binding.protected_slot_kind {
+        ProtectedSlotKind::EmailAddress | ProtectedSlotKind::AccountEmail => {
+            recover_single_explicit_email_literal(query)
+        }
+        _ => None,
+    }
 }
 
 fn query_attests_phrase_literal(query: &str, raw: &str) -> bool {
@@ -273,6 +336,7 @@ pub(super) async fn apply_instruction_contract_grounding(
     service: &DesktopAgentService,
     agent_state: &mut AgentState,
     tool: AgentTool,
+    rules: &ActionRules,
     session_id: [u8; 32],
     step_index: u32,
     resolved_intent_id: &str,
@@ -282,10 +346,7 @@ pub(super) async fn apply_instruction_contract_grounding(
     let Some(resolved) = agent_state.resolved_intent.as_ref() else {
         return Ok(tool);
     };
-    let requires_grounding = resolved
-        .required_receipts
-        .iter()
-        .any(|receipt| receipt == "grounding");
+    let requires_grounding = contract_requires_receipt_with_rules(agent_state, rules, "grounding");
     if !requires_grounding {
         return Ok(tool);
     }
@@ -303,19 +364,19 @@ pub(super) async fn apply_instruction_contract_grounding(
         ));
     };
 
-    let connector_id = selected_connector_id(resolved).ok_or_else(|| {
+    let connector_id = selected_connector_id(resolved, tool_name.as_deref()).ok_or_else(|| {
         TransactionError::Invalid(
             "ERROR_CLASS=GroundingMissing Connector selection missing for grounded intent."
                 .to_string(),
         )
     })?;
-    let resolver_binding = lookup_symbolic_reference_binding(connector_id).ok_or_else(|| {
+    let resolver_binding = lookup_symbolic_reference_binding(&connector_id).ok_or_else(|| {
         TransactionError::Invalid(format!(
             "ERROR_CLASS=GroundingMissing No symbolic reference resolver registered for connector '{}'.",
             connector_id
         ))
     })?;
-    let inference_binding = lookup_symbolic_reference_inference_binding(connector_id);
+    let inference_binding = lookup_symbolic_reference_inference_binding(&connector_id);
     let user_query = agent_state.goal.clone();
 
     let mut grounded_slots = Vec::<Value>::new();
@@ -356,11 +417,14 @@ pub(super) async fn apply_instruction_contract_grounding(
                         binding.slot
                     ))
                     })?;
-                let attested = query_attests_protected_literal(&user_query, &binding, literal);
-                let validated_literal = validate_protected_literal(&binding, literal).ok();
+                let literal =
+                    recover_redacted_protected_literal_from_query(&user_query, &binding, literal)
+                        .unwrap_or_else(|| literal.trim().to_string());
+                let attested = query_attests_protected_literal(&user_query, &binding, &literal);
+                let validated_literal = validate_protected_literal(&binding, &literal).ok();
                 if matches!(binding.protected_slot_kind, ProtectedSlotKind::Unknown) {
                     let grounded_value =
-                        validated_literal.unwrap_or(Value::String(literal.trim().to_string()));
+                        validated_literal.unwrap_or(Value::String(literal.clone()));
                     arguments.insert(binding.slot.clone(), grounded_value.clone());
                     grounded_slots.push(json!({
                         "slot": binding.slot,
@@ -576,6 +640,20 @@ mod tests {
             &binding,
             "my connected Google address"
         ));
+    }
+
+    #[test]
+    fn redacted_email_placeholder_recovers_single_explicit_query_email() {
+        let binding = slot("to", ProtectedSlotKind::EmailAddress);
+        assert_eq!(
+            recover_redacted_protected_literal_from_query(
+                "Draft an email to team@ioi.network saying tomorrow's standup is moved to 2 PM.",
+                &binding,
+                "<REDACTED:email>"
+            )
+            .as_deref(),
+            Some("team@ioi.network")
+        );
     }
 
     #[test]

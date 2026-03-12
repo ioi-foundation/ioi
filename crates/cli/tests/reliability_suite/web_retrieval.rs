@@ -241,6 +241,7 @@ async fn web_retrieval_and_net_fetch_emit_deterministic_receipts_and_anti_loop()
             AgentTool::WebRead {
                 url: read_url,
                 max_chars: Some(8_000),
+                allow_browser_fallback: None,
             },
             session_id,
             2,

@@ -47,6 +47,17 @@ fn web_pipeline_query_shape_detects_explicit_count_for_restaurant_comparison() {
 }
 
 #[test]
+fn web_pipeline_query_shape_detects_plural_briefing_research_without_headline_mode() {
+    let query =
+        "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+    assert_eq!(required_story_count(query), 1);
+    assert!(!query_prefers_multi_item_cardinality(query));
+    assert!(!prefers_single_fact_snapshot(query));
+    assert!(query_requires_structured_synthesis(query));
+    assert!(!query_is_generic_headline_collection(query));
+}
+
+#[test]
 fn web_pipeline_select_query_contract_prefers_scope_grounded_retrieval_query() {
     let selected = select_web_pipeline_query_contract(
         "what's the weather right now",

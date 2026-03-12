@@ -61,6 +61,53 @@ fn structural_seed_expansion_from_html(
     ))
 }
 
+fn deterministic_local_business_expansion_alignment_urls(
+    query_contract: &str,
+    locality_hint: Option<&str>,
+    expanded_sources: &[WebSource],
+    limit: usize,
+) -> Vec<String> {
+    let expanded_hints = expanded_sources
+        .iter()
+        .filter_map(|source| {
+            let trimmed = source.url.trim();
+            (!trimmed.is_empty()).then(|| PendingSearchReadSummary {
+                url: trimmed.to_string(),
+                title: source.title.clone().filter(|value| !value.trim().is_empty()),
+                excerpt: source
+                    .snippet
+                    .as_deref()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
+    if expanded_hints.is_empty() {
+        return Vec::new();
+    }
+
+    let target_names = local_business_target_names_from_sources(
+        &expanded_hints,
+        locality_hint,
+        expanded_hints.len(),
+    );
+    if target_names.is_empty() {
+        return Vec::new();
+    }
+
+    selected_local_business_target_sources(
+        query_contract,
+        &target_names,
+        &expanded_hints,
+        locality_hint,
+        limit.max(1),
+    )
+    .into_iter()
+    .map(|source| source.url)
+    .collect()
+}
+
 async fn observe_geo_scoped_discovery_sources(
     discovery_sources: &[WebSource],
     existing_observations: &[ioi_types::app::agentic::WebSourceObservation],
@@ -141,6 +188,11 @@ async fn expand_geo_scoped_discovery_seed_sources(
         .max(required_url_count.saturating_mul(4))
         .max(6);
     let mut expanded_seed_urls = Vec::new();
+    let locality_hint = explicit_query_scope_hint(query_contract).or_else(|| {
+        retrieval_contract_requires_runtime_locality(Some(retrieval_contract), query_contract)
+            .then(|| effective_locality_scope_hint(None))
+            .flatten()
+    });
 
     for source in discovery_sources.iter().take(expansion_seed_limit) {
         let source_url = source.url.trim();
@@ -215,13 +267,35 @@ async fn expand_geo_scoped_discovery_seed_sources(
         return Ok(discovery_sources);
     }
 
-    let aligned_expanded_urls = crate::agentic::web::infer_query_matching_source_urls(
+    let mut aligned_expanded_urls = crate::agentic::web::infer_query_matching_source_urls(
         service.fast_inference.clone(),
         query_contract,
         retrieval_contract,
         &expanded_sources,
     )
     .await?;
+    let deterministic_expanded_urls = deterministic_local_business_expansion_alignment_urls(
+        query_contract,
+        locality_hint.as_deref(),
+        &expanded_sources,
+        expansion_limit,
+    );
+    verification_checks.push(format!(
+        "web_geo_scoped_seed_expansion_alignment_deterministic_count={}",
+        deterministic_expanded_urls.len()
+    ));
+    if !deterministic_expanded_urls.is_empty() {
+        verification_checks.push(format!(
+            "web_geo_scoped_seed_expansion_alignment_deterministic_url_values={}",
+            deterministic_expanded_urls.join(" | ")
+        ));
+    }
+    for url in deterministic_expanded_urls {
+        if url_in_alignment_set(&url, &aligned_expanded_urls) {
+            continue;
+        }
+        aligned_expanded_urls.push(url);
+    }
     if aligned_expanded_urls.is_empty() {
         verification_checks.push("web_geo_scoped_seed_expansion_alignment_matched=0".to_string());
         return Ok(discovery_sources);

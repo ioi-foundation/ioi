@@ -11,6 +11,8 @@ pub(crate) fn merged_story_sources(
     let retrieval_contract = pending.retrieval_contract.as_ref();
     let headline_lookup_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
+    let document_briefing_layout = query_prefers_document_briefing_layout(&query_contract)
+        && !retrieval_contract_requests_comparison(retrieval_contract, &query_contract);
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources,
@@ -136,7 +138,29 @@ pub(crate) fn merged_story_sources(
         let right_signals = source_evidence_signals(right);
         let left_success = successful_urls.contains(left.url.trim());
         let right_success = successful_urls.contains(right.url.trim());
+        let left_document_authority_score = if document_briefing_layout {
+            source_document_authority_score(
+                &query_contract,
+                &left.url,
+                left.title.as_deref().unwrap_or_default(),
+                &left.excerpt,
+            )
+        } else {
+            0
+        };
+        let right_document_authority_score = if document_briefing_layout {
+            source_document_authority_score(
+                &query_contract,
+                &right.url,
+                right.title.as_deref().unwrap_or_default(),
+                &right.excerpt,
+            )
+        } else {
+            0
+        };
         let left_key = (
+            left_document_authority_score > 0,
+            left_document_authority_score,
             !is_low_priority_coverage_story(left),
             left_signals.official_status_host_hits > 0,
             left_signals.official_status_host_hits,
@@ -145,11 +169,15 @@ pub(crate) fn merged_story_sources(
             left_signals.secondary_coverage_hits == 0,
             left_signals.documentation_surface_hits == 0,
             left_signals.relevance_score(left_success),
-            left_signals.provenance_hits,
-            left_signals.primary_event_hits,
-            left_success,
+            (
+                left_signals.provenance_hits,
+                left_signals.primary_event_hits,
+                left_success,
+            ),
         );
         let right_key = (
+            right_document_authority_score > 0,
+            right_document_authority_score,
             !is_low_priority_coverage_story(right),
             right_signals.official_status_host_hits > 0,
             right_signals.official_status_host_hits,
@@ -158,9 +186,11 @@ pub(crate) fn merged_story_sources(
             right_signals.secondary_coverage_hits == 0,
             right_signals.documentation_surface_hits == 0,
             right_signals.relevance_score(right_success),
-            right_signals.provenance_hits,
-            right_signals.primary_event_hits,
-            right_success,
+            (
+                right_signals.provenance_hits,
+                right_signals.primary_event_hits,
+                right_success,
+            ),
         );
         right_key
             .cmp(&left_key)

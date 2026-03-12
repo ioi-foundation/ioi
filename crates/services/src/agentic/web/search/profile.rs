@@ -32,6 +32,11 @@ const GEO_STRUCTURED_DETAIL_AFFORDANCES: &[SearchStructuralAffordance] = &[
     SearchStructuralAffordance::TimestampedRecord,
     SearchStructuralAffordance::GeoScopedRecord,
 ];
+const LOCAL_BUSINESS_DIRECTORY_AFFORDANCES: &[SearchStructuralAffordance] = &[
+    SearchStructuralAffordance::LinkCollection,
+    SearchStructuralAffordance::CanonicalLinkOut,
+    SearchStructuralAffordance::GeoScopedRecord,
+];
 const ORDERED_COLLECTION_AFFORDANCES: &[SearchStructuralAffordance] =
     &[SearchStructuralAffordance::OrderedCollection];
 
@@ -39,6 +44,11 @@ const SEARCH_PROVIDER_REGISTRY: &[SearchProviderDescriptor] = &[
     SearchProviderDescriptor {
         stage: SearchProviderStage::WeatherGovLocalityDetail,
         affordances: GEO_STRUCTURED_DETAIL_AFFORDANCES,
+        locality_binding_required: true,
+    },
+    SearchProviderDescriptor {
+        stage: SearchProviderStage::RestaurantJiLocalityDirectory,
+        affordances: LOCAL_BUSINESS_DIRECTORY_AFFORDANCES,
         locality_binding_required: true,
     },
     SearchProviderDescriptor {
@@ -102,6 +112,7 @@ pub(crate) fn provider_supports_affordance(
 pub(crate) fn provider_backend_id(stage: SearchProviderStage) -> &'static str {
     match stage {
         SearchProviderStage::WeatherGovLocalityDetail => "edge:weather-gov:detail",
+        SearchProviderStage::RestaurantJiLocalityDirectory => "edge:restaurantji:directory",
         SearchProviderStage::BraveHttp => "edge:brave:http",
         SearchProviderStage::DdgHttp => "edge:ddg:http",
         SearchProviderStage::DdgBrowser => "edge:ddg:browser",

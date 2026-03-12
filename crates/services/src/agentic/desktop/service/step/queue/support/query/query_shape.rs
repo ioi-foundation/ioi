@@ -27,6 +27,62 @@ const MULTI_ITEM_COMPARISON_DIRECTIVES: &[&str] = &[
 const MULTI_ITEM_RANKING_DIRECTIVES: &[&str] =
     &[" roundup ", " round-up ", " list ", " ranking ", " ranked "];
 
+const MULTI_ITEM_BRIEFING_DIRECTIVES: &[&str] = &[
+    " briefing ",
+    " overview ",
+    " survey ",
+    " landscape ",
+    " digest ",
+];
+
+const DOCUMENT_BRIEFING_DIRECTIVES: &[&str] = &[
+    " briefing ",
+    " brief ",
+    " memo ",
+    " report ",
+    " one-page ",
+    " one page ",
+];
+
+fn marker_lexeme_tokens(markers: &[&str]) -> BTreeSet<String> {
+    markers
+        .iter()
+        .flat_map(|marker| marker.split_whitespace())
+        .filter_map(|token| {
+            let normalized = token
+                .trim()
+                .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+                .to_ascii_lowercase();
+            if normalized.len() < QUERY_COMPATIBILITY_MIN_TOKEN_CHARS {
+                return None;
+            }
+            if normalized.chars().all(|ch| ch.is_ascii_digit()) {
+                return None;
+            }
+            Some(normalized)
+        })
+        .collect()
+}
+
+pub(crate) fn query_shape_boundary_tokens(query: &str) -> BTreeSet<String> {
+    if query.trim().is_empty() {
+        return BTreeSet::new();
+    }
+
+    let mut tokens = BTreeSet::new();
+    tokens.extend(marker_lexeme_tokens(MULTI_ITEM_COMPARISON_DIRECTIVES));
+    tokens.extend(marker_lexeme_tokens(MULTI_ITEM_RANKING_DIRECTIVES));
+    tokens.extend(marker_lexeme_tokens(MULTI_ITEM_BRIEFING_DIRECTIVES));
+    tokens.extend(marker_lexeme_tokens(DOCUMENT_BRIEFING_DIRECTIVES));
+
+    let padded = normalized_phrase_query(query);
+    if padded.contains(" top ") {
+        tokens.insert("top".to_string());
+    }
+
+    tokens
+}
+
 pub(crate) fn parse_small_count_token(token: &str) -> Option<usize> {
     let normalized = token
         .trim()
@@ -66,6 +122,24 @@ fn token_looks_plural(token: &str) -> bool {
     normalized.len() >= QUERY_COMPATIBILITY_MIN_TOKEN_CHARS
         && normalized.ends_with('s')
         && !normalized.ends_with("ss")
+}
+
+fn semantic_surface_is_plural(semantic_tokens: &BTreeSet<String>) -> bool {
+    semantic_tokens
+        .iter()
+        .any(|token| token_looks_plural(token))
+}
+
+fn query_requests_multi_item_briefing(padded_query: &str) -> bool {
+    MULTI_ITEM_BRIEFING_DIRECTIVES
+        .iter()
+        .any(|marker| padded_query.contains(marker))
+}
+
+fn query_requests_document_briefing(padded_query: &str) -> bool {
+    DOCUMENT_BRIEFING_DIRECTIVES
+        .iter()
+        .any(|marker| padded_query.contains(marker))
 }
 
 pub(crate) fn explicit_story_count_hint(query: &str) -> Option<usize> {
@@ -194,15 +268,16 @@ pub(crate) fn prefers_single_fact_snapshot(query: &str) -> bool {
     }
     let padded = normalized_phrase_query(query);
     let semantic_tokens = query_semantic_anchor_tokens(query);
-    let ranked_plural_collection = semantic_tokens
-        .iter()
-        .any(|token| token_looks_plural(token))
+    let plural_semantic_surface = semantic_surface_is_plural(&semantic_tokens);
+    let ranked_plural_collection = plural_semantic_surface
         && MULTI_ITEM_RANKING_DIRECTIVES
             .iter()
             .chain([" top "].iter())
             .chain(MULTI_ITEM_COMPARISON_DIRECTIVES.iter())
             .any(|marker| padded.contains(marker));
-    if ranked_plural_collection {
+    let plural_briefing_surface =
+        plural_semantic_surface && query_requests_multi_item_briefing(&padded);
+    if ranked_plural_collection || plural_briefing_surface {
         return false;
     }
     true
@@ -218,6 +293,9 @@ pub(crate) fn query_prefers_multi_item_cardinality(query: &str) -> bool {
     if prefers_single_fact_snapshot(query) {
         return false;
     }
+    if query_prefers_document_briefing_layout(query) {
+        return false;
+    }
 
     let padded = normalized_phrase_query(query);
     let has_collection_directive = MULTI_ITEM_RANKING_DIRECTIVES
@@ -226,12 +304,13 @@ pub(crate) fn query_prefers_multi_item_cardinality(query: &str) -> bool {
         .any(|marker| padded.contains(marker));
     let has_ranked_collection = padded.contains(" top ");
     let semantic_tokens = query_semantic_anchor_tokens(query);
-    let plural_semantic_surface = semantic_tokens
-        .iter()
-        .any(|token| token_looks_plural(token));
+    let plural_semantic_surface = semantic_surface_is_plural(&semantic_tokens);
+    let has_plural_briefing_surface =
+        plural_semantic_surface && query_requests_multi_item_briefing(&padded);
 
     query_requests_comparison(query)
-        || ((has_ranked_collection || has_collection_directive) && plural_semantic_surface)
+        || ((has_ranked_collection || has_collection_directive || has_plural_briefing_surface)
+            && plural_semantic_surface)
 }
 
 pub(crate) fn query_requests_comparison(query: &str) -> bool {
@@ -244,6 +323,26 @@ pub(crate) fn query_requests_comparison(query: &str) -> bool {
         .any(|marker| padded.contains(marker))
 }
 
+pub(crate) fn query_prefers_document_briefing_layout(query: &str) -> bool {
+    if query.trim().is_empty() {
+        return false;
+    }
+    if prefers_single_fact_snapshot(query) {
+        return false;
+    }
+    let padded = normalized_phrase_query(query);
+    if !query_requests_document_briefing(&padded) {
+        return false;
+    }
+    let has_explicit_multi_item_shape = explicit_story_count_hint(query).is_some()
+        || padded.contains(" top ")
+        || MULTI_ITEM_RANKING_DIRECTIVES
+            .iter()
+            .chain(MULTI_ITEM_COMPARISON_DIRECTIVES.iter())
+            .any(|marker| padded.contains(marker));
+    !has_explicit_multi_item_shape
+}
+
 pub(crate) fn query_is_generic_headline_collection(query: &str) -> bool {
     if query.trim().is_empty() {
         return false;
@@ -252,6 +351,10 @@ pub(crate) fn query_is_generic_headline_collection(query: &str) -> bool {
         return false;
     }
     if !query_prefers_multi_item_cardinality(query) {
+        return false;
+    }
+    let padded = normalized_phrase_query(query);
+    if query_requests_multi_item_briefing(&padded) {
         return false;
     }
     let facets = analyze_query_facets(query);
@@ -328,6 +431,9 @@ pub(super) fn generic_headline_search_phrase(query: &str) -> String {
 }
 
 pub(crate) fn query_requires_structured_synthesis(query: &str) -> bool {
+    if query_prefers_document_briefing_layout(query) {
+        return true;
+    }
     if query_prefers_multi_item_cardinality(query) {
         return true;
     }
@@ -346,6 +452,27 @@ pub(crate) fn query_requires_structured_synthesis(query: &str) -> bool {
                 | ReportSectionKind::Caveat
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn document_briefing_layout_wins_for_one_page_briefing_queries() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        assert!(query_prefers_document_briefing_layout(query));
+        assert!(query_requires_structured_synthesis(query));
+        assert!(!query_prefers_multi_item_cardinality(query));
+    }
+
+    #[test]
+    fn explicit_multi_item_shape_overrides_document_briefing_layout() {
+        let query = "Write a briefing comparing the top three post-quantum cryptography standards.";
+        assert!(!query_prefers_document_briefing_layout(query));
+        assert!(query_prefers_multi_item_cardinality(query));
+    }
 }
 
 pub(crate) fn query_metric_axes_with_hints(

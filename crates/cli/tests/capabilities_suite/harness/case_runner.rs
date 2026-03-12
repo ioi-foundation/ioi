@@ -233,6 +233,31 @@ fn drain_events(rx: &mut broadcast::Receiver<KernelEvent>, sink: &mut Vec<Kernel
     }
 }
 
+async fn drain_events_until_quiescent(
+    rx: &mut broadcast::Receiver<KernelEvent>,
+    sink: &mut Vec<KernelEvent>,
+    max_wait: Duration,
+    idle_poll: Duration,
+    required_idle_polls: usize,
+) {
+    let started = Instant::now();
+    let mut idle_polls = 0usize;
+
+    loop {
+        let before = sink.len();
+        drain_events(rx, sink);
+        if sink.len() > before {
+            idle_polls = 0;
+        } else {
+            idle_polls = idle_polls.saturating_add(1);
+            if idle_polls >= required_idle_polls || started.elapsed() >= max_wait {
+                break;
+            }
+        }
+        tokio::time::sleep(idle_poll).await;
+    }
+}
+
 fn requires_human_intervention(reason: &str) -> bool {
     let lower = reason.to_ascii_lowercase();
     [
@@ -691,6 +716,19 @@ pub async fn run_case(
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
     )?;
+    let latest_nist_pqc_briefing_fixture = bootstrap_optional_fixture(
+        should_bootstrap_latest_nist_pqc_briefing_fixture(case.id),
+        || bootstrap_latest_nist_pqc_briefing_fixture_runtime(&run_unique_num),
+        |fixture| {
+            latest_nist_pqc_briefing_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            )
+        },
+        &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
+    )?;
     let mail_provider_driver_override = mail_reply_mock_fixture.as_ref().map(|_| "mock");
     if should_bootstrap_mailbox_runtime(&run_query) {
         extend_environment_evidence_batch(
@@ -830,7 +868,22 @@ pub async fn run_case(
         duplicate_incident_retry_count = 0;
     }
 
-    drain_events(&mut event_rx, &mut captured_events);
+    let terminal_state = read_agent_state(&state, session_id);
+    if matches!(terminal_state.status, AgentStatus::Completed(_))
+        || matches!(terminal_state.status, AgentStatus::Failed(_))
+    {
+        // Terminal chat + receipt events can lag the state transition by a short interval.
+        drain_events_until_quiescent(
+            &mut event_rx,
+            &mut captured_events,
+            Duration::from_millis(300),
+            Duration::from_millis(20),
+            3,
+        )
+        .await;
+    } else {
+        drain_events(&mut event_rx, &mut captured_events);
+    }
     let elapsed_ms = started.elapsed().as_millis();
 
     let final_state = read_agent_state(&state, session_id);
@@ -849,6 +902,7 @@ pub async fn run_case(
     let mut command_history_keys = BTreeSet::new();
     let mut exec_workload_evidence = BTreeMap::<(u32, String), ExecWorkloadEvidence>::new();
     let mut cec_receipts = Vec::new();
+    let mut intent_resolution_evidence = Vec::new();
     let mut environment_receipts = runtime_setup_environment_receipts;
     let mut final_reply = String::new();
     let mut chat_reply_count = 0usize;
@@ -1097,6 +1151,16 @@ pub async fn run_case(
                     provider_id: receipt.provider_id.clone(),
                 });
             }
+            KernelEvent::IntentResolutionReceipt(receipt) => {
+                intent_resolution_evidence.push(IntentResolutionEvidence {
+                    intent_id: receipt.intent_id.clone(),
+                    selected_intent_id: receipt.selected_intent_id.clone(),
+                    scope: format!("{:?}", receipt.scope),
+                    band: format!("{:?}", receipt.band),
+                    score: receipt.score,
+                    error_class: receipt.error_class.clone(),
+                });
+            }
             KernelEvent::FirewallInterception { verdict, .. } => {
                 if verdict.eq_ignore_ascii_case("require_approval") {
                     approval_required_events = approval_required_events.saturating_add(1);
@@ -1334,6 +1398,13 @@ pub async fn run_case(
         restaurants_near_me_fixture_post_run_checks,
         Some(restaurants_near_me_fixture_cleanup_checks),
     );
+    insert_fixture_evidence(
+        &mut verification_checks,
+        &mut environment_receipts,
+        latest_nist_pqc_briefing_fixture.as_ref(),
+        latest_nist_pqc_briefing_fixture_post_run_checks,
+        Some(latest_nist_pqc_briefing_fixture_cleanup_checks),
+    );
 
     let event_excerpt = captured_events
         .iter()
@@ -1378,6 +1449,7 @@ pub async fn run_case(
         action_error_classes: action_error_classes.into_iter().collect(),
         command_history_evidence,
         cec_receipts,
+        intent_resolution_evidence,
         environment_receipts,
         web: None,
         screenshot: None,

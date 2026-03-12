@@ -79,7 +79,10 @@ pub fn goto_trace_log(
 
     agent_state.last_action_type = Some(action_type);
 
-    if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running {
+    if agent_state.step_count >= agent_state.max_steps
+        && agent_state.status == AgentStatus::Running
+        && agent_state.pending_search_completion.is_none()
+    {
         agent_state.status = AgentStatus::Completed(None);
         
         if let Some(tx) = &event_sender {

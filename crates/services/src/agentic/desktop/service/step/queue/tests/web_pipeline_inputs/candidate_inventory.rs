@@ -184,6 +184,97 @@ fn web_pipeline_source_hints_prioritize_operational_status_hosts_over_documentat
 }
 
 #[test]
+fn web_pipeline_pre_read_promotes_primary_authority_sources_for_grounded_document_briefings() {
+    let query =
+        "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, None).expect("contract");
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:brave".to_string(),
+        query: Some("nist post quantum cryptography standards".to_string()),
+        url: Some("https://search.brave.com/search?q=nist+post+quantum+cryptography+standards".to_string()),
+        sources: vec![
+            WebSource {
+                source_id: "digicert".to_string(),
+                rank: Some(1),
+                url: "https://www.digicert.com/blog/nist-standards-for-quantum-safe-cryptography"
+                    .to_string(),
+                title: Some("NIST standards for quantum-safe cryptography".to_string()),
+                snippet: Some(
+                    "DigiCert explains the latest NIST standards for quantum-safe cryptography."
+                        .to_string(),
+                ),
+                domain: Some("digicert.com".to_string()),
+            },
+            WebSource {
+                source_id: "nist".to_string(),
+                rank: Some(2),
+                url: "https://www.nist.gov/pqc".to_string(),
+                title: Some("Post-quantum cryptography | NIST".to_string()),
+                snippet: Some(
+                    "December 8, 2025 - These Federal Information Processing Standards are mandatory for federal systems and adopted around the world."
+                        .to_string(),
+                ),
+                domain: Some("nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "ibm".to_string(),
+                rank: Some(3),
+                url: "https://research.ibm.com/blog/nist-pqc-standards".to_string(),
+                title: Some("NIST’s post-quantum cryptography standards are here - IBM Research".to_string()),
+                snippet: Some(
+                    "IBM summarizes FIPS 203, FIPS 204, and FIPS 205 after NIST released the standards."
+                        .to_string(),
+                ),
+                domain: Some("research.ibm.com".to_string()),
+            },
+            WebSource {
+                source_id: "cyber".to_string(),
+                rank: Some(4),
+                url: "https://www.cybersecuritydive.com/news/nist-post-quantum-cryptography-guidance-mapping/760638/"
+                    .to_string(),
+                title: Some("NIST offers guidance for mapping post-quantum cryptography".to_string()),
+                snippet: Some(
+                    "Cybersecurity Dive covers NIST post-quantum cryptography guidance."
+                        .to_string(),
+                ),
+                domain: Some("cybersecuritydive.com".to_string()),
+            },
+        ],
+        source_observations: vec![],
+        documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: Some(retrieval_contract.clone()),
+    };
+
+    let plan =
+        pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint_and_recovery_mode(
+            Some(&retrieval_contract),
+            query,
+            2,
+            &bundle,
+            None,
+            true,
+        );
+
+    assert_eq!(
+        plan.candidate_urls.first().map(String::as_str),
+        Some("https://www.nist.gov/pqc")
+    );
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .take(2)
+            .any(|url| url == "https://www.nist.gov/pqc"),
+        "top candidate inventory should retain a primary authority source: {:?}",
+        plan.candidate_urls
+    );
+}
+
+#[test]
 fn web_pipeline_pre_read_prunes_unresolvable_candidates_when_resolvable_inventory_exists() {
     let bundle = WebEvidenceBundle {
         schema_version: 1,
@@ -551,6 +642,117 @@ fn web_pipeline_pre_read_does_not_learn_facets_from_incompatible_candidates() {
             .iter()
             .all(|url| !url.contains("bestbuy.com")),
         "expected incompatible shopping candidate to be excluded: {:?}",
+        plan.candidate_urls
+    );
+}
+
+#[test]
+fn web_pipeline_pre_read_prioritizes_direct_authoritative_sources_for_document_briefings() {
+    let query =
+        "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+    let bundle = WebEvidenceBundle {
+        schema_version: 1,
+        retrieved_at_ms: 0,
+        tool: "web__search".to_string(),
+        backend: "edge:bing-search-rss".to_string(),
+        query: Some("nist post quantum cryptography standards".to_string()),
+        url: Some(
+            "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards".to_string(),
+        ),
+        sources: vec![
+            WebSource {
+                source_id: "wrapper".to_string(),
+                rank: Some(1),
+                url: "https://news.google.com/rss/articles/CBMiakFVX3lxTE1qTGNOTzV5LWNxTzE2N0cxVksyVVpoY3Y1cERzclIweDdlVnRDRDNVcWZtNXpWRG5sZ2MyNjBWSDhEazAzX0pzNHVsSkNyc3hrNG1jT2p6VV9pRGp2SjlQVzloUTVybmxHNnc?oc=5".to_string(),
+                title: Some("Google News wrapper for NIST PQC coverage".to_string()),
+                snippet: Some(
+                    "Redirect wrapper for NIST post-quantum cryptography coverage.".to_string(),
+                ),
+                domain: Some("news.google.com".to_string()),
+            },
+            WebSource {
+                source_id: "commentary".to_string(),
+                rank: Some(2),
+                url: "https://cyberscoop.com/why-federal-it-leaders-must-act-now-to-deliver-nists-post-quantum-cryptography-transition-op-ed/".to_string(),
+                title: Some(
+                    "Why federal IT leaders must act now to deliver NIST’s post-quantum cryptography transition"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "Commentary on the NIST transition without the finalized standards inventory."
+                        .to_string(),
+                ),
+                domain: Some("cyberscoop.com".to_string()),
+            },
+            WebSource {
+                source_id: "nist-news".to_string(),
+                rank: Some(3),
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST releases first 3 finalized post-quantum encryption standards"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 203, FIPS 204 and FIPS 205 for post-quantum cryptography."
+                        .to_string(),
+                ),
+                domain: Some("www.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "ibm-research".to_string(),
+                rank: Some(4),
+                url: "https://research.ibm.com/blog/nist-pqc-standards".to_string(),
+                title: Some("NIST’s post-quantum cryptography standards are here".to_string()),
+                snippet: Some(
+                    "IBM summarized ML-KEM, ML-DSA and SLH-DSA after NIST finalized the standards."
+                        .to_string(),
+                ),
+                domain: Some("research.ibm.com".to_string()),
+            },
+            WebSource {
+                source_id: "nist-pqc".to_string(),
+                rank: Some(5),
+                url: "https://www.nist.gov/pqc".to_string(),
+                title: Some("Post-quantum cryptography | NIST".to_string()),
+                snippet: Some(
+                    "NIST’s PQC program page covers finalized standards and migration guidance."
+                        .to_string(),
+                ),
+                domain: Some("www.nist.gov".to_string()),
+            },
+        ],
+        source_observations: vec![],
+        documents: vec![],
+        provider_candidates: vec![],
+        retrieval_contract: None,
+    };
+
+    let plan = pre_read_candidate_plan_from_bundle(query, 2, &bundle);
+    assert!(
+        plan.candidate_urls.len() >= 2,
+        "expected at least two pre-read candidates: {:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        plan.candidate_urls[0].contains("nist.gov/"),
+        "expected a direct NIST source to rank first: {:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .take(2)
+            .any(|url| url.contains("research.ibm.com/blog/nist-pqc-standards")),
+        "expected IBM Research standards coverage in the first two direct reads: {:?}",
+        plan.candidate_urls
+    );
+    assert!(
+        plan.candidate_urls
+            .iter()
+            .take(2)
+            .all(|url| !url.contains("news.google.com/rss/articles/")
+                && !url.contains("cyberscoop.com")),
+        "expected direct authoritative sources to outrank wrappers/commentary: {:?}",
         plan.candidate_urls
     );
 }

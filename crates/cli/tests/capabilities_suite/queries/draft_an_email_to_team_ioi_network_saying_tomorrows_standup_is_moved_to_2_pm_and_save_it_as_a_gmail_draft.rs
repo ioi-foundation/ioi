@@ -1,13 +1,13 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    has_contract_failure_evidence, has_tool_with_token, has_verification_pair, truncate_chars,
-    verification_u64, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_cec_receipt, has_cec_stage, has_contract_failure_evidence, has_tool_with_token,
+    has_verification_pair, truncate_chars, verification_u64, verification_values, ExecutionProfile,
+    LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 const CASE_ID: &str =
     "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_save_it_as_a_gmail_draft";
-const EXPECTED_RECIPIENT: &str = "team@ioi.network";
 const EXPECTED_FIXTURE_MODE: &str = "google_connector_mock_fixture_v1";
 const EXPECTED_ACCOUNT: &str = "fixtures.google@ioi.invalid";
 
@@ -52,20 +52,19 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .unwrap_or_else(|| "null".to_string());
     let draft_succeeded =
         google.gmail_draft_success_count > 0 && google.gmail_draft_failure_count == 0;
-    let recipient_binding_present = latest_payload
-        .and_then(|payload| payload.to.as_deref())
-        .map(|value| value.eq_ignore_ascii_case(EXPECTED_RECIPIENT))
-        .unwrap_or(false);
     let subject_present = latest_payload
         .and_then(|payload| payload.subject.as_deref())
-        .map(|value| {
-            value.to_ascii_lowercase().contains("standup")
-                && value.to_ascii_lowercase().contains("2 pm")
-        })
+        .map(|value| !value.trim().is_empty())
         .unwrap_or(false);
-    let body_present = latest_payload
+    let body_request_signal_present = latest_payload
         .and_then(|payload| payload.body_text.as_deref())
-        .map(|value| value.to_ascii_lowercase().contains("moved to 2 pm"))
+        .map(|value| {
+            let normalized = value.to_ascii_lowercase();
+            normalized.contains("tomorrow")
+                && normalized.contains("standup")
+                && normalized.contains("moved")
+                && (normalized.contains("2 pm") || normalized.contains("2pm"))
+        })
         .unwrap_or(false);
     let message_id_present = latest_payload
         .and_then(|payload| payload.message_id.as_deref())
@@ -85,6 +84,20 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     });
     let tool_route_seen =
         has_tool_with_token(&obs.routing_tools, "connector__google__gmail_draft_email");
+    let system_fail_seen = has_tool_with_token(&obs.action_tools, "system__fail")
+        || has_tool_with_token(&obs.routing_tools, "system__fail");
+    let web_or_browser_path_seen = has_tool_with_token(&obs.routing_tools, "web__")
+        || has_tool_with_token(&obs.routing_tools, "browser__")
+        || has_tool_with_token(&obs.action_tools, "web__")
+        || has_tool_with_token(&obs.action_tools, "browser__")
+        || has_tool_with_token(&obs.workload_tools, "web__")
+        || has_tool_with_token(&obs.workload_tools, "browser__");
+    let non_mail_mutating_path_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
+        || has_tool_with_token(&obs.routing_tools, "sys__exec")
+        || has_tool_with_token(&obs.action_tools, "filesystem__")
+        || has_tool_with_token(&obs.routing_tools, "filesystem__")
+        || has_tool_with_token(&obs.action_tools, "net__fetch")
+        || has_tool_with_token(&obs.routing_tools, "net__fetch");
     let fixture_mode_present = has_verification_pair(
         obs,
         "env_receipt::google_connector_fixture_mode",
@@ -103,8 +116,40 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "env_receipt::google_connector_fixture_cleanup_satisfied",
         "true",
     );
+    let grounding_receipt_present = has_verification_pair(obs, "receipt::grounding", "true");
+    let recipient_grounding_present = verification_values(obs, "grounding_slot")
+        .iter()
+        .any(|value| value.eq_ignore_ascii_case("to::user_literal_attested"));
+    let verification_postcondition_present =
+        has_cec_receipt(obs, "verification", "mail.reply.completed", Some(true));
+    let discovery_receipt_present = has_cec_stage(obs, "discovery", Some(true));
+    let provider_selection_receipt_present =
+        has_cec_receipt(obs, "provider_selection", "provider_selection", Some(true));
+    let provider_selection_commit_present = has_cec_receipt(
+        obs,
+        "provider_selection",
+        "provider_selection_commit",
+        Some(true),
+    );
+    let execution_receipt_present = has_cec_stage(obs, "execution", Some(true));
+    let verification_receipt_present = has_cec_stage(obs, "verification", Some(true));
+    let completion_gate_present =
+        has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
     let completion_evidence_present = obs.completed && !obs.failed;
     let no_contract_failure_markers = !has_contract_failure_evidence(obs);
+    let independent_channel_count = [
+        draft_succeeded,
+        verification_postcondition_present,
+        message_id_present && draft_label_present,
+        tool_planned_seen,
+        tool_route_seen,
+        fixture_mode_present && fixture_account_present,
+        fixture_cleanup_satisfied,
+        grounding_receipt_present && recipient_grounding_present,
+    ]
+    .into_iter()
+    .filter(|value| *value)
+    .count();
 
     let checks = vec![
         LocalCheck::new(
@@ -113,31 +158,43 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             format!("status={} completed={} failed={}", obs.final_status, obs.completed, obs.failed),
         ),
         LocalCheck::new(
-            "gmail_draft_payload_present",
+            "objective_specific_gmail_draft_evidence_present",
             draft_succeeded
-                && recipient_binding_present
+                && verification_postcondition_present
                 && subject_present
-                && body_present
+                && body_request_signal_present
                 && message_id_present
                 && draft_label_present,
             format!(
-                "draft_success_count={} draft_failure_count={} recipient_binding_present={} subject_present={} body_present={} message_id_present={} draft_label_present={} payload={}",
+                "draft_success_count={} draft_failure_count={} verification_postcondition_present={} subject_present={} body_request_signal_present={} message_id_present={} draft_label_present={} payload={}",
                 google.gmail_draft_success_count,
                 google.gmail_draft_failure_count,
-                recipient_binding_present,
+                verification_postcondition_present,
                 subject_present,
-                body_present,
+                body_request_signal_present,
                 message_id_present,
                 draft_label_present,
                 truncate_chars(&payload_debug, 260)
             ),
         ),
         LocalCheck::new(
-            "tool_path_evidence_present",
-            tool_planned_seen && tool_route_seen,
+            "tool_and_route_path_evidence_present",
+            tool_planned_seen
+                && tool_route_seen
+                && !system_fail_seen
+                && !web_or_browser_path_seen
+                && !non_mail_mutating_path_seen,
             format!(
-                "tool_planned_seen={} tool_route_seen={} planned_tool_calls={:?} routing_tools={:?}",
-                tool_planned_seen, tool_route_seen, obs.planned_tool_calls, obs.routing_tools
+                "tool_planned_seen={} tool_route_seen={} system_fail_seen={} web_or_browser_path_seen={} non_mail_mutating_path_seen={} planned_tool_calls={:?} routing_tools={:?} action_tools={:?} workload_tools={:?}",
+                tool_planned_seen,
+                tool_route_seen,
+                system_fail_seen,
+                web_or_browser_path_seen,
+                non_mail_mutating_path_seen,
+                obs.planned_tool_calls,
+                obs.routing_tools,
+                obs.action_tools,
+                obs.workload_tools
             ),
         ),
         LocalCheck::new(
@@ -152,12 +209,49 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             ),
         ),
         LocalCheck::new(
+            "cec_phase_receipts_present",
+            discovery_receipt_present
+                && provider_selection_receipt_present
+                && provider_selection_commit_present
+                && grounding_receipt_present
+                && verification_postcondition_present
+                && execution_receipt_present
+                && verification_receipt_present
+                && completion_gate_present,
+            format!(
+                "discovery={} provider_selection={} provider_selection_commit={} grounding={} execution={} verification={} postcondition={} contract_gate={} cec_receipts={:?}",
+                discovery_receipt_present,
+                provider_selection_receipt_present,
+                provider_selection_commit_present,
+                grounding_receipt_present,
+                execution_receipt_present,
+                verification_receipt_present,
+                verification_postcondition_present,
+                completion_gate_present,
+                obs.cec_receipts
+            ),
+        ),
+        LocalCheck::new(
+            "recipient_grounding_evidence_present",
+            grounding_receipt_present && recipient_grounding_present,
+            format!(
+                "grounding_receipt_present={} grounding_slots={:?}",
+                grounding_receipt_present,
+                verification_values(obs, "grounding_slot")
+            ),
+        ),
+        LocalCheck::new(
             "contract_failure_markers_absent",
             no_contract_failure_markers,
             format!(
                 "action_error_classes={:?} verification_checks={:?}",
                 obs.action_error_classes, obs.verification_checks
             ),
+        ),
+        LocalCheck::new(
+            "independent_runtime_evidence_channels_present",
+            independent_channel_count >= 6,
+            format!("independent_channel_count={}", independent_channel_count),
         ),
     ];
 

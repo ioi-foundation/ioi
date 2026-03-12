@@ -6,13 +6,14 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, Rgb};
 use ioi_api::vm::inference::InferenceRuntime;
+use ioi_drivers::browser::BrowserDriver;
 use ioi_types::app::agentic::{
     InferenceOptions, MediaFrameEvidence, MediaMultimodalBundle, MediaProviderCandidate,
-    MediaTranscriptBundle, MediaTranscriptProviderCandidate, MediaVisualEvidenceBundle,
-    WebRetrievalAffordance,
+    MediaTimelineCue, MediaTimelineOutlineBundle, MediaTranscriptBundle,
+    MediaTranscriptProviderCandidate, MediaVisualEvidenceBundle, WebRetrievalAffordance,
 };
 use reqwest::{header, redirect};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs;
 use std::fs::File;
@@ -43,12 +44,12 @@ use zip::ZipArchive;
 use super::util::{compact_ws, now_ms, sha256_hex};
 pub(crate) use receipts::media_provider_candidate_receipt;
 use receipts::{
-    media_provider_candidate_receipt_with_modality, write_multimodal_run_receipt,
-    write_run_receipt,
+    media_provider_candidate_receipt_with_modality, write_multimodal_run_receipt, write_run_receipt,
 };
 use selection::{
-    discover_audio_stt_candidate, discover_subtitle_candidate, discovery_reason_from_error,
-    normalize_requested_language, select_provider_plan, select_video_format, whisper_language_code,
+    discover_audio_stt_candidate, discover_subtitle_candidate,
+    discover_youtube_watch_transcript_candidate, normalize_requested_language,
+    provider_reason_from_error, select_provider_plans, select_video_format, whisper_language_code,
 };
 #[cfg(test)]
 use selection::{select_audio_format, select_subtitle_track, select_track_from_bucket};
@@ -60,6 +61,9 @@ const MEDIA_RECEIPT_FILE_NAME: &str = "last_success.json";
 const SUBTITLE_PROVIDER_ID: &str = "yt_dlp.managed_subtitles";
 const AUDIO_STT_PROVIDER_ID: &str = "yt_dlp.whisper_rs_audio";
 const VISUAL_PROVIDER_ID: &str = "ffmpeg.managed_frames_vision";
+const YOUTUBE_WATCH_TRANSCRIPT_PROVIDER_ID: &str = "youtube.watch_transcript";
+const YOUTUBE_TIMELINE_PROVIDER_ID: &str = "youtube.key_moments_timeline";
+const YOUTUBE_CHAPTER_THUMBNAIL_PROVIDER_ID: &str = "youtube.chapter_thumbnails_vision";
 const YTDLP_PROVIDER_VERSION: &str = "2026.03.03";
 const YTDLP_SUMS_URL: &str =
     "https://github.com/yt-dlp/yt-dlp/releases/download/2026.03.03/SHA2-256SUMS";
@@ -87,6 +91,7 @@ const WHISPER_TRANSCRIBE_TIMEOUT_SECS: u64 = 900;
 const FFMPEG_DOWNLOAD_TIMEOUT_SECS: u64 = 180;
 const FFMPEG_FRAME_TIMEOUT_SECS: u64 = 90;
 const VISION_PROBE_TIMEOUT_SECS: u64 = 45;
+const YOUTUBE_WATCH_PAGE_TIMEOUT_SECS: u64 = 30;
 
 #[derive(Debug, Clone)]
 struct ManagedYtDlpProvider {
@@ -135,6 +140,32 @@ struct AudioFormatSelection {
 }
 
 #[derive(Debug, Clone)]
+struct YouTubeWatchTranscriptSelection {
+    api_key: String,
+    client_context: Value,
+    transcript_params: String,
+}
+
+#[derive(Debug, Clone)]
+struct YouTubeChapterThumbnail {
+    title: String,
+    start_ms: u64,
+    thumbnail_url: String,
+}
+
+#[derive(Debug, Clone)]
+struct YouTubeWatchPageContext {
+    api_key: String,
+    client_context: Value,
+    transcript_params: Option<String>,
+    transcript_challenge_reason: Option<String>,
+    title: Option<String>,
+    canonical_url: String,
+    duration_seconds: Option<u64>,
+    chapter_thumbnails: Vec<YouTubeChapterThumbnail>,
+}
+
+#[derive(Debug, Clone)]
 struct VideoFormatSelection {
     format_id: String,
     ext: String,
@@ -153,12 +184,22 @@ struct TranscriptSegment {
 enum ProviderExecutionPlan {
     Subtitle(SubtitleSelection),
     AudioStt(AudioFormatSelection),
+    YouTubeWatchTranscript(YouTubeWatchTranscriptSelection),
 }
 
 #[derive(Debug, Clone)]
-struct VisualProviderExecutionPlan {
-    ffmpeg: ManagedFfmpegProvider,
-    video_format: VideoFormatSelection,
+enum VisualProviderExecutionPlan {
+    ManagedFrames {
+        ffmpeg: ManagedFfmpegProvider,
+        video_format: VideoFormatSelection,
+    },
+    YouTubeChapterThumbnails {
+        provider_version: String,
+        title: Option<String>,
+        canonical_url: String,
+        duration_seconds: Option<u64>,
+        chapter_thumbnails: Vec<YouTubeChapterThumbnail>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -195,6 +236,24 @@ struct TranscriptArtifact {
     segments: Vec<TranscriptSegment>,
 }
 
+#[derive(Debug)]
+struct TranscriptExecutionFailure {
+    provider_id: &'static str,
+    error: anyhow::Error,
+}
+
+#[derive(Debug, Clone)]
+struct TimelineArtifact {
+    bundle: MediaTimelineOutlineBundle,
+    receipt: MediaMultimodalRunReceipt,
+}
+
+#[derive(Debug, Clone)]
+struct ManagedYtDlpDiscovery {
+    provider: ManagedYtDlpProvider,
+    metadata: Value,
+}
+
 #[derive(Debug, Clone)]
 struct VisualFrameSample {
     timestamp_ms: u64,
@@ -210,6 +269,28 @@ struct VisualFrameSample {
 struct VisualArtifact {
     bundle: MediaVisualEvidenceBundle,
     receipt: MediaMultimodalRunReceipt,
+}
+
+#[derive(Debug)]
+struct VisualExecutionFailure {
+    provider_id: &'static str,
+    error: anyhow::Error,
+}
+
+#[derive(Debug, Clone)]
+struct ExecutedVisualEvidence {
+    provider_id: &'static str,
+    provider_version: String,
+    backend: &'static str,
+    provider_binary_path: Option<String>,
+    ffprobe_path: Option<String>,
+    selected_video_format_id: Option<String>,
+    selected_video_ext: Option<String>,
+    selected_video_codec: Option<String>,
+    canonical_url: String,
+    title: Option<String>,
+    duration_seconds: Option<u64>,
+    frame_evidence: Vec<MediaFrameEvidence>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -280,6 +361,18 @@ struct MediaMultimodalRunReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     transcript_hash: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    timeline_provider_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    timeline_provider_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    timeline_source_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    timeline_cue_count: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    timeline_char_count: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    timeline_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     visual_provider_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     visual_provider_version: Option<String>,
@@ -308,6 +401,7 @@ pub async fn edge_media_extract_transcript(
     url: &str,
     language: Option<&str>,
     max_chars: Option<u32>,
+    browser: Arc<BrowserDriver>,
 ) -> Result<MediaTranscriptBundle> {
     let requested_url = validate_media_url(url, "media__extract_transcript")?;
     let requested_language = normalize_requested_language(language);
@@ -315,16 +409,23 @@ pub async fn edge_media_extract_transcript(
         .unwrap_or(MEDIA_DEFAULT_MAX_CHARS)
         .clamp(1, MEDIA_MAX_CHARS_LIMIT) as usize;
     let tool_home = ensure_media_tool_home()?;
-    let ytdlp = ensure_managed_ytdlp_provider(&tool_home).await?;
-    let metadata_run_dir = prepare_run_dir(&tool_home)?;
-    let metadata = fetch_ytdlp_metadata(&ytdlp, requested_url.as_str(), &metadata_run_dir).await?;
+    let (ytdlp_discovery, ytdlp_failure_reason) =
+        discover_optional_ytdlp(requested_url.as_str(), &tool_home).await;
+    let (watch_page, watch_page_failure_reason) =
+        match discover_youtube_watch_page_context(requested_url.as_str()).await {
+            Ok(value) => (value, None),
+            Err(err) => (None, Some(provider_reason_from_error(&err))),
+        };
     let (_, artifact) = extract_transcript_artifact(
         requested_url.as_str(),
         &requested_language,
         transcript_max_chars,
         &tool_home,
-        &ytdlp,
-        &metadata,
+        browser,
+        ytdlp_discovery.as_ref(),
+        ytdlp_failure_reason.as_deref(),
+        watch_page.as_ref(),
+        watch_page_failure_reason.as_deref(),
         true,
     )
     .await?;
@@ -344,6 +445,7 @@ pub async fn edge_media_extract_multimodal_evidence(
     language: Option<&str>,
     max_chars: Option<u32>,
     frame_limit: Option<u32>,
+    browser: Arc<BrowserDriver>,
     inference: Arc<dyn InferenceRuntime>,
 ) -> Result<MediaMultimodalBundle> {
     let requested_url = validate_media_url(url, "media__extract_multimodal_evidence")?;
@@ -355,20 +457,33 @@ pub async fn edge_media_extract_multimodal_evidence(
         .unwrap_or(MEDIA_VISUAL_DEFAULT_FRAME_LIMIT)
         .clamp(1, MEDIA_VISUAL_MAX_FRAME_LIMIT);
     let tool_home = ensure_media_tool_home()?;
-    let ytdlp = ensure_managed_ytdlp_provider(&tool_home).await?;
-    let metadata_run_dir = prepare_run_dir(&tool_home)?;
-    let metadata = fetch_ytdlp_metadata(&ytdlp, requested_url.as_str(), &metadata_run_dir).await?;
+    let (ytdlp_discovery, ytdlp_failure_reason) =
+        discover_optional_ytdlp(requested_url.as_str(), &tool_home).await;
+    let (watch_page, watch_page_failure_reason) =
+        match discover_youtube_watch_page_context(requested_url.as_str()).await {
+            Ok(value) => (value, None),
+            Err(err) => (None, Some(provider_reason_from_error(&err))),
+        };
 
     let (mut provider_candidates, transcript_artifact) = extract_transcript_artifact(
         requested_url.as_str(),
         &requested_language,
         transcript_max_chars,
         &tool_home,
-        &ytdlp,
-        &metadata,
+        browser.clone(),
+        ytdlp_discovery.as_ref(),
+        ytdlp_failure_reason.as_deref(),
+        watch_page.as_ref(),
+        watch_page_failure_reason.as_deref(),
         false,
     )
     .await?;
+    let (timeline_candidates, timeline_artifact) = extract_timeline_artifact(
+        requested_url.as_str(),
+        watch_page.as_ref(),
+        watch_page_failure_reason.as_deref(),
+    );
+    provider_candidates.extend(timeline_candidates);
 
     let transcript_segments = transcript_artifact
         .as_ref()
@@ -377,8 +492,10 @@ pub async fn edge_media_extract_multimodal_evidence(
         requested_url.as_str(),
         visual_frame_limit,
         &tool_home,
-        &ytdlp,
-        &metadata,
+        ytdlp_discovery.as_ref(),
+        ytdlp_failure_reason.as_deref(),
+        watch_page.as_ref(),
+        watch_page_failure_reason.as_deref(),
         transcript_segments,
         inference,
     )
@@ -391,6 +508,10 @@ pub async fn edge_media_extract_multimodal_evidence(
         selected_modalities.push("transcript".to_string());
         selected_provider_ids.push(artifact.bundle.provider_id.clone());
     }
+    if let Some(artifact) = timeline_artifact.as_ref() {
+        selected_modalities.push("timeline".to_string());
+        selected_provider_ids.push(artifact.bundle.provider_id.clone());
+    }
     if let Some(artifact) = visual_artifact.as_ref() {
         selected_modalities.push("visual".to_string());
         selected_provider_ids.push(artifact.bundle.provider_id.clone());
@@ -398,29 +519,24 @@ pub async fn edge_media_extract_multimodal_evidence(
 
     if selected_modalities.is_empty() {
         return Err(anyhow!(
-            "ERROR_CLASS=DiscoveryMissing media multimodal discovery found no admissible transcript or visual providers for url={}",
+            "ERROR_CLASS=DiscoveryMissing media multimodal discovery found no admissible transcript, timeline, or visual providers for url={}",
             requested_url
         ));
     }
 
-    let canonical_url = metadata
-        .get("webpage_url")
-        .or_else(|| metadata.get("original_url"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(requested_url.as_str())
-        .to_string();
-    let title = metadata
-        .get("title")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string);
-    let duration_seconds = metadata.get("duration").and_then(Value::as_u64);
+    let canonical_url = media_canonical_url(
+        requested_url.as_str(),
+        ytdlp_discovery.as_ref(),
+        watch_page.as_ref(),
+    );
+    let title = media_title(ytdlp_discovery.as_ref(), watch_page.as_ref());
+    let duration_seconds = media_duration_seconds(ytdlp_discovery.as_ref(), watch_page.as_ref());
     let retrieved_at_ms = now_ms();
 
     let transcript_bundle = transcript_artifact
+        .as_ref()
+        .map(|artifact| artifact.bundle.clone());
+    let timeline_bundle = timeline_artifact
         .as_ref()
         .map(|artifact| artifact.bundle.clone());
     let visual_bundle = visual_artifact
@@ -439,6 +555,7 @@ pub async fn edge_media_extract_multimodal_evidence(
         selected_modalities: selected_modalities.clone(),
         selected_provider_ids: selected_provider_ids.clone(),
         transcript: transcript_bundle.clone(),
+        timeline: timeline_bundle.clone(),
         visual: visual_bundle.clone(),
     };
 
@@ -468,6 +585,14 @@ pub async fn edge_media_extract_multimodal_evidence(
         receipt.transcript_char_count = Some(artifact.receipt.transcript_char_count);
         receipt.transcript_segment_count = Some(artifact.receipt.segment_count);
         receipt.transcript_hash = Some(artifact.receipt.transcript_hash);
+    }
+    if let Some(artifact) = timeline_artifact {
+        receipt.timeline_provider_id = artifact.receipt.timeline_provider_id;
+        receipt.timeline_provider_version = artifact.receipt.timeline_provider_version;
+        receipt.timeline_source_kind = artifact.receipt.timeline_source_kind;
+        receipt.timeline_cue_count = artifact.receipt.timeline_cue_count;
+        receipt.timeline_char_count = artifact.receipt.timeline_char_count;
+        receipt.timeline_hash = artifact.receipt.timeline_hash;
     }
     if let Some(artifact) = visual_artifact {
         receipt.visual_provider_id = artifact.receipt.visual_provider_id;
@@ -521,19 +646,60 @@ async fn extract_transcript_artifact(
     requested_language: &str,
     transcript_max_chars: usize,
     tool_home: &Path,
-    ytdlp: &ManagedYtDlpProvider,
-    metadata: &Value,
+    browser: Arc<BrowserDriver>,
+    ytdlp_discovery: Option<&ManagedYtDlpDiscovery>,
+    ytdlp_failure_reason: Option<&str>,
+    watch_page: Option<&YouTubeWatchPageContext>,
+    watch_page_failure_reason: Option<&str>,
     require_candidate: bool,
 ) -> Result<(Vec<MediaProviderCandidate>, Option<TranscriptArtifact>)> {
-    let mut subtitle_candidate =
-        discover_subtitle_candidate(requested_url, metadata, requested_language);
-    let mut audio_candidate = discover_audio_stt_candidate(requested_url, metadata);
-    let provider_candidates = vec![
-        subtitle_candidate.candidate.clone(),
-        audio_candidate.candidate.clone(),
-    ];
-    let Some(selected_plan) = select_provider_plan(&mut subtitle_candidate, &mut audio_candidate)
-    else {
+    let mut subtitle_candidate = ytdlp_discovery
+        .map(|value| {
+            discover_subtitle_candidate(requested_url, &value.metadata, requested_language)
+        })
+        .unwrap_or_else(|| {
+            failed_transcript_candidate_state(
+                SUBTITLE_PROVIDER_ID,
+                requested_url,
+                ytdlp_failure_reason.map(str::to_string),
+            )
+        });
+    let mut youtube_watch_candidate = if let Some(context) = watch_page {
+        discover_youtube_watch_transcript_candidate(requested_url, Some(context))
+    } else {
+        failed_transcript_candidate_state(
+            YOUTUBE_WATCH_TRANSCRIPT_PROVIDER_ID,
+            requested_url,
+            watch_page_failure_reason.map(str::to_string),
+        )
+    };
+    if youtube_watch_candidate.plan.is_none()
+        && youtube_watch_candidate.candidate.challenge_reason.is_none()
+        && watch_page_failure_reason.is_some()
+    {
+        youtube_watch_candidate.candidate.challenge_reason =
+            watch_page_failure_reason.map(str::to_string);
+    }
+    let mut audio_candidate = ytdlp_discovery
+        .map(|value| discover_audio_stt_candidate(requested_url, &value.metadata))
+        .unwrap_or_else(|| {
+            failed_transcript_candidate_state(
+                AUDIO_STT_PROVIDER_ID,
+                requested_url,
+                ytdlp_failure_reason.map(str::to_string),
+            )
+        });
+    let selected_plans = select_provider_plans(
+        &subtitle_candidate,
+        &audio_candidate,
+        &youtube_watch_candidate,
+    );
+    if selected_plans.is_empty() {
+        let provider_candidates = vec![
+            subtitle_candidate.candidate.clone(),
+            youtube_watch_candidate.candidate.clone(),
+            audio_candidate.candidate.clone(),
+        ];
         if require_candidate {
             return Err(anyhow!(
                 "ERROR_CLASS=DiscoveryMissing media transcript discovery found no admissible provider candidates for requested_language={} url={}",
@@ -542,71 +708,61 @@ async fn extract_transcript_artifact(
             ));
         }
         return Ok((provider_candidates, None));
-    };
+    }
 
     let run_dir = prepare_run_dir(tool_home)?;
-    let executed = match selected_plan {
-        ProviderExecutionPlan::Subtitle(selection) => {
-            let subtitle_path =
-                download_selected_subtitle(ytdlp, requested_url, &selection, &run_dir).await?;
-            let raw_vtt = fs::read_to_string(&subtitle_path).with_context(|| {
-                format!(
-                    "ERROR_CLASS=VerificationMissing failed to read subtitle file {}",
-                    subtitle_path.display()
-                )
-            })?;
-            let segments = parse_webvtt_segments(&raw_vtt);
-            if segments.is_empty() {
-                return Err(anyhow!(
-                    "ERROR_CLASS=VerificationMissing parsed transcript contained no subtitle segments."
-                ));
+    let mut last_failure = None::<TranscriptExecutionFailure>;
+    let mut executed = None::<ExecutedTranscript>;
+    for selected_plan in selected_plans {
+        let selected_candidate = transcript_candidate_state_mut(
+            &mut subtitle_candidate,
+            &mut audio_candidate,
+            &mut youtube_watch_candidate,
+            &selected_plan,
+        );
+        selected_candidate.candidate.execution_attempted = Some(true);
+        match execute_transcript_plan(
+            requested_url,
+            requested_language,
+            tool_home,
+            browser.clone(),
+            ytdlp_discovery,
+            &run_dir,
+            selected_plan.clone(),
+        )
+        .await
+        {
+            Ok(value) => {
+                selected_candidate.candidate.selected = true;
+                selected_candidate.candidate.execution_satisfied = Some(true);
+                selected_candidate.candidate.execution_failure_reason = None;
+                executed = Some(value);
+                break;
             }
-            ExecutedTranscript {
-                provider_id: SUBTITLE_PROVIDER_ID,
-                provider_version: ytdlp.version.to_string(),
-                backend: "edge:media:yt_dlp_subtitles",
-                transcript_language: selection.language_key,
-                transcript_source_kind: selection.source_kind.to_string(),
-                provider_model_id: None,
-                provider_model_path: None,
-                selected_audio_format_id: None,
-                selected_audio_ext: None,
-                selected_audio_acodec: None,
-                segments,
+            Err(err) => {
+                selected_candidate.candidate.execution_satisfied = Some(false);
+                selected_candidate.candidate.execution_failure_reason =
+                    Some(provider_reason_from_error(&err));
+                last_failure = Some(TranscriptExecutionFailure {
+                    provider_id: transcript_provider_id(&selected_plan),
+                    error: err,
+                });
             }
         }
-        ProviderExecutionPlan::AudioStt(selection) => {
-            let audio_path =
-                download_selected_audio(ytdlp, requested_url, &selection, &run_dir).await?;
-            let model = ensure_managed_whisper_model(tool_home).await?;
-            let segments = transcribe_audio_with_managed_whisper(
-                &model,
-                &audio_path,
-                whisper_language_code(requested_language),
+    }
+
+    let Some(executed) = executed else {
+        let failure = last_failure.ok_or_else(|| {
+            anyhow!(
+                "ERROR_CLASS=ExecutionFailedTerminal media transcript execution exhausted admissible providers for requested_language={} url={}",
+                requested_language,
+                requested_url
             )
-            .await?;
-            if segments.is_empty() {
-                return Err(anyhow!(
-                    "ERROR_CLASS=VerificationMissing audio transcription produced no transcript segments."
-                ));
-            }
-            ExecutedTranscript {
-                provider_id: AUDIO_STT_PROVIDER_ID,
-                provider_version: format!(
-                    "yt-dlp={};model={}@{}",
-                    ytdlp.version, model.model_id, model.revision
-                ),
-                backend: "edge:media:yt_dlp_whisper_rs",
-                transcript_language: whisper_language_code(requested_language).to_string(),
-                transcript_source_kind: "stt".to_string(),
-                provider_model_id: Some(model.model_id.to_string()),
-                provider_model_path: Some(model.model_path.to_string_lossy().to_string()),
-                selected_audio_format_id: Some(selection.format_id),
-                selected_audio_ext: Some(selection.ext),
-                selected_audio_acodec: Some(selection.acodec),
-                segments,
-            }
-        }
+        })?;
+        return Err(failure.error.context(format!(
+            "transcript provider execution exhausted admissible plan set after provider_id={}",
+            failure.provider_id
+        )));
     };
 
     let full_transcript = executed
@@ -622,23 +778,16 @@ async fn extract_transcript_artifact(
         ));
     }
 
-    let canonical_url = metadata
-        .get("webpage_url")
-        .or_else(|| metadata.get("original_url"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(requested_url)
-        .to_string();
-    let title = metadata
-        .get("title")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string);
-    let duration_seconds = metadata.get("duration").and_then(Value::as_u64);
+    let canonical_url = media_canonical_url(requested_url, ytdlp_discovery, watch_page);
+    let title = media_title(ytdlp_discovery, watch_page);
+    let duration_seconds = media_duration_seconds(ytdlp_discovery, watch_page);
     let transcript_hash = sha256_hex(truncated_transcript.as_bytes());
     let retrieved_at_ms = now_ms();
+    let provider_candidates = vec![
+        subtitle_candidate.candidate.clone(),
+        youtube_watch_candidate.candidate.clone(),
+        audio_candidate.candidate.clone(),
+    ];
     let bundle = MediaTranscriptBundle {
         schema_version: 1,
         retrieved_at_ms,
@@ -663,7 +812,7 @@ async fn extract_transcript_artifact(
         schema_version: 1,
         provider_id: executed.provider_id.to_string(),
         provider_version: executed.provider_version,
-        provider_binary_path: ytdlp.binary_path.to_string_lossy().to_string(),
+        provider_binary_path: transcript_provider_binary_path(ytdlp_discovery),
         provider_model_id: executed.provider_model_id,
         provider_model_path: executed.provider_model_path,
         selected_audio_format_id: executed.selected_audio_format_id,
@@ -683,24 +832,7 @@ async fn extract_transcript_artifact(
     };
 
     Ok((
-        vec![
-            media_provider_candidate_receipt_with_modality(
-                SUBTITLE_PROVIDER_ID,
-                requested_url,
-                "transcript",
-                subtitle_candidate.candidate.selected,
-                subtitle_candidate.candidate.success,
-                subtitle_candidate.candidate.challenge_reason,
-            ),
-            media_provider_candidate_receipt_with_modality(
-                AUDIO_STT_PROVIDER_ID,
-                requested_url,
-                "transcript",
-                audio_candidate.candidate.selected,
-                audio_candidate.candidate.success,
-                audio_candidate.candidate.challenge_reason,
-            ),
-        ],
+        provider_candidates,
         Some(TranscriptArtifact {
             bundle,
             receipt,
@@ -709,66 +841,380 @@ async fn extract_transcript_artifact(
     ))
 }
 
+fn transcript_provider_id(selected_plan: &ProviderExecutionPlan) -> &'static str {
+    match selected_plan {
+        ProviderExecutionPlan::Subtitle(_) => SUBTITLE_PROVIDER_ID,
+        ProviderExecutionPlan::AudioStt(_) => AUDIO_STT_PROVIDER_ID,
+        ProviderExecutionPlan::YouTubeWatchTranscript(_) => YOUTUBE_WATCH_TRANSCRIPT_PROVIDER_ID,
+    }
+}
+
+fn transcript_candidate_state_mut<'a>(
+    subtitle_candidate: &'a mut MediaProviderCandidateState,
+    audio_candidate: &'a mut MediaProviderCandidateState,
+    youtube_watch_candidate: &'a mut MediaProviderCandidateState,
+    selected_plan: &ProviderExecutionPlan,
+) -> &'a mut MediaProviderCandidateState {
+    match selected_plan {
+        ProviderExecutionPlan::Subtitle(_) => subtitle_candidate,
+        ProviderExecutionPlan::AudioStt(_) => audio_candidate,
+        ProviderExecutionPlan::YouTubeWatchTranscript(_) => youtube_watch_candidate,
+    }
+}
+
+async fn execute_transcript_plan(
+    requested_url: &str,
+    requested_language: &str,
+    tool_home: &Path,
+    browser: Arc<BrowserDriver>,
+    ytdlp_discovery: Option<&ManagedYtDlpDiscovery>,
+    run_dir: &Path,
+    selected_plan: ProviderExecutionPlan,
+) -> Result<ExecutedTranscript> {
+    match selected_plan {
+        ProviderExecutionPlan::Subtitle(selection) => {
+            let ytdlp = ytdlp_discovery
+                .map(|value| &value.provider)
+                .ok_or_else(|| anyhow!("ERROR_CLASS=DiscoveryMissing subtitle execution selected without yt-dlp discovery"))?;
+            let subtitle_path =
+                download_selected_subtitle(ytdlp, requested_url, &selection, run_dir).await?;
+            let raw_vtt = fs::read_to_string(&subtitle_path).with_context(|| {
+                format!(
+                    "ERROR_CLASS=VerificationMissing failed to read subtitle file {}",
+                    subtitle_path.display()
+                )
+            })?;
+            let segments = parse_webvtt_segments(&raw_vtt);
+            if segments.is_empty() {
+                return Err(anyhow!(
+                    "ERROR_CLASS=VerificationMissing parsed transcript contained no subtitle segments."
+                ));
+            }
+            Ok(ExecutedTranscript {
+                provider_id: SUBTITLE_PROVIDER_ID,
+                provider_version: ytdlp.version.to_string(),
+                backend: "edge:media:yt_dlp_subtitles",
+                transcript_language: selection.language_key,
+                transcript_source_kind: selection.source_kind.to_string(),
+                provider_model_id: None,
+                provider_model_path: None,
+                selected_audio_format_id: None,
+                selected_audio_ext: None,
+                selected_audio_acodec: None,
+                segments,
+            })
+        }
+        ProviderExecutionPlan::AudioStt(selection) => {
+            let ytdlp = ytdlp_discovery
+                .map(|value| &value.provider)
+                .ok_or_else(|| anyhow!("ERROR_CLASS=DiscoveryMissing audio transcription selected without yt-dlp discovery"))?;
+            let audio_path =
+                download_selected_audio(ytdlp, requested_url, &selection, run_dir).await?;
+            let model = ensure_managed_whisper_model(tool_home).await?;
+            let segments = transcribe_audio_with_managed_whisper(
+                &model,
+                &audio_path,
+                whisper_language_code(requested_language),
+            )
+            .await?;
+            if segments.is_empty() {
+                return Err(anyhow!(
+                    "ERROR_CLASS=VerificationMissing audio transcription produced no transcript segments."
+                ));
+            }
+            Ok(ExecutedTranscript {
+                provider_id: AUDIO_STT_PROVIDER_ID,
+                provider_version: format!(
+                    "yt-dlp={};model={}@{}",
+                    ytdlp.version, model.model_id, model.revision
+                ),
+                backend: "edge:media:yt_dlp_whisper_rs",
+                transcript_language: whisper_language_code(requested_language).to_string(),
+                transcript_source_kind: "stt".to_string(),
+                provider_model_id: Some(model.model_id.to_string()),
+                provider_model_path: Some(model.model_path.to_string_lossy().to_string()),
+                selected_audio_format_id: Some(selection.format_id),
+                selected_audio_ext: Some(selection.ext),
+                selected_audio_acodec: Some(selection.acodec),
+                segments,
+            })
+        }
+        ProviderExecutionPlan::YouTubeWatchTranscript(selection) => {
+            let transcript_json =
+                fetch_youtube_watch_transcript_json(browser.as_ref(), requested_url, &selection)
+                    .await?;
+            let segments = parse_youtube_transcript_segments(&transcript_json);
+            if segments.is_empty() {
+                return Err(anyhow!(
+                    "ERROR_CLASS=VerificationMissing youtube watch transcript returned no transcript segments."
+                ));
+            }
+            Ok(ExecutedTranscript {
+                provider_id: YOUTUBE_WATCH_TRANSCRIPT_PROVIDER_ID,
+                provider_version: youtube_watch_provider_version(&selection.client_context),
+                backend: "edge:media:youtube_watch_transcript",
+                transcript_language: requested_language.to_string(),
+                transcript_source_kind: "watch_transcript".to_string(),
+                provider_model_id: None,
+                provider_model_path: None,
+                selected_audio_format_id: None,
+                selected_audio_ext: None,
+                selected_audio_acodec: None,
+                segments,
+            })
+        }
+    }
+}
+
+fn extract_timeline_artifact(
+    requested_url: &str,
+    watch_page: Option<&YouTubeWatchPageContext>,
+    watch_page_failure_reason: Option<&str>,
+) -> (Vec<MediaProviderCandidate>, Option<TimelineArtifact>) {
+    let Some(context) = watch_page else {
+        return (
+            vec![media_provider_candidate_receipt_with_modality(
+                YOUTUBE_TIMELINE_PROVIDER_ID,
+                requested_url,
+                "timeline",
+                false,
+                false,
+                watch_page_failure_reason.map(str::to_string),
+            )],
+            None,
+        );
+    };
+    if context.chapter_thumbnails.is_empty() {
+        return (
+            vec![media_provider_candidate_receipt_with_modality(
+                YOUTUBE_TIMELINE_PROVIDER_ID,
+                requested_url,
+                "timeline",
+                false,
+                false,
+                Some("timeline_cues_unavailable".to_string()),
+            )],
+            None,
+        );
+    }
+
+    let cues = context
+        .chapter_thumbnails
+        .iter()
+        .map(|chapter| MediaTimelineCue {
+            timestamp_ms: chapter.start_ms,
+            timestamp_label: render_timestamp(chapter.start_ms),
+            title: chapter.title.clone(),
+            thumbnail_url: Some(chapter.thumbnail_url.clone()),
+        })
+        .collect::<Vec<_>>();
+    let timeline_text = cues
+        .iter()
+        .map(|cue| format!("[{}] {}", cue.timestamp_label, cue.title))
+        .collect::<Vec<_>>()
+        .join("\n");
+    if timeline_text.trim().is_empty() {
+        return (
+            vec![media_provider_candidate_receipt_with_modality(
+                YOUTUBE_TIMELINE_PROVIDER_ID,
+                requested_url,
+                "timeline",
+                false,
+                false,
+                Some("timeline_text_empty".to_string()),
+            )],
+            None,
+        );
+    }
+
+    let provider_version = youtube_watch_provider_version(&context.client_context);
+    let retrieved_at_ms = now_ms();
+    let timeline_hash = sha256_hex(timeline_text.as_bytes());
+    let mut provider_candidate = media_provider_candidate_receipt_with_modality(
+        YOUTUBE_TIMELINE_PROVIDER_ID,
+        requested_url,
+        "timeline",
+        true,
+        true,
+        None,
+    );
+    provider_candidate.execution_attempted = Some(true);
+    provider_candidate.execution_satisfied = Some(true);
+
+    let bundle = MediaTimelineOutlineBundle {
+        schema_version: 1,
+        retrieved_at_ms,
+        tool: "media__extract_multimodal_evidence".to_string(),
+        backend: "edge:media:youtube_key_moments_timeline".to_string(),
+        provider_id: YOUTUBE_TIMELINE_PROVIDER_ID.to_string(),
+        provider_version: provider_version.clone(),
+        requested_url: requested_url.to_string(),
+        canonical_url: context.canonical_url.clone(),
+        provider_candidates: vec![provider_candidate.clone()],
+        title: context.title.clone(),
+        duration_seconds: context.duration_seconds,
+        timeline_source_kind: "key_moments".to_string(),
+        cue_count: cues.len() as u32,
+        timeline_char_count: timeline_text.chars().count() as u32,
+        timeline_hash: timeline_hash.clone(),
+        timeline_text,
+        cues,
+    };
+    let receipt = MediaMultimodalRunReceipt {
+        timeline_provider_id: Some(YOUTUBE_TIMELINE_PROVIDER_ID.to_string()),
+        timeline_provider_version: Some(provider_version),
+        timeline_source_kind: Some("key_moments".to_string()),
+        timeline_cue_count: Some(bundle.cue_count),
+        timeline_char_count: Some(bundle.timeline_char_count),
+        timeline_hash: Some(timeline_hash),
+        ..MediaMultimodalRunReceipt::default()
+    };
+    (
+        vec![provider_candidate],
+        Some(TimelineArtifact { bundle, receipt }),
+    )
+}
+
 async fn extract_visual_artifact(
     requested_url: &str,
     frame_limit: u32,
     tool_home: &Path,
-    ytdlp: &ManagedYtDlpProvider,
-    metadata: &Value,
+    ytdlp_discovery: Option<&ManagedYtDlpDiscovery>,
+    ytdlp_failure_reason: Option<&str>,
+    watch_page: Option<&YouTubeWatchPageContext>,
+    watch_page_failure_reason: Option<&str>,
     transcript_segments: Option<&[TranscriptSegment]>,
     inference: Arc<dyn InferenceRuntime>,
 ) -> Result<(Vec<MediaProviderCandidate>, Option<VisualArtifact>)> {
-    let mut visual_candidate =
-        discover_visual_candidate(requested_url, tool_home, metadata, inference.clone()).await?;
-    let Some(plan) = visual_candidate.plan.clone() else {
-        return Ok((vec![visual_candidate.candidate], None));
+    let vision_probe = match probe_vision_runtime(inference.clone()).await {
+        Ok(value) => value,
+        Err(err) => {
+            let challenge_reason = provider_reason_from_error(&err);
+            return Ok((
+                vec![
+                    failed_visual_candidate_state(
+                        VISUAL_PROVIDER_ID,
+                        requested_url,
+                        Some(challenge_reason.clone()),
+                    ),
+                    failed_visual_candidate_state(
+                        YOUTUBE_CHAPTER_THUMBNAIL_PROVIDER_ID,
+                        requested_url,
+                        Some(challenge_reason),
+                    ),
+                ]
+                .into_iter()
+                .map(|state| state.candidate)
+                .collect(),
+                None,
+            ));
+        }
+    };
+    if !vision_probe {
+        return Ok((
+            vec![
+                failed_visual_candidate_state(
+                    VISUAL_PROVIDER_ID,
+                    requested_url,
+                    Some("vision_runtime_probe_unsatisfied".to_string()),
+                ),
+                failed_visual_candidate_state(
+                    YOUTUBE_CHAPTER_THUMBNAIL_PROVIDER_ID,
+                    requested_url,
+                    Some("vision_runtime_probe_unsatisfied".to_string()),
+                ),
+            ]
+            .into_iter()
+            .map(|state| state.candidate)
+            .collect(),
+            None,
+        ));
+    }
+
+    let mut managed_frames_candidate = discover_managed_frames_candidate(
+        requested_url,
+        tool_home,
+        ytdlp_discovery,
+        ytdlp_failure_reason,
+    )
+    .await?;
+    let mut chapter_thumbnail_candidate = discover_youtube_chapter_thumbnail_candidate(
+        requested_url,
+        watch_page,
+        watch_page_failure_reason,
+    );
+
+    let selected_plans =
+        select_visual_provider_plans(&managed_frames_candidate, &chapter_thumbnail_candidate);
+    let provider_candidates_without_execution = vec![
+        managed_frames_candidate.candidate.clone(),
+        chapter_thumbnail_candidate.candidate.clone(),
+    ];
+    if selected_plans.is_empty() {
+        return Ok((provider_candidates_without_execution, None));
+    }
+
+    let run_dir = prepare_run_dir(tool_home)?;
+    let mut last_failure = None::<VisualExecutionFailure>;
+    let mut executed = None::<ExecutedVisualEvidence>;
+    for selected_plan in selected_plans {
+        let selected_candidate = visual_candidate_state_mut(
+            &mut managed_frames_candidate,
+            &mut chapter_thumbnail_candidate,
+            &selected_plan,
+        );
+        selected_candidate.candidate.execution_attempted = Some(true);
+        match execute_visual_plan(
+            requested_url,
+            frame_limit,
+            ytdlp_discovery,
+            transcript_segments,
+            &run_dir,
+            selected_plan.clone(),
+            inference.clone(),
+        )
+        .await
+        {
+            Ok(value) => {
+                selected_candidate.candidate.selected = true;
+                selected_candidate.candidate.execution_satisfied = Some(true);
+                selected_candidate.candidate.execution_failure_reason = None;
+                executed = Some(value);
+                break;
+            }
+            Err(err) => {
+                selected_candidate.candidate.execution_satisfied = Some(false);
+                selected_candidate.candidate.execution_failure_reason =
+                    Some(provider_reason_from_error(&err));
+                last_failure = Some(VisualExecutionFailure {
+                    provider_id: visual_provider_id(&selected_plan),
+                    error: err,
+                });
+            }
+        }
+    }
+
+    let Some(executed) = executed else {
+        let failure = last_failure.ok_or_else(|| {
+            anyhow!(
+                "ERROR_CLASS=ExecutionFailedTerminal media visual execution exhausted admissible providers for url={}",
+                requested_url
+            )
+        })?;
+        return Err(failure.error.context(format!(
+            "visual provider execution exhausted admissible plan set after provider_id={}",
+            failure.provider_id
+        )));
     };
 
-    visual_candidate.candidate.selected = true;
-    let run_dir = prepare_run_dir(tool_home)?;
-    let video_path =
-        download_selected_video(ytdlp, requested_url, &plan.video_format, &run_dir).await?;
-    let duration_seconds = metadata
-        .get("duration")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| {
-            anyhow!(
-            "ERROR_CLASS=VerificationMissing visual sampling requires a positive media duration."
-        )
-        })?;
-    let timestamps_ms = sample_visual_frame_timestamps(duration_seconds, frame_limit as usize);
-    if timestamps_ms.is_empty() {
-        return Err(anyhow!(
-            "ERROR_CLASS=VerificationMissing visual sampling produced no frame timestamps."
-        ));
-    }
-    let frame_samples =
-        extract_visual_frame_samples(&plan.ffmpeg, &video_path, &timestamps_ms, &run_dir).await?;
-    let frame_evidence =
-        analyze_visual_frame_samples(&frame_samples, transcript_segments, inference).await?;
-    if frame_evidence.is_empty() {
-        return Err(anyhow!(
-            "ERROR_CLASS=VerificationMissing visual frame analysis produced no observations."
-        ));
-    }
-
-    let visual_summary = build_visual_summary(&frame_evidence);
+    let provider_candidates = vec![
+        managed_frames_candidate.candidate.clone(),
+        chapter_thumbnail_candidate.candidate.clone(),
+    ];
+    let visual_summary = build_visual_summary(&executed.frame_evidence);
     let visual_hash = sha256_hex(visual_summary.as_bytes());
-    let canonical_url = metadata
-        .get("webpage_url")
-        .or_else(|| metadata.get("original_url"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(requested_url)
-        .to_string();
-    let title = metadata
-        .get("title")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string);
-    let visual_char_count = frame_evidence
+    let visual_char_count = executed
+        .frame_evidence
         .iter()
         .map(|frame| frame.scene_summary.chars().count() + frame.visible_text.chars().count())
         .sum::<usize>() as u32;
@@ -777,28 +1223,28 @@ async fn extract_visual_artifact(
         schema_version: 1,
         retrieved_at_ms,
         tool: "media__extract_multimodal_evidence".to_string(),
-        backend: "edge:media:ffmpeg_vision".to_string(),
-        provider_id: VISUAL_PROVIDER_ID.to_string(),
-        provider_version: plan.ffmpeg.version.to_string(),
+        backend: executed.backend.to_string(),
+        provider_id: executed.provider_id.to_string(),
+        provider_version: executed.provider_version.clone(),
         requested_url: requested_url.to_string(),
-        canonical_url: canonical_url.clone(),
-        provider_candidates: vec![visual_candidate.candidate.clone()],
-        title: title.clone(),
-        duration_seconds: Some(duration_seconds),
-        frame_count: frame_evidence.len() as u32,
+        canonical_url: executed.canonical_url.clone(),
+        provider_candidates: provider_candidates.clone(),
+        title: executed.title.clone(),
+        duration_seconds: executed.duration_seconds,
+        frame_count: executed.frame_evidence.len() as u32,
         visual_char_count,
         visual_hash: visual_hash.clone(),
         visual_summary: visual_summary.clone(),
-        frames: frame_evidence,
+        frames: executed.frame_evidence,
     };
     let receipt = MediaMultimodalRunReceipt {
-        visual_provider_id: Some(VISUAL_PROVIDER_ID.to_string()),
-        visual_provider_version: Some(plan.ffmpeg.version.to_string()),
-        visual_provider_binary_path: Some(plan.ffmpeg.ffmpeg_path.to_string_lossy().to_string()),
-        visual_ffprobe_path: Some(plan.ffmpeg.ffprobe_path.to_string_lossy().to_string()),
-        visual_selected_video_format_id: Some(plan.video_format.format_id.clone()),
-        visual_selected_video_ext: Some(plan.video_format.ext.clone()),
-        visual_selected_video_codec: Some(plan.video_format.vcodec.clone()),
+        visual_provider_id: Some(executed.provider_id.to_string()),
+        visual_provider_version: Some(executed.provider_version),
+        visual_provider_binary_path: executed.provider_binary_path,
+        visual_ffprobe_path: executed.ffprobe_path,
+        visual_selected_video_format_id: executed.selected_video_format_id,
+        visual_selected_video_ext: executed.selected_video_ext,
+        visual_selected_video_codec: executed.selected_video_codec,
         visual_frame_count: Some(bundle.frame_count),
         visual_char_count: Some(visual_char_count),
         visual_hash: Some(visual_hash),
@@ -807,91 +1253,52 @@ async fn extract_visual_artifact(
     };
 
     Ok((
-        vec![visual_candidate.candidate],
+        provider_candidates,
         Some(VisualArtifact { bundle, receipt }),
     ))
 }
 
-async fn discover_visual_candidate(
+async fn discover_managed_frames_candidate(
     request_url: &str,
     tool_home: &Path,
-    metadata: &Value,
-    inference: Arc<dyn InferenceRuntime>,
+    ytdlp_discovery: Option<&ManagedYtDlpDiscovery>,
+    ytdlp_failure_reason: Option<&str>,
 ) -> Result<VisualProviderCandidateState> {
+    let Some(ytdlp_discovery) = ytdlp_discovery else {
+        return Ok(failed_visual_candidate_state(
+            VISUAL_PROVIDER_ID,
+            request_url,
+            ytdlp_failure_reason.map(str::to_string),
+        ));
+    };
     let ffmpeg = match ensure_managed_ffmpeg_provider(tool_home).await {
         Ok(provider) => provider,
         Err(err) => {
-            return Ok(VisualProviderCandidateState {
-                candidate: media_provider_candidate_receipt_with_modality(
-                    VISUAL_PROVIDER_ID,
-                    request_url,
-                    "visual",
-                    false,
-                    false,
-                    Some(discovery_reason_from_error(&err)),
-                ),
-                plan: None,
-            });
-        }
-    };
-    let Some(video_format) = select_video_format(metadata) else {
-        return Ok(VisualProviderCandidateState {
-            candidate: media_provider_candidate_receipt_with_modality(
+            return Ok(failed_visual_candidate_state(
                 VISUAL_PROVIDER_ID,
                 request_url,
-                "visual",
-                false,
-                false,
-                Some("supported_video_format_unavailable".to_string()),
-            ),
-            plan: None,
-        });
+                Some(provider_reason_from_error(&err)),
+            ));
+        }
     };
-    let duration_seconds = metadata
+    let Some(video_format) = select_video_format(&ytdlp_discovery.metadata) else {
+        return Ok(failed_visual_candidate_state(
+            VISUAL_PROVIDER_ID,
+            request_url,
+            Some("supported_video_format_unavailable".to_string()),
+        ));
+    };
+    let duration_seconds = ytdlp_discovery
+        .metadata
         .get("duration")
         .and_then(Value::as_u64)
         .unwrap_or_default();
     if duration_seconds == 0 {
-        return Ok(VisualProviderCandidateState {
-            candidate: media_provider_candidate_receipt_with_modality(
-                VISUAL_PROVIDER_ID,
-                request_url,
-                "visual",
-                false,
-                false,
-                Some("duration_unavailable".to_string()),
-            ),
-            plan: None,
-        });
-    }
-    let vision_probe = match probe_vision_runtime(inference).await {
-        Ok(value) => value,
-        Err(err) => {
-            return Ok(VisualProviderCandidateState {
-                candidate: media_provider_candidate_receipt_with_modality(
-                    VISUAL_PROVIDER_ID,
-                    request_url,
-                    "visual",
-                    false,
-                    false,
-                    Some(discovery_reason_from_error(&err)),
-                ),
-                plan: None,
-            });
-        }
-    };
-    if !vision_probe {
-        return Ok(VisualProviderCandidateState {
-            candidate: media_provider_candidate_receipt_with_modality(
-                VISUAL_PROVIDER_ID,
-                request_url,
-                "visual",
-                false,
-                false,
-                Some("vision_runtime_probe_unsatisfied".to_string()),
-            ),
-            plan: None,
-        });
+        return Ok(failed_visual_candidate_state(
+            VISUAL_PROVIDER_ID,
+            request_url,
+            Some("duration_unavailable".to_string()),
+        ));
     }
 
     Ok(VisualProviderCandidateState {
@@ -903,11 +1310,222 @@ async fn discover_visual_candidate(
             true,
             None,
         ),
-        plan: Some(VisualProviderExecutionPlan {
+        plan: Some(VisualProviderExecutionPlan::ManagedFrames {
             ffmpeg,
             video_format,
         }),
     })
+}
+
+fn discover_youtube_chapter_thumbnail_candidate(
+    request_url: &str,
+    watch_page: Option<&YouTubeWatchPageContext>,
+    watch_page_failure_reason: Option<&str>,
+) -> VisualProviderCandidateState {
+    let Some(context) = watch_page else {
+        return failed_visual_candidate_state(
+            YOUTUBE_CHAPTER_THUMBNAIL_PROVIDER_ID,
+            request_url,
+            watch_page_failure_reason.map(str::to_string),
+        );
+    };
+    if context.chapter_thumbnails.is_empty() {
+        return failed_visual_candidate_state(
+            YOUTUBE_CHAPTER_THUMBNAIL_PROVIDER_ID,
+            request_url,
+            Some("chapter_thumbnails_unavailable".to_string()),
+        );
+    }
+    VisualProviderCandidateState {
+        candidate: media_provider_candidate_receipt_with_modality(
+            YOUTUBE_CHAPTER_THUMBNAIL_PROVIDER_ID,
+            request_url,
+            "visual",
+            false,
+            true,
+            None,
+        ),
+        plan: Some(VisualProviderExecutionPlan::YouTubeChapterThumbnails {
+            provider_version: youtube_watch_provider_version(&context.client_context),
+            title: context.title.clone(),
+            canonical_url: context.canonical_url.clone(),
+            duration_seconds: context.duration_seconds,
+            chapter_thumbnails: context.chapter_thumbnails.clone(),
+        }),
+    }
+}
+
+fn failed_visual_candidate_state(
+    provider_id: &str,
+    request_url: &str,
+    challenge_reason: Option<String>,
+) -> VisualProviderCandidateState {
+    VisualProviderCandidateState {
+        candidate: media_provider_candidate_receipt_with_modality(
+            provider_id,
+            request_url,
+            "visual",
+            false,
+            false,
+            challenge_reason,
+        ),
+        plan: None,
+    }
+}
+
+fn select_visual_provider_plans(
+    managed_frames_candidate: &VisualProviderCandidateState,
+    chapter_thumbnail_candidate: &VisualProviderCandidateState,
+) -> Vec<VisualProviderExecutionPlan> {
+    let mut plans = Vec::new();
+    if let Some(plan) = managed_frames_candidate.plan.clone() {
+        plans.push(plan);
+    }
+    if let Some(plan) = chapter_thumbnail_candidate.plan.clone() {
+        plans.push(plan);
+    }
+    plans
+}
+
+fn visual_provider_id(plan: &VisualProviderExecutionPlan) -> &'static str {
+    match plan {
+        VisualProviderExecutionPlan::ManagedFrames { .. } => VISUAL_PROVIDER_ID,
+        VisualProviderExecutionPlan::YouTubeChapterThumbnails { .. } => {
+            YOUTUBE_CHAPTER_THUMBNAIL_PROVIDER_ID
+        }
+    }
+}
+
+fn visual_candidate_state_mut<'a>(
+    managed_frames_candidate: &'a mut VisualProviderCandidateState,
+    chapter_thumbnail_candidate: &'a mut VisualProviderCandidateState,
+    selected_plan: &VisualProviderExecutionPlan,
+) -> &'a mut VisualProviderCandidateState {
+    match selected_plan {
+        VisualProviderExecutionPlan::ManagedFrames { .. } => managed_frames_candidate,
+        VisualProviderExecutionPlan::YouTubeChapterThumbnails { .. } => chapter_thumbnail_candidate,
+    }
+}
+
+async fn execute_visual_plan(
+    requested_url: &str,
+    frame_limit: u32,
+    ytdlp_discovery: Option<&ManagedYtDlpDiscovery>,
+    transcript_segments: Option<&[TranscriptSegment]>,
+    run_dir: &Path,
+    selected_plan: VisualProviderExecutionPlan,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutedVisualEvidence> {
+    match selected_plan {
+        VisualProviderExecutionPlan::ManagedFrames {
+            ffmpeg,
+            video_format,
+        } => {
+            let ytdlp_discovery = ytdlp_discovery.ok_or_else(|| {
+                anyhow!(
+                    "ERROR_CLASS=DiscoveryMissing visual managed-frames execution selected without yt-dlp discovery"
+                )
+            })?;
+            let video_path = download_selected_video(
+                &ytdlp_discovery.provider,
+                requested_url,
+                &video_format,
+                run_dir,
+            )
+            .await?;
+            let duration_seconds = ytdlp_discovery
+                .metadata
+                .get("duration")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| {
+                    anyhow!(
+                        "ERROR_CLASS=VerificationMissing visual sampling requires a positive media duration."
+                    )
+                })?;
+            let timestamps_ms =
+                sample_visual_frame_timestamps(duration_seconds, frame_limit as usize);
+            if timestamps_ms.is_empty() {
+                return Err(anyhow!(
+                    "ERROR_CLASS=VerificationMissing visual sampling produced no frame timestamps."
+                ));
+            }
+            let frame_samples =
+                extract_visual_frame_samples(&ffmpeg, &video_path, &timestamps_ms, run_dir).await?;
+            let frame_evidence =
+                analyze_visual_frame_samples(&frame_samples, transcript_segments, inference)
+                    .await?;
+            if frame_evidence.is_empty() {
+                return Err(anyhow!(
+                    "ERROR_CLASS=VerificationMissing visual frame analysis produced no observations."
+                ));
+            }
+            Ok(ExecutedVisualEvidence {
+                provider_id: VISUAL_PROVIDER_ID,
+                provider_version: ffmpeg.version.to_string(),
+                backend: "edge:media:ffmpeg_vision",
+                provider_binary_path: Some(ffmpeg.ffmpeg_path.to_string_lossy().to_string()),
+                ffprobe_path: Some(ffmpeg.ffprobe_path.to_string_lossy().to_string()),
+                selected_video_format_id: Some(video_format.format_id),
+                selected_video_ext: Some(video_format.ext),
+                selected_video_codec: Some(video_format.vcodec),
+                canonical_url: ytdlp_discovery
+                    .metadata
+                    .get("webpage_url")
+                    .or_else(|| ytdlp_discovery.metadata.get("original_url"))
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or(requested_url)
+                    .to_string(),
+                title: ytdlp_discovery
+                    .metadata
+                    .get("title")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(str::to_string),
+                duration_seconds: Some(duration_seconds),
+                frame_evidence,
+            })
+        }
+        VisualProviderExecutionPlan::YouTubeChapterThumbnails {
+            provider_version,
+            title,
+            canonical_url,
+            duration_seconds,
+            chapter_thumbnails,
+        } => {
+            let selected_chapters = sample_chapter_thumbnails(&chapter_thumbnails, frame_limit);
+            if selected_chapters.is_empty() {
+                return Err(anyhow!(
+                    "ERROR_CLASS=VerificationMissing chapter thumbnail sampling produced no frames."
+                ));
+            }
+            let frame_samples = download_chapter_thumbnail_samples(&selected_chapters).await?;
+            let frame_evidence =
+                analyze_visual_frame_samples(&frame_samples, transcript_segments, inference)
+                    .await?;
+            if frame_evidence.is_empty() {
+                return Err(anyhow!(
+                    "ERROR_CLASS=VerificationMissing visual frame analysis produced no observations."
+                ));
+            }
+            Ok(ExecutedVisualEvidence {
+                provider_id: YOUTUBE_CHAPTER_THUMBNAIL_PROVIDER_ID,
+                provider_version,
+                backend: "edge:media:youtube_chapter_thumbnails_vision",
+                provider_binary_path: None,
+                ffprobe_path: None,
+                selected_video_format_id: None,
+                selected_video_ext: None,
+                selected_video_codec: None,
+                canonical_url,
+                title,
+                duration_seconds,
+                frame_evidence,
+            })
+        }
+    }
 }
 
 fn media_tool_home() -> PathBuf {
@@ -1350,6 +1968,388 @@ fn prepare_run_dir(tool_home: &Path) -> Result<PathBuf> {
     Ok(run_dir)
 }
 
+fn youtube_video_id_from_url(request_url: &str) -> Option<String> {
+    let parsed = Url::parse(request_url).ok()?;
+    let host = parsed.host_str()?.trim().to_ascii_lowercase();
+    if host.ends_with("youtu.be") {
+        return parsed
+            .path_segments()?
+            .find(|segment| !segment.trim().is_empty())
+            .map(|segment| segment.trim().to_string());
+    }
+    if host.ends_with("youtube.com") || host.ends_with("youtube-nocookie.com") {
+        if parsed.path().eq_ignore_ascii_case("/watch") {
+            return parsed
+                .query_pairs()
+                .find(|(key, value)| key.eq_ignore_ascii_case("v") && !value.trim().is_empty())
+                .map(|(_, value)| value.to_string());
+        }
+        let mut segments = parsed.path_segments()?;
+        let first = segments.next()?.trim();
+        let second = segments.next()?.trim();
+        if matches!(first, "embed" | "shorts" | "live") && !second.is_empty() {
+            return Some(second.to_string());
+        }
+    }
+    None
+}
+
+async fn discover_youtube_watch_page_context(
+    request_url: &str,
+) -> Result<Option<YouTubeWatchPageContext>> {
+    let Some(video_id) = youtube_video_id_from_url(request_url) else {
+        return Ok(None);
+    };
+    let watch_url = format!("https://www.youtube.com/watch?v={video_id}");
+    let client = reqwest::Client::builder()
+        .redirect(redirect::Policy::limited(5))
+        .timeout(Duration::from_secs(YOUTUBE_WATCH_PAGE_TIMEOUT_SECS))
+        .build()
+        .context("ERROR_CLASS=SynthesisFailed failed to initialize youtube watch-page client")?;
+    let response = client
+        .get(&watch_url)
+        .header(
+            header::USER_AGENT,
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        )
+        .send()
+        .await
+        .context("ERROR_CLASS=ExecutionFailedTerminal failed to fetch youtube watch page")?
+        .error_for_status()
+        .context("ERROR_CLASS=ExecutionFailedTerminal youtube watch page returned error status")?;
+    let resolved_url = response.url().to_string();
+    let html = response
+        .text()
+        .await
+        .context("ERROR_CLASS=ExecutionFailedTerminal failed to read youtube watch page html")?;
+    parse_youtube_watch_page_context(&resolved_url, &html).map(Some)
+}
+
+fn parse_youtube_watch_page_context(
+    resolved_url: &str,
+    html: &str,
+) -> Result<YouTubeWatchPageContext> {
+    let initial_data =
+        extract_inline_json_after_prefix(html, "var ytInitialData = ").ok_or_else(|| {
+            anyhow!("ERROR_CLASS=VerificationMissing youtube watch page missing ytInitialData")
+        })?;
+    let api_key =
+        extract_quoted_value_after_prefix(html, "\"INNERTUBE_API_KEY\":\"").ok_or_else(|| {
+            anyhow!("ERROR_CLASS=VerificationMissing youtube watch page missing innertube api key")
+        })?;
+    let initial_player_response =
+        extract_inline_json_after_prefix(html, "var ytInitialPlayerResponse = ");
+    let client_context = extract_inline_json_after_prefix(html, "\"INNERTUBE_CONTEXT\":")
+        .ok_or_else(|| {
+            anyhow!("ERROR_CLASS=VerificationMissing youtube watch page missing innertube context")
+        })?;
+    let transcript_params = youtube_watch_transcript_params(&initial_data);
+    let transcript_challenge_reason = initial_player_response
+        .as_ref()
+        .and_then(youtube_watch_transcript_challenge_reason);
+    let title = youtube_watch_title(&initial_data);
+    let chapter_thumbnails = youtube_watch_chapter_thumbnails(&initial_data);
+    let duration_seconds = extract_quoted_value_after_prefix(html, "\"lengthSeconds\":\"")
+        .and_then(|value| value.parse::<u64>().ok())
+        .or_else(|| {
+            chapter_thumbnails
+                .iter()
+                .map(|chapter| chapter.start_ms / 1_000)
+                .max()
+        });
+
+    if transcript_params.is_none() && chapter_thumbnails.is_empty() {
+        return Err(anyhow!(
+            "ERROR_CLASS=DiscoveryMissing youtube watch page exposed neither transcript endpoint nor chapter thumbnails"
+        ));
+    }
+
+    Ok(YouTubeWatchPageContext {
+        api_key,
+        client_context,
+        transcript_params,
+        transcript_challenge_reason,
+        title,
+        canonical_url: resolved_url.to_string(),
+        duration_seconds,
+        chapter_thumbnails,
+    })
+}
+
+fn youtube_watch_transcript_challenge_reason(player_response: &Value) -> Option<String> {
+    let status = player_response
+        .get("playabilityStatus")
+        .and_then(|value| value.get("status"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    if status.eq_ignore_ascii_case("OK") {
+        return None;
+    }
+    let reason = player_response
+        .get("playabilityStatus")
+        .and_then(|value| value.get("reason"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("transcript_surface_unavailable");
+    Some(format!(
+        "youtube_watch_playability_block:{}:{}",
+        status.to_ascii_lowercase(),
+        compact_ws(reason)
+    ))
+}
+
+fn extract_inline_json_after_prefix(raw: &str, prefix: &str) -> Option<Value> {
+    let start = raw.find(prefix)? + prefix.len();
+    let mut idx = start;
+    while let Some(ch) = raw[idx..].chars().next() {
+        if ch.is_whitespace() {
+            idx += ch.len_utf8();
+            continue;
+        }
+        if ch != '{' && ch != '[' {
+            return None;
+        }
+        let end = matching_json_end(&raw[idx..])?;
+        return serde_json::from_str::<Value>(&raw[idx..idx + end]).ok();
+    }
+    None
+}
+
+fn matching_json_end(raw: &str) -> Option<usize> {
+    let mut stack = Vec::new();
+    let mut in_string = false;
+    let mut escaped = false;
+    for (idx, ch) in raw.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match ch {
+                '\\' => escaped = true,
+                '"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '{' | '[' => stack.push(ch),
+            '}' => {
+                if stack.pop() != Some('{') {
+                    return None;
+                }
+                if stack.is_empty() {
+                    return Some(idx + ch.len_utf8());
+                }
+            }
+            ']' => {
+                if stack.pop() != Some('[') {
+                    return None;
+                }
+                if stack.is_empty() {
+                    return Some(idx + ch.len_utf8());
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn extract_quoted_value_after_prefix(raw: &str, prefix: &str) -> Option<String> {
+    let start = raw.find(prefix)? + prefix.len();
+    let tail = &raw[start..];
+    let end = tail.find('"')?;
+    Some(tail[..end].replace("\\u003d", "=").replace("\\u0026", "&"))
+}
+
+fn youtube_watch_transcript_params(initial_data: &Value) -> Option<String> {
+    find_first_object_by_key(initial_data, "getTranscriptEndpoint")
+        .and_then(Value::as_object)
+        .and_then(|value| value.get("params"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+fn youtube_watch_title(initial_data: &Value) -> Option<String> {
+    find_first_object_by_key(initial_data, "videoPrimaryInfoRenderer")
+        .and_then(Value::as_object)
+        .and_then(|value| value.get("title"))
+        .and_then(value_text)
+}
+
+fn youtube_watch_chapter_thumbnails(initial_data: &Value) -> Vec<YouTubeChapterThumbnail> {
+    let Some(renderer) = find_first_object_by_key(initial_data, "macroMarkersListRenderer") else {
+        return Vec::new();
+    };
+    let mut chapters = renderer
+        .get("contents")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.get("macroMarkersListItemRenderer"))
+        .filter_map(|renderer| {
+            let title = renderer.get("title").and_then(value_text)?;
+            let start_seconds = renderer
+                .get("onTap")
+                .and_then(|value| value.get("watchEndpoint"))
+                .and_then(|value| value.get("startTimeSeconds"))
+                .and_then(Value::as_f64)
+                .filter(|value| *value >= 0.0)?;
+            let thumbnail_url = renderer
+                .get("thumbnail")
+                .and_then(|value| value.get("thumbnails"))
+                .and_then(Value::as_array)
+                .and_then(|value| value.last())
+                .and_then(|value| value.get("url"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())?
+                .to_string();
+            Some(YouTubeChapterThumbnail {
+                title,
+                start_ms: (start_seconds * 1_000.0).round() as u64,
+                thumbnail_url,
+            })
+        })
+        .collect::<Vec<_>>();
+    chapters.sort_by_key(|chapter| chapter.start_ms);
+    chapters.dedup_by(|left, right| left.start_ms == right.start_ms);
+    chapters
+}
+
+fn find_first_object_by_key<'a>(value: &'a Value, needle: &str) -> Option<&'a Value> {
+    match value {
+        Value::Object(map) => {
+            if let Some(found) = map.get(needle) {
+                return Some(found);
+            }
+            map.values()
+                .find_map(|candidate| find_first_object_by_key(candidate, needle))
+        }
+        Value::Array(values) => values
+            .iter()
+            .find_map(|candidate| find_first_object_by_key(candidate, needle)),
+        _ => None,
+    }
+}
+
+fn value_text(value: &Value) -> Option<String> {
+    if let Some(simple) = value.get("simpleText").and_then(Value::as_str) {
+        let trimmed = simple.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    let runs = value.get("runs").and_then(Value::as_array)?;
+    let text = runs
+        .iter()
+        .filter_map(|run| run.get("text").and_then(Value::as_str))
+        .collect::<Vec<_>>()
+        .join("");
+    let trimmed = text.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
+}
+
+async fn discover_optional_ytdlp(
+    requested_url: &str,
+    tool_home: &Path,
+) -> (Option<ManagedYtDlpDiscovery>, Option<String>) {
+    match ensure_managed_ytdlp_provider(tool_home).await {
+        Ok(provider) => match prepare_run_dir(tool_home) {
+            Ok(run_dir) => match fetch_ytdlp_metadata(&provider, requested_url, &run_dir).await {
+                Ok(metadata) => (Some(ManagedYtDlpDiscovery { provider, metadata }), None),
+                Err(err) => (None, Some(provider_reason_from_error(&err))),
+            },
+            Err(err) => (None, Some(provider_reason_from_error(&err))),
+        },
+        Err(err) => (None, Some(provider_reason_from_error(&err))),
+    }
+}
+
+fn transcript_provider_binary_path(discovery: Option<&ManagedYtDlpDiscovery>) -> String {
+    discovery
+        .map(|value| value.provider.binary_path.to_string_lossy().to_string())
+        .unwrap_or_default()
+}
+
+fn failed_transcript_candidate_state(
+    provider_id: &str,
+    request_url: &str,
+    challenge_reason: Option<String>,
+) -> MediaProviderCandidateState {
+    MediaProviderCandidateState {
+        candidate: media_provider_candidate_receipt(
+            provider_id,
+            request_url,
+            false,
+            false,
+            challenge_reason,
+        ),
+        plan: None,
+    }
+}
+
+fn media_canonical_url(
+    requested_url: &str,
+    ytdlp_discovery: Option<&ManagedYtDlpDiscovery>,
+    watch_page: Option<&YouTubeWatchPageContext>,
+) -> String {
+    ytdlp_discovery
+        .and_then(|value| {
+            value
+                .metadata
+                .get("webpage_url")
+                .or_else(|| value.metadata.get("original_url"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+        .or_else(|| watch_page.map(|value| value.canonical_url.clone()))
+        .unwrap_or_else(|| requested_url.to_string())
+}
+
+fn media_title(
+    ytdlp_discovery: Option<&ManagedYtDlpDiscovery>,
+    watch_page: Option<&YouTubeWatchPageContext>,
+) -> Option<String> {
+    ytdlp_discovery
+        .and_then(|value| {
+            value
+                .metadata
+                .get("title")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+        .or_else(|| watch_page.and_then(|value| value.title.clone()))
+}
+
+fn media_duration_seconds(
+    ytdlp_discovery: Option<&ManagedYtDlpDiscovery>,
+    watch_page: Option<&YouTubeWatchPageContext>,
+) -> Option<u64> {
+    ytdlp_discovery
+        .and_then(|value| value.metadata.get("duration").and_then(Value::as_u64))
+        .or_else(|| watch_page.and_then(|value| value.duration_seconds))
+}
+
+fn youtube_watch_provider_version(client_context: &Value) -> String {
+    client_context
+        .get("client")
+        .and_then(|value| value.get("clientVersion"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| format!("youtube-web@{value}"))
+        .unwrap_or_else(|| "youtube-web".to_string())
+}
+
 async fn fetch_ytdlp_metadata(
     provider: &ManagedYtDlpProvider,
     request_url: &str,
@@ -1375,6 +2375,267 @@ async fn fetch_ytdlp_metadata(
             truncate_log(&String::from_utf8_lossy(&output.stderr), 300)
         )
     })
+}
+
+#[derive(Debug, Deserialize)]
+struct BrowserFetchJsonResponse {
+    status: u16,
+    body: String,
+}
+
+async fn fetch_youtube_watch_transcript_json(
+    browser: &BrowserDriver,
+    request_url: &str,
+    selection: &YouTubeWatchTranscriptSelection,
+) -> Result<Value> {
+    browser
+        .navigate_retrieval(request_url)
+        .await
+        .map_err(|err| anyhow!("ERROR_CLASS=ExecutionFailedTerminal failed to load youtube watch page in browser context: {}", err))?;
+
+    let endpoint = format!(
+        "/youtubei/v1/get_transcript?prettyPrint=false&key={}",
+        selection.api_key
+    );
+    let payload = json!({
+        "context": selection.client_context,
+        "params": selection.transcript_params,
+    });
+    let script = format!(
+        r#"(async () => {{
+            const ytcfgGet =
+                typeof window !== "undefined" && window.ytcfg && typeof window.ytcfg.get === "function"
+                    ? (key) => window.ytcfg.get(key)
+                    : () => undefined;
+            const clientName =
+                ytcfgGet("INNERTUBE_CONTEXT_CLIENT_NAME")
+                ?? ytcfgGet("INNERTUBE_CONTEXT_CLIENT_NAME_INT")
+                ?? {client_name};
+            const clientVersion =
+                ytcfgGet("INNERTUBE_CONTEXT_CLIENT_VERSION")
+                ?? {client_version};
+            const visitorData =
+                ytcfgGet("VISITOR_DATA")
+                ?? {visitor_data};
+            const authUser =
+                ytcfgGet("SESSION_INDEX")
+                ?? ytcfgGet("LOGGED_IN_USER_INDEX");
+            const delegatedSessionId = ytcfgGet("DELEGATED_SESSION_ID");
+            const payload = {payload};
+            if (delegatedSessionId) {{
+                payload.context = payload.context || {{}};
+                payload.context.user = payload.context.user || {{}};
+                payload.context.user.delegatedSessionId = String(delegatedSessionId);
+            }}
+            const headers = {{
+                "content-type": "application/json"
+            }};
+            if (clientName !== undefined && clientName !== null && String(clientName).trim() !== "") {{
+                headers["x-youtube-client-name"] = String(clientName);
+            }}
+            if (clientVersion !== undefined && clientVersion !== null && String(clientVersion).trim() !== "") {{
+                headers["x-youtube-client-version"] = String(clientVersion);
+            }}
+            if (visitorData !== undefined && visitorData !== null && String(visitorData).trim() !== "") {{
+                headers["x-goog-visitor-id"] = String(visitorData);
+            }}
+            if (authUser !== undefined && authUser !== null && String(authUser).trim() !== "") {{
+                headers["x-goog-authuser"] = String(authUser);
+            }}
+            if (typeof location !== "undefined" && location.origin) {{
+                headers["x-origin"] = location.origin;
+            }}
+            const response = await fetch({endpoint}, {{
+                method: "POST",
+                credentials: "include",
+                headers,
+                body: JSON.stringify(payload)
+            }});
+            return {{
+                status: response.status,
+                body: await response.text()
+            }};
+        }})()"#,
+        endpoint = serde_json::to_string(&endpoint).unwrap_or_else(|_| "\"\"".to_string()),
+        payload = payload,
+        client_name = selection
+            .client_context
+            .get("client")
+            .and_then(|value| value.get("clientName"))
+            .map(ToString::to_string)
+            .unwrap_or_else(|| "null".to_string()),
+        client_version = selection
+            .client_context
+            .get("client")
+            .and_then(|value| value.get("clientVersion"))
+            .map(ToString::to_string)
+            .unwrap_or_else(|| "null".to_string()),
+        visitor_data = selection
+            .client_context
+            .get("client")
+            .and_then(|value| value.get("visitorData"))
+            .map(ToString::to_string)
+            .unwrap_or_else(|| "null".to_string())
+    );
+    let response: BrowserFetchJsonResponse =
+        browser
+            .evaluate_retrieval_js(&script)
+            .await
+            .map_err(|err| {
+                anyhow!(
+                    "ERROR_CLASS=ExecutionFailedTerminal browser transcript fetch failed: {}",
+                    err
+                )
+            })?;
+    if response.status != 200 {
+        return Err(anyhow!(
+            "ERROR_CLASS=ExecutionFailedTerminal youtube watch transcript request failed status={} body={}",
+            response.status,
+            truncate_log(&response.body, 300)
+        ));
+    }
+    serde_json::from_str::<Value>(&response.body).with_context(|| {
+        format!(
+            "ERROR_CLASS=VerificationMissing failed to parse youtube transcript json {}",
+            truncate_log(&response.body, 300)
+        )
+    })
+}
+
+fn parse_youtube_transcript_segments(payload: &Value) -> Vec<TranscriptSegment> {
+    let mut segments = Vec::new();
+    collect_youtube_transcript_segments(payload, &mut segments);
+    segments.sort_by_key(|segment| segment.start_ms);
+    segments.dedup_by(|left, right| left.start_ms == right.start_ms || left.text == right.text);
+    segments
+}
+
+fn collect_youtube_transcript_segments(value: &Value, output: &mut Vec<TranscriptSegment>) {
+    match value {
+        Value::Object(map) => {
+            if let Some(renderer) = map.get("transcriptSegmentRenderer") {
+                let start_ms = renderer
+                    .get("startMs")
+                    .and_then(Value::as_str)
+                    .and_then(|value| value.parse::<u64>().ok());
+                let text = renderer
+                    .get("snippet")
+                    .and_then(value_text)
+                    .map(|value| compact_ws(&value))
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty());
+                if let (Some(start_ms), Some(text)) = (start_ms, text) {
+                    output.push(TranscriptSegment { start_ms, text });
+                }
+            }
+            for nested in map.values() {
+                collect_youtube_transcript_segments(nested, output);
+            }
+        }
+        Value::Array(values) => {
+            for nested in values {
+                collect_youtube_transcript_segments(nested, output);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn sample_chapter_thumbnails(
+    chapter_thumbnails: &[YouTubeChapterThumbnail],
+    frame_limit: u32,
+) -> Vec<YouTubeChapterThumbnail> {
+    sample_sequence_indices(chapter_thumbnails.len(), frame_limit as usize)
+        .into_iter()
+        .filter_map(|index| chapter_thumbnails.get(index).cloned())
+        .collect()
+}
+
+fn sample_sequence_indices(total: usize, count: usize) -> Vec<usize> {
+    if total == 0 || count == 0 {
+        return Vec::new();
+    }
+    if count >= total {
+        return (0..total).collect();
+    }
+    if count == 1 {
+        return vec![0];
+    }
+
+    let span = total.saturating_sub(1);
+    let denominator = count.saturating_sub(1);
+    let mut indices = (0..count)
+        .map(|idx| ((idx * span) + (denominator / 2)) / denominator)
+        .collect::<Vec<_>>();
+    indices.sort_unstable();
+    indices.dedup();
+    indices
+}
+
+async fn download_chapter_thumbnail_samples(
+    chapter_thumbnails: &[YouTubeChapterThumbnail],
+) -> Result<Vec<VisualFrameSample>> {
+    let client = reqwest::Client::builder()
+        .redirect(redirect::Policy::limited(5))
+        .timeout(Duration::from_secs(45))
+        .build()
+        .context("ERROR_CLASS=SynthesisFailed failed to initialize chapter thumbnail client")?;
+    let mut samples = Vec::with_capacity(chapter_thumbnails.len());
+    for chapter in chapter_thumbnails {
+        let response = client
+            .get(&chapter.thumbnail_url)
+            .header(
+                header::USER_AGENT,
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+            )
+            .send()
+            .await
+            .with_context(|| {
+                format!(
+                    "ERROR_CLASS=ExecutionFailedTerminal failed to fetch chapter thumbnail {}",
+                    chapter.thumbnail_url
+                )
+            })?
+            .error_for_status()
+            .with_context(|| {
+                format!(
+                    "ERROR_CLASS=ExecutionFailedTerminal chapter thumbnail request returned error status {}",
+                    chapter.thumbnail_url
+                )
+            })?;
+        let bytes = response.bytes().await.context(
+            "ERROR_CLASS=ExecutionFailedTerminal failed to read chapter thumbnail bytes",
+        )?;
+        if bytes.is_empty() {
+            return Err(anyhow!(
+                "ERROR_CLASS=VerificationMissing chapter thumbnail bytes were empty."
+            ));
+        }
+        let image = image::load_from_memory(&bytes)
+            .context("ERROR_CLASS=VerificationMissing failed to decode chapter thumbnail bytes")?;
+        let (width, height) = image.dimensions();
+        let format = image::guess_format(&bytes).unwrap_or(ImageFormat::Jpeg);
+        samples.push(VisualFrameSample {
+            timestamp_ms: chapter.start_ms,
+            timestamp_label: render_timestamp(chapter.start_ms),
+            frame_hash: sha256_hex(bytes.as_ref()),
+            mime_type: image_format_mime_type(format).to_string(),
+            width,
+            height,
+            bytes: bytes.to_vec(),
+        });
+    }
+    Ok(samples)
+}
+
+fn image_format_mime_type(format: ImageFormat) -> &'static str {
+    match format {
+        ImageFormat::Png => "image/png",
+        ImageFormat::Gif => "image/gif",
+        ImageFormat::WebP => "image/webp",
+        ImageFormat::Bmp => "image/bmp",
+        _ => "image/jpeg",
+    }
 }
 
 async fn download_selected_subtitle(
@@ -2416,6 +3677,54 @@ mod tests {
         assert!(timestamps[0] >= 145_000);
         assert!(timestamps[5] <= 2_755_000);
         assert!(timestamps.windows(2).all(|pair| pair[0] <= pair[1]));
+    }
+
+    #[test]
+    fn sample_sequence_indices_spans_available_positions() {
+        let indices = sample_sequence_indices(7, 4);
+        assert_eq!(indices, vec![0, 2, 4, 6]);
+    }
+
+    #[test]
+    fn sample_chapter_thumbnails_respects_frame_limit() {
+        let chapters = vec![
+            YouTubeChapterThumbnail {
+                title: "Intro".to_string(),
+                start_ms: 0,
+                thumbnail_url: "https://example.com/0.jpg".to_string(),
+            },
+            YouTubeChapterThumbnail {
+                title: "Field".to_string(),
+                start_ms: 60_000,
+                thumbnail_url: "https://example.com/1.jpg".to_string(),
+            },
+            YouTubeChapterThumbnail {
+                title: "Coils".to_string(),
+                start_ms: 120_000,
+                thumbnail_url: "https://example.com/2.jpg".to_string(),
+            },
+            YouTubeChapterThumbnail {
+                title: "Wrap".to_string(),
+                start_ms: 180_000,
+                thumbnail_url: "https://example.com/3.jpg".to_string(),
+            },
+        ];
+        let sampled = sample_chapter_thumbnails(&chapters, 3);
+        assert_eq!(sampled.len(), 3);
+        assert_eq!(sampled[0].start_ms, 0);
+        assert_eq!(sampled[1].start_ms, 120_000);
+        assert_eq!(sampled[2].start_ms, 180_000);
+    }
+
+    #[test]
+    fn youtube_watch_provider_version_uses_client_context_version() {
+        let version = youtube_watch_provider_version(&json!({
+            "client": {
+                "clientName": "WEB",
+                "clientVersion": "2.20260310.01.00"
+            }
+        }));
+        assert_eq!(version, "youtube-web@2.20260310.01.00");
     }
 
     #[test]

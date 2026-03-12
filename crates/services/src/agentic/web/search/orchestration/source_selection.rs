@@ -1,26 +1,47 @@
 fn best_metric_excerpt(blocks: &[String]) -> Option<String> {
-    blocks
-        .iter()
-        .filter_map(|block| {
+    let mut best = None::<(usize, String)>;
+    for start in 0..blocks.len() {
+        let mut window = Vec::<String>::new();
+        let mut total_chars = 0usize;
+        for block in blocks.iter().skip(start).take(4) {
             let compact = compact_ws(block);
             let trimmed = compact.trim();
             if trimmed.is_empty() {
-                return None;
+                continue;
             }
-            let schema = analyze_metric_schema(trimmed);
+            if !window.is_empty() {
+                total_chars = total_chars.saturating_add(2);
+            }
+            total_chars = total_chars.saturating_add(trimmed.chars().count());
+            if total_chars > 220 {
+                break;
+            }
+            window.push(trimmed.to_string());
+            let excerpt = window.join("; ");
+            let schema = analyze_metric_schema(&excerpt);
             let score = usize::from(schema.has_current_observation_payload()) * 8
                 + schema.axis_hits.len() * 4
                 + schema.timestamp_hits
                 + schema.unit_hits
-                + schema.numeric_token_hits;
-            (score > 0).then(|| (score, trimmed.to_string()))
-        })
-        .max_by(|left, right| {
-            left.0
-                .cmp(&right.0)
-                .then_with(|| right.1.len().cmp(&left.1.len()))
-        })
-        .map(|(_, block)| block)
+                + schema.numeric_token_hits
+                + window.len().saturating_sub(1) * 2;
+            if score == 0 {
+                continue;
+            }
+            let candidate = (score, excerpt);
+            let replace = best
+                .as_ref()
+                .map(|current| {
+                    candidate.0 > current.0
+                        || (candidate.0 == current.0 && candidate.1.len() > current.1.len())
+                })
+                .unwrap_or(true);
+            if replace {
+                best = Some(candidate);
+            }
+        }
+    }
+    best.map(|(_, excerpt)| excerpt)
 }
 
 fn best_structured_detail_source(
@@ -51,13 +72,18 @@ fn best_structured_detail_source(
         return None;
     }
 
+    let canonical_url = generic_page
+        .as_ref()
+        .map(|source| source.url.as_str())
+        .unwrap_or(page_url);
+
     Some(WebSource {
-        source_id: source_id_for_url(page_url),
+        source_id: source_id_for_url(canonical_url),
         rank: Some(1),
-        domain: domain_for_url(page_url),
+        domain: domain_for_url(canonical_url),
         title,
         snippet,
-        url: page_url.to_string(),
+        url: canonical_url.to_string(),
     })
 }
 
@@ -177,7 +203,10 @@ fn reorder_headline_sources_for_truncation(sources: Vec<WebSource>) -> Vec<WebSo
     let mut seen_urls = HashSet::new();
     let mut seen_domains = HashSet::new();
 
-    for source in ranked.iter().filter(|source| canonical_source_domain(source).is_some()) {
+    for source in ranked
+        .iter()
+        .filter(|source| canonical_source_domain(source).is_some())
+    {
         let url_key = normalize_url_for_id(&source.url);
         let Some(domain_key) = canonical_source_domain(source) else {
             continue;
@@ -313,24 +342,23 @@ fn provider_request_query(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| query.trim());
-    let discovery_query_basis = if contract_requires_geo_scoped_entity_expansion(retrieval_contract)
-        || (retrieval_contract.discovery_surface_required
-            && retrieval_contract.link_collection_preferred
-            && retrieval_contract.entity_cardinality_min > 1)
-    {
-        query.trim()
-    } else {
-        selection_query_contract
-    };
-    let grounded_query =
-        constraint_grounded_search_query_with_contract_and_hints_and_locality_hint(
-            discovery_query_basis,
-            Some(retrieval_contract),
-            retrieval_contract_min_sources(Some(retrieval_contract), selection_query_contract)
-                .max(1),
-            &[],
+    if contract_requires_geo_scoped_entity_expansion(retrieval_contract) {
+        let entity_discovery_query = crate::agentic::desktop::service::step::queue::web_pipeline::local_business_entity_discovery_query_contract(
+            selection_query_contract,
             locality_scope,
         );
+        if !entity_discovery_query.trim().is_empty() {
+            return entity_discovery_query;
+        }
+    }
+    let discovery_query_basis = selection_query_contract;
+    let grounded_query = constraint_grounded_search_query_with_contract_and_hints_and_locality_hint(
+        discovery_query_basis,
+        Some(retrieval_contract),
+        retrieval_contract_min_sources(Some(retrieval_contract), selection_query_contract).max(1),
+        &[],
+        locality_scope,
+    );
     let grounded_trimmed = grounded_query.trim();
     if !grounded_trimmed.is_empty() {
         return grounded_trimmed.to_string();

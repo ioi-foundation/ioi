@@ -161,17 +161,24 @@ pub(super) fn handle_duplicate_command_execution(
         verification_checks.push("duplicate_action_fingerprint_blocked=true".to_string());
     } else {
         let tool_name = canonical_tool_identity(tool).0;
-        let summary = format!(
-            "Skipped immediate replay of '{}' because the same action fingerprint was already executed on the previous step. This fingerprint is now cooled down at the current step; choose a different action or finish with the gathered evidence.",
-            tool_name
-        );
+        let active_web_pipeline_chat_reply =
+            is_active_web_pipeline_chat_reply_duplicate(&tool_name, agent_state);
+        let summary = if active_web_pipeline_chat_reply {
+            "Deferred final reply while web research continues gathering evidence.".to_string()
+        } else {
+            format!(
+                "Skipped immediate replay of '{}' because the same action fingerprint was already executed on the previous step. This fingerprint is now cooled down at the current step; choose a different action or finish with the gathered evidence.",
+                tool_name
+            )
+        };
         mark_action_fingerprint_executed_at_step(
             &mut agent_state.tool_execution_log,
             action_fingerprint,
             step_index,
             "duplicate_skip",
         );
-        let noop_duplicate_allowed = is_non_command_duplicate_noop_tool(&tool_name);
+        let noop_duplicate_allowed =
+            is_non_command_duplicate_noop_tool(&tool_name) || active_web_pipeline_chat_reply;
         if noop_duplicate_allowed {
             success = true;
             error_msg = None;
@@ -204,6 +211,11 @@ pub(super) fn handle_duplicate_command_execution(
             }
             verification_checks
                 .push("duplicate_action_fingerprint_non_command_noop=true".to_string());
+            if active_web_pipeline_chat_reply {
+                verification_checks
+                    .push("terminal_chat_reply_deferred_for_active_web_pipeline=true".to_string());
+                verification_checks.push("web_pipeline_active=true".to_string());
+            }
         } else {
             let duplicate_error = format!("ERROR_CLASS=NoEffectAfterAction {}", summary);
             success = false;
@@ -249,6 +261,10 @@ fn is_non_command_duplicate_noop_tool(tool_name: &str) -> bool {
         )
 }
 
+fn is_active_web_pipeline_chat_reply_duplicate(tool_name: &str, agent_state: &AgentState) -> bool {
+    tool_name == "chat__reply" && agent_state.pending_search_completion.is_some()
+}
+
 fn is_read_only_filesystem_tool(tool_name: &str) -> bool {
     matches!(
         tool_name,
@@ -273,9 +289,54 @@ fn is_mail_reply_tool(tool_name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_mail_read_latest_tool, is_mail_reply_tool, is_non_command_duplicate_noop_tool,
-        is_read_only_filesystem_tool,
+        is_active_web_pipeline_chat_reply_duplicate, is_mail_read_latest_tool, is_mail_reply_tool,
+        is_non_command_duplicate_noop_tool, is_read_only_filesystem_tool,
     };
+    use crate::agentic::desktop::types::{
+        AgentMode, AgentState, AgentStatus, ExecutionTier, PendingSearchCompletion,
+    };
+    use std::collections::BTreeMap;
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [0u8; 32],
+            goal: "test".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 1,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_request_nonce: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: None,
+            planner_state: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: Default::default(),
+            active_lens: None,
+        }
+    }
 
     #[test]
     fn read_only_filesystem_tools_are_noop_safe() {
@@ -295,6 +356,37 @@ mod tests {
         assert!(is_non_command_duplicate_noop_tool("mail__reply"));
         assert!(!is_non_command_duplicate_noop_tool(
             "filesystem__create_directory"
+        ));
+    }
+
+    #[test]
+    fn active_web_pipeline_chat_reply_duplicates_are_noop_safe() {
+        let mut agent_state = test_agent_state();
+        agent_state.pending_search_completion = Some(PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract:
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                    .to_string(),
+            retrieval_contract: None,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: Vec::new(),
+            candidate_source_hints: Vec::new(),
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 2,
+        });
+
+        assert!(is_active_web_pipeline_chat_reply_duplicate(
+            "chat__reply",
+            &agent_state
+        ));
+        assert!(!is_active_web_pipeline_chat_reply_duplicate(
+            "filesystem__read_file",
+            &agent_state
         ));
     }
 

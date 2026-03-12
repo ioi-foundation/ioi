@@ -3,7 +3,7 @@ use super::approvals;
 use super::focus;
 use super::pii;
 use super::wallet_mail::try_execute_wallet_mail_dynamic_tool;
-use super::web_research::normalize_web_research_tool_call;
+use super::{normalize_web_research_tool_call, reconcile_pending_web_research_tool_call};
 use crate::agentic::desktop::execution::ToolExecutor;
 use crate::agentic::desktop::types::AgentState;
 use crate::agentic::rules::ActionRules;

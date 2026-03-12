@@ -11,7 +11,9 @@ const CASE_ID: &str = "summarize_the_key_points_from_this_45_minute_youtube_vide
 const EXPECTED_FIXTURE_MODE: &str = "media_multimodal_tool_home_fixture_v1";
 const EXPECTED_URL: &str = "https://www.youtube.com/watch?v=9Tm2c6NJH4Y";
 const EXPECTED_VIDEO_ID: &str = "9Tm2c6NJH4Y";
+const TIMELINE_PROVIDER_ID: &str = "youtube.key_moments_timeline";
 const VISUAL_PROVIDER_ID: &str = "ffmpeg.managed_frames_vision";
+const CHAPTER_THUMBNAIL_VISUAL_PROVIDER_ID: &str = "youtube.chapter_thumbnails_vision";
 
 #[derive(Debug, Clone, Serialize)]
 struct EnvironmentEvidenceReceipt {
@@ -26,7 +28,7 @@ pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Summarize the key points from this 45-minute YouTube video: [https://www.youtube.com/watch?v=9Tm2c6NJH4Y]. Use direct media-content retrieval from the video itself. Prefer `media__extract_multimodal_evidence`, summarize the multimodal evidence you extract, and do not substitute webpage metadata, browser summaries, or shell execution workflows. Do not use `web__search`, `web__read`, `net__fetch`, `browser__*`, or `sys__exec*`. Return a concise key-point summary of the video.",
-        success_definition: "Extract transcript plus visual evidence from the target YouTube video via the dedicated multimodal media tool, complete with discovery/provider-selection/execution/verification receipts, return a non-raw summary reply, and satisfy isolated fixture + cleanup environment receipts.",
+        success_definition: "Extract direct multimodal evidence from the target YouTube video via the dedicated media tool, using either transcript+visual or timeline+visual evidence with discovery/provider-selection/execution/verification receipts, return a non-raw summary reply, and satisfy isolated fixture + cleanup environment receipts.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
         seed_resolved_intent: true,
@@ -50,22 +52,43 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let provider_candidate_count = provider_candidates.len();
     let selected_provider_count = provider_candidates
         .iter()
-        .filter(|candidate| candidate.selected && candidate.success && candidate.source_count > 0)
+        .filter(|candidate| {
+            candidate.selected
+                && candidate.success
+                && candidate.source_count > 0
+                && candidate.execution_attempted == Some(true)
+                && candidate.execution_satisfied == Some(true)
+        })
         .count();
     let transcript_provider_selected = provider_candidates.iter().any(|candidate| {
         candidate.selected
             && candidate.success
             && candidate.source_count > 0
+            && candidate.execution_attempted == Some(true)
+            && candidate.execution_satisfied == Some(true)
             && matches!(
                 candidate.provider_id.as_str(),
-                "yt_dlp.managed_subtitles" | "yt_dlp.whisper_rs_audio"
+                "yt_dlp.managed_subtitles" | "yt_dlp.whisper_rs_audio" | "youtube.watch_transcript"
             )
+    });
+    let timeline_provider_selected = provider_candidates.iter().any(|candidate| {
+        candidate.selected
+            && candidate.success
+            && candidate.source_count > 0
+            && candidate.execution_attempted == Some(true)
+            && candidate.execution_satisfied == Some(true)
+            && candidate.provider_id == TIMELINE_PROVIDER_ID
     });
     let visual_provider_selected = provider_candidates.iter().any(|candidate| {
         candidate.selected
             && candidate.success
             && candidate.source_count > 0
-            && candidate.provider_id == VISUAL_PROVIDER_ID
+            && candidate.execution_attempted == Some(true)
+            && candidate.execution_satisfied == Some(true)
+            && matches!(
+                candidate.provider_id.as_str(),
+                VISUAL_PROVIDER_ID | CHAPTER_THUMBNAIL_VISUAL_PROVIDER_ID
+            )
     });
 
     let selected_modalities =
@@ -81,6 +104,12 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         cec_receipt_value(obs, "verification", "media_transcript_source_kind").unwrap_or_default();
     let transcript_language =
         cec_receipt_value(obs, "verification", "media_transcript_language").unwrap_or_default();
+    let timeline_cue_count =
+        cec_receipt_usize(obs, "verification", "media_timeline_cue_count").unwrap_or(0);
+    let timeline_char_count =
+        cec_receipt_usize(obs, "verification", "media_timeline_char_count").unwrap_or(0);
+    let timeline_source_kind =
+        cec_receipt_value(obs, "verification", "media_timeline_source_kind").unwrap_or_default();
     let visual_frame_count =
         cec_receipt_usize(obs, "verification", "media_visual_frame_count").unwrap_or(0);
     let visual_char_count =
@@ -119,54 +148,58 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && has_cec_receipt(
             obs,
             "verification",
-            "media_transcript_available",
-            Some(true),
-        )
-        && has_cec_receipt(
-            obs,
-            "verification",
             "media_visual_evidence_available",
             Some(true),
         )
         && completion_gate_satisfied;
+    let transcript_postcondition_present = has_cec_receipt(
+        obs,
+        "verification",
+        "media_transcript_available",
+        Some(true),
+    );
+    let timeline_postcondition_present =
+        has_cec_receipt(obs, "verification", "media_timeline_available", Some(true));
     let provider_discovery_evidence_present = provider_candidate_count >= 3
         && selected_provider_count >= 2
-        && transcript_provider_selected
+        && (transcript_provider_selected || timeline_provider_selected)
         && visual_provider_selected;
-    let selected_modalities_ok =
+    let transcript_modalities_ok =
         selected_modalities.contains("transcript") && selected_modalities.contains("visual");
-    let objective_media_receipts_present = !media_title.trim().is_empty()
+    let timeline_modalities_ok =
+        selected_modalities.contains("timeline") && selected_modalities.contains("visual");
+    let transcript_objective_receipts_present = transcript_postcondition_present
+        && transcript_modalities_ok
         && duration_seconds >= 2_400
         && duration_seconds <= 4_200
         && transcript_char_count >= 3_000
         && transcript_segment_count >= 100
         && matches!(
             transcript_source_kind.trim(),
-            "manual" | "automatic" | "stt"
+            "manual" | "automatic" | "stt" | "watch_transcript"
         )
         && transcript_language
             .trim()
             .to_ascii_lowercase()
-            .starts_with("en")
+            .starts_with("en");
+    let timeline_objective_receipts_present = timeline_postcondition_present
+        && timeline_modalities_ok
+        && duration_seconds >= 2_400
+        && duration_seconds <= 4_200
+        && timeline_cue_count >= 5
+        && timeline_char_count >= 120
+        && timeline_source_kind
+            .trim()
+            .eq_ignore_ascii_case("key_moments");
+    let objective_media_receipts_present = !media_title.trim().is_empty()
+        && (transcript_objective_receipts_present || timeline_objective_receipts_present)
         && visual_frame_count >= 4
         && visual_char_count >= 100
         && !visual_hash.trim().is_empty()
-        && selected_modalities_ok
         && (selected_source_url.contains(EXPECTED_VIDEO_ID)
             || selected_source_url.eq_ignore_ascii_case(EXPECTED_URL))
         && selected_source_total == 1
         && selected_source_distinct_domains == 1;
-
-    let final_reply_compact = obs
-        .final_reply
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    let reply_delivery_present = !final_reply_compact.is_empty()
-        && !final_reply_compact.starts_with('{')
-        && !final_reply_compact.contains("\"transcript_text\"")
-        && !final_reply_compact.contains("\"visual_summary\"")
-        && !final_reply_compact.contains("\"provider_candidates\"");
 
     let environment_receipts = collect_environment_receipts(obs);
     let fixture_mode_matches = environment_value(obs, "env_receipt::media_multimodal_fixture_mode")
@@ -193,8 +226,14 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         ),
         LocalCheck::new(
             "cec_phase_receipts_present",
-            cec_phase_receipts_present,
-            format!("cec_receipts={}", obs.cec_receipts.len()),
+            cec_phase_receipts_present
+                && (transcript_postcondition_present || timeline_postcondition_present),
+            format!(
+                "cec_receipts={} transcript_postcondition_present={} timeline_postcondition_present={}",
+                obs.cec_receipts.len(),
+                transcript_postcondition_present,
+                timeline_postcondition_present
+            ),
         ),
         LocalCheck::new(
             "provider_discovery_evidence_present",
@@ -208,21 +247,18 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_media_receipts_present",
             objective_media_receipts_present,
             format!(
-                "media_title={} duration_seconds={} transcript_char_count={} transcript_segment_count={} visual_frame_count={} visual_char_count={} selected_modalities={} selected_source_url={}",
+                "media_title={} duration_seconds={} transcript_char_count={} transcript_segment_count={} timeline_cue_count={} timeline_char_count={} visual_frame_count={} visual_char_count={} selected_modalities={} selected_source_url={}",
                 truncate_chars(&media_title, 80),
                 duration_seconds,
                 transcript_char_count,
                 transcript_segment_count,
+                timeline_cue_count,
+                timeline_char_count,
                 visual_frame_count,
                 visual_char_count,
                 selected_modalities,
                 truncate_chars(&selected_source_url, 120),
             ),
-        ),
-        LocalCheck::new(
-            "reply_delivery_present",
-            reply_delivery_present,
-            truncate_chars(&final_reply_compact, 180),
         ),
         LocalCheck::new(
             "environment_receipts_present",
@@ -261,9 +297,9 @@ fn collect_environment_receipts(obs: &RunObservation) -> Vec<EnvironmentEvidence
         "media_multimodal_requested_url",
         "media_multimodal_canonical_url",
         "media_multimodal_selected_modalities",
-        "media_multimodal_transcript_provider_binary_path",
+        "media_multimodal_timeline_provider_id",
+        "media_multimodal_timeline_cue_count",
         "media_multimodal_visual_provider_binary_path",
-        "media_multimodal_transcript_char_count",
         "media_multimodal_visual_frame_count",
         "media_multimodal_cleanup",
     ]

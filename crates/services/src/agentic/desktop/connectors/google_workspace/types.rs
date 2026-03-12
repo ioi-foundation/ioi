@@ -6,8 +6,7 @@ pub const GOOGLE_CONNECTOR_PROVIDER: &str = "google";
 pub(super) const GWS_DEFAULT_TIMEOUT_SECS: u64 = 120;
 pub(super) const BIGQUERY_TOOL_NAME: &str = "connector__google__bigquery_execute_query";
 pub(super) const BIGQUERY_READ_TARGET: &str = "connector__google__bigquery_execute_query__read";
-pub(super) const BIGQUERY_WRITE_TARGET: &str =
-    "connector__google__bigquery_execute_query__write";
+pub(super) const BIGQUERY_WRITE_TARGET: &str = "connector__google__bigquery_execute_query__write";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

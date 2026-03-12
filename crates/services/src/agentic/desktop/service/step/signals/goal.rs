@@ -48,10 +48,14 @@ const PROVENANCE_MARKERS: [&str; 18] = [
     "proof",
 ];
 
-const EXTERNAL_KNOWLEDGE_MARKERS: [&str; 33] = [
+const EXTERNAL_KNOWLEDGE_MARKERS: &[&str] = &[
     "web",
     "internet",
     "online",
+    "research",
+    "lookup",
+    "look up",
+    "investigate",
     "news",
     "status",
     "status page",
@@ -289,6 +293,7 @@ const MAILBOX_ACTION_MARKERS: [&str; 17] = [
 
 const QUERY_CONTROL_MARKERS: &[&str] = &[
     "find",
+    "research",
     "show",
     "list",
     "compare",
@@ -302,6 +307,11 @@ const QUERY_CONTROL_MARKERS: &[&str] = &[
     "ranked",
     "best",
     "top",
+    "briefing",
+    "overview",
+    "survey",
+    "landscape",
+    "digest",
     "review",
     "reviewed",
     "one",
@@ -353,25 +363,26 @@ impl GoalSignalProfile {
             return false;
         }
 
+        let excludes_workspace_execution = self.workspace_hits == 0
+            && self.filesystem_hits == 0
+            && self.command_hits == 0
+            && self.install_hits == 0;
         let has_live_grounding_request = self.recency_hits >= 1 && self.provenance_hits >= 1;
         let has_external_surface =
             self.external_hits >= 2 || (self.external_hits >= 1 && has_live_grounding_request);
         let has_provenance_pressure = self.provenance_hits >= 2 || self.explicit_url_hits > 0;
-        let has_time_sensitive_public_fact_lookup = self.recency_hits >= 1
-            && self.public_fact_hits >= 1
-            && self.workspace_hits == 0
-            && self.filesystem_hits == 0
-            && self.command_hits == 0
-            && self.install_hits == 0;
-        let has_locality_bound_external_lookup = self.locality_lookup_hits > 0
-            && self.workspace_hits == 0
-            && self.filesystem_hits == 0
-            && self.command_hits == 0
-            && self.install_hits == 0;
+        let has_time_sensitive_public_fact_lookup =
+            self.recency_hits >= 1 && self.public_fact_hits >= 1 && excludes_workspace_execution;
+        let has_time_sensitive_external_lookup = self.recency_hits >= 1
+            && (self.external_hits >= 1 || self.browser_hits > 0 || self.explicit_url_hits > 0)
+            && excludes_workspace_execution;
+        let has_locality_bound_external_lookup =
+            self.locality_lookup_hits > 0 && excludes_workspace_execution;
 
         (has_live_grounding_request && has_external_surface)
             || (has_external_surface && has_provenance_pressure)
             || has_time_sensitive_public_fact_lookup
+            || has_time_sensitive_external_lookup
             || has_locality_bound_external_lookup
     }
 

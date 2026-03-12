@@ -399,6 +399,9 @@ pub enum AgentTool {
         /// Optional max characters of extracted text to return.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         max_chars: Option<u32>,
+        /// Whether browser-backed fallback retrieval is allowed when HTTP extraction is insufficient.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        allow_browser_fallback: Option<bool>,
     },
 
     /// Extract transcript text from a remote media URL using managed media providers.

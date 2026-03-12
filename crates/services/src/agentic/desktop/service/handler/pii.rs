@@ -16,6 +16,7 @@ async fn enforce_text_egress_policy(
     service: &DesktopAgentService,
     rules: &crate::agentic::rules::ActionRules,
     session_id: [u8; 32],
+    field: ioi_types::app::agentic::PiiEgressField,
     target: &PiiTarget,
     risk_surface: RiskSurface,
     supports_transform: bool,
@@ -25,8 +26,9 @@ async fn enforce_text_egress_policy(
     let target_label = target.canonical_label();
     let (scrubbed, _map, report, routed, evidence) = service
         .scrubber
-        .inspect_route_transform(
+        .inspect_route_transform_for_egress_field(
             text,
+            field,
             target,
             risk_surface,
             &rules.pii_controls,
@@ -178,8 +180,9 @@ pub(crate) async fn build_pii_review_request_for_tool(
         };
         let (_scrubbed, _map, _report, routed, evidence) = service
             .scrubber
-            .inspect_route_transform(
+            .inspect_route_transform_for_egress_field(
                 text,
+                spec.field,
                 &spec.target,
                 to_shared_risk_surface(spec.risk_surface),
                 &rules.pii_controls,
@@ -264,6 +267,7 @@ pub(super) async fn apply_pii_transform_first(
                 service,
                 rules,
                 session_id,
+                spec.field,
                 &spec.target,
                 to_shared_risk_surface(spec.risk_surface),
                 spec.supports_transform,
