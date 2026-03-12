@@ -48,6 +48,12 @@ pub struct McpServerReceipt {
     pub tools: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct McpToolExecutionOutput {
+    pub server_name: String,
+    pub result: Value,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum McpToolRiskDomain {
     Low,
@@ -243,24 +249,36 @@ impl McpManager {
         receipts.values().cloned().collect()
     }
 
+    pub async fn server_receipt_for_tool(&self, namespaced_tool: &str) -> Option<McpServerReceipt> {
+        let server_name = {
+            let table = self.tool_routing_table.read().await;
+            table.get(namespaced_tool).cloned()
+        }?;
+        let receipts = self.server_receipts.read().await;
+        receipts.get(&server_name).cloned()
+    }
+
     pub async fn execute_tool(&self, namespaced_tool: &str, args: Value) -> Result<String> {
         self.execute_tool_with_spec(namespaced_tool, args, None)
             .await
     }
 
-    pub async fn execute_tool_with_spec(
+    pub async fn execute_tool_with_result(
         &self,
         namespaced_tool: &str,
         args: Value,
         workload_spec: Option<&WorkloadSpec>,
-    ) -> Result<String> {
+    ) -> Result<McpToolExecutionOutput> {
         let spec = workload_spec.ok_or_else(|| {
             anyhow!(
                 "ERROR_CLASS=PolicyBlocked Missing WorkloadSpec for MCP tool '{}'",
                 namespaced_tool
             )
         })?;
-        if spec.runtime_target != RuntimeTarget::McpAdapter {
+        if !matches!(
+            spec.runtime_target,
+            RuntimeTarget::Adapter | RuntimeTarget::McpAdapter
+        ) {
             return Err(anyhow!(
                 "ERROR_CLASS=PolicyBlocked RuntimeTarget '{}' is invalid for MCP tool '{}'",
                 spec.runtime_target.as_label(),
@@ -314,8 +332,23 @@ impl McpManager {
             .get(server_name)
             .ok_or_else(|| anyhow!("MCP Server '{}' is dead or disconnected", server_name))?;
 
-        let result_json = transport.call_tool(raw_tool_name, args).await?;
-        Ok(result_json.to_string())
+        let result = transport.call_tool(raw_tool_name, args).await?;
+        Ok(McpToolExecutionOutput {
+            server_name: server_name.clone(),
+            result,
+        })
+    }
+
+    pub async fn execute_tool_with_spec(
+        &self,
+        namespaced_tool: &str,
+        args: Value,
+        workload_spec: Option<&WorkloadSpec>,
+    ) -> Result<String> {
+        let result = self
+            .execute_tool_with_result(namespaced_tool, args, workload_spec)
+            .await?;
+        Ok(result.result.to_string())
     }
 }
 
@@ -864,7 +897,7 @@ mod tests {
 
     fn mcp_spec(issued_at_ms: u64, expires_at_ms: u64) -> WorkloadSpec {
         WorkloadSpec {
-            runtime_target: RuntimeTarget::McpAdapter,
+            runtime_target: RuntimeTarget::Adapter,
             net_mode: NetMode::Disabled,
             capability_lease: Some(CapabilityLease {
                 lease_id: [9u8; 32],

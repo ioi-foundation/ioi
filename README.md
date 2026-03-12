@@ -294,7 +294,6 @@ If you want the fastest path to understanding the current repo, read in this ord
 3. [`docs/wallet_network.md`](docs/wallet_network.md)
 4. [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
 5. [`docs/fractal-query-fabric-spec.md`](docs/fractal-query-fabric-spec.md)
-6. [`docs/context-atlas-implementation-plan.md`](docs/context-atlas-implementation-plan.md)
 
 ## Getting Started
 

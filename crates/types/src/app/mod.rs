@@ -3,6 +3,8 @@
 
 /// Data structures for the Agency Firewall action requests.
 pub mod action;
+/// Data structures for external adapter contracts.
+pub mod adapter;
 /// Data structures for agentic semantic consensus.
 pub mod agentic;
 /// Data structures related to consensus, such as the canonical validator set
@@ -23,6 +25,7 @@ pub mod wallet_network;
 pub mod workload;
 
 pub use action::*;
+pub use adapter::*;
 pub use consensus::*;
 // Explicitly re-export the new agentic types
 pub use agentic::{

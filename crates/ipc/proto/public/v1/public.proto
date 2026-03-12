@@ -217,6 +217,7 @@ message WorkloadReceipt {
         WorkloadWebRetrieveReceipt web_retrieve = 12;
         WorkloadFsWriteReceipt fs_write = 13;
         WorkloadScsRetrieveReceipt scs_retrieve = 14;
+        WorkloadAdapterReceipt adapter = 15;
     }
 }
 
@@ -329,6 +330,45 @@ message WorkloadScsRetrieveReceipt {
     bool success = 19;
     string error_class = 20;
     bool has_error_class = 21;
+}
+
+message AdapterArtifactPointer {
+    string uri = 1;
+
+    string media_type = 2;
+    bool has_media_type = 3;
+
+    string sha256 = 4;
+    bool has_sha256 = 5;
+
+    string label = 6;
+    bool has_label = 7;
+}
+
+message WorkloadAdapterReceipt {
+    string adapter_id = 1;
+    string tool_name = 2;
+    string adapter_kind = 3;
+    string invocation_id = 4;
+    string idempotency_key = 5;
+    string action_target = 6;
+    string request_hash = 7;
+
+    string response_hash = 8;
+    bool has_response_hash = 9;
+
+    bool success = 10;
+
+    string error_class = 11;
+    bool has_error_class = 12;
+
+    string replay_classification = 13;
+    bool has_replay_classification = 14;
+
+    repeated AdapterArtifactPointer artifact_pointers = 15;
+    repeated string redacted_fields = 16;
+    uint32 redaction_count = 17;
+    string redaction_version = 18;
 }
 
 // [NEW] Message for agent spawning

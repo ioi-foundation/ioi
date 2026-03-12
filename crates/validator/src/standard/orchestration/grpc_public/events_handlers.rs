@@ -45,8 +45,9 @@ mod workload_event_mapping_tests {
     use super::map_kernel_event;
     use ioi_ipc::public::chain_event::Event as ChainEventEnum;
     use ioi_types::app::{
-        KernelEvent, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt,
-        WorkloadFsWriteReceipt, WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent,
+        AdapterArtifactPointer, AdapterKind, AdapterReceipt, AdapterRedactionSummary, KernelEvent,
+        WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt, WorkloadFsWriteReceipt,
+        WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent,
         WorkloadScsRetrieveReceipt, WorkloadWebRetrieveReceipt,
     };
 
@@ -304,6 +305,70 @@ mod workload_event_mapping_tests {
                     assert!(!scs.has_error_class);
                 }
                 other => panic!("expected scs_retrieve receipt, got: {:?}", other),
+            },
+            other => panic!("expected workload receipt chain event, got: {:?}", other),
+        }
+
+        let receipt = KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid-adapter".to_string(),
+            timestamp_ms: 128,
+            receipt: WorkloadReceipt::Adapter(AdapterReceipt {
+                adapter_id: "mcp::echo_server".to_string(),
+                tool_name: "echo_server__echo".to_string(),
+                kind: AdapterKind::Mcp,
+                invocation_id: "invoke-1".to_string(),
+                idempotency_key: "idem-1".to_string(),
+                action_target: "custom:echo_server__echo".to_string(),
+                request_hash: "sha256:req".to_string(),
+                response_hash: Some("sha256:resp".to_string()),
+                success: true,
+                error_class: None,
+                artifact_pointers: vec![AdapterArtifactPointer {
+                    uri: "file:///tmp/report.json".to_string(),
+                    media_type: Some("application/json".to_string()),
+                    sha256: Some("sha256:artifact".to_string()),
+                    label: Some("report".to_string()),
+                }],
+                redaction: Some(AdapterRedactionSummary {
+                    redacted_fields: vec!["arguments.token".to_string()],
+                    redaction_count: 1,
+                    redaction_version: "adapter_receipt.redaction.v1".to_string(),
+                }),
+                replay_classification: Some(ioi_types::app::AdapterReplayClassification::ReplaySafe),
+            }),
+        });
+        let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
+            .expect("adapter workload receipt should map");
+        match mapped {
+            ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
+                Some(ioi_ipc::public::workload_receipt::Receipt::Adapter(adapter)) => {
+                    assert_eq!(adapter.adapter_id, "mcp::echo_server");
+                    assert_eq!(adapter.tool_name, "echo_server__echo");
+                    assert_eq!(adapter.adapter_kind, "mcp");
+                    assert_eq!(adapter.invocation_id, "invoke-1");
+                    assert_eq!(adapter.idempotency_key, "idem-1");
+                    assert_eq!(adapter.action_target, "custom:echo_server__echo");
+                    assert_eq!(adapter.request_hash, "sha256:req");
+                    assert!(adapter.has_response_hash);
+                    assert_eq!(adapter.response_hash, "sha256:resp");
+                    assert!(adapter.success);
+                    assert!(!adapter.has_error_class);
+                    assert!(adapter.has_replay_classification);
+                    assert_eq!(adapter.replay_classification, "replay_safe");
+                    assert_eq!(adapter.artifact_pointers.len(), 1);
+                    assert_eq!(adapter.artifact_pointers[0].uri, "file:///tmp/report.json");
+                    assert!(adapter.artifact_pointers[0].has_media_type);
+                    assert_eq!(adapter.artifact_pointers[0].media_type, "application/json");
+                    assert_eq!(adapter.redacted_fields, vec!["arguments.token".to_string()]);
+                    assert_eq!(adapter.redaction_count, 1);
+                    assert_eq!(
+                        adapter.redaction_version,
+                        "adapter_receipt.redaction.v1"
+                    );
+                }
+                other => panic!("expected adapter receipt, got: {:?}", other),
             },
             other => panic!("expected workload receipt chain event, got: {:?}", other),
         }

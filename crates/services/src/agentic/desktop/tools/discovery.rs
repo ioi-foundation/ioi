@@ -3,6 +3,7 @@ use crate::agentic::desktop::service::step::intent_resolver::{
 };
 use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::types::ExecutionTier;
+use crate::agentic::desktop::adapters;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::mcp::McpManager;
@@ -11,7 +12,7 @@ use ioi_types::app::agentic::{LlmToolDefinition, ResolvedIntentState};
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use super::{builtins, mcp, services, skills};
+use super::{builtins, skills};
 
 fn split_active_window_label(active_window_title: &str) -> (String, String) {
     let label = active_window_title.trim();
@@ -56,15 +57,10 @@ pub async fn discover_tools(
     let allow_web_search = is_tool_allowed_for_resolution(resolved_intent, "web__search");
     let allow_web_read = is_tool_allowed_for_resolution(resolved_intent, "web__read");
 
-    // Dynamic service tools (on-chain services)
-    services::push_service_tools(state, active_window_title, &mut tools);
-    services::inject_mail_connector_fallback_tools_if_needed(resolved_intent, &mut tools);
-    services::inject_google_connector_tools_if_needed(&mut tools);
-
-    // MCP tool discovery
-    if let Some(mcp) = mcp {
-        mcp::push_mcp_tools(mcp, &mut tools, &mut mcp_tool_names).await;
-    }
+    let (mut adapter_tools, adapter_tool_names) =
+        adapters::discover_adapter_tools(state, mcp, active_window_title, resolved_intent).await;
+    mcp_tool_names.extend(adapter_tool_names);
+    tools.append(&mut adapter_tools);
 
     // Built-in deterministic tools + tier-gated UI controls
     builtins::push_builtin_tools(

@@ -1,15 +1,17 @@
 use super::{
-    ConnectorPostconditionProof, ConnectorPostconditionVerifierBinding,
-    ConnectorProtectedSlotBinding, ConnectorProviderProbeBinding,
-    ConnectorSymbolicReferenceBinding, ConnectorSymbolicReferenceInferenceBinding,
-    ConnectorToolRouteBinding, PostconditionVerificationFuture, ProviderCandidateDiscoveryFuture,
-    ResolvedSymbolicReference, SymbolicReferenceInferenceFuture, SymbolicReferenceResolutionFuture,
+    ConnectorPostconditionEvidence, ConnectorPostconditionProof,
+    ConnectorPostconditionVerifierBinding, ConnectorProtectedSlotBinding,
+    ConnectorProviderProbeBinding, ConnectorSymbolicReferenceBinding,
+    ConnectorSymbolicReferenceInferenceBinding, ConnectorToolRouteBinding,
+    PostconditionVerificationFuture, ProviderCandidateDiscoveryFuture, ResolvedSymbolicReference,
+    SymbolicReferenceInferenceFuture, SymbolicReferenceResolutionFuture,
 };
 use crate::agentic::desktop::types::AgentState;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::{CapabilityId, ProtectedSlotKind, ProviderRouteCandidate};
 use ioi_types::app::wallet_network::MailConnectorRecord;
 use ioi_types::codec;
+use serde_json::Value;
 use std::collections::BTreeSet;
 
 const MAIL_CONNECTOR_PREFIX: &[u8] = b"mail_connector::";
@@ -214,13 +216,167 @@ pub fn mail_connector_protected_slot_bindings() -> Vec<ConnectorProtectedSlotBin
     Vec::new()
 }
 
+fn mail_selected_provider_id(agent_state: &AgentState) -> Option<String> {
+    agent_state
+        .resolved_intent
+        .as_ref()
+        .and_then(|resolved| resolved.provider_selection.as_ref())
+        .and_then(|selection| selection.selected_provider_id.clone())
+}
+
+fn extract_first_json_object(raw: &str) -> Option<String> {
+    let start = raw.find('{')?;
+    let mut brace_depth = 0usize;
+    let mut in_string = false;
+    let mut escape = false;
+    for (idx, ch) in raw[start..].char_indices() {
+        if in_string {
+            if escape {
+                escape = false;
+                continue;
+            }
+            if ch == '\\' {
+                escape = true;
+                continue;
+            }
+            if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        if ch == '"' {
+            in_string = true;
+            continue;
+        }
+        if ch == '{' {
+            brace_depth += 1;
+        }
+        if ch == '}' {
+            brace_depth = brace_depth.saturating_sub(1);
+            if brace_depth == 0 {
+                let end = start + idx + 1;
+                return Some(raw[start..end].to_string());
+            }
+        }
+    }
+    None
+}
+
+fn parse_json_payload_from_history(history_entry: &str) -> Option<Value> {
+    extract_first_json_object(history_entry)
+        .and_then(|raw| serde_json::from_str::<Value>(&raw).ok())
+}
+
+fn mailto_citation_matches(citation: &str, expected_to: &str, expected_subject: &str) -> bool {
+    let Some(rest) = citation.trim().strip_prefix("mailto:") else {
+        return false;
+    };
+    let Some((recipient, subject_query)) = rest.split_once("?subject=") else {
+        return false;
+    };
+    recipient.trim().eq_ignore_ascii_case(expected_to.trim())
+        && subject_query.trim() == expected_subject.trim()
+}
+
 fn verify_mail_postconditions_boxed<'a>(
-    _agent_state: &'a AgentState,
-    _tool_name: &'a str,
-    _tool_args: &'a serde_json::Value,
-    _history_entry: &'a str,
+    agent_state: &'a AgentState,
+    tool_name: &'a str,
+    tool_args: &'a Value,
+    history_entry: &'a str,
 ) -> PostconditionVerificationFuture<'a> {
-    Box::pin(async { Ok(None::<ConnectorPostconditionProof>) })
+    Box::pin(async move {
+        let normalized = tool_name.trim().to_ascii_lowercase();
+        if !matches!(
+            normalized.as_str(),
+            "wallet_network__mail_reply" | "wallet_mail_reply" | "mail__reply"
+        ) {
+            return Ok(None);
+        }
+
+        let payload = parse_json_payload_from_history(history_entry).ok_or_else(|| {
+            "Mail reply verification could not parse structured action output.".to_string()
+        })?;
+        let mailbox = payload
+            .get("mailbox")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "Mail reply verification payload was missing mailbox.".to_string())?;
+        let to = payload
+            .get("to")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "Mail reply verification payload was missing recipient.".to_string())?;
+        let subject = payload
+            .get("subject")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "Mail reply verification payload was missing subject.".to_string())?;
+        let body = payload
+            .get("body")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "Mail reply verification payload was missing body.".to_string())?;
+        let sent_message_id = payload
+            .get("sent_message_id")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                "Mail reply verification payload was missing sent_message_id.".to_string()
+            })?;
+        let citation = payload
+            .get("citation")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "Mail reply verification payload was missing citation.".to_string())?;
+
+        let mailbox_matches = tool_args
+            .get("mailbox")
+            .and_then(Value::as_str)
+            .map(|expected| expected.trim().eq_ignore_ascii_case(mailbox))
+            .unwrap_or(true);
+        let to_matches = tool_args
+            .get("to")
+            .and_then(Value::as_str)
+            .map(|expected| expected.trim().eq_ignore_ascii_case(to))
+            .unwrap_or(true);
+        let subject_matches = tool_args
+            .get("subject")
+            .and_then(Value::as_str)
+            .map(|expected| expected.trim() == subject)
+            .unwrap_or(true);
+        let body_matches = tool_args
+            .get("body")
+            .and_then(Value::as_str)
+            .map(|expected| expected.trim() == body)
+            .unwrap_or(true);
+        let citation_matches = mailto_citation_matches(citation, to, subject);
+
+        if !(mailbox_matches && to_matches && subject_matches && body_matches && citation_matches) {
+            return Err(format!(
+                "ERROR_CLASS=PostconditionFailed Mail reply verification failed. mailbox_matches={} to_matches={} subject_matches={} body_matches={} citation_matches={}",
+                mailbox_matches, to_matches, subject_matches, body_matches, citation_matches
+            ));
+        }
+
+        Ok(Some(ConnectorPostconditionProof {
+            evidence: vec![ConnectorPostconditionEvidence {
+                key: "mail.reply.completed".to_string(),
+                evidence: format!(
+                    "mailbox={};to={};subject={};sent_message_id={}",
+                    mailbox, to, subject, sent_message_id
+                ),
+                observed_value: Some(sent_message_id.to_string()),
+                evidence_type: Some("mail_connector_receipt".to_string()),
+                provider_id: mail_selected_provider_id(agent_state),
+            }],
+        }))
+    })
 }
 
 pub fn mail_connector_postcondition_verifier_bindings() -> Vec<ConnectorPostconditionVerifierBinding>

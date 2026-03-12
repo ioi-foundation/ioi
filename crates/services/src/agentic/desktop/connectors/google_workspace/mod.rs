@@ -646,6 +646,26 @@ pub async fn try_execute_dynamic_tool(
     session_id: [u8; 32],
     raw_json: &Value,
 ) -> Result<Option<(bool, Option<String>, Option<String>)>, TransactionError> {
+    let result =
+        execute_dynamic_tool_as_result(service, agent_state, session_id, raw_json).await?;
+    let Some(result) = result else {
+        return Ok(None);
+    };
+    let payload = serde_json::to_string_pretty(&result.data).unwrap_or_default();
+    let history = if payload.is_empty() || payload == "null" {
+        result.summary
+    } else {
+        format!("{}\n\n{}", result.summary, payload)
+    };
+    Ok(Some((true, Some(history), None)))
+}
+
+pub(crate) async fn execute_dynamic_tool_as_result(
+    service: &DesktopAgentService,
+    agent_state: &AgentState,
+    session_id: [u8; 32],
+    raw_json: &Value,
+) -> Result<Option<ConnectorActionResult>, TransactionError> {
     let Some(tool_name) = raw_json.get("name").and_then(Value::as_str) else {
         return Ok(None);
     };
@@ -666,22 +686,12 @@ pub async fn try_execute_dynamic_tool(
         runtime_resume_approval,
     )?;
 
-    match connector_run_action(GOOGLE_CONNECTOR_ID, spec.id, arguments).await {
-        Ok(result) => {
-            let payload = serde_json::to_string_pretty(&result.data).unwrap_or_default();
-            let history = if payload.is_empty() || payload == "null" {
-                result.summary
-            } else {
-                format!("{}\n\n{}", result.summary, payload)
-            };
-            Ok(Some((true, Some(history), None)))
-        }
-        Err(error) => Ok(Some((
-            false,
-            None,
-            Some(format!("Google connector action failed: {}", error)),
-        ))),
-    }
+    connector_run_action(GOOGLE_CONNECTOR_ID, spec.id, arguments)
+        .await
+        .map(Some)
+        .map_err(|error| {
+            TransactionError::Invalid(format!("Google connector action failed: {}", error))
+        })
 }
 
 fn google_connector_action_specs() -> Vec<GoogleConnectorActionSpec> {

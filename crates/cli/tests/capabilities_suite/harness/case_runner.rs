@@ -314,6 +314,10 @@ fn event_log_line(event: &KernelEvent, max_chars: usize) -> String {
                 "workload web tool={} success={} sources={} docs={}",
                 web.tool_name, web.success, web.sources_count, web.documents_count
             ),
+            WorkloadReceipt::Adapter(adapter) => format!(
+                "workload adapter tool={} adapter={} success={}",
+                adapter.tool_name, adapter.adapter_id, adapter.success
+            ),
             _ => "workload other".to_string(),
         },
         KernelEvent::IntentResolutionReceipt(receipt) => {
@@ -1112,6 +1116,12 @@ pub async fn run_case(
                 WorkloadReceipt::ScsRetrieve(scs) => {
                     workload_tools.insert(scs.tool_name.clone());
                     if let Some(error_class) = scs.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
+                WorkloadReceipt::Adapter(adapter) => {
+                    workload_tools.insert(adapter.tool_name.clone());
+                    if let Some(error_class) = adapter.error_class.as_ref() {
                         action_error_classes.insert(error_class.clone());
                     }
                 }

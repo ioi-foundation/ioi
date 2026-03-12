@@ -388,6 +388,8 @@ pub enum WorkloadReceipt {
     WebRetrieve(WorkloadWebRetrieveReceipt),
     /// A governed SCS retrieval receipt ("memory__search" / retrieval pipelines).
     ScsRetrieve(WorkloadScsRetrieveReceipt),
+    /// A generic external adapter receipt.
+    Adapter(crate::app::AdapterReceipt),
 }
 
 /// Audit receipt for an `Exec` workload.

@@ -253,6 +253,63 @@ fn map_kernel_event(
                     )),
                 }),
             ),
+            ioi_types::app::WorkloadReceipt::Adapter(adapter) => Some(
+                ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::Adapter(
+                        ioi_ipc::public::WorkloadAdapterReceipt {
+                            adapter_id: adapter.adapter_id,
+                            tool_name: adapter.tool_name,
+                            adapter_kind: adapter.kind.as_label().to_string(),
+                            invocation_id: adapter.invocation_id,
+                            idempotency_key: adapter.idempotency_key,
+                            action_target: adapter.action_target,
+                            request_hash: adapter.request_hash,
+                            response_hash: adapter.response_hash.clone().unwrap_or_default(),
+                            has_response_hash: adapter.response_hash.is_some(),
+                            success: adapter.success,
+                            error_class: adapter.error_class.clone().unwrap_or_default(),
+                            has_error_class: adapter.error_class.is_some(),
+                            replay_classification: adapter
+                                .replay_classification
+                                .map(|classification| classification.as_label().to_string())
+                                .unwrap_or_default(),
+                            has_replay_classification: adapter.replay_classification.is_some(),
+                            artifact_pointers: adapter
+                                .artifact_pointers
+                                .into_iter()
+                                .map(|pointer| ioi_ipc::public::AdapterArtifactPointer {
+                                    uri: pointer.uri,
+                                    media_type: pointer.media_type.clone().unwrap_or_default(),
+                                    has_media_type: pointer.media_type.is_some(),
+                                    sha256: pointer.sha256.clone().unwrap_or_default(),
+                                    has_sha256: pointer.sha256.is_some(),
+                                    label: pointer.label.clone().unwrap_or_default(),
+                                    has_label: pointer.label.is_some(),
+                                })
+                                .collect(),
+                            redacted_fields: adapter
+                                .redaction
+                                .as_ref()
+                                .map(|redaction| redaction.redacted_fields.clone())
+                                .unwrap_or_default(),
+                            redaction_count: adapter
+                                .redaction
+                                .as_ref()
+                                .map(|redaction| redaction.redaction_count)
+                                .unwrap_or_default(),
+                            redaction_version: adapter
+                                .redaction
+                                .as_ref()
+                                .map(|redaction| redaction.redaction_version.clone())
+                                .unwrap_or_default(),
+                        },
+                    )),
+                }),
+            ),
         },
         ioi_types::app::KernelEvent::RoutingReceipt(receipt) => {
             Some(ChainEventEnum::RoutingReceipt(map_routing_receipt(

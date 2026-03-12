@@ -268,6 +268,10 @@ pub(crate) fn required_citations_per_story(query: &str) -> usize {
         }
     }
 
+    if prefers_single_fact_snapshot(query) {
+        return 1;
+    }
+
     if query_prefers_multi_item_cardinality(query) {
         // Ordered collections cite the primary source for each item by default.
         // Explicit "N citations/sources each" directives are handled above.
@@ -394,6 +398,17 @@ mod tests {
         assert_eq!(required_citations_per_story(query), 1);
         assert_eq!(contract.citation_count_min, 1);
         assert!(contract.ordered_collection_preferred);
+    }
+
+    #[test]
+    fn single_snapshot_queries_default_to_one_citation_per_story() {
+        let query = "What's the weather like right now in Anderson, SC?";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("retrieval contract");
+
+        assert!(super::prefers_single_fact_snapshot(query));
+        assert_eq!(required_citations_per_story(query), 1);
+        assert_eq!(contract.citation_count_min, 1);
     }
 }
 

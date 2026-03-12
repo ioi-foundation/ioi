@@ -1,5 +1,6 @@
 // crates/services/src/agentic/desktop/mod.rs
 
+pub mod adapters;
 pub mod cloud_airlock;
 pub mod connectors;
 pub mod execution; // Points to execution/mod.rs now

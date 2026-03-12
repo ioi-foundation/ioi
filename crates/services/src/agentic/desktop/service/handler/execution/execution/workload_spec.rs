@@ -53,17 +53,7 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
             RuntimeTarget::Network
         }
         AgentTool::MemorySearch { .. } | AgentTool::MemoryInspect { .. } => RuntimeTarget::Memory,
-        AgentTool::Dynamic(value) => {
-            if crate::agentic::desktop::connectors::google_workspace::google_dynamic_tool_target(
-                value,
-            )
-            .is_some()
-            {
-                RuntimeTarget::Network
-            } else {
-                RuntimeTarget::McpAdapter
-            }
-        }
+        AgentTool::Dynamic(_) => RuntimeTarget::Adapter,
         AgentTool::MathEval { .. }
         | AgentTool::ChatReply { .. }
         | AgentTool::AutomationCreateMonitor { .. }

@@ -121,7 +121,7 @@ pub(super) async fn run_mcp_tool(
     let lease_id = sha256(&lease_material)?;
 
     let ephemeral_spec = WorkloadSpec {
-        runtime_target: RuntimeTarget::McpAdapter,
+        runtime_target: RuntimeTarget::Adapter,
         net_mode,
         capability_lease: Some(CapabilityLease {
             lease_id,

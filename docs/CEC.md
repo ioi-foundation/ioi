@@ -35,8 +35,10 @@ Examples of class assignment:
 For `remote_retrieval` and the remote-retrieval portions of `mixed` intents:
 - `discovery` MUST still construct a candidate provider set when multiple providers or retrieval shapes are possible.
 - provider selection MUST be grounded in typed retrieval requirements plus typed discovery evidence.
-- query text MAY influence typed retrieval requirements, but MUST NOT directly emit provider IDs, provider order, hostnames, or domain-specific execution branches.
+- query text MAY influence typed retrieval requirements, but MUST NOT directly emit provider IDs, provider order, hostnames, domain-specific execution branches, or predeclared query-class routes.
+- implementations MUST NOT use query archetypes, domain buckets, or other predesignated query designs as an execution-planning substitute for typed discovery and typed provider admission.
 - provider selection MUST NOT depend on static query-to-provider shortcuts, domain allowlists keyed by query class, or lexical asset/subject slug extraction used as a stand-in for discovery.
+- reusable execution shapes MAY exist only when they are structural, cross-domain forms inferred from typed requirements and then validated through discovery, rather than canned query-family branches.
 
 For connector-backed execution:
 - `discovery` MUST construct provider candidates from registered connector probes and currently connected accounts.
@@ -200,6 +202,7 @@ Implementations MUST NOT:
 - Skip verification for synthesized execution payloads.
 - Emit terminal completion before receipt and postcondition checks pass.
 - Select remote providers through hardcoded query-class/provider-class mappings.
+- Use predesignated query archetypes, domain buckets, or canned query designs as a stand-in for typed provider discovery or execution planning.
 - Build provider-specific URLs or provider order directly from lexical subject extraction unless a discovery receipt has already admitted that provider and affordance.
 - Gate success primarily on reply text, diagnostic prose, or substring matches over debug output.
 
