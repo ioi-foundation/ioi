@@ -44,6 +44,32 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let source_floor_met = web.source_floor_met.unwrap_or(false);
     let quality_floor_met = web.selected_source_quality_floor_met.unwrap_or(false);
     let snapshot_grounded = web.single_snapshot_metric_grounding.unwrap_or(false);
+    let single_snapshot_output_quality_met = has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_rendered_layout",
+        Some(true),
+    ) && has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_metric_line_floor",
+        Some(true),
+    ) && has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_support_url_floor",
+        Some(true),
+    ) && has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_read_backed_url_floor",
+        Some(true),
+    ) && has_cec_receipt(
+        obs,
+        "verification",
+        "single_snapshot_temporal_signal",
+        Some(true),
+    );
 
     let web_path_observed = observation_has_any_tool_name(obs, &["web__search", "web__read"]);
 
@@ -70,6 +96,18 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                 quality_floor_met,
                 snapshot_grounded,
                 web.selected_source_urls
+            ),
+        ),
+        LocalCheck::new(
+            "single_snapshot_output_quality_present",
+            single_snapshot_output_quality_met,
+            format!(
+                "rendered_layout_ok={} metric_line_floor_ok={} support_url_floor_ok={} read_backed_url_floor_ok={} temporal_signal_ok={}",
+                has_cec_receipt(obs, "verification", "single_snapshot_rendered_layout", Some(true)),
+                has_cec_receipt(obs, "verification", "single_snapshot_metric_line_floor", Some(true)),
+                has_cec_receipt(obs, "verification", "single_snapshot_support_url_floor", Some(true)),
+                has_cec_receipt(obs, "verification", "single_snapshot_read_backed_url_floor", Some(true)),
+                has_cec_receipt(obs, "verification", "single_snapshot_temporal_signal", Some(true)),
             ),
         ),
         LocalCheck::new(

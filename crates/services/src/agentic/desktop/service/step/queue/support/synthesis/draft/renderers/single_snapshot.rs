@@ -14,6 +14,94 @@ fn followup_metric_details_label(unresolved_axes: &BTreeSet<MetricAxis>) -> Opti
     }
 }
 
+fn single_snapshot_primary_story<'a>(
+    draft: &'a SynthesisDraft,
+    single_snapshot_query_axes: &BTreeSet<MetricAxis>,
+) -> Option<&'a StoryDraft> {
+    let mut best = None::<(&StoryDraft, usize, usize, usize)>;
+    for story in &draft.stories {
+        let metric_lines =
+            single_snapshot_structured_metric_lines(story, draft, single_snapshot_query_axes);
+        let successful_read_count = story
+            .citation_ids
+            .iter()
+            .filter_map(|id| draft.citations_by_id.get(id))
+            .filter(|citation| citation.from_successful_read)
+            .count();
+        let current_condition_score = usize::from(
+            contains_current_condition_metric_signal(&story.what_happened)
+                || story
+                    .citation_ids
+                    .iter()
+                    .filter_map(|id| draft.citations_by_id.get(id))
+                    .any(citation_current_condition_metric_signal),
+        );
+        let candidate = (
+            story,
+            current_condition_score,
+            metric_lines.len(),
+            successful_read_count,
+        );
+        match best {
+            Some((_, best_current, best_metric_lines, best_reads))
+                if current_condition_score < best_current
+                    || (current_condition_score == best_current
+                        && metric_lines.len() < best_metric_lines)
+                    || (current_condition_score == best_current
+                        && metric_lines.len() == best_metric_lines
+                        && successful_read_count <= best_reads) => {}
+            _ => best = Some(candidate),
+        }
+    }
+    best.map(|(story, _, _, _)| story)
+}
+
+fn single_snapshot_aggregated_citation_ids(
+    draft: &SynthesisDraft,
+    primary_story: &StoryDraft,
+    citations_per_story: usize,
+) -> Vec<String> {
+    let mut ordered_story_ids = primary_story
+        .citation_ids
+        .iter()
+        .cloned()
+        .collect::<Vec<_>>();
+    for story in &draft.stories {
+        for citation_id in &story.citation_ids {
+            ordered_story_ids.push(citation_id.clone());
+        }
+    }
+
+    let mut selected = Vec::new();
+    let mut seen_urls = BTreeSet::new();
+    for citation_id in ordered_story_ids {
+        if selected.len() >= citations_per_story {
+            break;
+        }
+        let Some(citation) = draft.citations_by_id.get(&citation_id) else {
+            continue;
+        };
+        if !citation.from_successful_read || !seen_urls.insert(citation.url.clone()) {
+            continue;
+        }
+        selected.push(citation_id);
+    }
+
+    if selected.len() < citations_per_story {
+        for citation in draft.citations_by_id.values() {
+            if selected.len() >= citations_per_story {
+                break;
+            }
+            if !citation.from_successful_read || !seen_urls.insert(citation.url.clone()) {
+                continue;
+            }
+            selected.push(citation.id.clone());
+        }
+    }
+
+    selected
+}
+
 pub(super) fn render_single_snapshot_layout(
     draft: &SynthesisDraft,
     story_count: usize,
@@ -43,8 +131,10 @@ pub(super) fn render_single_snapshot_layout(
 
     let mut lines = vec![heading];
 
-    if let Some(story) = draft.stories.first() {
+    if let Some(story) = single_snapshot_primary_story(draft, single_snapshot_query_axes) {
         lines.push(String::new());
+        let aggregated_citation_ids =
+            single_snapshot_aggregated_citation_ids(draft, story, citations_per_story.max(1));
         let metric_lines =
             single_snapshot_structured_metric_lines(story, draft, single_snapshot_query_axes);
         let citation_metric_sentence = |citation: &CitationCandidate| {
@@ -57,6 +147,7 @@ pub(super) fn render_single_snapshot_layout(
         let citation_current_metric = story
             .citation_ids
             .iter()
+            .chain(aggregated_citation_ids.iter())
             .filter_map(|id| draft.citations_by_id.get(id))
             .find_map(|citation| {
                 citation_metric_sentence(citation)
@@ -65,6 +156,7 @@ pub(super) fn render_single_snapshot_layout(
         let citation_partial_metric = story
             .citation_ids
             .iter()
+            .chain(aggregated_citation_ids.iter())
             .filter_map(|id| draft.citations_by_id.get(id))
             .find_map(|citation| {
                 citation_metric_sentence(citation)
@@ -130,10 +222,10 @@ pub(super) fn render_single_snapshot_layout(
         let citation_current_condition_signal = story
             .citation_ids
             .iter()
+            .chain(aggregated_citation_ids.iter())
             .filter_map(|id| draft.citations_by_id.get(id))
             .any(citation_current_condition_metric_signal);
-        let envelope_sources = story
-            .citation_ids
+        let envelope_sources = aggregated_citation_ids
             .iter()
             .filter_map(|id| draft.citations_by_id.get(id))
             .map(|citation| PendingSearchReadSummary {
@@ -225,8 +317,11 @@ pub(super) fn render_single_snapshot_layout(
         lines.push("Citations:".to_string());
         let mut emitted = 0usize;
         let mut seen_urls = BTreeSet::new();
-        for citation_id in story.citation_ids.iter().take(citations_per_story) {
+        for citation_id in aggregated_citation_ids.iter() {
             if let Some(citation) = draft.citations_by_id.get(citation_id) {
+                if !citation.from_successful_read {
+                    continue;
+                }
                 if !seen_urls.insert(citation.url.clone()) {
                     continue;
                 }
@@ -246,6 +341,9 @@ pub(super) fn render_single_snapshot_layout(
             for citation in draft.citations_by_id.values() {
                 if emitted >= citations_per_story {
                     break;
+                }
+                if !citation.from_successful_read {
+                    continue;
                 }
                 if !seen_urls.insert(citation.url.clone()) {
                     continue;
@@ -278,4 +376,191 @@ pub(super) fn render_single_snapshot_layout(
         None,
     );
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use ioi_types::app::agentic::WebRetrievalContract;
+
+    use super::*;
+
+    #[test]
+    fn render_single_snapshot_layout_omits_unread_citations() {
+        let mut citations_by_id = BTreeMap::new();
+        citations_by_id.insert(
+            "c1".to_string(),
+            CitationCandidate {
+                id: "c1".to_string(),
+                url: "https://www.worldcoinindex.com/coin/bitcoin".to_string(),
+                source_label: "Bitcoin price | index, chart and news | WorldCoinIndex".to_string(),
+                excerpt: "Bitcoin price right now: $86,743.63 USD.".to_string(),
+                timestamp_utc: "2026-03-11T13:42:57Z".to_string(),
+                note: "retrieved_utc".to_string(),
+                from_successful_read: true,
+            },
+        );
+        citations_by_id.insert(
+            "c2".to_string(),
+            CitationCandidate {
+                id: "c2".to_string(),
+                url: "https://crypto.com/us/price/bitcoin".to_string(),
+                source_label: "Bitcoin price - Crypto.com".to_string(),
+                excerpt: "BTC price now: $86,744 USD.".to_string(),
+                timestamp_utc: "2026-03-11T13:42:57Z".to_string(),
+                note: "retrieved_utc".to_string(),
+                from_successful_read: false,
+            },
+        );
+
+        let draft = SynthesisDraft {
+            query: "What's the current price of Bitcoin?".to_string(),
+            retrieval_contract: Some(WebRetrievalContract {
+                contract_version: "test.v1".to_string(),
+                entity_cardinality_min: 1,
+                comparison_required: false,
+                currentness_required: true,
+                runtime_locality_required: false,
+                source_independence_min: 1,
+                citation_count_min: 2,
+                structured_record_preferred: true,
+                ordered_collection_preferred: false,
+                link_collection_preferred: false,
+                canonical_link_out_preferred: false,
+                geo_scoped_detail_required: false,
+                discovery_surface_required: false,
+                entity_diversity_required: false,
+                scalar_measure_required: true,
+                browser_fallback_allowed: true,
+            }),
+            run_date: "2026-03-11".to_string(),
+            run_timestamp_ms: 1_773_236_577_000,
+            run_timestamp_iso_utc: "2026-03-11T13:42:57Z".to_string(),
+            completion_reason: "min_sources_reached".to_string(),
+            overall_confidence: "high".to_string(),
+            overall_caveat: "retrieval receipts available".to_string(),
+            stories: vec![StoryDraft {
+                title: "Bitcoin".to_string(),
+                what_happened: "Bitcoin price right now: $86,743.63 USD.".to_string(),
+                changed_last_hour: String::new(),
+                why_it_matters: String::new(),
+                user_impact: String::new(),
+                workaround: String::new(),
+                eta_confidence: "high".to_string(),
+                citation_ids: vec!["c1".to_string(), "c2".to_string()],
+                confidence: "high".to_string(),
+                caveat: "timestamps may reflect retrieval time".to_string(),
+            }],
+            citations_by_id,
+            blocked_urls: Vec::new(),
+            partial_note: None,
+        };
+
+        let rendered = render_single_snapshot_layout(&draft, 1, 2, &BTreeSet::new(), &[], &[], &[]);
+
+        assert!(rendered.contains("https://www.worldcoinindex.com/coin/bitcoin"));
+        assert!(!rendered.contains("https://crypto.com/us/price/bitcoin"));
+    }
+
+    #[test]
+    fn render_single_snapshot_layout_aggregates_read_backed_citations_across_stories() {
+        let mut citations_by_id = BTreeMap::new();
+        citations_by_id.insert(
+            "c1".to_string(),
+            CitationCandidate {
+                id: "c1".to_string(),
+                url: "https://forecast.weather.gov/MapClick.php?CityName=Anderson&state=SC&site=GSP&textField1=34.5186&textField2=-82.6458&e=0".to_string(),
+                source_label: "National Weather Service".to_string(),
+                excerpt: "Current conditions as of 8:56 am EDT: temperature 65°F, humidity 93%, wind SW 3 mph.".to_string(),
+                timestamp_utc: "2026-03-11T13:19:18Z".to_string(),
+                note: "retrieved_utc".to_string(),
+                from_successful_read: true,
+            },
+        );
+        citations_by_id.insert(
+            "c2".to_string(),
+            CitationCandidate {
+                id: "c2".to_string(),
+                url: "https://www.timeanddate.com/weather/usa/anderson".to_string(),
+                source_label: "Weather for Anderson, South Carolina, USA".to_string(),
+                excerpt: "Current weather: 64°F, fair, wind 4 mph.".to_string(),
+                timestamp_utc: "2026-03-11T13:19:18Z".to_string(),
+                note: "retrieved_utc".to_string(),
+                from_successful_read: true,
+            },
+        );
+
+        let draft = SynthesisDraft {
+            query: "What's the weather like right now in Anderson, SC?".to_string(),
+            retrieval_contract: Some(WebRetrievalContract {
+                contract_version: "test.v1".to_string(),
+                entity_cardinality_min: 1,
+                comparison_required: false,
+                currentness_required: true,
+                runtime_locality_required: true,
+                source_independence_min: 2,
+                citation_count_min: 2,
+                structured_record_preferred: true,
+                ordered_collection_preferred: false,
+                link_collection_preferred: false,
+                canonical_link_out_preferred: false,
+                geo_scoped_detail_required: true,
+                discovery_surface_required: false,
+                entity_diversity_required: false,
+                scalar_measure_required: true,
+                browser_fallback_allowed: true,
+            }),
+            run_date: "2026-03-11".to_string(),
+            run_timestamp_ms: 1_773_236_577_000,
+            run_timestamp_iso_utc: "2026-03-11T13:19:18Z".to_string(),
+            completion_reason: "min_sources_reached".to_string(),
+            overall_confidence: "high".to_string(),
+            overall_caveat: "retrieval receipts available".to_string(),
+            stories: vec![
+                StoryDraft {
+                    title: "National Weather Service".to_string(),
+                    what_happened:
+                        "Current conditions from retrieved source text: temperature 65°F, humidity 93%, wind SW 3 mph."
+                            .to_string(),
+                    changed_last_hour: String::new(),
+                    why_it_matters: String::new(),
+                    user_impact: String::new(),
+                    workaround: String::new(),
+                    eta_confidence: "high".to_string(),
+                    citation_ids: vec!["c1".to_string()],
+                    confidence: "high".to_string(),
+                    caveat: "retrieved_utc".to_string(),
+                },
+                StoryDraft {
+                    title: "Time and Date".to_string(),
+                    what_happened:
+                        "Current conditions from retrieved source text: 64°F, fair, wind 4 mph."
+                            .to_string(),
+                    changed_last_hour: String::new(),
+                    why_it_matters: String::new(),
+                    user_impact: String::new(),
+                    workaround: String::new(),
+                    eta_confidence: "high".to_string(),
+                    citation_ids: vec!["c2".to_string()],
+                    confidence: "high".to_string(),
+                    caveat: "retrieved_utc".to_string(),
+                },
+            ],
+            citations_by_id,
+            blocked_urls: Vec::new(),
+            partial_note: None,
+        };
+
+        let rendered = render_single_snapshot_layout(
+            &draft,
+            1,
+            2,
+            &query_metric_axes(&draft.query),
+            &[],
+            &[],
+            &[],
+        );
+
+        assert!(rendered.contains("https://forecast.weather.gov/MapClick.php"));
+        assert!(rendered.contains("https://www.timeanddate.com/weather/usa/anderson"));
+    }
 }

@@ -27,12 +27,13 @@ use crate::agentic::desktop::service::step::action::command_contract::{
 };
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
-    emit_execution_contract_receipt_event_with_observation, is_command_probe_intent,
-    is_system_clock_read_intent, is_ui_capture_screenshot_intent,
+    emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
+    is_command_probe_intent, is_system_clock_read_intent, is_ui_capture_screenshot_intent,
     mark_action_fingerprint_executed_at_step, mark_execution_postcondition, mark_execution_receipt,
-    persist_step_contract_evidence, postcondition_marker, receipt_marker, resolved_intent_id,
-    summarize_command_probe_output, summarize_structured_command_receipt_output,
-    summarize_system_clock_or_plain_output, summarize_system_clock_output,
+    persist_step_contract_evidence, postcondition_marker, receipt_marker,
+    record_non_command_success_receipts, resolved_intent_id, summarize_command_probe_output,
+    summarize_structured_command_receipt_output, summarize_system_clock_or_plain_output,
+    summarize_system_clock_output,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, classify_failure,

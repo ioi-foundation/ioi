@@ -59,19 +59,64 @@ pub(super) fn discover_audio_stt_candidate(
     }
 }
 
-pub(super) fn select_provider_plan(
-    subtitle_candidate: &mut MediaProviderCandidateState,
-    audio_candidate: &mut MediaProviderCandidateState,
-) -> Option<ProviderExecutionPlan> {
+pub(super) fn discover_youtube_watch_transcript_candidate(
+    request_url: &str,
+    watch_page: Option<&YouTubeWatchPageContext>,
+) -> MediaProviderCandidateState {
+    match watch_page.and_then(|context| {
+        if context.transcript_challenge_reason.is_some() {
+            None
+        } else {
+            context.transcript_params.as_ref().map(|transcript_params| {
+                YouTubeWatchTranscriptSelection {
+                    api_key: context.api_key.clone(),
+                    client_context: context.client_context.clone(),
+                    transcript_params: transcript_params.clone(),
+                }
+            })
+        }
+    }) {
+        Some(selection) => MediaProviderCandidateState {
+            candidate: media_provider_candidate_receipt(
+                YOUTUBE_WATCH_TRANSCRIPT_PROVIDER_ID,
+                request_url,
+                false,
+                true,
+                None,
+            ),
+            plan: Some(ProviderExecutionPlan::YouTubeWatchTranscript(selection)),
+        },
+        None => MediaProviderCandidateState {
+            candidate: media_provider_candidate_receipt(
+                YOUTUBE_WATCH_TRANSCRIPT_PROVIDER_ID,
+                request_url,
+                false,
+                false,
+                watch_page
+                    .and_then(|context| context.transcript_challenge_reason.clone())
+                    .or_else(|| Some("watch_transcript_unavailable".to_string())),
+            ),
+            plan: None,
+        },
+    }
+}
+
+pub(super) fn select_provider_plans(
+    subtitle_candidate: &MediaProviderCandidateState,
+    audio_candidate: &MediaProviderCandidateState,
+    youtube_watch_candidate: &MediaProviderCandidateState,
+) -> Vec<ProviderExecutionPlan> {
+    let mut plans = Vec::new();
     if let Some(plan) = subtitle_candidate.plan.clone() {
-        subtitle_candidate.candidate.selected = true;
-        return Some(plan);
+        plans.push(plan);
+    }
+    if let Some(plan) = youtube_watch_candidate.plan.clone() {
+        plans.push(plan);
     }
     if let Some(plan) = audio_candidate.plan.clone() {
-        audio_candidate.candidate.selected = true;
-        return Some(plan);
+        plans.push(plan);
     }
-    None
+    plans
 }
 
 pub(super) fn normalize_requested_language(language: Option<&str>) -> String {
@@ -95,7 +140,7 @@ pub(super) fn whisper_language_code(language: &str) -> &str {
         .unwrap_or("en")
 }
 
-pub(super) fn discovery_reason_from_error(err: &anyhow::Error) -> String {
+pub(super) fn provider_reason_from_error(err: &anyhow::Error) -> String {
     let message = compact_ws(&err.to_string());
     let normalized = if let Some(value) = message.strip_prefix("ERROR_CLASS=") {
         let mut parts = value.splitn(2, ' ');
@@ -225,6 +270,102 @@ fn audio_format_rank(selection: &AudioFormatSelection) -> u8 {
         "ogg" | "oga" => 1,
         "mkv" => 0,
         _ => 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate_state(plan: Option<ProviderExecutionPlan>) -> MediaProviderCandidateState {
+        MediaProviderCandidateState {
+            candidate: media_provider_candidate_receipt(
+                "test.provider",
+                "https://example.com/video",
+                false,
+                plan.is_some(),
+                None,
+            ),
+            plan,
+        }
+    }
+
+    #[test]
+    fn select_provider_plans_orders_direct_subtitles_before_audio_stt() {
+        let subtitle_candidate =
+            candidate_state(Some(ProviderExecutionPlan::Subtitle(SubtitleSelection {
+                language_key: "en".to_string(),
+                source_kind: "manual",
+            })));
+        let youtube_watch_candidate = candidate_state(None);
+        let audio_candidate = candidate_state(Some(ProviderExecutionPlan::AudioStt(
+            AudioFormatSelection {
+                format_id: "140".to_string(),
+                ext: "m4a".to_string(),
+                acodec: "mp4a.40.2".to_string(),
+            },
+        )));
+
+        let plans = select_provider_plans(
+            &subtitle_candidate,
+            &audio_candidate,
+            &youtube_watch_candidate,
+        );
+        assert_eq!(plans.len(), 2);
+        assert!(matches!(plans[0], ProviderExecutionPlan::Subtitle(_)));
+        assert!(matches!(plans[1], ProviderExecutionPlan::AudioStt(_)));
+    }
+
+    #[test]
+    fn select_provider_plans_returns_only_admissible_candidates() {
+        let subtitle_candidate = candidate_state(None);
+        let youtube_watch_candidate = candidate_state(None);
+        let audio_candidate = candidate_state(Some(ProviderExecutionPlan::AudioStt(
+            AudioFormatSelection {
+                format_id: "140".to_string(),
+                ext: "m4a".to_string(),
+                acodec: "mp4a.40.2".to_string(),
+            },
+        )));
+
+        let plans = select_provider_plans(
+            &subtitle_candidate,
+            &audio_candidate,
+            &youtube_watch_candidate,
+        );
+        assert_eq!(plans.len(), 1);
+        assert!(matches!(plans[0], ProviderExecutionPlan::AudioStt(_)));
+    }
+
+    #[test]
+    fn select_provider_plans_includes_watch_transcript_before_audio_stt() {
+        let subtitle_candidate = candidate_state(None);
+        let youtube_watch_candidate = candidate_state(Some(
+            ProviderExecutionPlan::YouTubeWatchTranscript(YouTubeWatchTranscriptSelection {
+                api_key: "key".to_string(),
+                client_context: serde_json::json!({"client": {"clientName": "WEB"}}),
+                transcript_params: "params".to_string(),
+            }),
+        ));
+        let audio_candidate = candidate_state(Some(ProviderExecutionPlan::AudioStt(
+            AudioFormatSelection {
+                format_id: "140".to_string(),
+                ext: "m4a".to_string(),
+                acodec: "mp4a.40.2".to_string(),
+            },
+        )));
+
+        let plans = select_provider_plans(
+            &subtitle_candidate,
+            &audio_candidate,
+            &youtube_watch_candidate,
+        );
+        assert_eq!(plans.len(), 2);
+        assert!(matches!(
+            plans[0],
+            ProviderExecutionPlan::YouTubeWatchTranscript(_)
+        ));
+        assert!(matches!(plans[1], ProviderExecutionPlan::AudioStt(_)));
     }
 }
 

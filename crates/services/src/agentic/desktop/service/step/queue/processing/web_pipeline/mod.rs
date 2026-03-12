@@ -1,7 +1,9 @@
 use super::super::support::{
-    append_final_web_completion_receipts, append_pending_web_success_fallback,
-    append_pending_web_success_from_bundle, build_query_constraint_projection_with_locality_hint,
-    candidate_constraint_compatibility, candidate_source_hints_from_bundle,
+    append_final_web_completion_receipts,
+    append_final_web_completion_receipts_with_rendered_summary,
+    append_pending_web_success_fallback, append_pending_web_success_from_bundle,
+    build_query_constraint_projection_with_locality_hint, candidate_constraint_compatibility,
+    candidate_source_hints_from_bundle,
     collect_projection_candidate_urls_with_contract_and_locality_hint,
     collect_projection_candidate_urls_with_locality_hint, compact_whitespace,
     compatibility_passes_projection,
@@ -10,7 +12,8 @@ use super::super::support::{
     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
     constraint_grounded_search_query_with_hints_and_locality_hint, effective_locality_scope_hint,
     explicit_query_scope_hint, extract_json_object, fallback_search_summary,
-    final_web_completion_facts, is_citable_web_url, is_human_challenge_error,
+    final_web_completion_facts, final_web_completion_facts_with_rendered_summary,
+    has_primary_status_authority, is_citable_web_url, is_human_challenge_error,
     is_multi_item_listing_url, is_search_hub_url, local_business_detail_display_name,
     local_business_discovery_source_allowed_with_projection, local_business_entity_name_allowed,
     local_business_expansion_query, local_business_search_entity_anchor_tokens,
@@ -24,16 +27,16 @@ use super::super::support::{
     preferred_pre_read_action_count_with_contract_and_locality_hint,
     preferred_pre_read_action_count_with_locality_hint,
     projection_candidate_url_allowed_with_projection, query_is_generic_headline_collection,
+    query_prefers_document_briefing_layout, query_requests_comparison,
     query_requires_runtime_locality_scope, queue_web_read_from_pipeline,
     queue_web_search_from_pipeline, remaining_pending_web_candidates,
     retrieval_affordances_with_contract_and_locality_hint,
     retrieval_affordances_with_locality_hint, retrieval_contract_entity_diversity_required,
     retrieval_contract_prefers_multi_item_cardinality, retrieval_contract_requests_comparison,
     retrieval_contract_required_distinct_domain_floor,
-    retrieval_contract_requires_runtime_locality, select_web_pipeline_query_contract,
-    selected_local_business_target_sources,
-    selected_source_quality_metrics_with_contract_and_locality_hint,
-    selected_source_quality_metrics_with_locality_hint,
+    retrieval_contract_requires_runtime_locality, select_final_web_summary_from_candidates,
+    select_web_pipeline_query_contract, selected_local_business_target_sources,
+    selected_source_quality_observation_with_contract_and_locality_hint,
     semantic_retrieval_query_contract_with_contract_and_locality_hint,
     semantic_retrieval_query_contract_with_locality_hint, source_anchor_tokens,
     source_has_terminal_error_signal, source_host,
@@ -41,9 +44,9 @@ use super::super::support::{
     synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
     url_structurally_equivalent, web_pipeline_can_queue_probe_search_latency_aware,
     web_pipeline_completion_reason, web_pipeline_grounded_probe_attempt_available,
-    web_pipeline_min_sources, web_pipeline_now_ms, RetrievalAffordanceKind,
-    WebPipelineCompletionReason, LOCAL_BUSINESS_EXPANSION_QUERY_MARKER_PREFIX,
-    WEB_PIPELINE_BUDGET_MS,
+    web_pipeline_min_sources, web_pipeline_now_ms, FinalWebSummaryCandidate,
+    FinalWebSummarySelection, RetrievalAffordanceKind, WebPipelineCompletionReason,
+    LOCAL_BUSINESS_EXPANSION_QUERY_MARKER_PREFIX, WEB_PIPELINE_BUDGET_MS,
 };
 use super::completion::complete_with_summary;
 use super::routing::is_web_research_scope;
@@ -110,7 +113,7 @@ include!("local_business_expansion.rs");
 
 include!("entity_expansion.rs");
 
-fn emit_web_contract_receipt(
+pub(crate) fn emit_web_contract_receipt(
     service: &DesktopAgentService,
     session_id: [u8; 32],
     step_index: u32,
@@ -145,7 +148,7 @@ fn emit_web_contract_receipt(
     );
 }
 
-fn emit_web_string_receipts(
+pub(crate) fn emit_web_string_receipts(
     service: &DesktopAgentService,
     session_id: [u8; 32],
     step_index: u32,
@@ -205,13 +208,41 @@ async fn synthesize_summary(
     service: &DesktopAgentService,
     pending: &PendingSearchCompletion,
     reason: WebPipelineCompletionReason,
-) -> String {
+) -> FinalWebSummarySelection {
+    let mut candidates = Vec::new();
     if let Some(hybrid_summary) =
         synthesize_web_pipeline_reply_hybrid(service, pending, reason).await
     {
-        hybrid_summary
-    } else {
-        synthesize_web_pipeline_reply(pending, reason)
+        candidates.push(FinalWebSummaryCandidate {
+            provider: "hybrid",
+            summary: hybrid_summary,
+        });
+    }
+    candidates.push(FinalWebSummaryCandidate {
+        provider: "deterministic",
+        summary: synthesize_web_pipeline_reply(pending, reason),
+    });
+    select_final_web_summary_from_candidates(pending, reason, candidates)
+        .expect("web summary selection requires at least one candidate")
+}
+
+fn append_summary_selection_checks(
+    selection: &FinalWebSummarySelection,
+    verification_checks: &mut Vec<String>,
+) {
+    verification_checks.push(format!("web_final_summary_provider={}", selection.provider));
+    verification_checks.push(format!(
+        "web_final_summary_contract_ready={}",
+        selection.contract_ready
+    ));
+    for evaluation in &selection.evaluations {
+        verification_checks.push(format!(
+            "web_final_summary_candidate={}::contract_ready={}::rendered_layout={}::document_layout_met={}",
+            evaluation.provider,
+            evaluation.contract_ready,
+            evaluation.facts.briefing_rendered_layout_profile,
+            evaluation.facts.briefing_document_layout_met
+        ));
     }
 }
 
@@ -316,47 +347,28 @@ fn selected_source_structural_metrics(
     selected_urls: &[String],
     source_hints: &[PendingSearchReadSummary],
 ) -> (usize, usize, usize, usize, usize, bool, Vec<String>) {
-    let mut normalized = Vec::new();
-    for selected in selected_urls {
-        let _ = push_unique_selected_url(&mut normalized, selected);
-    }
-
-    let total_sources = normalized.len();
-    let locality_floor_satisfied =
-        !retrieval_contract_requires_runtime_locality(retrieval_contract, query_contract)
-            || explicit_query_scope_hint(query_contract).is_some()
-            || effective_locality_scope_hint(None).is_some();
-    let locality_compatible_sources = if locality_floor_satisfied {
-        total_sources
-    } else {
-        0
-    };
-    let distinct_domains = normalized
-        .iter()
-        .filter_map(|selected| selected_url_domain_key(source_hints, selected))
-        .collect::<std::collections::BTreeSet<_>>()
-        .len();
-    let required_source_count = min_sources.max(1) as usize;
-    let required_domain_floor =
-        if retrieval_contract_entity_diversity_required(retrieval_contract, query_contract) {
-            0
+    let locality_hint =
+        if retrieval_contract_requires_runtime_locality(retrieval_contract, query_contract) {
+            effective_locality_scope_hint(None)
         } else {
-            retrieval_contract_required_distinct_domain_floor(retrieval_contract, query_contract)
-                .min(required_source_count)
-                .max(usize::from(required_source_count > 1))
+            None
         };
-    let quality_floor_met = total_sources >= required_source_count
-        && locality_floor_satisfied
-        && (required_domain_floor == 0 || distinct_domains >= required_domain_floor);
-
+    let observation = selected_source_quality_observation_with_contract_and_locality_hint(
+        retrieval_contract,
+        query_contract,
+        min_sources,
+        selected_urls,
+        source_hints,
+        locality_hint.as_deref(),
+    );
     (
-        total_sources,
-        total_sources,
-        locality_compatible_sources,
-        distinct_domains,
-        0,
-        quality_floor_met,
-        Vec::new(),
+        observation.total_sources,
+        observation.compatible_sources,
+        observation.locality_compatible_sources,
+        observation.distinct_domains,
+        observation.low_priority_sources,
+        observation.quality_floor_met,
+        observation.low_priority_urls,
     )
 }
 
@@ -443,14 +455,34 @@ fn queue_web_read_batch_from_pipeline(
     agent_state: &mut AgentState,
     session_id: [u8; 32],
     urls: &[String],
+    allow_browser_fallback: bool,
 ) -> Result<usize, TransactionError> {
     let mut queued = 0usize;
     for url in urls.iter().rev() {
-        if queue_web_read_from_pipeline(agent_state, session_id, url)? {
+        if queue_web_read_from_pipeline(agent_state, session_id, url, allow_browser_fallback)? {
             queued += 1;
         }
     }
     Ok(queued)
+}
+
+fn pending_web_read_allows_browser_fallback(pending: &PendingSearchCompletion) -> bool {
+    pending
+        .retrieval_contract
+        .as_ref()
+        .map(|contract| contract.browser_fallback_allowed)
+        .unwrap_or_else(|| {
+            !(query_prefers_document_briefing_layout(&pending.query_contract)
+                && !query_requests_comparison(&pending.query_contract))
+        })
+}
+
+fn queued_web_retrieve_count(agent_state: &AgentState) -> usize {
+    agent_state
+        .execution_queue
+        .iter()
+        .filter(|request| matches!(request.target, ActionTarget::WebRetrieve))
+        .count()
 }
 
 fn queued_web_read_count(agent_state: &AgentState) -> usize {
@@ -472,9 +504,64 @@ fn queued_web_read_count(agent_state: &AgentState) -> usize {
         .count()
 }
 
+fn grounded_probe_search_allowed(
+    local_business_expansion_queued: bool,
+    next_viable_candidate_available: bool,
+    quality_floor_unmet: bool,
+    probe_attempt_available: bool,
+) -> bool {
+    !local_business_expansion_queued
+        && !next_viable_candidate_available
+        && quality_floor_unmet
+        && probe_attempt_available
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_types::app::{ActionContext, ActionRequest};
+    use std::collections::{BTreeMap, VecDeque};
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [7u8; 32],
+            goal: "find restaurants".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 0,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_request_nonce: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: crate::agentic::desktop::types::AgentMode::default(),
+            current_tier: crate::agentic::desktop::types::ExecutionTier::default(),
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: None,
+            planner_state: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: VecDeque::new(),
+            active_lens: None,
+        }
+    }
 
     #[test]
     fn projection_candidate_url_rejects_placeholder_slug_segments() {
@@ -505,6 +592,49 @@ mod tests {
         assert!(looks_like_deep_article_url(
             "https://news.google.com/rss/articles/CBMiakFVX3lxTE1paDlDQVMzckpVZjltZkhUM3RSdFh4MGtVOHFGNll6NlRKNUpqOV9UVDl4ZlBXZldpcUtMNm9JLWtZZ0dSMHlORTBRVlZTNC1mZ1dCemkzaWRCcmFMN2E5VVlZallSYjI5MVE?oc=5"
         ));
+    }
+
+    #[test]
+    fn queued_web_retrieve_count_includes_search_and_read_actions() {
+        let session_id = [7u8; 32];
+        let mut agent_state = test_agent_state();
+        agent_state.execution_queue = vec![
+            ActionRequest {
+                target: ActionTarget::WebRetrieve,
+                params: serde_jcs::to_vec(&serde_json::json!({
+                    "query": "\"Brothers Italian Cuisine\" menus in Anderson, SC"
+                }))
+                .expect("params"),
+                context: ActionContext {
+                    agent_id: "desktop_agent".to_string(),
+                    session_id: Some(session_id),
+                    window_id: None,
+                },
+                nonce: 1,
+            },
+            ActionRequest {
+                target: ActionTarget::WebRetrieve,
+                params: serde_jcs::to_vec(&serde_json::json!({
+                    "url": "https://www.restaurantji.com/sc/anderson/brothers-italian-cuisine-/"
+                }))
+                .expect("params"),
+                context: ActionContext {
+                    agent_id: "desktop_agent".to_string(),
+                    session_id: Some(session_id),
+                    window_id: None,
+                },
+                nonce: 2,
+            },
+        ];
+
+        assert_eq!(queued_web_retrieve_count(&agent_state), 2);
+        assert_eq!(queued_web_read_count(&agent_state), 1);
+    }
+
+    #[test]
+    fn grounded_probe_search_is_blocked_when_local_business_expansion_is_already_queued() {
+        assert!(!grounded_probe_search_allowed(true, false, true, true));
+        assert!(grounded_probe_search_allowed(false, false, true, true));
     }
 
     #[test]

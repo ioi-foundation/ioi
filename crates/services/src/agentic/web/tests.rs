@@ -9,11 +9,12 @@ use super::contract::contract_requires_geo_scoped_entity_expansion;
 use super::parsers::{
     parse_bing_news_sources_from_rss, parse_bing_sources_from_html, parse_brave_sources_from_html,
     parse_ddg_sources_from_html, parse_generic_page_source_from_html,
-    parse_google_news_sources_from_rss, parse_local_business_directory_category_sources_from_html,
-    parse_local_business_directory_item_list_sources_from_html,
+    parse_google_news_sources_from_rss, parse_json_ld_item_list_sources_from_html,
+    parse_same_host_child_collection_sources_from_html,
 };
 use super::readability::{
     build_document_text_and_spans, extract_non_html_read_blocks, extract_read_blocks,
+    extract_read_blocks_for_url,
 };
 use super::search::{
     aggregated_sources_meet_pre_read_floor, provider_candidate_is_usable,
@@ -472,6 +473,9 @@ fn search_provider_requirements_default_to_ranked_index_for_non_external_queries
         .any(|descriptor| { descriptor.stage == SearchProviderStage::GoogleNewsTopStoriesRss }));
     assert!(registry
         .iter()
+        .any(|descriptor| descriptor.stage == SearchProviderStage::RestaurantJiLocalityDirectory));
+    assert!(registry
+        .iter()
         .any(|descriptor| descriptor.stage == SearchProviderStage::BraveHttp));
 }
 
@@ -544,11 +548,16 @@ fn non_geo_ordered_collection_contracts_do_not_enter_entity_expansion_mode() {
 fn provider_admission_uses_structural_requirements_for_local_multi_entity_queries() {
     let contract = locality_comparison_contract();
     let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
+    let restaurantji = descriptor_for(SearchProviderStage::RestaurantJiLocalityDirectory);
     let brave = descriptor_for(SearchProviderStage::BraveHttp);
     let google_news = descriptor_for(SearchProviderStage::GoogleNewsRss);
     let google_news_top_stories = descriptor_for(SearchProviderStage::GoogleNewsTopStoriesRss);
     let weather_gov = descriptor_for(SearchProviderStage::WeatherGovLocalityDetail);
 
+    assert!(provider_descriptor_is_admissible(
+        &requirements,
+        &restaurantji
+    ));
     assert!(provider_descriptor_is_admissible(&requirements, &brave));
     assert!(
         !provider_descriptor_is_admissible(&requirements, &google_news),
@@ -561,6 +570,26 @@ fn provider_admission_uses_structural_requirements_for_local_multi_entity_querie
     assert!(
         !provider_descriptor_is_admissible(&requirements, &weather_gov),
         "single detail surfaces without discovery affordances should be inadmissible for multi-entity discovery"
+    );
+}
+
+#[test]
+fn probe_priority_prefers_locality_directory_provider_for_local_multi_entity_queries() {
+    let contract = locality_comparison_contract();
+    let requirements = search_provider_requirements_from_contract(&contract, Some("Anderson, SC"));
+    let restaurantji = descriptor_for(SearchProviderStage::RestaurantJiLocalityDirectory);
+    let brave = descriptor_for(SearchProviderStage::BraveHttp);
+
+    let mut descriptors = vec![brave, restaurantji];
+    descriptors.sort_by_key(|descriptor| provider_probe_priority_key(&requirements, descriptor));
+
+    assert_eq!(
+        descriptors.first().map(|descriptor| descriptor.stage),
+        Some(SearchProviderStage::RestaurantJiLocalityDirectory)
+    );
+    assert_eq!(
+        descriptors.last().map(|descriptor| descriptor.stage),
+        Some(SearchProviderStage::BraveHttp)
     );
 }
 
@@ -661,6 +690,104 @@ fn google_redirect_is_decoded() {
     let href = "/url?q=https%3A%2F%2Fexample.com%2Fpath%3Fa%3Db%23frag&sa=U&ved=abc";
     let decoded = normalize_google_search_href(href).expect("decoded url");
     assert_eq!(decoded, "https://example.com/path?a=b");
+}
+
+#[test]
+fn read_extract_structured_metric_rows_from_tabular_detail_pages() {
+    let html = r#"
+        <html>
+            <body>
+                <div id="current-conditions">
+                    <div class="panel-heading">
+                        <h2 class="panel-title">Anderson, Anderson County Airport (KAND)</h2>
+                    </div>
+                    <div class="panel-body" id="current-conditions-body">
+                        <div id="current_conditions-summary">
+                            <p class="myforecast-current">Fair</p>
+                            <p class="myforecast-current-lrg">65°F</p>
+                            <p class="myforecast-current-sm">18°C</p>
+                        </div>
+                        <div id="current_conditions_detail">
+                            <table>
+                                <tr><td><b>Humidity</b></td><td>93%</td></tr>
+                                <tr><td><b>Wind Speed</b></td><td>SW 3 mph</td></tr>
+                                <tr><td><b>Last update</b></td><td>11 Mar 8:56 am EDT</td></tr>
+                            </table>
+                        </div>
+                        <p class="moreInfo">
+                            <a id="wxGraph" href="MapClick.php?lat=34.5186&lon=-82.6458&unit=0&lg=english&FcstType=graphical">Hourly Weather Forecast</a>
+                        </p>
+                    </div>
+                </div>
+            </body>
+        </html>
+    "#;
+    let (_title, blocks) = extract_read_blocks_for_url(
+        "https://forecast.weather.gov/zipcity.php?inputstring=Anderson,SC",
+        html,
+    );
+    let content = blocks.join(" ");
+
+    assert!(content.contains("65°F"));
+    assert!(content.contains("18°C"));
+    assert!(content.contains("Humidity 93%"));
+    assert!(content.contains("Wind Speed SW 3 mph"));
+    assert!(content.contains("Last update 11 Mar 8:56 am EDT"));
+}
+
+#[test]
+fn read_extract_prefers_current_observation_panel_over_forecast_panel_when_both_exist() {
+    let html = r#"
+        <html>
+            <body>
+                <div id="current-conditions" class="panel panel-default">
+                    <div class="panel-heading">
+                        <div>
+                            <b>Current conditions at</b>
+                            <h2 class="panel-title">Anderson, Anderson County Airport (KAND)</h2>
+                        </div>
+                    </div>
+                    <div class="panel-body" id="current-conditions-body">
+                        <div id="current_conditions-summary" class="pull-left">
+                            <p class="myforecast-current">Fair</p>
+                            <p class="myforecast-current-lrg">84°F</p>
+                            <p class="myforecast-current-sm">29°C</p>
+                        </div>
+                        <div id="current_conditions_detail" class="pull-left">
+                            <table>
+                                <tr><td><b>Humidity</b></td><td>40%</td></tr>
+                                <tr><td><b>Wind Speed</b></td><td>SW 13 mph</td></tr>
+                                <tr><td><b>Last update</b></td><td>11 Mar 5:56 pm EDT</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-body" id="detailed-forecast-body">
+                    <div class="row row-even row-forecast">
+                        <div class="col-sm-2 forecast-label"><b>Saturday</b></div>
+                        <div class="col-sm-10 forecast-text">Mostly sunny, with a high near 73.</div>
+                    </div>
+                    <div class="row row-odd row-forecast">
+                        <div class="col-sm-2 forecast-label"><b>Sunday</b></div>
+                        <div class="col-sm-10 forecast-text">A 30 percent chance of rain after 2pm. Partly sunny, with a high near 72.</div>
+                    </div>
+                </div>
+            </body>
+        </html>
+    "#;
+
+    let (_title, blocks) = extract_read_blocks_for_url(
+        "https://forecast.weather.gov/MapClick.php?CityName=Anderson&state=SC&site=GSP&textField1=34.5186&textField2=-82.6458&e=0",
+        html,
+    );
+    let content = blocks.join(" ");
+
+    assert!(content.contains("84°F"));
+    assert!(content.contains("29°C"));
+    assert!(content.contains("Humidity 40%"));
+    assert!(content.contains("Wind Speed SW 13 mph"));
+    assert!(content.contains("Last update 11 Mar 5:56 pm EDT"));
+    assert!(!content.contains("Mostly sunny, with a high near 73."));
 }
 
 #[test]
@@ -793,7 +920,7 @@ fn parses_google_news_rss_items() {
 }
 
 #[test]
-fn parses_local_business_directory_category_links() {
+fn parses_same_host_child_collection_links() {
     let html = r#"
         <html>
           <head>
@@ -808,7 +935,7 @@ fn parses_local_business_directory_category_links() {
         </html>
         "#;
 
-    let sources = parse_local_business_directory_category_sources_from_html(
+    let sources = parse_same_host_child_collection_sources_from_html(
         "https://www.restaurantji.com/sc/anderson/",
         html,
         10,
@@ -828,7 +955,7 @@ fn parses_local_business_directory_category_links() {
 }
 
 #[test]
-fn parses_local_business_directory_item_list_json_ld() {
+fn parses_json_ld_item_list_sources() {
     let html = r#"
         <html>
           <head>
@@ -866,7 +993,7 @@ fn parses_local_business_directory_item_list_json_ld() {
         </html>
         "#;
 
-    let sources = parse_local_business_directory_item_list_sources_from_html(
+    let sources = parse_json_ld_item_list_sources_from_html(
         "https://www.restaurantji.com/sc/anderson/italian/",
         html,
         10,
@@ -989,6 +1116,249 @@ fn read_extract_ignores_structured_metadata_noise_blocks() {
     let (_title, blocks) = extract_read_blocks(html);
     assert_eq!(blocks.len(), 1);
     assert!(blocks[0].contains("Top story update"));
+}
+
+#[test]
+fn read_extract_ignores_executable_script_noise_blocks() {
+    let html = r#"
+        <html>
+          <head><title>Menu for Coach House Restaurant, Anderson, SC - Restaurantji</title></head>
+          <body>
+            <article>
+              <p>127 E Shockley Ferry Rd, Anderson, SC 29624 (864) 225-0070</p>
+              <p>return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); document.querySelector('.commentPopup').style.display = 'none'; googletag.cmd.push(function() { googletag.display('restaurantji_com_300x250_1'); });</p>
+            </article>
+          </body>
+        </html>
+        "#;
+
+    let (_title, blocks) = extract_read_blocks(html);
+
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(
+        blocks[0],
+        "127 E Shockley Ferry Rd, Anderson, SC 29624 (864) 225-0070"
+    );
+}
+
+#[test]
+fn read_extract_ignores_inline_markup_noise_blocks() {
+    let html = r#"
+        <html>
+          <head><title>Menu for Coach House Restaurant, Anderson, SC - Restaurantji</title></head>
+          <body>
+            <article>
+              <p>127 E Shockley Ferry Rd, Anderson, SC 29624 (864) 225-0070</p>
+              <p>org/2000/svg" width="16" height="16" paddingTop="20" viewBox="0 0 24 24"><path d="M24 20"></path></svg></p>
+            </article>
+          </body>
+        </html>
+        "#;
+
+    let (_title, blocks) = extract_read_blocks(html);
+
+    assert_eq!(blocks.len(), 1);
+    assert_eq!(
+        blocks[0],
+        "127 E Shockley Ferry Rd, Anderson, SC 29624 (864) 225-0070"
+    );
+}
+
+#[test]
+fn read_extract_prefers_repeating_label_surface_on_curated_collection_pages() {
+    let html = r#"
+        <html>
+          <head><title>Menu for Red Tomato and Wine Restaurant, Anderson, SC - Restaurantji</title></head>
+          <body>
+            <div class="comment-shell">
+              <ul>
+                <li>Home</li>
+                <li>Restaurants</li>
+                <li>Anderson</li>
+                <li><script>document.querySelector('.commentPopup').style.display = 'none';</script></li>
+              </ul>
+            </div>
+            <main>
+              <h2>Customers' Favorites</h2>
+              <div class="tips__link good">Ziti with Meat and Rose Sauce</div>
+              <div class="tips__link good">Hummus with Grilled Pita Bread</div>
+              <div class="tips__link good">Fettuccine Alfredo with Shrimp</div>
+              <div class="tips__link good">Spaghetti with Meat Sauce</div>
+              <div class="tips__link good">Three Cheese Manicotti</div>
+              <h2>Menu</h2>
+              <div class="carusel">
+                <a class="gallery_item" href="../gallery/menu/#id=one.jpg" aria-label="View Photo"></a>
+                <a class="gallery_item" href="../gallery/menu/#id=two.jpg" aria-label="View Photo"></a>
+              </div>
+            </main>
+          </body>
+        </html>
+        "#;
+
+    let (_title, blocks) = extract_read_blocks_for_url(
+        "https://www.restaurantji.com/sc/anderson/red-tomato-and-wine-restaurant-/menu/",
+        html,
+    );
+    let content = blocks.join(" ");
+
+    assert!(!blocks.is_empty());
+    assert!(blocks
+        .iter()
+        .any(|block| block == "Ziti with Meat and Rose Sauce"));
+    assert!(content.contains("Ziti with Meat and Rose Sauce"));
+    assert!(content.contains("Fettuccine Alfredo with Shrimp"));
+    assert!(!content.contains("Item inventory includes"));
+    assert!(!content.contains("document.querySelector"));
+    assert!(!content.contains("Home"));
+}
+
+#[test]
+fn read_extract_prefers_repeating_label_surface_when_featured_labels_are_absent() {
+    let html = r#"
+        <html>
+          <head><title>Menu for Red Tomato and Wine Restaurant, Anderson, SC - Restaurantji</title></head>
+          <body>
+            <main>
+              <h4 class="menu-section">Hero Sandwiches</h4>
+              <div class="menu-item"><div class="menu-top"><div class="menu-title">Organic Smoked Ham Hero Sandwich</div></div></div>
+              <div class="menu-item"><div class="menu-top"><div class="menu-title">Meatball Hero Sandwich</div></div></div>
+              <div class="menu-item"><div class="menu-top"><div class="menu-title">Gourmet Chicken Hero Sandwich</div></div></div>
+              <div class="menu-item"><div class="menu-top"><div class="menu-title">Philly Steak &amp; Cheese Hero Sandwich</div></div></div>
+              <script>
+                document.querySelector('.commentPopup').style.display = 'none';
+              </script>
+            </main>
+          </body>
+        </html>
+        "#;
+
+    let (_title, blocks) = extract_read_blocks_for_url(
+        "https://www.restaurantji.com/sc/anderson/red-tomato-and-wine-restaurant-/menu/",
+        html,
+    );
+    let content = blocks.join(" ");
+
+    assert!(!blocks.is_empty());
+    assert!(blocks
+        .iter()
+        .any(|block| block == "Organic Smoked Ham Hero Sandwich"));
+    assert!(content.contains("Organic Smoked Ham Hero Sandwich"));
+    assert!(content.contains("Meatball Hero Sandwich"));
+    assert!(content.contains("Philly Steak & Cheese Hero Sandwich"));
+    assert!(!content.contains("Item inventory includes"));
+    assert!(!content.contains("document.querySelector"));
+}
+
+#[test]
+fn read_extract_prefers_repeating_label_surface_over_prose_heavy_sibling_subtrees() {
+    let html = r#"
+        <html>
+          <head><title>Menu for Brothers Italian Cuisine, Anderson, SC - Restaurantji</title></head>
+          <body>
+            <main>
+              <h2>Customers' Favorites</h2>
+              <div class="tips__link good">Brothers Special Shrimp Pasta</div>
+              <div class="tips__link good">Chef Salad</div>
+              <div class="tips__link good">Italian Stromboli</div>
+              <div class="tips__link good">Grilled Chicken Salad</div>
+              <div class="tips__link good">Meat Lovers Calzone</div>
+              <div id="Comments">
+                <section class="recent-reviews">
+                  <p>One of Anderson's best Italian restaurants with reliable service, a steady lunch crowd, and consistently good takeout.</p>
+                  <p>The dining room is small but people still mention pizza, strombolis, burgers, salads, and sandwiches in long review copy.</p>
+                  <p>Regulars note fast pickup times, generous portions, and a 4.6 rating from repeat visits over the last few months.</p>
+                </section>
+              </div>
+            </main>
+          </body>
+        </html>
+        "#;
+
+    let (_title, blocks) = extract_read_blocks_for_url(
+        "https://www.restaurantji.com/sc/anderson/brothers-italian-cuisine-/menu/",
+        html,
+    );
+    let content = blocks.join(" ");
+
+    assert!(!blocks.is_empty());
+    assert!(blocks
+        .iter()
+        .any(|block| block == "Brothers Special Shrimp Pasta"));
+    assert!(content.contains("Brothers Special Shrimp Pasta"));
+    assert!(content.contains("Meat Lovers Calzone"));
+    assert!(!content.contains("Item inventory includes"));
+    assert!(!content.contains("4.6 rating from repeat visits"));
+}
+
+#[test]
+fn read_extract_prefers_content_rich_nested_region_over_navigation_shell() {
+    let html = r#"
+        <html>
+          <head><title>NIST Releases First 3 Finalized Post-Quantum Encryption Standards | NIST</title></head>
+          <body>
+            <main>
+              <div class="banner">
+                <p>An official website of the United States government</p>
+                <p>Here's how you know</p>
+                <ul>
+                  <li>Publications</li>
+                  <li>What We Do</li>
+                  <li>All Topics</li>
+                  <li>Advanced communications</li>
+                  <li>Artificial intelligence</li>
+                </ul>
+              </div>
+              <div class="content-shell">
+                <div class="article-body">
+                  <p>August 13, 2024: NIST released FIPS 203, FIPS 204 and FIPS 205 as its first three finalized post-quantum encryption standards for federal systems.</p>
+                  <p>The standards cover ML-KEM for encryption and ML-DSA plus SLH-DSA for digital signatures, giving agencies concrete migration targets.</p>
+                </div>
+              </div>
+            </main>
+          </body>
+        </html>
+        "#;
+
+    let (_title, blocks) = extract_read_blocks(html);
+    let content = blocks.join(" ");
+
+    assert!(content.contains("FIPS 203, FIPS 204 and FIPS 205"));
+    assert!(content.contains("ML-KEM"));
+    assert!(!content.contains("An official website of the United States government"));
+    assert!(!content.contains("Advanced communications"));
+}
+
+#[test]
+fn read_extract_does_not_let_short_navigation_lists_outscore_article_paragraphs() {
+    let html = r#"
+        <html>
+          <head><title>Document</title></head>
+          <body>
+            <div class="page-shell">
+              <ul>
+                <li>Home</li>
+                <li>Topics</li>
+                <li>News</li>
+                <li>Publications</li>
+                <li>Contact</li>
+                <li>Events</li>
+              </ul>
+              <section>
+                <div class="article">
+                  <p>December 8, 2025: These Federal Information Processing Standards are mandatory for federal systems and have been adopted by organizations around the world.</p>
+                  <p>NIST’s finalized post-quantum standards include FIPS 203, FIPS 204 and FIPS 205, which standardize ML-KEM, ML-DSA and SLH-DSA.</p>
+                </div>
+              </section>
+            </div>
+          </body>
+        </html>
+        "#;
+
+    let (_title, blocks) = extract_read_blocks(html);
+
+    assert_eq!(blocks.len(), 2);
+    assert!(blocks[0].contains("Federal Information Processing Standards"));
+    assert!(blocks[1].contains("FIPS 203, FIPS 204 and FIPS 205"));
 }
 
 #[test]

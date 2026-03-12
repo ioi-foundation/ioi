@@ -145,13 +145,7 @@ pub fn report_section_key(kind: ReportSectionKind) -> &'static str {
 
 pub fn report_section_aliases(kind: ReportSectionKind) -> &'static [&'static str] {
     match kind {
-        ReportSectionKind::Summary => &[
-            "what_happened",
-            "summary",
-            "overview",
-            "key_evidence",
-            "evidence",
-        ],
+        ReportSectionKind::Summary => &["what_happened", "summary", "overview"],
         ReportSectionKind::RecentChange => &[
             "what_changed_in_the_last_hour",
             "what_changed_recently",

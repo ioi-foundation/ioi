@@ -22,7 +22,8 @@ pub use probe::{
     summarize_system_clock_or_plain_output, summarize_system_clock_output,
 };
 pub(crate) use processing::{
-    emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
+    emit_completion_gate_status_event, emit_execution_contract_receipt_event,
+    emit_execution_contract_receipt_event_with_observation, record_non_command_success_receipts,
     resolved_intent_id, verified_command_probe_completion_summary,
 };
 pub use processing::{process_tool_output, resolve_action_routing_context};

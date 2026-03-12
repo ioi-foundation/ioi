@@ -167,12 +167,10 @@ pub async fn handle(
             let retrieval_contract_result = if let Some(contract) = retrieval_contract {
                 Ok(contract)
             } else {
-                crate::agentic::web::infer_web_retrieval_contract(
-                    exec.inference.clone(),
+                crate::agentic::web::derive_web_retrieval_contract(
                     &query,
                     query_contract.as_deref(),
                 )
-                .await
             };
             let result = match retrieval_contract_result {
                 Ok(retrieval_contract) => match crate::agentic::web::edge_web_search(
@@ -245,8 +243,13 @@ pub async fn handle(
             }
             result
         }
-        AgentTool::WebRead { url, max_chars } => {
+        AgentTool::WebRead {
+            url,
+            max_chars,
+            allow_browser_fallback,
+        } => {
             let max_chars = max_chars.unwrap_or(NET_FETCH_DEFAULT_MAX_CHARS);
+            let allow_browser_fallback = allow_browser_fallback.unwrap_or(true);
             let url_trimmed = url.trim();
             let url_redacted = Url::parse(url_trimmed)
                 .ok()
@@ -290,6 +293,7 @@ pub async fn handle(
                 &exec.browser,
                 &url,
                 Some(max_chars),
+                allow_browser_fallback,
             )
             .await
             {
@@ -392,6 +396,7 @@ pub async fn handle(
                 &url,
                 language.as_deref(),
                 Some(max_chars),
+                exec.browser.clone(),
             )
             .await
             {
@@ -501,6 +506,7 @@ pub async fn handle(
                 language.as_deref(),
                 Some(max_chars),
                 frame_limit,
+                exec.browser.clone(),
                 exec.inference.clone(),
             )
             .await
@@ -510,6 +516,12 @@ pub async fn handle(
                         .visual
                         .as_ref()
                         .map(|visual| visual.backend.clone())
+                        .or_else(|| {
+                            bundle
+                                .timeline
+                                .as_ref()
+                                .map(|timeline| timeline.backend.clone())
+                        })
                         .or_else(|| {
                             bundle
                                 .transcript

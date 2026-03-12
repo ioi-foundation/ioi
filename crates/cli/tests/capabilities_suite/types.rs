@@ -67,6 +67,16 @@ pub struct CecReceiptEvidence {
     pub provider_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct IntentResolutionEvidence {
+    pub intent_id: String,
+    pub selected_intent_id: String,
+    pub scope: String,
+    pub band: String,
+    pub score: f32,
+    pub error_class: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Default)]
 pub struct EnvironmentReceiptObservation {
     pub key: String,
@@ -105,8 +115,14 @@ pub struct WebObservation {
     pub selected_source_urls: Vec<String>,
     pub selected_source_subject_alignment_urls: Vec<String>,
     pub local_business_entity_floor_met: Option<bool>,
+    pub local_business_entity_anchor_floor_met: Option<bool>,
     pub local_business_entity_names: Vec<String>,
     pub local_business_entity_source_urls: Vec<String>,
+    pub local_business_entity_anchor_source_urls: Vec<String>,
+    pub local_business_entity_anchor_mismatched_urls: Vec<String>,
+    pub local_business_menu_inventory_floor_met: Option<bool>,
+    pub local_business_menu_inventory_total_item_count: Option<usize>,
+    pub local_business_menu_inventory_source_urls: Vec<String>,
     pub story_slots_observed: Option<usize>,
     pub story_slot_floor_met: Option<bool>,
     pub story_citation_floor_met: Option<bool>,
@@ -122,6 +138,9 @@ pub struct WebProviderCandidateObservation {
     pub source_count: usize,
     pub selected: bool,
     pub success: bool,
+    pub execution_attempted: Option<bool>,
+    pub execution_satisfied: Option<bool>,
+    pub execution_failure_reason: Option<String>,
     pub request_url: Option<String>,
     pub challenge_reason: Option<String>,
     pub affordances: Vec<WebRetrievalAffordance>,
@@ -244,6 +263,7 @@ pub struct RunObservation {
     pub action_error_classes: Vec<String>,
     pub command_history_evidence: Vec<CommandHistoryEvidence>,
     pub cec_receipts: Vec<CecReceiptEvidence>,
+    pub intent_resolution_evidence: Vec<IntentResolutionEvidence>,
     pub environment_receipts: Vec<EnvironmentReceiptObservation>,
     pub web: Option<WebObservation>,
     pub screenshot: Option<ScreenshotObservation>,
@@ -540,15 +560,22 @@ pub fn has_cec_stage(observation: &RunObservation, stage: &str, satisfied: Optio
     })
 }
 
+fn latest_cec_receipt<'a>(
+    observation: &'a RunObservation,
+    stage: &str,
+    key: &str,
+) -> Option<&'a CecReceiptEvidence> {
+    observation.cec_receipts.iter().rev().find(|receipt| {
+        receipt.stage.eq_ignore_ascii_case(stage) && receipt.key.eq_ignore_ascii_case(key)
+    })
+}
+
 pub fn cec_receipt_value(observation: &RunObservation, stage: &str, key: &str) -> Option<String> {
-    observation
-        .cec_receipts
-        .iter()
-        .rev()
-        .find(|receipt| {
-            receipt.stage.eq_ignore_ascii_case(stage) && receipt.key.eq_ignore_ascii_case(key)
-        })
-        .and_then(|receipt| receipt.observed_value.clone())
+    latest_cec_receipt(observation, stage, key).and_then(|receipt| receipt.observed_value.clone())
+}
+
+pub fn cec_receipt_satisfied(observation: &RunObservation, stage: &str, key: &str) -> Option<bool> {
+    latest_cec_receipt(observation, stage, key).map(|receipt| receipt.satisfied)
 }
 
 pub fn cec_receipt_values(observation: &RunObservation, stage: &str, key: &str) -> Vec<String> {
@@ -558,6 +585,35 @@ pub fn cec_receipt_values(observation: &RunObservation, stage: &str, key: &str) 
         .filter(|receipt| {
             receipt.stage.eq_ignore_ascii_case(stage) && receipt.key.eq_ignore_ascii_case(key)
         })
+        .filter_map(|receipt| receipt.observed_value.clone())
+        .collect()
+}
+
+pub fn cec_receipt_latest_values(
+    observation: &RunObservation,
+    stage: &str,
+    key: &str,
+) -> Vec<String> {
+    let Some(last_idx) = observation.cec_receipts.iter().rposition(|receipt| {
+        receipt.stage.eq_ignore_ascii_case(stage) && receipt.key.eq_ignore_ascii_case(key)
+    }) else {
+        return Vec::new();
+    };
+
+    let mut first_idx = last_idx;
+    while first_idx > 0 {
+        let prev = &observation.cec_receipts[first_idx - 1];
+        if !(prev.stage.eq_ignore_ascii_case(stage) && prev.key.eq_ignore_ascii_case(key)) {
+            break;
+        }
+        first_idx -= 1;
+    }
+
+    observation
+        .cec_receipts
+        .iter()
+        .skip(first_idx)
+        .take(last_idx - first_idx + 1)
         .filter_map(|receipt| receipt.observed_value.clone())
         .collect()
 }
@@ -761,6 +817,19 @@ pub fn has_unresolved_approval_gate(observation: &RunObservation) -> bool {
     let awaiting_sudo = verification_bool(observation, "awaiting_sudo_password").unwrap_or(false);
     let awaiting_clarification =
         verification_bool(observation, "awaiting_clarification").unwrap_or(false);
+    let approval_pending_cleared =
+        verification_bool(observation, "approval_pending_cleared").unwrap_or(false);
+    let gated_read_absorbed =
+        verification_bool(observation, "web_pipeline_gated_read_absorbed").unwrap_or(false);
+
+    if approval_pending_cleared
+        && gated_read_absorbed
+        && !denied
+        && !awaiting_sudo
+        && !awaiting_clarification
+    {
+        return false;
+    }
 
     denied || ((requires_approval || awaiting_sudo || awaiting_clarification) && !approved)
 }
@@ -785,11 +854,9 @@ pub fn has_failure_class(observation: &RunObservation, class_name: &str) -> bool
 }
 
 pub fn has_typed_contract_failure_evidence(observation: &RunObservation) -> bool {
-    let cec_contract_gate_failed = observation.cec_receipts.iter().any(|receipt| {
-        receipt.stage.eq_ignore_ascii_case("completion_gate")
-            && receipt.key.eq_ignore_ascii_case("contract_gate")
-            && !receipt.satisfied
-    });
+    let cec_contract_gate_failed =
+        latest_cec_receipt(observation, "completion_gate", "contract_gate")
+            .is_some_and(|receipt| !receipt.satisfied);
     if cec_contract_gate_failed {
         return true;
     }
@@ -873,6 +940,7 @@ mod tests {
             action_error_classes: Vec::new(),
             command_history_evidence: Vec::new(),
             cec_receipts: Vec::new(),
+            intent_resolution_evidence: Vec::new(),
             environment_receipts: Vec::new(),
             web: None,
             screenshot: None,
@@ -940,5 +1008,256 @@ mod tests {
             verification_u64(&observation, "env_receipt::fixture_mode_timestamp_ms"),
             Some(42)
         );
+    }
+
+    #[test]
+    fn absorbed_web_read_gates_do_not_count_as_unresolved_approval() {
+        let mut observation = empty_observation();
+        observation.approval_required_events = 1;
+        observation
+            .routing_policy_decisions
+            .push("require_approval".to_string());
+        observation.verification_facts.push(VerificationFact {
+            key: "approval_pending_cleared".to_string(),
+            value: Some("true".to_string()),
+        });
+        observation.verification_facts.push(VerificationFact {
+            key: "web_pipeline_gated_read_absorbed".to_string(),
+            value: Some("true".to_string()),
+        });
+
+        assert!(!has_unresolved_approval_gate(&observation));
+    }
+
+    #[test]
+    fn cec_receipt_latest_values_returns_full_latest_timestamp_group() {
+        let mut observation = empty_observation();
+        observation.cec_receipts = vec![
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: "selected_source_url".to_string(),
+                satisfied: true,
+                timestamp_ms: 10,
+                probe_source: None,
+                observed_value: Some("https://example.com/older".to_string()),
+                evidence_type: Some("url".to_string()),
+                provider_id: None,
+            },
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: "selected_source_url".to_string(),
+                satisfied: true,
+                timestamp_ms: 20,
+                probe_source: None,
+                observed_value: Some("https://example.com/one".to_string()),
+                evidence_type: Some("url".to_string()),
+                provider_id: None,
+            },
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: "local_business_entity_name".to_string(),
+                satisfied: true,
+                timestamp_ms: 20,
+                probe_source: None,
+                observed_value: Some("Example Restaurant".to_string()),
+                evidence_type: Some("entity_name".to_string()),
+                provider_id: None,
+            },
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: "selected_source_url".to_string(),
+                satisfied: true,
+                timestamp_ms: 20,
+                probe_source: None,
+                observed_value: Some("https://example.com/two".to_string()),
+                evidence_type: Some("url".to_string()),
+                provider_id: None,
+            },
+        ];
+
+        assert_eq!(
+            cec_receipt_latest_values(&observation, "verification", "selected_source_url"),
+            vec![
+                "https://example.com/one".to_string(),
+                "https://example.com/two".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn cec_receipt_latest_values_returns_latest_contiguous_batch_when_timestamps_drift() {
+        let mut observation = empty_observation();
+        observation.cec_receipts = vec![
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: "local_business_menu_surface_source_url".to_string(),
+                satisfied: true,
+                timestamp_ms: 10,
+                probe_source: None,
+                observed_value: Some("https://example.com/older".to_string()),
+                evidence_type: Some("url".to_string()),
+                provider_id: None,
+            },
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: "story_slot_floor".to_string(),
+                satisfied: true,
+                timestamp_ms: 11,
+                probe_source: None,
+                observed_value: Some("3".to_string()),
+                evidence_type: Some("scalar".to_string()),
+                provider_id: None,
+            },
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: "local_business_menu_surface_source_url".to_string(),
+                satisfied: true,
+                timestamp_ms: 20,
+                probe_source: None,
+                observed_value: Some("https://example.com/one".to_string()),
+                evidence_type: Some("url".to_string()),
+                provider_id: None,
+            },
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: "local_business_menu_surface_source_url".to_string(),
+                satisfied: true,
+                timestamp_ms: 21,
+                probe_source: None,
+                observed_value: Some("https://example.com/two".to_string()),
+                evidence_type: Some("url".to_string()),
+                provider_id: None,
+            },
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "verification".to_string(),
+                key: "local_business_menu_surface_source_url".to_string(),
+                satisfied: true,
+                timestamp_ms: 22,
+                probe_source: None,
+                observed_value: Some("https://example.com/three".to_string()),
+                evidence_type: Some("url".to_string()),
+                provider_id: None,
+            },
+        ];
+
+        assert_eq!(
+            cec_receipt_latest_values(
+                &observation,
+                "verification",
+                "local_business_menu_surface_source_url",
+            ),
+            vec![
+                "https://example.com/one".to_string(),
+                "https://example.com/two".to_string(),
+                "https://example.com/three".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn cec_receipt_satisfied_reads_receipt_state_not_observed_value_payload() {
+        let mut observation = empty_observation();
+        observation.cec_receipts = vec![CecReceiptEvidence {
+            contract_version: "cec.v0.5".to_string(),
+            stage: "verification".to_string(),
+            key: "local_business_menu_inventory_floor".to_string(),
+            satisfied: true,
+            timestamp_ms: 10,
+            probe_source: Some("web.pipeline.completion.local_business_menu_inventory.v1".to_string()),
+            observed_value: Some(
+                "selected_menu_inventory_sources=3;total_menu_inventory_items=15;required_story_floor=3;required_items_per_source=2"
+                    .to_string(),
+            ),
+            evidence_type: Some("summary".to_string()),
+            provider_id: None,
+        }];
+
+        assert_eq!(
+            cec_receipt_satisfied(
+                &observation,
+                "verification",
+                "local_business_menu_inventory_floor",
+            ),
+            Some(true)
+        );
+        assert_eq!(
+            cec_receipt_bool(
+                &observation,
+                "verification",
+                "local_business_menu_inventory_floor",
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn typed_contract_failure_evidence_ignores_superseded_contract_gate_failure() {
+        let mut observation = empty_observation();
+        observation.cec_receipts = vec![
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "completion_gate".to_string(),
+                key: "contract_gate".to_string(),
+                satisfied: false,
+                timestamp_ms: 10,
+                probe_source: Some("web.pipeline.completion.final_output.v1".to_string()),
+                observed_value: Some("false".to_string()),
+                evidence_type: Some("bool".to_string()),
+                provider_id: None,
+            },
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "completion_gate".to_string(),
+                key: "contract_gate".to_string(),
+                satisfied: true,
+                timestamp_ms: 20,
+                probe_source: Some("web.pipeline.completion.final_output.v1".to_string()),
+                observed_value: Some("true".to_string()),
+                evidence_type: Some("bool".to_string()),
+                provider_id: None,
+            },
+        ];
+
+        assert!(!has_typed_contract_failure_evidence(&observation));
+    }
+
+    #[test]
+    fn typed_contract_failure_evidence_respects_latest_contract_gate_failure() {
+        let mut observation = empty_observation();
+        observation.cec_receipts = vec![
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "completion_gate".to_string(),
+                key: "contract_gate".to_string(),
+                satisfied: true,
+                timestamp_ms: 10,
+                probe_source: Some("web.pipeline.completion.final_output.v1".to_string()),
+                observed_value: Some("true".to_string()),
+                evidence_type: Some("bool".to_string()),
+                provider_id: None,
+            },
+            CecReceiptEvidence {
+                contract_version: "cec.v0.5".to_string(),
+                stage: "completion_gate".to_string(),
+                key: "contract_gate".to_string(),
+                satisfied: false,
+                timestamp_ms: 20,
+                probe_source: Some("web.pipeline.completion.final_output.v1".to_string()),
+                observed_value: Some("false".to_string()),
+                evidence_type: Some("bool".to_string()),
+                provider_id: None,
+            },
+        ];
+
+        assert!(has_typed_contract_failure_evidence(&observation));
     }
 }

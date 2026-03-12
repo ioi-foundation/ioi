@@ -14,6 +14,7 @@ mod multiply_247_by_38;
 mod open_calculator_app;
 mod read_me_the_last_email_i_received;
 mod rename_every_file_in_my_downloads_folder_to_lowercase;
+mod research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing;
 mod schedule_my_computer_to_shut_down_at_11_pm_tonight;
 mod send_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_via_gmail;
 mod set_timer_15_minutes;
@@ -56,6 +57,8 @@ pub fn all_cases() -> Vec<QueryCase> {
         uninstall_spotify_and_remove_its_leftover_config_files::case(),
         take_a_screenshot_of_my_desktop::case(),
         read_me_the_last_email_i_received::case(),
+        research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing::case(),
+        research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing::case_unseeded(),
         multiply_247_by_38::case(),
         top_news_headlines::case(),
     ];

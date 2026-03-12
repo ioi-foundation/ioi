@@ -157,6 +157,183 @@ mod tests {
             "https://www.reuters.com/world/europe/example-story-2026-03-01/"
         );
     }
+
+    #[test]
+    fn constrained_inventory_preserves_primary_authority_sources_for_document_briefings() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 0,
+            tool: "web__search".to_string(),
+            backend: "edge:bing-search-rss".to_string(),
+            query: Some(query.to_string()),
+            url: Some(
+                "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards&format=rss"
+                    .to_string(),
+            ),
+            sources: vec![
+                WebSource {
+                    source_id: "secondary-cyberscoop".to_string(),
+                    rank: Some(1),
+                    url: "https://cyberscoop.com/why-federal-it-leaders-must-act-now-to-deliver-nists-post-quantum-cryptography-transition-op-ed/".to_string(),
+                    title: Some(
+                        "Why federal IT leaders must act now to deliver NIST's post-quantum cryptography transition".to_string(),
+                    ),
+                    snippet: Some(
+                        "CyberScoop analysis of NIST post-quantum cryptography transition guidance."
+                            .to_string(),
+                    ),
+                    domain: Some("cyberscoop.com".to_string()),
+                },
+                WebSource {
+                    source_id: "official-nist-pqc".to_string(),
+                    rank: Some(2),
+                    url: "https://www.nist.gov/pqc".to_string(),
+                    title: Some("Post-quantum cryptography | NIST".to_string()),
+                    snippet: Some(
+                        "December 8, 2025 - These Federal Information Processing Standards (FIPS) are mandatory for federal systems and adopted around the world."
+                            .to_string(),
+                    ),
+                    domain: Some("nist.gov".to_string()),
+                },
+                WebSource {
+                    source_id: "secondary-cybersecuritydive".to_string(),
+                    rank: Some(3),
+                    url: "https://www.cybersecuritydive.com/news/nist-post-quantum-cryptography-guidance-mapping/760638/".to_string(),
+                    title: Some(
+                        "NIST expands post-quantum cryptography guidance mapping".to_string(),
+                    ),
+                    snippet: Some(
+                        "Cybersecurity Dive covers NIST post-quantum cryptography transition guidance."
+                            .to_string(),
+                    ),
+                    domain: Some("cybersecuritydive.com".to_string()),
+                },
+                WebSource {
+                    source_id: "official-nist-news".to_string(),
+                    rank: Some(4),
+                    url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                    title: Some(
+                        "NIST releases first 3 finalized post-quantum encryption standards"
+                            .to_string(),
+                    ),
+                    snippet: Some(
+                        "NIST finalized FIPS 203, FIPS 204 and FIPS 205 for post-quantum cryptography."
+                            .to_string(),
+                    ),
+                    domain: Some("nist.gov".to_string()),
+                },
+            ],
+            source_observations: vec![],
+            documents: vec![],
+            provider_candidates: vec![],
+            retrieval_contract: Some(retrieval_contract),
+        };
+
+        let (urls, _) =
+            constrained_candidate_inventory_from_bundle_with_locality_hint(query, 2, &bundle, None);
+
+        let pqc_idx = urls
+            .iter()
+            .position(|url| url == "https://www.nist.gov/pqc")
+            .expect("nist pqc page retained");
+        let news_idx = urls
+            .iter()
+            .position(|url| {
+                url
+                    == "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+            })
+            .expect("nist news page retained");
+        let cyberscoop_idx = urls
+            .iter()
+            .position(|url| {
+                url
+                    == "https://cyberscoop.com/why-federal-it-leaders-must-act-now-to-deliver-nists-post-quantum-cryptography-transition-op-ed/"
+            })
+            .expect("secondary source retained");
+
+        assert!(pqc_idx < cyberscoop_idx);
+        assert!(news_idx < cyberscoop_idx);
+    }
+
+    #[test]
+    fn constrained_inventory_prioritizes_current_authority_identifier_expansion_sources() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 0,
+            tool: "web__search".to_string(),
+            backend: "edge:bing-search-rss".to_string(),
+            query: Some(query.to_string()),
+            url: Some(
+                "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards&format=rss"
+                    .to_string(),
+            ),
+            sources: vec![
+                WebSource {
+                    source_id: "official-nist-2024".to_string(),
+                    rank: Some(1),
+                    url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                    title: Some(
+                        "NIST releases first 3 finalized post-quantum encryption standards"
+                            .to_string(),
+                    ),
+                    snippet: Some(
+                        "NIST finalized FIPS 203, FIPS 204 and FIPS 205 for post-quantum cryptography."
+                            .to_string(),
+                    ),
+                    domain: Some("nist.gov".to_string()),
+                },
+                WebSource {
+                    source_id: "official-nist-2025".to_string(),
+                    rank: Some(2),
+                    url: "https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption".to_string(),
+                    title: Some(
+                        "NIST Selects HQC as Fifth Algorithm for Post-Quantum Encryption"
+                            .to_string(),
+                    ),
+                    snippet: Some(
+                        "NIST selected HQC after finalizing FIPS 203, FIPS 204, and FIPS 205."
+                            .to_string(),
+                    ),
+                    domain: Some("nist.gov".to_string()),
+                },
+                WebSource {
+                    source_id: "secondary".to_string(),
+                    rank: Some(3),
+                    url: "https://example.com/analysis/nist-pqc".to_string(),
+                    title: Some("Independent analysis of NIST PQC".to_string()),
+                    snippet: Some(
+                        "Independent analysis summarizes FIPS 203, FIPS 204, and FIPS 205."
+                            .to_string(),
+                    ),
+                    domain: Some("example.com".to_string()),
+                },
+            ],
+            source_observations: vec![],
+            documents: vec![],
+            provider_candidates: vec![],
+            retrieval_contract: Some(retrieval_contract),
+        };
+
+        let (urls, _) =
+            constrained_candidate_inventory_from_bundle_with_locality_hint(query, 2, &bundle, None);
+
+        assert_eq!(
+            urls.first().map(String::as_str),
+            Some(
+                "https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption"
+            )
+        );
+    }
 }
 
 pub(crate) fn document_source_hints_from_bundle(
@@ -244,9 +421,30 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         bundle.retrieval_contract.as_ref(),
         query_contract,
     );
+    let document_briefing_layout = query_prefers_document_briefing_layout(query_contract)
+        && !query_requests_comparison(query_contract);
+    let authority_source_required_for_briefing = document_briefing_layout
+        && projection.query_facets.grounded_external_required
+        && bundle
+            .retrieval_contract
+            .as_ref()
+            .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
+            .unwrap_or(false);
     let constraints = &projection.constraints;
     let policy = ResolutionPolicy::default();
     let min_required = min_sources.max(1) as usize;
+    let required_briefing_identifier_labels =
+        briefing_standard_identifier_groups_for_query(query_contract)
+            .iter()
+            .filter(|group| group.required)
+            .map(|group| group.primary_label.to_string())
+            .collect::<BTreeSet<_>>();
+    let optional_briefing_identifier_labels =
+        briefing_standard_identifier_groups_for_query(query_contract)
+            .iter()
+            .filter(|group| !group.required)
+            .map(|group| group.primary_label.to_string())
+            .collect::<BTreeSet<_>>();
 
     let mut ranked = candidate_hints
         .into_iter()
@@ -276,6 +474,22 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
             let source_signals = analyze_source_record_signals(&hint.url, title, &hint.excerpt);
             let time_sensitive_resolvable_payload =
                 candidate_time_sensitive_resolvable_payload(&hint.url, title, &hint.excerpt);
+            let document_authority_score =
+                source_document_authority_score(query_contract, &hint.url, title, &hint.excerpt);
+            let observed_identifier_labels = observed_briefing_standard_identifier_labels(
+                query_contract,
+                &format!("{} {} {}", hint.url, title, hint.excerpt),
+            )
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+            let query_grounding_signal = excerpt_has_query_grounding_signal_with_contract(
+                bundle.retrieval_contract.as_ref(),
+                query_contract,
+                min_sources as usize,
+                &hint.url,
+                title,
+                &hint.excerpt,
+            );
             let headline_low_quality = headline_lookup_mode
                 && headline_source_is_low_quality(&hint.url, title, &hint.excerpt);
             let headline_actionable = headline_lookup_mode && headline_source_is_actionable(&hint);
@@ -287,6 +501,19 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                 time_sensitive_resolvable_payload,
                 compatibility,
                 source_relevance_score: source_signals.relevance_score(false),
+                official_status_host_hits: source_signals.official_status_host_hits,
+                primary_status_surface_hits: source_signals.primary_status_surface_hits,
+                document_authority_score,
+                observed_identifier_label_count: observed_identifier_labels.len(),
+                required_identifier_label_count: observed_identifier_labels
+                    .iter()
+                    .filter(|label| required_briefing_identifier_labels.contains(*label))
+                    .count(),
+                optional_identifier_label_count: observed_identifier_labels
+                    .iter()
+                    .filter(|label| optional_briefing_identifier_labels.contains(*label))
+                    .count(),
+                query_grounding_signal,
                 headline_low_quality,
                 headline_actionable,
             }
@@ -295,10 +522,64 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
     ranked.sort_by(|left, right| {
         let right_passes = compatibility_passes_projection(&projection, &right.compatibility);
         let left_passes = compatibility_passes_projection(&projection, &left.compatibility);
+        let briefing_order = if document_briefing_layout {
+            (right.document_authority_score > 0)
+                .cmp(&(left.document_authority_score > 0))
+                .then_with(|| {
+                    right
+                        .document_authority_score
+                        .cmp(&left.document_authority_score)
+                })
+                .then_with(|| {
+                    (right.official_status_host_hits > 0).cmp(&(left.official_status_host_hits > 0))
+                })
+                .then_with(|| {
+                    right
+                        .official_status_host_hits
+                        .cmp(&left.official_status_host_hits)
+                })
+                .then_with(|| {
+                    right
+                        .optional_identifier_label_count
+                        .cmp(&left.optional_identifier_label_count)
+                })
+                .then_with(|| {
+                    right
+                        .observed_identifier_label_count
+                        .cmp(&left.observed_identifier_label_count)
+                })
+                .then_with(|| {
+                    right
+                        .required_identifier_label_count
+                        .cmp(&left.required_identifier_label_count)
+                })
+                .then_with(|| {
+                    right
+                        .query_grounding_signal
+                        .cmp(&left.query_grounding_signal)
+                })
+                .then_with(|| {
+                    (right.primary_status_surface_hits > 0)
+                        .cmp(&(left.primary_status_surface_hits > 0))
+                })
+                .then_with(|| {
+                    right
+                        .primary_status_surface_hits
+                        .cmp(&left.primary_status_surface_hits)
+                })
+                .then_with(|| {
+                    right
+                        .source_relevance_score
+                        .cmp(&left.source_relevance_score)
+                })
+        } else {
+            std::cmp::Ordering::Equal
+        };
         right
             .headline_actionable
             .cmp(&left.headline_actionable)
             .then_with(|| left.headline_low_quality.cmp(&right.headline_low_quality))
+            .then_with(|| briefing_order)
             .then_with(|| {
                 right
                     .time_sensitive_resolvable_payload
@@ -335,11 +616,19 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         .iter()
         .filter(|candidate| !candidate.headline_low_quality)
         .count();
+    let authority_candidate_for_briefing = |candidate: &&RankedAcquisitionCandidate| {
+        authority_source_required_for_briefing
+            && candidate.document_authority_score > 0
+            && (candidate.query_grounding_signal
+                || candidate.compatibility.compatibility_score > 0
+                || candidate.compatibility.is_compatible)
+    };
 
     let mut filtered = ranked.iter().collect::<Vec<_>>();
     if should_filter_by_compatibility {
         filtered.retain(|candidate| {
             compatibility_passes_projection(&projection, &candidate.compatibility)
+                || authority_candidate_for_briefing(candidate)
         });
     }
     if headline_lookup_mode && headline_non_low_quality_candidates >= min_required {
@@ -351,7 +640,9 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         .filter(|candidate| candidate.resolves_constraint)
         .count();
     if !headline_lookup_mode && has_constraint_objective && resolvable_candidates >= min_required {
-        filtered.retain(|candidate| candidate.resolves_constraint);
+        filtered.retain(|candidate| {
+            candidate.resolves_constraint || authority_candidate_for_briefing(candidate)
+        });
     }
 
     let selected = if filtered.is_empty() {
@@ -373,6 +664,37 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         }
         selected_urls.push(url.to_string());
         selected_hints.push(candidate.hint.clone());
+    }
+    if authority_source_required_for_briefing {
+        let authority_urls = selected_hints
+            .iter()
+            .filter(|hint| {
+                source_has_document_authority(
+                    query_contract,
+                    &hint.url,
+                    hint.title.as_deref().unwrap_or_default(),
+                    &hint.excerpt,
+                )
+            })
+            .map(|hint| hint.url.clone())
+            .collect::<BTreeSet<_>>();
+        if !authority_urls.is_empty() {
+            let mut prioritized_hints = Vec::new();
+            let mut secondary_hints = Vec::new();
+            for hint in selected_hints {
+                if authority_urls.contains(&hint.url) {
+                    prioritized_hints.push(hint);
+                } else {
+                    secondary_hints.push(hint);
+                }
+            }
+            prioritized_hints.extend(secondary_hints);
+            selected_urls = prioritized_hints
+                .iter()
+                .map(|hint| hint.url.clone())
+                .collect::<Vec<_>>();
+            selected_hints = prioritized_hints;
+        }
     }
 
     (selected_urls, selected_hints)

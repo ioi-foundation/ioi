@@ -361,8 +361,20 @@ pub(super) async fn run_web_read_execution(
         .and_then(|v| v.as_u64())
         .map(|v| v as u32)
         .or(Some(12_000));
+    let allow_browser_fallback = config
+        .get("allow_browser_fallback")
+        .or_else(|| config.get("allowBrowserFallback"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
 
-    match ioi_services::agentic::web::edge_web_read(&*BROWSER_DRIVER, &url, max_chars).await {
+    match ioi_services::agentic::web::edge_web_read(
+        &*BROWSER_DRIVER,
+        &url,
+        max_chars,
+        allow_browser_fallback,
+    )
+    .await
+    {
         Ok(bundle) => {
             let data = serde_json::to_value(&bundle).ok();
             let output = serde_json::to_string_pretty(&bundle).unwrap_or_else(|_| url.clone());

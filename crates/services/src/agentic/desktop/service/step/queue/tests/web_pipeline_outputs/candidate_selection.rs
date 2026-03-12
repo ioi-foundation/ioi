@@ -254,6 +254,65 @@ fn web_pipeline_next_candidate_allows_single_exploratory_read_when_compatibility
 }
 
 #[test]
+fn web_pipeline_next_candidate_does_not_reread_successful_single_snapshot_source() {
+    let pending = PendingSearchCompletion {
+        query: "What's the weather right now in Anderson, SC?".to_string(),
+        query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
+        url: "https://www.bing.com/search?q=current+weather+anderson+sc".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec!["https://www.timeanddate.com/weather/usa/anderson".to_string()],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://www.timeanddate.com/weather/usa/anderson".to_string(),
+            title: Some("Weather for Anderson, South Carolina, USA".to_string()),
+            excerpt: "Current weather: 64°F, fair, wind 4 mph.".to_string(),
+        }],
+        min_sources: 2,
+    };
+
+    assert!(
+        next_pending_web_candidate(&pending).is_none(),
+        "already-grounded URLs must not be reread as pending candidates"
+    );
+}
+
+#[test]
+fn web_pipeline_next_candidate_keeps_exploration_budget_for_nonqualifying_reads_only() {
+    let pending = PendingSearchCompletion {
+        query: "What's the weather right now in Anderson, SC?".to_string(),
+        query_contract: "What's the weather right now in Anderson, SC?".to_string(),
+        retrieval_contract: None,
+        url: "https://www.bing.com/search?q=current+weather+anderson+sc".to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://example.com/path/a".to_string(),
+            "https://example.org/path/b".to_string(),
+        ],
+        candidate_source_hints: vec![],
+        attempted_urls: vec![
+            "https://www.accuweather.com/en/us/anderson/29624/weather-forecast/330677".to_string(),
+        ],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://www.timeanddate.com/weather/usa/anderson".to_string(),
+            title: Some("Weather for Anderson, South Carolina, USA".to_string()),
+            excerpt: "Current weather: 64°F, fair, wind 4 mph.".to_string(),
+        }],
+        min_sources: 2,
+    };
+
+    let next = next_pending_web_candidate(&pending).expect("expected bounded exploratory read");
+    assert_eq!(next, "https://example.com/path/a");
+}
+
+#[test]
 fn web_pipeline_next_candidate_allows_one_extra_exploratory_read_after_probe_search_attempt() {
     let mut base = PendingSearchCompletion {
         query: "What's the weather right now in Anderson, SC?".to_string(),
@@ -381,5 +440,190 @@ fn web_pipeline_next_candidate_ignores_search_hub_attempts_for_host_diversity() 
     assert!(
         next.contains("/rss/articles/"),
         "expected a readable article candidate, got {next}"
+    );
+}
+
+#[test]
+fn web_pipeline_next_candidate_prefers_official_grounded_source_for_latest_multi_story_briefing() {
+    let pending = PendingSearchCompletion {
+        query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.".to_string(),
+        query_contract:
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                .to_string(),
+        retrieval_contract: Some(ioi_types::app::agentic::WebRetrievalContract {
+            contract_version: "web_retrieval_contract.v1".to_string(),
+            entity_cardinality_min: 3,
+            comparison_required: true,
+            currentness_required: true,
+            runtime_locality_required: false,
+            source_independence_min: 3,
+            citation_count_min: 1,
+            structured_record_preferred: false,
+            ordered_collection_preferred: false,
+            link_collection_preferred: true,
+            canonical_link_out_preferred: true,
+            geo_scoped_detail_required: false,
+            discovery_surface_required: true,
+            entity_diversity_required: true,
+            scalar_measure_required: false,
+            browser_fallback_allowed: true,
+        }),
+        url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+            .to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://www.ibm.com/think/topics/nist".to_string(),
+            "https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption".to_string(),
+        ],
+        candidate_source_hints: vec![
+            PendingSearchReadSummary {
+                url: "https://www.ibm.com/think/topics/nist".to_string(),
+                title: Some("What is NIST? | IBM".to_string()),
+                excerpt: "Overview of NIST frameworks and cybersecurity topics.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption".to_string(),
+                title: Some(
+                    "NIST selects HQC as fifth algorithm for post-quantum encryption"
+                        .to_string(),
+                ),
+                excerpt:
+                    "NIST selected HQC as a backup algorithm in the post-quantum cryptography standards effort."
+                        .to_string(),
+            },
+        ],
+        attempted_urls: vec![
+            "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+        ],
+        blocked_urls: vec![],
+        successful_reads: vec![
+            PendingSearchReadSummary {
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST releases first 3 finalized post-quantum encryption standards"
+                        .to_string(),
+                ),
+                excerpt:
+                    "NIST finalized FIPS 203, FIPS 204 and FIPS 205 for post-quantum cryptography."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://research.ibm.com/blog/nist-pqc-standards".to_string(),
+                title: Some("NIST’s post-quantum cryptography standards are here".to_string()),
+                excerpt:
+                    "IBM summarized the NIST post-quantum standards ML-KEM, ML-DSA and SLH-DSA."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://pqshield.com/nist-recommends-timelines-for-transitioning-cryptographic-algorithms/".to_string(),
+                title: Some(
+                    "NIST recommends timelines for transitioning cryptographic algorithms"
+                        .to_string(),
+                ),
+                excerpt:
+                    "PQShield covered NIST transition guidance for post-quantum cryptography standards."
+                        .to_string(),
+            },
+        ],
+        min_sources: 3,
+    };
+
+    let next = next_pending_web_candidate(&pending).expect("expected grounded next candidate");
+    assert_eq!(
+        next,
+        "https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption"
+    );
+}
+
+#[test]
+fn web_pipeline_next_candidate_returns_none_when_grounded_briefing_only_has_generic_residual_reads()
+{
+    let pending = PendingSearchCompletion {
+        query: "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.".to_string(),
+        query_contract:
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                .to_string(),
+        retrieval_contract: Some(ioi_types::app::agentic::WebRetrievalContract {
+            contract_version: "web_retrieval_contract.v1".to_string(),
+            entity_cardinality_min: 3,
+            comparison_required: true,
+            currentness_required: true,
+            runtime_locality_required: false,
+            source_independence_min: 3,
+            citation_count_min: 1,
+            structured_record_preferred: false,
+            ordered_collection_preferred: false,
+            link_collection_preferred: true,
+            canonical_link_out_preferred: true,
+            geo_scoped_detail_required: false,
+            discovery_surface_required: true,
+            entity_diversity_required: true,
+            scalar_measure_required: false,
+            browser_fallback_allowed: true,
+        }),
+        url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+            .to_string(),
+        started_step: 1,
+        started_at_ms: 1_771_465_364_000,
+        deadline_ms: 1_771_465_424_000,
+        candidate_urls: vec![
+            "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2".to_string(),
+            "https://www.ibm.com/de-de/think/topics/nist".to_string(),
+        ],
+        candidate_source_hints: vec![
+            PendingSearchReadSummary {
+                url: "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2".to_string(),
+                title: Some("El marco de ciberseguridad 2.0 del NIST, en detalle | IBM".to_string()),
+                excerpt: "General NIST cybersecurity framework overview.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.ibm.com/de-de/think/topics/nist".to_string(),
+                title: Some("Was ist das NIST Cybersicherheits-Framework? | IBM".to_string()),
+                excerpt: "Generic overview of NIST cybersecurity topics.".to_string(),
+            },
+        ],
+        attempted_urls: vec![
+            "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+        ],
+        blocked_urls: vec![],
+        successful_reads: vec![
+            PendingSearchReadSummary {
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST releases first 3 finalized post-quantum encryption standards"
+                        .to_string(),
+                ),
+                excerpt:
+                    "NIST finalized FIPS 203, FIPS 204 and FIPS 205 for post-quantum cryptography."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://research.ibm.com/blog/nist-pqc-standards".to_string(),
+                title: Some("NIST’s post-quantum cryptography standards are here".to_string()),
+                excerpt:
+                    "IBM summarized the NIST post-quantum standards ML-KEM, ML-DSA and SLH-DSA."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://pqshield.com/nist-recommends-timelines-for-transitioning-cryptographic-algorithms/".to_string(),
+                title: Some(
+                    "NIST recommends timelines for transitioning cryptographic algorithms"
+                        .to_string(),
+                ),
+                excerpt:
+                    "PQShield covered NIST transition guidance for post-quantum cryptography standards."
+                        .to_string(),
+            },
+        ],
+        min_sources: 3,
+    };
+
+    assert!(
+        next_pending_web_candidate(&pending).is_none(),
+        "generic residual NIST-adjacent pages should not keep grounded briefing loops alive"
     );
 }

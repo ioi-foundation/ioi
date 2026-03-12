@@ -52,11 +52,11 @@ fn filter_provider_sources_by_contract(
         return sources;
     }
 
-    let aligned_urls = match query_matching_source_urls(query_contract, retrieval_contract, &sources)
-    {
-        Ok(urls) => urls,
-        Err(_) => return Vec::new(),
-    };
+    let aligned_urls =
+        match query_matching_source_urls(query_contract, retrieval_contract, &sources) {
+            Ok(urls) => urls,
+            Err(_) => return Vec::new(),
+        };
     if aligned_urls.is_empty() {
         return Vec::new();
     }
@@ -98,7 +98,10 @@ async fn probe_search_provider(
     };
     match descriptor.stage {
         SearchProviderStage::WeatherGovLocalityDetail => {
-            let Some(scope) = locality_scope.map(str::trim).filter(|value| !value.is_empty()) else {
+            let Some(scope) = locality_scope
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            else {
                 return fallback(
                     Some(format!("{}_locality_scope_missing", provider_id)),
                     None,
@@ -107,7 +110,8 @@ async fn probe_search_provider(
                 );
             };
             let request_url = build_weather_gov_locality_lookup_url(scope);
-            match fetch_structured_detail_http_fallback_browser_ua_with_final_url(&request_url).await
+            match fetch_structured_detail_http_fallback_browser_ua_with_final_url(&request_url)
+                .await
             {
                 Ok((final_url, html)) => {
                     let challenge_reason = detect_human_challenge(&final_url, &html)
@@ -122,18 +126,15 @@ async fn probe_search_provider(
                         );
                     }
 
-                    let (extracted_title, mut blocks) = extract_read_blocks(&html);
+                    let (extracted_title, mut blocks) =
+                        extract_read_blocks_for_url(&final_url, &html);
                     if blocks.is_empty() {
                         blocks = extract_non_html_read_blocks(&html);
                     }
-                    let sources = best_structured_detail_source(
-                        &final_url,
-                        &html,
-                        extracted_title,
-                        &blocks,
-                    )
-                    .into_iter()
-                    .collect::<Vec<_>>();
+                    let sources =
+                        best_structured_detail_source(&final_url, &html, extracted_title, &blocks)
+                            .into_iter()
+                            .collect::<Vec<_>>();
                     let sources = filter_provider_sources_by_contract(
                         finalize_provider_sources(sources, excluded_hosts),
                         query_contract,
@@ -144,11 +145,83 @@ async fn probe_search_provider(
                     } else {
                         None
                     };
-                    let source_observations = source_observations_for_sources(
-                        &sources,
-                        descriptor.affordances,
-                        &[],
+                    let source_observations =
+                        source_observations_for_sources(&sources, descriptor.affordances, &[]);
+                    ObservedSearchProviderCandidate {
+                        descriptor,
+                        request_url: Some(request_url),
+                        sources,
+                        source_observations,
+                        success: true,
+                        selected: false,
+                        challenge_reason: None,
+                        fallback_note,
+                    }
+                }
+                Err(err) => fallback(
+                    Some(format!("{}_error={}", provider_id, err)),
+                    Some(request_url),
+                    None,
+                    false,
+                ),
+            }
+        }
+        SearchProviderStage::RestaurantJiLocalityDirectory => {
+            let Some(scope) = locality_scope
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            else {
+                return fallback(
+                    Some(format!("{}_locality_scope_missing", provider_id)),
+                    None,
+                    None,
+                    false,
+                );
+            };
+            let Some(request_url) = build_restaurantji_locality_root_url(scope) else {
+                return fallback(
+                    Some(format!("{}_locality_scope_invalid", provider_id)),
+                    None,
+                    None,
+                    false,
+                );
+            };
+            match fetch_structured_detail_http_fallback_browser_ua_with_final_url(&request_url)
+                .await
+            {
+                Ok((final_url, html)) => {
+                    let challenge_reason = detect_human_challenge(&final_url, &html)
+                        .or_else(|| detect_human_challenge(&request_url, &html))
+                        .map(|reason| reason.to_string());
+                    if let Some(reason) = challenge_reason.clone() {
+                        return fallback(
+                            Some(format!("{}_challenge={}", provider_id, reason)),
+                            Some(request_url),
+                            Some(reason),
+                            true,
+                        );
+                    }
+
+                    let category_limit = provider_result_limit.max(8);
+                    let sources = filter_provider_sources_by_contract(
+                        finalize_provider_sources(
+                            parse_same_host_child_collection_sources_from_html(
+                                &final_url,
+                                &html,
+                                category_limit,
+                            ),
+                            excluded_hosts,
+                        ),
+                        query_contract,
+                        retrieval_contract,
                     );
+                    let fallback_note = if sources.is_empty() {
+                        Some(format!("{}_empty", provider_id))
+                    } else {
+                        None
+                    };
+                    let source_observations =
+                        source_observations_for_sources(&sources, descriptor.affordances, &[]);
                     ObservedSearchProviderCandidate {
                         descriptor,
                         request_url: Some(request_url),

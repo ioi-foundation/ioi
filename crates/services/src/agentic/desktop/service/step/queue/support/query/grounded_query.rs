@@ -1,5 +1,28 @@
 use super::*;
 
+fn briefing_identifier_search_terms(query_contract: &str, include_optional: bool) -> Vec<String> {
+    briefing_standard_identifier_groups_for_query(query_contract)
+        .iter()
+        .filter(|group| group.required || include_optional)
+        .filter_map(|group| group.needles.first())
+        .map(|needle| format!("\"{}\"", needle.to_ascii_uppercase()))
+        .collect()
+}
+
+fn should_expand_optional_briefing_identifier_terms(
+    query_contract: &str,
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+) -> bool {
+    let facets = analyze_query_facets(query_contract);
+    query_prefers_document_briefing_layout(query_contract)
+        && !query_requests_comparison(query_contract)
+        && facets.grounded_external_required
+        && (retrieval_contract
+            .map(|contract| contract.currentness_required)
+            .unwrap_or(false)
+            || facets.goal.recency_hits > 0)
+}
+
 pub(crate) fn constraint_grounded_search_query_with_hints_and_locality_hint(
     query: &str,
     min_sources: u32,
@@ -26,12 +49,28 @@ pub(crate) fn constraint_grounded_search_query_with_contract_and_hints_and_local
     if resolved.trim().is_empty() {
         return String::new();
     }
+    let local_business_discovery_query =
+        local_business_discovery_query_contract(query, locality_hint);
+    let local_business_entity_discovery_query =
+        local_business_entity_discovery_query_contract(query, locality_hint);
+    let local_business_entity_expansion = retrieval_contract
+        .map(crate::agentic::web::contract_requires_geo_scoped_entity_expansion)
+        .unwrap_or_else(|| query_requires_local_business_entity_diversity(&resolved));
+    let grounded_query_basis = if local_business_entity_expansion {
+        local_business_entity_discovery_query
+            .trim()
+            .is_empty()
+            .then_some(local_business_discovery_query.as_str())
+            .unwrap_or(local_business_entity_discovery_query.as_str())
+    } else {
+        resolved.as_str()
+    };
     if retrieval_contract_is_generic_headline_collection(retrieval_contract, &resolved) {
         return generic_headline_search_phrase(&resolved);
     }
 
     let base = semantic_retrieval_query_contract_with_contract_and_locality_hint(
-        query,
+        grounded_query_basis,
         retrieval_contract,
         locality_hint,
     );
@@ -45,6 +84,10 @@ pub(crate) fn constraint_grounded_search_query_with_contract_and_hints_and_local
         locality_hint,
     );
     let mut constraint_terms = projection_constraint_search_terms(&projection);
+    constraint_terms.extend(briefing_identifier_search_terms(
+        &resolved,
+        should_expand_optional_briefing_identifier_terms(&resolved, retrieval_contract),
+    ));
     let bootstrap_without_hints = candidate_hints.is_empty();
     if bootstrap_without_hints
         && retrieval_contract
@@ -67,7 +110,15 @@ pub(crate) fn constraint_grounded_search_query_with_contract_and_hints_and_local
     if bootstrap_time_sensitive_locality_scope {
         return base;
     }
-    let native_anchor_phrase = projection_native_anchor_phrase(&projection);
+    let suppress_native_anchor_phrase = bootstrap_without_hints
+        && projection.query_facets.grounded_external_required
+        && !projection.query_facets.locality_sensitive_public_fact
+        && query_prefers_multi_item_cardinality(&resolved);
+    let native_anchor_phrase = if suppress_native_anchor_phrase {
+        None
+    } else {
+        projection_native_anchor_phrase(&projection)
+    };
     if projection.enforce_grounded_compatibility() {
         if let Some(anchor_phrase) = native_anchor_phrase.as_ref() {
             constraint_terms.push(anchor_phrase.clone());
@@ -173,6 +224,7 @@ pub(crate) fn constraint_grounded_probe_query_with_contract_and_hints_and_locali
     );
     let mut escalation_terms = projection_probe_structural_terms(&projection);
     escalation_terms.extend(projection_probe_host_exclusion_terms(
+        query,
         &projection,
         candidate_hints,
     ));
@@ -267,4 +319,56 @@ pub(crate) fn constraint_grounded_search_query_with_hints(
 
 pub(crate) fn constraint_grounded_search_query(query: &str, min_sources: u32) -> String {
     constraint_grounded_search_query_with_hints(query, min_sources, &[])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grounded_search_query_does_not_inject_subject_specific_standard_identifiers() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
+
+        let grounded = constraint_grounded_search_query_with_contract_and_hints_and_locality_hint(
+            query,
+            Some(&contract),
+            2,
+            &[],
+            None,
+        );
+
+        assert!(!grounded.contains("\"FIPS 203\""), "query={grounded}");
+        assert!(!grounded.contains("\"FIPS 204\""), "query={grounded}");
+        assert!(!grounded.contains("\"FIPS 205\""), "query={grounded}");
+        assert!(!grounded.contains("\"FIPS 206\""), "query={grounded}");
+        assert!(!grounded.contains("\"HQC\""), "query={grounded}");
+    }
+
+    #[test]
+    fn grounded_search_query_uses_local_business_discovery_basis_for_menu_comparison_queries() {
+        let query =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("contract");
+
+        let grounded = constraint_grounded_search_query_with_contract_and_hints_and_locality_hint(
+            query,
+            Some(&contract),
+            3,
+            &[],
+            Some("Anderson, SC"),
+        );
+        let normalized = grounded.to_ascii_lowercase();
+
+        assert!(
+            normalized.contains("italian restaurants in anderson")
+                || normalized.contains("restaurants in anderson"),
+            "query={grounded}"
+        );
+        assert!(!normalized.contains("compare"), "query={grounded}");
+        assert!(!normalized.contains("menus"), "query={grounded}");
+    }
 }

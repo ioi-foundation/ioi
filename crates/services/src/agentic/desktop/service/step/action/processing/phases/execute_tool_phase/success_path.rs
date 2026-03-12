@@ -3,7 +3,322 @@ use super::events::{
 };
 use super::tool_outcome::{apply_tool_outcome_and_followups, ToolOutcomeContext};
 use super::*;
-use crate::agentic::desktop::connectors::connector_postcondition_verifier_bindings;
+use crate::agentic::desktop::connectors::{
+    connector_id_for_tool_name, connector_postcondition_verifier_bindings,
+};
+use crate::agentic::desktop::service::step::action::command_contract::contract_requires_postcondition_with_rules;
+use ioi_types::app::agentic::{
+    MediaFrameEvidence, MediaMultimodalBundle, MediaTimelineOutlineBundle, MediaTranscriptBundle,
+    MediaVisualEvidenceBundle,
+};
+
+const TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT: usize = 3_200;
+const MEDIA_TRANSCRIPT_CONTEXT_EXCERPT_LIMIT: usize = 6;
+const MEDIA_TRANSCRIPT_CONTEXT_EXCERPT_CHARS: usize = 220;
+const MEDIA_VISUAL_CONTEXT_FRAME_LIMIT: usize = 6;
+const MEDIA_VISUAL_CONTEXT_COMPONENT_CHARS: usize = 160;
+const MEDIA_VISUAL_CONTEXT_SUMMARY_CHARS: usize = 420;
+
+fn compact_ws_for_chat_context(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn truncate_chars_for_chat_context(text: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+
+    let compact = compact_ws_for_chat_context(text);
+    if compact.chars().count() <= max_chars {
+        return compact;
+    }
+
+    let kept = max_chars.saturating_sub(3);
+    if kept == 0 {
+        return "...".to_string();
+    }
+
+    let truncated = compact.chars().take(kept).collect::<String>();
+    format!("{}...", truncated.trim_end())
+}
+
+fn split_transcript_context_units(text: &str) -> Vec<String> {
+    let compact = compact_ws_for_chat_context(text);
+    if compact.is_empty() {
+        return Vec::new();
+    }
+
+    let mut units = Vec::new();
+    let mut current = String::new();
+    for ch in compact.chars() {
+        current.push(ch);
+        if matches!(ch, '.' | '!' | '?' | ';') {
+            let candidate = current.trim();
+            if !candidate.is_empty() {
+                units.push(candidate.to_string());
+            }
+            current.clear();
+        }
+    }
+    let trailing = current.trim();
+    if !trailing.is_empty() {
+        units.push(trailing.to_string());
+    }
+
+    let mut merged = Vec::new();
+    let mut buffer = String::new();
+    for unit in units {
+        let normalized = unit.trim();
+        if normalized.is_empty() {
+            continue;
+        }
+        if buffer.is_empty() {
+            buffer.push_str(normalized);
+        } else if buffer.chars().count() < 90 {
+            buffer.push(' ');
+            buffer.push_str(normalized);
+        } else {
+            merged.push(buffer);
+            buffer = normalized.to_string();
+        }
+    }
+    if !buffer.trim().is_empty() {
+        merged.push(buffer);
+    }
+
+    if !merged.is_empty() {
+        return merged;
+    }
+
+    let words = compact.split_whitespace().collect::<Vec<_>>();
+    if words.is_empty() {
+        return Vec::new();
+    }
+
+    let mut fallback = Vec::new();
+    for chunk in words.chunks(32) {
+        let joined = chunk.join(" ");
+        if !joined.trim().is_empty() {
+            fallback.push(joined);
+        }
+    }
+    fallback
+}
+
+fn evenly_sample_indices(len: usize, limit: usize) -> Vec<usize> {
+    if len == 0 || limit == 0 {
+        return Vec::new();
+    }
+    if len <= limit {
+        return (0..len).collect();
+    }
+    if limit == 1 {
+        return vec![0];
+    }
+
+    let mut indices = Vec::with_capacity(limit);
+    for slot in 0..limit {
+        let idx = slot.saturating_mul(len.saturating_sub(1)) / limit.saturating_sub(1);
+        if indices.last().copied() != Some(idx) {
+            indices.push(idx);
+        }
+    }
+    indices
+}
+
+fn transcript_context_excerpts(text: &str) -> Vec<String> {
+    let units = split_transcript_context_units(text);
+    evenly_sample_indices(units.len(), MEDIA_TRANSCRIPT_CONTEXT_EXCERPT_LIMIT)
+        .into_iter()
+        .filter_map(|idx| units.get(idx))
+        .map(|unit| truncate_chars_for_chat_context(unit, MEDIA_TRANSCRIPT_CONTEXT_EXCERPT_CHARS))
+        .filter(|unit| !unit.is_empty())
+        .collect()
+}
+
+fn summarize_media_transcript_bundle_for_chat(bundle: &MediaTranscriptBundle) -> String {
+    let mut lines = vec![format!(
+        "Tool Output (media__extract_transcript): title={} canonical_url={} duration_seconds={} provider_id={} transcript_language={} transcript_source_kind={} transcript_segment_count={} transcript_char_count={} transcript_hash={}",
+        bundle.title.as_deref().unwrap_or(""),
+        bundle.canonical_url,
+        bundle.duration_seconds.unwrap_or_default(),
+        bundle.provider_id,
+        bundle.transcript_language,
+        bundle.transcript_source_kind,
+        bundle.segment_count,
+        bundle.transcript_char_count,
+        bundle.transcript_hash
+    )];
+
+    for (idx, excerpt) in transcript_context_excerpts(&bundle.transcript_text)
+        .into_iter()
+        .enumerate()
+    {
+        lines.push(format!("transcript_evidence[{}]={}", idx + 1, excerpt));
+    }
+
+    lines.join("\n")
+}
+
+fn summarize_media_frame_for_chat(frame: &MediaFrameEvidence, index: usize) -> String {
+    let mut parts = vec![
+        format!("timestamp={}", frame.timestamp_label),
+        format!(
+            "scene={}",
+            truncate_chars_for_chat_context(
+                frame.scene_summary.as_str(),
+                MEDIA_VISUAL_CONTEXT_COMPONENT_CHARS
+            )
+        ),
+    ];
+
+    let visible_text = truncate_chars_for_chat_context(
+        frame.visible_text.as_str(),
+        MEDIA_VISUAL_CONTEXT_COMPONENT_CHARS,
+    );
+    if !visible_text.is_empty() {
+        parts.push(format!("visible_text={}", visible_text));
+    }
+
+    if let Some(transcript_excerpt) = frame.transcript_excerpt.as_deref() {
+        let excerpt = truncate_chars_for_chat_context(
+            transcript_excerpt,
+            MEDIA_VISUAL_CONTEXT_COMPONENT_CHARS,
+        );
+        if !excerpt.is_empty() {
+            parts.push(format!("transcript_excerpt={}", excerpt));
+        }
+    }
+
+    format!("visual_evidence[{}]={}", index + 1, parts.join(" | "))
+}
+
+fn summarize_media_visual_bundle_for_chat(bundle: &MediaVisualEvidenceBundle) -> Vec<String> {
+    let mut lines = vec![format!(
+        "visual_summary: provider_id={} frame_count={} visual_char_count={} visual_hash={}",
+        bundle.provider_id, bundle.frame_count, bundle.visual_char_count, bundle.visual_hash
+    )];
+
+    if !bundle.frames.is_empty() {
+        for (idx, frame) in bundle
+            .frames
+            .iter()
+            .take(MEDIA_VISUAL_CONTEXT_FRAME_LIMIT)
+            .enumerate()
+        {
+            lines.push(summarize_media_frame_for_chat(frame, idx));
+        }
+    } else if !bundle.visual_summary.trim().is_empty() {
+        lines.push(format!(
+            "visual_overview={}",
+            truncate_chars_for_chat_context(
+                bundle.visual_summary.as_str(),
+                MEDIA_VISUAL_CONTEXT_SUMMARY_CHARS
+            )
+        ));
+    }
+
+    lines
+}
+
+fn summarize_media_multimodal_bundle_for_chat(bundle: &MediaMultimodalBundle) -> String {
+    let selected_modalities = if bundle.selected_modalities.is_empty() {
+        String::new()
+    } else {
+        bundle.selected_modalities.join(",")
+    };
+    let selected_provider_ids = if bundle.selected_provider_ids.is_empty() {
+        String::new()
+    } else {
+        bundle.selected_provider_ids.join(",")
+    };
+    let provider_candidates = bundle
+        .provider_candidates
+        .iter()
+        .map(|candidate| {
+            format!(
+                "{}:{}:{}:{}",
+                candidate.provider_id,
+                candidate.modality.as_deref().unwrap_or(""),
+                candidate.selected,
+                candidate.source_count
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let mut lines = vec![format!(
+        "Tool Output (media__extract_multimodal_evidence): title={} canonical_url={} duration_seconds={} selected_modalities={} selected_provider_ids={} provider_candidates={}",
+        bundle.title.as_deref().unwrap_or(""),
+        bundle.canonical_url,
+        bundle.duration_seconds.unwrap_or_default(),
+        selected_modalities,
+        selected_provider_ids,
+        provider_candidates
+    )];
+
+    if let Some(transcript) = bundle.transcript.as_ref() {
+        lines.push(format!(
+            "transcript_summary: provider_id={} transcript_language={} transcript_source_kind={} transcript_segment_count={} transcript_char_count={} transcript_hash={}",
+            transcript.provider_id,
+            transcript.transcript_language,
+            transcript.transcript_source_kind,
+            transcript.segment_count,
+            transcript.transcript_char_count,
+            transcript.transcript_hash
+        ));
+        for (idx, excerpt) in transcript_context_excerpts(&transcript.transcript_text)
+            .into_iter()
+            .enumerate()
+        {
+            lines.push(format!("transcript_evidence[{}]={}", idx + 1, excerpt));
+        }
+    }
+
+    if let Some(timeline) = bundle.timeline.as_ref() {
+        lines.push(summarize_media_timeline_bundle_for_chat(timeline));
+    }
+
+    if let Some(visual) = bundle.visual.as_ref() {
+        lines.extend(summarize_media_visual_bundle_for_chat(visual));
+    }
+
+    lines.join("\n")
+}
+
+fn summarize_media_timeline_bundle_for_chat(bundle: &MediaTimelineOutlineBundle) -> String {
+    format!(
+        "timeline_summary: provider_id={} timeline_source_kind={} timeline_cue_count={} timeline_char_count={} timeline_hash={}",
+        bundle.provider_id,
+        bundle.timeline_source_kind,
+        bundle.cue_count,
+        bundle.timeline_char_count,
+        bundle.timeline_hash
+    )
+}
+
+fn compact_tool_history_entry_for_chat(current_tool_name: &str, history_entry: &str) -> String {
+    let trimmed = history_entry.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    match current_tool_name {
+        "media__extract_multimodal_evidence" => {
+            serde_json::from_str::<MediaMultimodalBundle>(trimmed)
+                .map(|bundle| summarize_media_multimodal_bundle_for_chat(&bundle))
+                .unwrap_or_else(|_| {
+                    truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
+                })
+        }
+        "media__extract_transcript" => serde_json::from_str::<MediaTranscriptBundle>(trimmed)
+            .map(|bundle| summarize_media_transcript_bundle_for_chat(&bundle))
+            .unwrap_or_else(|_| {
+                truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
+            }),
+        _ => truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT),
+    }
+}
 
 fn record_browser_marker_receipt(
     service: &DesktopAgentService,
@@ -356,6 +671,7 @@ fn record_browser_success_markers(
 async fn verify_non_command_postconditions(
     service: &DesktopAgentService,
     agent_state: &mut AgentState,
+    rules: &ActionRules,
     current_tool_name: &str,
     tool_args: &serde_json::Value,
     history_entry: Option<&str>,
@@ -365,16 +681,18 @@ async fn verify_non_command_postconditions(
     synthesized_payload_hash: Option<String>,
     verification_checks: &mut Vec<String>,
 ) -> Result<(), String> {
-    let Some(resolved) = agent_state.resolved_intent.as_ref() else {
-        return Ok(());
-    };
-    if resolved.required_postconditions.is_empty() {
+    if agent_state.resolved_intent.is_none() {
         return Ok(());
     }
-    let connector_id = resolved
-        .provider_selection
+    if !contract_requires_postcondition_with_rules(agent_state, rules, "mail.reply.completed") {
+        return Ok(());
+    }
+    let connector_id = agent_state
+        .resolved_intent
         .as_ref()
+        .and_then(|resolved| resolved.provider_selection.as_ref())
         .and_then(|selection| selection.selected_connector_id.as_deref())
+        .or_else(|| connector_id_for_tool_name(current_tool_name))
         .ok_or_else(|| {
             "ERROR_CLASS=GroundingMissing Postcondition verification requires a selected connector."
                 .to_string()
@@ -422,6 +740,69 @@ async fn verify_non_command_postconditions(
             synthesized_payload_hash.clone(),
         );
     }
+
+    Ok(())
+}
+
+pub(crate) async fn record_non_command_success_receipts(
+    service: &DesktopAgentService,
+    agent_state: &mut AgentState,
+    rules: &ActionRules,
+    current_tool_name: &str,
+    tool_args: &serde_json::Value,
+    history_entry: Option<&str>,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    synthesized_payload_hash: Option<String>,
+    verification_checks: &mut Vec<String>,
+) -> Result<(), String> {
+    mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
+    verification_checks.push(receipt_marker("execution"));
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "execution",
+        "execution",
+        true,
+        "execution_invocation_completed=true",
+        None,
+        None,
+        synthesized_payload_hash.clone(),
+    );
+
+    verify_non_command_postconditions(
+        service,
+        agent_state,
+        rules,
+        current_tool_name,
+        tool_args,
+        history_entry,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        synthesized_payload_hash.clone(),
+        verification_checks,
+    )
+    .await?;
+
+    mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
+    verification_checks.push(receipt_marker("verification"));
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "verification",
+        "verification",
+        true,
+        "verification_receipt_recorded=true",
+        None,
+        None,
+        synthesized_payload_hash,
+    );
 
     Ok(())
 }
@@ -923,25 +1304,10 @@ pub(super) async fn handle_execution_success(
             }
         }
         if !command_scope {
-            mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
-            verification_checks.push(receipt_marker("execution"));
-            emit_execution_contract_receipt_event(
-                service,
-                session_id,
-                step_index,
-                resolved_intent_id,
-                "execution",
-                "execution",
-                true,
-                "execution_invocation_completed=true",
-                None,
-                None,
-                synthesized_payload_hash.clone(),
-            );
-
-            if let Err(error) = verify_non_command_postconditions(
+            if let Err(error) = record_non_command_success_receipts(
                 service,
                 agent_state,
+                rules,
                 current_tool_name,
                 tool_args,
                 history_entry.as_deref(),
@@ -959,36 +1325,23 @@ pub(super) async fn handle_execution_success(
                 *action_output = Some(error);
                 return Ok(());
             }
-
-            mark_execution_receipt(&mut agent_state.tool_execution_log, "verification");
-            verification_checks.push(receipt_marker("verification"));
-            emit_execution_contract_receipt_event(
-                service,
-                session_id,
-                step_index,
-                resolved_intent_id,
-                "verification",
-                "verification",
-                true,
-                "verification_receipt_recorded=true",
-                None,
-                None,
-                synthesized_payload_hash.clone(),
-            );
         }
         if let Some(entry) = history_entry.clone() {
-            let tool_msg = ioi_types::app::agentic::ChatMessage {
-                role: "tool".to_string(),
-                content: entry,
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
-                trace_hash: None,
-            };
-            let _ = service
-                .append_chat_to_scs(session_id, &tool_msg, block_height)
-                .await?;
+            let compact_entry = compact_tool_history_entry_for_chat(current_tool_name, &entry);
+            if !compact_entry.trim().is_empty() {
+                let tool_msg = ioi_types::app::agentic::ChatMessage {
+                    role: "tool".to_string(),
+                    content: compact_entry,
+                    timestamp: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64,
+                    trace_hash: None,
+                };
+                let _ = service
+                    .append_chat_to_scs(session_id, &tool_msg, block_height)
+                    .await?;
+            }
         }
     }
 
@@ -1019,4 +1372,141 @@ pub(super) async fn handle_execution_success(
     .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        compact_tool_history_entry_for_chat, transcript_context_excerpts,
+        TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn transcript_context_excerpts_evenly_sample_long_text() {
+        let transcript = [
+            "Maxwell introduces the electric field and the magnetic field as coupled quantities.",
+            "Gauss's law relates electric flux to enclosed charge.",
+            "Gauss's law for magnetism states that magnetic monopoles do not appear in the model.",
+            "Faraday's law explains how changing magnetic fields induce electric fields.",
+            "Ampere-Maxwell law adds displacement current to complete the system.",
+            "The lecturer closes by connecting the equations to electromagnetic waves.",
+        ]
+        .join(" ");
+
+        let excerpts = transcript_context_excerpts(&transcript);
+
+        assert!(excerpts.len() >= 3);
+        assert!(excerpts
+            .first()
+            .is_some_and(|value| value.contains("Maxwell")));
+        assert!(excerpts
+            .last()
+            .is_some_and(|value| value.contains("electromagnetic waves")));
+    }
+
+    #[test]
+    fn media_multimodal_history_is_compacted_for_chat_context() {
+        let raw = json!({
+            "schema_version": 1,
+            "retrieved_at_ms": 1773264032396u64,
+            "tool": "media__extract_multimodal_evidence",
+            "requested_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
+            "canonical_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
+            "title": "Electromagnetism - Maxwell's Laws",
+            "duration_seconds": 2909u64,
+            "requested_language": "en",
+            "provider_candidates": [
+                {
+                    "provider_id": "yt_dlp.managed_subtitles",
+                    "modality": "transcript",
+                    "source_count": 1,
+                    "selected": true,
+                    "success": true,
+                    "request_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
+                    "affordances": ["detail_document"]
+                },
+                {
+                    "provider_id": "ffmpeg.managed_frames_vision",
+                    "modality": "visual",
+                    "source_count": 1,
+                    "selected": true,
+                    "success": true,
+                    "request_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
+                    "affordances": ["detail_document"]
+                }
+            ],
+            "selected_modalities": ["transcript", "visual"],
+            "selected_provider_ids": ["yt_dlp.managed_subtitles", "ffmpeg.managed_frames_vision"],
+            "transcript": {
+                "schema_version": 1,
+                "retrieved_at_ms": 1773263984722u64,
+                "tool": "media__extract_transcript",
+                "backend": "edge:media:yt_dlp_subtitles",
+                "provider_id": "yt_dlp.managed_subtitles",
+                "provider_version": "2026.03.03",
+                "requested_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
+                "canonical_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
+                "title": "Electromagnetism - Maxwell's Laws",
+                "duration_seconds": 2909u64,
+                "requested_language": "en",
+                "transcript_language": "en",
+                "transcript_source_kind": "manual",
+                "segment_count": 310,
+                "transcript_char_count": 21822,
+                "transcript_hash": "sha256:transcript",
+                "transcript_text": "Maxwell introduces the electric field. Gauss's law relates flux to charge. Faraday's law explains induction. Ampere-Maxwell law closes the system. The lecture ends by deriving electromagnetic waves."
+            },
+            "visual": {
+                "schema_version": 1,
+                "retrieved_at_ms": 1773264032396u64,
+                "tool": "media__extract_visual_evidence",
+                "backend": "edge:media:ffmpeg_frames_vision",
+                "provider_id": "ffmpeg.managed_frames_vision",
+                "provider_version": "2026.03.06",
+                "requested_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
+                "canonical_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
+                "title": "Electromagnetism - Maxwell's Laws",
+                "duration_seconds": 2909u64,
+                "frame_count": 2,
+                "visual_char_count": 420,
+                "visual_hash": "sha256:visual",
+                "visual_summary": "Slides cover Maxwell's equations.",
+                "frames": [
+                    {
+                        "timestamp_ms": 0u64,
+                        "timestamp_label": "00:00",
+                        "frame_hash": "frame-1",
+                        "mime_type": "image/jpeg",
+                        "width": 1280,
+                        "height": 720,
+                        "scene_summary": "Title slide introducing electromagnetism and Maxwell's laws.",
+                        "visible_text": "Electromagnetism - Maxwell's Laws",
+                        "transcript_excerpt": "The lecture opens by stating the four Maxwell equations."
+                    },
+                    {
+                        "timestamp_ms": 120000u64,
+                        "timestamp_label": "02:00",
+                        "frame_hash": "frame-2",
+                        "mime_type": "image/jpeg",
+                        "width": 1280,
+                        "height": 720,
+                        "scene_summary": "Equation slide showing Faraday's law and Ampere-Maxwell law.",
+                        "visible_text": "Faraday's law | Ampere-Maxwell law",
+                        "transcript_excerpt": "These equations explain induction and displacement current."
+                    }
+                ]
+            }
+        })
+        .to_string();
+
+        let compact =
+            compact_tool_history_entry_for_chat("media__extract_multimodal_evidence", &raw);
+
+        assert!(compact.contains("selected_modalities=transcript,visual"));
+        assert!(compact.contains("transcript_evidence[1]="));
+        assert!(compact.contains("visual_evidence[1]="));
+        assert!(!compact.contains("\"transcript_text\""));
+        assert!(compact.chars().count() < TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT * 2);
+    }
 }

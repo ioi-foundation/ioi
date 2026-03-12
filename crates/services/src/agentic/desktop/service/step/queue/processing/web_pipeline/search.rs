@@ -14,10 +14,57 @@ include!("search/planning.rs");
 #[cfg(test)]
 mod tests {
     use super::{
+        defer_search_planning_failure_while_recovery_actions_remain,
+        deterministic_local_business_expansion_alignment_urls, effective_semantic_alignment_urls,
         planning_bundle_after_surface_filter, pre_read_batch_urls,
         pre_read_candidate_inventory_target,
     };
+    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use ioi_types::app::agentic::WebRetrievalContract;
     use ioi_types::app::agentic::{WebEvidenceBundle, WebSource};
+    use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+    use std::collections::{BTreeMap, VecDeque};
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [9u8; 32],
+            goal: "find restaurants".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 0,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_request_nonce: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::default(),
+            current_tier: ExecutionTier::default(),
+            last_screen_phash: None,
+            execution_queue: vec![],
+            pending_search_completion: None,
+            planner_state: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: VecDeque::new(),
+            active_lens: None,
+        }
+    }
 
     #[test]
     fn pre_read_candidate_inventory_target_preserves_multisource_headroom() {
@@ -106,5 +153,145 @@ mod tests {
         assert!(verification_checks
             .iter()
             .all(|check| { check != "web_discovery_probe_fallback_to_pre_surface_bundle=true" }));
+    }
+
+    #[test]
+    fn semantic_alignment_selection_urls_include_resolved_source_urls() {
+        let urls = effective_semantic_alignment_urls(&[WebSource {
+            source_id: "google-news-item".to_string(),
+            rank: Some(1),
+            url: "https://news.google.com/rss/articles/CBMiUkFVX3lxTE0x?oc=5".to_string(),
+            title: Some("NIST releases first 3 finalized post-quantum encryption standards".to_string()),
+            snippet: Some("NIST releases first 3 finalized post-quantum encryption standards | source_url=https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string()),
+            domain: Some("news.google.com".to_string()),
+        }]);
+
+        assert!(urls
+            .iter()
+            .any(|url| url.contains("news.google.com/rss/articles/")));
+        assert!(urls.iter().any(|url| {
+            url.contains("nist-releases-first-3-finalized-post-quantum-encryption-standards")
+        }));
+    }
+
+    #[test]
+    fn search_planning_failure_is_nonterminal_while_other_web_recovery_actions_remain() {
+        let query_contract =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let retrieval_contract: WebRetrievalContract =
+            crate::agentic::web::derive_web_retrieval_contract(query_contract, None)
+                .expect("retrieval contract");
+        let mut agent_state = test_agent_state();
+        agent_state.pending_search_completion =
+            Some(crate::agentic::desktop::types::PendingSearchCompletion {
+                query: "italian restaurants in Anderson, SC".to_string(),
+                query_contract: query_contract.to_string(),
+                retrieval_contract: Some(retrieval_contract),
+                url: "https://www.restaurantji.com/sc/anderson/italian/".to_string(),
+                started_step: 1,
+                started_at_ms: 1,
+                deadline_ms: 60_000,
+                candidate_urls: vec![],
+                candidate_source_hints: vec![],
+                attempted_urls: vec![],
+                blocked_urls: vec![],
+                successful_reads: vec![],
+                min_sources: 3,
+            });
+        agent_state.execution_queue.push(ActionRequest {
+            target: ActionTarget::WebRetrieve,
+            params: serde_jcs::to_vec(&serde_json::json!({
+                "query": "\"Brothers Italian Cuisine\" menus in Anderson, SC"
+            }))
+            .expect("params"),
+            context: ActionContext {
+                agent_id: "desktop_agent".to_string(),
+                session_id: Some(agent_state.session_id),
+                window_id: None,
+            },
+            nonce: 1,
+        });
+        let mut verification_checks = Vec::new();
+        let mut success = false;
+        let mut err = Some("ERROR_CLASS=SynthesisFailed placeholder".to_string());
+
+        let deferred = defer_search_planning_failure_while_recovery_actions_remain(
+            &mut agent_state,
+            &mut verification_checks,
+            &mut success,
+            &mut err,
+            "no semantically aligned discovery sources",
+        );
+
+        assert!(deferred);
+        assert!(success);
+        assert!(err.is_none());
+        assert!(verification_checks
+            .iter()
+            .any(|check| { check == "web_pre_read_payload_error_nonterminal=true" }));
+        assert!(verification_checks
+            .iter()
+            .any(|check| { check == "web_queued_web_recovery_actions_remaining=1" }));
+    }
+
+    #[test]
+    fn deterministic_local_business_expansion_alignment_keeps_grounded_detail_pages() {
+        let query_contract =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let expanded_sources = vec![
+            WebSource {
+                source_id: "brothers".to_string(),
+                rank: Some(1),
+                url: "https://www.restaurantji.com/sc/anderson/brothers-italian-cuisine-/"
+                    .to_string(),
+                title: Some("Brothers Italian Cuisine".to_string()),
+                snippet: Some(
+                    "5.0 rating from 226 reviews | Italian restaurant in Anderson, SC.".to_string(),
+                ),
+                domain: Some("www.restaurantji.com".to_string()),
+            },
+            WebSource {
+                source_id: "olive-garden".to_string(),
+                rank: Some(2),
+                url: "https://www.restaurantji.com/sc/anderson/olive-garden-italian-restaurant-/"
+                    .to_string(),
+                title: Some("Olive Garden Italian Restaurant".to_string()),
+                snippet: Some(
+                    "4.2 rating from 198 reviews | Pasta and Italian classics in Anderson, SC."
+                        .to_string(),
+                ),
+                domain: Some("www.restaurantji.com".to_string()),
+            },
+            WebSource {
+                source_id: "red-tomato".to_string(),
+                rank: Some(3),
+                url: "https://www.restaurantji.com/sc/anderson/red-tomato-and-wine-restaurant-/"
+                    .to_string(),
+                title: Some("Red Tomato and Wine Restaurant".to_string()),
+                snippet: Some(
+                    "4.6 rating from 312 reviews | Italian menu and wine in Anderson, SC."
+                        .to_string(),
+                ),
+                domain: Some("www.restaurantji.com".to_string()),
+            },
+        ];
+
+        let aligned_urls = deterministic_local_business_expansion_alignment_urls(
+            query_contract,
+            Some("Anderson, SC"),
+            &expanded_sources,
+            3,
+        );
+
+        assert_eq!(aligned_urls.len(), 3);
+        assert!(aligned_urls
+            .iter()
+            .any(|url| url.contains("brothers-italian-cuisine")));
+        assert!(aligned_urls
+            .iter()
+            .any(|url| url.contains("olive-garden-italian-restaurant")));
+        assert!(aligned_urls
+            .iter()
+            .any(|url| url.contains("red-tomato-and-wine-restaurant")));
     }
 }

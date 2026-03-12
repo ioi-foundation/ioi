@@ -14,6 +14,77 @@ fn planning_bundle_after_surface_filter(
     surface_filtered_bundle
 }
 
+fn defer_search_planning_failure_while_recovery_actions_remain(
+    agent_state: &mut AgentState,
+    verification_checks: &mut Vec<String>,
+    success: &mut bool,
+    err: &mut Option<String>,
+    error: &str,
+) -> bool {
+    let queued_recovery_actions = queued_web_retrieve_count(agent_state);
+    if queued_recovery_actions == 0 || agent_state.pending_search_completion.is_none() {
+        return false;
+    }
+
+    verification_checks.push(format!("web_pre_read_payload_error={}", error));
+    verification_checks.push("web_pre_read_payload_error_nonterminal=true".to_string());
+    verification_checks.push(format!(
+        "web_queued_web_recovery_actions_remaining={}",
+        queued_recovery_actions
+    ));
+    verification_checks.push("web_pipeline_active=true".to_string());
+    verification_checks.push("web_sources_success=0".to_string());
+    verification_checks.push("web_sources_blocked=0".to_string());
+    verification_checks.push("web_budget_ms=0".to_string());
+    *success = true;
+    *err = None;
+    agent_state.status = AgentStatus::Running;
+    true
+}
+
+fn local_business_alignment_target_name(
+    url: &str,
+    source_hints: &[PendingSearchReadSummary],
+    locality_hint: Option<&str>,
+) -> Option<String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let hint = selected_url_hint(source_hints, trimmed);
+    let title = hint.and_then(|entry| entry.title.as_deref()).unwrap_or_default();
+    let excerpt = hint.map(|entry| entry.excerpt.as_str()).unwrap_or_default();
+    local_business_target_name_from_source(
+        &PendingSearchReadSummary {
+            url: trimmed.to_string(),
+            title: (!title.trim().is_empty()).then(|| title.trim().to_string()),
+            excerpt: excerpt.trim().to_string(),
+        },
+        locality_hint,
+    )
+}
+
+fn local_business_selected_url_semantically_aligned(
+    selected_url: &str,
+    aligned_urls: &[String],
+    source_hints: &[PendingSearchReadSummary],
+    locality_hint: Option<&str>,
+) -> bool {
+    if url_in_alignment_set(selected_url, aligned_urls) {
+        return true;
+    }
+    let Some(selected_target) =
+        local_business_alignment_target_name(selected_url, source_hints, locality_hint)
+    else {
+        return false;
+    };
+    aligned_urls.iter().any(|aligned_url| {
+        local_business_alignment_target_name(aligned_url, source_hints, locality_hint)
+            .map(|aligned_target| aligned_target.eq_ignore_ascii_case(&selected_target))
+            .unwrap_or(false)
+    })
+}
+
 fn planning_bundle_from_discovery_sources(
     bundle: &WebEvidenceBundle,
     retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
@@ -49,6 +120,193 @@ fn planning_bundle_from_discovery_sources(
         retrieval_contract: Some(retrieval_contract.clone()),
     };
     planning_bundle_after_surface_filter(bundle, surface_filtered_bundle, verification_checks)
+}
+
+fn deterministic_local_business_direct_detail_urls(
+    retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
+    query_contract: &str,
+    min_sources: u32,
+    candidate_urls: &[String],
+    source_hints: &[PendingSearchReadSummary],
+    locality_hint: Option<&str>,
+    required_url_count: usize,
+) -> Vec<String> {
+    if !crate::agentic::web::contract_requires_geo_scoped_entity_expansion(retrieval_contract) {
+        return candidate_urls
+            .iter()
+            .take(required_url_count)
+            .cloned()
+            .collect::<Vec<_>>();
+    }
+
+    let mut direct_detail_sources = Vec::new();
+    let mut seen = BTreeSet::new();
+    for candidate_url in candidate_urls {
+        let trimmed = candidate_url.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let hint = selected_url_hint(source_hints, trimmed);
+        let title = hint.and_then(|entry| entry.title.as_deref()).unwrap_or_default();
+        let excerpt = hint.map(|entry| entry.excerpt.as_str()).unwrap_or_default();
+        let affordances = retrieval_affordances_with_contract_and_locality_hint(
+            Some(retrieval_contract),
+            query_contract,
+            min_sources.max(1),
+            source_hints,
+            locality_hint,
+            trimmed,
+            title,
+            excerpt,
+        );
+        if !affordances.contains(&RetrievalAffordanceKind::DirectCitationRead) {
+            continue;
+        }
+        if !seen.insert(trimmed.to_ascii_lowercase()) {
+            continue;
+        }
+        direct_detail_sources.push(PendingSearchReadSummary {
+            url: trimmed.to_string(),
+            title: (!title.trim().is_empty()).then(|| title.trim().to_string()),
+            excerpt: excerpt.trim().to_string(),
+        });
+    }
+
+    let target_names = local_business_target_names_from_sources(
+        &direct_detail_sources,
+        locality_hint,
+        required_url_count,
+    );
+    if target_names.len() < required_url_count {
+        return Vec::new();
+    }
+
+    selected_local_business_target_sources(
+        query_contract,
+        &target_names,
+        &direct_detail_sources,
+        locality_hint,
+        required_url_count,
+    )
+    .into_iter()
+    .map(|source| source.url)
+    .collect()
+}
+
+fn deterministic_local_business_discovery_seed_url(
+    retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
+    query_contract: &str,
+    min_sources: u32,
+    discovery_sources: &[WebSource],
+    source_observations: &[ioi_types::app::agentic::WebSourceObservation],
+    source_hints: &[PendingSearchReadSummary],
+    locality_hint: Option<&str>,
+) -> Option<String> {
+    if !crate::agentic::web::contract_requires_geo_scoped_entity_expansion(retrieval_contract) {
+        return None;
+    }
+
+    let projection = build_query_constraint_projection_with_locality_hint(
+        query_contract,
+        min_sources.max(1),
+        source_hints,
+        locality_hint,
+    );
+    let mut ranked = Vec::new();
+    for source in discovery_sources {
+        let trimmed = source.url.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let title = source.title.as_deref().unwrap_or_default();
+        let excerpt = source.snippet.as_deref().unwrap_or_default();
+        let affordances = retrieval_affordances_with_contract_and_locality_hint(
+            Some(retrieval_contract),
+            query_contract,
+            min_sources.max(1),
+            source_hints,
+            locality_hint,
+            trimmed,
+            title,
+            excerpt,
+        );
+        let source_observation = source_observations.iter().find(|observation| {
+            observation.url.eq_ignore_ascii_case(trimmed)
+                || url_structurally_equivalent(&observation.url, trimmed)
+        });
+        let observed_seed_affordance = source_observation
+            .map(|observation| {
+                observation.affordances.contains(
+                    &ioi_types::app::agentic::WebRetrievalAffordance::LinkCollection,
+                ) && observation.affordances.contains(
+                    &ioi_types::app::agentic::WebRetrievalAffordance::CanonicalLinkOut,
+                ) && observation.expansion_affordances.iter().any(|affordance| {
+                    matches!(
+                        affordance,
+                        ioi_types::app::agentic::WebSourceExpansionAffordance::JsonLdItemList
+                            | ioi_types::app::agentic::WebSourceExpansionAffordance::ChildLinkCollection
+                    )
+                })
+            })
+            .unwrap_or(false);
+        let collection_surface =
+            crate::agentic::desktop::service::step::queue::support::local_business_collection_surface_candidate(
+                locality_hint,
+                trimmed,
+                title,
+                excerpt,
+            );
+        let detail_like_source = local_business_target_name_from_source(
+            &PendingSearchReadSummary {
+                url: trimmed.to_string(),
+                title: (!title.trim().is_empty()).then(|| title.trim().to_string()),
+                excerpt: excerpt.trim().to_string(),
+            },
+            locality_hint,
+        )
+        .is_some();
+        let compatibility = candidate_constraint_compatibility(
+            &projection.constraints,
+            &projection.query_facets,
+            &projection.query_native_tokens,
+            &projection.query_tokens,
+            &projection.locality_tokens,
+            projection.locality_scope.is_some(),
+            trimmed,
+            title,
+            excerpt,
+        );
+        if !(collection_surface
+            || observed_seed_affordance
+            || affordances.contains(&RetrievalAffordanceKind::DiscoveryExpansionSeedRead))
+        {
+            continue;
+        }
+        let signals = analyze_source_record_signals(trimmed, title, excerpt);
+        ranked.push((
+            collection_surface,
+            !detail_like_source,
+            observed_seed_affordance,
+            compatibility.locality_compatible,
+            compatibility.compatibility_score,
+            signals.relevance_score(false),
+            trimmed.to_string(),
+        ));
+    }
+
+    ranked.sort_by(|left, right| {
+        right
+            .0
+            .cmp(&left.0)
+            .then_with(|| right.1.cmp(&left.1))
+            .then_with(|| right.2.cmp(&left.2))
+            .then_with(|| right.3.cmp(&left.3))
+            .then_with(|| right.4.cmp(&left.4))
+            .then_with(|| right.5.cmp(&left.5))
+            .then_with(|| left.6.cmp(&right.6))
+    });
+
+    ranked.into_iter().map(|(_, _, _, _, _, _, url)| url).next()
 }
 
 pub(crate) async fn maybe_handle_web_search(
@@ -112,23 +370,35 @@ pub(crate) async fn maybe_handle_web_search(
         .pending_search_completion
         .as_ref()
         .and_then(|pending| pending.retrieval_contract.clone());
-    let retrieval_contract = if let Some(contract) = pending_contract {
-        contract
-    } else if let Some(contract) = bundle.retrieval_contract.clone() {
-        contract
+    let retrieval_goal = agent_state.goal.trim();
+    let retrieval_query_basis = if retrieval_goal.is_empty() {
+        query_value.as_str()
     } else {
-        let retrieval_goal = agent_state.goal.trim();
-        match crate::agentic::web::infer_web_retrieval_contract(
-            service.fast_inference.clone(),
-            if retrieval_goal.is_empty() {
-                &query_value
-            } else {
-                retrieval_goal
-            },
+        retrieval_goal
+    };
+    let retrieval_contract = if let Some(contract) = pending_contract
+        .or_else(|| bundle.retrieval_contract.clone())
+    {
+        match crate::agentic::web::normalize_web_retrieval_contract(
+            retrieval_query_basis,
             Some(query_contract.as_str()),
-        )
-        .await
-        {
+            contract,
+        ) {
+            Ok(contract) => contract,
+            Err(inference_err) => {
+                *success = false;
+                *err = Some(format!(
+                    "ERROR_CLASS=SynthesisFailed {}",
+                    inference_err.to_string().trim()
+                ));
+                return Ok(());
+            }
+        }
+    } else {
+        match crate::agentic::web::derive_web_retrieval_contract(
+            retrieval_query_basis,
+            Some(query_contract.as_str()),
+        ) {
             Ok(contract) => contract,
             Err(inference_err) => {
                 *success = false;
@@ -355,25 +625,89 @@ pub(crate) async fn maybe_handle_web_search(
         {
             Ok(result) => result,
             Err(error) => {
+                let semantic_alignment_recovery_query = if crate::agentic::web::contract_requires_geo_scoped_entity_expansion(&retrieval_contract) {
+                    crate::agentic::desktop::service::step::queue::web_pipeline::local_business_entity_discovery_query_contract(
+                        query_contract.as_str(),
+                        locality_hint.as_deref(),
+                    )
+                } else {
+                    constraint_grounded_search_query_with_contract_and_hints_and_locality_hint(
+                        query_contract.as_str(),
+                        Some(&retrieval_contract),
+                        min_sources,
+                        &candidate_source_hints_from_bundle(bundle),
+                        locality_hint.as_deref(),
+                    )
+                };
+                let semantic_alignment_recovery_limit =
+                    constraint_grounded_search_limit(query_contract.as_str(), min_sources);
+                let semantic_alignment_recovery_queued =
+                    !semantic_alignment_recovery_query.trim().is_empty()
+                        && !semantic_alignment_recovery_query
+                            .trim()
+                            .eq_ignore_ascii_case(query_value.trim())
+                        && queue_web_search_from_pipeline(
+                            agent_state,
+                            session_id,
+                            semantic_alignment_recovery_query.as_str(),
+                            Some(query_contract.as_str()),
+                            Some(&retrieval_contract),
+                            semantic_alignment_recovery_limit,
+                        )?;
+                verification_checks.push(format!(
+                    "web_semantic_subject_alignment_recovery_query={}",
+                    semantic_alignment_recovery_query
+                ));
+                verification_checks.push(format!(
+                    "web_semantic_subject_alignment_recovery_limit={}",
+                    semantic_alignment_recovery_limit
+                ));
+                verification_checks.push(format!(
+                    "web_semantic_subject_alignment_recovery_queued={}",
+                    semantic_alignment_recovery_queued
+                ));
+                if semantic_alignment_recovery_queued {
+                    verification_checks.push("web_pipeline_active=true".to_string());
+                    verification_checks.push("web_sources_success=0".to_string());
+                    verification_checks.push("web_sources_blocked=0".to_string());
+                    verification_checks.push("web_budget_ms=0".to_string());
+                    *success = true;
+                    *out = Some(format!(
+                        "Queued grounded search recovery after discovery alignment failure: {}",
+                        semantic_alignment_recovery_query
+                    ));
+                    *err = None;
+                    agent_state.status = AgentStatus::Running;
+                    return Ok(());
+                }
+                if defer_search_planning_failure_while_recovery_actions_remain(
+                    agent_state,
+                    verification_checks,
+                    success,
+                    err,
+                    &error,
+                ) {
+                    return Ok(());
+                }
                 verification_checks.push(format!("web_pre_read_payload_error={}", error));
                 *success = false;
                 *err = Some(format!("ERROR_CLASS=SynthesisFailed {}", error));
                 return Ok(());
             }
         };
-    let source_observations =
-        if crate::agentic::web::contract_requires_geo_scoped_entity_expansion(&retrieval_contract)
-        {
-            observe_geo_scoped_discovery_sources(
-                &discovery_sources,
-                &bundle.source_observations,
-                required_url_count,
-                verification_checks,
-            )
-            .await
-        } else {
-            bundle.source_observations.clone()
-        };
+    let source_observations = if crate::agentic::web::contract_requires_geo_scoped_entity_expansion(
+        &retrieval_contract,
+    ) {
+        observe_geo_scoped_discovery_sources(
+            &discovery_sources,
+            &bundle.source_observations,
+            required_url_count,
+            verification_checks,
+        )
+        .await
+    } else {
+        bundle.source_observations.clone()
+    };
     let discovery_sources = match expand_geo_scoped_discovery_seed_sources(
         service,
         &retrieval_contract,
@@ -387,6 +721,15 @@ pub(crate) async fn maybe_handle_web_search(
     {
         Ok(sources) => sources,
         Err(error) => {
+            if defer_search_planning_failure_while_recovery_actions_remain(
+                agent_state,
+                verification_checks,
+                success,
+                err,
+                &error,
+            ) {
+                return Ok(());
+            }
             verification_checks.push(format!("web_pre_read_payload_error={}", error));
             *success = false;
             *err = Some(format!("ERROR_CLASS=SynthesisFailed {}", error));
@@ -402,17 +745,19 @@ pub(crate) async fn maybe_handle_web_search(
         discovery_sources
     };
     let semantic_aligned_discovery_urls = if semantic_alignment_required {
-        discovery_sources
-            .iter()
-            .map(|source| source.url.clone())
-            .collect::<Vec<_>>()
+        effective_semantic_alignment_urls(&discovery_sources)
     } else {
         semantic_aligned_discovery_urls
     };
-    let discovery_hints = merge_source_hints(
-        candidate_source_hints_from_bundle(bundle),
-        &discovery_source_hints(&discovery_sources),
-    );
+    let filtered_discovery_hints = discovery_source_hints(&discovery_sources);
+    let discovery_hints = if semantic_alignment_required {
+        filtered_discovery_hints.clone()
+    } else {
+        merge_source_hints(
+            candidate_source_hints_from_bundle(bundle),
+            &filtered_discovery_hints,
+        )
+    };
     let planning_bundle = planning_bundle_from_discovery_sources(
         bundle,
         &retrieval_contract,
@@ -421,39 +766,140 @@ pub(crate) async fn maybe_handle_web_search(
         verification_checks,
     );
     let pre_read_target = required_url_count;
-    let selection = match synthesize_pre_read_selection(
-        service,
-        Some(&retrieval_contract),
+    let deterministic_plan =
+        pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint_and_recovery_mode(
+            Some(&retrieval_contract),
+            &query_contract,
+            min_sources,
+            &planning_bundle,
+            locality_hint.as_deref(),
+            true,
+        );
+    let deterministic_direct_selected_urls = deterministic_local_business_direct_detail_urls(
+        &retrieval_contract,
         &query_contract,
+        min_sources,
+        &deterministic_plan.candidate_urls,
+        &deterministic_plan.candidate_source_hints,
+        locality_hint.as_deref(),
         required_url_count,
-        &planning_bundle.sources,
-        &planning_bundle.source_observations,
-    )
-    .await
+    );
+    let deterministic_discovery_seed_url = deterministic_local_business_discovery_seed_url(
+        &retrieval_contract,
+        &query_contract,
+        min_sources,
+        &discovery_sources,
+        &source_observations,
+        &deterministic_plan.candidate_source_hints,
+        locality_hint.as_deref(),
+    );
+    let deterministic_selection_mode = if crate::agentic::web::contract_requires_geo_scoped_entity_expansion(
+        &retrieval_contract,
+    ) && required_url_count > 1
+        && deterministic_direct_selected_urls.len() < required_url_count
+        && deterministic_discovery_seed_url.is_some()
     {
-        Ok(selection) => selection,
-        Err(error) => {
-            verification_checks.push(format!("web_pre_read_payload_error={}", error));
-            *success = false;
-            *err = Some(format!("ERROR_CLASS=SynthesisFailed {}", error));
-            return Ok(());
+        PreReadSelectionMode::DiscoverySeed
+    } else {
+        PreReadSelectionMode::DirectDetail
+    };
+    let deterministic_selected_urls = match deterministic_selection_mode {
+        PreReadSelectionMode::DirectDetail => {
+            if crate::agentic::web::contract_requires_geo_scoped_entity_expansion(
+                &retrieval_contract,
+            ) {
+                deterministic_direct_selected_urls.clone()
+            } else {
+                deterministic_plan
+                    .candidate_urls
+                    .iter()
+                    .take(required_url_count)
+                    .cloned()
+                    .collect::<Vec<_>>()
+            }
+        }
+        PreReadSelectionMode::DiscoverySeed => deterministic_discovery_seed_url
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>(),
+    };
+    let deterministic_selection_available = match deterministic_selection_mode {
+        PreReadSelectionMode::DirectDetail => {
+            deterministic_selected_urls.len() == required_url_count
+        }
+        PreReadSelectionMode::DiscoverySeed => !deterministic_selected_urls.is_empty(),
+    };
+    let payload_error: Option<String> = None;
+    let payload_synthesis_skipped: bool;
+    let deterministic_fallback_used: bool;
+    let deterministic_top_up_used =
+        deterministic_plan.candidate_urls.len() > deterministic_selected_urls.len();
+    let selection = if deterministic_selection_available {
+        payload_synthesis_skipped = true;
+        deterministic_fallback_used = false;
+        PreReadSelectionResponse {
+            selection_mode: deterministic_selection_mode,
+            urls: deterministic_selected_urls.clone(),
+        }
+    } else {
+        payload_synthesis_skipped = false;
+        deterministic_fallback_used = false;
+        match synthesize_pre_read_selection(
+            service,
+            Some(&retrieval_contract),
+            &query_contract,
+            required_url_count,
+            &planning_bundle.sources,
+            &planning_bundle.source_observations,
+        )
+        .await
+        {
+            Ok(selection) => selection,
+            Err(error) => {
+                if defer_search_planning_failure_while_recovery_actions_remain(
+                    agent_state,
+                    verification_checks,
+                    success,
+                    err,
+                    &error,
+                ) {
+                    return Ok(());
+                }
+                verification_checks.push(format!("web_pre_read_payload_error={}", error));
+                *success = false;
+                *err = Some(format!("ERROR_CLASS=SynthesisFailed {}", error));
+                return Ok(());
+            }
         }
     };
     if selection.urls.is_empty() {
         let error = "typed pre-read selection returned no admissible URLs".to_string();
+        if defer_search_planning_failure_while_recovery_actions_remain(
+            agent_state,
+            verification_checks,
+            success,
+            err,
+            &error,
+        ) {
+            return Ok(());
+        }
         verification_checks.push(format!("web_pre_read_payload_error={}", error));
         *success = false;
         *err = Some(format!("ERROR_CLASS=SynthesisFailed {}", error));
         return Ok(());
     }
-    let payload_error: Option<String> = None;
-    let payload_synthesis_skipped = false;
-    let deterministic_fallback_used = false;
-    let deterministic_top_up_used = false;
-    let merged_hints = discovery_hints;
+    let merged_hints =
+        merge_source_hints(discovery_hints, &deterministic_plan.candidate_source_hints);
     let mut selected_urls = selection.urls;
-    resolve_selected_urls_from_hints(&mut selected_urls, &merged_hints);
-    let candidate_urls = selected_urls.clone();
+    let selected_urls_before_resolution = selected_urls.clone();
+    let allowed_resolution_urls =
+        semantic_alignment_required.then_some(semantic_aligned_discovery_urls.as_slice());
+    resolve_selected_urls_from_hints(&mut selected_urls, &merged_hints, allowed_resolution_urls);
+    let candidate_urls = if payload_synthesis_skipped {
+        deterministic_plan.candidate_urls.clone()
+    } else {
+        selected_urls.clone()
+    };
     let selection_mode = match selection.selection_mode {
         PreReadSelectionMode::DirectDetail => "direct_detail",
         PreReadSelectionMode::DiscoverySeed => "discovery_seed",
@@ -471,26 +917,60 @@ pub(crate) async fn maybe_handle_web_search(
         "enum",
         None,
     );
+    emit_web_string_receipts(
+        service,
+        session_id,
+        pre_state_step_index,
+        intent_id.as_str(),
+        "verification",
+        "pre_read_selected_url_raw",
+        "web.pipeline.pre_read.selection.v1",
+        "url",
+        &selected_urls_before_resolution,
+    );
+    emit_web_string_receipts(
+        service,
+        session_id,
+        pre_state_step_index,
+        intent_id.as_str(),
+        "verification",
+        "pre_read_selected_url",
+        "web.pipeline.pre_read.selection.v1",
+        "url",
+        &selected_urls,
+    );
     verification_checks.push(format!("web_pre_read_selection_mode={}", selection_mode));
+    let geo_scoped_entity_expansion =
+        crate::agentic::web::contract_requires_geo_scoped_entity_expansion(&retrieval_contract);
+    let aligned_selected_urls = selected_urls
+        .iter()
+        .filter(|selected| {
+            if geo_scoped_entity_expansion {
+                local_business_selected_url_semantically_aligned(
+                    selected,
+                    &semantic_aligned_discovery_urls,
+                    &merged_hints,
+                    locality_hint.as_deref(),
+                )
+            } else {
+                url_in_alignment_set(selected, &semantic_aligned_discovery_urls)
+            }
+        })
+        .cloned()
+        .collect::<Vec<_>>();
     let selected_subject_alignment_floor_met = if semantic_alignment_required {
-        let minimum_aligned_selection = if crate::agentic::web::contract_requires_geo_scoped_entity_expansion(
-            &retrieval_contract,
-        ) {
-            1
-        } else {
-            required_url_count
-        };
+        let minimum_aligned_selection =
+            if geo_scoped_entity_expansion {
+                1
+            } else {
+                required_url_count
+            };
         selected_urls.len() >= minimum_aligned_selection
-            && selected_urls
-                .iter()
-                .all(|selected| url_in_alignment_set(selected, &semantic_aligned_discovery_urls))
+            && aligned_selected_urls.len() == selected_urls.len()
     } else {
         true
     };
-    let selected_subject_alignment_count = selected_urls
-        .iter()
-        .filter(|selected| url_in_alignment_set(selected, &semantic_aligned_discovery_urls))
-        .count();
+    let selected_subject_alignment_count = aligned_selected_urls.len();
     let selected_subject_alignment_summary = format!(
         "required={};selected_sources={};aligned_selected_sources={}",
         semantic_alignment_required,
@@ -510,11 +990,6 @@ pub(crate) async fn maybe_handle_web_search(
         "summary",
         None,
     );
-    let aligned_selected_urls = selected_urls
-        .iter()
-        .filter(|selected| url_in_alignment_set(selected, &semantic_aligned_discovery_urls))
-        .cloned()
-        .collect::<Vec<_>>();
     emit_web_string_receipts(
         service,
         session_id,
@@ -539,6 +1014,15 @@ pub(crate) async fn maybe_handle_web_search(
     if semantic_alignment_required && !selected_subject_alignment_floor_met {
         let error =
             "selected sources failed semantic subject alignment against query contract".to_string();
+        if defer_search_planning_failure_while_recovery_actions_remain(
+            agent_state,
+            verification_checks,
+            success,
+            err,
+            &error,
+        ) {
+            return Ok(());
+        }
         verification_checks.push(format!("web_pre_read_payload_error={}", error));
         *success = false;
         *err = Some(format!("ERROR_CLASS=SynthesisFailed {}", error));
@@ -568,14 +1052,20 @@ pub(crate) async fn maybe_handle_web_search(
             .eq_ignore_ascii_case(query_value.trim());
     let mut rebound_queued = false;
     if needs_locality_rebound_search {
-        let rebound_query =
+        let rebound_query = if crate::agentic::web::contract_requires_geo_scoped_entity_expansion(&retrieval_contract) {
+            crate::agentic::desktop::service::step::queue::web_pipeline::local_business_entity_discovery_query_contract(
+                query_contract.as_str(),
+                locality_hint.as_deref(),
+            )
+        } else {
             constraint_grounded_search_query_with_contract_and_hints_and_locality_hint(
                 query_contract.as_str(),
                 Some(&retrieval_contract),
                 min_sources,
                 &[],
                 None,
-            );
+            )
+        };
         let rebound_limit = constraint_grounded_search_limit(query_contract.as_str(), min_sources);
         rebound_queued = !rebound_query.trim().is_empty()
             && !rebound_query
@@ -612,7 +1102,6 @@ pub(crate) async fn maybe_handle_web_search(
         .into_iter()
         .collect::<Vec<_>>();
 
-    let had_pending_pipeline = agent_state.pending_search_completion.is_some();
     let incoming_pending = PendingSearchCompletion {
         query: query_value,
         query_contract,
@@ -636,7 +1125,12 @@ pub(crate) async fn maybe_handle_web_search(
 
     let preexisting_queued_reads = queued_web_read_count(agent_state);
     let queued_reads = if !selected_urls.is_empty() {
-        queue_web_read_batch_from_pipeline(agent_state, session_id, &selected_urls)?
+        queue_web_read_batch_from_pipeline(
+            agent_state,
+            session_id,
+            &selected_urls,
+            pending_web_read_allows_browser_fallback(&pending),
+        )?
     } else {
         0
     };
@@ -736,6 +1230,12 @@ pub(crate) async fn maybe_handle_web_search(
             selected_urls.join(" | ")
         ));
     }
+    if !selected_urls_before_resolution.is_empty() {
+        verification_checks.push(format!(
+            "web_pre_read_selected_url_raw_values={}",
+            selected_urls_before_resolution.join(" | ")
+        ));
+    }
     if !candidate_urls.is_empty() {
         verification_checks.push(format!(
             "web_pre_read_candidate_inventory_url_values={}",
@@ -778,6 +1278,20 @@ pub(crate) async fn maybe_handle_web_search(
         "web_pre_read_deterministic_top_up_used={}",
         deterministic_top_up_used
     ));
+    verification_checks.push(format!(
+        "web_pre_read_local_business_direct_detail_selected={}",
+        deterministic_direct_selected_urls.len()
+    ));
+    verification_checks.push(format!(
+        "web_pre_read_local_business_discovery_seed_available={}",
+        deterministic_discovery_seed_url.is_some()
+    ));
+    if let Some(seed_url) = deterministic_discovery_seed_url.as_deref() {
+        verification_checks.push(format!(
+            "web_pre_read_local_business_discovery_seed_url={}",
+            seed_url
+        ));
+    }
     verification_checks.push(format!("web_min_sources={}", min_sources));
     verification_checks.push(format!("web_headline_lookup_mode={}", headline_lookup_mode));
     verification_checks.push(format!(
@@ -785,10 +1299,7 @@ pub(crate) async fn maybe_handle_web_search(
         pending.query_contract.trim()
     ));
     verification_checks.push(format!("web_pending_query={}", pending.query.trim()));
-    verification_checks.push(format!(
-        "web_constraint_search_probe_required={}",
-        false
-    ));
+    verification_checks.push(format!("web_constraint_search_probe_required={}", false));
     verification_checks.push(format!(
         "web_constraint_search_probe_allowed={}",
         probe_allowed
@@ -826,8 +1337,46 @@ pub(crate) async fn maybe_handle_web_search(
         }
         let completion_reason = web_pipeline_completion_reason(&pending, web_pipeline_now_ms())
             .unwrap_or(WebPipelineCompletionReason::ExhaustedCandidates);
-        append_final_web_completion_receipts(&pending, completion_reason, verification_checks);
-        let summary = synthesize_summary(service, &pending, completion_reason).await;
+        let selection = synthesize_summary(service, &pending, completion_reason).await;
+        append_summary_selection_checks(&selection, verification_checks);
+        let summary = selection.summary;
+        let final_facts = selection.facts;
+        crate::agentic::desktop::service::step::queue::emit_final_web_completion_contract_receipts(
+            service,
+            session_id,
+            pre_state_step_index,
+            intent_id.as_str(),
+            &final_facts,
+        );
+        append_final_web_completion_receipts_with_rendered_summary(
+            &pending,
+            completion_reason,
+            &summary,
+            verification_checks,
+        );
+        if !selection.contract_ready {
+            emit_completion_gate_status_event(
+                service,
+                session_id,
+                pre_state_step_index,
+                intent_id.as_str(),
+                false,
+                "receipt::final_output_contract_ready=true",
+            );
+            verification_checks.push("cec_completion_gate_emitted=true".to_string());
+            verification_checks.push("execution_contract_gate_blocked=true".to_string());
+            verification_checks.push(
+                "execution_contract_missing_keys=receipt::final_output_contract_ready=true"
+                    .to_string(),
+            );
+            verification_checks
+                .push("web_pipeline_terminalization_blocked_on_rendered_output=true".to_string());
+            verification_checks.push("web_pipeline_active=true".to_string());
+            verification_checks.push("terminal_chat_reply_ready=false".to_string());
+            agent_state.pending_search_completion = Some(pending);
+            agent_state.status = AgentStatus::Running;
+            return Ok(());
+        }
         complete_with_summary(
             agent_state,
             summary,
@@ -858,4 +1407,130 @@ pub(crate) async fn maybe_handle_web_search(
     agent_state.pending_search_completion = Some(pending);
     agent_state.status = AgentStatus::Running;
     Ok(())
+}
+
+#[cfg(test)]
+mod planning_regression_tests {
+    use super::*;
+
+    fn restaurant_query_contract() -> String {
+        "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus."
+            .to_string()
+    }
+
+    fn restaurant_retrieval_contract() -> ioi_types::app::agentic::WebRetrievalContract {
+        crate::agentic::web::derive_web_retrieval_contract(&restaurant_query_contract(), None)
+            .expect("retrieval contract")
+    }
+
+    fn restaurant_source_hints() -> Vec<PendingSearchReadSummary> {
+        vec![
+            PendingSearchReadSummary {
+                url: "https://www.yelp.com/biz/dolce-vita-italian-bistro-and-pizzeria-anderson"
+                    .to_string(),
+                title: Some(
+                    "Dolce Vita Italian Bistro and Pizzeria - Anderson, SC - Yelp".to_string(),
+                ),
+                excerpt: "Italian restaurant in Anderson, SC with pasta, pizza, and baked dishes."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.tripadvisor.com/Restaurant_Review-g30090-d15074041-Reviews-DolceVita_Italian_Bistro_Pizzeria-Anderson_South_Carolina.html".to_string(),
+                title: Some(
+                    "DolceVita Italian Bistro & Pizzeria - Tripadvisor".to_string(),
+                ),
+                excerpt:
+                    "Italian restaurant in Anderson, South Carolina serving pizza and pasta."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://theredtomatorestaurant.com/".to_string(),
+                title: Some("The Red Tomato and Wine Bar | Anderson, SC".to_string()),
+                excerpt: "Italian dining in Anderson, SC with wine, pasta, and entrees."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.yelp.com/search?cflt=italian&find_loc=Anderson,+SC".to_string(),
+                title: Some(
+                    "Top 10 Best Italian Restaurants Near Anderson, South Carolina - Yelp"
+                        .to_string(),
+                ),
+                excerpt:
+                    "Best Italian in Anderson, SC: Dolce Vita Italian Bistro, The Red Tomato and Brothers Italian Cuisine."
+                        .to_string(),
+            },
+        ]
+    }
+
+    #[test]
+    fn deterministic_local_business_direct_selection_requires_distinct_entities() {
+        let query_contract = restaurant_query_contract();
+        let retrieval_contract = restaurant_retrieval_contract();
+        let source_hints = restaurant_source_hints();
+        let candidate_urls = source_hints
+            .iter()
+            .map(|hint| hint.url.clone())
+            .collect::<Vec<_>>();
+
+        let selected = deterministic_local_business_direct_detail_urls(
+            &retrieval_contract,
+            &query_contract,
+            3,
+            &candidate_urls,
+            &source_hints,
+            Some("Anderson, SC"),
+            3,
+        );
+
+        assert!(selected.is_empty(), "{selected:?}");
+    }
+
+    #[test]
+    fn deterministic_local_business_seed_selection_finds_listing_surface() {
+        let query_contract = restaurant_query_contract();
+        let retrieval_contract = restaurant_retrieval_contract();
+        let source_hints = restaurant_source_hints();
+
+        let seed_url = deterministic_local_business_discovery_seed_url(
+            &retrieval_contract,
+            &query_contract,
+            3,
+            &vec![
+                WebSource {
+                    source_id: "1".to_string(),
+                    rank: Some(1),
+                    url: "https://www.yelp.com/biz/dolce-vita-italian-bistro-and-pizzeria-anderson"
+                        .to_string(),
+                    title: Some(
+                        "Dolce Vita Italian Bistro and Pizzeria - Anderson, SC - Yelp"
+                            .to_string(),
+                    ),
+                    snippet: Some(
+                        "Italian restaurant in Anderson, SC with pasta, pizza, and baked dishes."
+                            .to_string(),
+                    ),
+                    domain: Some("www.yelp.com".to_string()),
+                },
+                WebSource {
+                    source_id: "2".to_string(),
+                    rank: Some(2),
+                    url: "https://www.tripadvisor.com/Restaurants-g30090-c26-Anderson_South_Carolina.html".to_string(),
+                    title: Some("THE 10 BEST Italian Restaurants in Anderson (Updated 2026) - Tripadvisor".to_string()),
+                    snippet: Some(
+                        "Best Italian Restaurants in Anderson, South Carolina: find reviews for Dolce Vita, The Red Tomato, and Brothers Italian Cuisine."
+                            .to_string(),
+                    ),
+                    domain: Some("www.tripadvisor.com".to_string()),
+                },
+            ],
+            &[],
+            &source_hints,
+            Some("Anderson, SC"),
+        );
+
+        assert_eq!(
+            seed_url.as_deref(),
+            Some("https://www.tripadvisor.com/Restaurants-g30090-c26-Anderson_South_Carolina.html")
+        );
+    }
 }

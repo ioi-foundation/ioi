@@ -14,6 +14,7 @@ pub(crate) use ranking::{
     is_low_priority_coverage_candidate,
 };
 pub(crate) use selection::citation_ids_for_story;
+pub(crate) use shared::preferred_citation_excerpt_with_contract;
 
 pub(crate) fn title_tokens(input: &str) -> BTreeSet<String> {
     input

@@ -93,6 +93,7 @@ fn web_read_target_maps_to_web_retrieve_scope() {
     let tool = AgentTool::WebRead {
         url: "https://example.com".to_string(),
         max_chars: None,
+        allow_browser_fallback: None,
     };
     assert_eq!(tool.target(), crate::app::ActionTarget::WebRetrieve);
 }
@@ -415,6 +416,7 @@ fn pii_egress_specs_cover_known_egress_tools() {
     assert!(is_expected_egress_tool_exhaustive(&AgentTool::WebRead {
         url: "https://example.com".to_string(),
         max_chars: None,
+        allow_browser_fallback: None,
     }));
     assert!(is_expected_egress_tool_exhaustive(&AgentTool::NetFetch {
         url: "https://example.com".to_string(),
@@ -482,6 +484,7 @@ fn pii_egress_specs_cover_known_egress_tools() {
     let web_read_specs = AgentTool::WebRead {
         url: "https://example.com".to_string(),
         max_chars: None,
+        allow_browser_fallback: None,
     }
     .pii_egress_specs();
     assert_eq!(web_read_specs.len(), 1);

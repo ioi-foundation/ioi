@@ -258,7 +258,11 @@ pub async fn run_capabilities_suite() -> Result<()> {
             let local = (case.local_sniff)(&observation);
             let arbiter =
                 judge::run_arbiter(arbiter_runtime.clone(), &case, &observation, &local).await?;
-            let strict_arbiter_required = matches!(case.id, "top_news_headlines");
+            let strict_arbiter_required = matches!(
+                case.id,
+                "top_news_headlines"
+                    | "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing"
+            );
             let strict_local_required = matches!(
                 case.id,
                 "top_news_headlines" | "take_a_screenshot_of_my_desktop"

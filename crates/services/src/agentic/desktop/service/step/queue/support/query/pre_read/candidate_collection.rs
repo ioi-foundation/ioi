@@ -189,11 +189,9 @@ pub(crate) fn collect_projection_candidate_urls_with_contract_and_locality_hint(
         if selected_trimmed.is_empty() {
             continue;
         }
-        let matched_hint = source_hints.iter().find(|hint| {
-            let hint_url = hint.url.trim();
-            hint_url.eq_ignore_ascii_case(selected_trimmed)
-                || url_structurally_equivalent(hint_url, selected_trimmed)
-                || resolved_hint_candidate_url_with_contract_and_affordance(
+        let matched_hint = source_hint_for_url(source_hints, selected_trimmed).or_else(|| {
+            source_hints.iter().find(|hint| {
+                resolved_hint_candidate_url_with_contract_and_affordance(
                     retrieval_contract,
                     query_contract,
                     &projection,
@@ -204,6 +202,7 @@ pub(crate) fn collect_projection_candidate_urls_with_contract_and_locality_hint(
                         || url_structurally_equivalent(&resolved, selected_trimmed)
                 })
                 .unwrap_or(false)
+            })
         });
         let title = matched_hint
             .and_then(|hint| hint.title.as_deref())
@@ -372,9 +371,30 @@ pub(crate) fn collect_projection_candidate_urls_with_contract_and_locality_hint(
                 .contains(&RetrievalAffordanceKind::DirectCitationRead)
         })
         .count();
-    let entity_diversity_direct_only =
-        retrieval_contract_entity_diversity_required(retrieval_contract, query_contract)
-            && direct_candidate_count > 0;
+    let direct_candidate_distinct_target_count = filtered_candidates
+        .iter()
+        .filter(|candidate| {
+            candidate
+                .affordances
+                .contains(&RetrievalAffordanceKind::DirectCitationRead)
+        })
+        .filter_map(|candidate| {
+            let source = PendingSearchReadSummary {
+                url: candidate.url.clone(),
+                title: (!candidate.title.trim().is_empty()).then(|| candidate.title.clone()),
+                excerpt: candidate.excerpt.clone(),
+            };
+            local_business_target_name_from_source(&source, projection.locality_scope.as_deref())
+        })
+        .map(|target| target.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>()
+        .len();
+    let suppress_seed_only_candidates =
+        if retrieval_contract_entity_diversity_required(retrieval_contract, query_contract) {
+            direct_candidate_distinct_target_count >= target
+        } else {
+            direct_candidate_count >= target
+        };
     let mut output = Vec::new();
     let mut seen_domains = BTreeSet::new();
 
@@ -390,7 +410,7 @@ pub(crate) fn collect_projection_candidate_urls_with_contract_and_locality_hint(
                 && !candidate
                     .affordances
                     .contains(&RetrievalAffordanceKind::DirectCitationRead)
-                && (entity_diversity_direct_only || direct_candidate_count >= target)
+                && suppress_seed_only_candidates
             {
                 continue;
             }
@@ -427,7 +447,7 @@ pub(crate) fn collect_projection_candidate_urls_with_contract_and_locality_hint(
             && !candidate
                 .affordances
                 .contains(&RetrievalAffordanceKind::DirectCitationRead)
-            && (entity_diversity_direct_only || direct_candidate_count >= target)
+            && suppress_seed_only_candidates
         {
             continue;
         }
@@ -458,4 +478,84 @@ pub(crate) fn collect_projection_candidate_urls_with_locality_hint(
         blocked_domains,
         locality_hint,
     )
+}
+
+#[cfg(test)]
+mod candidate_collection_regression_tests {
+    use super::*;
+
+    fn restaurant_query_contract() -> String {
+        "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus."
+            .to_string()
+    }
+
+    #[test]
+    fn retains_discovery_seed_when_direct_detail_candidates_do_not_cover_distinct_entities() {
+        let query_contract = restaurant_query_contract();
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(&query_contract, None)
+                .expect("retrieval contract");
+        let source_hints = vec![
+            PendingSearchReadSummary {
+                url: "https://www.yelp.com/biz/dolce-vita-italian-bistro-and-pizzeria-anderson"
+                    .to_string(),
+                title: Some(
+                    "Dolce Vita Italian Bistro and Pizzeria - Anderson, SC - Yelp".to_string(),
+                ),
+                excerpt: "Italian restaurant in Anderson, SC with pasta, pizza, and baked dishes."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.tripadvisor.com/Restaurant_Review-g30090-d15074041-Reviews-DolceVita_Italian_Bistro_Pizzeria-Anderson_South_Carolina.html".to_string(),
+                title: Some(
+                    "DolceVita Italian Bistro & Pizzeria - Tripadvisor".to_string(),
+                ),
+                excerpt:
+                    "Italian restaurant in Anderson, South Carolina serving pizza and pasta."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://theredtomatorestaurant.com/".to_string(),
+                title: Some("The Red Tomato and Wine Bar | Anderson, SC".to_string()),
+                excerpt: "Italian dining in Anderson, SC with wine, pasta, and entrees."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.yelp.com/search?cflt=italian&find_loc=Anderson,+SC".to_string(),
+                title: Some(
+                    "Top 10 Best Italian Restaurants Near Anderson, South Carolina - Yelp"
+                        .to_string(),
+                ),
+                excerpt:
+                    "Best Italian in Anderson, SC: Dolce Vita Italian Bistro, The Red Tomato and Brothers Italian Cuisine."
+                        .to_string(),
+            },
+        ];
+        let candidate_urls = source_hints
+            .iter()
+            .map(|hint| hint.url.clone())
+            .collect::<Vec<_>>();
+
+        let output = collect_projection_candidate_urls_with_contract_and_locality_hint(
+            Some(&retrieval_contract),
+            &query_contract,
+            3,
+            &[],
+            &source_hints,
+            3,
+            3,
+            &BTreeSet::new(),
+            Some("Anderson, SC"),
+        );
+
+        assert!(
+            output.iter().any(|url| {
+                url.eq_ignore_ascii_case(
+                    "https://www.yelp.com/search?cflt=italian&find_loc=Anderson,+SC"
+                )
+            }),
+            "{output:?}"
+        );
+        assert!(output.len() <= candidate_urls.len());
+    }
 }

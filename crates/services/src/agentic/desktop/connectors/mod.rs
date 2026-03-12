@@ -108,6 +108,23 @@ pub fn connector_tool_route_bindings() -> Vec<ConnectorToolRouteBinding> {
     bindings
 }
 
+pub fn connector_id_for_tool_name(tool_name: &str) -> Option<&'static str> {
+    let normalized = tool_name.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+    if google_workspace::is_google_connector_tool_name(&normalized) {
+        return Some(google_workspace::GOOGLE_CONNECTOR_ID);
+    }
+    if mail_connector::mail_connector_tool_route_bindings()
+        .into_iter()
+        .any(|binding| binding.tool_name == normalized)
+    {
+        return Some(mail_connector::MAIL_CONNECTOR_ID);
+    }
+    None
+}
+
 pub fn connector_provider_probe_bindings() -> Vec<ConnectorProviderProbeBinding> {
     let mut bindings = automation::automation_provider_probe_bindings();
     bindings.extend(mail_connector::mail_connector_provider_probe_bindings());

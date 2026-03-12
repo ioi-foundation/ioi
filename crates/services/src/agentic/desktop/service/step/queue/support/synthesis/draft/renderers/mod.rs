@@ -4,6 +4,7 @@ mod diagnostics;
 mod multi_story;
 mod single_snapshot;
 
+pub(crate) use multi_story::document_briefing_render_facts;
 pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
     if requires_mailbox_access_notice(&draft.query) {
         return render_mailbox_access_limited_draft(draft);
@@ -13,18 +14,41 @@ pub(crate) fn render_synthesis_draft(draft: &SynthesisDraft) -> String {
     let required_sections = build_hybrid_required_sections(&draft.query);
     let requested_story_count =
         retrieval_contract_required_story_count(retrieval_contract, &draft.query);
+    let briefing_support_count =
+        retrieval_contract_required_support_count(retrieval_contract, &draft.query);
+    let briefing_citation_count = retrieval_contract_required_document_briefing_citation_count(
+        retrieval_contract,
+        &draft.query,
+    );
     let citations_per_story =
         retrieval_contract_required_citations_per_story(retrieval_contract, &draft.query);
     let use_structured_report_layout = query_requires_structured_synthesis(&draft.query);
+    let layout_profile = synthesis_layout_profile(retrieval_contract, &draft.query);
     let single_snapshot_query_axes = query_metric_axes(&draft.query);
     let headline_lookup_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, &draft.query);
-    let story_count = requested_story_count;
-    let use_single_snapshot_layout = story_count == 1
-        && retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &draft.query);
+    let story_count = if matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing) {
+        briefing_support_count
+    } else {
+        requested_story_count
+    };
+    let use_single_snapshot_layout =
+        matches!(layout_profile, SynthesisLayoutProfile::SingleSnapshot) && story_count == 1;
     let insight_receipts = synthesis_insight_receipts(draft);
     let conflict_notes = synthesis_conflict_notes(draft);
     let gap_notes = synthesis_gap_notes(draft);
+
+    if matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing) {
+        return multi_story::render_document_briefing_layout(
+            draft,
+            &required_sections,
+            briefing_support_count,
+            briefing_citation_count,
+            &insight_receipts,
+            &conflict_notes,
+            &gap_notes,
+        );
+    }
 
     let assessment = diagnostics::assess_multi_story_grounding(
         draft,

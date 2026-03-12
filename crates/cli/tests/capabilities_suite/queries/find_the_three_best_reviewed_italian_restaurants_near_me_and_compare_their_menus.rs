@@ -3,6 +3,7 @@ use serde::Serialize;
 use std::collections::BTreeSet;
 
 use super::super::types::{
+    cec_receipt_bool, cec_receipt_latest_values, cec_receipt_satisfied, cec_receipt_usize,
     environment_bool, environment_u64, environment_value, has_cec_receipt, has_cec_stage,
     observation_has_tool_name, truncate_chars, ExecutionProfile, LocalCheck, LocalJudgeResult,
     QueryCase, RunObservation,
@@ -185,24 +186,103 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && web_sources_success >= web_min_sources;
 
     let selected_source_quality_floor_met = web.selected_source_quality_floor_met.unwrap_or(false);
-    let selected_source_urls = web.selected_source_urls.clone();
+    let selected_source_urls =
+        cec_receipt_latest_values(obs, "verification", "selected_source_url");
+    let selected_source_count = web
+        .selected_source_count
+        .unwrap_or_else(|| selected_source_urls.len());
     let semantic_subject_alignment_required =
         web.semantic_subject_alignment_required.unwrap_or(false);
     let semantic_subject_alignment_floor_met = web
         .semantic_subject_alignment_floor_met
         .unwrap_or(!semantic_subject_alignment_required);
-    let semantic_subject_alignment_urls = web.semantic_subject_alignment_urls.clone();
+    let semantic_subject_alignment_urls =
+        cec_receipt_latest_values(obs, "discovery", "semantic_subject_alignment_url");
     let selected_source_subject_alignment_floor_met = web
         .selected_source_subject_alignment_floor_met
         .unwrap_or(!semantic_subject_alignment_required);
-    let selected_source_subject_alignment_urls = web.selected_source_subject_alignment_urls.clone();
+    let selected_source_subject_alignment_urls =
+        cec_receipt_latest_values(obs, "verification", "selected_source_subject_alignment_url");
     let final_selected_source_distinct_domains = web.selected_source_distinct_domains.unwrap_or(0);
     let local_business_entity_floor_met = web.local_business_entity_floor_met.unwrap_or(false);
-    let local_business_entity_matched_names = web.local_business_entity_names.clone();
-    let local_business_entity_source_urls = web.local_business_entity_source_urls.clone();
+    let local_business_entity_anchor_floor_met =
+        web.local_business_entity_anchor_floor_met.unwrap_or(false);
+    let local_business_entity_matched_names =
+        cec_receipt_latest_values(obs, "verification", "local_business_entity_name");
+    let local_business_entity_source_urls =
+        cec_receipt_latest_values(obs, "verification", "local_business_entity_source_url");
+    let local_business_entity_anchor_source_urls = cec_receipt_latest_values(
+        obs,
+        "verification",
+        "local_business_entity_anchor_source_url",
+    );
+    let local_business_entity_anchor_mismatched_urls = cec_receipt_latest_values(
+        obs,
+        "verification",
+        "local_business_entity_anchor_mismatched_url",
+    );
     let local_business_entity_receipts_present = local_business_entity_floor_met
         && local_business_entity_matched_names.len() >= 3
         && local_business_entity_source_urls.len() >= 3;
+    let local_business_entity_anchor_receipt_seen = has_cec_receipt(
+        obs,
+        "verification",
+        "local_business_entity_anchor_floor",
+        Some(true),
+    );
+    let local_business_entity_anchor_receipts_present = local_business_entity_anchor_receipt_seen
+        && local_business_entity_anchor_floor_met
+        && local_business_entity_anchor_source_urls.len() >= 3
+        && local_business_entity_anchor_mismatched_urls.is_empty();
+    let local_business_menu_surface_required =
+        cec_receipt_bool(obs, "verification", "local_business_menu_surface_required")
+            .unwrap_or(true);
+    let local_business_menu_surface_receipt_seen = has_cec_receipt(
+        obs,
+        "verification",
+        "local_business_menu_surface_floor",
+        Some(true),
+    );
+    let local_business_menu_surface_source_urls = cec_receipt_latest_values(
+        obs,
+        "verification",
+        "local_business_menu_surface_source_url",
+    );
+    let local_business_menu_inventory_receipt_seen = has_cec_receipt(
+        obs,
+        "verification",
+        "local_business_menu_inventory_floor",
+        Some(true),
+    );
+    let local_business_menu_inventory_floor_met =
+        cec_receipt_satisfied(obs, "verification", "local_business_menu_inventory_floor")
+            .unwrap_or(false);
+    let local_business_menu_inventory_source_urls = cec_receipt_latest_values(
+        obs,
+        "verification",
+        "local_business_menu_inventory_source_url",
+    );
+    let local_business_menu_inventory_items =
+        cec_receipt_latest_values(obs, "verification", "local_business_menu_inventory_item");
+    let local_business_menu_inventory_total_item_count = cec_receipt_usize(
+        obs,
+        "verification",
+        "local_business_menu_inventory_total_item_count",
+    )
+    .unwrap_or(local_business_menu_inventory_items.len());
+    let local_business_menu_surface_receipts_present = !local_business_menu_surface_required
+        || (local_business_menu_surface_receipt_seen
+            && local_business_menu_surface_source_urls.len() >= 3
+            && normalized_url_set(&local_business_menu_surface_source_urls)
+                == normalized_url_set(&selected_source_urls));
+    let local_business_menu_inventory_receipts_present = !local_business_menu_surface_required
+        || (local_business_menu_inventory_receipt_seen
+            && local_business_menu_inventory_floor_met
+            && local_business_menu_inventory_source_urls.len() >= 3
+            && normalized_url_set(&local_business_menu_inventory_source_urls)
+                == normalized_url_set(&selected_source_urls)
+            && local_business_menu_inventory_total_item_count >= 6
+            && !local_business_menu_inventory_items.is_empty());
     let final_story_slots_observed = web.story_slots_observed.unwrap_or(0);
     let final_story_slot_floor_met = web.story_slot_floor_met.unwrap_or(false);
     let final_story_citation_floor_met = web.story_citation_floor_met.unwrap_or(false);
@@ -216,6 +296,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let objective_specific_restaurant_comparison_evidence_present = final_story_slots_observed >= 3
         && final_story_slot_floor_met
         && final_story_citation_floor_met
+        && local_business_menu_surface_receipts_present
+        && local_business_menu_inventory_receipts_present
         && (!final_comparison_required || final_comparison_ready);
     let final_selected_source_urls_match_entity_sources = !selected_source_urls.is_empty()
         && normalized_url_set(&selected_source_urls)
@@ -223,14 +305,17 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let semantic_subject_alignment_receipts_present = if !semantic_subject_alignment_required {
         true
     } else if geo_scoped_entity_expansion_flow {
-        final_selected_source_urls_match_entity_sources
+        semantic_subject_alignment_floor_met
+            && selected_source_subject_alignment_floor_met
+            && !semantic_subject_alignment_urls.is_empty()
+            && !selected_source_subject_alignment_urls.is_empty()
             && local_business_entity_receipts_present
-            && selected_source_urls.len() >= 3
+            && local_business_entity_anchor_receipts_present
+            && selected_source_count >= 3
     } else {
         semantic_subject_alignment_floor_met
             && selected_source_subject_alignment_floor_met
             && !selected_source_subject_alignment_urls.is_empty()
-            && selected_source_urls.len() == selected_source_subject_alignment_urls.len()
             && semantic_subject_alignment_urls.len() >= selected_source_subject_alignment_urls.len()
     };
     let final_selected_source_entity_diversity_floor_met = local_business_entity_source_urls.len()
@@ -238,19 +323,31 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && local_business_entity_matched_names.len() >= 3;
     let final_selected_source_independence_present = final_selected_source_distinct_domains >= 3
         || final_selected_source_entity_diversity_floor_met;
+    let selected_source_quality_receipt_seen = has_cec_receipt(
+        obs,
+        "verification",
+        "selected_source_quality_floor",
+        Some(true),
+    );
     let selected_source_quality_receipts_present = if geo_scoped_entity_expansion_flow {
-        selected_source_urls.len() >= 3
+        selected_source_quality_receipt_seen
+            && selected_source_quality_floor_met
+            && selected_source_urls.len() >= 3
             && final_selected_source_independence_present
             && semantic_subject_alignment_receipts_present
             && final_story_slot_floor_met
             && final_selected_source_urls_match_entity_sources
             && local_business_entity_receipts_present
+            && local_business_entity_anchor_receipts_present
+            && local_business_menu_inventory_receipts_present
     } else {
-        selected_source_urls.len() >= 3
+        selected_source_quality_receipt_seen
+            && selected_source_count >= 3
             && final_selected_source_independence_present
             && semantic_subject_alignment_receipts_present
             && final_story_slot_floor_met
             && selected_source_quality_floor_met
+            && local_business_menu_inventory_receipts_present
     };
     let cec_execution_seen = has_cec_stage(obs, "execution", Some(true));
     let cec_verification_seen = has_cec_stage(obs, "verification", Some(true));
@@ -314,6 +411,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         semantic_subject_alignment_receipts_present,
         selected_source_quality_receipts_present,
         local_business_entity_receipts_present,
+        local_business_entity_anchor_receipts_present,
+        local_business_menu_surface_receipts_present,
+        local_business_menu_inventory_receipts_present,
         cec_contract_gate_satisfied,
         environment_receipts_satisfied,
         contract_failure_markers_absent,
@@ -398,7 +498,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "semantic_subject_alignment_receipts_present",
             semantic_subject_alignment_receipts_present,
             format!(
-                "required={} discovery_floor_met={} selected_floor_met={} geo_scoped_entity_expansion_flow={} discovery_urls={:?} selected_urls={:?} final_selected_source_urls_match_entity_sources={}",
+                "required={} discovery_floor_met={} selected_floor_met={} geo_scoped_entity_expansion_flow={} discovery_urls={:?} selected_urls={:?} final_selected_source_urls_match_entity_sources={} anchor_source_urls={:?}",
                 semantic_subject_alignment_required,
                 semantic_subject_alignment_floor_met,
                 selected_source_subject_alignment_floor_met,
@@ -406,13 +506,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                 semantic_subject_alignment_urls,
                 selected_source_subject_alignment_urls,
                 final_selected_source_urls_match_entity_sources,
+                local_business_entity_anchor_source_urls,
             ),
         ),
         LocalCheck::new(
             "selected_source_quality_receipts_present",
             selected_source_quality_receipts_present,
             format!(
-                "quality_floor_receipt_met={} geo_scoped_entity_expansion_flow={} final_selected_source_distinct_domains={} entity_diversity_floor_met={} final_selected_source_urls_match_entity_sources={} selected_source_urls={:?}",
+                "quality_floor_receipt_seen={} quality_floor_receipt_met={} geo_scoped_entity_expansion_flow={} final_selected_source_distinct_domains={} entity_diversity_floor_met={} final_selected_source_urls_match_entity_sources={} selected_source_urls={:?}",
+                selected_source_quality_receipt_seen,
                 selected_source_quality_floor_met,
                 geo_scoped_entity_expansion_flow,
                 final_selected_source_distinct_domains,
@@ -429,6 +531,41 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                 local_business_entity_floor_met,
                 local_business_entity_matched_names,
                 local_business_entity_source_urls
+            ),
+        ),
+        LocalCheck::new(
+            "local_business_entity_anchor_receipts_present",
+            local_business_entity_anchor_receipts_present,
+            format!(
+                "receipt_seen={} floor_met={} source_urls={:?} mismatched_urls={:?}",
+                local_business_entity_anchor_receipt_seen,
+                local_business_entity_anchor_floor_met,
+                local_business_entity_anchor_source_urls,
+                local_business_entity_anchor_mismatched_urls
+            ),
+        ),
+        LocalCheck::new(
+            "local_business_menu_surface_receipts_present",
+            local_business_menu_surface_receipts_present,
+            format!(
+                "required={} receipt_seen={} selected_source_urls={:?} menu_surface_source_urls={:?}",
+                local_business_menu_surface_required,
+                local_business_menu_surface_receipt_seen,
+                selected_source_urls,
+                local_business_menu_surface_source_urls
+            ),
+        ),
+        LocalCheck::new(
+            "local_business_menu_inventory_receipts_present",
+            local_business_menu_inventory_receipts_present,
+            format!(
+                "receipt_seen={} floor_met={} selected_source_urls={:?} menu_inventory_source_urls={:?} total_item_count={} menu_inventory_items={:?}",
+                local_business_menu_inventory_receipt_seen,
+                local_business_menu_inventory_floor_met,
+                selected_source_urls,
+                local_business_menu_inventory_source_urls,
+                local_business_menu_inventory_total_item_count,
+                local_business_menu_inventory_items
             ),
         ),
         LocalCheck::new(

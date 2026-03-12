@@ -211,6 +211,10 @@ async fn prepare_tool_for_execution(
         agent_state.resolved_intent.as_ref(),
         &agent_state.goal,
     );
+    let _ = reconcile_pending_web_research_tool_call(
+        tool,
+        agent_state.pending_search_completion.as_ref(),
+    );
 
     // `web__search` carries a computed SERP URL for deterministic
     // policy enforcement + hashing (the model should only provide the query).

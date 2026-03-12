@@ -1,5 +1,240 @@
 use super::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TerminalChatReplyLayoutProfile {
+    SingleSnapshot,
+    DocumentBriefing,
+    StoryCollection,
+    Other,
+}
+
+impl TerminalChatReplyLayoutProfile {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::SingleSnapshot => "single_snapshot",
+            Self::DocumentBriefing => "document_briefing",
+            Self::StoryCollection => "story_collection",
+            Self::Other => "other",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct TerminalChatReplyShapeFacts {
+    heading_present: bool,
+    single_snapshot_heading_present: bool,
+    story_header_count: usize,
+    comparison_label_count: usize,
+    run_date_present: bool,
+    run_timestamp_present: bool,
+    overall_confidence_present: bool,
+}
+
+fn observe_terminal_chat_reply_shape(summary: &str) -> TerminalChatReplyShapeFacts {
+    let lines = summary
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    let heading_present = lines.first().is_some_and(|line| {
+        line.starts_with("Briefing for '") || line.starts_with("Web briefing (as of ")
+    });
+    let single_snapshot_heading_present = lines.first().is_some_and(|line| {
+        let lower = line.to_ascii_lowercase();
+        lower.starts_with("right now") && lower.contains("as of ")
+    });
+    let story_header_count = lines
+        .iter()
+        .filter(|line| {
+            line.strip_prefix("Story ")
+                .and_then(|rest| rest.split_once(':'))
+                .is_some()
+        })
+        .count();
+    let comparison_label_count = lines
+        .iter()
+        .filter(|line| line.eq_ignore_ascii_case("Comparison:"))
+        .count();
+    let run_date_present = lines.iter().any(|line| {
+        line.starts_with("Run date (UTC):") && !line["Run date (UTC):".len()..].trim().is_empty()
+    });
+    let run_timestamp_present = lines.iter().any(|line| {
+        line.starts_with("Run timestamp (UTC):")
+            && !line["Run timestamp (UTC):".len()..].trim().is_empty()
+    });
+    let overall_confidence_present = lines.iter().any(|line| {
+        line.starts_with("Overall confidence:")
+            && !line["Overall confidence:".len()..].trim().is_empty()
+    });
+
+    TerminalChatReplyShapeFacts {
+        heading_present,
+        single_snapshot_heading_present,
+        story_header_count,
+        comparison_label_count,
+        run_date_present,
+        run_timestamp_present,
+        overall_confidence_present,
+    }
+}
+
+fn terminal_chat_reply_layout_profile(
+    facts: &TerminalChatReplyShapeFacts,
+) -> TerminalChatReplyLayoutProfile {
+    if facts.heading_present && facts.story_header_count == 0 && facts.comparison_label_count == 0 {
+        return TerminalChatReplyLayoutProfile::DocumentBriefing;
+    }
+    if facts.story_header_count > 0 || facts.comparison_label_count > 0 {
+        return TerminalChatReplyLayoutProfile::StoryCollection;
+    }
+    if facts.single_snapshot_heading_present {
+        return TerminalChatReplyLayoutProfile::SingleSnapshot;
+    }
+    TerminalChatReplyLayoutProfile::Other
+}
+
+fn emit_terminal_chat_reply_postcondition_receipts(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    step_index: u32,
+    intent_id: &str,
+    summary: &str,
+    verification_checks: &mut Vec<String>,
+) {
+    let reply_digest = sha256(summary.as_bytes())
+        .map(|digest| format!("sha256:{}", hex::encode(digest.as_ref())))
+        .unwrap_or_else(|_| "sha256:unavailable".to_string());
+    emit_execution_contract_receipt_event_with_observation(
+        service,
+        session_id,
+        step_index,
+        intent_id,
+        "postcondition",
+        "terminal_chat_reply_binding",
+        true,
+        &format!(
+            "probe_source=action.chat_reply_binding.v1;observed_value={};evidence_type=sha256",
+            reply_digest
+        ),
+        Some("action.chat_reply_binding.v1"),
+        Some(reply_digest.as_str()),
+        Some("sha256"),
+        None,
+        None,
+        None,
+    );
+    verification_checks.push("cec_postcondition_terminal_chat_reply_binding=true".to_string());
+    verification_checks.push(format!("terminal_chat_reply_sha256={}", reply_digest));
+
+    let shape_facts = observe_terminal_chat_reply_shape(summary);
+    let layout_profile = terminal_chat_reply_layout_profile(&shape_facts);
+    let emit_shape_receipt =
+        |key: &str, satisfied: bool, observed_value: &str, evidence_type: &str| {
+            emit_execution_contract_receipt_event_with_observation(
+                service,
+                session_id,
+                step_index,
+                intent_id,
+                "postcondition",
+                key,
+                satisfied,
+                &format!(
+                    "probe_source=action.chat_reply_shape.v1;observed_value={};evidence_type={}",
+                    observed_value, evidence_type
+                ),
+                Some("action.chat_reply_shape.v1"),
+                Some(observed_value),
+                Some(evidence_type),
+                None,
+                None,
+                None,
+            );
+        };
+
+    emit_execution_contract_receipt_event_with_observation(
+        service,
+        session_id,
+        step_index,
+        intent_id,
+        "postcondition",
+        "terminal_chat_reply_layout_profile",
+        true,
+        &format!(
+            "probe_source=action.chat_reply_shape.v1;observed_value={};evidence_type=label",
+            layout_profile.as_str()
+        ),
+        Some("action.chat_reply_shape.v1"),
+        Some(layout_profile.as_str()),
+        Some("label"),
+        None,
+        None,
+        None,
+    );
+
+    let story_header_count = shape_facts.story_header_count.to_string();
+    emit_shape_receipt(
+        "terminal_chat_reply_story_headers_absent",
+        shape_facts.story_header_count == 0,
+        story_header_count.as_str(),
+        "scalar",
+    );
+    let comparison_label_count = shape_facts.comparison_label_count.to_string();
+    emit_shape_receipt(
+        "terminal_chat_reply_comparison_absent",
+        shape_facts.comparison_label_count == 0,
+        comparison_label_count.as_str(),
+        "scalar",
+    );
+    let temporal_anchor_summary = format!(
+        "run_date_present={};run_timestamp_present={}",
+        shape_facts.run_date_present, shape_facts.run_timestamp_present
+    );
+    emit_shape_receipt(
+        "terminal_chat_reply_temporal_anchor_floor",
+        shape_facts.run_date_present && shape_facts.run_timestamp_present,
+        temporal_anchor_summary.as_str(),
+        "summary",
+    );
+    let postamble_summary = format!(
+        "run_date_present={};run_timestamp_present={};overall_confidence_present={}",
+        shape_facts.run_date_present,
+        shape_facts.run_timestamp_present,
+        shape_facts.overall_confidence_present
+    );
+    emit_shape_receipt(
+        "terminal_chat_reply_postamble_floor",
+        shape_facts.run_date_present
+            && shape_facts.run_timestamp_present
+            && shape_facts.overall_confidence_present,
+        postamble_summary.as_str(),
+        "summary",
+    );
+    verification_checks.push(format!(
+        "terminal_chat_reply_layout_profile={}",
+        layout_profile.as_str()
+    ));
+    verification_checks.push(format!(
+        "terminal_chat_reply_story_header_count={}",
+        shape_facts.story_header_count
+    ));
+    verification_checks.push(format!(
+        "terminal_chat_reply_comparison_label_count={}",
+        shape_facts.comparison_label_count
+    ));
+    verification_checks.push(format!(
+        "terminal_chat_reply_run_date_present={}",
+        shape_facts.run_date_present
+    ));
+    verification_checks.push(format!(
+        "terminal_chat_reply_run_timestamp_present={}",
+        shape_facts.run_timestamp_present
+    ));
+    verification_checks.push(format!(
+        "terminal_chat_reply_overall_confidence_present={}",
+        shape_facts.overall_confidence_present
+    ));
+}
+
 pub(crate) async fn finalize_action_processing(
     ctx: FinalizeActionProcessingContext<'_, '_>,
     state_in: ActionProcessingState,
@@ -45,7 +280,7 @@ pub(crate) async fn finalize_action_processing(
         invalid_tool_call_fail_fast: _invalid_tool_call_fail_fast,
         invalid_tool_call_bootstrap_web: _invalid_tool_call_bootstrap_web,
         invalid_tool_call_fail_fast_mailbox: _invalid_tool_call_fail_fast_mailbox,
-        terminal_chat_reply_output,
+        mut terminal_chat_reply_output,
     } = state_in;
     let trace_visual_hash = trace_visual_hash.unwrap_or(final_visual_phash);
     let prior_consecutive_failures = agent_state.consecutive_failures;
@@ -443,6 +678,103 @@ pub(crate) async fn finalize_action_processing(
         agent_state.consecutive_failures = 0;
     }
 
+    let max_steps_terminalization_due = !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+        && agent_state.status == AgentStatus::Running
+        && agent_state.step_count.saturating_add(1) >= agent_state.max_steps;
+    if max_steps_terminalization_due {
+        if let Some(pending) = agent_state.pending_search_completion.clone() {
+            if let Some(reason) = web_pipeline_completion_reason(&pending, web_pipeline_now_ms()) {
+                let intent_id = resolved_intent_id(agent_state);
+                let mut summary_candidates = Vec::new();
+                if let Some(hybrid_summary) =
+                    synthesize_web_pipeline_reply_hybrid(service, &pending, reason).await
+                {
+                    summary_candidates.push(
+                        crate::agentic::desktop::service::step::queue::web_pipeline::FinalWebSummaryCandidate {
+                            provider: "hybrid",
+                            summary: hybrid_summary,
+                        },
+                    );
+                }
+                summary_candidates.push(
+                    crate::agentic::desktop::service::step::queue::web_pipeline::FinalWebSummaryCandidate {
+                        provider: "deterministic",
+                        summary: synthesize_web_pipeline_reply(&pending, reason),
+                    },
+                );
+                let selection =
+                    crate::agentic::desktop::service::step::queue::web_pipeline::select_final_web_summary_from_candidates(
+                        &pending,
+                        reason,
+                        summary_candidates,
+                    )
+                    .expect("web summary selection requires at least one candidate");
+                verification_checks
+                    .push(format!("web_final_summary_provider={}", selection.provider));
+                verification_checks.push(format!(
+                    "web_final_summary_contract_ready={}",
+                    selection.contract_ready
+                ));
+                for evaluation in &selection.evaluations {
+                    verification_checks.push(format!(
+                        "web_final_summary_candidate={}::contract_ready={}::rendered_layout={}::document_layout_met={}",
+                        evaluation.provider,
+                        evaluation.contract_ready,
+                        evaluation.facts.briefing_rendered_layout_profile,
+                        evaluation.facts.briefing_document_layout_met
+                    ));
+                }
+                let summary = selection.summary;
+                let final_facts =
+                    final_web_completion_facts_with_rendered_summary(&pending, reason, &summary);
+                crate::agentic::desktop::service::step::queue::emit_final_web_completion_contract_receipts(
+                    service,
+                    session_id,
+                    pre_state_summary.step_index,
+                    intent_id.as_str(),
+                    &final_facts,
+                );
+                append_final_web_completion_receipts_with_rendered_summary(
+                    &pending,
+                    reason,
+                    &summary,
+                    &mut verification_checks,
+                );
+                if crate::agentic::desktop::service::step::queue::web_pipeline::final_web_completion_contract_ready(&final_facts) {
+                    history_entry = Some(summary.clone());
+                    action_output = Some(summary.clone());
+                    terminal_chat_reply_output = Some(summary.clone());
+                    is_lifecycle_action = true;
+                    agent_state.pending_search_completion = None;
+                    agent_state.status = AgentStatus::Completed(Some(summary));
+                    verification_checks.push("web_pipeline_max_steps_terminalized=true".to_string());
+                    verification_checks.push("web_pipeline_active=false".to_string());
+                    verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                } else {
+                    let missing = "receipt::final_output_contract_ready=true".to_string();
+                    let contract_error = execution_contract_violation_error(&missing);
+                    history_entry = Some(contract_error.clone());
+                    action_output = Some(contract_error.clone());
+                    terminal_chat_reply_output = Some(contract_error);
+                    is_lifecycle_action = true;
+                    agent_state.pending_search_completion = Some(pending);
+                    agent_state.status = AgentStatus::Running;
+                    verification_checks.push("execution_contract_gate_blocked=true".to_string());
+                    verification_checks
+                        .push(format!("execution_contract_missing_keys={}", missing));
+                    verification_checks.push(
+                        "web_pipeline_terminalization_blocked_on_rendered_output=true"
+                            .to_string(),
+                    );
+                    verification_checks.push("web_pipeline_active=true".to_string());
+                    verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                }
+            }
+        }
+    }
+
     if !is_gated {
         let composed_terminal_chat = terminal_chat_reply_output
             .as_deref()
@@ -488,10 +820,10 @@ pub(crate) async fn finalize_action_processing(
                         .push(format!("response_composer_fallback_reason={}", reason));
                 }
                 verification_checks.push("terminal_chat_reply_emitted=true".to_string());
+                let intent_id = resolved_intent_id(agent_state);
                 if current_tool_name != "chat__reply"
                     && matches!(agent_state.status, AgentStatus::Completed(_))
                 {
-                    let intent_id = resolved_intent_id(agent_state);
                     emit_completion_gate_status_event(
                         service,
                         session_id,
@@ -501,6 +833,16 @@ pub(crate) async fn finalize_action_processing(
                         "finalize_terminal_chat_reply_gate_passed",
                     );
                     verification_checks.push("cec_completion_gate_emitted=true".to_string());
+                }
+                if matches!(agent_state.status, AgentStatus::Completed(_)) {
+                    emit_terminal_chat_reply_postcondition_receipts(
+                        service,
+                        session_id,
+                        pre_state_summary.step_index,
+                        intent_id.as_str(),
+                        composed.output.as_str(),
+                        &mut verification_checks,
+                    );
                 }
                 if current_tool_name != "chat__reply" {
                     let _ = tx.send(KernelEvent::AgentActionResult {
@@ -768,4 +1110,64 @@ fn expand_runtime_home_alias(path: &str) -> String {
         }
     }
     trimmed.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        observe_terminal_chat_reply_shape, terminal_chat_reply_layout_profile,
+        TerminalChatReplyLayoutProfile,
+    };
+
+    #[test]
+    fn terminal_chat_reply_shape_detects_story_collection_output() {
+        let facts = observe_terminal_chat_reply_shape(
+            "Web retrieval summary for 'Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.'\n\nStory 1: Example\nWhat happened: Example.\nKey evidence: Example.\n\nComparison:\n- Example\n\nRun date (UTC): 2026-03-10\nRun timestamp (UTC): 2026-03-10T12:19:24Z\nOverall confidence: high",
+        );
+
+        assert!(!facts.heading_present);
+        assert_eq!(facts.story_header_count, 1);
+        assert_eq!(facts.comparison_label_count, 1);
+        assert_eq!(
+            terminal_chat_reply_layout_profile(&facts),
+            TerminalChatReplyLayoutProfile::StoryCollection
+        );
+    }
+
+    #[test]
+    fn terminal_chat_reply_shape_detects_document_briefing_output() {
+        let facts = observe_terminal_chat_reply_shape(
+            "Briefing for 'Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.' (as of 2026-03-10T12:19:24Z UTC)\n\nWhat happened: NIST finalized FIPS 203, FIPS 204, and FIPS 205.\n\nKey evidence:\n- NIST finalized the first three standards.\n\nCitations:\n- Post-quantum cryptography | NIST | https://www.nist.gov/pqc | 2026-03-10T12:19:24Z | retrieved_utc\n\nRun date (UTC): 2026-03-10\nRun timestamp (UTC): 2026-03-10T12:19:24Z\nOverall confidence: high",
+        );
+
+        assert!(facts.heading_present);
+        assert_eq!(facts.story_header_count, 0);
+        assert_eq!(facts.comparison_label_count, 0);
+        assert!(facts.run_date_present);
+        assert!(facts.run_timestamp_present);
+        assert!(facts.overall_confidence_present);
+        assert_eq!(
+            terminal_chat_reply_layout_profile(&facts),
+            TerminalChatReplyLayoutProfile::DocumentBriefing
+        );
+    }
+
+    #[test]
+    fn terminal_chat_reply_shape_detects_single_snapshot_output() {
+        let facts = observe_terminal_chat_reply_shape(
+            "Right now (as of 2026-03-11T13:42:57Z UTC):\n\nCurrent conditions from cited source text: Bitcoin price right now: $86,743.63 USD.\n\nCitations:\n- Bitcoin price | index, chart and news | WorldCoinIndex | https://www.worldcoinindex.com/coin/bitcoin | 2026-03-11T13:42:57Z | retrieved_utc\n\nRun date (UTC): 2026-03-11\nRun timestamp (UTC): 2026-03-11T13:42:57Z\nOverall confidence: high",
+        );
+
+        assert!(!facts.heading_present);
+        assert!(facts.single_snapshot_heading_present);
+        assert_eq!(facts.story_header_count, 0);
+        assert_eq!(facts.comparison_label_count, 0);
+        assert!(facts.run_date_present);
+        assert!(facts.run_timestamp_present);
+        assert!(facts.overall_confidence_present);
+        assert_eq!(
+            terminal_chat_reply_layout_profile(&facts),
+            TerminalChatReplyLayoutProfile::SingleSnapshot
+        );
+    }
 }

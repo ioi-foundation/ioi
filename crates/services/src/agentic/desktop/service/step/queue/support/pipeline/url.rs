@@ -94,16 +94,15 @@ pub(crate) fn url_structurally_equivalent(left: &str, right: &str) -> bool {
     }
 }
 
-pub(crate) fn hint_for_url<'a>(
-    pending: &'a PendingSearchCompletion,
+pub(crate) fn source_hint_for_url<'a>(
+    source_hints: &'a [PendingSearchReadSummary],
     url: &str,
 ) -> Option<&'a PendingSearchReadSummary> {
     let trimmed = url.trim();
     if trimmed.is_empty() {
         return None;
     }
-    if let Some(exact) = pending
-        .candidate_source_hints
+    if let Some(exact) = source_hints
         .iter()
         .find(|hint| hint.url.trim().eq_ignore_ascii_case(trimmed))
     {
@@ -113,7 +112,7 @@ pub(crate) fn hint_for_url<'a>(
     let target_key = url_structural_key(trimmed)?;
     let mut best_hint: Option<&PendingSearchReadSummary> = None;
     let mut best_overlap = 0usize;
-    for hint in &pending.candidate_source_hints {
+    for hint in source_hints {
         let hint_trimmed = hint.url.trim();
         if hint_trimmed.is_empty() {
             continue;
@@ -139,4 +138,11 @@ pub(crate) fn hint_for_url<'a>(
     }
 
     best_hint
+}
+
+pub(crate) fn hint_for_url<'a>(
+    pending: &'a PendingSearchCompletion,
+    url: &str,
+) -> Option<&'a PendingSearchReadSummary> {
+    source_hint_for_url(&pending.candidate_source_hints, url)
 }

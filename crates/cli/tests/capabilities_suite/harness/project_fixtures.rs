@@ -163,6 +163,14 @@ struct RestaurantsNearMeFixtureRuntime {
     observed_locality: Option<String>,
 }
 
+struct LatestNistPqcBriefingFixtureRuntime {
+    _temp_dir: tempfile::TempDir,
+    fixture_root: PathBuf,
+    manifest_path: PathBuf,
+    observed_utc_date: String,
+    observed_utc_timestamp_ms: u64,
+}
+
 #[derive(Debug, Clone)]
 struct TopMemoryAppProbeRow {
     rank: usize,
@@ -201,6 +209,12 @@ struct MediaTranscriptFixtureReceipt {
     transcript_char_count: Option<u32>,
     transcript_segment_count: Option<u32>,
     transcript_hash: Option<String>,
+    timeline_provider_id: Option<String>,
+    timeline_provider_version: Option<String>,
+    timeline_source_kind: Option<String>,
+    timeline_cue_count: Option<u32>,
+    timeline_char_count: Option<u32>,
+    timeline_hash: Option<String>,
     visual_provider_id: Option<String>,
     visual_provider_version: Option<String>,
     visual_provider_binary_path: Option<String>,
@@ -322,13 +336,19 @@ fn should_bootstrap_mail_reply_mock_fixture(case_id: &str) -> bool {
 }
 
 fn should_bootstrap_google_connector_fixture(case_id: &str) -> bool {
-    case_id.eq_ignore_ascii_case(GOOGLE_GMAIL_DRAFT_CASE_ID)
+    case_id.eq_ignore_ascii_case(MAIL_REPLY_SEND_CASE_ID)
+        || case_id.eq_ignore_ascii_case(GOOGLE_GMAIL_DRAFT_CASE_ID)
         || case_id.eq_ignore_ascii_case(GOOGLE_GMAIL_SEND_CASE_ID)
         || case_id.eq_ignore_ascii_case(GOOGLE_CALENDAR_CREATE_CASE_ID)
 }
 
 fn should_bootstrap_restaurants_near_me_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(RESTAURANTS_NEAR_ME_CASE_ID)
+}
+
+fn should_bootstrap_latest_nist_pqc_briefing_fixture(case_id: &str) -> bool {
+    case_id.eq_ignore_ascii_case(LATEST_NIST_PQC_BRIEFING_CASE_ID)
+        || case_id.eq_ignore_ascii_case(LATEST_NIST_PQC_BRIEFING_UNSEEDED_CASE_ID)
 }
 
 fn bootstrap_vlc_install_fixture_runtime() -> Result<VlcInstallFixtureRuntime> {
@@ -2701,7 +2721,7 @@ rows="$(
       }
     ' \
     | sort -t$'\t' -k1,1nr \
-    | head -n "$top_n"
+    | awk -v top_n="$top_n" 'NR <= top_n { print }'
 )"
 
 if [ -z "$rows" ]; then
@@ -3117,21 +3137,58 @@ fn media_transcript_fixture_post_run_checks(
         MediaTranscriptFixtureReceipt::default()
     };
     let selected_modalities_value = receipt.selected_modalities.join(",");
-    let selected_modalities_satisfied = receipt
+    let transcript_selected = receipt
         .selected_modalities
         .iter()
         .any(|value| value.eq_ignore_ascii_case("transcript"))
-        && receipt
-            .selected_modalities
-            .iter()
-            .any(|value| value.eq_ignore_ascii_case("visual"));
+        || receipt
+            .transcript_provider_id
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty());
+    let timeline_selected = receipt
+        .selected_modalities
+        .iter()
+        .any(|value| value.eq_ignore_ascii_case("timeline"))
+        || receipt
+            .timeline_provider_id
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty());
+    let visual_selected = receipt
+        .selected_modalities
+        .iter()
+        .any(|value| value.eq_ignore_ascii_case("visual"))
+        || receipt
+            .visual_provider_id
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty());
+    let selected_modalities_satisfied =
+        visual_selected && (transcript_selected || timeline_selected);
     let transcript_provider_binary_path = receipt
         .transcript_provider_binary_path
         .clone()
         .unwrap_or_default();
     let transcript_provider_binary_path_buf = PathBuf::from(transcript_provider_binary_path.trim());
-    let transcript_provider_binary_satisfied = transcript_provider_binary_path_buf.is_file()
-        && transcript_provider_binary_path_buf.starts_with(&fixture.tool_home);
+    let transcript_provider_id = receipt.transcript_provider_id.clone().unwrap_or_default();
+    let transcript_provider_id_satisfied = if transcript_selected {
+        matches!(
+            transcript_provider_id.trim(),
+            "yt_dlp.managed_subtitles" | "yt_dlp.whisper_rs_audio" | "youtube.watch_transcript"
+        )
+    } else {
+        transcript_provider_id.trim().is_empty()
+    };
+    let transcript_provider_uses_managed_binary = matches!(
+        transcript_provider_id.trim(),
+        "yt_dlp.managed_subtitles" | "yt_dlp.whisper_rs_audio"
+    );
+    let transcript_provider_binary_satisfied = if !transcript_selected {
+        transcript_provider_binary_path.trim().is_empty()
+    } else if transcript_provider_uses_managed_binary {
+        transcript_provider_binary_path_buf.is_file()
+            && transcript_provider_binary_path_buf.starts_with(&fixture.tool_home)
+    } else {
+        transcript_provider_binary_path.trim().is_empty()
+    };
     let transcript_provider_model_id = receipt
         .transcript_provider_model_id
         .clone()
@@ -3141,16 +3198,17 @@ fn media_transcript_fixture_post_run_checks(
         .clone()
         .unwrap_or_default();
     let transcript_provider_model_path_buf = PathBuf::from(transcript_provider_model_path.trim());
-    let transcript_provider_id = receipt.transcript_provider_id.clone().unwrap_or_default();
-    let transcript_provider_model_satisfied =
-        if transcript_provider_id.eq_ignore_ascii_case("yt_dlp.whisper_rs_audio") {
-            !transcript_provider_model_id.trim().is_empty()
-                && transcript_provider_model_path_buf.is_file()
-                && transcript_provider_model_path_buf.starts_with(&fixture.tool_home)
-        } else {
-            transcript_provider_model_id.trim().is_empty()
-                && transcript_provider_model_path.trim().is_empty()
-        };
+    let transcript_provider_model_satisfied = if !transcript_selected {
+        transcript_provider_model_id.trim().is_empty()
+            && transcript_provider_model_path.trim().is_empty()
+    } else if transcript_provider_id.eq_ignore_ascii_case("yt_dlp.whisper_rs_audio") {
+        !transcript_provider_model_id.trim().is_empty()
+            && transcript_provider_model_path_buf.is_file()
+            && transcript_provider_model_path_buf.starts_with(&fixture.tool_home)
+    } else {
+        transcript_provider_model_id.trim().is_empty()
+            && transcript_provider_model_path.trim().is_empty()
+    };
     let transcript_selected_audio_format_id = receipt
         .transcript_selected_audio_format_id
         .clone()
@@ -3163,27 +3221,19 @@ fn media_transcript_fixture_post_run_checks(
         .transcript_selected_audio_acodec
         .clone()
         .unwrap_or_default();
-    let transcript_selected_audio_satisfied =
-        if transcript_provider_id.eq_ignore_ascii_case("yt_dlp.whisper_rs_audio") {
-            !transcript_selected_audio_format_id.trim().is_empty()
-                && !transcript_selected_audio_ext.trim().is_empty()
-                && !transcript_selected_audio_acodec.trim().is_empty()
-        } else {
-            transcript_selected_audio_format_id.trim().is_empty()
-                && transcript_selected_audio_ext.trim().is_empty()
-                && transcript_selected_audio_acodec.trim().is_empty()
-        };
-    let visual_provider_binary_path = receipt
-        .visual_provider_binary_path
-        .clone()
-        .unwrap_or_default();
-    let visual_provider_binary_path_buf = PathBuf::from(visual_provider_binary_path.trim());
-    let visual_provider_binary_satisfied = visual_provider_binary_path_buf.is_file()
-        && visual_provider_binary_path_buf.starts_with(&fixture.tool_home);
-    let visual_ffprobe_path = receipt.visual_ffprobe_path.clone().unwrap_or_default();
-    let visual_ffprobe_path_buf = PathBuf::from(visual_ffprobe_path.trim());
-    let visual_ffprobe_satisfied = visual_ffprobe_path_buf.is_file()
-        && visual_ffprobe_path_buf.starts_with(&fixture.tool_home);
+    let transcript_selected_audio_satisfied = if !transcript_selected {
+        transcript_selected_audio_format_id.trim().is_empty()
+            && transcript_selected_audio_ext.trim().is_empty()
+            && transcript_selected_audio_acodec.trim().is_empty()
+    } else if transcript_provider_id.eq_ignore_ascii_case("yt_dlp.whisper_rs_audio") {
+        !transcript_selected_audio_format_id.trim().is_empty()
+            && !transcript_selected_audio_ext.trim().is_empty()
+            && !transcript_selected_audio_acodec.trim().is_empty()
+    } else {
+        transcript_selected_audio_format_id.trim().is_empty()
+            && transcript_selected_audio_ext.trim().is_empty()
+            && transcript_selected_audio_acodec.trim().is_empty()
+    };
     let requested_url_satisfied = receipt
         .requested_url
         .trim()
@@ -3197,44 +3247,149 @@ fn media_transcript_fixture_post_run_checks(
     let duration_seconds = receipt.duration_seconds.unwrap_or_default();
     let duration_satisfied = duration_seconds >= 2_400;
     let transcript_char_count = receipt.transcript_char_count.unwrap_or_default();
-    let transcript_char_count_satisfied = transcript_char_count >= 3_000;
+    let transcript_char_count_satisfied = if transcript_selected {
+        transcript_char_count >= 3_000
+    } else {
+        transcript_char_count == 0
+    };
     let transcript_segment_count = receipt.transcript_segment_count.unwrap_or_default();
-    let transcript_segment_count_satisfied = transcript_segment_count >= 100;
+    let transcript_segment_count_satisfied = if transcript_selected {
+        transcript_segment_count >= 100
+    } else {
+        transcript_segment_count == 0
+    };
     let transcript_language = receipt.transcript_language.clone().unwrap_or_default();
-    let transcript_language_satisfied = transcript_language
-        .trim()
-        .to_ascii_lowercase()
-        .starts_with("en");
+    let transcript_language_satisfied = if transcript_selected {
+        transcript_language
+            .trim()
+            .to_ascii_lowercase()
+            .starts_with("en")
+    } else {
+        transcript_language.trim().is_empty()
+    };
     let transcript_source_kind = receipt.transcript_source_kind.clone().unwrap_or_default();
-    let transcript_source_kind_satisfied = matches!(
-        transcript_source_kind.trim(),
-        "manual" | "automatic" | "stt"
+    let transcript_source_kind_satisfied = if transcript_selected {
+        matches!(
+            transcript_source_kind.trim(),
+            "manual" | "automatic" | "stt" | "watch_transcript"
+        )
+    } else {
+        transcript_source_kind.trim().is_empty()
+    };
+    let transcript_hash_satisfied = if transcript_selected {
+        receipt
+            .transcript_hash
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty())
+    } else {
+        receipt
+            .transcript_hash
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .is_empty()
+    };
+    let timeline_provider_id = receipt.timeline_provider_id.clone().unwrap_or_default();
+    let timeline_provider_id_satisfied = if timeline_selected {
+        timeline_provider_id
+            .trim()
+            .eq_ignore_ascii_case("youtube.key_moments_timeline")
+    } else {
+        timeline_provider_id.trim().is_empty()
+    };
+    let timeline_provider_version = receipt
+        .timeline_provider_version
+        .clone()
+        .unwrap_or_default();
+    let timeline_provider_version_satisfied = if timeline_selected {
+        !timeline_provider_version.trim().is_empty()
+    } else {
+        timeline_provider_version.trim().is_empty()
+    };
+    let timeline_source_kind = receipt.timeline_source_kind.clone().unwrap_or_default();
+    let timeline_source_kind_satisfied = if timeline_selected {
+        timeline_source_kind
+            .trim()
+            .eq_ignore_ascii_case("key_moments")
+    } else {
+        timeline_source_kind.trim().is_empty()
+    };
+    let timeline_cue_count = receipt.timeline_cue_count.unwrap_or_default();
+    let timeline_cue_count_satisfied = if timeline_selected {
+        timeline_cue_count >= 5
+    } else {
+        timeline_cue_count == 0
+    };
+    let timeline_char_count = receipt.timeline_char_count.unwrap_or_default();
+    let timeline_char_count_satisfied = if timeline_selected {
+        timeline_char_count >= 120
+    } else {
+        timeline_char_count == 0
+    };
+    let timeline_hash = receipt.timeline_hash.clone().unwrap_or_default();
+    let timeline_hash_satisfied = if timeline_selected {
+        !timeline_hash.trim().is_empty()
+    } else {
+        timeline_hash.trim().is_empty()
+    };
+    let visual_provider_id = receipt.visual_provider_id.clone().unwrap_or_default();
+    let visual_provider_id_satisfied = matches!(
+        visual_provider_id.trim(),
+        "ffmpeg.managed_frames_vision" | "youtube.chapter_thumbnails_vision"
     );
+    let visual_provider_uses_managed_binary =
+        visual_provider_id.eq_ignore_ascii_case("ffmpeg.managed_frames_vision");
     let visual_frame_count = receipt.visual_frame_count.unwrap_or_default();
     let visual_frame_count_satisfied = visual_frame_count >= 4;
     let visual_char_count = receipt.visual_char_count.unwrap_or_default();
     let visual_char_count_satisfied = visual_char_count >= 100;
     let visual_hash = receipt.visual_hash.clone().unwrap_or_default();
     let visual_hash_satisfied = !visual_hash.trim().is_empty();
+    let visual_provider_binary_path = receipt
+        .visual_provider_binary_path
+        .clone()
+        .unwrap_or_default();
+    let visual_provider_binary_path_buf = PathBuf::from(visual_provider_binary_path.trim());
+    let visual_provider_binary_satisfied = if visual_provider_uses_managed_binary {
+        visual_provider_binary_path_buf.is_file()
+            && visual_provider_binary_path_buf.starts_with(&fixture.tool_home)
+    } else {
+        visual_provider_binary_path.trim().is_empty()
+    };
+    let visual_ffprobe_path = receipt.visual_ffprobe_path.clone().unwrap_or_default();
+    let visual_ffprobe_path_buf = PathBuf::from(visual_ffprobe_path.trim());
+    let visual_ffprobe_satisfied = if visual_provider_uses_managed_binary {
+        visual_ffprobe_path_buf.is_file() && visual_ffprobe_path_buf.starts_with(&fixture.tool_home)
+    } else {
+        visual_ffprobe_path.trim().is_empty()
+    };
     let scope_satisfied = fixture.tool_home.starts_with(&fixture.fixture_root)
         && fixture.receipt_path.starts_with(&fixture.tool_home)
-        && transcript_provider_binary_path_buf.starts_with(&fixture.tool_home)
-        && visual_provider_binary_path_buf.starts_with(&fixture.tool_home)
+        && (!transcript_provider_uses_managed_binary
+            || transcript_provider_binary_path_buf.starts_with(&fixture.tool_home))
+        && (!visual_provider_uses_managed_binary
+            || visual_provider_binary_path_buf.starts_with(&fixture.tool_home))
         && (transcript_provider_model_path.trim().is_empty()
             || transcript_provider_model_path_buf.starts_with(&fixture.tool_home))
-        && visual_ffprobe_path_buf.starts_with(&fixture.tool_home);
-    let transcript_provider_version_satisfied = receipt
-        .transcript_provider_version
-        .as_deref()
-        .map(str::trim)
-        .is_some_and(|value| !value.is_empty());
+        && (!visual_provider_uses_managed_binary
+            || visual_ffprobe_path_buf.starts_with(&fixture.tool_home));
+    let transcript_provider_version_satisfied = if transcript_selected {
+        receipt
+            .transcript_provider_version
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty())
+    } else {
+        receipt
+            .transcript_provider_version
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .is_empty()
+    };
     let visual_provider_version_satisfied = receipt
         .visual_provider_version
-        .as_deref()
-        .map(str::trim)
-        .is_some_and(|value| !value.is_empty());
-    let transcript_hash_satisfied = receipt
-        .transcript_hash
         .as_deref()
         .map(str::trim)
         .is_some_and(|value| !value.is_empty());
@@ -3260,7 +3415,7 @@ fn media_transcript_fixture_post_run_checks(
         transcript_provider_id,
         Some(probe_source.clone()),
         Some(timestamp_ms),
-        Some(transcript_provider_binary_satisfied),
+        Some(transcript_provider_id_satisfied && transcript_provider_binary_satisfied),
     );
     push_environment_receipt(
         &mut batch,
@@ -3392,11 +3547,59 @@ fn media_transcript_fixture_post_run_checks(
     );
     push_environment_receipt(
         &mut batch,
-        "media_multimodal_visual_provider_id",
-        receipt.visual_provider_id.unwrap_or_default(),
+        "media_multimodal_timeline_provider_id",
+        timeline_provider_id,
         Some(probe_source.clone()),
         Some(timestamp_ms),
-        Some(visual_provider_binary_satisfied),
+        Some(timeline_provider_id_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_timeline_provider_version",
+        timeline_provider_version,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(timeline_provider_version_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_timeline_source_kind",
+        timeline_source_kind,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(timeline_source_kind_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_timeline_cue_count",
+        timeline_cue_count.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(timeline_cue_count_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_timeline_char_count",
+        timeline_char_count.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(timeline_char_count_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_timeline_hash",
+        timeline_hash,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(timeline_hash_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "media_multimodal_visual_provider_id",
+        visual_provider_id,
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(visual_provider_id_satisfied && visual_provider_binary_satisfied),
     );
     push_environment_receipt(
         &mut batch,
@@ -4162,7 +4365,8 @@ fn hacker_news_monitor_fixture_preflight_checks(
     run_unique_num: &str,
     run_timestamp_ms: u64,
 ) -> EnvironmentEvidenceBatch {
-    let registry_path = ioi_services::agentic::automation::registry_path_for(&fixture.automation_root);
+    let registry_path =
+        ioi_services::agentic::automation::registry_path_for(&fixture.automation_root);
     let receipts_root = fixture.automation_root.join("receipts");
     let run_unique_satisfied = fixture
         .fixture_root
@@ -4294,7 +4498,8 @@ fn hacker_news_monitor_fixture_post_run_checks(
         .unwrap_or_default()
         .as_millis() as u64;
     let probe_source = format!("{}.receipt_probe", HACKER_NEWS_MONITOR_FIXTURE_PROBE_SOURCE);
-    let registry_path = ioi_services::agentic::automation::registry_path_for(&fixture.automation_root);
+    let registry_path =
+        ioi_services::agentic::automation::registry_path_for(&fixture.automation_root);
     let registry_path_satisfied = registry_path.is_file();
     let registry = parse_hacker_news_monitor_json::<HackerNewsMonitorRegistry>(&registry_path)
         .unwrap_or_default();
@@ -4322,10 +4527,12 @@ fn hacker_news_monitor_fixture_post_run_checks(
     } else {
         PathBuf::new()
     };
-    let artifact_path_satisfied = artifact_path.is_file() && artifact_path.starts_with(&fixture.automation_root);
-    let state_path_satisfied = state_path.is_file() && state_path.starts_with(&fixture.automation_root);
-    let install_receipt_path_satisfied =
-        install_receipt_path.is_file() && install_receipt_path.starts_with(&fixture.automation_root);
+    let artifact_path_satisfied =
+        artifact_path.is_file() && artifact_path.starts_with(&fixture.automation_root);
+    let state_path_satisfied =
+        state_path.is_file() && state_path.starts_with(&fixture.automation_root);
+    let install_receipt_path_satisfied = install_receipt_path.is_file()
+        && install_receipt_path.starts_with(&fixture.automation_root);
 
     let artifact = if artifact_path_satisfied {
         parse_hacker_news_monitor_json::<ioi_services::agentic::automation::WorkflowArtifact>(
@@ -4447,7 +4654,10 @@ fn hacker_news_monitor_fixture_post_run_checks(
         .as_ref()
         .map(|value| value.seen_keys.len())
         .unwrap_or_default();
-    let state_last_run_ms = state.as_ref().and_then(|value| value.last_run_ms).unwrap_or_default();
+    let state_last_run_ms = state
+        .as_ref()
+        .and_then(|value| value.last_run_ms)
+        .unwrap_or_default();
     let state_last_success_ms = state
         .as_ref()
         .and_then(|value| value.last_success_ms)
@@ -4491,7 +4701,11 @@ fn hacker_news_monitor_fixture_post_run_checks(
         .fixture_root
         .file_name()
         .and_then(|name| name.to_str())
-        .map(|name| name.ends_with(&std::env::var("IOI_HACKER_NEWS_MONITOR_RUN_UNIQUE_NUM").unwrap_or_default()))
+        .map(|name| {
+            name.ends_with(
+                &std::env::var("IOI_HACKER_NEWS_MONITOR_RUN_UNIQUE_NUM").unwrap_or_default(),
+            )
+        })
         .unwrap_or(false);
     let scope_satisfied = registry_path_satisfied
         && single_workflow_satisfied
@@ -4826,8 +5040,9 @@ fn hacker_news_monitor_fixture_cleanup_checks(
     let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
     let automation_root_exists_after_cleanup = fixture.automation_root.exists();
     let manifest_exists_after_cleanup = fixture.manifest_path.exists();
-    let cleanup_satisfied =
-        !fixture_root_exists_after_cleanup && !automation_root_exists_after_cleanup && !manifest_exists_after_cleanup;
+    let cleanup_satisfied = !fixture_root_exists_after_cleanup
+        && !automation_root_exists_after_cleanup
+        && !manifest_exists_after_cleanup;
 
     let mut batch = EnvironmentEvidenceBatch::default();
     push_environment_observation(
@@ -5366,6 +5581,219 @@ fn restaurants_near_me_fixture_cleanup_checks(
     push_environment_receipt(
         &mut batch,
         "restaurants_near_me_cleanup",
+        cleanup_satisfied.to_string(),
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(cleanup_satisfied),
+    );
+    batch
+}
+
+fn bootstrap_latest_nist_pqc_briefing_fixture_runtime(
+    run_unique_num: &str,
+) -> Result<LatestNistPqcBriefingFixtureRuntime> {
+    let temp_dir = tempdir()?;
+    let fixture_root = temp_dir.path().join(format!(
+        "{}{}",
+        LATEST_NIST_PQC_BRIEFING_FIXTURE_DIR_PREFIX, run_unique_num
+    ));
+    std::fs::create_dir_all(&fixture_root)?;
+
+    let observed_utc_timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let observed_utc_date = iso_datetime_from_unix_ms(observed_utc_timestamp_ms)
+        .chars()
+        .take(10)
+        .collect::<String>();
+    let manifest_path = fixture_root.join("latest_nist_pqc_briefing_fixture_manifest.txt");
+    std::fs::write(
+        &manifest_path,
+        format!(
+            "mode={}\nrun_unique_num={}\nobserved_utc_date={}\nobserved_utc_timestamp_ms={}\n",
+            LATEST_NIST_PQC_BRIEFING_FIXTURE_MODE,
+            run_unique_num,
+            observed_utc_date,
+            observed_utc_timestamp_ms
+        ),
+    )?;
+
+    Ok(LatestNistPqcBriefingFixtureRuntime {
+        _temp_dir: temp_dir,
+        fixture_root,
+        manifest_path,
+        observed_utc_date,
+        observed_utc_timestamp_ms,
+    })
+}
+
+fn latest_nist_pqc_briefing_fixture_preflight_checks(
+    fixture: &LatestNistPqcBriefingFixtureRuntime,
+    run_unique_num: &str,
+    run_timestamp_ms: u64,
+) -> EnvironmentEvidenceBatch {
+    let fixture_root = fixture.fixture_root.to_string_lossy().to_string();
+    let run_unique_satisfied = fixture_root.contains(run_unique_num);
+    let manifest_seeded_satisfied = fixture.manifest_path.is_file();
+    let fixture_satisfied =
+        fixture.fixture_root.is_dir() && manifest_seeded_satisfied && run_unique_satisfied;
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_fixture_mode",
+        LATEST_NIST_PQC_BRIEFING_FIXTURE_MODE,
+        Some(LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(true),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_fixture_root",
+        fixture.fixture_root.to_string_lossy().to_string(),
+        Some(LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_fixture_manifest_path",
+        fixture.manifest_path.to_string_lossy().to_string(),
+        Some(LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(manifest_seeded_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_run_unique_num",
+        run_unique_num.to_string(),
+        Some(LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(run_unique_satisfied),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_current_utc_date",
+        fixture.observed_utc_date.clone(),
+        Some(format!(
+            "{}.preflight",
+            LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE
+        )),
+        Some(run_timestamp_ms),
+        Some(!fixture.observed_utc_date.trim().is_empty()),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_current_utc_timestamp_ms",
+        fixture.observed_utc_timestamp_ms.to_string(),
+        Some(format!(
+            "{}.preflight",
+            LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE
+        )),
+        Some(run_timestamp_ms),
+        Some(fixture.observed_utc_timestamp_ms > 0),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_fixture",
+        fixture_satisfied.to_string(),
+        Some(LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE.to_string()),
+        Some(run_timestamp_ms),
+        Some(fixture_satisfied),
+    );
+    batch
+}
+
+fn latest_nist_pqc_briefing_fixture_post_run_checks(
+    fixture: &LatestNistPqcBriefingFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!("{}.post_run", LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE);
+    let fixture_root_exists = fixture.fixture_root.is_dir();
+    let manifest_exists = fixture.manifest_path.is_file();
+    let current_utc_date = iso_datetime_from_unix_ms(timestamp_ms)
+        .chars()
+        .take(10)
+        .collect::<String>();
+    let scope_satisfied = fixture_root_exists && manifest_exists;
+
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_fixture_root_exists",
+        fixture_root_exists.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(fixture_root_exists),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_manifest_exists",
+        manifest_exists.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(manifest_exists),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_current_utc_date_post_run",
+        current_utc_date.clone(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(!current_utc_date.trim().is_empty()),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_scope",
+        scope_satisfied.to_string(),
+        Some(probe_source),
+        Some(timestamp_ms),
+        Some(scope_satisfied),
+    );
+    batch
+}
+
+fn latest_nist_pqc_briefing_fixture_cleanup_checks(
+    fixture: &LatestNistPqcBriefingFixtureRuntime,
+) -> EnvironmentEvidenceBatch {
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let probe_source = format!(
+        "{}.cleanup_probe",
+        LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE
+    );
+
+    let _ = std::fs::remove_file(&fixture.manifest_path);
+    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
+    let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
+    let manifest_exists_after_cleanup = fixture.manifest_path.exists();
+    let cleanup_satisfied = !fixture_root_exists_after_cleanup && !manifest_exists_after_cleanup;
+
+    let mut batch = EnvironmentEvidenceBatch::default();
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_cleanup_root_exists",
+        fixture_root_exists_after_cleanup.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(!fixture_root_exists_after_cleanup),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_cleanup_manifest_exists",
+        manifest_exists_after_cleanup.to_string(),
+        Some(probe_source.clone()),
+        Some(timestamp_ms),
+        Some(!manifest_exists_after_cleanup),
+    );
+    push_environment_receipt(
+        &mut batch,
+        "latest_nist_pqc_briefing_cleanup",
         cleanup_satisfied.to_string(),
         Some(probe_source),
         Some(timestamp_ms),

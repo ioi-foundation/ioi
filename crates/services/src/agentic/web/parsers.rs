@@ -18,6 +18,110 @@ use super::util::{
     compact_ws, domain_for_url, normalize_url_for_id, source_id_for_url, text_content,
 };
 
+fn text_is_structured_metadata_noise(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    let marker_hits = [
+        "\"@context\"",
+        "\"@type\"",
+        "datepublished",
+        "datemodified",
+        "inlanguage",
+        "thumbnailurl",
+        "contenturl",
+        "imageobject",
+        "\"width\"",
+        "\"height\"",
+        "\"caption\"",
+    ]
+    .iter()
+    .filter(|marker| lower.contains(**marker))
+    .count();
+    if marker_hits == 0 {
+        return false;
+    }
+    let structured_punctuation_hits = lower
+        .chars()
+        .filter(|ch| matches!(ch, '{' | '}' | '[' | ']' | '"' | ':'))
+        .count();
+    marker_hits >= 2
+        && (structured_punctuation_hits >= 12
+            || lower.contains("\",\"")
+            || lower.contains("\":")
+            || lower.contains("},{"))
+}
+
+fn text_is_script_noise(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    let strong_marker_hits = [
+        "crypto.getrandomvalues",
+        "document.queryselector",
+        "document.getelementbyid",
+        "googletag.",
+        "adsbygoogle",
+        "localstorage",
+        "sessionstorage",
+        "requestsubmit(",
+        "tostring(16)",
+        "style.display",
+        "queryselector(",
+    ]
+    .iter()
+    .filter(|marker| lower.contains(**marker))
+    .count();
+    if strong_marker_hits >= 2 {
+        return true;
+    }
+
+    let js_marker_hits = [
+        "function ",
+        "=>",
+        "document.",
+        "window.",
+        "return ([1e7]",
+        "const ",
+        "let ",
+        "var ",
+        ".style.",
+        "addeventlistener",
+        "remove()",
+        "submit(",
+    ]
+    .iter()
+    .filter(|marker| lower.contains(**marker))
+    .count();
+    let punctuation_hits = lower
+        .chars()
+        .filter(|ch| matches!(ch, '{' | '}' | '[' | ']' | ';' | '=' | '>' | '<' | '/'))
+        .count();
+
+    js_marker_hits >= 4 && punctuation_hits >= 12
+}
+
+fn text_is_inline_markup_noise(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    let attribute_marker_hits = [
+        "<svg",
+        "</svg",
+        "<path",
+        "viewbox=",
+        "xmlns=",
+        "width=",
+        "height=",
+        "stroke=",
+        "fill=",
+        "paddingtop=",
+    ]
+    .iter()
+    .filter(|marker| lower.contains(**marker))
+    .count();
+    let markup_punctuation_hits = lower
+        .chars()
+        .filter(|ch| matches!(ch, '<' | '>' | '=' | '"' | '/'))
+        .count();
+
+    attribute_marker_hits >= 3 && markup_punctuation_hits >= 12
+}
+
 pub(crate) fn parse_ddg_sources_from_html(html: &str, limit: usize) -> Vec<WebSource> {
     let document = Html::parse_document(html);
 
@@ -380,6 +484,36 @@ fn extract_meta_title(document: &Html) -> Option<String> {
     )
 }
 
+fn extract_canonical_url(document: &Html, page_url: &str) -> Option<String> {
+    let raw = [
+        "link[rel=\"canonical\"]",
+        "meta[property=\"og:url\"]",
+        "meta[name=\"twitter:url\"]",
+    ]
+    .iter()
+    .find_map(|selector_raw| {
+        let selector = Selector::parse(selector_raw).ok()?;
+        let element = document.select(&selector).next()?;
+        element
+            .value()
+            .attr("href")
+            .or_else(|| element.value().attr("content"))
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| value.to_string())
+    })?;
+    Url::parse(&raw)
+        .ok()
+        .map(|url| url.to_string())
+        .or_else(|| {
+            Url::parse(page_url)
+                .ok()?
+                .join(raw.trim())
+                .ok()
+                .map(|url| url.to_string())
+        })
+}
+
 fn extract_meta_description(document: &Html) -> Option<String> {
     extract_meta_content(
         document,
@@ -649,24 +783,10 @@ pub(crate) fn parse_same_host_child_collection_sources_from_html(
     out
 }
 
-pub(crate) fn parse_local_business_directory_item_list_sources_from_html(
-    page_url: &str,
-    html: &str,
-    limit: usize,
-) -> Vec<WebSource> {
-    parse_json_ld_item_list_sources_from_html(page_url, html, limit)
-}
-
-pub(crate) fn parse_local_business_directory_category_sources_from_html(
-    page_url: &str,
-    html: &str,
-    limit: usize,
-) -> Vec<WebSource> {
-    parse_same_host_child_collection_sources_from_html(page_url, html, limit)
-}
-
 pub(crate) fn parse_generic_page_source_from_html(page_url: &str, html: &str) -> Option<WebSource> {
     let document = Html::parse_document(html);
+    let canonical_url =
+        extract_canonical_url(&document, page_url).unwrap_or_else(|| page_url.to_string());
     let title = extract_document_title(&document).or_else(|| extract_meta_title(&document));
     let snippet = extract_meta_description(&document);
     if title.as_deref().unwrap_or_default().trim().is_empty()
@@ -676,12 +796,12 @@ pub(crate) fn parse_generic_page_source_from_html(page_url: &str, html: &str) ->
     }
 
     Some(WebSource {
-        source_id: source_id_for_url(page_url),
+        source_id: source_id_for_url(&canonical_url),
         rank: Some(1),
-        url: page_url.to_string(),
+        url: canonical_url.clone(),
         title,
         snippet,
-        domain: domain_for_url(page_url),
+        domain: domain_for_url(&canonical_url),
     })
 }
 

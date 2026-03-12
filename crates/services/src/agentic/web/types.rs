@@ -19,6 +19,7 @@ pub(crate) struct SearchProviderRequirements {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SearchProviderStage {
     WeatherGovLocalityDetail,
+    RestaurantJiLocalityDirectory,
     BraveHttp,
     DdgHttp,
     DdgBrowser,

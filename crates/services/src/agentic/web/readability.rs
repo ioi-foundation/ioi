@@ -2,8 +2,8 @@ use crate::agentic::desktop::service::step::signals::analyze_metric_schema;
 use anyhow::{anyhow, Result};
 use ioi_drivers::browser::BrowserDriver;
 use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebQuoteSpan, WebSource};
-use scraper::{Html, Selector};
-use std::collections::HashSet;
+use scraper::{ElementRef, Html, Selector};
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use super::constants::{
@@ -14,8 +14,7 @@ use super::constants::{
 };
 use super::google_news::{is_google_news_article_wrapper_url, resolve_google_news_article_url};
 use super::parsers::{
-    parse_local_business_directory_category_sources_from_html,
-    parse_local_business_directory_item_list_sources_from_html,
+    parse_json_ld_item_list_sources_from_html, parse_same_host_child_collection_sources_from_html,
 };
 use super::transport::{
     detect_human_challenge, fetch_html_http_fallback_browser_ua,
@@ -64,7 +63,668 @@ fn looks_like_structured_metadata_noise(text: &str) -> bool {
             || lower.contains("},{"))
 }
 
-pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
+fn looks_like_executable_script_noise(text: &str) -> bool {
+    let compact = compact_ws(text);
+    let trimmed = compact.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    let strong_marker_hits = [
+        "crypto.getrandomvalues",
+        "document.queryselector",
+        "document.getelementbyid",
+        "googletag.",
+        "adsbygoogle",
+        "localstorage",
+        "sessionstorage",
+        "requestsubmit(",
+        "tostring(16)",
+        "style.display",
+        "queryselector(",
+    ]
+    .iter()
+    .filter(|marker| lower.contains(**marker))
+    .count();
+    if strong_marker_hits >= 2 {
+        return true;
+    }
+
+    let js_marker_hits = [
+        "function ",
+        "=>",
+        "document.",
+        "window.",
+        "return ([1e7]",
+        "const ",
+        "let ",
+        "var ",
+        ".style.",
+        "addEventListener",
+        "remove()",
+        "submit(",
+    ]
+    .iter()
+    .filter(|marker| lower.contains(**marker))
+    .count();
+    let punctuation_hits = lower
+        .chars()
+        .filter(|ch| matches!(ch, '{' | '}' | '[' | ']' | ';' | '=' | '>' | '<' | '/'))
+        .count();
+
+    js_marker_hits >= 4 && punctuation_hits >= 12
+}
+
+fn looks_like_inline_markup_noise(text: &str) -> bool {
+    let compact = compact_ws(text);
+    let trimmed = compact.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    let attribute_marker_hits = [
+        "<svg",
+        "</svg",
+        "<path",
+        "viewbox=",
+        "xmlns=",
+        "width=",
+        "height=",
+        "stroke=",
+        "fill=",
+        "paddingtop=",
+    ]
+    .iter()
+    .filter(|marker| lower.contains(**marker))
+    .count();
+    let markup_punctuation_hits = lower
+        .chars()
+        .filter(|ch| matches!(ch, '<' | '>' | '=' | '"' | '/'))
+        .count();
+
+    attribute_marker_hits >= 3 && markup_punctuation_hits >= 12
+}
+
+fn element_contains_hidden_markup(elem: ElementRef<'_>) -> bool {
+    let lower = elem.html().to_ascii_lowercase();
+    ["<script", "<style", "<noscript", "<template"]
+        .iter()
+        .any(|marker| lower.contains(marker))
+}
+
+const READ_BLOCK_CANDIDATE_LIMIT: usize = 192;
+const READ_BLOCK_MEDIUM_CHAR_FLOOR: usize = 40;
+const READ_BLOCK_STRONG_CHAR_FLOOR: usize = 80;
+const READ_BLOCK_REPEATING_LABEL_MIN_ITEMS: usize = 3;
+const READ_BLOCK_REPEATING_LABEL_MAX_ITEMS: usize = 12;
+const READ_BLOCK_REPEATING_LABEL_GROUP_LIMIT: usize = 2;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ReadSurfaceKind {
+    DetailDocument,
+    RepeatingLabelSet,
+    StructuredRecord,
+}
+
+#[derive(Clone, Debug)]
+struct ReadSurfaceCandidate {
+    kind: ReadSurfaceKind,
+    blocks: Vec<String>,
+    score: isize,
+    primary_signal: usize,
+    secondary_signal: usize,
+    total_chars: usize,
+}
+
+impl ReadSurfaceCandidate {
+    fn outranks(&self, other: &Self) -> bool {
+        self.score > other.score
+            || (self.score == other.score && self.primary_signal > other.primary_signal)
+            || (self.score == other.score
+                && self.primary_signal == other.primary_signal
+                && self.secondary_signal > other.secondary_signal)
+            || (self.score == other.score
+                && self.primary_signal == other.primary_signal
+                && self.secondary_signal == other.secondary_signal
+                && self.total_chars > other.total_chars)
+            || (self.score == other.score
+                && self.primary_signal == other.primary_signal
+                && self.secondary_signal == other.secondary_signal
+                && self.total_chars == other.total_chars
+                && self.blocks.len() < other.blocks.len())
+    }
+
+    fn has_minimum_signal(&self) -> bool {
+        match self.kind {
+            ReadSurfaceKind::DetailDocument => {
+                self.total_chars >= READ_BLOCK_LOW_SIGNAL_CHAR_THRESHOLD || self.primary_signal > 0
+            }
+            ReadSurfaceKind::RepeatingLabelSet => {
+                self.primary_signal >= READ_BLOCK_REPEATING_LABEL_MIN_ITEMS
+                    && self.secondary_signal >= 2
+            }
+            ReadSurfaceKind::StructuredRecord => {
+                self.primary_signal >= 2 && self.secondary_signal > 0
+            }
+        }
+    }
+}
+
+fn normalized_repeating_label(text: &str) -> Option<String> {
+    let compact = compact_ws(text);
+    let trimmed = compact
+        .trim()
+        .trim_matches(|ch: char| matches!(ch, ':' | ';' | '|' | ',' | '-' | '.'))
+        .trim();
+    if trimmed.is_empty()
+        || trimmed.chars().count() < 4
+        || trimmed.chars().count() > 80
+        || !trimmed.chars().any(|ch| ch.is_ascii_alphabetic())
+        || looks_like_structured_metadata_noise(trimmed)
+        || looks_like_executable_script_noise(trimmed)
+        || looks_like_inline_markup_noise(trimmed)
+    {
+        return None;
+    }
+    Some(trimmed.to_string())
+}
+
+fn element_has_textual_children(elem: ElementRef<'_>) -> bool {
+    elem.children().filter_map(ElementRef::wrap).any(|child| {
+        let raw = compact_ws(&text_content(child));
+        let text = raw.trim();
+        !text.is_empty()
+            && !looks_like_structured_metadata_noise(text)
+            && !looks_like_executable_script_noise(text)
+            && !looks_like_inline_markup_noise(text)
+    })
+}
+
+fn repeating_label_key(elem: ElementRef<'_>) -> Option<String> {
+    let tag = elem.value().name();
+    let mut classes = elem
+        .value()
+        .attr("class")
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    classes.sort();
+    classes.dedup();
+
+    let parent = elem.parent().and_then(ElementRef::wrap);
+    let parent_tag = parent
+        .as_ref()
+        .map(|value| value.value().name().to_string())
+        .unwrap_or_default();
+    let mut parent_classes = parent
+        .as_ref()
+        .and_then(|value| value.value().attr("class"))
+        .unwrap_or_default()
+        .split_whitespace()
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    parent_classes.sort();
+    parent_classes.dedup();
+
+    if classes.is_empty() && parent_classes.is_empty() {
+        return None;
+    }
+
+    Some(format!(
+        "{}|{}|{}|{}",
+        tag,
+        classes.join("."),
+        parent_tag,
+        parent_classes.join(".")
+    ))
+}
+
+fn repeating_label_blocks(root: ElementRef<'_>) -> Vec<String> {
+    let Ok(selector) = Selector::parse("div, a, li, span, h3, h4, h5, td, dd") else {
+        return Vec::new();
+    };
+
+    let mut groups = HashMap::<String, Vec<String>>::new();
+    let mut group_seen = HashMap::<String, HashSet<String>>::new();
+    for element in root.select(&selector).take(READ_BLOCK_CANDIDATE_LIMIT * 4) {
+        if element_contains_hidden_markup(element) || element_has_textual_children(element) {
+            continue;
+        }
+        let raw = compact_ws(&text_content(element));
+        let Some(label) = normalized_repeating_label(&raw) else {
+            continue;
+        };
+        let Some(key) = repeating_label_key(element) else {
+            continue;
+        };
+        let normalized = label.to_ascii_lowercase();
+        let seen = group_seen.entry(key.clone()).or_default();
+        if !seen.insert(normalized) {
+            continue;
+        }
+        groups.entry(key).or_default().push(label);
+    }
+
+    let mut ranked_groups = groups
+        .into_iter()
+        .filter_map(|(key, items)| {
+            if items.len() < READ_BLOCK_REPEATING_LABEL_MIN_ITEMS {
+                return None;
+            }
+            let multi_word_hits = items
+                .iter()
+                .filter(|item| item.split_whitespace().count() >= 2)
+                .count();
+            let avg_chars =
+                items.iter().map(|item| item.chars().count()).sum::<usize>() / items.len().max(1);
+            let score = items.len() * 100 + multi_word_hits * 10 + avg_chars.min(40);
+            Some((score, key, items))
+        })
+        .collect::<Vec<_>>();
+    ranked_groups.sort_by(|left, right| {
+        right
+            .0
+            .cmp(&left.0)
+            .then_with(|| left.2.len().cmp(&right.2.len()))
+            .then_with(|| left.1.cmp(&right.1))
+    });
+
+    let mut selected = Vec::<String>::new();
+    let mut selected_seen = HashSet::new();
+    for (_, _, items) in ranked_groups
+        .into_iter()
+        .take(READ_BLOCK_REPEATING_LABEL_GROUP_LIMIT)
+    {
+        for item in items {
+            let normalized = item.to_ascii_lowercase();
+            if selected_seen.insert(normalized) {
+                selected.push(item);
+            }
+            if selected.len() >= READ_BLOCK_REPEATING_LABEL_MAX_ITEMS {
+                break;
+            }
+        }
+        if selected.len() >= READ_BLOCK_REPEATING_LABEL_MAX_ITEMS {
+            break;
+        }
+    }
+    if selected.len() < READ_BLOCK_REPEATING_LABEL_MIN_ITEMS {
+        return Vec::new();
+    }
+    selected
+}
+
+fn structured_record_blocks(root: ElementRef<'_>) -> Vec<String> {
+    let Ok(row_selector) = Selector::parse("tr") else {
+        return Vec::new();
+    };
+    let Ok(cell_selector) = Selector::parse("th, td") else {
+        return Vec::new();
+    };
+
+    let mut seen = HashSet::new();
+    let mut blocks = Vec::new();
+    for row in root
+        .select(&row_selector)
+        .take(READ_BLOCK_SUPPLEMENTAL_MAX * 4)
+    {
+        let cells = row
+            .select(&cell_selector)
+            .map(|cell| {
+                compact_ws(&text_content(cell))
+                    .replace('\u{00b0}', "°")
+                    .trim()
+                    .trim_end_matches(':')
+                    .to_string()
+            })
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>();
+        if cells.len() < 2 {
+            continue;
+        }
+        let label = cells[0].trim();
+        let value = cells[1].trim();
+        if !label.chars().any(|ch| ch.is_ascii_alphabetic())
+            || !value
+                .chars()
+                .any(|ch| ch.is_ascii_alphabetic() || ch.is_ascii_digit())
+        {
+            continue;
+        }
+        let block = format!("{} {}", label, value);
+        if looks_like_structured_metadata_noise(&block)
+            || looks_like_executable_script_noise(&block)
+            || looks_like_inline_markup_noise(&block)
+        {
+            continue;
+        }
+        let normalized = block.to_ascii_lowercase();
+        if !seen.insert(normalized) {
+            continue;
+        }
+        blocks.push(block);
+        if blocks.len() >= READ_BLOCK_SUPPLEMENTAL_MAX {
+            break;
+        }
+    }
+    blocks
+}
+
+fn detail_document_blocks(root: ElementRef<'_>, block_sel: &Selector) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut blocks = Vec::new();
+    for elem in root.select(block_sel) {
+        if element_contains_hidden_markup(elem) {
+            continue;
+        }
+        let raw = compact_ws(&text_content(elem));
+        let text = raw.trim();
+        if text.is_empty()
+            || looks_like_structured_metadata_noise(text)
+            || looks_like_executable_script_noise(text)
+            || looks_like_inline_markup_noise(text)
+        {
+            continue;
+        }
+        let normalized = text.to_ascii_lowercase();
+        if !seen.insert(normalized) {
+            continue;
+        }
+        blocks.push(text.to_string());
+    }
+    blocks
+}
+
+fn candidate_block_is_sentence_like(block: &str) -> bool {
+    let word_count = block.split_whitespace().count();
+    if word_count < 5 {
+        return false;
+    }
+    let punctuation_hits = block
+        .chars()
+        .filter(|ch| matches!(ch, '.' | '!' | '?' | ';' | ':'))
+        .count();
+    punctuation_hits > 0 || block.chars().count() >= READ_BLOCK_STRONG_CHAR_FLOOR
+}
+
+fn detail_document_signal_score(blocks: &[String]) -> (isize, usize, usize, usize) {
+    let mut total_chars = 0usize;
+    let mut strong_blocks = 0usize;
+    let mut sentence_like_blocks = 0usize;
+    let mut short_blocks = 0usize;
+    let mut digit_blocks = 0usize;
+    let mut observation_metric_blocks = 0usize;
+    let mut horizon_dominated_blocks = 0usize;
+
+    for block in blocks {
+        let chars = block.chars().count();
+        total_chars = total_chars.saturating_add(chars);
+        if chars >= READ_BLOCK_STRONG_CHAR_FLOOR {
+            strong_blocks = strong_blocks.saturating_add(1);
+        } else if chars < READ_BLOCK_MEDIUM_CHAR_FLOOR {
+            short_blocks = short_blocks.saturating_add(1);
+        }
+        if candidate_block_is_sentence_like(block) {
+            sentence_like_blocks = sentence_like_blocks.saturating_add(1);
+        }
+        if block.chars().any(|ch| ch.is_ascii_digit()) {
+            digit_blocks = digit_blocks.saturating_add(1);
+        }
+        let schema = analyze_metric_schema(block);
+        if schema.numeric_token_hits > 0 {
+            let observation_metric = schema.has_current_observation_payload()
+                || (schema.unit_hits > 0 && schema.horizon_hits == 0)
+                || (schema.observation_hits > schema.horizon_hits && !schema.axis_hits.is_empty());
+            if observation_metric {
+                observation_metric_blocks = observation_metric_blocks.saturating_add(1);
+            }
+            if schema.horizon_hits
+                > schema
+                    .observation_hits
+                    .saturating_add(schema.timestamp_hits)
+            {
+                horizon_dominated_blocks = horizon_dominated_blocks.saturating_add(1);
+            }
+        }
+    }
+
+    let score = (total_chars.min(4_000) as isize)
+        + (strong_blocks as isize * 240)
+        + (sentence_like_blocks as isize * 120)
+        + (digit_blocks as isize * 40)
+        + (observation_metric_blocks as isize * 180)
+        - (short_blocks as isize * 90)
+        - (horizon_dominated_blocks as isize * 420)
+        - (blocks.len().saturating_sub(sentence_like_blocks.max(1)) as isize * 12)
+        - if strong_blocks == 0 { 600 } else { 0 };
+
+    (score, strong_blocks, sentence_like_blocks, total_chars)
+}
+
+fn read_root_structured_metric_bonus(root: ElementRef<'_>) -> (isize, usize) {
+    let blocks = structured_record_blocks(root);
+    if blocks.is_empty() {
+        return (0, 0);
+    }
+
+    let metric_rows = blocks
+        .iter()
+        .filter(|block| {
+            let schema = analyze_metric_schema(block);
+            schema.has_metric_payload() && schema.numeric_token_hits > 0
+        })
+        .count();
+    if metric_rows == 0 {
+        return (0, 0);
+    }
+
+    let root_text = compact_ws(&text_content(root));
+    let root_schema = analyze_metric_schema(&root_text);
+    let current_observation_bonus = if root_schema.has_current_observation_payload() {
+        1_800
+    } else if root_schema.observation_hits > root_schema.horizon_hits {
+        900
+    } else {
+        0
+    };
+
+    (
+        current_observation_bonus + (metric_rows as isize * 260),
+        metric_rows,
+    )
+}
+
+fn repeating_label_surface_candidate(blocks: Vec<String>) -> Option<ReadSurfaceCandidate> {
+    if blocks.len() < READ_BLOCK_REPEATING_LABEL_MIN_ITEMS {
+        return None;
+    }
+    let block_count = blocks.len();
+    let multi_word_hits = blocks
+        .iter()
+        .filter(|block| block.split_whitespace().count() >= 2)
+        .count();
+    let total_chars = blocks
+        .iter()
+        .map(|block| block.chars().count())
+        .sum::<usize>();
+    let avg_chars = total_chars / block_count.max(1);
+    if multi_word_hits < 2 && avg_chars < 14 {
+        return None;
+    }
+    let single_word_count = block_count.saturating_sub(multi_word_hits);
+    let score = (block_count as isize * 160)
+        + (multi_word_hits as isize * 180)
+        + ((total_chars.min(1_200) / 3) as isize)
+        - (single_word_count as isize * 110);
+    Some(ReadSurfaceCandidate {
+        kind: ReadSurfaceKind::RepeatingLabelSet,
+        blocks,
+        score,
+        primary_signal: block_count,
+        secondary_signal: multi_word_hits,
+        total_chars,
+    })
+}
+
+fn structured_record_surface_candidate(blocks: Vec<String>) -> Option<ReadSurfaceCandidate> {
+    if blocks.len() < 2 {
+        return None;
+    }
+    let block_count = blocks.len();
+
+    let metric_rows = blocks
+        .iter()
+        .filter(|block| {
+            let schema = analyze_metric_schema(block);
+            schema.has_metric_payload() && schema.numeric_token_hits > 0
+        })
+        .count();
+    if metric_rows == 0 {
+        return None;
+    }
+
+    let total_chars = blocks
+        .iter()
+        .map(|block| block.chars().count())
+        .sum::<usize>();
+    let score = (block_count as isize * 120)
+        + (metric_rows as isize * 180)
+        + ((total_chars.min(800) / 4) as isize);
+    Some(ReadSurfaceCandidate {
+        kind: ReadSurfaceKind::StructuredRecord,
+        blocks,
+        score,
+        primary_signal: block_count,
+        secondary_signal: metric_rows,
+        total_chars,
+    })
+}
+
+fn detail_document_surface_candidate(blocks: Vec<String>) -> Option<ReadSurfaceCandidate> {
+    if blocks.is_empty() {
+        return None;
+    }
+    let (score, strong_blocks, sentence_like_blocks, total_chars) =
+        detail_document_signal_score(&blocks);
+    Some(ReadSurfaceCandidate {
+        kind: ReadSurfaceKind::DetailDocument,
+        blocks,
+        score,
+        primary_signal: strong_blocks,
+        secondary_signal: sentence_like_blocks,
+        total_chars,
+    })
+}
+
+fn best_surface_candidate_for_blocks(blocks: &[String]) -> Option<ReadSurfaceCandidate> {
+    let mut best = None::<ReadSurfaceCandidate>;
+    for candidate in [
+        detail_document_surface_candidate(blocks.to_vec()),
+        structured_record_surface_candidate(blocks.to_vec()),
+        repeating_label_surface_candidate(blocks.to_vec()),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        match best.as_ref() {
+            Some(current) if !candidate.outranks(current) => {}
+            _ => best = Some(candidate),
+        }
+    }
+    best
+}
+
+fn select_best_alternate_surface_candidate(document: &Html) -> Option<ReadSurfaceCandidate> {
+    let Ok(candidate_sel) = Selector::parse("article, main, [role='main'], section, div, body")
+    else {
+        return None;
+    };
+
+    let mut best = None::<ReadSurfaceCandidate>;
+
+    for root in document
+        .select(&candidate_sel)
+        .take(READ_BLOCK_CANDIDATE_LIMIT)
+    {
+        for candidate in [
+            repeating_label_surface_candidate(repeating_label_blocks(root)),
+            structured_record_surface_candidate(structured_record_blocks(root)),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            match best.as_ref() {
+                Some(current) if !candidate.outranks(current) => {}
+                _ => best = Some(candidate),
+            }
+        }
+    }
+
+    best
+}
+
+fn select_best_read_root<'a>(document: &'a Html, block_sel: &Selector) -> Option<ElementRef<'a>> {
+    let candidate_sel = Selector::parse("article, main, [role='main'], section, div, body").ok()?;
+    let mut best_root = None::<ElementRef<'a>>;
+    let mut best_score = isize::MIN;
+    let mut best_strong_blocks = 0usize;
+    let mut best_sentence_like_blocks = 0usize;
+    let mut best_total_chars = 0usize;
+    let mut best_block_count = usize::MAX;
+
+    for root in document
+        .select(&candidate_sel)
+        .take(READ_BLOCK_CANDIDATE_LIMIT)
+    {
+        let blocks = detail_document_blocks(root, block_sel);
+        if blocks.is_empty() {
+            continue;
+        }
+        let (score, strong_blocks, sentence_like_blocks, total_chars) =
+            detail_document_signal_score(&blocks);
+        let (structured_bonus, structured_metric_rows) = read_root_structured_metric_bonus(root);
+        let adjusted_score = score.saturating_add(structured_bonus);
+        let is_better = adjusted_score > best_score
+            || (adjusted_score == best_score
+                && structured_metric_rows > 0
+                && best_strong_blocks == 0)
+            || (adjusted_score == best_score && structured_metric_rows > best_sentence_like_blocks)
+            || (adjusted_score == best_score && strong_blocks > best_strong_blocks)
+            || (adjusted_score == best_score
+                && strong_blocks == best_strong_blocks
+                && sentence_like_blocks > best_sentence_like_blocks)
+            || (adjusted_score == best_score
+                && strong_blocks == best_strong_blocks
+                && sentence_like_blocks == best_sentence_like_blocks
+                && total_chars > best_total_chars)
+            || (adjusted_score == best_score
+                && strong_blocks == best_strong_blocks
+                && sentence_like_blocks == best_sentence_like_blocks
+                && total_chars == best_total_chars
+                && blocks.len() < best_block_count);
+        if !is_better {
+            continue;
+        }
+        best_root = Some(root);
+        best_score = adjusted_score;
+        best_strong_blocks = strong_blocks;
+        best_sentence_like_blocks = sentence_like_blocks;
+        best_total_chars = total_chars;
+        best_block_count = blocks.len();
+    }
+
+    best_root
+}
+
+pub(crate) fn extract_read_blocks_for_url(
+    _read_url: &str,
+    html: &str,
+) -> (Option<String>, Vec<String>) {
     let document = Html::parse_document(html);
 
     let title_sel = Selector::parse("title").ok();
@@ -75,11 +735,22 @@ pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
         .map(|t| compact_ws(&t))
         .and_then(|t| (!t.trim().is_empty()).then(|| t.trim().to_string()));
 
-    let root = Selector::parse("article")
-        .ok()
-        .and_then(|sel| document.select(&sel).next())
+    let Ok(block_sel) = Selector::parse("p, li") else {
+        return (title, vec![]);
+    };
+    let root = select_best_read_root(&document, &block_sel)
+        .or_else(|| {
+            Selector::parse("article")
+                .ok()
+                .and_then(|sel| document.select(&sel).next())
+        })
         .or_else(|| {
             Selector::parse("main")
+                .ok()
+                .and_then(|sel| document.select(&sel).next())
+        })
+        .or_else(|| {
+            Selector::parse("[role='main']")
                 .ok()
                 .and_then(|sel| document.select(&sel).next())
         })
@@ -93,22 +764,7 @@ pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
         return (title, vec![]);
     };
 
-    let Ok(block_sel) = Selector::parse("p, li") else {
-        return (title, vec![]);
-    };
-
-    let mut blocks: Vec<String> = Vec::new();
-    for elem in root.select(&block_sel) {
-        let raw = compact_ws(&text_content(elem));
-        let text = raw.trim();
-        if text.is_empty() {
-            continue;
-        }
-        if looks_like_structured_metadata_noise(text) {
-            continue;
-        }
-        blocks.push(text.to_string());
-    }
+    let mut blocks = detail_document_blocks(root, &block_sel);
 
     let primary_char_count = blocks
         .iter()
@@ -129,6 +785,9 @@ pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
             for elem in root.select(&supplemental_sel) {
                 if blocks.len() >= READ_BLOCK_SUPPLEMENTAL_MAX {
                     break;
+                }
+                if element_contains_hidden_markup(elem) {
+                    continue;
                 }
                 let raw = compact_ws(&text_content(elem));
                 let text = raw.trim();
@@ -152,20 +811,39 @@ pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
         }
     }
 
-    let low_signal_after_supplemental = {
-        let char_count = blocks
+    {
+        let mut seen = blocks
             .iter()
-            .map(|block| block.chars().count())
-            .sum::<usize>();
-        let has_metric_payload = blocks.iter().any(|block| {
-            let schema = analyze_metric_schema(block);
-            schema.has_metric_payload() && schema.numeric_token_hits > 0
-        });
-        blocks.is_empty()
-            || char_count < READ_BLOCK_LOW_SIGNAL_CHAR_THRESHOLD
-            || !has_metric_payload
-    };
-    if low_signal_after_supplemental {
+            .map(|block| block.to_ascii_lowercase())
+            .collect::<HashSet<_>>();
+        for block in structured_record_blocks(root) {
+            if blocks.len() >= READ_BLOCK_SUPPLEMENTAL_MAX {
+                break;
+            }
+            if seen.insert(block.to_ascii_lowercase()) {
+                blocks.push(block);
+            }
+        }
+    }
+
+    let mut current_surface = best_surface_candidate_for_blocks(&blocks);
+    if let Some(alternate_surface) = select_best_alternate_surface_candidate(&document) {
+        let alternate_outranks_current = current_surface
+            .as_ref()
+            .map(|candidate| alternate_surface.outranks(candidate))
+            .unwrap_or(true);
+        if alternate_outranks_current {
+            blocks = alternate_surface.blocks.clone();
+            current_surface = Some(alternate_surface);
+        }
+    }
+
+    let low_signal_after_surface_selection = current_surface
+        .as_ref()
+        .map(|candidate| !candidate.has_minimum_signal())
+        .unwrap_or(true);
+
+    if low_signal_after_surface_selection {
         let mut seen = blocks
             .iter()
             .map(|block| block.to_ascii_lowercase())
@@ -183,10 +861,17 @@ pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
     (title, blocks)
 }
 
+pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
+    extract_read_blocks_for_url("", html)
+}
+
 pub(crate) fn extract_non_html_read_blocks(raw: &str) -> Vec<String> {
     let compact = compact_ws(raw);
     let trimmed = compact.trim();
     if trimmed.is_empty() {
+        return Vec::new();
+    }
+    if looks_like_executable_script_noise(trimmed) || looks_like_inline_markup_noise(trimmed) {
         return Vec::new();
     }
     if trimmed.starts_with('<') && trimmed.contains('>') {
@@ -225,7 +910,10 @@ pub(crate) fn extract_non_html_read_blocks(raw: &str) -> Vec<String> {
 }
 
 fn structured_metric_window_score(segment: &str) -> usize {
-    if looks_like_structured_metadata_noise(segment) {
+    if looks_like_structured_metadata_noise(segment)
+        || looks_like_executable_script_noise(segment)
+        || looks_like_inline_markup_noise(segment)
+    {
         return 0;
     }
     let schema = analyze_metric_schema(segment);
@@ -353,6 +1041,7 @@ pub async fn edge_web_read(
     browser: &BrowserDriver,
     url: &str,
     max_chars: Option<u32>,
+    allow_browser_fallback: bool,
 ) -> Result<WebEvidenceBundle> {
     let requested_url = url.trim();
     if requested_url.is_empty() {
@@ -388,6 +1077,13 @@ pub async fn edge_web_read(
                     }
                     Err(structured_err) => {
                         retrieval_notes.push(format!("structured_http_error={}", structured_err));
+                        if !allow_browser_fallback {
+                            return Err(anyhow!(
+                                "ERROR_CLASS=UnexpectedState web retrieval failed for {}. strict_http_only=true fallback={}",
+                                read_url,
+                                retrieval_notes.join("; ")
+                            ));
+                        }
                         let browser_html = navigate_browser_retrieval(browser, read_url)
                             .await
                             .map_err(|browser_err| {
@@ -403,6 +1099,13 @@ pub async fn edge_web_read(
                     }
                 }
             } else {
+                if !allow_browser_fallback {
+                    return Err(anyhow!(
+                        "ERROR_CLASS=UnexpectedState web retrieval failed for {}. strict_http_only=true fallback={}",
+                        read_url,
+                        retrieval_notes.join("; ")
+                    ));
+                }
                 let browser_html = navigate_browser_retrieval(browser, read_url)
                     .await
                     .map_err(|browser_err| {
@@ -421,7 +1124,7 @@ pub async fn edge_web_read(
 
     let mut resolved_html = initial_html;
     let mut challenge_reason = detect_human_challenge(read_url, &resolved_html);
-    let (mut title, mut blocks) = extract_read_blocks(&resolved_html);
+    let (mut title, mut blocks) = extract_read_blocks_for_url(read_url, &resolved_html);
     if blocks.is_empty() {
         let fallback_blocks = extract_non_html_read_blocks(&resolved_html);
         if !fallback_blocks.is_empty() {
@@ -435,11 +1138,12 @@ pub async fn edge_web_read(
             .map(|block| block.chars().count())
             .sum::<usize>()
             < READ_BLOCK_LOW_SIGNAL_CHAR_THRESHOLD;
-    if challenge_reason.is_some() || low_signal_blocks {
+    if allow_browser_fallback && (challenge_reason.is_some() || low_signal_blocks) {
         match navigate_browser_retrieval(browser, read_url).await {
             Ok(browser_html) => {
                 let browser_challenge = detect_human_challenge(read_url, &browser_html);
-                let (browser_title, browser_blocks) = extract_read_blocks(&browser_html);
+                let (browser_title, browser_blocks) =
+                    extract_read_blocks_for_url(read_url, &browser_html);
                 if browser_challenge.is_none() && !browser_blocks.is_empty() {
                     challenge_reason = None;
                     title = browser_title;
@@ -460,6 +1164,13 @@ pub async fn edge_web_read(
             }
             Err(err) => retrieval_notes.push(format!("browser_probe_error={}", err)),
         }
+    } else if low_signal_blocks {
+        retrieval_notes.push("browser_fallback_suppressed=true".to_string());
+        return Err(anyhow!(
+            "ERROR_CLASS=LowSignalReadInsufficient low-signal content without browser fallback for {}. {}",
+            read_url,
+            retrieval_notes.join("; ")
+        ));
     }
 
     if let Some(reason) = challenge_reason {
@@ -493,7 +1204,7 @@ pub async fn edge_web_read(
         .iter()
         .map(|source| normalize_url_for_id(&source.url))
         .collect::<HashSet<_>>();
-    for extracted in parse_local_business_directory_item_list_sources_from_html(
+    for extracted in parse_json_ld_item_list_sources_from_html(
         read_url,
         &resolved_html,
         READ_BLOCK_SUPPLEMENTAL_MAX,
@@ -503,7 +1214,7 @@ pub async fn edge_web_read(
             sources.push(extracted);
         }
     }
-    for extracted in parse_local_business_directory_category_sources_from_html(
+    for extracted in parse_same_host_child_collection_sources_from_html(
         read_url,
         &resolved_html,
         READ_BLOCK_SUPPLEMENTAL_MAX,

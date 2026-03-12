@@ -51,13 +51,14 @@ use tokio::sync::broadcast;
 use zip::ZipArchive;
 
 use super::types::{
-    cec_receipt_bool, cec_receipt_usize, cec_receipt_value, cec_receipt_values,
+    cec_receipt_bool, cec_receipt_latest_values, cec_receipt_usize, cec_receipt_value,
     has_policy_decision, has_verification_pair, observation_has_any_tool_name,
     observation_has_tool_name, parse_verification_fact, parse_verification_facts, ActionEvidence,
     CecReceiptEvidence, CommandHistoryEvidence, EnvironmentReceiptObservation,
     GoogleCalendarPayloadObservation, GoogleGmailPayloadObservation, GoogleObservation,
-    MailObservation, MailReadLatestPayloadObservation, MailReplyPayloadObservation,
-    PlannedToolCallEvidence, QueryCase, RunObservation, ScreenshotObservation, WebObservation,
+    IntentResolutionEvidence, MailObservation, MailReadLatestPayloadObservation,
+    MailReplyPayloadObservation, PlannedToolCallEvidence, QueryCase, RunObservation,
+    ScreenshotObservation, WebObservation,
 };
 
 include!("harness/gui_mock.rs");
@@ -219,6 +220,14 @@ const RESTAURANTS_NEAR_ME_FIXTURE_MODE: &str = "runtime_locality_observation_fix
 const RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE: &str = "harness.restaurants_near_me_fixture";
 const RESTAURANTS_NEAR_ME_FIXTURE_DIR_PREFIX: &str = "ioi_restaurants_near_me_";
 const RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY: &str = "IOI_SESSION_LOCALITY";
+const LATEST_NIST_PQC_BRIEFING_CASE_ID: &str =
+    "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing";
+const LATEST_NIST_PQC_BRIEFING_UNSEEDED_CASE_ID: &str =
+    "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing_unseeded";
+const LATEST_NIST_PQC_BRIEFING_FIXTURE_MODE: &str = "latest_nist_pqc_briefing_fixture_v1";
+const LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE: &str =
+    "harness.latest_nist_pqc_briefing_fixture";
+const LATEST_NIST_PQC_BRIEFING_FIXTURE_DIR_PREFIX: &str = "ioi_latest_nist_pqc_briefing_";
 
 include!("harness/mail_runtime.rs");
 
@@ -414,6 +423,12 @@ struct ProviderCandidateReceiptPayload {
     source_count: u32,
     selected: bool,
     success: bool,
+    #[serde(default)]
+    execution_attempted: Option<bool>,
+    #[serde(default)]
+    execution_satisfied: Option<bool>,
+    #[serde(default)]
+    execution_failure_reason: Option<String>,
     request_url: Option<String>,
     challenge_reason: Option<String>,
     #[serde(default)]
@@ -438,6 +453,9 @@ fn derive_provider_candidates(
             source_count: payload.source_count as usize,
             selected: payload.selected,
             success: payload.success,
+            execution_attempted: payload.execution_attempted,
+            execution_satisfied: payload.execution_satisfied,
+            execution_failure_reason: payload.execution_failure_reason,
             request_url: payload.request_url,
             challenge_reason: payload.challenge_reason,
             affordances: payload.affordances,
@@ -530,7 +548,7 @@ fn derive_web_observation(observation: &RunObservation) -> Option<WebObservation
     );
     let semantic_subject_alignment_floor_met =
         typed_receipt_state(observation, "discovery", "semantic_subject_alignment_floor");
-    let semantic_subject_alignment_urls = collect_unique_urls(cec_receipt_values(
+    let semantic_subject_alignment_urls = collect_unique_urls(cec_receipt_latest_values(
         observation,
         "discovery",
         "semantic_subject_alignment_url",
@@ -545,12 +563,12 @@ fn derive_web_observation(observation: &RunObservation) -> Option<WebObservation
         "verification",
         "selected_source_subject_alignment_floor",
     );
-    let selected_source_urls = collect_unique_urls(cec_receipt_values(
+    let selected_source_urls = collect_unique_urls(cec_receipt_latest_values(
         observation,
         "verification",
         "selected_source_url",
     ));
-    let selected_source_subject_alignment_urls = collect_unique_urls(cec_receipt_values(
+    let selected_source_subject_alignment_urls = collect_unique_urls(cec_receipt_latest_values(
         observation,
         "verification",
         "selected_source_subject_alignment_url",
@@ -564,15 +582,46 @@ fn derive_web_observation(observation: &RunObservation) -> Option<WebObservation
     );
     let local_business_entity_floor_met =
         typed_receipt_state(observation, "verification", "local_business_entity_floor");
-    let local_business_entity_names = collect_unique_names(cec_receipt_values(
+    let local_business_entity_anchor_floor_met = typed_receipt_state(
+        observation,
+        "verification",
+        "local_business_entity_anchor_floor",
+    );
+    let local_business_entity_names = collect_unique_names(cec_receipt_latest_values(
         observation,
         "verification",
         "local_business_entity_name",
     ));
-    let local_business_entity_source_urls = collect_unique_urls(cec_receipt_values(
+    let local_business_entity_source_urls = collect_unique_urls(cec_receipt_latest_values(
         observation,
         "verification",
         "local_business_entity_source_url",
+    ));
+    let local_business_entity_anchor_source_urls = collect_unique_urls(cec_receipt_latest_values(
+        observation,
+        "verification",
+        "local_business_entity_anchor_source_url",
+    ));
+    let local_business_entity_anchor_mismatched_urls =
+        collect_unique_urls(cec_receipt_latest_values(
+            observation,
+            "verification",
+            "local_business_entity_anchor_mismatched_url",
+        ));
+    let local_business_menu_inventory_floor_met = typed_receipt_state(
+        observation,
+        "verification",
+        "local_business_menu_inventory_floor",
+    );
+    let local_business_menu_inventory_total_item_count = cec_receipt_usize(
+        observation,
+        "verification",
+        "local_business_menu_inventory_total_item_count",
+    );
+    let local_business_menu_inventory_source_urls = collect_unique_urls(cec_receipt_latest_values(
+        observation,
+        "verification",
+        "local_business_menu_inventory_source_url",
     ));
     let story_slots_observed =
         cec_receipt_usize(observation, "verification", "story_slots_observed");
@@ -601,6 +650,9 @@ fn derive_web_observation(observation: &RunObservation) -> Option<WebObservation
         || !semantic_subject_alignment_urls.is_empty()
         || !provider_candidates.is_empty()
         || !local_business_entity_names.is_empty()
+        || !local_business_entity_anchor_source_urls.is_empty()
+        || !local_business_entity_anchor_mismatched_urls.is_empty()
+        || local_business_menu_inventory_floor_met.is_some()
         || story_slots_observed.is_some()
         || observation_has_any_tool_name(observation, &["web__search", "web__read"]);
     if !evidence_present {
@@ -628,8 +680,14 @@ fn derive_web_observation(observation: &RunObservation) -> Option<WebObservation
         selected_source_urls,
         selected_source_subject_alignment_urls,
         local_business_entity_floor_met,
+        local_business_entity_anchor_floor_met,
         local_business_entity_names,
         local_business_entity_source_urls,
+        local_business_entity_anchor_source_urls,
+        local_business_entity_anchor_mismatched_urls,
+        local_business_menu_inventory_floor_met,
+        local_business_menu_inventory_total_item_count,
+        local_business_menu_inventory_source_urls,
         story_slots_observed,
         story_slot_floor_met,
         story_citation_floor_met,

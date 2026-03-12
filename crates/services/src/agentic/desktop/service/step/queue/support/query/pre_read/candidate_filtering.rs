@@ -16,6 +16,62 @@ pub(crate) fn projection_candidate_url_allowed(raw: &str) -> bool {
         && looks_like_deep_article_url(trimmed)
 }
 
+fn grounded_document_briefing_authority_direct_citation_allowed_with_contract_and_projection(
+    retrieval_contract: Option<&WebRetrievalContract>,
+    query_contract: &str,
+    projection: &QueryConstraintProjection,
+    raw: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    if !query_prefers_document_briefing_layout(query_contract)
+        || query_requests_comparison(query_contract)
+        || !analyze_query_facets(query_contract).grounded_external_required
+        || !retrieval_contract
+            .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
+            .unwrap_or(false)
+    {
+        return false;
+    }
+
+    let trimmed = raw.trim();
+    if trimmed.is_empty()
+        || !is_citable_web_url(trimmed)
+        || is_search_hub_url(trimmed)
+        || title.trim().is_empty() && excerpt.trim().is_empty()
+    {
+        return false;
+    }
+    if projection_candidate_listing_disallowed_with_contract_and_projection(
+        retrieval_contract,
+        query_contract,
+        projection,
+        trimmed,
+        title,
+        excerpt,
+    ) || source_has_human_challenge_signal(trimmed, title, excerpt)
+    {
+        return false;
+    }
+
+    if !source_has_document_authority(query_contract, trimmed, title, excerpt) {
+        return false;
+    }
+
+    let compatibility = candidate_constraint_compatibility(
+        &projection.constraints,
+        &projection.query_facets,
+        &projection.query_native_tokens,
+        &projection.query_tokens,
+        &projection.locality_tokens,
+        projection.locality_scope.is_some(),
+        trimmed,
+        title,
+        excerpt,
+    );
+    compatibility_passes_projection(projection, &compatibility)
+}
+
 fn single_snapshot_metric_detail_candidate_allowed_with_contract_and_projection(
     retrieval_contract: Option<&WebRetrievalContract>,
     query_contract: &str,
@@ -291,6 +347,15 @@ fn grounded_direct_citation_source_allowed_with_contract_and_projection(
         return false;
     }
 
+    if retrieval_contract_requires_document_briefing_identifier_evidence(
+        retrieval_contract,
+        query_contract,
+    ) && !source_has_briefing_standard_identifier_signal(query_contract, trimmed, title, excerpt)
+        && !source_has_document_authority(query_contract, trimmed, title, excerpt)
+    {
+        return false;
+    }
+
     if retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, query_contract)
         && !candidate_time_sensitive_resolvable_payload(trimmed, title, excerpt)
     {
@@ -508,7 +573,16 @@ pub(crate) fn retrieval_affordances_with_contract_and_locality_hint(
         raw,
         title,
         excerpt,
-    ) {
+    )
+        || grounded_document_briefing_authority_direct_citation_allowed_with_contract_and_projection(
+            retrieval_contract,
+            query_contract,
+            &projection,
+            raw,
+            title,
+            excerpt,
+        )
+    {
         affordances.push(RetrievalAffordanceKind::DirectCitationRead);
     }
     if retrieval_contract_entity_diversity_required(retrieval_contract, query_contract)
@@ -637,4 +711,45 @@ pub(crate) fn projection_candidate_listing_disallowed_with_projection(
         title,
         excerpt,
     )
+}
+
+#[cfg(test)]
+mod candidate_filtering_tests {
+    use super::*;
+
+    #[test]
+    fn document_briefing_direct_citation_rejects_non_authority_source_without_identifier_signal() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        let projection = build_query_constraint_projection(query, 2, &[]);
+
+        assert!(!projection_candidate_url_allowed_with_contract_and_projection(
+            Some(&contract),
+            query,
+            &projection,
+            "https://www.ibm.com/think/insights/post-quantum-cryptography-transition",
+            "Post-quantum cryptography transition guidance",
+            "March 2026 - IBM explains recent NIST post-quantum cryptography transition planning for enterprises."
+        ));
+    }
+
+    #[test]
+    fn document_briefing_direct_citation_allows_authority_overview_without_identifier_signal() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        let projection = build_query_constraint_projection(query, 2, &[]);
+
+        assert!(projection_candidate_url_allowed_with_contract_and_projection(
+            Some(&contract),
+            query,
+            &projection,
+            "https://www.nist.gov/pqc",
+            "Post-quantum cryptography | NIST",
+            "March 2026 - NIST provides post-quantum cryptography migration guidance for federal systems."
+        ));
+    }
 }

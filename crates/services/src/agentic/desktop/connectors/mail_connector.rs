@@ -13,7 +13,7 @@ use ioi_types::codec;
 use std::collections::BTreeSet;
 
 const MAIL_CONNECTOR_PREFIX: &[u8] = b"mail_connector::";
-const MAIL_CONNECTOR_ID: &str = "wallet_network.mail";
+pub const MAIL_CONNECTOR_ID: &str = "wallet_network.mail";
 const MAIL_PROVIDER_FAMILY: &str = "mail.wallet_network";
 const MAIL_ROUTE_LABEL: &str = "mail_connector";
 

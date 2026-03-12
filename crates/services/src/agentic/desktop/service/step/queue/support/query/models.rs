@@ -90,6 +90,13 @@ pub(crate) struct RankedAcquisitionCandidate {
     pub(crate) time_sensitive_resolvable_payload: bool,
     pub(crate) compatibility: CandidateConstraintCompatibility,
     pub(crate) source_relevance_score: usize,
+    pub(crate) official_status_host_hits: usize,
+    pub(crate) primary_status_surface_hits: usize,
+    pub(crate) document_authority_score: usize,
+    pub(crate) observed_identifier_label_count: usize,
+    pub(crate) required_identifier_label_count: usize,
+    pub(crate) optional_identifier_label_count: usize,
+    pub(crate) query_grounding_signal: bool,
     pub(crate) headline_low_quality: bool,
     pub(crate) headline_actionable: bool,
 }

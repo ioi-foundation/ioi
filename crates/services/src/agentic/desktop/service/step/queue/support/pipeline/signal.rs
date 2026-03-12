@@ -1,5 +1,189 @@
 use super::*;
 
+const DOCUMENT_AUTHORITY_GENERIC_QUERY_TOKENS: &[&str] = &[
+    "latest",
+    "current",
+    "today",
+    "briefing",
+    "overview",
+    "summary",
+    "report",
+    "reports",
+    "news",
+    "update",
+    "updates",
+    "research",
+    "write",
+    "page",
+    "pages",
+    "official",
+    "public",
+    "standard",
+    "standards",
+    "spec",
+    "specs",
+    "specification",
+    "specifications",
+    "guidance",
+    "guideline",
+    "guidelines",
+    "framework",
+    "frameworks",
+    "policy",
+    "policies",
+    "program",
+    "programs",
+    "project",
+    "projects",
+    "publication",
+    "publications",
+    "announcement",
+    "announcements",
+    "release",
+    "releases",
+    "transition",
+    "migration",
+    "security",
+    "cryptography",
+    "encryption",
+    "quantum",
+    "post",
+];
+
+const DOCUMENT_AUTHORITY_SURFACE_MARKERS: &[&str] = &[
+    " standard ",
+    " standards ",
+    " spec ",
+    " specs ",
+    " specification ",
+    " specifications ",
+    " guidance ",
+    " guideline ",
+    " guidelines ",
+    " framework ",
+    " frameworks ",
+    " policy ",
+    " policies ",
+    " publication ",
+    " publications ",
+    " announcement ",
+    " announcements ",
+    " release ",
+    " releases ",
+    " bulletin ",
+    " program ",
+    " programs ",
+    " project ",
+    " projects ",
+    " migration ",
+    " transition ",
+    " faq ",
+    " reference ",
+    " references ",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CanonicalIdentifierGroup {
+    pub(crate) key: &'static str,
+    pub(crate) primary_label: &'static str,
+    pub(crate) required: bool,
+    pub(crate) needles: &'static [&'static str],
+}
+
+pub(crate) fn briefing_standard_identifier_groups_for_query(
+    _query_contract: &str,
+) -> &'static [CanonicalIdentifierGroup] {
+    // Subject-specific identifier expansion is intentionally disabled until it can be
+    // derived from generic discovery signals rather than query-class heuristics.
+    &[]
+}
+
+pub(crate) fn briefing_standard_identifier_group_floor(query_contract: &str) -> usize {
+    briefing_standard_identifier_groups_for_query(query_contract)
+        .iter()
+        .filter(|group| group.required)
+        .count()
+}
+
+fn normalized_identifier_surface(surface: &str) -> String {
+    let mut out = String::new();
+    let mut prev_space = true;
+    for ch in surface.chars() {
+        let normalized = if ch.is_ascii_alphanumeric() {
+            ch.to_ascii_lowercase()
+        } else {
+            ' '
+        };
+        if normalized == ' ' {
+            if !prev_space {
+                out.push(' ');
+            }
+            prev_space = true;
+            continue;
+        }
+        out.push(normalized);
+        prev_space = false;
+    }
+    out.trim().to_string()
+}
+
+fn normalized_identifier_needle(needle: &str) -> String {
+    normalized_identifier_surface(needle)
+}
+
+pub(crate) fn observed_briefing_standard_identifier_groups(
+    query_contract: &str,
+    surface: &str,
+) -> Vec<CanonicalIdentifierGroup> {
+    let normalized_surface = normalized_identifier_surface(surface);
+    if normalized_surface.is_empty() {
+        return Vec::new();
+    }
+    briefing_standard_identifier_groups_for_query(query_contract)
+        .iter()
+        .copied()
+        .filter(|group| {
+            group.needles.iter().any(|needle| {
+                let normalized_needle = normalized_identifier_needle(needle);
+                !normalized_needle.is_empty() && normalized_surface.contains(&normalized_needle)
+            })
+        })
+        .collect()
+}
+
+pub(crate) fn observed_briefing_standard_identifier_labels(
+    query_contract: &str,
+    surface: &str,
+) -> Vec<String> {
+    observed_briefing_standard_identifier_groups(query_contract, surface)
+        .into_iter()
+        .map(|group| group.primary_label.to_string())
+        .collect()
+}
+
+pub(crate) fn source_briefing_standard_identifier_labels(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> BTreeSet<String> {
+    observed_briefing_standard_identifier_labels(
+        query_contract,
+        &format!("{} {} {}", url, title, excerpt),
+    )
+    .into_iter()
+    .collect()
+}
+
+pub(crate) fn source_has_briefing_standard_identifier_signal(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    !source_briefing_standard_identifier_labels(query_contract, url, title, excerpt).is_empty()
+}
+
 pub(crate) fn compact_excerpt(input: &str, max_chars: usize) -> String {
     compact_whitespace(input)
         .chars()
@@ -14,10 +198,26 @@ pub(crate) fn looks_like_structured_metadata_noise(input: &str) -> bool {
         return false;
     }
     let lower = trimmed.to_ascii_lowercase();
-    if ["cookie':'", "cookie\":\"", "set-cookie", "cf_clearance"]
-        .iter()
-        .any(|marker| lower.contains(marker))
+    if [
+        "cookie':'",
+        "cookie\":\"",
+        "set-cookie",
+        "cf_clearance",
+        "source_url=",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
     {
+        return true;
+    }
+    let script_or_asset_noise = lower.contains("srcset=")
+        || lower.contains("[^1]:")
+        || (lower.contains("function")
+            && (lower.contains("return function")
+                || lower.contains("{c()[")
+                || lower.contains("}function ")))
+        || (lower.contains(" alt=") && lower.contains(" width=") && lower.contains(" height="));
+    if script_or_asset_noise {
         return true;
     }
     let marker_hits = [
@@ -77,6 +277,142 @@ pub(crate) fn prioritized_signal_excerpt(input: &str, max_chars: usize) -> Strin
     compact.chars().take(max_chars).collect()
 }
 
+fn prioritized_standard_identifier_excerpt(
+    query_contract: &str,
+    input: &str,
+    max_chars: usize,
+) -> String {
+    if briefing_standard_identifier_group_floor(query_contract) == 0 {
+        return String::new();
+    }
+    let compact = compact_whitespace(input);
+    if compact.is_empty() || looks_like_structured_metadata_noise(&compact) {
+        return String::new();
+    }
+
+    #[derive(Clone)]
+    struct IdentifierSegment {
+        text: String,
+        required_labels: BTreeSet<String>,
+        total_hits: usize,
+        authority_marker_hits: usize,
+    }
+
+    let required_labels = briefing_standard_identifier_groups_for_query(query_contract)
+        .iter()
+        .filter(|group| group.required)
+        .map(|group| group.primary_label.to_string())
+        .collect::<BTreeSet<_>>();
+    let required_floor = required_labels.len();
+    let mut segments = compact
+        .split(['.', '!', '?', ';', '\n'])
+        .map(str::trim)
+        .filter(|segment| !segment.is_empty())
+        .filter_map(|segment| {
+            let observed_groups =
+                observed_briefing_standard_identifier_groups(query_contract, segment);
+            if observed_groups.is_empty() {
+                return None;
+            }
+            let candidate = compact_whitespace(segment);
+            if candidate.is_empty() {
+                return None;
+            }
+            Some(IdentifierSegment {
+                text: candidate,
+                required_labels: observed_groups
+                    .iter()
+                    .filter(|group| group.required)
+                    .map(|group| group.primary_label.to_string())
+                    .collect(),
+                total_hits: observed_groups.len(),
+                authority_marker_hits: usize::from(
+                    segment
+                        .to_ascii_lowercase()
+                        .contains("federal information processing standards"),
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+    segments.sort_by(|left, right| {
+        (
+            right.required_labels.len(),
+            right.total_hits,
+            right.authority_marker_hits,
+            usize::MAX.saturating_sub(right.text.len()),
+        )
+            .cmp(&(
+                left.required_labels.len(),
+                left.total_hits,
+                left.authority_marker_hits,
+                usize::MAX.saturating_sub(left.text.len()),
+            ))
+    });
+
+    let Some(best_segment) = segments.first().cloned() else {
+        return String::new();
+    };
+    let anchored_identifier_excerpt = |segment: &str| {
+        let lower = segment.to_ascii_lowercase();
+        let anchor = observed_briefing_standard_identifier_groups(query_contract, segment)
+            .into_iter()
+            .flat_map(|group| group.needles.iter().copied())
+            .filter_map(|needle| lower.find(needle))
+            .min();
+        let Some(anchor) = anchor else {
+            return segment.chars().take(max_chars).collect::<String>();
+        };
+        let start = segment[..anchor]
+            .rfind(|ch: char| matches!(ch, '.' | '!' | '?' | ';' | '\n'))
+            .map(|idx| idx + 1)
+            .or_else(|| {
+                segment[..anchor]
+                    .rfind(char::is_whitespace)
+                    .map(|idx| idx + 1)
+            })
+            .unwrap_or(0);
+        segment[start..].trim().chars().take(max_chars).collect()
+    };
+    if best_segment.required_labels.len() >= required_floor.max(1) {
+        return anchored_identifier_excerpt(&best_segment.text);
+    }
+
+    let mut selected_segments = Vec::new();
+    let mut covered_required_labels = BTreeSet::new();
+    let mut total_len = 0usize;
+    for segment in &segments {
+        let adds_required_label = segment
+            .required_labels
+            .iter()
+            .any(|label| !covered_required_labels.contains(label));
+        if !selected_segments.is_empty() && !adds_required_label {
+            continue;
+        }
+        let projected_len = if selected_segments.is_empty() {
+            segment.text.len()
+        } else {
+            total_len + 2 + segment.text.len()
+        };
+        if !selected_segments.is_empty() && projected_len > max_chars {
+            continue;
+        }
+        selected_segments.push(segment.text.clone());
+        total_len = projected_len;
+        covered_required_labels.extend(segment.required_labels.iter().cloned());
+        if covered_required_labels.len() >= required_floor.max(1) {
+            break;
+        }
+    }
+
+    if covered_required_labels.len() > best_segment.required_labels.len()
+        && !selected_segments.is_empty()
+    {
+        return anchored_identifier_excerpt(&selected_segments.join(". "));
+    }
+
+    anchored_identifier_excerpt(&best_segment.text)
+}
+
 pub(crate) fn prioritized_query_grounding_excerpt(
     query_contract: &str,
     min_sources: usize,
@@ -105,6 +441,34 @@ pub(crate) fn prioritized_query_grounding_excerpt_with_contract(
     input: &str,
     max_chars: usize,
 ) -> String {
+    let locality_hint = explicit_query_scope_hint(query_contract);
+    if local_business_menu_surface_url(url)
+        && query_requires_local_business_menu_surface(
+            query_contract,
+            retrieval_contract,
+            locality_hint.as_deref(),
+        )
+    {
+        if let Some(inventory_excerpt) = local_business_menu_inventory_excerpt(input, max_chars) {
+            return inventory_excerpt;
+        }
+    }
+
+    let prioritized_standard_identifier_excerpt =
+        prioritized_standard_identifier_excerpt(query_contract, input, max_chars);
+    if !prioritized_standard_identifier_excerpt.is_empty()
+        && excerpt_has_query_grounding_signal_with_contract(
+            retrieval_contract,
+            query_contract,
+            min_sources,
+            url,
+            title,
+            &prioritized_standard_identifier_excerpt,
+        )
+    {
+        return prioritized_standard_identifier_excerpt;
+    }
+
     let prioritized = prioritized_signal_excerpt(input, max_chars);
     if !prioritized.is_empty()
         && excerpt_has_query_grounding_signal_with_contract(
@@ -138,11 +502,21 @@ pub(crate) fn prioritized_query_grounding_excerpt_with_contract(
 
 pub(crate) fn source_has_human_challenge_signal(url: &str, title: &str, excerpt: &str) -> bool {
     let surface = format!("{} {} {}", url, title, excerpt).to_ascii_lowercase();
+    let title_lc = title.trim().to_ascii_lowercase();
+    if matches!(
+        title_lc.as_str(),
+        "vercel security checkpoint" | "security checkpoint"
+    ) {
+        return true;
+    }
     [
         "please enable js",
         "please enable javascript",
         "enable javascript",
         "verify you are human",
+        "complete the security check",
+        "checking if the site connection is secure",
+        "checking your browser before accessing",
         "access denied",
         "captcha",
         "recaptcha",
@@ -190,6 +564,225 @@ pub(crate) fn source_evidence_signals(source: &PendingSearchReadSummary) -> Sour
 
 pub(crate) fn has_primary_status_authority(signals: SourceSignalProfile) -> bool {
     signals.official_status_host_hits > 0 || signals.primary_status_surface_hits > 0
+}
+
+fn document_authority_query_tokens(query_contract: &str) -> BTreeSet<String> {
+    query_native_anchor_tokens(query_contract)
+        .into_iter()
+        .filter(|token| token.len() >= 4)
+        .filter(|token| !DOCUMENT_AUTHORITY_GENERIC_QUERY_TOKENS.contains(&token.as_str()))
+        .collect()
+}
+
+fn document_authority_host_tokens(url: &str) -> BTreeSet<String> {
+    source_host(url)
+        .into_iter()
+        .flat_map(|host| {
+            host.split(|ch: char| !ch.is_ascii_alphanumeric())
+                .filter_map(|token| {
+                    let normalized = token.trim().to_ascii_lowercase();
+                    if normalized.len() < 3 {
+                        return None;
+                    }
+                    if matches!(
+                        normalized.as_str(),
+                        "www" | "com" | "net" | "org" | "gov" | "edu" | "mil" | "int" | "co"
+                    ) {
+                        return None;
+                    }
+                    Some(normalized)
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn source_has_public_authority_host(url: &str) -> bool {
+    let Some(host) = source_host(url) else {
+        return false;
+    };
+    host == "gov"
+        || host.ends_with(".gov")
+        || host.contains(".gov.")
+        || host == "mil"
+        || host.ends_with(".mil")
+        || host.contains(".mil.")
+        || host == "int"
+        || host.ends_with(".int")
+        || host.contains(".int.")
+}
+
+fn source_document_authority_surface_hits(url: &str, title: &str, excerpt: &str) -> usize {
+    let surface = format!("{} {} {}", url, title, excerpt)
+        .to_ascii_lowercase()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+        .collect::<String>();
+    DOCUMENT_AUTHORITY_SURFACE_MARKERS
+        .iter()
+        .filter(|marker| surface.contains(**marker))
+        .count()
+}
+
+fn source_authority_override_for_low_priority_dominance(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+    signals: SourceSignalProfile,
+) -> bool {
+    if !source_has_public_authority_host(url) {
+        return false;
+    }
+    if has_primary_status_authority(signals) {
+        return true;
+    }
+    if source_document_authority_surface_hits(url, title, excerpt) > 0 {
+        return true;
+    }
+    !observed_briefing_standard_identifier_labels(
+        query_contract,
+        &format!("{} {} {}", url, title, excerpt),
+    )
+    .is_empty()
+}
+
+fn source_low_priority_disqualifies_document_authority(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+    signals: SourceSignalProfile,
+) -> bool {
+    signals.low_priority_hits > 0
+        || (signals.low_priority_dominates()
+            && !source_authority_override_for_low_priority_dominance(
+                query_contract,
+                url,
+                title,
+                excerpt,
+                signals,
+            ))
+}
+
+fn source_requires_identifier_backed_document_authority(query_contract: &str) -> bool {
+    query_prefers_document_briefing_layout(query_contract)
+        && !query_requests_comparison(query_contract)
+        && analyze_query_facets(query_contract).grounded_external_required
+        && briefing_standard_identifier_group_floor(query_contract) > 0
+}
+
+fn source_has_identifier_backed_document_authority_evidence(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    source_has_briefing_standard_identifier_signal(query_contract, url, title, excerpt)
+}
+
+pub(crate) fn source_document_authority_score(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> usize {
+    if source_has_human_challenge_signal(url, title, excerpt) {
+        return 0;
+    }
+    let signals = analyze_source_record_signals(url, title, excerpt);
+    if source_low_priority_disqualifies_document_authority(
+        query_contract,
+        url,
+        title,
+        excerpt,
+        signals,
+    ) {
+        return 0;
+    }
+    if source_requires_identifier_backed_document_authority(query_contract)
+        && !source_has_identifier_backed_document_authority_evidence(
+            query_contract,
+            url,
+            title,
+            excerpt,
+        )
+    {
+        return 0;
+    }
+
+    let query_tokens = document_authority_query_tokens(query_contract);
+    let host_tokens = document_authority_host_tokens(url);
+    let title_tokens = normalized_anchor_tokens(title);
+    let host_overlap = query_tokens.intersection(&host_tokens).count();
+    let title_overlap = query_tokens.intersection(&title_tokens).count();
+    let public_authority_host = usize::from(source_has_public_authority_host(url));
+    let surface_hits = source_document_authority_surface_hits(url, title, excerpt).min(6);
+    let primary_status_authority = usize::from(has_primary_status_authority(signals));
+
+    host_overlap.saturating_mul(8)
+        + title_overlap.saturating_mul(2)
+        + public_authority_host.saturating_mul(6)
+        + surface_hits.saturating_mul(2)
+        + primary_status_authority.saturating_mul(4)
+        + signals.provenance_hits.min(2)
+}
+
+pub(crate) fn source_has_document_authority(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    if source_has_human_challenge_signal(url, title, excerpt) {
+        return false;
+    }
+    let signals = analyze_source_record_signals(url, title, excerpt);
+    if source_low_priority_disqualifies_document_authority(
+        query_contract,
+        url,
+        title,
+        excerpt,
+        signals,
+    ) {
+        return false;
+    }
+    if source_requires_identifier_backed_document_authority(query_contract)
+        && !source_has_identifier_backed_document_authority_evidence(
+            query_contract,
+            url,
+            title,
+            excerpt,
+        )
+    {
+        return false;
+    }
+    if has_primary_status_authority(signals) {
+        return true;
+    }
+
+    let query_tokens = document_authority_query_tokens(query_contract);
+    let host_tokens = document_authority_host_tokens(url);
+    let title_tokens = normalized_anchor_tokens(title);
+    let host_overlap = query_tokens.intersection(&host_tokens).count();
+    let title_overlap = query_tokens.intersection(&title_tokens).count();
+    let public_authority_host = source_has_public_authority_host(url);
+    let surface_hits = source_document_authority_surface_hits(url, title, excerpt);
+
+    (host_overlap > 0 && (public_authority_host || surface_hits > 0 || title_overlap > 0))
+        || (public_authority_host && surface_hits > 0)
+}
+
+pub(crate) fn is_document_authority_source(
+    query_contract: &str,
+    source: &PendingSearchReadSummary,
+) -> bool {
+    source_has_document_authority(
+        query_contract,
+        &source.url,
+        source.title.as_deref().unwrap_or_default(),
+        &source.excerpt,
+    )
 }
 
 pub(crate) fn is_low_priority_coverage_story(source: &PendingSearchReadSummary) -> bool {
@@ -664,6 +1257,15 @@ mod tests {
     }
 
     #[test]
+    fn source_human_challenge_signal_detects_security_checkpoint_interstitial() {
+        assert!(source_has_human_challenge_signal(
+            "https://www.hashicorp.com/en/blog/nist-s-post-quantum-cryptography-standards-our-plans",
+            "Vercel Security Checkpoint",
+            "Please complete the security check to continue."
+        ));
+    }
+
+    #[test]
     fn headline_actionable_inventory_excludes_low_priority_roundups() {
         let sources = vec![
             PendingSearchReadSummary {
@@ -765,5 +1367,148 @@ mod tests {
             !headline_source_is_actionable(&source),
             "multi-story roundup surfaces should not count as actionable headline stories"
         );
+    }
+
+    #[test]
+    fn prioritized_query_grounding_excerpt_prefers_required_standard_identifier_segment() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let selected = prioritized_query_grounding_excerpt(
+            query,
+            3,
+            "https://www.nist.gov/pqc",
+            "Post-quantum cryptography | NIST",
+            "NIST maintains post-quantum cryptography transition guidance for agencies. The Federal Information Processing Standards FIPS 203, FIPS 204, and FIPS 205 standardize ML-KEM, ML-DSA, and SLH-DSA for federal use. Agencies should inventory systems and plan migration timelines.",
+            220,
+        );
+
+        assert!(
+            selected.contains("FIPS 203")
+                && selected.contains("FIPS 204")
+                && selected.contains("FIPS 205"),
+            "expected identifier-bearing segment, got: {selected:?}"
+        );
+    }
+
+    #[test]
+    fn prioritized_query_grounding_excerpt_combines_identifier_segments_when_needed() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let selected = prioritized_query_grounding_excerpt(
+            query,
+            3,
+            "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards",
+            "NIST Releases First 3 Finalized Post-Quantum Encryption Standards | NIST",
+            "NIST finalized the first post-quantum encryption standards. Federal Information Processing Standard (FIPS) 203 specifies ML-KEM. The two digital signature standards are FIPS 204 and FIPS 205 for ML-DSA and SLH-DSA. Agencies should begin transition planning.",
+            220,
+        );
+
+        assert!(
+            selected.contains("FIPS 203")
+                && selected.contains("FIPS 204")
+                && selected.contains("FIPS 205"),
+            "expected combined identifier-bearing excerpt, got: {selected:?}"
+        );
+    }
+
+    #[test]
+    fn observed_briefing_standard_identifier_labels_do_not_expand_query_specific_fips_sets() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let labels = observed_briefing_standard_identifier_labels(
+            query,
+            "NIST released FIPS 203, 204, and 205 as finalized post-quantum cryptography standards.",
+        );
+
+        assert!(labels.is_empty(), "labels={labels:?}");
+    }
+
+    #[test]
+    fn source_document_authority_accepts_official_archive_news_with_query_grounding() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let url =
+            "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards";
+        let title = "NIST Releases First 3 Finalized Post-Quantum Encryption Standards | NIST";
+        let excerpt = "August 13, 2024 - The finalized standards are FIPS 203, FIPS 204, and FIPS 205 for post-quantum cryptography.";
+
+        assert!(
+            source_has_document_authority(query, url, title, excerpt),
+            "official archive story should retain document authority despite archive-year surface"
+        );
+        assert!(source_document_authority_score(query, url, title, excerpt) > 0);
+    }
+
+    #[test]
+    fn source_document_authority_rejects_generic_public_authority_surface_without_query_grounding(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let url = "https://www.nist.gov/cybersecurity-and-privacy";
+        let title = "Cybersecurity and Privacy | NIST";
+        let excerpt = "NIST advances measurement science, standards, and technology for cybersecurity and privacy.";
+
+        assert!(!source_has_document_authority(query, url, title, excerpt));
+        assert_eq!(
+            source_document_authority_score(query, url, title, excerpt),
+            0
+        );
+    }
+
+    #[test]
+    fn source_document_authority_accepts_generic_authority_pages_when_discovery_signals_align() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let url = "https://www.nist.gov/pqc";
+        let title = "Post-quantum cryptography | NIST";
+        let excerpt =
+            "NIST is advancing post-quantum cryptography standardization and transition guidance.";
+
+        assert!(source_has_document_authority(query, url, title, excerpt));
+        assert!(source_document_authority_score(query, url, title, excerpt) > 0);
+    }
+
+    #[test]
+    fn prioritized_query_grounding_excerpt_anchors_long_segment_at_identifier_surface() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let selected = prioritized_query_grounding_excerpt(
+            query,
+            3,
+            "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards",
+            "NIST Releases First 3 Finalized Post-Quantum Encryption Standards | NIST",
+            "Official websites use .gov and secure HTTPS connections for official government information and services. This page explains the update. NIST released FIPS 203, 204, and 205 as the first finalized post-quantum encryption standards for federal use and transition planning.",
+            120,
+        );
+
+        assert!(
+            selected.contains("FIPS 203") && selected.contains("204") && selected.contains("205"),
+            "expected identifier-anchored excerpt, got: {selected:?}"
+        );
+        assert!(
+            !selected.starts_with("Official websites use"),
+            "expected identifier-focused excerpt, got: {selected:?}"
+        );
+    }
+
+    #[test]
+    fn prioritized_query_grounding_excerpt_preserves_menu_inventory_for_menu_comparisons() {
+        let query =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let selected = prioritized_query_grounding_excerpt_with_contract(
+            Some(&retrieval_contract),
+            query,
+            3,
+            "https://www.restaurantji.com/sc/anderson/brothers-italian-cuisine-/menu/",
+            "Menu",
+            "Item inventory includes Brothers Special Shrimp Pasta, Chef Salad, Italian Stromboli, Grilled Chicken Salad, and Meat Lovers Calzone. Related image gallery available with 6 images. Brothers Special Shrimp Pasta. Chef Salad.",
+            240,
+        );
+
+        assert!(selected.contains("Item inventory includes"));
+        assert!(selected.contains("Related image gallery available with 6 images."));
     }
 }

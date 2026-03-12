@@ -1,6 +1,13 @@
 use super::*;
 use ioi_types::app::agentic::WebRetrievalContract;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SynthesisLayoutProfile {
+    SingleSnapshot,
+    DocumentBriefing,
+    MultiStoryCollection,
+}
+
 pub(crate) fn retrieval_contract_prefers_single_fact_snapshot(
     contract: Option<&WebRetrievalContract>,
     _query: &str,
@@ -65,11 +72,63 @@ pub(crate) fn retrieval_contract_entity_diversity_required(
 
 pub(crate) fn retrieval_contract_required_story_count(
     contract: Option<&WebRetrievalContract>,
-    _query: &str,
+    query: &str,
 ) -> usize {
+    if query_prefers_document_briefing_layout(query)
+        && !retrieval_contract_requests_comparison(contract, query)
+    {
+        return 1;
+    }
     contract
         .map(|contract| contract.entity_cardinality_min.max(1) as usize)
         .unwrap_or(1)
+}
+
+pub(crate) fn retrieval_contract_required_support_count(
+    contract: Option<&WebRetrievalContract>,
+    query: &str,
+) -> usize {
+    if matches!(
+        synthesis_layout_profile(contract, query),
+        SynthesisLayoutProfile::DocumentBriefing
+    ) {
+        let identifier_group_floor = briefing_standard_identifier_group_floor(query) as u32;
+        return contract
+            .map(|contract| {
+                contract
+                    .source_independence_min
+                    .max(contract.citation_count_min.max(1))
+                    .max(identifier_group_floor) as usize
+            })
+            .unwrap_or_else(|| retrieval_contract_required_story_count(contract, query))
+            .max(1);
+    }
+    retrieval_contract_required_story_count(contract, query).max(1)
+}
+
+pub(crate) fn retrieval_contract_required_document_briefing_citation_count(
+    contract: Option<&WebRetrievalContract>,
+    query: &str,
+) -> usize {
+    if matches!(
+        synthesis_layout_profile(contract, query),
+        SynthesisLayoutProfile::DocumentBriefing
+    ) {
+        return retrieval_contract_required_support_count(contract, query).max(1);
+    }
+    retrieval_contract_required_citations_per_story(contract, query).max(1)
+}
+
+pub(crate) fn retrieval_contract_requires_document_briefing_identifier_evidence(
+    contract: Option<&WebRetrievalContract>,
+    query: &str,
+) -> bool {
+    matches!(
+        synthesis_layout_profile(contract, query),
+        SynthesisLayoutProfile::DocumentBriefing
+    ) && !retrieval_contract_requests_comparison(contract, query)
+        && analyze_query_facets(query).grounded_external_required
+        && briefing_standard_identifier_group_floor(query) > 0
 }
 
 pub(crate) fn retrieval_contract_required_citations_per_story(
@@ -83,12 +142,17 @@ pub(crate) fn retrieval_contract_required_citations_per_story(
 
 pub(crate) fn retrieval_contract_required_distinct_domain_floor(
     contract: Option<&WebRetrievalContract>,
-    _query: &str,
+    query: &str,
 ) -> usize {
     contract
         .map(|contract| {
             if crate::agentic::web::contract_requires_geo_scoped_entity_expansion(contract) {
                 0
+            } else if matches!(
+                synthesis_layout_profile(Some(contract), query),
+                SynthesisLayoutProfile::DocumentBriefing
+            ) {
+                contract.source_independence_min.max(1) as usize
             } else if contract.entity_cardinality_min > 1 {
                 contract
                     .source_independence_min
@@ -104,23 +168,53 @@ pub(crate) fn retrieval_contract_required_distinct_citations(
     contract: Option<&WebRetrievalContract>,
     query: &str,
 ) -> usize {
-    retrieval_contract_required_story_count(contract, query).saturating_mul(
+    if matches!(
+        synthesis_layout_profile(contract, query),
+        SynthesisLayoutProfile::DocumentBriefing
+    ) {
+        return retrieval_contract_required_document_briefing_citation_count(contract, query).max(
+            retrieval_contract_required_citations_per_story(contract, query),
+        );
+    }
+    retrieval_contract_required_support_count(contract, query).saturating_mul(
         retrieval_contract_required_citations_per_story(contract, query),
     )
 }
 
 pub(crate) fn retrieval_contract_min_sources(
     contract: Option<&WebRetrievalContract>,
-    _query: &str,
+    query: &str,
 ) -> u32 {
     contract
         .map(|contract| {
-            contract
+            let base_floor = contract
                 .source_independence_min
                 .max(contract.entity_cardinality_min.max(1))
-                .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX)
+                .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX);
+            if retrieval_contract_prefers_single_fact_snapshot(Some(contract), query) {
+                base_floor
+                    .max(contract.citation_count_min.max(1))
+                    .clamp(1, WEB_PIPELINE_CONSTRAINT_SEARCH_LIMIT_MAX)
+            } else {
+                base_floor
+            }
         })
         .unwrap_or(1)
+}
+
+pub(crate) fn synthesis_layout_profile(
+    contract: Option<&WebRetrievalContract>,
+    query: &str,
+) -> SynthesisLayoutProfile {
+    if retrieval_contract_prefers_single_fact_snapshot(contract, query) {
+        return SynthesisLayoutProfile::SingleSnapshot;
+    }
+    if query_prefers_document_briefing_layout(query)
+        && !retrieval_contract_requests_comparison(contract, query)
+    {
+        return SynthesisLayoutProfile::DocumentBriefing;
+    }
+    SynthesisLayoutProfile::MultiStoryCollection
 }
 
 pub(crate) fn required_citations_per_story(query: &str) -> usize {
@@ -174,12 +268,8 @@ pub(crate) fn required_citations_per_story(query: &str) -> usize {
         }
     }
 
-    if query_is_generic_headline_collection(query) {
-        return 2;
-    }
-
     if query_prefers_multi_item_cardinality(query) {
-        // Multi-story web briefs cite the primary article URL per story by default.
+        // Ordered collections cite the primary source for each item by default.
         // Explicit "N citations/sources each" directives are handled above.
         return 1;
     }
@@ -210,6 +300,101 @@ pub(crate) fn web_pipeline_min_sources(query: &str) -> u32 {
         );
     }
     WEB_PIPELINE_DEFAULT_MIN_SOURCES
+}
+
+#[cfg(test)]
+mod tests {
+    use ioi_types::app::agentic::WebRetrievalContract;
+
+    use super::{
+        required_citations_per_story, retrieval_contract_min_sources,
+        retrieval_contract_required_distinct_citations,
+        retrieval_contract_required_document_briefing_citation_count,
+        retrieval_contract_required_support_count,
+        retrieval_contract_requires_document_briefing_identifier_evidence,
+    };
+
+    #[test]
+    fn document_briefing_support_count_follows_structural_source_independence_floor() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("retrieval contract");
+
+        assert_eq!(contract.source_independence_min, 2);
+        assert_eq!(
+            retrieval_contract_required_support_count(Some(&contract), query),
+            2
+        );
+    }
+
+    #[test]
+    fn document_briefing_distinct_citations_follow_structural_support_floor() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("retrieval contract");
+
+        assert_eq!(
+            retrieval_contract_required_document_briefing_citation_count(Some(&contract), query),
+            2
+        );
+        assert_eq!(
+            retrieval_contract_required_distinct_citations(Some(&contract), query),
+            2
+        );
+    }
+
+    #[test]
+    fn document_briefing_identifier_evidence_is_not_required_without_generic_identifier_model() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("retrieval contract");
+
+        assert!(
+            !retrieval_contract_requires_document_briefing_identifier_evidence(
+                Some(&contract),
+                query
+            )
+        );
+    }
+
+    #[test]
+    fn single_snapshot_min_sources_honors_citation_floor() {
+        let query = "What's the current price of Bitcoin?";
+        let contract = WebRetrievalContract {
+            contract_version: "test.v1".to_string(),
+            entity_cardinality_min: 1,
+            comparison_required: false,
+            currentness_required: true,
+            runtime_locality_required: false,
+            source_independence_min: 1,
+            citation_count_min: 2,
+            structured_record_preferred: true,
+            ordered_collection_preferred: false,
+            link_collection_preferred: false,
+            canonical_link_out_preferred: false,
+            geo_scoped_detail_required: false,
+            discovery_surface_required: false,
+            entity_diversity_required: false,
+            scalar_measure_required: true,
+            browser_fallback_allowed: true,
+        };
+
+        assert_eq!(retrieval_contract_min_sources(Some(&contract), query), 2);
+    }
+
+    #[test]
+    fn generic_headline_collections_default_to_one_citation_per_story() {
+        let query = "Tell me today's top news headlines.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("retrieval contract");
+
+        assert_eq!(required_citations_per_story(query), 1);
+        assert_eq!(contract.citation_count_min, 1);
+        assert!(contract.ordered_collection_preferred);
+    }
 }
 
 pub(crate) fn requires_mailbox_access_notice(query: &str) -> bool {

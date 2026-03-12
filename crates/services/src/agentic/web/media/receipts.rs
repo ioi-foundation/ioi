@@ -37,13 +37,19 @@ pub(super) fn media_provider_candidate_receipt_with_modality(
         source_count: if success { 1 } else { 0 },
         selected,
         success,
+        execution_attempted: None,
+        execution_satisfied: None,
+        execution_failure_reason: None,
         request_url: Some(request_url.to_string()),
         challenge_reason,
         affordances: vec![WebRetrievalAffordance::DetailDocument],
     }
 }
 
-pub(super) fn write_run_receipt(tool_home: &Path, receipt: &MediaTranscriptRunReceipt) -> Result<()> {
+pub(super) fn write_run_receipt(
+    tool_home: &Path,
+    receipt: &MediaTranscriptRunReceipt,
+) -> Result<()> {
     let receipt_path = media_tool_receipt_path(tool_home);
     if let Some(parent) = receipt_path.parent() {
         fs::create_dir_all(parent)?;

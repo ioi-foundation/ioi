@@ -168,15 +168,88 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 if let Some(reason) =
                     web_pipeline_completion_reason(&pending, web_pipeline_now_ms())
                 {
-                    append_final_web_completion_receipts(&pending, reason, verification_checks);
-                    let summary = if let Some(hybrid_summary) =
+                    let mut summary_candidates = Vec::new();
+                    if let Some(hybrid_summary) =
                         synthesize_web_pipeline_reply_hybrid(service, &pending, reason).await
                     {
-                        hybrid_summary
-                    } else {
-                        synthesize_web_pipeline_reply(&pending, reason)
-                    };
-                    let summary = enrich_command_scope_summary(&summary, agent_state);
+                        summary_candidates.push(
+                            crate::agentic::desktop::service::step::queue::web_pipeline::FinalWebSummaryCandidate {
+                                provider: "hybrid",
+                                summary: hybrid_summary,
+                            },
+                        );
+                    }
+                    summary_candidates.push(
+                        crate::agentic::desktop::service::step::queue::web_pipeline::FinalWebSummaryCandidate {
+                            provider: "deterministic",
+                            summary: synthesize_web_pipeline_reply(&pending, reason),
+                        },
+                    );
+                    let selection =
+                        crate::agentic::desktop::service::step::queue::web_pipeline::select_final_web_summary_from_candidates(
+                            &pending,
+                            reason,
+                            summary_candidates,
+                        )
+                        .expect("web summary selection requires at least one candidate");
+                    verification_checks
+                        .push(format!("web_final_summary_provider={}", selection.provider));
+                    verification_checks.push(format!(
+                        "web_final_summary_contract_ready={}",
+                        selection.contract_ready
+                    ));
+                    for evaluation in &selection.evaluations {
+                        verification_checks.push(format!(
+                            "web_final_summary_candidate={}::contract_ready={}::rendered_layout={}::document_layout_met={}",
+                            evaluation.provider,
+                            evaluation.contract_ready,
+                            evaluation.facts.briefing_rendered_layout_profile,
+                            evaluation.facts.briefing_document_layout_met
+                        ));
+                    }
+                    let summary = enrich_command_scope_summary(&selection.summary, agent_state);
+                    let final_facts = final_web_completion_facts_with_rendered_summary(
+                        &pending, reason, &summary,
+                    );
+                    crate::agentic::desktop::service::step::queue::emit_final_web_completion_contract_receipts(
+                        service,
+                        session_id,
+                        step_index,
+                        resolved_intent_id,
+                        &final_facts,
+                    );
+                    append_final_web_completion_receipts_with_rendered_summary(
+                        &pending,
+                        reason,
+                        &summary,
+                        verification_checks,
+                    );
+                    if !crate::agentic::desktop::service::step::queue::web_pipeline::final_web_completion_contract_ready(&final_facts) {
+                        let missing = "receipt::final_output_contract_ready=true".to_string();
+                        let contract_error = execution_contract_violation_error(&missing);
+                        *success = false;
+                        *error_msg = Some(contract_error.clone());
+                        *history_entry = Some(contract_error.clone());
+                        *action_output = Some(contract_error);
+                        agent_state.status = AgentStatus::Running;
+                        verification_checks.push("execution_contract_gate_blocked=true".to_string());
+                        verification_checks
+                            .push(format!("execution_contract_missing_keys={}", missing));
+                        verification_checks.push(
+                            "web_pipeline_terminalization_blocked_on_rendered_output=true"
+                                .to_string(),
+                        );
+                        verification_checks.push("web_pipeline_active=true".to_string());
+                        verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                        emit_completion_gate_violation_events(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            &missing,
+                        );
+                        return Ok(());
+                    }
                     mark_execution_receipt(
                         &mut agent_state.tool_execution_log,
                         WEB_PIPELINE_TERMINAL_RECEIPT,
@@ -221,6 +294,18 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     );
                     return Ok(());
                 }
+                *success = true;
+                *error_msg = None;
+                *history_entry = Some(
+                    "Deferred final reply while web research continues gathering evidence."
+                        .to_string(),
+                );
+                *action_output = history_entry.clone();
+                agent_state.status = AgentStatus::Running;
+                verification_checks
+                    .push("terminal_chat_reply_deferred_for_active_web_pipeline=true".to_string());
+                verification_checks.push("web_pipeline_active=true".to_string());
+                return Ok(());
             }
             let missing_contract_markers =
                 missing_execution_contract_markers_with_rules(agent_state, rules);
@@ -619,6 +704,12 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             .transcript
                             .as_ref()
                             .map(|transcript| vec![transcript.provider_id.clone()])
+                            .or_else(|| {
+                                bundle
+                                    .timeline
+                                    .as_ref()
+                                    .map(|timeline| vec![timeline.provider_id.clone()])
+                            })
                             .unwrap_or_default()
                     } else {
                         bundle.selected_provider_ids.clone()
@@ -631,6 +722,12 @@ pub(super) async fn apply_tool_outcome_and_followups(
                                 .transcript
                                 .as_ref()
                                 .map(|transcript| transcript.provider_id.clone())
+                        })
+                        .or_else(|| {
+                            bundle
+                                .timeline
+                                .as_ref()
+                                .map(|timeline| timeline.provider_id.clone())
                         })
                         .or_else(|| {
                             bundle
@@ -665,6 +762,12 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_transcript_available",
                         );
                     }
+                    if bundle.timeline.is_some() {
+                        mark_execution_postcondition(
+                            &mut agent_state.tool_execution_log,
+                            "media_timeline_available",
+                        );
+                    }
                     if bundle.visual.is_some() {
                         mark_execution_postcondition(
                             &mut agent_state.tool_execution_log,
@@ -681,6 +784,9 @@ pub(super) async fn apply_tool_outcome_and_followups(
                     if bundle.transcript.is_some() {
                         verification_checks
                             .push(postcondition_marker("media_transcript_available"));
+                    }
+                    if bundle.timeline.is_some() {
+                        verification_checks.push(postcondition_marker("media_timeline_available"));
                     }
                     if bundle.visual.is_some() {
                         verification_checks
@@ -983,6 +1089,74 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             Some("bool"),
                             None,
                             Some(transcript.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                    }
+                    if let Some(timeline) = bundle.timeline.as_ref() {
+                        let timeline_cue_count_value = timeline.cue_count.to_string();
+                        let timeline_char_count_value = timeline.timeline_char_count.to_string();
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_timeline_cue_count",
+                            timeline.cue_count > 0,
+                            "media_timeline_cues_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(timeline_cue_count_value.as_str()),
+                            Some("cue_count"),
+                            None,
+                            Some(timeline.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_timeline_char_count",
+                            timeline.timeline_char_count > 0,
+                            "media_timeline_chars_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(timeline_char_count_value.as_str()),
+                            Some("char_count"),
+                            None,
+                            Some(timeline.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_timeline_source_kind",
+                            true,
+                            "media_timeline_source_kind_observed",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some(timeline.timeline_source_kind.as_str()),
+                            Some("enum"),
+                            None,
+                            Some(timeline.provider_id.clone()),
+                            synthesized_payload_hash.clone(),
+                        );
+                        emit_execution_contract_receipt_event_with_observation(
+                            service,
+                            session_id,
+                            step_index,
+                            resolved_intent_id,
+                            "verification",
+                            "media_timeline_available",
+                            true,
+                            "media_timeline_postcondition_met",
+                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("true"),
+                            Some("bool"),
+                            None,
+                            Some(timeline.provider_id.clone()),
                             synthesized_payload_hash.clone(),
                         );
                     }

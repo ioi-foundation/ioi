@@ -105,22 +105,15 @@ pub(crate) fn build_citation_candidates(
             {
                 return None;
             }
-            let excerpt = {
-                let prioritized = prioritized_query_grounding_excerpt_with_contract(
-                    retrieval_contract,
-                    &query_contract,
-                    pending.min_sources as usize,
-                    &url,
-                    source_label.as_str(),
-                    source.excerpt.as_str(),
-                    180,
-                );
-                if prioritized.is_empty() {
-                    String::new()
-                } else {
-                    prioritized
-                }
-            };
+            let excerpt = preferred_citation_excerpt_with_contract(
+                retrieval_contract,
+                &query_contract,
+                pending.min_sources as usize,
+                &url,
+                source_label.as_str(),
+                source.excerpt.as_str(),
+                180,
+            );
             Some(CitationCandidate {
                 id: format!("C{}", idx + 1),
                 url: url.clone(),

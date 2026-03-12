@@ -31,7 +31,8 @@ use crate::agentic::desktop::execution::system::is_sudo_password_required_instal
 use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::middleware;
 use crate::agentic::desktop::service::handler::{
-    build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
+    build_pii_review_request_for_tool, emit_pii_review_requested, normalize_web_research_tool_call,
+    persist_pii_review_request, reconcile_pending_web_research_tool_call,
     resolve_window_binding_for_target, target_requires_window_binding,
 };
 use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
@@ -53,17 +54,19 @@ use crate::agentic::desktop::service::step::incident::{
 };
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::step::queue::web_pipeline::{
-    append_final_web_completion_receipts, append_pending_web_success_fallback,
-    append_pending_web_success_from_bundle, is_human_challenge_error, mark_pending_web_attempted,
-    mark_pending_web_blocked, parse_web_evidence_bundle, remaining_pending_web_candidates,
+    append_final_web_completion_receipts,
+    append_final_web_completion_receipts_with_rendered_summary,
+    append_pending_web_success_fallback, append_pending_web_success_from_bundle,
+    final_web_completion_facts, final_web_completion_facts_with_rendered_summary,
+    is_human_challenge_error, mark_pending_web_attempted, mark_pending_web_blocked,
+    parse_web_evidence_bundle, remaining_pending_web_candidates,
     render_mailbox_access_limited_reply, synthesize_web_pipeline_reply,
-    synthesize_web_pipeline_reply_hybrid, web_pipeline_completion_reason, web_pipeline_min_sources,
-    web_pipeline_now_ms, WebPipelineCompletionReason,
+    synthesize_web_pipeline_reply_hybrid, web_pipeline_completion_reason, web_pipeline_now_ms,
 };
 use crate::agentic::desktop::service::step::signals::is_mail_connector_tool_name;
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{
-    AgentState, AgentStatus, PendingSearchCompletion, ToolCallStatus, MAX_COMMAND_HISTORY,
+    AgentState, AgentStatus, ToolCallStatus, MAX_COMMAND_HISTORY,
 };
 use crate::agentic::desktop::utils::goto_trace_log;
 use crate::agentic::rules::ActionRules;
@@ -101,7 +104,8 @@ use self::phases::{
     FinalizeActionProcessingContext,
 };
 pub(crate) use self::phases::{
-    emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
+    emit_completion_gate_status_event, emit_execution_contract_receipt_event,
+    emit_execution_contract_receipt_event_with_observation, record_non_command_success_receipts,
     resolved_intent_id,
 };
 use self::web_helpers::{
@@ -203,17 +207,42 @@ pub async fn process_tool_output(
     }
 
     let tool_call = match tool_call {
-        Ok(tool) => Ok(apply_instruction_contract_grounding(
-            service,
-            agent_state,
-            tool,
-            session_id,
-            pre_state_summary.step_index,
-            &resolved_intent_id(agent_state),
-            None,
-            &mut processing_state.verification_checks,
-        )
-        .await?),
+        Ok(tool) => {
+            let mut tool = apply_instruction_contract_grounding(
+                service,
+                agent_state,
+                tool,
+                &rules,
+                session_id,
+                pre_state_summary.step_index,
+                &resolved_intent_id(agent_state),
+                None,
+                &mut processing_state.verification_checks,
+            )
+            .await?;
+            normalize_web_research_tool_call(
+                &mut tool,
+                agent_state.resolved_intent.as_ref(),
+                &agent_state.goal,
+            );
+            if let Some((requested_url, replacement_url)) = reconcile_pending_web_research_tool_call(
+                &mut tool,
+                agent_state.pending_search_completion.as_ref(),
+            ) {
+                processing_state
+                    .verification_checks
+                    .push("web_read_reconciled_from_exhausted_pending_candidate=true".to_string());
+                processing_state.verification_checks.push(format!(
+                    "web_read_reconciled_requested_url={}",
+                    requested_url
+                ));
+                processing_state.verification_checks.push(format!(
+                    "web_read_reconciled_replacement_url={}",
+                    replacement_url
+                ));
+            }
+            Ok(tool)
+        }
         Err(error) => Err(error),
     };
 

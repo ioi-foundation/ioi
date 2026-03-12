@@ -7,9 +7,12 @@ use super::util::normalize_url_for_id;
 use crate::agentic::desktop::service::step::queue::web_pipeline::{
     build_query_constraint_projection, candidate_constraint_compatibility,
     candidate_time_sensitive_resolvable_payload, compatibility_passes_projection,
-    is_search_hub_url, prefers_single_fact_snapshot, query_is_generic_headline_collection,
-    query_metric_axes, query_requests_comparison, query_requires_runtime_locality_scope,
-    required_citations_per_story, required_story_count,
+    explicit_query_scope_hint, is_search_hub_url,
+    local_business_search_entity_anchor_tokens_with_contract, prefers_single_fact_snapshot,
+    query_is_generic_headline_collection, query_metric_axes,
+    query_prefers_document_briefing_layout, query_requests_comparison,
+    query_requires_runtime_locality_scope, required_citations_per_story, required_story_count,
+    source_matches_local_business_search_entity_anchor,
 };
 use crate::agentic::desktop::service::step::signals::analyze_query_facets;
 
@@ -63,11 +66,59 @@ fn extract_json_object(raw: &str) -> Option<&str> {
     (end >= start).then_some(&trimmed[start..=end])
 }
 
+fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> {
+    let marker = "source_url=";
+    let lower = excerpt.to_ascii_lowercase();
+    let start = lower.find(marker)? + marker.len();
+    let candidate = excerpt
+        .get(start..)?
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .trim_matches(|ch: char| "|,;:!?)]}\"'".contains(ch))
+        .trim();
+    if candidate.starts_with("http://") || candidate.starts_with("https://") {
+        Some(candidate.to_string())
+    } else {
+        None
+    }
+}
+
+fn semantic_alignment_candidate_url(source: &WebSource) -> String {
+    let trimmed = source.url.trim();
+    if !is_search_hub_url(trimmed) {
+        return trimmed.to_string();
+    }
+    source
+        .snippet
+        .as_deref()
+        .and_then(source_url_from_metadata_excerpt)
+        .unwrap_or_else(|| trimmed.to_string())
+}
+
 fn normalized_query_contract<'a>(query: &'a str, query_contract: Option<&'a str>) -> &'a str {
     query_contract
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| query.trim())
+}
+
+fn structural_source_independence_floor(contract: &WebRetrievalContract) -> u32 {
+    let direct_single_record_snapshot = contract.entity_cardinality_min <= 1
+        && contract.structured_record_preferred
+        && !contract.comparison_required
+        && !contract.ordered_collection_preferred
+        && !contract.link_collection_preferred
+        && !contract.canonical_link_out_preferred;
+    if direct_single_record_snapshot {
+        1
+    } else if contract.entity_cardinality_min > 1 || contract.comparison_required {
+        contract.entity_cardinality_min.max(2)
+    } else if contract.currentness_required {
+        2
+    } else {
+        1
+    }
 }
 
 fn lint_web_retrieval_contract(
@@ -78,9 +129,22 @@ fn lint_web_retrieval_contract(
     let raw_query = query.trim();
     let normalized_query_contract = normalized_query_contract(query, query_contract);
     let facets = analyze_query_facets(normalized_query_contract);
-    let explicit_entity_cardinality =
-        required_story_count(normalized_query_contract).clamp(1, 6) as u32;
     let comparison_required = query_requests_comparison(normalized_query_contract);
+    let document_briefing_layout =
+        query_prefers_document_briefing_layout(normalized_query_contract);
+    let explicit_entity_cardinality = if document_briefing_layout && !comparison_required {
+        1
+    } else {
+        required_story_count(normalized_query_contract).clamp(1, 6) as u32
+    };
+    let structural_citation_count_min =
+        required_citations_per_story(normalized_query_contract).clamp(1, 4) as u32;
+    let explicit_locality_scope_present = crate::agentic::desktop::service::step::queue::web_pipeline::explicit_query_scope_hint(raw_query)
+        .is_some()
+        || crate::agentic::desktop::service::step::queue::web_pipeline::explicit_query_scope_hint(
+            normalized_query_contract,
+        )
+        .is_some();
     let runtime_locality_required = query_requires_runtime_locality_scope(raw_query)
         || (raw_query.is_empty()
             && query_requires_runtime_locality_scope(normalized_query_contract));
@@ -106,10 +170,7 @@ fn lint_web_retrieval_contract(
         contract.runtime_locality_required || runtime_locality_required;
     contract.scalar_measure_required = contract.scalar_measure_required || scalar_measure_required;
     contract.source_independence_min = contract.source_independence_min.clamp(1, 6);
-    contract.citation_count_min = contract
-        .citation_count_min
-        .clamp(1, 4)
-        .max(required_citations_per_story(normalized_query_contract).clamp(1, 4) as u32);
+    contract.citation_count_min = structural_citation_count_min;
 
     if contract.entity_cardinality_min <= 1 {
         contract.comparison_required = false;
@@ -128,12 +189,15 @@ fn lint_web_retrieval_contract(
             query_is_generic_headline_collection(normalized_query_contract);
     }
 
-    if contract.entity_diversity_required {
-        contract.entity_cardinality_min = contract.entity_cardinality_min.max(2);
-        contract.comparison_required = true;
-        contract.link_collection_preferred = true;
-        contract.canonical_link_out_preferred = true;
+    if document_briefing_layout && !comparison_required && !contract.runtime_locality_required {
+        contract.entity_cardinality_min = 1;
+        contract.entity_diversity_required = false;
+        contract.comparison_required = false;
+        contract.link_collection_preferred = false;
+        contract.canonical_link_out_preferred = false;
+        contract.ordered_collection_preferred = false;
         contract.discovery_surface_required = true;
+        contract.browser_fallback_allowed = false;
     }
 
     if contract.runtime_locality_required
@@ -143,6 +207,14 @@ fn lint_web_retrieval_contract(
         && !facets.time_sensitive_public_fact
     {
         contract.entity_diversity_required = true;
+    }
+
+    if contract.entity_diversity_required {
+        contract.entity_cardinality_min = contract.entity_cardinality_min.max(2);
+        contract.comparison_required = true;
+        contract.link_collection_preferred = true;
+        contract.canonical_link_out_preferred = true;
+        contract.discovery_surface_required = true;
     }
 
     if contract.ordered_collection_preferred && contract.entity_diversity_required {
@@ -179,6 +251,20 @@ fn lint_web_retrieval_contract(
         contract.geo_scoped_detail_required = true;
     }
 
+    if single_fact_snapshot
+        && (scalar_measure_required
+            || contract.runtime_locality_required
+            || explicit_locality_scope_present)
+    {
+        contract.structured_record_preferred = true;
+    }
+
+    if explicit_locality_scope_present
+        && (single_fact_snapshot || contract.entity_diversity_required)
+    {
+        contract.geo_scoped_detail_required = true;
+    }
+
     if single_fact_snapshot {
         contract.entity_cardinality_min = 1;
         contract.comparison_required = false;
@@ -187,6 +273,9 @@ fn lint_web_retrieval_contract(
         contract.canonical_link_out_preferred = false;
         contract.ordered_collection_preferred = false;
     }
+
+    contract.source_independence_min = structural_source_independence_floor(&contract).clamp(1, 6);
+    contract.citation_count_min = structural_citation_count_min;
 
     if !contract.discovery_surface_required
         && (contract.entity_cardinality_min > 1 || contract.comparison_required)
@@ -208,50 +297,60 @@ fn deterministic_web_retrieval_contract(
     let facets = analyze_query_facets(structural_query);
     let runtime_locality_required = query_requires_runtime_locality_scope(query.trim())
         || (query.trim().is_empty() && query_requires_runtime_locality_scope(structural_query));
-    let entity_cardinality_min = required_story_count(structural_query).clamp(1, 6) as u32;
     let comparison_required = query_requests_comparison(structural_query);
+    let document_briefing_layout =
+        query_prefers_document_briefing_layout(structural_query) && !comparison_required;
+    let entity_cardinality_min = if document_briefing_layout {
+        1
+    } else {
+        required_story_count(structural_query).clamp(1, 6) as u32
+    };
+    let explicit_locality_scope_present =
+        crate::agentic::desktop::service::step::queue::web_pipeline::explicit_query_scope_hint(
+            query.trim(),
+        )
+        .is_some()
+            || crate::agentic::desktop::service::step::queue::web_pipeline::explicit_query_scope_hint(
+                structural_query,
+            )
+            .is_some();
     let scalar_measure_required =
         entity_cardinality_min <= 1 && !query_metric_axes(structural_query).is_empty();
     let generic_headline_collection = query_is_generic_headline_collection(structural_query);
     let single_fact_snapshot = prefers_single_fact_snapshot(structural_query)
         || (entity_cardinality_min <= 1 && scalar_measure_required && !comparison_required);
-    let direct_snapshot_surface_preferred =
-        single_fact_snapshot && (scalar_measure_required || runtime_locality_required);
+    let direct_snapshot_surface_preferred = single_fact_snapshot
+        && (scalar_measure_required
+            || runtime_locality_required
+            || explicit_locality_scope_present);
     let entity_diversity_required = entity_cardinality_min > 1
         && runtime_locality_required
         && !facets.time_sensitive_public_fact
         && !scalar_measure_required;
-    let source_independence_min = if entity_diversity_required {
-        entity_cardinality_min.max(1)
-    } else if entity_cardinality_min > 1 {
-        entity_cardinality_min.max(2)
-    } else if facets.time_sensitive_public_fact {
-        2
-    } else {
-        1
-    };
-
-    WebRetrievalContract {
+    let mut contract = WebRetrievalContract {
         contract_version: WEB_RETRIEVAL_CONTRACT_VERSION.to_string(),
         entity_cardinality_min,
         comparison_required,
         currentness_required: facets.time_sensitive_public_fact,
         runtime_locality_required,
-        source_independence_min,
+        source_independence_min: 1,
         citation_count_min: required_citations_per_story(structural_query).clamp(1, 4) as u32,
         structured_record_preferred: direct_snapshot_surface_preferred,
         ordered_collection_preferred: generic_headline_collection,
         link_collection_preferred: entity_diversity_required,
         canonical_link_out_preferred: entity_diversity_required,
-        geo_scoped_detail_required: runtime_locality_required
+        geo_scoped_detail_required: (runtime_locality_required || explicit_locality_scope_present)
             && (single_fact_snapshot || entity_diversity_required),
-        discovery_surface_required: generic_headline_collection
+        discovery_surface_required: document_briefing_layout
+            || generic_headline_collection
             || entity_diversity_required
             || (entity_cardinality_min > 1 && !single_fact_snapshot),
         entity_diversity_required,
         scalar_measure_required,
-        browser_fallback_allowed: true,
-    }
+        browser_fallback_allowed: !document_briefing_layout,
+    };
+    contract.source_independence_min = structural_source_independence_floor(&contract);
+    contract
 }
 
 pub fn derive_web_retrieval_contract(
@@ -269,6 +368,20 @@ pub fn derive_web_retrieval_contract(
         Some(normalized_query_contract),
         deterministic_web_retrieval_contract(raw_query, Some(normalized_query_contract)),
     )
+}
+
+pub(crate) fn normalize_web_retrieval_contract(
+    query: &str,
+    query_contract: Option<&str>,
+    contract: WebRetrievalContract,
+) -> Result<WebRetrievalContract, String> {
+    let raw_query = query.trim();
+    let normalized_query_contract = normalized_query_contract(query, query_contract);
+    if raw_query.is_empty() && normalized_query_contract.is_empty() {
+        return Err("web retrieval contract normalization requires a non-empty query".to_string());
+    }
+
+    lint_web_retrieval_contract(query, Some(normalized_query_contract), contract)
 }
 
 pub(crate) async fn infer_web_retrieval_contract(
@@ -357,11 +470,20 @@ pub(crate) fn query_matching_source_urls(
         && (retrieval_contract.structured_record_preferred
             || retrieval_contract.geo_scoped_detail_required
             || prefers_single_fact_snapshot(normalized_query_contract));
+    let locality_hint = explicit_query_scope_hint(normalized_query_contract);
+    let local_business_entity_anchor_required =
+        !local_business_search_entity_anchor_tokens_with_contract(
+            normalized_query_contract,
+            Some(retrieval_contract),
+            locality_hint.as_deref(),
+        )
+        .is_empty();
     let mut ranked = Vec::new();
     let mut seen = std::collections::BTreeSet::new();
 
     for source in sources.iter().take(WEB_SOURCE_ALIGNMENT_MAX_SOURCES) {
-        let trimmed_url = source.url.trim();
+        let candidate_url = semantic_alignment_candidate_url(source);
+        let trimmed_url = candidate_url.trim();
         if trimmed_url.is_empty() {
             continue;
         }
@@ -372,6 +494,18 @@ pub(crate) fn query_matching_source_urls(
         let snippet = source.snippet.as_deref().unwrap_or_default();
         if single_snapshot_alignment_required
             && !candidate_time_sensitive_resolvable_payload(trimmed_url, title, snippet)
+        {
+            continue;
+        }
+        if local_business_entity_anchor_required
+            && !source_matches_local_business_search_entity_anchor(
+                normalized_query_contract,
+                Some(retrieval_contract),
+                locality_hint.as_deref(),
+                trimmed_url,
+                title,
+                snippet,
+            )
         {
             continue;
         }
@@ -518,6 +652,42 @@ mod tests {
     }
 
     #[test]
+    fn lint_demotes_document_briefing_comparison_scaffolding_without_explicit_compare() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = WebRetrievalContract {
+            contract_version: WEB_RETRIEVAL_CONTRACT_VERSION.to_string(),
+            entity_cardinality_min: 3,
+            comparison_required: true,
+            currentness_required: true,
+            runtime_locality_required: false,
+            source_independence_min: 3,
+            citation_count_min: 1,
+            structured_record_preferred: false,
+            ordered_collection_preferred: false,
+            link_collection_preferred: true,
+            canonical_link_out_preferred: true,
+            geo_scoped_detail_required: false,
+            discovery_surface_required: true,
+            entity_diversity_required: true,
+            scalar_measure_required: false,
+            browser_fallback_allowed: true,
+        };
+
+        let normalized = lint_web_retrieval_contract(query, Some(query), contract)
+            .expect("contract should lint");
+
+        assert_eq!(normalized.entity_cardinality_min, 1);
+        assert_eq!(normalized.source_independence_min, 2);
+        assert!(!normalized.comparison_required);
+        assert!(!normalized.entity_diversity_required);
+        assert!(!normalized.link_collection_preferred);
+        assert!(!normalized.canonical_link_out_preferred);
+        assert!(!normalized.ordered_collection_preferred);
+        assert!(normalized.discovery_surface_required);
+    }
+
+    #[test]
     fn semantic_alignment_requirement_tracks_subject_sensitive_contracts() {
         let mut contract = direct_snapshot_contract();
         contract.scalar_measure_required = false;
@@ -568,6 +738,23 @@ mod tests {
     }
 
     #[test]
+    fn deterministic_contract_prefers_direct_snapshot_surfaces_for_explicit_local_weather_queries()
+    {
+        let contract = deterministic_web_retrieval_contract(
+            "What's the weather like right now in Anderson, SC?",
+            Some("What's the weather like right now in Anderson, SC?"),
+        );
+
+        assert_eq!(contract.entity_cardinality_min, 1);
+        assert!(contract.currentness_required);
+        assert!(!contract.runtime_locality_required);
+        assert!(contract.structured_record_preferred);
+        assert!(contract.geo_scoped_detail_required);
+        assert!(!contract.ordered_collection_preferred);
+        assert!(!contract.discovery_surface_required);
+    }
+
+    #[test]
     fn semantic_alignment_rejects_weather_news_for_local_current_snapshot_queries() {
         let contract = deterministic_web_retrieval_contract(
             "What's the weather like right now near me?",
@@ -609,6 +796,237 @@ mod tests {
         assert_eq!(
             aligned,
             vec!["https://forecast.weather.gov/MapClick.php?CityName=Anderson&state=SC"]
+        );
+    }
+
+    #[test]
+    fn derived_contract_marks_latest_plural_briefing_queries_as_document_briefings() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = derive_web_retrieval_contract(query, Some(query)).expect("contract");
+
+        assert_eq!(contract.entity_cardinality_min, 1);
+        assert_eq!(contract.source_independence_min, 2);
+        assert_eq!(contract.citation_count_min, 1);
+        assert!(contract.currentness_required);
+        assert!(!contract.comparison_required);
+        assert!(!contract.structured_record_preferred);
+        assert!(!contract.ordered_collection_preferred);
+        assert!(!contract.entity_diversity_required);
+        assert!(contract.discovery_surface_required);
+        assert!(!contract.browser_fallback_allowed);
+    }
+
+    #[test]
+    fn derived_contract_preserves_document_briefing_shape_when_query_contract_is_present() {
+        let query = "nist post quantum cryptography standards";
+        let query_contract =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract =
+            derive_web_retrieval_contract(query, Some(query_contract)).expect("contract");
+
+        assert_eq!(contract.entity_cardinality_min, 1);
+        assert_eq!(contract.source_independence_min, 2);
+        assert!(contract.currentness_required);
+        assert!(!contract.structured_record_preferred);
+        assert!(contract.discovery_surface_required);
+        assert!(!contract.browser_fallback_allowed);
+    }
+
+    #[test]
+    fn normalized_contract_restores_runtime_locality_for_scope_resolved_restaurant_query() {
+        let query =
+            "Find the three best-reviewed Italian restaurants near me and compare their menus.";
+        let query_contract =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let incoming = WebRetrievalContract {
+            contract_version: WEB_RETRIEVAL_CONTRACT_VERSION.to_string(),
+            entity_cardinality_min: 3,
+            comparison_required: true,
+            currentness_required: false,
+            runtime_locality_required: false,
+            source_independence_min: 3,
+            citation_count_min: 1,
+            structured_record_preferred: false,
+            ordered_collection_preferred: false,
+            link_collection_preferred: false,
+            canonical_link_out_preferred: false,
+            geo_scoped_detail_required: false,
+            discovery_surface_required: true,
+            entity_diversity_required: false,
+            scalar_measure_required: false,
+            browser_fallback_allowed: true,
+        };
+
+        let normalized = normalize_web_retrieval_contract(query, Some(query_contract), incoming)
+            .expect("contract should normalize");
+
+        assert_eq!(normalized.entity_cardinality_min, 3);
+        assert!(normalized.comparison_required);
+        assert!(normalized.runtime_locality_required);
+        assert!(normalized.geo_scoped_detail_required);
+        assert!(normalized.entity_diversity_required);
+        assert!(normalized.link_collection_preferred);
+        assert!(normalized.canonical_link_out_preferred);
+        assert!(normalized.discovery_surface_required);
+        assert_eq!(normalized.source_independence_min, 3);
+    }
+
+    #[test]
+    fn semantic_alignment_accepts_geo_scoped_restaurant_directory_category_sources() {
+        let query =
+            "Find the three best-reviewed Italian restaurants near me and compare their menus.";
+        let query_contract =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let contract =
+            derive_web_retrieval_contract(query, Some(query_contract)).expect("contract");
+        let sources = vec![WebSource {
+            source_id: "restaurantji-italian".to_string(),
+            rank: Some(1),
+            url: "https://www.restaurantji.com/sc/anderson/italian/".to_string(),
+            title: Some("Italian".to_string()),
+            snippet: Some(
+                "Find the best places to eat in Anderson, SC with menus, reviews and photos."
+                    .to_string(),
+            ),
+            domain: Some("restaurantji.com".to_string()),
+        }];
+
+        let aligned =
+            query_matching_source_urls(query_contract, &contract, &sources).expect("alignment");
+
+        assert_eq!(
+            aligned,
+            vec!["https://www.restaurantji.com/sc/anderson/italian/"]
+        );
+    }
+
+    #[test]
+    fn semantic_alignment_rejects_wrong_cuisine_local_business_sources() {
+        let query =
+            "Find the three best-reviewed Italian restaurants near me and compare their menus.";
+        let query_contract =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let contract =
+            derive_web_retrieval_contract(query, Some(query_contract)).expect("contract");
+        let sources = vec![
+            WebSource {
+                source_id: "restaurantji-fast-food".to_string(),
+                rank: Some(1),
+                url: "https://www.restaurantji.com/sc/anderson/fast-food/".to_string(),
+                title: Some("Fast Food".to_string()),
+                snippet: Some(
+                    "Find the best places to eat in Anderson, SC with menus, reviews and photos."
+                        .to_string(),
+                ),
+                domain: Some("restaurantji.com".to_string()),
+            },
+            WebSource {
+                source_id: "restaurantji-american".to_string(),
+                rank: Some(2),
+                url: "https://www.restaurantji.com/sc/anderson/american/".to_string(),
+                title: Some("American".to_string()),
+                snippet: Some(
+                    "Find the best places to eat in Anderson, SC with menus, reviews and photos."
+                        .to_string(),
+                ),
+                domain: Some("restaurantji.com".to_string()),
+            },
+        ];
+
+        let aligned =
+            query_matching_source_urls(query_contract, &contract, &sources).expect("alignment");
+
+        assert!(aligned.is_empty());
+    }
+
+    #[test]
+    fn semantic_alignment_accepts_representative_nist_pqc_briefing_sources() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = derive_web_retrieval_contract(query, Some(query)).expect("contract");
+        let sources = vec![
+            WebSource {
+                source_id: "nist-finalized".to_string(),
+                rank: Some(1),
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST releases first 3 finalized post-quantum encryption standards"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 203, FIPS 204 and FIPS 205 for post-quantum cryptography."
+                        .to_string(),
+                ),
+                domain: Some("nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "ibm-summary".to_string(),
+                rank: Some(2),
+                url: "https://research.ibm.com/blog/nist-pqc-standards".to_string(),
+                title: Some("NIST’s post-quantum cryptography standards are here".to_string()),
+                snippet: Some(
+                    "IBM summarized the NIST post-quantum standards ML-KEM, ML-DSA and SLH-DSA."
+                        .to_string(),
+                ),
+                domain: Some("research.ibm.com".to_string()),
+            },
+            WebSource {
+                source_id: "nist-hqc".to_string(),
+                rank: Some(3),
+                url: "https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption".to_string(),
+                title: Some(
+                    "NIST selects HQC as fifth algorithm for post-quantum encryption".to_string(),
+                ),
+                snippet: Some(
+                    "NIST selected HQC as a backup algorithm in the post-quantum cryptography standards effort."
+                        .to_string(),
+                ),
+                domain: Some("nist.gov".to_string()),
+            },
+        ];
+
+        let aligned =
+            query_matching_source_urls(query, &contract, &sources).expect("alignment should work");
+
+        assert_eq!(aligned.len(), 3, "aligned_urls={aligned:?}");
+        assert!(aligned
+            .iter()
+            .any(|url| url.contains("finalized-post-quantum-encryption-standards")));
+        assert!(aligned
+            .iter()
+            .any(|url| url.contains("research.ibm.com/blog/nist-pqc-standards")));
+        assert!(aligned
+            .iter()
+            .any(|url| url.contains("nist-selects-hqc-fifth-algorithm")));
+    }
+
+    #[test]
+    fn semantic_alignment_resolves_google_news_wrappers_to_canonical_source_urls() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = derive_web_retrieval_contract(query, Some(query)).expect("contract");
+        let sources = vec![WebSource {
+            source_id: "google-wrapper".to_string(),
+            rank: Some(1),
+            url: "https://news.google.com/rss/articles/CBMiUkFVX3lxTE0x?oc=5".to_string(),
+            title: Some(
+                "NIST releases first 3 finalized post-quantum encryption standards".to_string(),
+            ),
+            snippet: Some(
+                "Google News | source_url=https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+            ),
+            domain: Some("news.google.com".to_string()),
+        }];
+
+        let aligned =
+            query_matching_source_urls(query, &contract, &sources).expect("alignment should work");
+
+        assert_eq!(
+            aligned,
+            vec![
+                "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+            ]
         );
     }
 }

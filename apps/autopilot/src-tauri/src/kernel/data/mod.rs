@@ -850,4 +850,3 @@ fn get_scs(
         .clone()
         .ok_or_else(|| "Studio SCS is not available".to_string())
 }
-

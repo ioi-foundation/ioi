@@ -18,6 +18,22 @@ impl BrowserDriver {
             .map_err(|e| BrowserError::Internal(format!("JS decode failed: {}", e)))
     }
 
+    pub async fn evaluate_retrieval_js<T: DeserializeOwned>(
+        &self,
+        script: &str,
+    ) -> Result<T, BrowserError> {
+        self.require_runtime()?;
+        self.ensure_retrieval_page().await?;
+        let page =
+            { self.retrieval_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+
+        page.evaluate(script)
+            .await
+            .map_err(|e| BrowserError::Internal(format!("JS evaluation failed: {}", e)))?
+            .into_value::<T>()
+            .map_err(|e| BrowserError::Internal(format!("JS decode failed: {}", e)))
+    }
+
     pub(crate) fn deep_dom_helper_js() -> &'static str {
         r#"
                 const enqueueFrameDocument = (node, queue) => {

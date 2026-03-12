@@ -185,6 +185,13 @@ fn live_external_research_detects_time_sensitive_public_fact_lookups() {
 }
 
 #[test]
+fn live_external_research_detects_latest_plural_briefing_queries() {
+    assert!(is_live_external_research_goal(
+        "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+    ));
+}
+
+#[test]
 fn live_external_research_detects_local_business_lookup_queries() {
     assert!(is_live_external_research_goal(
         "Find the three best-reviewed Italian restaurants near me and compare their menus."
@@ -256,6 +263,17 @@ fn query_facets_capture_time_sensitive_public_fact_contract() {
 }
 
 #[test]
+fn query_facets_capture_latest_plural_briefing_contract() {
+    let facets = analyze_query_facets(
+        "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+    );
+    assert!(facets.time_sensitive_public_fact);
+    assert!(facets.grounded_external_required);
+    assert!(!facets.locality_sensitive_public_fact);
+    assert!(!facets.workspace_constrained);
+}
+
+#[test]
 fn query_facets_capture_local_business_locality_contract() {
     let facets = analyze_query_facets(
         "Find the three best-reviewed Italian restaurants near me and compare their menus.",
@@ -314,4 +332,19 @@ fn semantic_anchor_tokens_keep_local_business_entities_but_drop_control_terms() 
     assert!(!semantic.contains("reviewed"));
     assert!(!semantic.contains("compare"));
     assert!(!semantic.contains("near"));
+}
+
+#[test]
+fn semantic_anchor_tokens_drop_research_and_briefing_control_terms() {
+    let query =
+        "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+    let structural = query_structural_directive_tokens(query);
+    assert!(structural.contains("research"));
+    assert!(structural.contains("briefing"));
+
+    let semantic = query_semantic_anchor_tokens(query);
+    assert!(semantic.contains("nist"));
+    assert!(semantic.contains("standards"));
+    assert!(!semantic.contains("research"));
+    assert!(!semantic.contains("briefing"));
 }

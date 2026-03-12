@@ -384,22 +384,78 @@ pub(crate) async fn run_lifecycle_status_phase(
 
     if !reflexive_completion && !awaiting_sudo_password && !awaiting_clarification {
         if success && should_terminalize_mail_reply_intent(agent_state, &tool_name) {
-            let summary = mail_reply_completion_summary(out.as_deref());
-            agent_state.status = AgentStatus::Completed(Some(summary.clone()));
-            agent_state.execution_queue.clear();
-            verification_checks.push("mail_reply_terminalized=true".to_string());
-            verification_checks.push("terminal_chat_reply_ready=true".to_string());
-            crystallize_successful_session(service, state, agent_state, session_id, block_height)
-                .await;
-            if let Some(tx) = &service.event_sender {
-                emit_terminal_completion_events(
-                    tx,
-                    session_id,
-                    agent_state.step_count,
-                    &summary,
-                    status::status_str(&agent_state.status),
-                );
-                terminal_response_emitted = true;
+            let (_, tool_args) = canonical_tool_identity(&tool);
+            let intent_id = resolved_intent_id(agent_state);
+            match record_non_command_success_receipts(
+                service,
+                agent_state,
+                &rules,
+                &tool_name,
+                &tool_args,
+                out.as_deref(),
+                session_id,
+                pre_state_summary.step_index,
+                &intent_id,
+                None,
+                verification_checks,
+            )
+            .await
+            {
+                Ok(()) => {
+                    let missing_contract_markers =
+                        missing_execution_contract_markers_with_rules(agent_state, &rules);
+                    if !missing_contract_markers.is_empty() {
+                        let missing = missing_contract_markers.join(",");
+                        let contract_error = execution_contract_violation_error(&missing);
+                        success = false;
+                        err = Some(contract_error.clone());
+                        out = Some(contract_error);
+                        verification_checks
+                            .push("execution_contract_gate_blocked=true".to_string());
+                        verification_checks
+                            .push(format!("execution_contract_missing_keys={}", missing));
+                        agent_state.status = AgentStatus::Running;
+                    } else {
+                        let summary = mail_reply_completion_summary(out.as_deref());
+                        agent_state.status = AgentStatus::Completed(Some(summary.clone()));
+                        agent_state.execution_queue.clear();
+                        emit_completion_gate_status_event(
+                            service,
+                            session_id,
+                            pre_state_summary.step_index,
+                            &intent_id,
+                            true,
+                            "mail_reply_resume_completion_gate_passed",
+                        );
+                        verification_checks.push("cec_completion_gate_emitted=true".to_string());
+                        verification_checks.push("mail_reply_terminalized=true".to_string());
+                        verification_checks.push("terminal_chat_reply_ready=true".to_string());
+                        crystallize_successful_session(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            block_height,
+                        )
+                        .await;
+                        if let Some(tx) = &service.event_sender {
+                            emit_terminal_completion_events(
+                                tx,
+                                session_id,
+                                agent_state.step_count,
+                                &summary,
+                                status::status_str(&agent_state.status),
+                            );
+                            terminal_response_emitted = true;
+                        }
+                    }
+                }
+                Err(error) => {
+                    success = false;
+                    err = Some(error.clone());
+                    out = Some(error);
+                    agent_state.status = AgentStatus::Running;
+                }
             }
         } else {
             match &tool {
