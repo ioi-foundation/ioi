@@ -49,6 +49,7 @@ enum WorkflowScenario {
     QueueVerification,
     AuditHistory,
     MutationIsolation,
+    StaleQueueReorder,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +65,8 @@ struct WorkflowCaseSpec {
     status: String,
     queue_search: String,
     queue_status_filter: String,
+    queue_sort: String,
+    post_confirm_queue_sort: String,
     distractor_ticket_id: String,
     distractor_assignee: String,
     distractor_status: String,
@@ -88,6 +91,7 @@ struct WorkflowTicketRecord {
     current_status: String,
     current_assignee: String,
     current_note: String,
+    updated_revision: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -101,16 +105,27 @@ struct WorkflowHistoryEntry {
 }
 
 #[derive(Debug, Clone)]
+struct WorkflowQueueSnapshot {
+    tickets: BTreeMap<String, WorkflowTicketRecord>,
+    search: String,
+    status_filter: String,
+    sort: String,
+}
+
+#[derive(Debug, Clone)]
 struct WorkflowSession {
     base_url: String,
     spec: WorkflowCaseSpec,
     tickets: BTreeMap<String, WorkflowTicketRecord>,
+    stale_queue_snapshot: Option<WorkflowQueueSnapshot>,
     current_page: WorkflowPage,
     active_ticket_id: String,
     login_username: String,
     login_password: String,
     queue_search: String,
     queue_status_filter: String,
+    queue_sort: String,
+    queue_view_fresh: bool,
     draft_assignee: String,
     draft_status: String,
     draft_note: String,
@@ -119,6 +134,7 @@ struct WorkflowSession {
     history_verified: bool,
     distractor_history_verified: bool,
     history_entries: Vec<WorkflowHistoryEntry>,
+    next_update_revision: u64,
     reward: f32,
     terminated: bool,
     truncated: bool,
@@ -159,6 +175,8 @@ struct QueueFilterFormPayload {
     search: String,
     #[serde(default)]
     status: String,
+    #[serde(default)]
+    sort: String,
 }
 
 impl WorkflowBridgeProcess {
@@ -262,12 +280,15 @@ impl WorkflowBridgeClient {
             base_url: self.base_url.clone(),
             spec: spec.clone(),
             tickets: workflow_initial_tickets(),
+            stale_queue_snapshot: None,
             current_page: WorkflowPage::Login,
             active_ticket_id: spec.ticket_id.clone(),
             login_username: String::new(),
             login_password: String::new(),
-            queue_search: String::new(),
-            queue_status_filter: String::new(),
+            queue_search: spec.queue_search.clone(),
+            queue_status_filter: spec.queue_status_filter.clone(),
+            queue_sort: spec.queue_sort.clone(),
+            queue_view_fresh: true,
             draft_assignee: String::new(),
             draft_status: String::new(),
             draft_note: String::new(),
@@ -276,6 +297,7 @@ impl WorkflowBridgeClient {
             history_verified: false,
             distractor_history_verified: false,
             history_entries: workflow_initial_history_entries(),
+            next_update_revision: 100,
             reward: 0.0,
             terminated: false,
             truncated: false,
@@ -370,6 +392,8 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
             status: String::new(),
             queue_search: String::new(),
             queue_status_filter: String::new(),
+            queue_sort: String::new(),
+            post_confirm_queue_sort: String::new(),
             distractor_ticket_id: String::new(),
             distractor_assignee: String::new(),
             distractor_status: String::new(),
@@ -387,6 +411,8 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
             status: String::new(),
             queue_search: String::new(),
             queue_status_filter: String::new(),
+            queue_sort: String::new(),
+            post_confirm_queue_sort: String::new(),
             distractor_ticket_id: String::new(),
             distractor_assignee: String::new(),
             distractor_status: String::new(),
@@ -404,6 +430,8 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
             status: "Escalated".to_string(),
             queue_search: "fiber".to_string(),
             queue_status_filter: "Awaiting Dispatch".to_string(),
+            queue_sort: String::new(),
+            post_confirm_queue_sort: String::new(),
             distractor_ticket_id: String::new(),
             distractor_assignee: String::new(),
             distractor_status: String::new(),
@@ -421,6 +449,8 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
             status: "Pending Customer Reply".to_string(),
             queue_search: "invoice".to_string(),
             queue_status_filter: "Pending Review".to_string(),
+            queue_sort: String::new(),
+            post_confirm_queue_sort: String::new(),
             distractor_ticket_id: String::new(),
             distractor_assignee: String::new(),
             distractor_status: String::new(),
@@ -438,6 +468,8 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
             status: "Escalated".to_string(),
             queue_search: "fiber".to_string(),
             queue_status_filter: "Awaiting Dispatch".to_string(),
+            queue_sort: String::new(),
+            post_confirm_queue_sort: String::new(),
             distractor_ticket_id: String::new(),
             distractor_assignee: String::new(),
             distractor_status: String::new(),
@@ -455,6 +487,8 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
             status: "Pending Customer Reply".to_string(),
             queue_search: "invoice".to_string(),
             queue_status_filter: "Pending Review".to_string(),
+            queue_sort: String::new(),
+            post_confirm_queue_sort: String::new(),
             distractor_ticket_id: String::new(),
             distractor_assignee: String::new(),
             distractor_status: String::new(),
@@ -472,6 +506,8 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
             status: "Awaiting Dispatch".to_string(),
             queue_search: "fiber".to_string(),
             queue_status_filter: "Awaiting Dispatch".to_string(),
+            queue_sort: String::new(),
+            post_confirm_queue_sort: String::new(),
             distractor_ticket_id: "T-204".to_string(),
             distractor_assignee: String::new(),
             distractor_status: "Awaiting Dispatch".to_string(),
@@ -489,6 +525,46 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
             status: "Pending Review".to_string(),
             queue_search: "invoice".to_string(),
             queue_status_filter: "Pending Review".to_string(),
+            queue_sort: String::new(),
+            post_confirm_queue_sort: String::new(),
+            distractor_ticket_id: "T-310".to_string(),
+            distractor_assignee: String::new(),
+            distractor_status: "Pending Review".to_string(),
+            distractor_note: String::new(),
+        }),
+        "workflow_stale_queue_reorder_network_ops" => Ok(WorkflowCaseSpec {
+            case_id: case.id.clone(),
+            scenario: WorkflowScenario::StaleQueueReorder,
+            instruction: "Sign in to the dispatch console with username \"dispatch.agent\" and password \"dispatch-215\". Search the queue for \"fiber\", keep the queue status filter on \"Awaiting Dispatch\", and leave the queue sort on \"Ticket ID\" so target ticket T-215 sits below distractor ticket T-204. Open T-215, assign it to Network Ops, keep the status at \"Awaiting Dispatch\", add the note \"Escalate fiber outage to on-call\", review the draft, confirm it, return to the queue, switch the queue sort to \"Recently Updated\", and refresh the queue before trusting any row state. Stop only after typed verification shows T-215 moved above T-204 with assignee Network Ops while distractor T-204 still shows assignee Unassigned and status Awaiting Dispatch. Then open audit history for T-204 and verify no saved dispatch update was persisted there. If the queue view is stale, the sort is outdated, or the saved draft is wrong, refresh, reopen, or fix it before stopping.".to_string(),
+            username: "dispatch.agent".to_string(),
+            password: "dispatch-215".to_string(),
+            ticket_id: "T-215".to_string(),
+            assignee: "Network Ops".to_string(),
+            note: "Escalate fiber outage to on-call".to_string(),
+            status: "Awaiting Dispatch".to_string(),
+            queue_search: "fiber".to_string(),
+            queue_status_filter: "Awaiting Dispatch".to_string(),
+            queue_sort: "Ticket ID".to_string(),
+            post_confirm_queue_sort: "Recently Updated".to_string(),
+            distractor_ticket_id: "T-204".to_string(),
+            distractor_assignee: String::new(),
+            distractor_status: "Awaiting Dispatch".to_string(),
+            distractor_note: String::new(),
+        }),
+        "workflow_stale_queue_reorder_billing_review" => Ok(WorkflowCaseSpec {
+            case_id: case.id.clone(),
+            scenario: WorkflowScenario::StaleQueueReorder,
+            instruction: "Sign in to the dispatch console with username \"dispatch.agent\" and password \"billing-318\". Search the queue for \"invoice\", keep the queue status filter on \"Pending Review\", and leave the queue sort on \"Ticket ID\" so target ticket T-318 sits below distractor ticket T-310. Open T-318, assign it to Billing Review, keep the status at \"Pending Review\", add the note \"Validate recurring invoice delta\", review the draft, confirm it, return to the queue, switch the queue sort to \"Recently Updated\", and refresh the queue before trusting any row state. Stop only after typed verification shows T-318 moved above T-310 with assignee Billing Review while distractor T-310 still shows assignee Unassigned and status Pending Review. Then open audit history for T-310 and verify no saved dispatch update was persisted there. If the queue view is stale, the sort is outdated, or the saved draft is wrong, refresh, reopen, or fix it before stopping.".to_string(),
+            username: "dispatch.agent".to_string(),
+            password: "billing-318".to_string(),
+            ticket_id: "T-318".to_string(),
+            assignee: "Billing Review".to_string(),
+            note: "Validate recurring invoice delta".to_string(),
+            status: "Pending Review".to_string(),
+            queue_search: "invoice".to_string(),
+            queue_status_filter: "Pending Review".to_string(),
+            queue_sort: "Ticket ID".to_string(),
+            post_confirm_queue_sort: "Recently Updated".to_string(),
             distractor_ticket_id: "T-310".to_string(),
             distractor_assignee: String::new(),
             distractor_status: "Pending Review".to_string(),
@@ -559,6 +635,13 @@ async fn queue_filter_submit(
     let target = with_session(&state.sessions, &session_id, |session| {
         session.queue_search = form.search.trim().to_string();
         session.queue_status_filter = form.status.trim().to_string();
+        session.queue_sort = form.sort.trim().to_string();
+        if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder)
+            && session.confirmation_seen
+        {
+            session.queue_view_fresh = true;
+            session.stale_queue_snapshot = None;
+        }
         session.current_page = WorkflowPage::Queue;
         format!("/workflow/{}/queue", session_id)
     })
@@ -621,7 +704,8 @@ async fn ticket_assign_submit(
             }
             WorkflowScenario::QueueVerification
             | WorkflowScenario::AuditHistory
-            | WorkflowScenario::MutationIsolation => {
+            | WorkflowScenario::MutationIsolation
+            | WorkflowScenario::StaleQueueReorder => {
                 session.current_page = WorkflowPage::Review;
                 session.queue_verified = false;
                 session.history_verified = false;
@@ -672,15 +756,21 @@ async fn review_confirm_submit(
 ) -> impl IntoResponse {
     let target = with_session(&state.sessions, &session_id, |session| {
         let ticket_id = session.active_ticket_id.clone();
+        capture_stale_queue_snapshot(session);
         persist_ticket_update(session, &ticket_id);
         if matches!(
             session.spec.scenario,
-            WorkflowScenario::AuditHistory | WorkflowScenario::MutationIsolation
+            WorkflowScenario::AuditHistory
+                | WorkflowScenario::MutationIsolation
+                | WorkflowScenario::StaleQueueReorder
         ) {
             append_history_entry(session, &ticket_id);
         }
         session.current_page = WorkflowPage::Confirmation;
         session.confirmation_seen = true;
+        if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder) {
+            session.queue_view_fresh = false;
+        }
         session.queue_verified = false;
         session.history_verified = false;
         session.distractor_history_verified = false;
@@ -703,6 +793,8 @@ async fn review_cancel_submit(
         session.queue_verified = false;
         session.history_verified = false;
         session.distractor_history_verified = false;
+        session.queue_view_fresh = true;
+        session.stale_queue_snapshot = None;
         session.reward = 0.0;
         session.terminated = false;
         session.truncated = false;
@@ -761,6 +853,8 @@ async fn ticket_reopen_submit(
         session.queue_verified = false;
         session.history_verified = false;
         session.distractor_history_verified = false;
+        session.queue_view_fresh = true;
+        session.stale_queue_snapshot = None;
         session.reward = 0.0;
         session.terminated = false;
         session.truncated = false;
@@ -827,6 +921,7 @@ fn apply_oracle_step(
                 "#assignee" => session.draft_assignee = label.to_string(),
                 "#status" => session.draft_status = label.to_string(),
                 "#queue-status-filter" => session.queue_status_filter = label.to_string(),
+                "#queue-sort" => session.queue_sort = label.to_string(),
                 _ => {}
             }
         }
@@ -844,6 +939,12 @@ fn apply_oracle_step(
                     }
                 }
                 "#apply-filters" => {
+                    if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder)
+                        && session.confirmation_seen
+                    {
+                        session.queue_view_fresh = true;
+                        session.stale_queue_snapshot = None;
+                    }
                     session.current_page = WorkflowPage::Queue;
                 }
                 "#submit-update" => {
@@ -877,15 +978,21 @@ fn apply_oracle_step(
                 }
                 "#confirm-update" => {
                     let ticket_id = session.active_ticket_id.clone();
+                    capture_stale_queue_snapshot(session);
                     persist_ticket_update(session, &ticket_id);
                     if matches!(
                         session.spec.scenario,
-                        WorkflowScenario::AuditHistory | WorkflowScenario::MutationIsolation
+                        WorkflowScenario::AuditHistory
+                            | WorkflowScenario::MutationIsolation
+                            | WorkflowScenario::StaleQueueReorder
                     ) {
                         append_history_entry(session, &ticket_id);
                     }
                     session.current_page = WorkflowPage::Confirmation;
                     session.confirmation_seen = true;
+                    if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder) {
+                        session.queue_view_fresh = false;
+                    }
                     session.queue_verified = false;
                     session.history_verified = false;
                     session.distractor_history_verified = false;
@@ -900,6 +1007,8 @@ fn apply_oracle_step(
                     session.queue_verified = false;
                     session.history_verified = false;
                     session.distractor_history_verified = false;
+                    session.queue_view_fresh = true;
+                    session.stale_queue_snapshot = None;
                     session.reward = 0.0;
                     session.terminated = false;
                     session.truncated = false;
@@ -916,6 +1025,8 @@ fn apply_oracle_step(
                     session.queue_verified = false;
                     session.history_verified = false;
                     session.distractor_history_verified = false;
+                    session.queue_view_fresh = true;
+                    session.stale_queue_snapshot = None;
                     session.reward = 0.0;
                     session.terminated = false;
                     session.truncated = false;
@@ -971,6 +1082,9 @@ fn sync_bridge_state_from_observation(
         observation_selected_label(&payload.interactive_elements, "#queue-status-filter")
             .or_else(|| observation_value(&payload.interactive_elements, "#queue-status-filter"))
             .unwrap_or_else(|| session.queue_status_filter.clone());
+    session.queue_sort = observation_selected_label(&payload.interactive_elements, "#queue-sort")
+        .or_else(|| observation_value(&payload.interactive_elements, "#queue-sort"))
+        .unwrap_or_else(|| session.queue_sort.clone());
     session.draft_assignee = observation_selected_label(&payload.interactive_elements, "#assignee")
         .or_else(|| observation_value(&payload.interactive_elements, "#assignee"))
         .unwrap_or_else(|| session.draft_assignee.clone());
@@ -1126,6 +1240,7 @@ fn render_queue_body(session: &WorkflowSession) -> String {
             render_queue_verification_queue_body(session)
         }
         WorkflowScenario::MutationIsolation => render_mutation_isolation_queue_body(session),
+        WorkflowScenario::StaleQueueReorder => render_stale_queue_reorder_queue_body(session),
     }
 }
 
@@ -1337,6 +1452,72 @@ fn render_mutation_isolation_queue_body(session: &WorkflowSession) -> String {
     )
 }
 
+fn render_stale_queue_reorder_queue_body(session: &WorkflowSession) -> String {
+    let visible_tickets = visible_queue_tickets(session);
+    let rows = if visible_tickets.is_empty() {
+        "<tr><td colspan=\"6\" class=\"muted\">No tickets matched the current queue view.</td></tr>"
+            .to_string()
+    } else {
+        visible_tickets
+            .into_iter()
+            .map(|ticket| render_mutation_queue_row(session, ticket))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let queue_hint = if !session.confirmation_seen {
+        "Open the target while the queue still shows the original Ticket ID order."
+    } else if !session.queue_view_fresh {
+        "This queue view is stale. Reapply the queue controls before trusting the row order or saved state."
+    } else if session.queue_verified {
+        "Typed queue verification confirmed the target moved above the distractor after refresh while the distractor stayed unchanged."
+    } else {
+        "Switch the queue sort to Recently Updated, refresh the queue, and verify the target reordered above the distractor."
+    };
+    format!(
+        r#"<div class="breadcrumbs">Login / Queue</div>
+<div class="grid two-col">
+  <section class="panel">
+    <h1>Dispatch stale queue reorder</h1>
+    <p>Return to the queue after saving, refresh the stale view, then prove the target moved ahead of the distractor in the refreshed queue while the distractor remained unchanged.</p>
+    <form action="/workflow/{session_id}/queue/filter" method="post">
+      <label for="queue-search">Queue search</label>
+      <input id="queue-search" name="search" type="text" autocomplete="off" value="{search}">
+      <label for="queue-status-filter">Queue status filter</label>
+      <select id="queue-status-filter" name="status">
+        {status_options}
+      </select>
+      <label for="queue-sort">Queue sort</label>
+      <select id="queue-sort" name="sort">
+        {sort_options}
+      </select>
+      <button id="apply-filters" type="submit">Apply filters</button>
+    </form>
+    <p class="muted">{queue_hint}</p>
+    <table>
+      <thead>
+        <tr><th>Ticket</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Suggested team</th><th>Audit</th></tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>
+  </section>
+  <aside class="panel">
+    <h2>Task brief</h2>
+    <p id="task-brief">{instruction}</p>
+    <p><span class="status-pill">Step 2</span> Start from the original <code>{queue_sort}</code> order, then after saving switch to <code>{post_confirm_queue_sort}</code> and refresh before accepting the queue as evidence.</p>
+  </aside>
+</div>"#,
+        session_id = session.bridge_state.session_id,
+        search = escape_html(&session.queue_search),
+        status_options = render_queue_status_filter_options(&session.queue_status_filter),
+        sort_options = render_queue_sort_options(&session.queue_sort),
+        queue_hint = escape_html(queue_hint),
+        rows = rows,
+        instruction = escape_html(&session.spec.instruction),
+        queue_sort = escape_html(&session.spec.queue_sort),
+        post_confirm_queue_sort = escape_html(&session.spec.post_confirm_queue_sort),
+    )
+}
+
 fn render_detail_body(session: &WorkflowSession, ticket_id: &str) -> String {
     let ticket = session.tickets.get(ticket_id);
     let ticket_summary = ticket
@@ -1354,13 +1535,15 @@ fn render_detail_body(session: &WorkflowSession, ticket_id: &str) -> String {
         WorkflowScenario::TicketRouting => "submit-update",
         WorkflowScenario::QueueVerification
         | WorkflowScenario::AuditHistory
-        | WorkflowScenario::MutationIsolation => "review-update",
+        | WorkflowScenario::MutationIsolation
+        | WorkflowScenario::StaleQueueReorder => "review-update",
     };
     let submit_text = match session.spec.scenario {
         WorkflowScenario::TicketRouting => "Submit update",
         WorkflowScenario::QueueVerification
         | WorkflowScenario::AuditHistory
-        | WorkflowScenario::MutationIsolation => "Review update",
+        | WorkflowScenario::MutationIsolation
+        | WorkflowScenario::StaleQueueReorder => "Review update",
     };
     let step_text = match session.spec.scenario {
         WorkflowScenario::TicketRouting => {
@@ -1374,6 +1557,9 @@ fn render_detail_body(session: &WorkflowSession, ticket_id: &str) -> String {
         }
         WorkflowScenario::MutationIsolation => {
             "Prepare the requested assignee, status, and note for the target ticket only. Cancel if the wrong ticket or a stale draft is open."
+        }
+        WorkflowScenario::StaleQueueReorder => {
+            "Prepare the requested assignee, status, and note for the target ticket only. Reopen later if the saved ticket is wrong or the post-save queue proof stays stale."
         }
     };
     format!(
@@ -1419,7 +1605,9 @@ fn render_review_body(session: &WorkflowSession) -> String {
     let ticket_id = session.active_ticket_id.clone();
     let recovery_actions = if matches!(
         session.spec.scenario,
-        WorkflowScenario::AuditHistory | WorkflowScenario::MutationIsolation
+        WorkflowScenario::AuditHistory
+            | WorkflowScenario::MutationIsolation
+            | WorkflowScenario::StaleQueueReorder
     ) {
         format!(
             r#"
@@ -1436,6 +1624,9 @@ fn render_review_body(session: &WorkflowSession) -> String {
             "Review the draft and confirm it only if the ticket, assignee, status, and note match the request. Cancel the draft if anything is stale or wrong."
         }
         WorkflowScenario::MutationIsolation => {
+            "Review the draft and confirm it only if the target ticket, assignee, status, and note match the request. Cancel the draft if the wrong ticket is open or the draft is stale."
+        }
+        WorkflowScenario::StaleQueueReorder => {
             "Review the draft and confirm it only if the target ticket, assignee, status, and note match the request. Cancel the draft if the wrong ticket is open or the draft is stale."
         }
         WorkflowScenario::TicketRouting | WorkflowScenario::QueueVerification => {
@@ -1501,6 +1692,9 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
                 && session.history_verified
                 && session.distractor_history_verified
         }
+        WorkflowScenario::StaleQueueReorder => {
+            session.queue_verified && session.distractor_history_verified
+        }
     };
     let status_class = if success {
         "status-pill success"
@@ -1520,6 +1714,12 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
         WorkflowScenario::MutationIsolation => {
             "Saved, cross-ticket queue/history verification pending"
         }
+        WorkflowScenario::StaleQueueReorder if success => {
+            "Saved, refreshed, and reorder-verified"
+        }
+        WorkflowScenario::StaleQueueReorder => {
+            "Saved, queue refresh or distractor verification pending"
+        }
     };
     let step_text = match session.spec.scenario {
         WorkflowScenario::TicketRouting => "Confirmation page reached.",
@@ -1532,6 +1732,9 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
         WorkflowScenario::MutationIsolation => {
             "Verify the queue still isolates the target from the distractor, then verify target and distractor audit histories separately. Reopen or cancel if the draft or saved target state is wrong."
         }
+        WorkflowScenario::StaleQueueReorder => {
+            "Return to the queue, refresh the stale view, switch to Recently Updated, verify the target moved above the distractor, then open distractor audit history and confirm no saved update exists."
+        }
     };
     let followup_actions = if matches!(
         session.spec.scenario,
@@ -1541,6 +1744,17 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
             r#"
     <div class="inline-actions">
       <a id="history-link" class="button-link" href="/workflow/{session_id}/tickets/{ticket_id}/history">Open audit history</a>
+      <form class="inline-form" action="/workflow/{session_id}/tickets/{ticket_id}/reopen" method="post">
+        <button id="reopen-ticket" type="submit">Reopen ticket</button>
+      </form>
+    </div>"#,
+            session_id = session.bridge_state.session_id,
+            ticket_id = escape_html(&session.active_ticket_id),
+        )
+    } else if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder) {
+        format!(
+            r#"
+    <div class="inline-actions">
       <form class="inline-form" action="/workflow/{session_id}/tickets/{ticket_id}/reopen" method="post">
         <button id="reopen-ticket" type="submit">Reopen ticket</button>
       </form>
@@ -1614,6 +1828,10 @@ fn render_history_body(session: &WorkflowSession, ticket_id: &str) -> String {
         && ticket_id == session.spec.distractor_ticket_id
     {
         "Verify that this distractor history still lacks a saved dispatch update."
+    } else if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder)
+        && ticket_id == session.spec.distractor_ticket_id
+    {
+        "Verify that the surviving distractor still has no saved dispatch update."
     } else {
         "Verify that the saved dispatch event matches the requested ticket, assignee, status, and note."
     };
@@ -1622,6 +1840,13 @@ fn render_history_body(session: &WorkflowSession, ticket_id: &str) -> String {
     {
         format!(
             "Stop only after typed verification confirms ticket <code>{}</code> still has no saved dispatch update. Reopen the target if the saved target state is wrong.",
+            escape_html(ticket_id)
+        )
+    } else if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder)
+        && ticket_id == session.spec.distractor_ticket_id
+    {
+        format!(
+            "Stop only after typed verification confirms distractor ticket <code>{}</code> still has no saved dispatch update. Reopen the target if the saved target state is wrong.",
             escape_html(ticket_id)
         )
     } else {
@@ -1739,6 +1964,27 @@ fn render_queue_status_filter_options(selected: &str) -> String {
     })
     .collect::<Vec<_>>()
     .join("\n")
+}
+
+fn render_queue_sort_options(selected: &str) -> String {
+    ["", "Ticket ID", "Recently Updated"]
+        .into_iter()
+        .map(|option| {
+            let selected_attr = if option == selected { " selected" } else { "" };
+            let label = if option.is_empty() {
+                "Default queue sort"
+            } else {
+                option
+            };
+            format!(
+                r#"<option value="{value}"{selected}>{label}</option>"#,
+                value = escape_html(option),
+                selected = selected_attr,
+                label = escape_html(label),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn workflow_observer_script(report_path: &str) -> String {
@@ -1898,6 +2144,17 @@ fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
     let latest_history = latest_history_entry_for_ticket(session, &session.spec.ticket_id);
     let history_match = target_history_entry(session);
     let distractor_saved_update = distractor_saved_update_entry(session);
+    let visible_tickets = visible_queue_tickets(session);
+    let target_queue_position = visible_tickets
+        .iter()
+        .position(|ticket| ticket.ticket_id == session.spec.ticket_id)
+        .map(|index| index + 1)
+        .unwrap_or_default();
+    let distractor_queue_position = visible_tickets
+        .iter()
+        .position(|ticket| ticket.ticket_id == session.spec.distractor_ticket_id)
+        .map(|index| index + 1)
+        .unwrap_or_default();
     vec![
         BridgeField {
             key: "workflow_case_id".to_string(),
@@ -1910,6 +2167,7 @@ fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
                 WorkflowScenario::QueueVerification => "queue_verification".to_string(),
                 WorkflowScenario::AuditHistory => "audit_history".to_string(),
                 WorkflowScenario::MutationIsolation => "mutation_isolation".to_string(),
+                WorkflowScenario::StaleQueueReorder => "stale_queue_reorder".to_string(),
             },
         },
         BridgeField {
@@ -1945,6 +2203,14 @@ fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
             value: session.spec.queue_status_filter.clone(),
         },
         BridgeField {
+            key: "queue_sort".to_string(),
+            value: session.spec.queue_sort.clone(),
+        },
+        BridgeField {
+            key: "post_confirm_queue_sort".to_string(),
+            value: session.spec.post_confirm_queue_sort.clone(),
+        },
+        BridgeField {
             key: "distractor_ticket_id".to_string(),
             value: session.spec.distractor_ticket_id.clone(),
         },
@@ -1975,6 +2241,26 @@ fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
         BridgeField {
             key: "current_queue_status_filter".to_string(),
             value: session.queue_status_filter.clone(),
+        },
+        BridgeField {
+            key: "current_queue_sort".to_string(),
+            value: session.queue_sort.clone(),
+        },
+        BridgeField {
+            key: "queue_view_search".to_string(),
+            value: queue_view_search(session).to_string(),
+        },
+        BridgeField {
+            key: "queue_view_status_filter".to_string(),
+            value: queue_view_status_filter(session).to_string(),
+        },
+        BridgeField {
+            key: "queue_view_sort".to_string(),
+            value: queue_view_sort(session).to_string(),
+        },
+        BridgeField {
+            key: "queue_view_fresh".to_string(),
+            value: session.queue_view_fresh.to_string(),
         },
         BridgeField {
             key: "active_ticket_id".to_string(),
@@ -2077,6 +2363,21 @@ fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
             value: target_ticket_matches_spec(session).to_string(),
         },
         BridgeField {
+            key: "target_queue_position".to_string(),
+            value: target_queue_position.to_string(),
+        },
+        BridgeField {
+            key: "distractor_queue_position".to_string(),
+            value: distractor_queue_position.to_string(),
+        },
+        BridgeField {
+            key: "queue_target_precedes_distractor".to_string(),
+            value: (target_queue_position > 0
+                && distractor_queue_position > 0
+                && target_queue_position < distractor_queue_position)
+                .to_string(),
+        },
+        BridgeField {
             key: "saved_distractor_assignee".to_string(),
             value: saved_distractor
                 .map(|ticket| ticket.current_assignee.clone())
@@ -2145,9 +2446,11 @@ fn workflow_visible_text(session: &WorkflowSession, page: &WorkflowPage) -> Stri
                 .collect::<Vec<_>>()
                 .join(" ");
             format!(
-                "Active dispatch queue. Search {}. Filter {}. Visible tickets {}. {}",
-                session.queue_search,
-                session.queue_status_filter,
+                "Active dispatch queue. Search {}. Filter {}. Sort {}. Queue view fresh {}. Visible tickets {}. {}",
+                queue_view_search(session),
+                queue_view_status_filter(session),
+                queue_view_sort(session),
+                session.queue_view_fresh,
                 rows,
                 session.spec.instruction
             )
@@ -2175,13 +2478,14 @@ fn workflow_visible_text(session: &WorkflowSession, page: &WorkflowPage) -> Stri
                 .map(|ticket| ticket.current_note.clone())
                 .unwrap_or_default();
             format!(
-                "Assignment confirmation. Ticket {} routed to {}. Saved status {}. Saved note {}. Queue verified {}. History verified {}. {}",
+                "Assignment confirmation. Ticket {} routed to {}. Saved status {}. Saved note {}. Queue verified {}. History verified {}. Distractor history verified {}. {}",
                 session.active_ticket_id,
                 saved_assignee,
                 saved_status,
                 saved_note,
                 session.queue_verified,
                 session.history_verified,
+                session.distractor_history_verified,
                 session.spec.instruction
             )
         }
@@ -2228,6 +2532,16 @@ fn synthesized_interactive_elements(
                     ),
                     button("#apply-filters", "Apply filters"),
                 ],
+                WorkflowScenario::StaleQueueReorder => vec![
+                    text_input("#queue-search", "search", &session.queue_search),
+                    select_input_named(
+                        "#queue-status-filter",
+                        "status",
+                        &session.queue_status_filter,
+                    ),
+                    select_input_named("#queue-sort", "sort", &session.queue_sort),
+                    button("#apply-filters", "Apply filters"),
+                ],
             };
             elements.extend(
                 visible_queue_tickets(session)
@@ -2237,7 +2551,11 @@ fn synthesized_interactive_elements(
                             &ticket_link_selector(&ticket.ticket_id),
                             &ticket.ticket_id,
                         )];
-                        if matches!(session.spec.scenario, WorkflowScenario::MutationIsolation) {
+                        if matches!(
+                            session.spec.scenario,
+                            WorkflowScenario::MutationIsolation
+                                | WorkflowScenario::StaleQueueReorder
+                        ) {
                             row_links.push(link(
                                 &ticket_history_link_selector(&ticket.ticket_id),
                                 "History",
@@ -2259,14 +2577,18 @@ fn synthesized_interactive_elements(
                     WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
                         "#review-update"
                     }
-                    WorkflowScenario::MutationIsolation => "#review-update",
+                    WorkflowScenario::MutationIsolation | WorkflowScenario::StaleQueueReorder => {
+                        "#review-update"
+                    }
                 },
                 match session.spec.scenario {
                     WorkflowScenario::TicketRouting => "Submit update",
                     WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
                         "Review update"
                     }
-                    WorkflowScenario::MutationIsolation => "Review update",
+                    WorkflowScenario::MutationIsolation | WorkflowScenario::StaleQueueReorder => {
+                        "Review update"
+                    }
                 },
             ),
             link(&ticket_link_selector(ticket_id), ticket_id),
@@ -2279,7 +2601,9 @@ fn synthesized_interactive_elements(
             ];
             if matches!(
                 session.spec.scenario,
-                WorkflowScenario::AuditHistory | WorkflowScenario::MutationIsolation
+                WorkflowScenario::AuditHistory
+                    | WorkflowScenario::MutationIsolation
+                    | WorkflowScenario::StaleQueueReorder
             ) {
                 elements.push(button("#cancel-update", "Cancel draft"));
             }
@@ -2292,6 +2616,8 @@ fn synthesized_interactive_elements(
                 WorkflowScenario::AuditHistory | WorkflowScenario::MutationIsolation
             ) {
                 elements.push(link("#history-link", "Open audit history"));
+                elements.push(button("#reopen-ticket", "Reopen ticket"));
+            } else if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder) {
                 elements.push(button("#reopen-ticket", "Reopen ticket"));
             }
             elements
@@ -2433,8 +2759,12 @@ fn workflow_initial_tickets() -> BTreeMap<String, WorkflowTicketRecord> {
         ),
     ]
     .into_iter()
+    .enumerate()
     .map(
-        |(ticket_id, title, suggested_team, current_status, current_assignee, current_note)| {
+        |(
+            index,
+            (ticket_id, title, suggested_team, current_status, current_assignee, current_note),
+        )| {
             (
                 ticket_id.to_string(),
                 WorkflowTicketRecord {
@@ -2444,6 +2774,7 @@ fn workflow_initial_tickets() -> BTreeMap<String, WorkflowTicketRecord> {
                     current_status: current_status.to_string(),
                     current_assignee: current_assignee.to_string(),
                     current_note: current_note.to_string(),
+                    updated_revision: index as u64,
                 },
             )
         },
@@ -2506,20 +2837,85 @@ fn ticket_matches_search(ticket: &WorkflowTicketRecord, search: &str) -> bool {
         || ticket.suggested_team.to_ascii_lowercase().contains(&search)
 }
 
+fn queue_view_search(session: &WorkflowSession) -> &str {
+    if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder)
+        && session.confirmation_seen
+        && !session.queue_view_fresh
+    {
+        return session
+            .stale_queue_snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.search.as_str())
+            .unwrap_or_else(|| session.queue_search.as_str());
+    }
+    session.queue_search.as_str()
+}
+
+fn queue_view_status_filter(session: &WorkflowSession) -> &str {
+    if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder)
+        && session.confirmation_seen
+        && !session.queue_view_fresh
+    {
+        return session
+            .stale_queue_snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.status_filter.as_str())
+            .unwrap_or_else(|| session.queue_status_filter.as_str());
+    }
+    session.queue_status_filter.as_str()
+}
+
+fn queue_view_sort(session: &WorkflowSession) -> &str {
+    if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder)
+        && session.confirmation_seen
+        && !session.queue_view_fresh
+    {
+        return session
+            .stale_queue_snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.sort.as_str())
+            .unwrap_or_else(|| session.queue_sort.as_str());
+    }
+    session.queue_sort.as_str()
+}
+
+fn queue_view_ticket_source(session: &WorkflowSession) -> &BTreeMap<String, WorkflowTicketRecord> {
+    if matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder)
+        && session.confirmation_seen
+        && !session.queue_view_fresh
+    {
+        return session
+            .stale_queue_snapshot
+            .as_ref()
+            .map(|snapshot| &snapshot.tickets)
+            .unwrap_or(&session.tickets);
+    }
+    &session.tickets
+}
+
 fn visible_queue_tickets(session: &WorkflowSession) -> Vec<&WorkflowTicketRecord> {
-    let mut tickets = session
-        .tickets
+    let mut tickets = queue_view_ticket_source(session)
         .values()
         .filter(|ticket| {
-            (session.queue_status_filter.is_empty()
-                || ticket.current_status == session.queue_status_filter)
-                && ticket_matches_search(ticket, &session.queue_search)
+            (queue_view_status_filter(session).is_empty()
+                || ticket.current_status == queue_view_status_filter(session))
+                && ticket_matches_search(ticket, queue_view_search(session))
         })
         .collect::<Vec<_>>();
+    if queue_view_sort(session) == "Recently Updated" {
+        tickets.sort_by(|left, right| {
+            right
+                .updated_revision
+                .cmp(&left.updated_revision)
+                .then_with(|| left.ticket_id.cmp(&right.ticket_id))
+        });
+    } else {
+        tickets.sort_by(|left, right| left.ticket_id.cmp(&right.ticket_id));
+    }
     if matches!(
         session.spec.scenario,
         WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory
-    ) && session.queue_search.trim().is_empty()
+    ) && queue_view_search(session).trim().is_empty()
     {
         tickets.truncate(2);
     }
@@ -2534,13 +2930,28 @@ fn reset_draft_from_saved_ticket(session: &mut WorkflowSession, ticket_id: &str)
     }
 }
 
+fn capture_stale_queue_snapshot(session: &mut WorkflowSession) {
+    if !matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder) {
+        return;
+    }
+    session.stale_queue_snapshot = Some(WorkflowQueueSnapshot {
+        tickets: session.tickets.clone(),
+        search: session.queue_search.clone(),
+        status_filter: session.queue_status_filter.clone(),
+        sort: session.queue_sort.clone(),
+    });
+}
+
 fn persist_ticket_update(session: &mut WorkflowSession, ticket_id: &str) {
+    session.next_update_revision = session.next_update_revision.saturating_add(1);
+    let updated_revision = session.next_update_revision;
     if let Some(ticket) = session.tickets.get_mut(ticket_id) {
         ticket.current_assignee = session.draft_assignee.clone();
         if !session.draft_status.is_empty() {
             ticket.current_status = session.draft_status.clone();
         }
         ticket.current_note = session.draft_note.clone();
+        ticket.updated_revision = updated_revision;
     }
 }
 
@@ -2570,6 +2981,7 @@ fn maybe_complete_workflow_verification(session: &mut WorkflowSession, visible_t
     maybe_complete_queue_verification(session, visible_text);
     maybe_complete_audit_history_verification(session, visible_text);
     maybe_complete_mutation_isolation_verification(session, visible_text);
+    maybe_complete_stale_queue_reorder_verification(session, visible_text);
 }
 
 fn maybe_complete_queue_verification(session: &mut WorkflowSession, visible_text: Option<&str>) {
@@ -2692,6 +3104,75 @@ fn maybe_complete_mutation_isolation_verification(
 
     if session.queue_verified
         && session.history_verified
+        && session.distractor_history_verified
+        && target_ticket_matches_spec(session)
+        && distractor_ticket_matches_spec(session)
+    {
+        session.reward = 1.0;
+        session.terminated = true;
+        session.truncated = false;
+    }
+}
+
+fn maybe_complete_stale_queue_reorder_verification(
+    session: &mut WorkflowSession,
+    visible_text: Option<&str>,
+) {
+    if !matches!(session.spec.scenario, WorkflowScenario::StaleQueueReorder)
+        || !session.confirmation_seen
+    {
+        return;
+    }
+
+    if matches!(session.current_page, WorkflowPage::Queue) && !session.queue_verified {
+        let visible_tickets = visible_queue_tickets(session);
+        let target_position = visible_tickets
+            .iter()
+            .position(|ticket| ticket.ticket_id == session.spec.ticket_id)
+            .map(|index| index + 1)
+            .unwrap_or_default();
+        let distractor_position = visible_tickets
+            .iter()
+            .position(|ticket| ticket.ticket_id == session.spec.distractor_ticket_id)
+            .map(|index| index + 1)
+            .unwrap_or_default();
+        let observed_match = visible_text.is_some_and(|text| {
+            text.contains(&session.spec.ticket_id)
+                && text.contains(&session.spec.assignee)
+                && text.contains(&session.spec.status)
+                && text.contains(&session.spec.distractor_ticket_id)
+                && text.contains(&display_assignee(&session.spec.distractor_assignee))
+                && text.contains(&session.spec.distractor_status)
+        });
+        if session.queue_view_fresh
+            && queue_view_sort(session) == session.spec.post_confirm_queue_sort
+            && target_position > 0
+            && distractor_position > 0
+            && target_position < distractor_position
+            && observed_match
+            && target_ticket_matches_spec(session)
+            && distractor_ticket_matches_spec(session)
+        {
+            session.queue_verified = true;
+        }
+    }
+
+    if matches!(
+        session.current_page,
+        WorkflowPage::History { ref ticket_id } if ticket_id == &session.spec.distractor_ticket_id
+    ) && !session.distractor_history_verified
+    {
+        let observed_match =
+            visible_text.is_some_and(|text| text.contains(&session.spec.distractor_ticket_id));
+        if observed_match
+            && distractor_saved_update_entry(session).is_none()
+            && distractor_ticket_matches_spec(session)
+        {
+            session.distractor_history_verified = true;
+        }
+    }
+
+    if session.queue_verified
         && session.distractor_history_verified
         && target_ticket_matches_spec(session)
         && distractor_ticket_matches_spec(session)
@@ -3422,6 +3903,191 @@ mod tests {
                 json!({ "selector": "#queue-link" }),
             )
             .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": ticket_history_link_selector("T-204") }),
+            )
+            .await?;
+
+        let final_state = client.state(&created.session_id).await?;
+        assert!(final_state.terminated);
+        assert_eq!(final_state.reward, 1.0);
+        assert_eq!(
+            field_value(&final_state, "distractor_history_verified"),
+            Some("true")
+        );
+        assert_eq!(
+            field_value(&final_state, "distractor_saved_update_exists"),
+            Some("false")
+        );
+        assert!(final_state
+            .info
+            .page_url
+            .as_deref()
+            .is_some_and(|url| url.contains("/tickets/T-204/history")));
+
+        process.stop().await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn workflow_stale_queue_reorder_oracle_requires_refresh_before_reorder_verification(
+    ) -> Result<()> {
+        let mut process = WorkflowBridgeProcess::start().await?;
+        let client = process.client();
+        let created = client
+            .create_session(&workflow_case(
+                "workflow_stale_queue_reorder_network_ops",
+                "workflow-stale-queue-reorder",
+                TaskSet::WorkflowReorder,
+                RecipeId::WorkflowStaleQueueReorder,
+            ))
+            .await?;
+
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#username", "text": "dispatch.agent" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#password", "text": "dispatch-215" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#sign-in" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#queue-search", "text": "fiber" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#queue-status-filter", "label": "Awaiting Dispatch" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#queue-sort", "label": "Ticket ID" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#apply-filters" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": ticket_link_selector("T-215") }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#assignee", "label": "Network Ops" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#status", "label": "Awaiting Dispatch" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#note", "text": "Escalate fiber outage to on-call" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#review-update" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#confirm-update" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#queue-link" }),
+            )
+            .await?;
+
+        let stale_queue_state = client.state(&created.session_id).await?;
+        assert_eq!(field_value(&stale_queue_state, "queue_view_fresh"), Some("false"));
+        assert_eq!(field_value(&stale_queue_state, "queue_verified"), Some("false"));
+        assert!(!stale_queue_state.terminated);
+
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#queue-sort", "label": "Recently Updated" }),
+            )
+            .await?;
+
+        let still_stale_state = client.state(&created.session_id).await?;
+        assert_eq!(field_value(&still_stale_state, "queue_view_fresh"), Some("false"));
+        assert_eq!(
+            field_value(&still_stale_state, "queue_target_precedes_distractor"),
+            Some("false")
+        );
+
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#apply-filters" }),
+            )
+            .await?;
+
+        let refreshed_queue_state = client.state(&created.session_id).await?;
+        assert_eq!(
+            field_value(&refreshed_queue_state, "queue_view_fresh"),
+            Some("true")
+        );
+        assert_eq!(
+            field_value(&refreshed_queue_state, "queue_verified"),
+            Some("true")
+        );
+        assert_eq!(
+            field_value(&refreshed_queue_state, "queue_target_precedes_distractor"),
+            Some("true")
+        );
+        assert!(!refreshed_queue_state.terminated);
+
         client
             .oracle_step(
                 &created.session_id,

@@ -5,6 +5,7 @@ mod stress;
 mod workflow;
 mod workflow_audit;
 mod workflow_mutation;
+mod workflow_reorder;
 mod workflow_rich;
 
 use anyhow::Result;
@@ -31,6 +32,9 @@ pub fn cases_for_task_set(
     }
     if matches!(task_set, TaskSet::WorkflowMutation) {
         return Ok(workflow_mutation::cases());
+    }
+    if matches!(task_set, TaskSet::WorkflowReorder) {
+        return Ok(workflow_reorder::cases());
     }
 
     let mut out = smoke::cases();

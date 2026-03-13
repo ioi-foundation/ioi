@@ -357,6 +357,18 @@ fn env_gap_hints(env_id: &str) -> (Option<GapClass>, Vec<String>) {
         return (Some(GapClass::PlannerGap), tags);
     }
 
+    if env_id.contains("workflow-stale-queue-reorder") {
+        push_unique_tag(&mut tags, "multi_page");
+        push_unique_tag(&mut tags, "persistent_state");
+        push_unique_tag(&mut tags, "verification");
+        push_unique_tag(&mut tags, "audit_history");
+        push_unique_tag(&mut tags, "recovery");
+        push_unique_tag(&mut tags, "negative_verification");
+        push_unique_tag(&mut tags, "stale_observation");
+        push_unique_tag(&mut tags, "queue_reorder");
+        return (Some(GapClass::PlannerGap), tags);
+    }
+
     if env_id.contains("workflow-audit-history") {
         push_unique_tag(&mut tags, "multi_page");
         push_unique_tag(&mut tags, "persistent_state");
@@ -730,5 +742,44 @@ mod tests {
             .secondary_gap_tags
             .iter()
             .any(|tag| tag == "mutation_isolation"));
+    }
+
+    #[test]
+    fn workflow_reorder_env_hints_include_stale_queue_tags() {
+        let case = ComputerUseCase {
+            id: "workflow_stale_queue_reorder_network_ops".to_string(),
+            env_id: "workflow-stale-queue-reorder".to_string(),
+            seed: 81,
+            task_set: TaskSet::WorkflowReorder,
+            max_steps: 34,
+            timeout_seconds: 50,
+            allowed_tool_profile: AllowedToolProfile::BrowserCoreWithSelect,
+            expected_reward_floor: 1.0,
+            expected_pass: true,
+            local_judge: LocalJudge::BridgeReward,
+            recipe: RecipeId::WorkflowStaleQueueReorder,
+        };
+
+        let mut result = base_result();
+        result.env_id = case.env_id.clone();
+        result.task_set = TaskSet::WorkflowReorder;
+        result.mode = ComputerUseMode::Agent;
+        result.kernel_behavior.executed_tools = vec!["browser__navigate".to_string()];
+        result.failure_class = Some("task_incomplete".to_string());
+
+        let judged = judge_case(&case, result);
+        assert_eq!(judged.primary_gap_class, Some(GapClass::PlannerGap));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "stale_observation"));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "queue_reorder"));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "negative_verification"));
     }
 }
