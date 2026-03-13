@@ -30,6 +30,7 @@ pub enum TaskSet {
     Workflow,
     WorkflowRich,
     WorkflowAudit,
+    WorkflowMutation,
 }
 
 impl TaskSet {
@@ -42,6 +43,7 @@ impl TaskSet {
             Self::Workflow => "workflow",
             Self::WorkflowRich => "workflow_rich",
             Self::WorkflowAudit => "workflow_audit",
+            Self::WorkflowMutation => "workflow_mutation",
         }
     }
 }
@@ -116,6 +118,7 @@ pub enum RecipeId {
     WorkflowTicketRouting,
     WorkflowQueueVerification,
     WorkflowAuditHistory,
+    WorkflowMutationIsolation,
     SurveyOnly,
 }
 

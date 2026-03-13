@@ -4,6 +4,7 @@ mod smoke;
 mod stress;
 mod workflow;
 mod workflow_audit;
+mod workflow_mutation;
 mod workflow_rich;
 
 use anyhow::Result;
@@ -27,6 +28,9 @@ pub fn cases_for_task_set(
     }
     if matches!(task_set, TaskSet::WorkflowAudit) {
         return Ok(workflow_audit::cases());
+    }
+    if matches!(task_set, TaskSet::WorkflowMutation) {
+        return Ok(workflow_mutation::cases());
     }
 
     let mut out = smoke::cases();

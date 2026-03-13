@@ -345,6 +345,18 @@ fn env_gap_hints(env_id: &str) -> (Option<GapClass>, Vec<String>) {
         return (Some(GapClass::ObservationGap), tags);
     }
 
+    if env_id.contains("workflow-mutation-isolation") {
+        push_unique_tag(&mut tags, "multi_page");
+        push_unique_tag(&mut tags, "persistent_state");
+        push_unique_tag(&mut tags, "verification");
+        push_unique_tag(&mut tags, "audit_history");
+        push_unique_tag(&mut tags, "recovery");
+        push_unique_tag(&mut tags, "negative_verification");
+        push_unique_tag(&mut tags, "cross_ticket");
+        push_unique_tag(&mut tags, "mutation_isolation");
+        return (Some(GapClass::PlannerGap), tags);
+    }
+
     if env_id.contains("workflow-audit-history") {
         push_unique_tag(&mut tags, "multi_page");
         push_unique_tag(&mut tags, "persistent_state");
@@ -679,5 +691,44 @@ mod tests {
             .secondary_gap_tags
             .iter()
             .any(|tag| tag == "recovery"));
+    }
+
+    #[test]
+    fn workflow_mutation_env_hints_include_negative_verification_tags() {
+        let case = ComputerUseCase {
+            id: "workflow_mutation_isolation_network_ops".to_string(),
+            env_id: "workflow-mutation-isolation".to_string(),
+            seed: 71,
+            task_set: TaskSet::WorkflowMutation,
+            max_steps: 32,
+            timeout_seconds: 45,
+            allowed_tool_profile: AllowedToolProfile::BrowserCoreWithSelect,
+            expected_reward_floor: 1.0,
+            expected_pass: true,
+            local_judge: LocalJudge::BridgeReward,
+            recipe: RecipeId::WorkflowMutationIsolation,
+        };
+
+        let mut result = base_result();
+        result.env_id = case.env_id.clone();
+        result.task_set = TaskSet::WorkflowMutation;
+        result.mode = ComputerUseMode::Agent;
+        result.kernel_behavior.executed_tools = vec!["browser__navigate".to_string()];
+        result.failure_class = Some("task_incomplete".to_string());
+
+        let judged = judge_case(&case, result);
+        assert_eq!(judged.primary_gap_class, Some(GapClass::PlannerGap));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "negative_verification"));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "cross_ticket"));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "mutation_isolation"));
     }
 }
