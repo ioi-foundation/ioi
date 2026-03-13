@@ -1,5 +1,6 @@
 use ioi_types::app::KernelEvent;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -213,6 +214,22 @@ pub struct BridgeScrollTarget {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BridgeDomElement {
+    pub tag: String,
+    pub selector: Option<String>,
+    pub text: String,
+    pub visible: bool,
+    #[serde(default)]
+    pub attributes: BTreeMap<String, String>,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub center_x: f64,
+    pub center_y: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BridgeInfo {
     pub reason: Option<String>,
     pub raw_reward: Option<f32>,
@@ -228,6 +245,8 @@ pub struct BridgeInfo {
     pub interactive_elements: Vec<BridgeInteractiveElement>,
     #[serde(default)]
     pub scroll_targets: Vec<BridgeScrollTarget>,
+    #[serde(default)]
+    pub dom_elements: Vec<BridgeDomElement>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
