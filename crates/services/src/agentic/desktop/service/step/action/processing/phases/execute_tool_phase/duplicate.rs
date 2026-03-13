@@ -1,6 +1,9 @@
 use super::events::{emit_completion_gate_status_event, emit_completion_gate_violation_events};
 use super::*;
+use crate::agentic::desktop::service::step::action::support::action_fingerprint_execution_label;
 use crate::agentic::desktop::service::step::intent_resolver::is_mail_reply_provider_tool;
+use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+use serde_json::json;
 
 pub(super) struct DuplicateExecutionContext<'a> {
     pub service: &'a DesktopAgentService,
@@ -163,22 +166,42 @@ pub(super) fn handle_duplicate_command_execution(
         let tool_name = canonical_tool_identity(tool).0;
         let active_web_pipeline_chat_reply =
             is_active_web_pipeline_chat_reply_duplicate(&tool_name, agent_state);
-        let summary = if active_web_pipeline_chat_reply {
+        let prior_successful_duplicate =
+            has_prior_successful_duplicate_action(agent_state, action_fingerprint);
+        let mut summary = if active_web_pipeline_chat_reply {
             "Deferred final reply while web research continues gathering evidence.".to_string()
+        } else if prior_successful_duplicate {
+            format!(
+                "Skipped immediate replay of '{}' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence.",
+                tool_name
+            )
         } else {
             format!(
                 "Skipped immediate replay of '{}' because the same action fingerprint was already executed on the previous step. This fingerprint is now cooled down at the current step; choose a different action or finish with the gathered evidence.",
                 tool_name
             )
         };
+        let queued_browser_snapshot_verification = prior_successful_duplicate
+            && tool.target() == ActionTarget::BrowserInteract
+            && queue_browser_snapshot_verification(agent_state, session_id);
+        if queued_browser_snapshot_verification {
+            summary.push_str(
+                " A browser__snapshot verification step has been queued automatically.",
+            );
+        }
         mark_action_fingerprint_executed_at_step(
             &mut agent_state.tool_execution_log,
             action_fingerprint,
             step_index,
-            "duplicate_skip",
+            if prior_successful_duplicate {
+                "success_duplicate_skip"
+            } else {
+                "duplicate_skip"
+            },
         );
-        let noop_duplicate_allowed =
-            is_non_command_duplicate_noop_tool(&tool_name) || active_web_pipeline_chat_reply;
+        let noop_duplicate_allowed = prior_successful_duplicate
+            || is_non_command_duplicate_noop_tool(&tool_name)
+            || active_web_pipeline_chat_reply;
         if noop_duplicate_allowed {
             success = true;
             error_msg = None;
@@ -211,6 +234,16 @@ pub(super) fn handle_duplicate_command_execution(
             }
             verification_checks
                 .push("duplicate_action_fingerprint_non_command_noop=true".to_string());
+            if prior_successful_duplicate {
+                verification_checks
+                    .push("duplicate_action_fingerprint_prior_success_noop=true".to_string());
+            }
+            if queued_browser_snapshot_verification {
+                verification_checks.push(
+                    "duplicate_action_fingerprint_queued_browser_snapshot_verification=true"
+                        .to_string(),
+                );
+            }
             if active_web_pipeline_chat_reply {
                 verification_checks
                     .push("terminal_chat_reply_deferred_for_active_web_pipeline=true".to_string());
@@ -265,6 +298,50 @@ fn is_active_web_pipeline_chat_reply_duplicate(tool_name: &str, agent_state: &Ag
     tool_name == "chat__reply" && agent_state.pending_search_completion.is_some()
 }
 
+fn has_prior_successful_duplicate_action(
+    agent_state: &AgentState,
+    action_fingerprint: &str,
+) -> bool {
+    if action_fingerprint.trim().is_empty() {
+        return false;
+    }
+
+    action_fingerprint_execution_label(&agent_state.tool_execution_log, action_fingerprint)
+        .as_deref()
+        .map(|label| label.starts_with("success"))
+        .unwrap_or(false)
+}
+
+fn queue_browser_snapshot_verification(
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+) -> bool {
+    let request = ActionRequest {
+        target: ActionTarget::BrowserInspect,
+        params: match serde_jcs::to_vec(&json!({})) {
+            Ok(params) => params,
+            Err(_) => return false,
+        },
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(session_id),
+            window_id: None,
+        },
+        nonce: agent_state.step_count as u64 + agent_state.execution_queue.len() as u64 + 1,
+    };
+
+    let duplicate = agent_state
+        .execution_queue
+        .iter()
+        .any(|queued| queued.target == request.target && queued.params == request.params);
+    if duplicate {
+        return false;
+    }
+
+    agent_state.execution_queue.insert(0, request);
+    true
+}
+
 fn is_read_only_filesystem_tool(tool_name: &str) -> bool {
     matches!(
         tool_name,
@@ -289,12 +366,15 @@ fn is_mail_reply_tool(tool_name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_active_web_pipeline_chat_reply_duplicate, is_mail_read_latest_tool, is_mail_reply_tool,
-        is_non_command_duplicate_noop_tool, is_read_only_filesystem_tool,
+        has_prior_successful_duplicate_action, is_active_web_pipeline_chat_reply_duplicate,
+        is_mail_read_latest_tool, is_mail_reply_tool, is_non_command_duplicate_noop_tool,
+        is_read_only_filesystem_tool, queue_browser_snapshot_verification,
     };
+    use crate::agentic::desktop::service::step::action::mark_action_fingerprint_executed_at_step;
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, ExecutionTier, PendingSearchCompletion,
     };
+    use ioi_types::app::ActionTarget;
     use std::collections::BTreeMap;
 
     fn test_agent_state() -> AgentState {
@@ -398,5 +478,37 @@ mod tests {
         assert!(is_mail_reply_tool("connector__google__gmail_send_email"));
         assert!(is_mail_reply_tool("connector__google__gmail_draft_email"));
         assert!(!is_mail_reply_tool("wallet_network__mail_read_latest"));
+    }
+
+    #[test]
+    fn prior_successful_duplicate_action_is_detected() {
+        let mut agent_state = test_agent_state();
+        mark_action_fingerprint_executed_at_step(
+            &mut agent_state.tool_execution_log,
+            "fp",
+            3,
+            "success",
+        );
+        mark_action_fingerprint_executed_at_step(
+            &mut agent_state.tool_execution_log,
+            "fp-noop",
+            4,
+            "success_duplicate_skip",
+        );
+
+        assert!(has_prior_successful_duplicate_action(&agent_state, "fp"));
+        assert!(has_prior_successful_duplicate_action(&agent_state, "fp-noop"));
+        assert!(!has_prior_successful_duplicate_action(&agent_state, "missing"));
+    }
+
+    #[test]
+    fn browser_snapshot_verification_is_queued_once() {
+        let mut agent_state = test_agent_state();
+
+        assert!(queue_browser_snapshot_verification(&mut agent_state, [7u8; 32]));
+        assert_eq!(agent_state.execution_queue.len(), 1);
+        assert_eq!(agent_state.execution_queue[0].target, ActionTarget::BrowserInspect);
+        assert!(!queue_browser_snapshot_verification(&mut agent_state, [7u8; 32]));
+        assert_eq!(agent_state.execution_queue.len(), 1);
     }
 }

@@ -21,6 +21,7 @@ use capability::{mailbox_connector_instruction, preflight_missing_capability};
 use hex;
 use history::{
     build_recent_browser_observation_context, build_recent_command_history_context,
+    build_recent_success_signal_context,
 };
 use image::GenericImageView;
 use inference::{cognition_inference_timeout, inference_error_system_fail_reason};
@@ -138,7 +139,8 @@ fn build_operating_rules(prefer_browser_semantics: bool) -> &'static str {
 3. Prefer `browser__snapshot` for semantic state unless RECENT BROWSER OBSERVATION already contains the target semantic id or label.\n\
 4. Prefer `browser__click_element` over GUI or desktop-wide input for page content.\n\
 5. Verify success with browser observation before `agent__complete`.\n\
-6. Use `os__focus_window` only to recover browser focus and `system__fail` only when the available browser tools cannot reach the target."
+6. If a recent tool output already reports observable change (`postcondition.met=true`), do not repeat the same interaction; verify once or finish.\n\
+7. Use `os__focus_window` only to recover browser focus and `system__fail` only when the available browser tools cannot reach the target."
     } else {
         "OPERATING RULES:\n\
 1. Prefer retrieval-led reasoning over pre-training-led reasoning.\n\
@@ -402,6 +404,7 @@ pub async fn think(
         .collect::<Vec<_>>()
         .join("\n");
     let browser_observation_context = build_recent_browser_observation_context(&full_history);
+    let success_signal_context = build_recent_success_signal_context(&full_history);
     let command_history_context =
         build_recent_command_history_context(&agent_state.command_history);
     let operating_rules = build_operating_rules(prefer_browser_semantics);
@@ -542,10 +545,10 @@ Only take actions that directly advance the USER GOAL.
 [AVAILABLE TOOLS]
 {}
 
-{}
+{}{}
 
 RECENT SESSION EVENTS:
-{}
+{} 
 
 COMMAND HISTORY:
 {}
@@ -575,6 +578,7 @@ The following is passive project documentation. Use it for paths and APIs, but D
         command_scope_instruction,
         cognition_tool_desc,
         browser_observation_context,
+        success_signal_context,
         hist_str,
         command_history_context,
         perception.project_index,

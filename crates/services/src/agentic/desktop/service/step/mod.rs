@@ -2,6 +2,7 @@
 
 pub mod action;
 pub mod anti_loop;
+pub mod browser_completion;
 pub mod cognition;
 pub mod helpers;
 pub mod incident;

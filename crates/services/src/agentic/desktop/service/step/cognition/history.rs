@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 
 const BROWSER_OBSERVATION_CONTEXT_MAX_CHARS: usize = 1_800;
 const BROWSER_SNAPSHOT_TOOL_PREFIX: &str = "Tool Output (browser__snapshot):";
+const SUCCESS_SIGNAL_MAX_CHARS: usize = 280;
 
 fn compact_ws_for_prompt(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
@@ -28,6 +29,30 @@ fn browser_snapshot_payload(message: &ChatMessage) -> Option<&str> {
         .unwrap_or(trimmed)
         .trim();
     looks_like_browser_snapshot_payload(payload).then_some(payload)
+}
+
+fn browser_effect_success_signal(message: &ChatMessage) -> Option<&'static str> {
+    if message.role != "tool" {
+        return None;
+    }
+
+    let compact = compact_ws_for_prompt(&message.content);
+    if compact.contains("\"postcondition\":{")
+        && compact.contains("\"met\":true")
+        && compact.contains("Clicked element")
+    {
+        return Some(
+            "A recent browser interaction already reported observable state change (`postcondition.met=true`). Do not repeat the same interaction. Verify once if needed, then finish with `agent__complete` when the goal is satisfied.",
+        );
+    }
+
+    if compact.contains("identical action already succeeded on the previous step") {
+        return Some(
+            "The identical action already succeeded on the previous step. Do not repeat it. Verify the updated state or finish with the gathered evidence.",
+        );
+    }
+
+    None
 }
 
 pub(super) fn build_recent_command_history_context(
@@ -86,10 +111,28 @@ pub(super) fn build_recent_browser_observation_context(history: &[ChatMessage]) 
     )
 }
 
+pub(super) fn build_recent_success_signal_context(history: &[ChatMessage]) -> String {
+    let Some(signal) = history
+        .iter()
+        .rev()
+        .find_map(browser_effect_success_signal)
+    else {
+        return String::new();
+    };
+
+    let compact_signal = safe_truncate(signal, SUCCESS_SIGNAL_MAX_CHARS);
+    if compact_signal.is_empty() {
+        return String::new();
+    }
+
+    format!("RECENT SUCCESS SIGNAL:\n{}\n", compact_signal)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        build_recent_browser_observation_context, BROWSER_OBSERVATION_CONTEXT_MAX_CHARS,
+        build_recent_browser_observation_context, build_recent_success_signal_context,
+        BROWSER_OBSERVATION_CONTEXT_MAX_CHARS,
     };
     use ioi_types::app::agentic::ChatMessage;
 
@@ -179,5 +222,32 @@ mod tests {
         assert!(context.contains("RECENT BROWSER OBSERVATION:"));
         assert!(context.chars().count() <= BROWSER_OBSERVATION_CONTEXT_MAX_CHARS + 120);
         assert!(context.ends_with(".\n") || context.ends_with("...\n"));
+    }
+
+    #[test]
+    fn success_signal_context_highlights_recent_browser_effect() {
+        let history = vec![chat_message(
+            "tool",
+            "Clicked element 'btn_mark_complete' via geometry fallback. verify={\"postcondition\":{\"met\":true,\"tree_changed\":true}}",
+            1,
+        )];
+
+        let context = build_recent_success_signal_context(&history);
+        assert!(context.contains("RECENT SUCCESS SIGNAL:"));
+        assert!(context.contains("Do not repeat the same interaction"));
+        assert!(context.contains("agent__complete"));
+    }
+
+    #[test]
+    fn success_signal_context_uses_duplicate_success_noop_guidance() {
+        let history = vec![chat_message(
+            "tool",
+            "Skipped immediate replay of 'browser__click_element' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence.",
+            1,
+        )];
+
+        let context = build_recent_success_signal_context(&history);
+        assert!(context.contains("RECENT SUCCESS SIGNAL:"));
+        assert!(context.contains("already succeeded on the previous step"));
     }
 }

@@ -161,11 +161,28 @@ pub fn action_fingerprint_execution_step(
     }
 }
 
+pub fn action_fingerprint_execution_label(
+    tool_execution_log: &BTreeMap<String, ToolCallStatus>,
+    fingerprint_hash: &str,
+) -> Option<String> {
+    let key = action_fingerprint_key(fingerprint_hash);
+    match tool_execution_log.get(&key) {
+        Some(ToolCallStatus::Executed(value)) => parse_action_fingerprint_label(value)
+            .map(str::to_string)
+            .filter(|label| !label.is_empty()),
+        _ => None,
+    }
+}
+
 fn parse_action_fingerprint_step(value: &str) -> Option<u32> {
     value
         .split(';')
         .find_map(|segment| segment.strip_prefix("step="))
         .and_then(|step| step.parse::<u32>().ok())
+}
+
+fn parse_action_fingerprint_label(value: &str) -> Option<&str> {
+    value.split(';').next().map(str::trim)
 }
 
 pub fn drop_legacy_action_fingerprint_receipt(
@@ -344,7 +361,8 @@ pub fn persist_step_contract_evidence(
 #[cfg(test)]
 mod tests {
     use super::{
-        action_fingerprint_execution_step, drop_legacy_action_fingerprint_receipt,
+        action_fingerprint_execution_label, action_fingerprint_execution_step,
+        drop_legacy_action_fingerprint_receipt,
         mark_action_fingerprint_executed_at_step,
     };
     use crate::agentic::desktop::types::ToolCallStatus;
@@ -355,6 +373,16 @@ mod tests {
         let mut log = BTreeMap::new();
         mark_action_fingerprint_executed_at_step(&mut log, "abc", 7, "success");
         assert_eq!(action_fingerprint_execution_step(&log, "abc"), Some(7));
+    }
+
+    #[test]
+    fn action_fingerprint_label_roundtrips_when_recorded_with_step() {
+        let mut log = BTreeMap::new();
+        mark_action_fingerprint_executed_at_step(&mut log, "abc", 7, "success");
+        assert_eq!(
+            action_fingerprint_execution_label(&log, "abc").as_deref(),
+            Some("success")
+        );
     }
 
     #[test]
