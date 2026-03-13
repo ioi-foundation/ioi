@@ -46,6 +46,17 @@ impl BrowserDriver {
             .collect::<Result<Vec<String>, BrowserError>>()
     }
 
+    pub async fn active_url(&self) -> std::result::Result<String, BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+        self.check_connection_error(page.url().await)
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Failed to query active URL: {}", e)))
+            .map(|url| url.unwrap_or_default())
+    }
+
     pub async fn go_back(&self, steps: u32) -> std::result::Result<(u32, String), BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;

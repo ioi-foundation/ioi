@@ -2,6 +2,7 @@ pub(crate) mod harness;
 pub(crate) mod judge;
 pub(crate) mod tasks;
 pub(crate) mod types;
+pub(crate) mod workflow_backend;
 
 use anyhow::{anyhow, Result};
 use std::env;
@@ -52,8 +53,9 @@ fn parse_task_set(raw: &str) -> Result<TaskSet> {
         "core" => Ok(TaskSet::Core),
         "stress" => Ok(TaskSet::Stress),
         "catalog" => Ok(TaskSet::Catalog),
+        "workflow" => Ok(TaskSet::Workflow),
         other => Err(anyhow!(
-            "invalid COMPUTER_USE_SUITE_TASK_SET value '{}'; expected smoke|core|stress|catalog",
+            "invalid COMPUTER_USE_SUITE_TASK_SET value '{}'; expected smoke|core|stress|catalog|workflow",
             other
         )),
     }

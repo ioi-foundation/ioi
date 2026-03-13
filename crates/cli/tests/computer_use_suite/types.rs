@@ -27,6 +27,7 @@ pub enum TaskSet {
     Core,
     Stress,
     Catalog,
+    Workflow,
 }
 
 impl TaskSet {
@@ -36,6 +37,7 @@ impl TaskSet {
             Self::Core => "core",
             Self::Stress => "stress",
             Self::Catalog => "catalog",
+            Self::Workflow => "workflow",
         }
     }
 }
@@ -52,6 +54,7 @@ pub enum AllowedToolProfile {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LocalJudge {
+    BridgeReward,
     MiniwobReward,
     HoverShapeReceipts,
 }
@@ -106,6 +109,7 @@ pub enum RecipeId {
     CountShape,
     CountSides,
     FindMidpoint,
+    WorkflowTicketRouting,
     SurveyOnly,
 }
 

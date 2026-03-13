@@ -90,7 +90,7 @@ pub fn judge_case(
     mut result: ComputerUseCaseResult,
 ) -> ComputerUseCaseResult {
     let (task_success, reward_floor_met, notes) = match case.local_judge {
-        LocalJudge::MiniwobReward => {
+        LocalJudge::BridgeReward | LocalJudge::MiniwobReward => {
             let effective_reward = result
                 .bridge_state
                 .info
@@ -255,6 +255,9 @@ fn primary_gap_from_failure_class(failure_class: Option<&str>) -> Option<GapClas
     match failure_class.unwrap_or_default() {
         "kernel_contract_violation" => Some(GapClass::VerificationGap),
         "harness_error" => Some(GapClass::InfraOrBridgeGap),
+        "PermissionOrApprovalRequired" | "PolicyBlocked" | "UserInterventionNeeded" => {
+            Some(GapClass::InfraOrBridgeGap)
+        }
         "TargetNotFound" | "CatalogSurvey" => None,
         "TimeoutOrHang" => Some(GapClass::RecoveryGap),
         "agent_paused" | "agent_failed" | "task_not_terminated" | "task_incomplete" => {
@@ -272,6 +275,9 @@ fn failure_tag_hint(failure_class: Option<&str>) -> Option<&'static str> {
         "TargetNotFound" => Some("ocr_readback"),
         "TimeoutOrHang" => Some("stabilization"),
         "CatalogSurvey" => Some("survey_only"),
+        "PermissionOrApprovalRequired" => Some("approval_required"),
+        "PolicyBlocked" => Some("policy_scope"),
+        "UserInterventionNeeded" => Some("user_intervention"),
         _ => None,
     }
 }
@@ -337,6 +343,13 @@ fn env_gap_hints(env_id: &str) -> (Option<GapClass>, Vec<String>) {
     {
         push_unique_tag(&mut tags, "ocr_readback");
         return (Some(GapClass::ObservationGap), tags);
+    }
+
+    if env_id.contains("workflow-ticket-routing") || env_id.contains("workflow") {
+        push_unique_tag(&mut tags, "multi_page");
+        push_unique_tag(&mut tags, "persistent_state");
+        push_unique_tag(&mut tags, "verification");
+        return (Some(GapClass::PlannerGap), tags);
     }
 
     if env_id.contains("menu")
@@ -578,5 +591,52 @@ mod tests {
             ]
         );
         assert!(judged.kernel_behavior.disallowed_tools.is_empty());
+    }
+
+    #[test]
+    fn workflow_permission_failures_are_classified_as_infra_with_workflow_tags() {
+        let case = ComputerUseCase {
+            id: "workflow_ticket_routing_billing_review".to_string(),
+            env_id: "workflow-ticket-routing".to_string(),
+            seed: 42,
+            task_set: TaskSet::Workflow,
+            max_steps: 12,
+            timeout_seconds: 25,
+            allowed_tool_profile: AllowedToolProfile::BrowserCoreWithSelect,
+            expected_reward_floor: 1.0,
+            expected_pass: true,
+            local_judge: LocalJudge::BridgeReward,
+            recipe: RecipeId::WorkflowTicketRouting,
+        };
+
+        let mut result = base_result();
+        result.env_id = case.env_id.clone();
+        result.task_set = TaskSet::Workflow;
+        result.mode = ComputerUseMode::Agent;
+        result.kernel_behavior.executed_tools = vec!["browser__navigate".to_string()];
+        result.failure_class = Some("PermissionOrApprovalRequired".to_string());
+
+        let judged = judge_case(&case, result);
+        assert_eq!(judged.support_state, BenchmarkSupportState::InfraBlocked);
+        assert_eq!(
+            judged.primary_gap_class,
+            Some(GapClass::InfraOrBridgeGap)
+        );
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "multi_page"));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "persistent_state"));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "verification"));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "approval_required"));
     }
 }

@@ -490,6 +490,8 @@ Validation:
 
 Current phase:
 
+- Benchmark Escalation Ladder rung 10 is now active and its first deterministic external workflow slice is closed. The new `workflow` task set reuses the existing `computer_use_suite` harness, `BrowserDriver`, and `DesktopAgentService` surfaces against a local multi-page loopback fixture, and the current authoritative recapture is `oracle 2/2`, `runtime 2/2`, `agent 2/2` at `crates/cli/target/computer_use_suite/run-1773409060/{oracle,runtime,agent}`.
+- The first workflow slice did yield one product-relevant generic gap before closing: loopback real-browser interactions were still being routed through raw-egress PII handling, which blocked `browser__navigate` with `PermissionOrApprovalRequired` in the first diagnostic `agent 1/2` run at `crates/cli/target/computer_use_suite/run-1773408419/agent`. That gap is now closed via generic local-browser `LocalProcessing` risk-surface routing.
 - PR11 runtime and agent coverage expansion reached the explicit MiniWoB exhaustion checkpoint for product-facing work on 2026-03-13. The runtime-covered agent family tranche now closes at `agent 25/25` under `crates/cli/target/computer_use_suite/run-1773396334/agent`.
 - The broader PR8 realistic regression rung remains green in both lanes: `runtime 32/32` at `crates/cli/target/computer_use_suite/run-1773380341/runtime` and `agent 32/32` at `crates/cli/target/computer_use_suite/run-1773379509/agent`. PR7 and PR8 stay closed; no current artifact-backed regression justifies reopening low-level pointer, selection, clipboard, or focus work.
 - Agent coverage had already moved beyond the old curated slice at `agent 7/7` under `crates/cli/target/computer_use_suite/run-1773381666/agent` for `simple-arithmetic`, `simple-algebra`, `odd-or-even`, `find-word`, `read-table`, `read-table-2`, and `phone-book`. The new authoritative `25/25` slice extends that breadth across forms, editors, social-media, inbox, visual, and canvas families that direct runtime already solved.
@@ -497,7 +499,7 @@ Current phase:
 - `stock-market` exposed the last remaining runtime-covered agent recipe gap in the first broader recapture (`agent 24/25` at `crates/cli/target/computer_use_suite/run-1773395719/agent`) and is now closed via focus-before-wait sequencing. Targeted validation: `runtime 1/1` at `crates/cli/target/computer_use_suite/run-1773396230/runtime`, `agent 1/1` at `crates/cli/target/computer_use_suite/run-1773396302/agent`, and then the authoritative `agent 25/25` recapture at `crates/cli/target/computer_use_suite/run-1773396334/agent`.
 - The latest authoritative full discovered-catalog pair is still `oracle 63/130` at `crates/cli/target/computer_use_suite/run-1773368165/oracle` and `runtime 63/130` at `crates/cli/target/computer_use_suite/run-1773369088/runtime`. Those full totals remain historically correct, but they are no longer the product-facing control metric once the runtime-covered family tranche has closed.
 - `find-midpoint` remains the only named runtime-covered realistic non-pass on the current frontier, but current artifacts isolate it as benchmark-floor residue rather than a planner/runtime/browser gap: both realistic lanes top out at `raw_reward = 0.98333335` under `crates/cli/target/computer_use_suite/run-1773395042/{runtime,agent}` because the task expects a half-pixel midpoint. That residue moves to the benchmark-only `candidate` lane unless a non-MiniWoB product case later demands subpixel pointer primitives.
-- The next external benchmark frontier is now defined as a deterministic BrowserGym/WorkArena/WebArena-style multi-page real-browser workflow slice. MiniWoB's remaining open space is now mostly survey-only recipe additions plus benchmark-floor residue, not the main source of product-relevant capability pressure.
+- The next frontier beyond this closed 2-case slice is rung 11: a richer deterministic BrowserGym/WorkArena/WebArena-style workflow family with queue filtering/search, cross-page persisted-state verification, and recovery-sensitive edit confirmation. MiniWoB's remaining open space is now mostly survey-only recipe additions plus benchmark-floor residue, not the main source of product-relevant capability pressure.
 
 Completed phases:
 
@@ -510,13 +512,14 @@ Completed phases:
 - PR7 complete: real browser pointer primitives (`hover`, `pointer_move`, `mouse_down`, `mouse_up`, composed `drag`) landed with typed receipts/postconditions, targeted pointer tasks pass in `oracle` and `runtime`, and the broad benchmark moved materially after the tranche
 - PR8 complete: selection-range support, modifier-aware key chords, clipboard flows, focus/startup hardening, duplicate-wait dedupe hardening, one-shot startup navigation for agent mode, zero-floor completion gating fixes, and the PR8 closure slices all landed with code, tests, docs, and broader realistic-mode validation
 - PR11 product-facing runtime-covered breadth tranche complete: authoritative realistic slices now include `agent 32/32` at `crates/cli/target/computer_use_suite/run-1773379509/agent`, `agent 7/7` at `crates/cli/target/computer_use_suite/run-1773381666/agent`, and `agent 25/25` at `crates/cli/target/computer_use_suite/run-1773396334/agent` without reopening low-level primitives
+- post-MiniWoB external benchmark bring-up complete: the deterministic real-browser multi-page `workflow` task set landed under `computer_use_suite`, exposed one generic local-browser PII/firewall policy gap, and now passes authoritatively at `oracle 2/2`, `runtime 2/2`, `agent 2/2` under `crates/cli/target/computer_use_suite/run-1773409060/{oracle,runtime,agent}`
 
 Remaining phases:
 
 - PR9: observation hardening if a fresh broad/full recapture exposes a real observation-led family again
 - PR10: recovery and verification hardening
 - PR12: separate full-catalog `candidate` lane for residual MiniWoB survey-family parity plus `find-midpoint`
-- post-MiniWoB external benchmark expansion using deterministic BrowserGym/WorkArena/WebArena-style workflows
+- rung-11 external benchmark expansion using a richer deterministic BrowserGym/WorkArena/WebArena-style workflow family with queue filtering/search, cross-page persisted-state verification, and recovery-sensitive edit confirmation
 
 Decisions made:
 
@@ -537,6 +540,9 @@ Decisions made:
 - realistic browser pointer coordinates must preserve floats, and text insertion should emit the DOM key events pages actually observe, so benchmark pressure lands on real browser behavior instead of artificial truncation artifacts
 - `find-midpoint` should be classified from artifacts, not from the suite's generic fallback labels: the realistic residue is `missing_pointer_primitive` with `subpixel_click_precision` / `page_event_integer_quantization`, not a planner gap
 - once the runtime-covered MiniWoB families are closed and the remaining open work is mostly harness recipes or benchmark-floor residue, MiniWoB stops being the product-facing benchmark frontier and further parity work should move to `candidate`
+- the first post-MiniWoB external benchmark slice should stay inside the existing `computer_use_suite`/browser/runtime stack: a deterministic loopback multi-page workflow fixture is preferable to introducing a second benchmark harness
+- browser interactions against local loopback browser contexts (`http://127.0.0.1`, `localhost`, `*.localhost`, `file:`, `about:`, `data:`) should be classified as `LocalProcessing` for PII/firewall routing; treating them as external raw egress creates false benchmark failures
+- workflow benchmark failures gated by approval/policy surfaces must not fall through to `planner_gap`; the diagnostic `PermissionOrApprovalRequired` failure at `run-1773408419` is an `infra_or_bridge_gap` with workflow-specific multi-page verification tags
 
 Deviations from original plan:
 
@@ -552,9 +558,14 @@ Deviations from original plan:
 - the bridge now exports generic `dom_elements`, and the suite runtime consumes successful `browser__canvas_summary` kernel events to cache canvas observations without adding benchmark-native action shortcuts to realistic modes
 - `stock-market` agent behavior now mirrors the existing direct runtime strategy of focusing the buy control first and then waiting for the threshold, rather than relying on a simplified wait/click variant
 - `find-midpoint` remains in MiniWoB reporting but has been moved out of product-facing PR11 work and into the future benchmark-only `candidate` lane
+- post-MiniWoB external work is currently implemented as a suite-local deterministic loopback workflow fixture rather than a third-party BrowserGym/WorkArena/WebArena checkout; this preserves the same repo browser/runtime surfaces while still forcing real multi-page browser behavior
 
 Validation status:
 
+- workflow slice setup on 2026-03-13:
+  - task set: `workflow`
+  - fixture: suite-local loopback `axum` workflow server started by `WorkflowBridgeProcess`; no MiniWoB checkout or `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR` is required
+  - harness entrypoint: `cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --nocapture`
 - `cargo test -p ioi-services browser_interaction_scope_allows_pointer_followups -- --nocapture` passed on 2026-03-12 after extending browser interaction capability bindings for pointer follow-ups
 - `cargo test -p ioi-cli --test computer_use_suite_e2e synthetic_kernel_events_do_not_count_as_executed_tools -- --nocapture` passed on 2026-03-12 after filtering synthetic `system::max_steps_reached` events from kernel tool accounting
 - `cargo test -p ioi-services browser_wait_is_allowed_to_repeat_on_adjacent_steps -- --nocapture` passed on 2026-03-12 after exempting `browser__wait` from adjacent non-command replay blocking
@@ -577,6 +588,14 @@ Validation status:
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_form_sequence,miniwob_catalog_form_sequence_2,miniwob_catalog_form_sequence_3,miniwob_catalog_login_user_popup,miniwob_catalog_text_editor,miniwob_catalog_guess_number,miniwob_catalog_find_greatest,miniwob_catalog_social_media,miniwob_catalog_social_media_all,miniwob_catalog_social_media_some,miniwob_catalog_stock_market,miniwob_catalog_email_inbox,miniwob_catalog_email_inbox_delete,miniwob_catalog_email_inbox_forward,miniwob_catalog_email_inbox_forward_nl,miniwob_catalog_email_inbox_forward_nl_turk,miniwob_catalog_email_inbox_important,miniwob_catalog_email_inbox_nl_turk,miniwob_catalog_email_inbox_noscroll,miniwob_catalog_email_inbox_reply,miniwob_catalog_email_inbox_star_reply,miniwob_catalog_visual_addition,miniwob_catalog_identify_shape,miniwob_catalog_count_shape,miniwob_catalog_count_sides COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` then completed authoritatively on 2026-03-13 with `agent 25/25`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773396334/agent`
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=oracle COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-12 with the current authoritative full discovered-catalog oracle snapshot: `63/130`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773368165/oracle`
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=runtime COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-12 with the current authoritative full discovered-catalog runtime snapshot: `63/130`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773369088/runtime`
+- `cargo test -p ioi-cli --test computer_use_suite_e2e workflow_ -- --nocapture` passed on 2026-03-13 (`4 passed`) after fixing workflow approval/policy failure classification
+- `cargo test -p ioi-services browser_local_processing_detection_covers_loopback_and_local_schemes -- --nocapture` passed on 2026-03-13 after classifying loopback/browser-local URLs as `LocalProcessing`
+- `cargo test -p ioi-services browser_type_uses_active_page_context_for_local_processing_routing -- --nocapture` passed on 2026-03-13 after routing browser text-entry egress checks through the active browser page context
+- `cargo test -p ioi-services browser_navigate_uses_destination_url_for_local_processing_routing -- --nocapture` passed on 2026-03-13 after routing `browser__navigate` PII classification from the destination URL
+- `COMPUTER_USE_SUITE_ARTIFACT_DIR=/home/heathledger/Documents/ioi/repos/ioi/crates/cli/target/computer_use_suite/run-1773408306 COMPUTER_USE_SUITE_MODE=runtime COMPUTER_USE_SUITE_TASK_SET=workflow COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --nocapture` completed on 2026-03-13 with workflow bring-up validation: `runtime 2/2`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773408306/runtime`
+- `COMPUTER_USE_SUITE_ARTIFACT_DIR=/home/heathledger/Documents/ioi/repos/ioi/crates/cli/target/computer_use_suite/run-1773408419 COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=workflow COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --nocapture` completed diagnostically on 2026-03-13 with `agent 1/2`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773408419/agent`; artifacts isolate `PermissionOrApprovalRequired` on loopback `browser__navigate`
+- `COMPUTER_USE_SUITE_ARTIFACT_DIR=/home/heathledger/Documents/ioi/repos/ioi/crates/cli/target/computer_use_suite/run-1773409014 COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=workflow COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --nocapture` completed on 2026-03-13 with targeted post-fix validation: `agent 2/2`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773409014/agent`
+- `COMPUTER_USE_SUITE_ARTIFACT_DIR=/home/heathledger/Documents/ioi/repos/ioi/crates/cli/target/computer_use_suite/run-1773409060 COMPUTER_USE_SUITE_MODE=oracle,runtime,agent COMPUTER_USE_SUITE_TASK_SET=workflow COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --nocapture` completed authoritatively on 2026-03-13 with `oracle 2/2`, `runtime 2/2`, `agent 2/2`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773409060/{oracle,runtime,agent}`
 
 Known failures / unrelated issues:
 
@@ -586,6 +605,8 @@ Known failures / unrelated issues:
 - the aborted combined 39-case agent diagnostic at `crates/cli/target/computer_use_suite/run-1773381814/agent` is non-authoritative and should not be used for status; rely on the closed `agent 32/32`, `agent 7/7`, and `agent 25/25` slices instead
 - `find-midpoint` remains a diagnostic realistic-mode non-pass at `crates/cli/target/computer_use_suite/run-1773395042/{runtime,agent}`. The artifact-backed primary gap is `missing_pointer_primitive`, with secondary tags `subpixel_click_precision` and `page_event_integer_quantization`; do not reopen PR7/PR8 wholesale for this MiniWoB-only residue
 - remaining MiniWoB open space beyond the closed runtime-covered family tranche is now dominated by survey-only recipe additions over already-covered primitives; that work belongs in the benchmark-only `candidate` lane rather than in product-facing PR11
+- the first workflow diagnostic gap matrix at `crates/cli/target/computer_use_suite/run-1773408419/agent/agent_workflow_gap_matrix.json` recorded the `PermissionOrApprovalRequired` failure as `planner_gap`; treat that root as diagnostic only. The corrected artifact-backed classification is `infra_or_bridge_gap` with workflow tags plus the concrete issue tags `loopback_browser_pii_risk_surface` and `local_browser_firewall_scope`
+- there is no current open failure on the initial external workflow slice; the authoritative `run-1773409060` recapture is green in all three modes, so this exact 2-case slice is now at its first exhaustion checkpoint
 - authoritative benchmark runs should remain serial; overlapping or partial suite invocations make artifact roots and startup diagnosis harder
 
 Date-stamped implementation notes:
@@ -607,6 +628,11 @@ Date-stamped implementation notes:
 - 2026-03-13: updated the `stock-market` agent recipe to focus `#buy` via `Tab`, wait until the observed price crosses the query threshold, and then submit with `Enter`; targeted live reruns passed at `runtime 1/1` under `crates/cli/target/computer_use_suite/run-1773396230/runtime` and `agent 1/1` under `crates/cli/target/computer_use_suite/run-1773396302/agent`
 - 2026-03-13: clean serial recapture of the runtime-covered family tranche closed at `agent 25/25` under `crates/cli/target/computer_use_suite/run-1773396334/agent`; this is now the authoritative PR11 breadth checkpoint
 - 2026-03-13: MiniWoB reached the rung-7 product-facing exhaustion checkpoint. Remaining MiniWoB parity work (`find-midpoint` plus survey-only families) moves to the future benchmark-only `candidate` lane, and the next external frontier is now defined as deterministic BrowserGym/WorkArena/WebArena-style multi-page workflows
+- 2026-03-13: landed the first external `workflow` task set under `computer_use_suite` using a local `axum` loopback fixture with two deterministic multi-page ticket-routing cases; the slice reuses the existing browser/runtime/agent surfaces and is reproducible through the standard `computer_use_suite_from_env` harness entrypoint
+- 2026-03-13: fixed workflow browser observation export so input `value`/`checked` state is serialized from prototype-backed DOM properties instead of `hasOwnProperty` checks; this removed the blanket initial `agent 0/2` workflow bring-up failure
+- 2026-03-13: added `BrowserDriver::active_url()` and generic local-browser PII routing so loopback/browser-local interactions use `LocalProcessing`; this closed the diagnostic workflow `PermissionOrApprovalRequired` failure on `browser__navigate`
+- 2026-03-13: corrected `computer_use_suite` gap classification so approval/policy-gated workflow failures land as `infra_or_bridge_gap` with workflow multi-page tags instead of falling through to `planner_gap`
+- 2026-03-13: clean serial recapture of the first external workflow slice closed at `oracle 2/2`, `runtime 2/2`, `agent 2/2` under `crates/cli/target/computer_use_suite/run-1773409060/{oracle,runtime,agent}`; this is the authoritative rung-10 benchmark snapshot
 
 ## Iteration Update Protocol
 
@@ -633,6 +659,7 @@ Authoritative update rules:
 - reclassify failures after removing infra/startup noise; do not leave stale gap classes in the ledger
 - when a low-level targeted slice closes, immediately define and run the next broader rung rather than pausing at the micro-benchmark
 - when a combined slice is intentionally abandoned for iteration-speed reasons, record that explicitly here so no future agent mistakes a partial artifact tree for a benchmark result
+- for external benchmark slices, record the fixture setup, exact harness command, diagnostic vs authoritative artifact roots, and the corrected failure classification if any first-pass artifact summary was stale
 
 ## Benchmark Snapshot
 
@@ -643,6 +670,7 @@ Latest snapshot:
   - full discovered-catalog baseline: `23/130` at `crates/cli/target/computer_use_suite/run-1773347098/oracle`
   - post-pointer full recapture: `25/130` at `crates/cli/target/computer_use_suite/run-1773352560/oracle`
   - current authoritative full recapture: `63/130` at `crates/cli/target/computer_use_suite/run-1773368165/oracle`
+  - authoritative external workflow slice: `2/2` at `crates/cli/target/computer_use_suite/run-1773409060/oracle`
 - `runtime`:
   - smoke: `8/8` passing
   - full discovered-catalog baseline: `22/130` at `crates/cli/target/computer_use_suite/run-1773347098/runtime`
@@ -653,6 +681,8 @@ Latest snapshot:
   - broader PR8 realistic regression slice: `32/32` at `crates/cli/target/computer_use_suite/run-1773380341/runtime`
   - diagnostic `find-midpoint` ceiling after float-coordinate and geometry fixes: `0/1` at `crates/cli/target/computer_use_suite/run-1773395042/runtime` with `raw_reward = 0.98333335`
   - targeted `stock-market` validation after the agent-side diagnosis: `1/1` at `crates/cli/target/computer_use_suite/run-1773396230/runtime`
+  - diagnostic external workflow bring-up: `2/2` at `crates/cli/target/computer_use_suite/run-1773408306/runtime`
+  - authoritative external workflow slice: `2/2` at `crates/cli/target/computer_use_suite/run-1773409060/runtime`
 - `agent`:
   - smoke: `8/8` passing
   - first broad catalog slice: `18/28` at `crates/cli/target/computer_use_suite/run-1773347279/agent`
@@ -669,6 +699,9 @@ Latest snapshot:
   - diagnostic first broader recapture of the runtime-covered family tranche: `24/25` at `crates/cli/target/computer_use_suite/run-1773395719/agent`
   - targeted `stock-market` closure slice: `1/1` at `crates/cli/target/computer_use_suite/run-1773396302/agent`
   - authoritative runtime-covered family breadth slice: `25/25` at `crates/cli/target/computer_use_suite/run-1773396334/agent`
+  - diagnostic external workflow slice before local-browser PII routing fix: `1/2` at `crates/cli/target/computer_use_suite/run-1773408419/agent`
+  - targeted post-fix external workflow validation: `2/2` at `crates/cli/target/computer_use_suite/run-1773409014/agent`
+  - authoritative external workflow slice: `2/2` at `crates/cli/target/computer_use_suite/run-1773409060/agent`
 - `candidate`: not started; designated for residual MiniWoB parity (`find-midpoint` plus survey-only families) rather than product-facing PR11 work
 
 Artifact roots for the main measured checkpoints:
@@ -698,6 +731,12 @@ Artifact roots for the main measured checkpoints:
 - `crates/cli/target/computer_use_suite/run-1773396230/runtime`
 - `crates/cli/target/computer_use_suite/run-1773396302/agent`
 - `crates/cli/target/computer_use_suite/run-1773396334/agent`
+- `crates/cli/target/computer_use_suite/run-1773408306/runtime`
+- `crates/cli/target/computer_use_suite/run-1773408419/agent`
+- `crates/cli/target/computer_use_suite/run-1773409014/agent`
+- `crates/cli/target/computer_use_suite/run-1773409060/oracle`
+- `crates/cli/target/computer_use_suite/run-1773409060/runtime`
+- `crates/cli/target/computer_use_suite/run-1773409060/agent`
 
 ## Capability Gap Matrix
 
@@ -710,6 +749,8 @@ Latest measured matrix state on 2026-03-13:
   - `missing_keyboard_primitive=1`
 - the current high-yield realistic frontier is no longer exposing a live observation or recovery blocker. `count-sides` closed the last product-facing observation/policy issue in this batch, and `stock-market` closed the last planner/recipe hole in the runtime-covered family tranche
 - the only named realistic non-pass still tracked on this frontier is `find-midpoint`, and its current artifact-backed classification is `missing_pointer_primitive` with secondary tags `subpixel_click_precision` and `page_event_integer_quantization`; it should not be counted as a planner gap
+- the first external workflow slice is now green in all modes, but it did expose one product-relevant non-MiniWoB gap before closure: the diagnostic `agent 1/2` run at `crates/cli/target/computer_use_suite/run-1773408419/agent` showed `browser__navigate` blocked by loopback PII/firewall routing. The initial gap-matrix artifact mislabeled this as `planner_gap`; the corrected classification is `infra_or_bridge_gap` with workflow tags (`multi_page`, `persistent_state`, `verification`) plus the concrete issue tags `loopback_browser_pii_risk_surface` and `local_browser_firewall_scope`
+- after the generic local-browser PII routing fix, the authoritative external workflow slice at `crates/cli/target/computer_use_suite/run-1773409060/{oracle,runtime,agent}` is fully passing and this exact 2-case slice is no longer yielding a live product-facing gap
 
 Closed tranche tasks with current measured evidence:
 
@@ -747,6 +788,11 @@ Broad-mode deltas from the current authoritative full pair:
 - `oracle`-only pass: none
 - `runtime`-only pass: none
 - `agent` has now matched the 32-case broader PR8 realistic slice, added the separate `7/7` text-and-logic expansion slice, and closed an authoritative `25/25` runtime-covered family slice at `crates/cli/target/computer_use_suite/run-1773396334/agent`
+- external workflow delta:
+  - initial diagnostic runtime/workflow bring-up reached `runtime 2/2` at `crates/cli/target/computer_use_suite/run-1773408306/runtime`
+  - initial diagnostic agent/workflow slice stalled at `agent 1/2` under `crates/cli/target/computer_use_suite/run-1773408419/agent`
+  - targeted post-fix rerun closed at `agent 2/2` under `crates/cli/target/computer_use_suite/run-1773409014/agent`
+  - authoritative all-modes external recapture is now `oracle 2/2`, `runtime 2/2`, `agent 2/2` under `crates/cli/target/computer_use_suite/run-1773409060/{oracle,runtime,agent}`
 - MiniWoB exhaustion assessment: the closed `25/25` runtime-covered slice means the remaining product-facing MiniWoB movement is exhausted. Residual parity work belongs in `candidate`, and the next product-facing benchmark pressure should come from the new multi-page BrowserGym/WorkArena/WebArena-style frontier
 
 ## Benchmark Escalation Ladder
@@ -803,12 +849,31 @@ Measured ladder as of 2026-03-13:
    Exit criterion:
    - broadened runtime/agent slices stop surfacing new low-level failures across repeated seeds/runs before candidate-lane work is treated as stable
 10. Post-MiniWoB benchmark expansion.
-    Status: defined and ready for follow-on implementation.
-    Next external frontier:
-    - deterministic BrowserGym/WorkArena/WebArena-style multi-page real-browser workflow slices
-    - prioritize tasks that force navigation, persistent state, verification, and recovery across realistic pages rather than single-page microworld recipes
+    Status: in progress; first deterministic external slice is complete and has reached its first exhaustion checkpoint.
+    Evidence:
+    - `computer_use_suite` now has a dedicated `workflow` task set with a deterministic multi-page loopback workflow fixture that reuses the existing browser/runtime/agent surfaces
+    - diagnostic bring-up reached `runtime 2/2` at `crates/cli/target/computer_use_suite/run-1773408306/runtime`
+    - the first realistic agent pass stalled at `agent 1/2` under `crates/cli/target/computer_use_suite/run-1773408419/agent`; the artifact root shows `PermissionOrApprovalRequired` on loopback `browser__navigate`
+    - the initial workflow gap-matrix artifact mislabeled that failure as `planner_gap`, but the corrected artifact-backed classification is `infra_or_bridge_gap` with workflow tags plus `loopback_browser_pii_risk_surface` / `local_browser_firewall_scope`
+    - generic local-browser PII routing now treats loopback and browser-local pages as `LocalProcessing`, and the authoritative recapture is `oracle 2/2`, `runtime 2/2`, `agent 2/2` under `crates/cli/target/computer_use_suite/run-1773409060/{oracle,runtime,agent}`
+    Exhaustion checkpoint:
+    - the current 2-case multi-page workflow slice yielded one product-relevant generic capability gap and that gap is now closed
+    - with the authoritative all-modes recapture green, this exact slice is no longer producing a new product-facing capability signal
     Exit criterion:
-    - a new benchmark harness exists in the repo plan and begins replacing MiniWoB as the main product-facing browser/computer-use forcing function
+    - the first external slice is reproducible through the standard harness, has authoritative artifacts in all modes, and any surfaced gap is either closed or explicitly classified
+    Result:
+    - satisfied for the initial 2-case workflow slice
+11. Richer deterministic external workflow family.
+    Status: next frontier defined.
+    Scope:
+    - add queue filtering/search before opening the target ticket
+    - require cross-page verification that persisted assignment/status survives navigation after submit
+    - add a recovery-sensitive edit/confirm step where stale observations or wrong-page actions can be detected from typed postconditions
+    Guardrails:
+    - keep using `computer_use_suite`, `BrowserDriver`, `DesktopAgentService`, and deterministic local fixtures
+    - do not introduce benchmark-conditioned routing, task-name hacks, or a parallel execution stack
+    Exit criterion:
+    - the richer workflow family either exposes a new reusable browser/computer-use gap or reaches its own exhaustion checkpoint with authoritative artifacts
 
 ## CI Strategy
 

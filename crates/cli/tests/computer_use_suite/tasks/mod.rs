@@ -2,6 +2,7 @@ mod catalog;
 mod core;
 mod smoke;
 mod stress;
+mod workflow;
 
 use anyhow::Result;
 use std::collections::BTreeSet;
@@ -15,6 +16,9 @@ pub fn cases_for_task_set(
 ) -> Result<Vec<ComputerUseCase>> {
     if matches!(task_set, TaskSet::Catalog) {
         return catalog::cases(source_dir);
+    }
+    if matches!(task_set, TaskSet::Workflow) {
+        return Ok(workflow::cases());
     }
 
     let mut out = smoke::cases();
