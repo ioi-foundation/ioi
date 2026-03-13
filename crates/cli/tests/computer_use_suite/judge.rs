@@ -345,6 +345,15 @@ fn env_gap_hints(env_id: &str) -> (Option<GapClass>, Vec<String>) {
         return (Some(GapClass::ObservationGap), tags);
     }
 
+    if env_id.contains("workflow-audit-history") {
+        push_unique_tag(&mut tags, "multi_page");
+        push_unique_tag(&mut tags, "persistent_state");
+        push_unique_tag(&mut tags, "verification");
+        push_unique_tag(&mut tags, "audit_history");
+        push_unique_tag(&mut tags, "recovery");
+        return (Some(GapClass::PlannerGap), tags);
+    }
+
     if env_id.contains("workflow-ticket-routing") || env_id.contains("workflow") {
         push_unique_tag(&mut tags, "multi_page");
         push_unique_tag(&mut tags, "persistent_state");
@@ -618,10 +627,7 @@ mod tests {
 
         let judged = judge_case(&case, result);
         assert_eq!(judged.support_state, BenchmarkSupportState::InfraBlocked);
-        assert_eq!(
-            judged.primary_gap_class,
-            Some(GapClass::InfraOrBridgeGap)
-        );
+        assert_eq!(judged.primary_gap_class, Some(GapClass::InfraOrBridgeGap));
         assert!(judged
             .secondary_gap_tags
             .iter()
@@ -638,5 +644,40 @@ mod tests {
             .secondary_gap_tags
             .iter()
             .any(|tag| tag == "approval_required"));
+    }
+
+    #[test]
+    fn workflow_audit_history_env_hints_include_audit_and_recovery_tags() {
+        let case = ComputerUseCase {
+            id: "workflow_audit_history_network_ops".to_string(),
+            env_id: "workflow-audit-history".to_string(),
+            seed: 61,
+            task_set: TaskSet::WorkflowAudit,
+            max_steps: 24,
+            timeout_seconds: 40,
+            allowed_tool_profile: AllowedToolProfile::BrowserCoreWithSelect,
+            expected_reward_floor: 1.0,
+            expected_pass: true,
+            local_judge: LocalJudge::BridgeReward,
+            recipe: RecipeId::WorkflowAuditHistory,
+        };
+
+        let mut result = base_result();
+        result.env_id = case.env_id.clone();
+        result.task_set = TaskSet::WorkflowAudit;
+        result.mode = ComputerUseMode::Agent;
+        result.kernel_behavior.executed_tools = vec!["browser__navigate".to_string()];
+        result.failure_class = Some("task_incomplete".to_string());
+
+        let judged = judge_case(&case, result);
+        assert_eq!(judged.primary_gap_class, Some(GapClass::PlannerGap));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "audit_history"));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .any(|tag| tag == "recovery"));
     }
 }

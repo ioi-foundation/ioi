@@ -29,6 +29,7 @@ pub enum TaskSet {
     Catalog,
     Workflow,
     WorkflowRich,
+    WorkflowAudit,
 }
 
 impl TaskSet {
@@ -40,6 +41,7 @@ impl TaskSet {
             Self::Catalog => "catalog",
             Self::Workflow => "workflow",
             Self::WorkflowRich => "workflow_rich",
+            Self::WorkflowAudit => "workflow_audit",
         }
     }
 }
@@ -113,6 +115,7 @@ pub enum RecipeId {
     FindMidpoint,
     WorkflowTicketRouting,
     WorkflowQueueVerification,
+    WorkflowAuditHistory,
     SurveyOnly,
 }
 
