@@ -1,7 +1,7 @@
 // Path: crates/cli/src/commands/ghost.rs
 
 use anyhow::{anyhow, Context, Result};
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_types::app::agentic::StepTrace;
 use ioi_types::codec;

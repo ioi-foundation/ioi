@@ -1,6 +1,5 @@
 // Path: crates/cli/src/util.rs
 
-use anyhow::Result;
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,

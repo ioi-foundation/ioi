@@ -2,7 +2,7 @@
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::sign::{dilithium::MldsaScheme, eddsa::Ed25519KeyPair};
 use ioi_types::app::{account_id_from_key_material, SignatureSuite};
 use libp2p::identity;

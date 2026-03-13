@@ -33,12 +33,18 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         AgentTool::BrowserNavigate { .. }
         | AgentTool::BrowserClick { .. }
         | AgentTool::BrowserClickElement { .. }
+        | AgentTool::BrowserHover { .. }
+        | AgentTool::BrowserMoveMouse { .. }
+        | AgentTool::BrowserMouseDown { .. }
+        | AgentTool::BrowserMouseUp { .. }
         | AgentTool::BrowserSyntheticClick { .. }
         | AgentTool::BrowserScroll { .. }
         | AgentTool::BrowserType { .. }
+        | AgentTool::BrowserSelectText { .. }
         | AgentTool::BrowserKey { .. }
+        | AgentTool::BrowserCopySelection {}
+        | AgentTool::BrowserPasteClipboard { .. }
         | AgentTool::BrowserFindText { .. }
-        | AgentTool::BrowserScreenshot { .. }
         | AgentTool::BrowserWait { .. }
         | AgentTool::BrowserUploadFile { .. }
         | AgentTool::BrowserDropdownOptions { .. }
@@ -47,6 +53,10 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         | AgentTool::BrowserTabList {}
         | AgentTool::BrowserTabSwitch { .. }
         | AgentTool::BrowserTabClose { .. } => ActionTarget::BrowserInteract,
+
+        AgentTool::BrowserScreenshot { .. } | AgentTool::BrowserCanvasSummary { .. } => {
+            ActionTarget::BrowserInspect
+        }
 
         AgentTool::BrowserSnapshot { .. } => ActionTarget::BrowserInspect,
 
@@ -114,12 +124,18 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                     "browser__navigate"
                     | "browser__click"
                     | "browser__click_element"
+                    | "browser__hover"
+                    | "browser__move_mouse"
+                    | "browser__mouse_down"
+                    | "browser__mouse_up"
                     | "browser__synthetic_click"
                     | "browser__scroll"
                     | "browser__type"
+                    | "browser__select_text"
                     | "browser__key"
+                    | "browser__copy_selection"
+                    | "browser__paste_clipboard"
                     | "browser__find_text"
-                    | "browser__screenshot"
                     | "browser__wait"
                     | "browser__upload_file"
                     | "browser__dropdown_options"
@@ -128,6 +144,9 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                     | "browser__tab_list"
                     | "browser__tab_switch"
                     | "browser__tab_close" => ActionTarget::BrowserInteract,
+                    "browser__screenshot" | "browser__canvas_summary" => {
+                        ActionTarget::BrowserInspect
+                    }
                     "sys__exec"
                     | "sys__exec_session"
                     | "sys__exec_session_reset"

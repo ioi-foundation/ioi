@@ -23,6 +23,73 @@
     }
 
     if should_expose_headless_browser_followups(tier, allow_browser_navigation, is_browser_active) {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__hover") {
+            let browser_hover_params = json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "CSS selector for the hover target. Provide this or id." },
+                    "id": { "type": "string", "description": "Semantic ID from browser__snapshot. Provide this or selector." }
+                }
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__hover".to_string(),
+                description: "Move the browser pointer onto a target without clicking. Useful for hover-driven menus, tooltips, and drag setup.".to_string(),
+                parameters: browser_hover_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__move_mouse") {
+            let browser_move_mouse_params = json!({
+                "type": "object",
+                "properties": {
+                    "x": { "type": "integer", "description": "Viewport-relative x coordinate." },
+                    "y": { "type": "integer", "description": "Viewport-relative y coordinate." }
+                },
+                "required": ["x", "y"]
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__move_mouse".to_string(),
+                description: "Move the browser pointer to viewport coordinates without clicking. Works in headless mode.".to_string(),
+                parameters: browser_move_mouse_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__mouse_down") {
+            let browser_mouse_down_params = json!({
+                "type": "object",
+                "properties": {
+                    "button": {
+                        "type": "string",
+                        "description": "Mouse button to press. Defaults to left.",
+                        "enum": ["left", "right", "middle", "back", "forward"]
+                    }
+                }
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__mouse_down".to_string(),
+                description: "Press a browser mouse button at the current pointer position. Compose with browser__hover or browser__move_mouse for drag flows.".to_string(),
+                parameters: browser_mouse_down_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__mouse_up") {
+            let browser_mouse_up_params = json!({
+                "type": "object",
+                "properties": {
+                    "button": {
+                        "type": "string",
+                        "description": "Mouse button to release. Defaults to left.",
+                        "enum": ["left", "right", "middle", "back", "forward"]
+                    }
+                }
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__mouse_up".to_string(),
+                description: "Release a browser mouse button at the current pointer position. Compose with browser__mouse_down for drag flows.".to_string(),
+                parameters: browser_mouse_up_params.to_string(),
+            });
+        }
+
         if is_tool_allowed_for_resolution(resolved_intent, "browser__scroll") {
             let browser_scroll_params = json!({
                 "type": "object",
@@ -55,19 +122,69 @@
             });
         }
 
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__select_text") {
+            let browser_select_text_params = json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "Optional CSS selector for the selection target. Defaults to the active element." },
+                    "start_offset": { "type": "integer", "description": "Optional inclusive selection start offset." },
+                    "end_offset": { "type": "integer", "description": "Optional exclusive selection end offset." }
+                }
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__select_text".to_string(),
+                description: "Select text within a browser element or the active field via DOM selection APIs. Works in headless mode."
+                    .to_string(),
+                parameters: browser_select_text_params.to_string(),
+            });
+        }
+
         if is_tool_allowed_for_resolution(resolved_intent, "browser__key") {
             let browser_key_params = json!({
                 "type": "object",
                 "properties": {
-                    "key": { "type": "string", "description": "Key to press (for example: 'Enter', 'Tab', 'Backspace', 'ArrowDown')." }
+                    "key": { "type": "string", "description": "Key to press (for example: 'Enter', 'Tab', 'Backspace', 'ArrowDown', 'a')." },
+                    "modifiers": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional modifier keys to hold while pressing the key (for example: ['Control'], ['Meta', 'Shift'])."
+                    }
                 },
                 "required": ["key"]
             });
             tools.push(LlmToolDefinition {
                 name: "browser__key".to_string(),
-                description: "Press a keyboard key in the browser via CDP. Works in headless mode."
+                description: "Press a keyboard key or modifier-aware key chord in the browser via CDP. Works in headless mode."
                     .to_string(),
                 parameters: browser_key_params.to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__copy_selection") {
+            tools.push(LlmToolDefinition {
+                name: "browser__copy_selection".to_string(),
+                description: "Copy the current browser text selection into the system clipboard."
+                    .to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {}
+                })
+                .to_string(),
+            });
+        }
+
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__paste_clipboard") {
+            let browser_paste_clipboard_params = json!({
+                "type": "object",
+                "properties": {
+                    "selector": { "type": "string", "description": "Optional CSS selector to focus before inserting clipboard text." }
+                }
+            });
+            tools.push(LlmToolDefinition {
+                name: "browser__paste_clipboard".to_string(),
+                description: "Insert the current system clipboard contents into the browser."
+                    .to_string(),
+                parameters: browser_paste_clipboard_params.to_string(),
             });
         }
 

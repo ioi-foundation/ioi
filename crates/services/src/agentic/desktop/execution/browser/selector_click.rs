@@ -37,6 +37,12 @@ pub(super) fn selector_focus_postcondition(
     if pre.found && !post.found {
         return true;
     }
+    if pre.visible && post.found && !post.visible {
+        return true;
+    }
+    if pre.topmost && post.blocked_by.is_some() && post.blocked_by != pre.blocked_by {
+        return true;
+    }
 
     post.found && post.visible && post.topmost
 }

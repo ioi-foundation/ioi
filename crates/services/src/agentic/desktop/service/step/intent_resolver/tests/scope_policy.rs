@@ -267,6 +267,52 @@ fn workspace_ops_scope_allows_clipboard() {
 }
 
 #[test]
+fn browser_interaction_scope_allows_pointer_followups() {
+    let state = ResolvedIntentState {
+        intent_id: "browser.interact".to_string(),
+        scope: IntentScopeProfile::UiInteraction,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("browser.interact")],
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [1u8; 32],
+        receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    };
+
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "browser__hover"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "browser__move_mouse"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "browser__mouse_down"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "browser__mouse_up"
+    ));
+}
+
+#[test]
 fn confidence_thresholds_map_bands() {
     let mut policy = IntentRoutingPolicy::default();
     policy.confidence = IntentConfidenceBandPolicy {

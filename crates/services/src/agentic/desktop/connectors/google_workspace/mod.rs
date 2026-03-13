@@ -646,8 +646,7 @@ pub async fn try_execute_dynamic_tool(
     session_id: [u8; 32],
     raw_json: &Value,
 ) -> Result<Option<(bool, Option<String>, Option<String>)>, TransactionError> {
-    let result =
-        execute_dynamic_tool_as_result(service, agent_state, session_id, raw_json).await?;
+    let result = execute_dynamic_tool_as_result(service, agent_state, session_id, raw_json).await?;
     let Some(result) = result else {
         return Ok(None);
     };

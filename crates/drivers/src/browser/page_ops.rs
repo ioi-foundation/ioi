@@ -87,6 +87,7 @@ impl BrowserDriver {
                 BrowserError::Internal(format!("Back navigation wait failed: {}", e))
             })?;
 
+            self.reset_pointer_state().await;
             moved += 1;
         }
 

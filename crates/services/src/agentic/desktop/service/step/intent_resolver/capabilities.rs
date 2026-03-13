@@ -320,6 +320,26 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("browser.interact")],
         },
         ToolCapabilityBinding {
+            tool_name: "browser__hover".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__move_mouse".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__mouse_down".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__mouse_up".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
             tool_name: "browser__click_element".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: vec![capability("browser.interact")],
@@ -340,7 +360,22 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("browser.interact")],
         },
         ToolCapabilityBinding {
+            tool_name: "browser__select_text".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
             tool_name: "browser__key".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__copy_selection".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__paste_clipboard".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: vec![capability("browser.interact")],
         },

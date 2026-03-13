@@ -134,6 +134,7 @@ fn browser_input_tools_map_to_custom_targets() {
 
     let key_tool = AgentTool::BrowserKey {
         key: "Enter".to_string(),
+        modifiers: None,
     };
     assert_eq!(
         key_tool.target(),
@@ -163,7 +164,7 @@ fn browser_key_normalizer_accepts_key() {
         .expect("normalization should succeed");
 
     match tool {
-        AgentTool::BrowserKey { key } => assert_eq!(key, "Enter"),
+        AgentTool::BrowserKey { key, .. } => assert_eq!(key, "Enter"),
         other => panic!("expected BrowserKey, got {:?}", other),
     }
 }
@@ -213,7 +214,7 @@ fn queue_custom_browser_key_target_maps_to_typed_tool() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::BrowserKey { key } => assert_eq!(key, "Enter"),
+        AgentTool::BrowserKey { key, .. } => assert_eq!(key, "Enter"),
         other => panic!("expected BrowserKey, got {:?}", other),
     }
 }

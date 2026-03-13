@@ -54,8 +54,8 @@ pub use testing::cluster::{TestCluster, TestClusterBuilder};
 pub use testing::genesis::GenesisBuilder;
 pub use testing::validator::{TestValidator, ValidatorGuard};
 
-// [FIX] Export build_test_artifacts so the CLI can use it
-pub use testing::build::build_test_artifacts;
+// [FIX] Export build helpers so the CLI and tests can use them
+pub use testing::build::{build_mock_verifier_artifact, build_test_artifacts};
 
 // Re-export helper functions for backward compatibility and convenience.
 pub use testing::genesis::{add_genesis_identity, add_genesis_identity_custom};

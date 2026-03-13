@@ -884,7 +884,10 @@ fn runtime_target_maps_dynamic_tools_to_adapter() {
         "name": "filesystem__read_file",
         "arguments": { "path": "README.md" }
     }));
-    assert_eq!(super::runtime_target_for_tool(&tool), RuntimeTarget::Adapter);
+    assert_eq!(
+        super::runtime_target_for_tool(&tool),
+        RuntimeTarget::Adapter
+    );
 }
 
 #[test]
@@ -893,7 +896,10 @@ fn runtime_target_maps_google_connector_dynamic_tools_to_adapter() {
         "name": "connector__google__gmail_read_emails",
         "arguments": { "query": "is:unread" }
     }));
-    assert_eq!(super::runtime_target_for_tool(&tool), RuntimeTarget::Adapter);
+    assert_eq!(
+        super::runtime_target_for_tool(&tool),
+        RuntimeTarget::Adapter
+    );
 }
 
 #[test]

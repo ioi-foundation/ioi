@@ -1,9 +1,9 @@
+use crate::agentic::desktop::adapters;
 use crate::agentic::desktop::service::step::intent_resolver::{
     is_tool_allowed_for_resolution, is_tool_allowed_for_selected_provider,
 };
 use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::types::ExecutionTier;
-use crate::agentic::desktop::adapters;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::mcp::McpManager;

@@ -23,8 +23,7 @@ use std::collections::{BTreeSet, HashSet};
 const ADAPTER_REDACTION_VERSION: &str = "adapter_receipt.redaction.v1";
 const GENERIC_CONNECTOR_RESPONSE_SCHEMA: &str = r#"{"type":"object","required":["connector_id","action_id","tool_name","provider","summary","data","executed_at_utc"],"properties":{"connector_id":{"type":"string"},"action_id":{"type":"string"},"tool_name":{"type":"string"},"provider":{"type":"string"},"summary":{"type":"string"},"data":{},"executed_at_utc":{"type":"string"}}}"#;
 const GENERIC_MCP_RESPONSE_SCHEMA: &str = r#"{"type":"object","required":["tool_name","result"],"properties":{"tool_name":{"type":"string"},"result":{}}}"#;
-const GENERIC_SERVICE_REQUEST_SCHEMA: &str =
-    r#"{"type":"object","additionalProperties":true,"description":"JSON object parameters for the service method"}"#;
+const GENERIC_SERVICE_REQUEST_SCHEMA: &str = r#"{"type":"object","additionalProperties":true,"description":"JSON object parameters for the service method"}"#;
 const GENERIC_SERVICE_RESPONSE_SCHEMA: &str = r#"{"type":"object","required":["service_id","method","status"],"properties":{"service_id":{"type":"string"},"method":{"type":"string"},"status":{"type":"string"}}}"#;
 
 #[derive(Debug, Clone)]
@@ -406,12 +405,8 @@ fn build_request(
 ) -> Result<AdapterCallRequest, TransactionError> {
     let request_payload = canonical_json_bytes(arguments)?;
     let request_hash = sha256_hex(&request_payload)?;
-    let invocation_id = workload::compute_workload_id(
-        session_id,
-        step_index,
-        tool_name,
-        request_hash.as_str(),
-    );
+    let invocation_id =
+        workload::compute_workload_id(session_id, step_index, tool_name, request_hash.as_str());
     let idempotency_key = sha256_hex(
         format!(
             "{}:{}:{}:{}",
@@ -451,7 +446,10 @@ fn build_receipt(
         request_hash: sha256_hex(&request.request_payload)?,
         response_hash: Some(sha256_hex(&response.response_payload)?),
         success: response.failure.is_none(),
-        error_class: response.failure.as_ref().map(|failure| failure.error_class.clone()),
+        error_class: response
+            .failure
+            .as_ref()
+            .map(|failure| failure.error_class.clone()),
         artifact_pointers: response.artifact_pointers.clone(),
         redaction: response.redaction.clone(),
         replay_classification: response.replay_classification,
@@ -508,16 +506,17 @@ async fn execute_wallet_mail_adapter(
     session_id: [u8; 32],
     step_index: u32,
 ) -> Result<Option<AdapterCallResponse>, TransactionError> {
-    let result: Option<(bool, Option<String>, Option<String>)> = try_execute_wallet_mail_dynamic_tool(
-        service,
-        state,
-        call_context,
-        dynamic_tool,
-        latest_user_message,
-        session_id,
-        step_index,
-    )
-    .await?;
+    let result: Option<(bool, Option<String>, Option<String>)> =
+        try_execute_wallet_mail_dynamic_tool(
+            service,
+            state,
+            call_context,
+            dynamic_tool,
+            latest_user_message,
+            session_id,
+            step_index,
+        )
+        .await?;
     let Some((success, history_entry, error)) = result else {
         return Ok(None);
     };
@@ -594,7 +593,9 @@ async fn execute_google_adapter(
         "executed_at_utc": result.executed_at_utc,
     });
     let history_entry = Some(build_connector_history(
-        data.get("summary").and_then(Value::as_str).unwrap_or_default(),
+        data.get("summary")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
         data.get("data").unwrap_or(&Value::Null),
     ));
     let tool_name = data
@@ -630,7 +631,9 @@ fn load_active_service_meta(
     let Some(bytes) = maybe_bytes else {
         return Ok(None);
     };
-    Ok(Some(codec::from_bytes_canonical::<ActiveServiceMeta>(&bytes)?))
+    Ok(Some(codec::from_bytes_canonical::<ActiveServiceMeta>(
+        &bytes,
+    )?))
 }
 
 fn find_versioned_service_method(meta: &ActiveServiceMeta, simple_name: &str) -> Option<String> {
@@ -673,7 +676,10 @@ async fn execute_service_adapter(
     call_context: ServiceCallContext<'_>,
     dynamic_tool: &Value,
 ) -> Result<Option<AdapterCallResponse>, TransactionError> {
-    let tool_name = dynamic_tool.get("name").and_then(Value::as_str).unwrap_or_default();
+    let tool_name = dynamic_tool
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     let Some((service_id, simple_name)) = tool_name.split_once("__") else {
         return Ok(None);
     };
@@ -724,11 +730,8 @@ async fn execute_service_adapter(
 
     let prefix = service_namespace_prefix(service_id);
     let mut namespaced_state = NamespacedStateAccess::new(state, prefix, &meta);
-    let params_bytes = extract_service_params_bytes(
-        dynamic_tool
-            .get("arguments")
-            .unwrap_or(&Value::Null),
-    )?;
+    let params_bytes =
+        extract_service_params_bytes(dynamic_tool.get("arguments").unwrap_or(&Value::Null))?;
     let mut tx_context = ioi_api::transaction::context::TxContext {
         block_height: call_context.block_height,
         block_timestamp: call_context.block_timestamp,
@@ -773,8 +776,14 @@ async fn execute_mcp_adapter(
     request: &AdapterCallRequest,
     workload_spec: &WorkloadSpec,
 ) -> Result<Option<AdapterCallResponse>, TransactionError> {
-    let tool_name = dynamic_tool.get("name").and_then(Value::as_str).unwrap_or_default();
-    let arguments = dynamic_tool.get("arguments").cloned().unwrap_or_else(|| json!({}));
+    let tool_name = dynamic_tool
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let arguments = dynamic_tool
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     let execution = mcp
         .execute_tool_with_result(tool_name, arguments.clone(), Some(workload_spec))
         .await
@@ -791,7 +800,9 @@ async fn execute_mcp_adapter(
         kind: AdapterKind::Mcp,
         response_payload: canonical_json_bytes(&payload)?,
         summary: format!("mcp adapter '{}' executed", tool_name),
-        history_entry: Some(pretty_json(&payload.get("result").cloned().unwrap_or(Value::Null))),
+        history_entry: Some(pretty_json(
+            &payload.get("result").cloned().unwrap_or(Value::Null),
+        )),
         artifact_pointers: extract_artifact_pointers(&payload),
         redaction: summarize_redactions(&[dynamic_tool, &payload]),
         failure: None,
@@ -815,10 +826,15 @@ pub async fn execute_dynamic_tool(
         return Ok(Some(AdapterExecutionOutcome {
             success: false,
             history_entry: None,
-            error: Some("ERROR_CLASS=UnsupportedTool Missing tool name in dynamic adapter call".to_string()),
+            error: Some(
+                "ERROR_CLASS=UnsupportedTool Missing tool name in dynamic adapter call".to_string(),
+            ),
         }));
     };
-    let arguments = dynamic_tool.get("arguments").cloned().unwrap_or_else(|| json!({}));
+    let arguments = dynamic_tool
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     let request = build_request(
         if google_workspace::is_google_connector_tool_name(tool_name) {
             google_workspace::GOOGLE_CONNECTOR_ID.to_string()
@@ -968,8 +984,7 @@ mod tests {
     use ioi_state::tree::iavl::IAVLTree;
     use ioi_types::app::agentic::ResolvedIntentState;
     use ioi_types::app::{
-        AccountId, ChainId, ContextSlice, KernelEvent, RuntimeTarget, WorkloadReceipt,
-        WorkloadSpec,
+        AccountId, ChainId, ContextSlice, KernelEvent, RuntimeTarget, WorkloadReceipt, WorkloadSpec,
     };
     use ioi_types::codec;
     use ioi_types::error::{TransactionError, VmError};
@@ -1150,7 +1165,9 @@ mod tests {
         assert!(names.contains("connector__google__gmail_read_emails"));
         assert!(names.contains("mock_service__ping"));
         assert!(
-            tools.iter().any(|tool| tool.name == "connector__google__gmail_read_emails"),
+            tools
+                .iter()
+                .any(|tool| tool.name == "connector__google__gmail_read_emails"),
             "google connector tools should flow through adapter discovery"
         );
     }

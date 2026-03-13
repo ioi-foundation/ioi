@@ -32,6 +32,7 @@ A service is defined once, then exposed through one or more:
 * execution targets,
 * inference sources,
 * trust postures,
+* readiness postures (hot/cold),
 * pricing models,
 * and distribution surfaces,
 
@@ -136,7 +137,7 @@ The provider uses `sas.xyz` to:
 
 * build/package services
 * define contracts and deployment support
-* configure execution targets and trust presets
+* configure execution targets, inference sources, trust presets, and readiness postures
 * expose APIs
 * manage customers and tenants
 * manage receipts and compliance artifacts
@@ -180,7 +181,7 @@ The Agent API is not “for the IDE.”
 
 ## 4.2 Private AI is a product surface, not a single lane
 
-“Private AI” is not one execution method. It is a **user-facing surface** that can route into different execution targets and trust presets.
+“Private AI” is not one execution method. It is a **user-facing surface** that can route into different execution targets, trust presets, and readiness postures.
 
 In practice, to avoid cold starts and poor UX, the default private AI product will often run on a **protocol-native hosted stack** with:
 
@@ -234,11 +235,12 @@ Providers may use `sas.xyz` internally to help deliver freelance work, but freel
 
 ## 4.4 Internal runtime model is axis-based, not lane-only
 
-Lanes still exist in UX and commerce, but operationally the system is modeled by three axes:
+Lanes still exist in UX and commerce, but operationally the system is modeled by four axes:
 
 1. **Where it runs**
 2. **How inference is sourced**
 3. **What trust/privacy posture applies**
+4. **What readiness/serving posture applies**
 
 Lanes are derived presets over these axes.
 
@@ -556,7 +558,13 @@ This is the real operational model.
 * Confidential
 * Verified
 
-## 9.4 Derived presets (lanes)
+## 9.4 Axis 4 — Readiness / Serving Posture
+
+* **Cold (On-Demand):** Zero-idle. Hydrated at the moment of execution. Best for async tasks, batch jobs, and maximizing developer margins.
+* **Warm (Elastic Pool):** Resident workers kept alive in a shared pool. Balances cost-efficiency with faster spin-up times.
+* **Hot (Always-Live):** Routed to dedicated, pre-warmed runtime capacity. Best for low-latency conversational AI (`ioi.ai`), real-time agents, and instant API responses.
+
+## 9.5 Derived presets (lanes)
 
 ### Fast
 
@@ -729,6 +737,7 @@ Handles:
 * receipt emission
 
 Horizontally scalable with queues and idempotent scheduling.
+Workers are provisioned dynamically based on the service's Readiness Posture (ephemeral cold-starts vs. pre-warmed resident workers).
 
 ### Plane D — Kernel / coordinator / settlement plane
 
@@ -1241,6 +1250,7 @@ Each service manifest must include:
 * supported execution targets
 * supported inference sources
 * supported trust postures
+* supported readiness postures (e.g., requires Hot, allows Cold)
 * derived supported lanes
 * local hardware requirements
 * proprietary model constraints
@@ -1488,7 +1498,7 @@ Must support:
 1. author a graph once in the shared Agent IDE engine,
 2. switch between Autopilot and `sas.xyz` lenses without changing runtime semantics,
 3. package that graph as a service,
-4. declare execution targets, inference sources, trust postures, and derived lane presets,
+4. declare execution targets, inference sources, trust postures, readiness postures, and derived lane presets,
 5. deploy it in managed, local, or customer-boundary environments,
 6. publish immutable versions into the canonical publication layer,
 7. expose the service through marketplace, `ioi.ai`, Autopilot install, and/or white-label API,
