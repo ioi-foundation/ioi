@@ -54,8 +54,9 @@ fn parse_task_set(raw: &str) -> Result<TaskSet> {
         "stress" => Ok(TaskSet::Stress),
         "catalog" => Ok(TaskSet::Catalog),
         "workflow" => Ok(TaskSet::Workflow),
+        "workflow_rich" => Ok(TaskSet::WorkflowRich),
         other => Err(anyhow!(
-            "invalid COMPUTER_USE_SUITE_TASK_SET value '{}'; expected smoke|core|stress|catalog|workflow",
+            "invalid COMPUTER_USE_SUITE_TASK_SET value '{}'; expected smoke|core|stress|catalog|workflow|workflow_rich",
             other
         )),
     }

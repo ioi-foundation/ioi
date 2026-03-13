@@ -3,6 +3,7 @@ mod core;
 mod smoke;
 mod stress;
 mod workflow;
+mod workflow_rich;
 
 use anyhow::Result;
 use std::collections::BTreeSet;
@@ -19,6 +20,9 @@ pub fn cases_for_task_set(
     }
     if matches!(task_set, TaskSet::Workflow) {
         return Ok(workflow::cases());
+    }
+    if matches!(task_set, TaskSet::WorkflowRich) {
+        return Ok(workflow_rich::cases());
     }
 
     let mut out = smoke::cases();

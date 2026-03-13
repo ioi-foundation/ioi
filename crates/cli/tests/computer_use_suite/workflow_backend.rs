@@ -44,14 +44,24 @@ struct WorkflowAppState {
 }
 
 #[derive(Debug, Clone)]
+enum WorkflowScenario {
+    TicketRouting,
+    QueueVerification,
+}
+
+#[derive(Debug, Clone)]
 struct WorkflowCaseSpec {
     case_id: String,
+    scenario: WorkflowScenario,
     instruction: String,
     username: String,
     password: String,
     ticket_id: String,
     assignee: String,
     note: String,
+    status: String,
+    queue_search: String,
+    queue_status_filter: String,
 }
 
 #[derive(Debug, Clone)]
@@ -59,18 +69,36 @@ enum WorkflowPage {
     Login,
     Queue,
     Detail { ticket_id: String },
+    Review,
     Confirmation,
+}
+
+#[derive(Debug, Clone)]
+struct WorkflowTicketRecord {
+    ticket_id: String,
+    title: String,
+    suggested_team: String,
+    current_status: String,
+    current_assignee: String,
+    current_note: String,
 }
 
 #[derive(Debug, Clone)]
 struct WorkflowSession {
     base_url: String,
     spec: WorkflowCaseSpec,
+    tickets: BTreeMap<String, WorkflowTicketRecord>,
     current_page: WorkflowPage,
+    active_ticket_id: String,
     login_username: String,
     login_password: String,
-    selected_assignee: String,
-    note_text: String,
+    queue_search: String,
+    queue_status_filter: String,
+    draft_assignee: String,
+    draft_status: String,
+    draft_note: String,
+    confirmation_seen: bool,
+    queue_verified: bool,
     reward: f32,
     terminated: bool,
     truncated: bool,
@@ -100,14 +128,18 @@ struct LoginFormPayload {
 #[derive(Debug, Deserialize)]
 struct AssignFormPayload {
     assignee: String,
+    #[serde(default)]
+    status: String,
     note: String,
 }
 
-const WORKFLOW_QUEUE_TICKETS: &[(&str, &str, &str)] = &[
-    ("T-101", "Printer outage in west wing", "Facilities"),
-    ("T-204", "Metro fiber outage", "Network Ops"),
-    ("T-310", "Recurring invoice delta", "Billing Review"),
-];
+#[derive(Debug, Deserialize)]
+struct QueueFilterFormPayload {
+    #[serde(default)]
+    search: String,
+    #[serde(default)]
+    status: String,
+}
 
 impl WorkflowBridgeProcess {
     pub(crate) async fn start() -> Result<Self> {
@@ -122,12 +154,25 @@ impl WorkflowBridgeProcess {
             )
             .route("/workflow/:session_id/queue", get(queue_page))
             .route(
+                "/workflow/:session_id/queue/filter",
+                post(queue_filter_submit),
+            )
+            .route(
                 "/workflow/:session_id/tickets/:ticket_id",
                 get(ticket_detail_page),
             )
             .route(
                 "/workflow/:session_id/tickets/:ticket_id/assign",
                 post(ticket_assign_submit),
+            )
+            .route("/workflow/:session_id/review", get(review_page))
+            .route(
+                "/workflow/:session_id/review/edit",
+                post(review_edit_submit),
+            )
+            .route(
+                "/workflow/:session_id/review/confirm",
+                post(review_confirm_submit),
             )
             .route("/workflow/:session_id/confirmation", get(confirmation_page))
             .route("/workflow/:session_id/observe", post(observe_page))
@@ -181,58 +226,53 @@ impl WorkflowBridgeClient {
         let spec = workflow_case_spec(case)?;
         let session_id = format!("workflow-{}-{}", sanitize_token(&case.id), now_ms());
         let url = format!("{}/workflow/{}/login", self.base_url, session_id);
-        let bridge_state = BridgeState {
-            session_id: session_id.clone(),
-            env_id: case.env_id.clone(),
-            seed: case.seed,
-            utterance: spec.instruction.clone(),
-            reward: 0.0,
-            terminated: false,
-            truncated: false,
-            episode_step: 0,
-            generation: 0,
-            last_sync_ms: Some(now_ms()),
-            info: BridgeInfo {
-                reason: Some("workflow_fixture_bootstrap".to_string()),
-                raw_reward: Some(0.0),
-                query_text: Some(spec.instruction.clone()),
-                fields: workflow_fields(&spec, "", "", "", ""),
-                page_url: Some(url.clone()),
-                task_ready: Some(false),
-                focused_tag: None,
-                focused_id: None,
-                visible_text_excerpt: Some(workflow_visible_text(
-                    &spec,
-                    &WorkflowPage::Login,
-                    "",
-                    "",
-                )),
-                interactive_elements: synthesized_interactive_elements(
-                    &spec,
-                    &WorkflowPage::Login,
-                    "",
-                    "",
-                    "",
-                    "",
-                ),
-                scroll_targets: Vec::new(),
-                dom_elements: Vec::new(),
-            },
-        };
-
-        let session = WorkflowSession {
+        let mut session = WorkflowSession {
             base_url: self.base_url.clone(),
             spec: spec.clone(),
+            tickets: workflow_initial_tickets(),
             current_page: WorkflowPage::Login,
+            active_ticket_id: spec.ticket_id.clone(),
             login_username: String::new(),
             login_password: String::new(),
-            selected_assignee: String::new(),
-            note_text: String::new(),
+            queue_search: String::new(),
+            queue_status_filter: String::new(),
+            draft_assignee: String::new(),
+            draft_status: String::new(),
+            draft_note: String::new(),
+            confirmation_seen: false,
+            queue_verified: false,
             reward: 0.0,
             terminated: false,
             truncated: false,
-            bridge_state: bridge_state.clone(),
+            bridge_state: BridgeState {
+                session_id: session_id.clone(),
+                env_id: case.env_id.clone(),
+                seed: case.seed,
+                utterance: spec.instruction.clone(),
+                reward: 0.0,
+                terminated: false,
+                truncated: false,
+                episode_step: 0,
+                generation: 0,
+                last_sync_ms: Some(now_ms()),
+                info: BridgeInfo {
+                    reason: Some("workflow_fixture_bootstrap".to_string()),
+                    raw_reward: Some(0.0),
+                    query_text: Some(spec.instruction.clone()),
+                    fields: Vec::new(),
+                    page_url: Some(url.clone()),
+                    task_ready: Some(false),
+                    focused_tag: None,
+                    focused_id: None,
+                    visible_text_excerpt: None,
+                    interactive_elements: Vec::new(),
+                    scroll_targets: Vec::new(),
+                    dom_elements: Vec::new(),
+                },
+            },
         };
+        sync_bridge_state_from_synthesized_page(&mut session);
+        let bridge_state = session.bridge_state.clone();
         self.sessions
             .lock()
             .map_err(|_| anyhow!("workflow sessions lock poisoned"))?
@@ -285,21 +325,55 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
     match case.id.as_str() {
         "workflow_ticket_routing_network_ops" => Ok(WorkflowCaseSpec {
             case_id: case.id.clone(),
+            scenario: WorkflowScenario::TicketRouting,
             instruction: "Sign in to the dispatch console with username \"dispatch.agent\" and password \"dispatch-204\". Open ticket T-204 from the queue, assign it to Network Ops, add the note \"Escalate fiber outage to on-call\", submit the update, and stop only after the confirmation page shows the saved assignment.".to_string(),
             username: "dispatch.agent".to_string(),
             password: "dispatch-204".to_string(),
             ticket_id: "T-204".to_string(),
             assignee: "Network Ops".to_string(),
             note: "Escalate fiber outage to on-call".to_string(),
+            status: String::new(),
+            queue_search: String::new(),
+            queue_status_filter: String::new(),
         }),
         "workflow_ticket_routing_billing_review" => Ok(WorkflowCaseSpec {
             case_id: case.id.clone(),
+            scenario: WorkflowScenario::TicketRouting,
             instruction: "Sign in to the dispatch console with username \"dispatch.agent\" and password \"billing-310\". Open ticket T-310 from the queue, assign it to Billing Review, add the note \"Validate recurring invoice delta\", submit the update, and stop only after the confirmation page shows the saved assignment.".to_string(),
             username: "dispatch.agent".to_string(),
             password: "billing-310".to_string(),
             ticket_id: "T-310".to_string(),
             assignee: "Billing Review".to_string(),
             note: "Validate recurring invoice delta".to_string(),
+            status: String::new(),
+            queue_search: String::new(),
+            queue_status_filter: String::new(),
+        }),
+        "workflow_queue_verification_network_ops" => Ok(WorkflowCaseSpec {
+            case_id: case.id.clone(),
+            scenario: WorkflowScenario::QueueVerification,
+            instruction: "Sign in to the dispatch console with username \"dispatch.agent\" and password \"dispatch-215\". Search the queue for \"fiber\", set the queue status filter to \"Awaiting Dispatch\", open ticket T-215, assign it to Network Ops, set the status to \"Escalated\", add the note \"Escalate fiber outage to on-call\", review the draft, confirm it, then return to the queue and stop only after the queue shows T-215 saved with assignee Network Ops and status Escalated.".to_string(),
+            username: "dispatch.agent".to_string(),
+            password: "dispatch-215".to_string(),
+            ticket_id: "T-215".to_string(),
+            assignee: "Network Ops".to_string(),
+            note: "Escalate fiber outage to on-call".to_string(),
+            status: "Escalated".to_string(),
+            queue_search: "fiber".to_string(),
+            queue_status_filter: "Awaiting Dispatch".to_string(),
+        }),
+        "workflow_queue_verification_billing_review" => Ok(WorkflowCaseSpec {
+            case_id: case.id.clone(),
+            scenario: WorkflowScenario::QueueVerification,
+            instruction: "Sign in to the dispatch console with username \"dispatch.agent\" and password \"billing-318\". Search the queue for \"invoice\", set the queue status filter to \"Pending Review\", open ticket T-318, assign it to Billing Review, set the status to \"Pending Customer Reply\", add the note \"Validate recurring invoice delta\", review the draft, confirm it, then return to the queue and stop only after the queue shows T-318 saved with assignee Billing Review and status Pending Customer Reply.".to_string(),
+            username: "dispatch.agent".to_string(),
+            password: "billing-318".to_string(),
+            ticket_id: "T-318".to_string(),
+            assignee: "Billing Review".to_string(),
+            note: "Validate recurring invoice delta".to_string(),
+            status: "Pending Customer Reply".to_string(),
+            queue_search: "invoice".to_string(),
+            queue_status_filter: "Pending Review".to_string(),
         }),
         other => Err(anyhow!(
             "no workflow benchmark spec is defined for case '{}'",
@@ -358,11 +432,32 @@ async fn queue_page(
     Html(session)
 }
 
+async fn queue_filter_submit(
+    Path(session_id): Path<String>,
+    State(state): State<WorkflowAppState>,
+    Form(form): Form<QueueFilterFormPayload>,
+) -> impl IntoResponse {
+    let target = with_session(&state.sessions, &session_id, |session| {
+        session.queue_search = form.search.trim().to_string();
+        session.queue_status_filter = form.status.trim().to_string();
+        session.current_page = WorkflowPage::Queue;
+        format!("/workflow/{}/queue", session_id)
+    })
+    .unwrap_or_else(|| format!("/workflow/{}/queue", session_id));
+    Redirect::to(&target)
+}
+
 async fn ticket_detail_page(
     Path((session_id, ticket_id)): Path<(String, String)>,
     State(state): State<WorkflowAppState>,
 ) -> Html<String> {
     let Some(session) = with_session(&state.sessions, &session_id, |session| {
+        session.active_ticket_id = ticket_id.clone();
+        if let Some(ticket) = session.tickets.get(&ticket_id) {
+            session.draft_assignee = ticket.current_assignee.clone();
+            session.draft_status = ticket.current_status.clone();
+            session.draft_note = ticket.current_note.clone();
+        }
         session.current_page = WorkflowPage::Detail {
             ticket_id: ticket_id.clone(),
         };
@@ -385,22 +480,82 @@ async fn ticket_assign_submit(
     Form(form): Form<AssignFormPayload>,
 ) -> impl IntoResponse {
     let target = with_session(&state.sessions, &session_id, |session| {
-        session.selected_assignee = form.assignee.clone();
-        session.note_text = form.note.clone();
-        session.current_page = WorkflowPage::Confirmation;
-        session.reward = if ticket_id == session.spec.ticket_id
-            && session.selected_assignee == session.spec.assignee
-            && session.note_text == session.spec.note
-        {
-            1.0
-        } else {
-            0.0
+        session.active_ticket_id = ticket_id.clone();
+        session.draft_assignee = form.assignee.clone();
+        session.draft_status = form.status.clone();
+        session.draft_note = form.note.clone();
+        match session.spec.scenario {
+            WorkflowScenario::TicketRouting => {
+                persist_ticket_update(session, &ticket_id);
+                session.current_page = WorkflowPage::Confirmation;
+                session.reward = if ticket_id == session.spec.ticket_id
+                    && session.draft_assignee == session.spec.assignee
+                    && session.draft_note == session.spec.note
+                {
+                    1.0
+                } else {
+                    0.0
+                };
+                session.terminated = true;
+                session.truncated = false;
+                format!("/workflow/{}/confirmation", session_id)
+            }
+            WorkflowScenario::QueueVerification => {
+                session.current_page = WorkflowPage::Review;
+                session.reward = 0.0;
+                session.terminated = false;
+                session.truncated = false;
+                format!("/workflow/{}/review", session_id)
+            }
+        }
+    })
+    .unwrap_or_else(|| format!("/workflow/{}/queue", session_id));
+    Redirect::to(&target)
+}
+
+async fn review_page(
+    Path(session_id): Path<String>,
+    State(state): State<WorkflowAppState>,
+) -> Html<String> {
+    let Some(session) = with_session(&state.sessions, &session_id, |session| {
+        session.current_page = WorkflowPage::Review;
+        session.bridge_state.info.task_ready = Some(false);
+        render_page_html(session, &WorkflowPage::Review)
+    }) else {
+        return Html("<h1>unknown workflow session</h1>".to_string());
+    };
+    Html(session)
+}
+
+async fn review_edit_submit(
+    Path(session_id): Path<String>,
+    State(state): State<WorkflowAppState>,
+) -> impl IntoResponse {
+    let target = with_session(&state.sessions, &session_id, |session| {
+        let ticket_id = session.active_ticket_id.clone();
+        session.current_page = WorkflowPage::Detail {
+            ticket_id: ticket_id.clone(),
         };
-        session.terminated = true;
+        format!("/workflow/{}/tickets/{}", session_id, ticket_id)
+    })
+    .unwrap_or_else(|| format!("/workflow/{}/queue", session_id));
+    Redirect::to(&target)
+}
+
+async fn review_confirm_submit(
+    Path(session_id): Path<String>,
+    State(state): State<WorkflowAppState>,
+) -> impl IntoResponse {
+    let target = with_session(&state.sessions, &session_id, |session| {
+        persist_ticket_update(session, &session.active_ticket_id.clone());
+        session.current_page = WorkflowPage::Confirmation;
+        session.confirmation_seen = true;
+        session.reward = 0.0;
+        session.terminated = false;
         session.truncated = false;
         format!("/workflow/{}/confirmation", session_id)
     })
-    .unwrap_or_else(|| format!("/workflow/{}/confirmation", session_id));
+    .unwrap_or_else(|| format!("/workflow/{}/queue", session_id));
     Redirect::to(&target)
 }
 
@@ -457,7 +612,8 @@ fn apply_oracle_step(
             match selector {
                 "#username" => session.login_username = text.to_string(),
                 "#password" => session.login_password = text.to_string(),
-                "#note" => session.note_text = text.to_string(),
+                "#queue-search" => session.queue_search = text.to_string(),
+                "#note" => session.draft_note = text.to_string(),
                 _ => {}
             }
         }
@@ -470,8 +626,11 @@ fn apply_oracle_step(
                 .get("label")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or_default();
-            if selector == "#assignee" {
-                session.selected_assignee = label.to_string();
+            match selector {
+                "#assignee" => session.draft_assignee = label.to_string(),
+                "#status" => session.draft_status = label.to_string(),
+                "#queue-status-filter" => session.queue_status_filter = label.to_string(),
+                _ => {}
             }
         }
         "click_selector" => {
@@ -487,10 +646,16 @@ fn apply_oracle_step(
                         session.current_page = WorkflowPage::Queue;
                     }
                 }
+                "#apply-filters" => {
+                    session.current_page = WorkflowPage::Queue;
+                }
                 "#submit-update" => {
+                    let ticket_id = session.active_ticket_id.clone();
+                    persist_ticket_update(session, &ticket_id);
                     session.current_page = WorkflowPage::Confirmation;
-                    session.reward = if session.selected_assignee == session.spec.assignee
-                        && session.note_text == session.spec.note
+                    session.reward = if ticket_id == session.spec.ticket_id
+                        && session.draft_assignee == session.spec.assignee
+                        && session.draft_note == session.spec.note
                     {
                         1.0
                     } else {
@@ -499,9 +664,39 @@ fn apply_oracle_step(
                     session.terminated = true;
                     session.truncated = false;
                 }
-                _ if selector == ticket_link_selector(&session.spec.ticket_id) => {
+                "#review-update" => {
+                    session.current_page = WorkflowPage::Review;
+                    session.reward = 0.0;
+                    session.terminated = false;
+                    session.truncated = false;
+                }
+                "#edit-update" => {
                     session.current_page = WorkflowPage::Detail {
-                        ticket_id: session.spec.ticket_id.clone(),
+                        ticket_id: session.active_ticket_id.clone(),
+                    };
+                }
+                "#confirm-update" => {
+                    let ticket_id = session.active_ticket_id.clone();
+                    persist_ticket_update(session, &ticket_id);
+                    session.current_page = WorkflowPage::Confirmation;
+                    session.confirmation_seen = true;
+                    session.reward = 0.0;
+                    session.terminated = false;
+                    session.truncated = false;
+                }
+                "#queue-link" => {
+                    session.current_page = WorkflowPage::Queue;
+                }
+                _ if ticket_id_for_selector(session, selector).is_some() => {
+                    let ticket_id = ticket_id_for_selector(session, selector).unwrap_or_default();
+                    session.active_ticket_id = ticket_id.clone();
+                    if let Some(ticket) = session.tickets.get(&ticket_id) {
+                        session.draft_assignee = ticket.current_assignee.clone();
+                        session.draft_status = ticket.current_status.clone();
+                        session.draft_note = ticket.current_note.clone();
+                    }
+                    session.current_page = WorkflowPage::Detail {
+                        ticket_id,
                     };
                 }
                 _ => {}
@@ -523,16 +718,30 @@ fn sync_bridge_state_from_observation(
 ) {
     session.current_page =
         page_from_url(&payload.page_url).unwrap_or_else(|| session.current_page.clone());
+    if let Some(ticket_id) = active_ticket_id_from_page(session) {
+        session.active_ticket_id = ticket_id;
+    }
     session.login_username = observation_value(&payload.interactive_elements, "#username")
         .unwrap_or_else(|| session.login_username.clone());
     session.login_password = observation_value(&payload.interactive_elements, "#password")
         .unwrap_or_else(|| session.login_password.clone());
-    session.selected_assignee =
+    session.queue_search = observation_value(&payload.interactive_elements, "#queue-search")
+        .unwrap_or_else(|| session.queue_search.clone());
+    session.queue_status_filter =
+        observation_selected_label(&payload.interactive_elements, "#queue-status-filter")
+            .or_else(|| observation_value(&payload.interactive_elements, "#queue-status-filter"))
+            .unwrap_or_else(|| session.queue_status_filter.clone());
+    session.draft_assignee =
         observation_selected_label(&payload.interactive_elements, "#assignee")
             .or_else(|| observation_value(&payload.interactive_elements, "#assignee"))
-            .unwrap_or_else(|| session.selected_assignee.clone());
-    session.note_text = observation_value(&payload.interactive_elements, "#note")
-        .unwrap_or_else(|| session.note_text.clone());
+            .unwrap_or_else(|| session.draft_assignee.clone());
+    session.draft_status =
+        observation_selected_label(&payload.interactive_elements, "#status")
+            .or_else(|| observation_value(&payload.interactive_elements, "#status"))
+            .unwrap_or_else(|| session.draft_status.clone());
+    session.draft_note = observation_value(&payload.interactive_elements, "#note")
+        .unwrap_or_else(|| session.draft_note.clone());
+    maybe_complete_queue_verification(session, Some(payload.visible_text_excerpt.as_str()));
 
     session.bridge_state.reward = session.reward;
     session.bridge_state.terminated = session.terminated;
@@ -544,13 +753,7 @@ fn sync_bridge_state_from_observation(
         reason: Some("workflow_observation".to_string()),
         raw_reward: Some(session.reward),
         query_text: Some(session.spec.instruction.clone()),
-        fields: workflow_fields(
-            &session.spec,
-            &session.login_username,
-            &session.login_password,
-            &session.selected_assignee,
-            &session.note_text,
-        ),
+        fields: workflow_fields(session),
         page_url: Some(payload.page_url),
         task_ready: Some(true),
         focused_tag: payload.focused_tag,
@@ -563,6 +766,8 @@ fn sync_bridge_state_from_observation(
 }
 
 fn sync_bridge_state_from_synthesized_page(session: &mut WorkflowSession) {
+    let visible_text = workflow_visible_text(session, &session.current_page);
+    maybe_complete_queue_verification(session, Some(visible_text.as_str()));
     session.bridge_state.reward = session.reward;
     session.bridge_state.terminated = session.terminated;
     session.bridge_state.truncated = session.truncated;
@@ -573,31 +778,13 @@ fn sync_bridge_state_from_synthesized_page(session: &mut WorkflowSession) {
         reason: Some("workflow_oracle".to_string()),
         raw_reward: Some(session.reward),
         query_text: Some(session.spec.instruction.clone()),
-        fields: workflow_fields(
-            &session.spec,
-            &session.login_username,
-            &session.login_password,
-            &session.selected_assignee,
-            &session.note_text,
-        ),
+        fields: workflow_fields(session),
         page_url: Some(current_page_url(session)),
         task_ready: Some(true),
         focused_tag: None,
         focused_id: None,
-        visible_text_excerpt: Some(workflow_visible_text(
-            &session.spec,
-            &session.current_page,
-            &session.selected_assignee,
-            &session.note_text,
-        )),
-        interactive_elements: synthesized_interactive_elements(
-            &session.spec,
-            &session.current_page,
-            &session.login_username,
-            &session.login_password,
-            &session.selected_assignee,
-            &session.note_text,
-        ),
+        visible_text_excerpt: Some(visible_text),
+        interactive_elements: synthesized_interactive_elements(session, &session.current_page),
         scroll_targets: Vec::new(),
         dom_elements: Vec::new(),
     };
@@ -608,6 +795,7 @@ fn render_page_html(session: &WorkflowSession, page: &WorkflowPage) -> String {
         WorkflowPage::Login => render_login_body(session),
         WorkflowPage::Queue => render_queue_body(session),
         WorkflowPage::Detail { ticket_id } => render_detail_body(session, ticket_id),
+        WorkflowPage::Review => render_review_body(session),
         WorkflowPage::Confirmation => render_confirmation_body(session),
     };
     format!(
@@ -627,6 +815,8 @@ fn render_page_html(session: &WorkflowSession, page: &WorkflowPage) -> String {
     .grid {{ display: grid; gap: 16px; }}
     .two-col {{ grid-template-columns: 1.2fr 0.8fr; }}
     .panel {{ border: 1px solid #d4dceb; border-radius: 12px; padding: 16px; background: #fbfcff; }}
+    .inline-actions {{ display: flex; gap: 12px; flex-wrap: wrap; }}
+    .inline-form {{ margin: 0; }}
     label {{ display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }}
     input, textarea, select {{ width: 100%; box-sizing: border-box; margin-bottom: 14px; border: 1px solid #b9c6db; border-radius: 10px; padding: 10px 12px; font: inherit; }}
     textarea {{ min-height: 120px; resize: vertical; }}
@@ -636,6 +826,7 @@ fn render_page_html(session: &WorkflowSession, page: &WorkflowPage) -> String {
     code {{ font-family: ui-monospace, SFMono-Regular, monospace; }}
     .status-pill {{ display: inline-block; padding: 4px 10px; border-radius: 999px; background: #e4eefc; color: #1f4f96; font-size: 12px; font-weight: 700; }}
     .success {{ background: #e7f8ee; color: #19663e; }}
+    .muted {{ color: #607086; }}
   </style>
 </head>
 <body>
@@ -690,22 +881,16 @@ fn render_login_body(session: &WorkflowSession) -> String {
 }
 
 fn render_queue_body(session: &WorkflowSession) -> String {
-    let rows = WORKFLOW_QUEUE_TICKETS
-        .iter()
-        .map(|(ticket_id, title, owner)| {
-            format!(
-                r#"<tr>
-  <td><a id="{link_id}" href="/workflow/{session_id}/tickets/{ticket_id}">{ticket_id}</a></td>
-  <td>{title}</td>
-  <td>{owner}</td>
-</tr>"#,
-                link_id = ticket_link_id(ticket_id),
-                session_id = session.bridge_state.session_id,
-                ticket_id = ticket_id,
-                title = escape_html(title),
-                owner = escape_html(owner),
-            )
-        })
+    match session.spec.scenario {
+        WorkflowScenario::TicketRouting => render_ticket_routing_queue_body(session),
+        WorkflowScenario::QueueVerification => render_queue_verification_queue_body(session),
+    }
+}
+
+fn render_ticket_routing_queue_body(session: &WorkflowSession) -> String {
+    let rows = visible_queue_tickets(session)
+        .into_iter()
+        .map(|ticket| render_queue_row(session, ticket))
         .collect::<Vec<_>>()
         .join("\n");
     format!(
@@ -716,7 +901,7 @@ fn render_queue_body(session: &WorkflowSession) -> String {
     <p>Open the ticket that matches the task brief, then update the assignment.</p>
     <table>
       <thead>
-        <tr><th>Ticket</th><th>Summary</th><th>Suggested team</th></tr>
+        <tr><th>Ticket</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Suggested team</th></tr>
       </thead>
       <tbody>{rows}</tbody>
     </table>
@@ -733,12 +918,114 @@ fn render_queue_body(session: &WorkflowSession) -> String {
     )
 }
 
+fn render_queue_verification_queue_body(session: &WorkflowSession) -> String {
+    let visible_tickets = visible_queue_tickets(session);
+    let rows = if visible_tickets.is_empty() {
+        "<tr><td colspan=\"5\" class=\"muted\">No tickets matched the current queue search and filter.</td></tr>"
+            .to_string()
+    } else {
+        visible_tickets
+            .into_iter()
+            .map(|ticket| render_queue_row(session, ticket))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let queue_hint = if session.queue_search.trim().is_empty() {
+        "Search is required to reveal the full queue; blank search only shows the first two filtered rows."
+    } else if session.queue_verified {
+        "Queue verification completed from typed queue state."
+    } else {
+        "Apply the queue search and filter before opening the target ticket."
+    };
+    format!(
+        r#"<div class="breadcrumbs">Login / Queue</div>
+<div class="grid two-col">
+  <section class="panel">
+    <h1>Dispatch verification queue</h1>
+    <p>Search and filter the queue to reveal the target ticket, then confirm the saved update survives navigation back to the queue.</p>
+    <form action="/workflow/{session_id}/queue/filter" method="post">
+      <label for="queue-search">Queue search</label>
+      <input id="queue-search" name="search" type="text" autocomplete="off" value="{search}">
+      <label for="queue-status-filter">Queue status filter</label>
+      <select id="queue-status-filter" name="status">
+        {status_options}
+      </select>
+      <button id="apply-filters" type="submit">Apply filters</button>
+    </form>
+    <p class="muted">{queue_hint}</p>
+    <table>
+      <thead>
+        <tr><th>Ticket</th><th>Summary</th><th>Status</th><th>Assignee</th><th>Suggested team</th></tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>
+  </section>
+  <aside class="panel">
+    <h2>Task brief</h2>
+    <p id="task-brief">{instruction}</p>
+    <p><span class="status-pill">Step 2</span> Search for <code>{queue_search}</code> and set the queue filter to <code>{queue_filter}</code> before opening <code>{ticket_id}</code>.</p>
+  </aside>
+</div>"#,
+        session_id = session.bridge_state.session_id,
+        search = escape_html(&session.queue_search),
+        status_options = render_queue_status_filter_options(&session.queue_status_filter),
+        queue_hint = escape_html(queue_hint),
+        rows = rows,
+        instruction = escape_html(&session.spec.instruction),
+        queue_search = escape_html(&session.spec.queue_search),
+        queue_filter = escape_html(&session.spec.queue_status_filter),
+        ticket_id = escape_html(&session.spec.ticket_id),
+    )
+}
+
+fn render_queue_row(session: &WorkflowSession, ticket: &WorkflowTicketRecord) -> String {
+    format!(
+        r#"<tr>
+  <td><a id="{link_id}" href="/workflow/{session_id}/tickets/{ticket_id}">{ticket_id}</a></td>
+  <td>{title}</td>
+  <td>{status}</td>
+  <td>{assignee}</td>
+  <td>{owner}</td>
+</tr>"#,
+        link_id = ticket_link_id(&ticket.ticket_id),
+        session_id = session.bridge_state.session_id,
+        ticket_id = escape_html(&ticket.ticket_id),
+        title = escape_html(&ticket.title),
+        status = escape_html(&ticket.current_status),
+        assignee = escape_html(&display_assignee(&ticket.current_assignee)),
+        owner = escape_html(&ticket.suggested_team),
+    )
+}
+
 fn render_detail_body(session: &WorkflowSession, ticket_id: &str) -> String {
-    let ticket_summary = WORKFLOW_QUEUE_TICKETS
-        .iter()
-        .find(|(id, _, _)| *id == ticket_id)
-        .map(|(_, title, owner)| format!("{} / suggested team: {}", title, owner))
+    let ticket = session.tickets.get(ticket_id);
+    let ticket_summary = ticket
+        .map(|ticket| {
+            format!(
+                "{} / suggested team: {} / current status: {} / current assignee: {}",
+                ticket.title,
+                ticket.suggested_team,
+                ticket.current_status,
+                display_assignee(&ticket.current_assignee)
+            )
+        })
         .unwrap_or_else(|| "Untracked ticket".to_string());
+    let submit_id = match session.spec.scenario {
+        WorkflowScenario::TicketRouting => "submit-update",
+        WorkflowScenario::QueueVerification => "review-update",
+    };
+    let submit_text = match session.spec.scenario {
+        WorkflowScenario::TicketRouting => "Submit update",
+        WorkflowScenario::QueueVerification => "Review update",
+    };
+    let step_text = match session.spec.scenario {
+        WorkflowScenario::TicketRouting => {
+            "Save the requested assignee and note."
+        }
+        WorkflowScenario::QueueVerification => {
+            "Prepare the requested assignee, status, and note before review."
+        }
+    };
     format!(
         r#"<div class="breadcrumbs"><a id="queue-link" href="/workflow/{session_id}/queue">Queue</a> / Ticket {ticket_id}</div>
 <div class="grid two-col">
@@ -750,37 +1037,103 @@ fn render_detail_body(session: &WorkflowSession, ticket_id: &str) -> String {
       <select id="assignee" name="assignee">
         {options}
       </select>
+      <label for="status">Ticket status</label>
+      <select id="status" name="status">
+        {status_options}
+      </select>
       <label for="note">Dispatch note</label>
       <textarea id="note" name="note">{note}</textarea>
-      <button id="submit-update" type="submit">Submit update</button>
+      <button id="{submit_id}" type="submit">{submit_text}</button>
     </form>
   </section>
   <aside class="panel">
     <h2>Task brief</h2>
     <p id="task-brief">{instruction}</p>
-    <p><span class="status-pill">Step 3</span> Save the requested assignee and note.</p>
+    <p><span class="status-pill">Step 3</span> {step_text}</p>
   </aside>
 </div>"#,
         session_id = session.bridge_state.session_id,
         ticket_id = escape_html(ticket_id),
         summary = escape_html(&ticket_summary),
-        options = render_assignee_options(&session.selected_assignee),
-        note = escape_html(&session.note_text),
+        options = render_assignee_options(&session.draft_assignee),
+        status_options = render_status_options(&session.draft_status),
+        note = escape_html(&session.draft_note),
+        submit_id = submit_id,
+        submit_text = submit_text,
+        instruction = escape_html(&session.spec.instruction),
+        step_text = escape_html(step_text),
+    )
+}
+
+fn render_review_body(session: &WorkflowSession) -> String {
+    let ticket_id = session.active_ticket_id.clone();
+    format!(
+        r#"<div class="breadcrumbs"><a id="queue-link" href="/workflow/{session_id}/queue">Queue</a> / Review draft</div>
+<div class="grid two-col">
+  <section class="panel">
+    <h1>Review queued update</h1>
+    <p id="review-ticket">Ticket <strong>{ticket_id}</strong></p>
+    <p id="review-assignee">Draft assignee: <strong>{assignee}</strong></p>
+    <p id="review-status">Draft status: <strong>{status}</strong></p>
+    <p id="review-note">Draft note: {note}</p>
+    <div class="inline-actions">
+      <form class="inline-form" action="/workflow/{session_id}/review/edit" method="post">
+        <button id="edit-update" type="submit">Edit draft</button>
+      </form>
+      <form class="inline-form" action="/workflow/{session_id}/review/confirm" method="post">
+        <button id="confirm-update" type="submit">Confirm update</button>
+      </form>
+    </div>
+  </section>
+  <aside class="panel">
+    <h2>Task brief</h2>
+    <p id="task-brief">{instruction}</p>
+    <p><span class="status-pill">Step 4</span> Review the draft and confirm it only if the ticket, assignee, status, and note match the request.</p>
+  </aside>
+</div>"#,
+        session_id = session.bridge_state.session_id,
+        ticket_id = escape_html(&ticket_id),
+        assignee = escape_html(&session.draft_assignee),
+        status = escape_html(&session.draft_status),
+        note = escape_html(&session.draft_note),
         instruction = escape_html(&session.spec.instruction),
     )
 }
 
 fn render_confirmation_body(session: &WorkflowSession) -> String {
-    let success = (session.reward - 1.0).abs() < f32::EPSILON;
+    let saved_ticket = session
+        .tickets
+        .get(&session.active_ticket_id)
+        .or_else(|| session.tickets.get(&session.spec.ticket_id));
+    let saved_assignee = saved_ticket
+        .map(|ticket| display_assignee(&ticket.current_assignee))
+        .unwrap_or_else(|| "Unassigned".to_string());
+    let saved_status = saved_ticket
+        .map(|ticket| ticket.current_status.clone())
+        .unwrap_or_else(|| "Unknown".to_string());
+    let saved_note = saved_ticket
+        .map(|ticket| ticket.current_note.clone())
+        .unwrap_or_default();
+    let success = match session.spec.scenario {
+        WorkflowScenario::TicketRouting => (session.reward - 1.0).abs() < f32::EPSILON,
+        WorkflowScenario::QueueVerification => session.queue_verified,
+    };
     let status_class = if success {
         "status-pill success"
     } else {
         "status-pill"
     };
-    let status_text = if success {
-        "Saved and verified"
-    } else {
-        "Saved with validation mismatch"
+    let status_text = match session.spec.scenario {
+        WorkflowScenario::TicketRouting if success => "Saved and verified",
+        WorkflowScenario::TicketRouting => "Saved with validation mismatch",
+        WorkflowScenario::QueueVerification if success => "Saved and queue-verified",
+        WorkflowScenario::QueueVerification => "Saved, queue verification pending",
+    };
+    let step_text = match session.spec.scenario {
+        WorkflowScenario::TicketRouting => "Confirmation page reached.",
+        WorkflowScenario::QueueVerification => {
+            "Return to the queue and verify the persisted assignee and status."
+        }
     };
     format!(
         r#"<div class="breadcrumbs"><a id="queue-link" href="/workflow/{session_id}/queue">Queue</a> / Confirmation</div>
@@ -789,26 +1142,30 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
     <h1>Assignment confirmation</h1>
     <p><span id="save-status" class="{status_class}">{status_text}</span></p>
     <p id="assignment-banner">Ticket <strong>{ticket_id}</strong> was routed to <strong>{assignee}</strong>.</p>
+    <p id="status-summary">Saved status: {status}</p>
     <p id="note-summary">Saved note: {note}</p>
   </section>
   <aside class="panel">
     <h2>Task brief</h2>
     <p id="task-brief">{instruction}</p>
-    <p><span class="status-pill">Step 4</span> Confirmation page reached.</p>
+    <p><span class="status-pill">Step 5</span> {step_text}</p>
   </aside>
 </div>"#,
         session_id = session.bridge_state.session_id,
         status_class = status_class,
         status_text = status_text,
-        ticket_id = escape_html(&session.spec.ticket_id),
-        assignee = escape_html(&session.selected_assignee),
-        note = escape_html(&session.note_text),
+        ticket_id = escape_html(&session.active_ticket_id),
+        assignee = escape_html(&saved_assignee),
+        status = escape_html(&saved_status),
+        note = escape_html(&saved_note),
         instruction = escape_html(&session.spec.instruction),
+        step_text = escape_html(step_text),
     )
 }
 
 fn render_assignee_options(selected: &str) -> String {
     [
+        "",
         "Facilities",
         "Network Ops",
         "Billing Review",
@@ -821,6 +1178,63 @@ fn render_assignee_options(selected: &str) -> String {
             r#"<option value="{value}"{selected}>{value}</option>"#,
             value = escape_html(option),
             selected = selected_attr
+        )
+    })
+    .collect::<Vec<_>>()
+    .join("\n")
+}
+
+fn render_status_options(selected: &str) -> String {
+    [
+        "",
+        "New",
+        "Awaiting Dispatch",
+        "Escalated",
+        "Pending Review",
+        "Pending Customer Reply",
+        "Resolved",
+    ]
+    .into_iter()
+    .map(|option| {
+        let selected_attr = if option == selected { " selected" } else { "" };
+        let label = if option.is_empty() {
+            "Select status"
+        } else {
+            option
+        };
+        format!(
+            r#"<option value="{value}"{selected}>{label}</option>"#,
+            value = escape_html(option),
+            selected = selected_attr,
+            label = escape_html(label),
+        )
+    })
+    .collect::<Vec<_>>()
+    .join("\n")
+}
+
+fn render_queue_status_filter_options(selected: &str) -> String {
+    [
+        "",
+        "Awaiting Dispatch",
+        "Pending Review",
+        "Escalated",
+        "Pending Customer Reply",
+        "Resolved",
+    ]
+    .into_iter()
+    .map(|option| {
+        let selected_attr = if option == selected { " selected" } else { "" };
+        let label = if option.is_empty() {
+            "All statuses"
+        } else {
+            option
+        };
+        format!(
+            r#"<option value="{value}"{selected}>{label}</option>"#,
+            value = escape_html(option),
+            selected = selected_attr,
+            label = escape_html(label),
         )
     })
     .collect::<Vec<_>>()
@@ -912,113 +1326,227 @@ fn workflow_observer_script(report_path: &str) -> String {
     )
 }
 
-fn workflow_fields(
-    spec: &WorkflowCaseSpec,
-    current_username: &str,
-    current_password: &str,
-    current_assignee: &str,
-    current_note: &str,
-) -> Vec<BridgeField> {
+fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
+    let saved_target = session.tickets.get(&session.spec.ticket_id);
     vec![
         BridgeField {
             key: "workflow_case_id".to_string(),
-            value: spec.case_id.clone(),
+            value: session.spec.case_id.clone(),
+        },
+        BridgeField {
+            key: "workflow_scenario".to_string(),
+            value: match session.spec.scenario {
+                WorkflowScenario::TicketRouting => "ticket_routing".to_string(),
+                WorkflowScenario::QueueVerification => "queue_verification".to_string(),
+            },
         },
         BridgeField {
             key: "username".to_string(),
-            value: spec.username.clone(),
+            value: session.spec.username.clone(),
         },
         BridgeField {
             key: "password".to_string(),
-            value: spec.password.clone(),
+            value: session.spec.password.clone(),
         },
         BridgeField {
             key: "ticket_id".to_string(),
-            value: spec.ticket_id.clone(),
+            value: session.spec.ticket_id.clone(),
         },
         BridgeField {
             key: "assignee".to_string(),
-            value: spec.assignee.clone(),
+            value: session.spec.assignee.clone(),
         },
         BridgeField {
             key: "note".to_string(),
-            value: spec.note.clone(),
+            value: session.spec.note.clone(),
+        },
+        BridgeField {
+            key: "status".to_string(),
+            value: session.spec.status.clone(),
+        },
+        BridgeField {
+            key: "queue_search".to_string(),
+            value: session.spec.queue_search.clone(),
+        },
+        BridgeField {
+            key: "queue_status_filter".to_string(),
+            value: session.spec.queue_status_filter.clone(),
         },
         BridgeField {
             key: "current_username".to_string(),
-            value: current_username.to_string(),
+            value: session.login_username.clone(),
         },
         BridgeField {
             key: "current_password".to_string(),
-            value: current_password.to_string(),
+            value: session.login_password.clone(),
+        },
+        BridgeField {
+            key: "current_queue_search".to_string(),
+            value: session.queue_search.clone(),
+        },
+        BridgeField {
+            key: "current_queue_status_filter".to_string(),
+            value: session.queue_status_filter.clone(),
+        },
+        BridgeField {
+            key: "active_ticket_id".to_string(),
+            value: session.active_ticket_id.clone(),
         },
         BridgeField {
             key: "current_assignee".to_string(),
-            value: current_assignee.to_string(),
+            value: session.draft_assignee.clone(),
+        },
+        BridgeField {
+            key: "current_status".to_string(),
+            value: session.draft_status.clone(),
         },
         BridgeField {
             key: "current_note".to_string(),
-            value: current_note.to_string(),
+            value: session.draft_note.clone(),
+        },
+        BridgeField {
+            key: "saved_assignee".to_string(),
+            value: saved_target
+                .map(|ticket| ticket.current_assignee.clone())
+                .unwrap_or_default(),
+        },
+        BridgeField {
+            key: "saved_status".to_string(),
+            value: saved_target
+                .map(|ticket| ticket.current_status.clone())
+                .unwrap_or_default(),
+        },
+        BridgeField {
+            key: "saved_note".to_string(),
+            value: saved_target
+                .map(|ticket| ticket.current_note.clone())
+                .unwrap_or_default(),
+        },
+        BridgeField {
+            key: "confirmation_seen".to_string(),
+            value: session.confirmation_seen.to_string(),
+        },
+        BridgeField {
+            key: "queue_verified".to_string(),
+            value: session.queue_verified.to_string(),
+        },
+        BridgeField {
+            key: "current_page_kind".to_string(),
+            value: match session.current_page {
+                WorkflowPage::Login => "login".to_string(),
+                WorkflowPage::Queue => "queue".to_string(),
+                WorkflowPage::Detail { .. } => "detail".to_string(),
+                WorkflowPage::Review => "review".to_string(),
+                WorkflowPage::Confirmation => "confirmation".to_string(),
+            },
         },
     ]
 }
 
-fn workflow_visible_text(
-    spec: &WorkflowCaseSpec,
-    page: &WorkflowPage,
-    current_assignee: &str,
-    current_note: &str,
-) -> String {
+fn workflow_visible_text(session: &WorkflowSession, page: &WorkflowPage) -> String {
     match page {
         WorkflowPage::Login => {
-            format!("Dispatch Console Sign in to continue. {}", spec.instruction)
+            format!(
+                "Dispatch Console Sign in to continue. {}",
+                session.spec.instruction
+            )
         }
-        WorkflowPage::Queue => format!(
-            "Active dispatch queue. Open {} from the queue. {}",
-            spec.ticket_id, spec.instruction
-        ),
+        WorkflowPage::Queue => {
+            let rows = visible_queue_tickets(session)
+                .into_iter()
+                .map(|ticket| {
+                    format!(
+                        "{} {} {} {}",
+                        ticket.ticket_id,
+                        ticket.title,
+                        ticket.current_status,
+                        display_assignee(&ticket.current_assignee)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            format!(
+                "Active dispatch queue. Search {}. Filter {}. Visible tickets {}. {}",
+                session.queue_search,
+                session.queue_status_filter,
+                rows,
+                session.spec.instruction
+            )
+        }
         WorkflowPage::Detail { ticket_id } => format!(
-            "Ticket {}. Assign team {}. Dispatch note {}. {}",
-            ticket_id, current_assignee, current_note, spec.instruction
+            "Ticket {}. Assign team {}. Ticket status {}. Dispatch note {}. {}",
+            ticket_id, session.draft_assignee, session.draft_status, session.draft_note, session.spec.instruction
+        ),
+        WorkflowPage::Review => format!(
+            "Review queued update. Ticket {}. Draft assignee {}. Draft status {}. Draft note {}. {}",
+            session.active_ticket_id, session.draft_assignee, session.draft_status, session.draft_note, session.spec.instruction
         ),
         WorkflowPage::Confirmation => format!(
-            "Assignment confirmation. Ticket {} routed to {}. Saved note {}. {}",
-            spec.ticket_id, current_assignee, current_note, spec.instruction
+            "Assignment confirmation. Ticket {} routed to {}. Saved status {}. Saved note {}. Queue verified {}. {}",
+            session.active_ticket_id, session.draft_assignee, session.draft_status, session.draft_note, session.queue_verified, session.spec.instruction
         ),
     }
 }
 
 fn synthesized_interactive_elements(
-    spec: &WorkflowCaseSpec,
+    session: &WorkflowSession,
     page: &WorkflowPage,
-    current_username: &str,
-    current_password: &str,
-    current_assignee: &str,
-    current_note: &str,
 ) -> Vec<BridgeInteractiveElement> {
     match page {
         WorkflowPage::Login => vec![
-            text_input("#username", "username", current_username),
-            password_input("#password", "password", current_password),
+            text_input("#username", "username", &session.login_username),
+            password_input("#password", "password", &session.login_password),
             button("#sign-in", "Sign in"),
         ],
-        WorkflowPage::Queue => WORKFLOW_QUEUE_TICKETS
-            .iter()
-            .map(|(ticket_id, _, _)| link(&ticket_link_selector(ticket_id), ticket_id))
-            .collect(),
+        WorkflowPage::Queue => {
+            let mut elements = match session.spec.scenario {
+                WorkflowScenario::TicketRouting => Vec::new(),
+                WorkflowScenario::QueueVerification => vec![
+                    text_input("#queue-search", "search", &session.queue_search),
+                    select_input_named(
+                        "#queue-status-filter",
+                        "status",
+                        &session.queue_status_filter,
+                    ),
+                    button("#apply-filters", "Apply filters"),
+                ],
+            };
+            elements.extend(
+                visible_queue_tickets(session)
+                    .into_iter()
+                    .map(|ticket| link(&ticket_link_selector(&ticket.ticket_id), &ticket.ticket_id)),
+            );
+            elements
+        }
         WorkflowPage::Detail { ticket_id } => vec![
             link("#queue-link", "Queue"),
-            select_input("#assignee", current_assignee),
-            text_area("#note", current_note),
-            button("#submit-update", "Submit update"),
+            select_input("#assignee", &session.draft_assignee),
+            select_input_named("#status", "status", &session.draft_status),
+            text_area("#note", &session.draft_note),
+            button(
+                match session.spec.scenario {
+                    WorkflowScenario::TicketRouting => "#submit-update",
+                    WorkflowScenario::QueueVerification => "#review-update",
+                },
+                match session.spec.scenario {
+                    WorkflowScenario::TicketRouting => "Submit update",
+                    WorkflowScenario::QueueVerification => "Review update",
+                },
+            ),
             link(&ticket_link_selector(ticket_id), ticket_id),
+        ],
+        WorkflowPage::Review => vec![
+            link("#queue-link", "Queue"),
+            button("#edit-update", "Edit draft"),
+            button("#confirm-update", "Confirm update"),
         ],
         WorkflowPage::Confirmation => vec![link("#queue-link", "Queue")],
     }
     .into_iter()
     .map(|mut element| {
         if matches!(page, WorkflowPage::Queue)
-            && element.selector.as_deref() == Some(ticket_link_selector(&spec.ticket_id).as_str())
+            && element.selector.as_deref()
+                == Some(ticket_link_selector(&session.spec.ticket_id).as_str())
         {
             element.class_list.push("target-ticket".to_string());
         }
@@ -1041,6 +1569,10 @@ fn current_page_url(session: &WorkflowSession) -> String {
             "{}/workflow/{}/tickets/{}",
             session.base_url, session.bridge_state.session_id, ticket_id
         ),
+        WorkflowPage::Review => format!(
+            "{}/workflow/{}/review",
+            session.base_url, session.bridge_state.session_id
+        ),
         WorkflowPage::Confirmation => format!(
             "{}/workflow/{}/confirmation",
             session.base_url, session.bridge_state.session_id
@@ -1055,6 +1587,9 @@ fn page_from_url(url: &str) -> Option<WorkflowPage> {
     if url.contains("/queue") {
         return Some(WorkflowPage::Queue);
     }
+    if url.contains("/review") {
+        return Some(WorkflowPage::Review);
+    }
     if url.contains("/confirmation") {
         return Some(WorkflowPage::Confirmation);
     }
@@ -1067,6 +1602,179 @@ fn page_from_url(url: &str) -> Option<WorkflowPage> {
     Some(WorkflowPage::Detail {
         ticket_id: ticket_id.to_string(),
     })
+}
+
+fn workflow_initial_tickets() -> BTreeMap<String, WorkflowTicketRecord> {
+    [
+        (
+            "T-101",
+            "Printer outage in west wing",
+            "Facilities",
+            "New",
+            "Facilities",
+            "",
+        ),
+        (
+            "T-202",
+            "Fiber handoff requires vendor logs",
+            "Network Ops",
+            "Awaiting Dispatch",
+            "",
+            "",
+        ),
+        (
+            "T-204",
+            "Metro fiber outage",
+            "Network Ops",
+            "Awaiting Dispatch",
+            "",
+            "",
+        ),
+        (
+            "T-215",
+            "Fiber maintenance escalation",
+            "Network Ops",
+            "Awaiting Dispatch",
+            "",
+            "",
+        ),
+        (
+            "T-303",
+            "Invoice reminder needs correction",
+            "Billing Review",
+            "Pending Review",
+            "",
+            "",
+        ),
+        (
+            "T-310",
+            "Recurring invoice delta",
+            "Billing Review",
+            "Pending Review",
+            "",
+            "",
+        ),
+        (
+            "T-318",
+            "Invoice adjustment awaiting callback",
+            "Billing Review",
+            "Pending Review",
+            "",
+            "",
+        ),
+    ]
+    .into_iter()
+    .map(
+        |(ticket_id, title, suggested_team, current_status, current_assignee, current_note)| {
+            (
+                ticket_id.to_string(),
+                WorkflowTicketRecord {
+                    ticket_id: ticket_id.to_string(),
+                    title: title.to_string(),
+                    suggested_team: suggested_team.to_string(),
+                    current_status: current_status.to_string(),
+                    current_assignee: current_assignee.to_string(),
+                    current_note: current_note.to_string(),
+                },
+            )
+        },
+    )
+    .collect()
+}
+
+fn display_assignee(value: &str) -> String {
+    if value.trim().is_empty() {
+        "Unassigned".to_string()
+    } else {
+        value.to_string()
+    }
+}
+
+fn ticket_matches_search(ticket: &WorkflowTicketRecord, search: &str) -> bool {
+    if search.is_empty() {
+        return true;
+    }
+    let search = search.to_ascii_lowercase();
+    ticket.ticket_id.to_ascii_lowercase().contains(&search)
+        || ticket.title.to_ascii_lowercase().contains(&search)
+        || ticket.suggested_team.to_ascii_lowercase().contains(&search)
+}
+
+fn visible_queue_tickets(session: &WorkflowSession) -> Vec<&WorkflowTicketRecord> {
+    let mut tickets = session
+        .tickets
+        .values()
+        .filter(|ticket| {
+            (session.queue_status_filter.is_empty()
+                || ticket.current_status == session.queue_status_filter)
+                && ticket_matches_search(ticket, &session.queue_search)
+        })
+        .collect::<Vec<_>>();
+    if matches!(session.spec.scenario, WorkflowScenario::QueueVerification)
+        && session.queue_search.trim().is_empty()
+    {
+        tickets.truncate(2);
+    }
+    tickets
+}
+
+fn persist_ticket_update(session: &mut WorkflowSession, ticket_id: &str) {
+    if let Some(ticket) = session.tickets.get_mut(ticket_id) {
+        ticket.current_assignee = session.draft_assignee.clone();
+        if !session.draft_status.is_empty() {
+            ticket.current_status = session.draft_status.clone();
+        }
+        ticket.current_note = session.draft_note.clone();
+    }
+}
+
+fn target_ticket_matches_spec(session: &WorkflowSession) -> bool {
+    let Some(ticket) = session.tickets.get(&session.spec.ticket_id) else {
+        return false;
+    };
+    let status_matches = session.spec.status.is_empty() || ticket.current_status == session.spec.status;
+    ticket.current_assignee == session.spec.assignee
+        && ticket.current_note == session.spec.note
+        && status_matches
+}
+
+fn maybe_complete_queue_verification(session: &mut WorkflowSession, visible_text: Option<&str>) {
+    if !matches!(session.spec.scenario, WorkflowScenario::QueueVerification)
+        || !session.confirmation_seen
+        || !matches!(session.current_page, WorkflowPage::Queue)
+    {
+        return;
+    }
+    let target_visible = visible_queue_tickets(session)
+        .into_iter()
+        .any(|ticket| ticket.ticket_id == session.spec.ticket_id);
+    let observed_match = visible_text.is_some_and(|text| {
+        text.contains(&session.spec.ticket_id)
+            && text.contains(&session.spec.assignee)
+            && text.contains(&session.spec.status)
+    });
+    if target_visible && observed_match && target_ticket_matches_spec(session) {
+        session.queue_verified = true;
+        session.reward = 1.0;
+        session.terminated = true;
+        session.truncated = false;
+    }
+}
+
+fn active_ticket_id_from_page(session: &WorkflowSession) -> Option<String> {
+    match &session.current_page {
+        WorkflowPage::Detail { ticket_id } => Some(ticket_id.clone()),
+        WorkflowPage::Review | WorkflowPage::Confirmation => Some(session.active_ticket_id.clone()),
+        WorkflowPage::Login | WorkflowPage::Queue => None,
+    }
+}
+
+fn ticket_id_for_selector(session: &WorkflowSession, selector: &str) -> Option<String> {
+    session
+        .tickets
+        .keys()
+        .find(|ticket_id| selector == ticket_link_selector(ticket_id))
+        .cloned()
 }
 
 fn ticket_link_selector(ticket_id: &str) -> String {
@@ -1191,13 +1899,17 @@ fn text_area(selector: &str, value: &str) -> BridgeInteractiveElement {
 }
 
 fn select_input(selector: &str, selected: &str) -> BridgeInteractiveElement {
+    select_input_named(selector, "assignee", selected)
+}
+
+fn select_input_named(selector: &str, name: &str, selected: &str) -> BridgeInteractiveElement {
     BridgeInteractiveElement {
         tag: "select".to_string(),
         id: selector.strip_prefix('#').map(str::to_string),
         selector: Some(selector.to_string()),
         center_x: None,
         center_y: None,
-        name: Some("assignee".to_string()),
+        name: Some(name.to_string()),
         text: String::new(),
         value: Some(selected.to_string()),
         input_type: None,
@@ -1234,19 +1946,29 @@ mod tests {
     use super::*;
     use crate::computer_use_suite::types::{AllowedToolProfile, LocalJudge, RecipeId, TaskSet};
 
-    fn workflow_case(case_id: &str) -> ComputerUseCase {
+    fn field_value<'a>(state: &'a BridgeState, key: &str) -> Option<&'a str> {
+        state.info.fields.iter().find_map(|field| {
+            if field.key == key {
+                Some(field.value.as_str())
+            } else {
+                None
+            }
+        })
+    }
+
+    fn workflow_case(case_id: &str, env_id: &str, task_set: TaskSet, recipe: RecipeId) -> ComputerUseCase {
         ComputerUseCase {
             id: case_id.to_string(),
-            env_id: "workflow-ticket-routing".to_string(),
+            env_id: env_id.to_string(),
             seed: 7,
-            task_set: TaskSet::Workflow,
+            task_set,
             max_steps: 12,
             timeout_seconds: 25,
             allowed_tool_profile: AllowedToolProfile::BrowserCoreWithSelect,
             expected_reward_floor: 1.0,
             expected_pass: true,
             local_judge: LocalJudge::BridgeReward,
-            recipe: RecipeId::WorkflowTicketRouting,
+            recipe,
         }
     }
 
@@ -1255,7 +1977,12 @@ mod tests {
         let mut process = WorkflowBridgeProcess::start().await?;
         let client = process.client();
         let created = client
-            .create_session(&workflow_case("workflow_ticket_routing_network_ops"))
+            .create_session(&workflow_case(
+                "workflow_ticket_routing_network_ops",
+                "workflow-ticket-routing",
+                TaskSet::Workflow,
+                RecipeId::WorkflowTicketRouting,
+            ))
             .await?;
 
         client
@@ -1316,6 +2043,147 @@ mod tests {
             .page_url
             .as_deref()
             .is_some_and(|url| url.contains("/confirmation")));
+
+        process.stop().await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn workflow_queue_verification_oracle_requires_queue_revisit() -> Result<()> {
+        let mut process = WorkflowBridgeProcess::start().await?;
+        let client = process.client();
+        let created = client
+            .create_session(&workflow_case(
+                "workflow_queue_verification_network_ops",
+                "workflow-queue-verification",
+                TaskSet::WorkflowRich,
+                RecipeId::WorkflowQueueVerification,
+            ))
+            .await?;
+
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#username", "text": "dispatch.agent" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#password", "text": "dispatch-215" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#sign-in" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#queue-search", "text": "fiber" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#queue-status-filter", "label": "Awaiting Dispatch" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#apply-filters" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": ticket_link_selector("T-215") }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#assignee", "label": "Network Ops" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#status", "label": "Escalated" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#note", "text": "Escalate fiber outage to on-call" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#review-update" }),
+            )
+            .await?;
+
+        let review_state = client.state(&created.session_id).await?;
+        assert!(!review_state.terminated);
+        assert_eq!(
+            field_value(&review_state, "active_ticket_id"),
+            Some("T-215")
+        );
+
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#confirm-update" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#queue-link" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#queue-status-filter", "label": "Escalated" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#apply-filters" }),
+            )
+            .await?;
+
+        let final_state = client.state(&created.session_id).await?;
+        assert!(final_state.terminated);
+        assert_eq!(final_state.reward, 1.0);
+        assert_eq!(field_value(&final_state, "queue_verified"), Some("true"));
+        assert!(final_state
+            .info
+            .page_url
+            .as_deref()
+            .is_some_and(|url| url.contains("/queue")));
 
         process.stop().await;
         Ok(())
