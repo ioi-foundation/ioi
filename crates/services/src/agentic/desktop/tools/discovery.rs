@@ -128,6 +128,11 @@ mod tests {
                 CapabilityId::from("browser.inspect"),
                 CapabilityId::from("conversation.reply"),
             ],
+            IntentScopeProfile::UiInteraction => vec![
+                CapabilityId::from("ui.interact"),
+                CapabilityId::from("ui.inspect"),
+                CapabilityId::from("conversation.reply"),
+            ],
             _ => vec![CapabilityId::from("conversation.reply")],
         };
         ResolvedIntentState {
@@ -403,6 +408,27 @@ mod tests {
             runtime,
             ExecutionTier::VisualForeground,
             "Incident Dashboard (Arc)",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools.iter().any(|t| t.name == "browser__snapshot"));
+        assert!(tools.iter().any(|t| t.name == "browser__click_element"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn visual_foreground_browser_window_exposes_browser_followups_for_ui_interaction() {
+        let intent = resolved(IntentScopeProfile::UiInteraction);
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "click the button on the current browser page",
+            runtime,
+            ExecutionTier::VisualForeground,
+            "Chromium (Chromium)",
             Some(&intent),
         )
         .await;

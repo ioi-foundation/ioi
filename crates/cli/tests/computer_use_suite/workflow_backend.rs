@@ -1714,9 +1714,7 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
         WorkflowScenario::MutationIsolation => {
             "Saved, cross-ticket queue/history verification pending"
         }
-        WorkflowScenario::StaleQueueReorder if success => {
-            "Saved, refreshed, and reorder-verified"
-        }
+        WorkflowScenario::StaleQueueReorder if success => "Saved, refreshed, and reorder-verified",
         WorkflowScenario::StaleQueueReorder => {
             "Saved, queue refresh or distractor verification pending"
         }
@@ -2566,33 +2564,33 @@ fn synthesized_interactive_elements(
             );
             elements
         }
-        WorkflowPage::Detail { ticket_id } => vec![
-            link("#queue-link", "Queue"),
-            select_input("#assignee", &session.draft_assignee),
-            select_input_named("#status", "status", &session.draft_status),
-            text_area("#note", &session.draft_note),
-            button(
-                match session.spec.scenario {
-                    WorkflowScenario::TicketRouting => "#submit-update",
-                    WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
-                        "#review-update"
-                    }
-                    WorkflowScenario::MutationIsolation | WorkflowScenario::StaleQueueReorder => {
-                        "#review-update"
-                    }
-                },
-                match session.spec.scenario {
-                    WorkflowScenario::TicketRouting => "Submit update",
-                    WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
-                        "Review update"
-                    }
-                    WorkflowScenario::MutationIsolation | WorkflowScenario::StaleQueueReorder => {
-                        "Review update"
-                    }
-                },
-            ),
-            link(&ticket_link_selector(ticket_id), ticket_id),
-        ],
+        WorkflowPage::Detail { ticket_id } => {
+            vec![
+                link("#queue-link", "Queue"),
+                select_input("#assignee", &session.draft_assignee),
+                select_input_named("#status", "status", &session.draft_status),
+                text_area("#note", &session.draft_note),
+                button(
+                    match session.spec.scenario {
+                        WorkflowScenario::TicketRouting => "#submit-update",
+                        WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
+                            "#review-update"
+                        }
+                        WorkflowScenario::MutationIsolation
+                        | WorkflowScenario::StaleQueueReorder => "#review-update",
+                    },
+                    match session.spec.scenario {
+                        WorkflowScenario::TicketRouting => "Submit update",
+                        WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
+                            "Review update"
+                        }
+                        WorkflowScenario::MutationIsolation
+                        | WorkflowScenario::StaleQueueReorder => "Review update",
+                    },
+                ),
+                link(&ticket_link_selector(ticket_id), ticket_id),
+            ]
+        }
         WorkflowPage::Review => {
             let mut elements = vec![
                 link("#queue-link", "Queue"),
@@ -4046,8 +4044,14 @@ mod tests {
             .await?;
 
         let stale_queue_state = client.state(&created.session_id).await?;
-        assert_eq!(field_value(&stale_queue_state, "queue_view_fresh"), Some("false"));
-        assert_eq!(field_value(&stale_queue_state, "queue_verified"), Some("false"));
+        assert_eq!(
+            field_value(&stale_queue_state, "queue_view_fresh"),
+            Some("false")
+        );
+        assert_eq!(
+            field_value(&stale_queue_state, "queue_verified"),
+            Some("false")
+        );
         assert!(!stale_queue_state.terminated);
 
         client
@@ -4059,7 +4063,10 @@ mod tests {
             .await?;
 
         let still_stale_state = client.state(&created.session_id).await?;
-        assert_eq!(field_value(&still_stale_state, "queue_view_fresh"), Some("false"));
+        assert_eq!(
+            field_value(&still_stale_state, "queue_view_fresh"),
+            Some("false")
+        );
         assert_eq!(
             field_value(&still_stale_state, "queue_target_precedes_distractor"),
             Some("false")

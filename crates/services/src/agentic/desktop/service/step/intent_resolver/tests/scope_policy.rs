@@ -199,6 +199,48 @@ fn ui_interaction_scope_allows_clipboard() {
 }
 
 #[test]
+fn ui_interaction_scope_allows_browser_safe_followups() {
+    let state = ResolvedIntentState {
+        intent_id: "ui.interaction".to_string(),
+        scope: IntentScopeProfile::UiInteraction,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("ui.interact")],
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "visual_last".to_string(),
+        matrix_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [1u8; 32],
+        receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    };
+
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "browser__snapshot"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "browser__click_element"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "browser__type"
+    ));
+}
+
+#[test]
 fn command_execution_scope_allows_clipboard() {
     let state = ResolvedIntentState {
         intent_id: "command.exec".to_string(),

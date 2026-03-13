@@ -98,6 +98,10 @@ fn is_browser_root_tool(root_tool_name: &str) -> bool {
         .starts_with("browser__")
 }
 
+fn is_browser_snapshot_root_tool(root_tool_name: &str) -> bool {
+    root_tool_name.trim().eq_ignore_ascii_case("browser__snapshot")
+}
+
 fn is_browser_reacquisition_failure(class: FailureClass) -> bool {
     matches!(
         class,
@@ -145,6 +149,8 @@ pub(super) fn deterministic_recovery_tool(
             .map(is_browser_reacquisition_failure)
             .unwrap_or(false)
         && available_tool_names.contains("browser__snapshot")
+        && !(is_browser_snapshot_root_tool(&incident_state.root_tool_name)
+            && matches!(root_failure_class, Some(FailureClass::NoEffectAfterAction)))
     {
         let payload = json!({
             "name": "browser__snapshot",
@@ -217,6 +223,26 @@ pub(super) fn deterministic_recovery_tool(
     }
 
     Ok(None)
+}
+
+pub(super) fn incident_specific_forbidden_tools(
+    incident_state: &IncidentState,
+) -> BTreeSet<String> {
+    let mut forbidden = BTreeSet::new();
+    let root_failure_class = FailureClass::from_str(&incident_state.root_failure_class);
+    if is_browser_snapshot_root_tool(&incident_state.root_tool_name)
+        && matches!(root_failure_class, Some(FailureClass::NoEffectAfterAction))
+    {
+        for tool_name in [
+            "browser__navigate",
+            "browser__go_back",
+            "browser__tab_switch",
+            "browser__tab_close",
+        ] {
+            forbidden.insert(tool_name.to_string());
+        }
+    }
+    forbidden
 }
 
 pub(super) fn validate_recovery_tool(
@@ -363,7 +389,8 @@ pub(super) fn queue_root_retry(
 #[cfg(test)]
 mod tests {
     use super::{
-        deterministic_recovery_tool, tool_fingerprint, tool_to_action_request, IncidentState,
+        deterministic_recovery_tool, incident_specific_forbidden_tools, tool_fingerprint,
+        tool_to_action_request, IncidentState,
         QUEUE_TOOL_NAME_KEY,
     };
     use crate::agentic::desktop::types::{
@@ -652,5 +679,37 @@ mod tests {
             AgentTool::OsFocusWindow { title } => assert_eq!(title, "Firefox"),
             other => panic!("expected OsFocusWindow, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn deterministic_recovery_does_not_replay_browser_snapshot_after_duplicate_no_effect() {
+        let available = BTreeSet::from(["browser__snapshot".to_string(), "ui__find".to_string()]);
+        let incident = test_incident_state("browser__snapshot", "NoEffectAfterAction");
+        let agent_state = test_agent_state("click sign in");
+
+        let tool = deterministic_recovery_tool(
+            &available,
+            &incident,
+            &agent_state,
+            &ActionRules::default(),
+        )
+        .expect("deterministic selection should succeed");
+
+        match tool {
+            Some(AgentTool::UiFind { query }) => assert_eq!(query, "click sign in"),
+            Some(other) => panic!("expected UiFind or None, got {:?}", other),
+            None => {}
+        }
+    }
+
+    #[test]
+    fn duplicate_browser_snapshot_incident_forbids_navigation_remedies() {
+        let incident = test_incident_state("browser__snapshot", "NoEffectAfterAction");
+        let forbidden = incident_specific_forbidden_tools(&incident);
+
+        assert!(forbidden.contains("browser__navigate"));
+        assert!(forbidden.contains("browser__go_back"));
+        assert!(forbidden.contains("browser__tab_switch"));
+        assert!(forbidden.contains("browser__tab_close"));
     }
 }

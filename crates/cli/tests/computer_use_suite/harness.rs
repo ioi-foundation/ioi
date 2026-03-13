@@ -973,8 +973,7 @@ fn workflow_target_queue_sort(bridge_state: &BridgeState) -> Option<String> {
 }
 
 fn workflow_target_post_confirm_queue_sort(bridge_state: &BridgeState) -> Option<String> {
-    workflow_field_value(bridge_state, "post_confirm_queue_sort")
-        .filter(|value| !value.is_empty())
+    workflow_field_value(bridge_state, "post_confirm_queue_sort").filter(|value| !value.is_empty())
 }
 
 fn workflow_target_distractor_ticket_id(bridge_state: &BridgeState) -> Option<String> {
@@ -11178,8 +11177,7 @@ impl MiniwobAgentRuntime {
         let Some(initial_queue_sort) = workflow_target_queue_sort(bridge_state) else {
             return inference_fail("ERROR_CLASS=ObservationGap workflow queue sort missing");
         };
-        let Some(post_confirm_queue_sort) =
-            workflow_target_post_confirm_queue_sort(bridge_state)
+        let Some(post_confirm_queue_sort) = workflow_target_post_confirm_queue_sort(bridge_state)
         else {
             return inference_fail(
                 "ERROR_CLASS=ObservationGap workflow post-confirm queue sort missing",
