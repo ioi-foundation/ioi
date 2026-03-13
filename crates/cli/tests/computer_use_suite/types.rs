@@ -28,6 +28,7 @@ pub enum TaskSet {
     Stress,
     Catalog,
     Workflow,
+    WorkflowRich,
 }
 
 impl TaskSet {
@@ -38,6 +39,7 @@ impl TaskSet {
             Self::Stress => "stress",
             Self::Catalog => "catalog",
             Self::Workflow => "workflow",
+            Self::WorkflowRich => "workflow_rich",
         }
     }
 }
@@ -110,6 +112,7 @@ pub enum RecipeId {
     CountSides,
     FindMidpoint,
     WorkflowTicketRouting,
+    WorkflowQueueVerification,
     SurveyOnly,
 }
 
