@@ -191,7 +191,10 @@ enum BridgeProcess {
 
 impl BridgeProcess {
     async fn start(config: &SuiteConfig) -> Result<Self> {
-        if matches!(config.task_set, TaskSet::Workflow | TaskSet::WorkflowRich) {
+        if matches!(
+            config.task_set,
+            TaskSet::Workflow | TaskSet::WorkflowRich | TaskSet::WorkflowAudit
+        ) {
             return Ok(Self::Workflow(WorkflowBridgeProcess::start().await?));
         }
 
@@ -965,10 +968,31 @@ fn workflow_active_ticket_id(bridge_state: &BridgeState) -> Option<String> {
     workflow_field_value(bridge_state, "active_ticket_id").filter(|value| !value.is_empty())
 }
 
+fn workflow_history_event_exists(bridge_state: &BridgeState) -> bool {
+    workflow_field_is_true(bridge_state, "history_event_exists")
+}
+
 fn workflow_field_is_true(bridge_state: &BridgeState, key: &str) -> bool {
     workflow_field_value(bridge_state, key)
         .map(|value| value.eq_ignore_ascii_case("true"))
         .unwrap_or(false)
+}
+
+fn workflow_history_event_matches(
+    bridge_state: &BridgeState,
+    ticket_id: &str,
+    username: &str,
+    assignee: &str,
+    status: &str,
+    note: &str,
+) -> bool {
+    workflow_history_event_exists(bridge_state)
+        && workflow_field_value(bridge_state, "history_event_ticket_id").as_deref()
+            == Some(ticket_id)
+        && workflow_field_value(bridge_state, "history_event_actor").as_deref() == Some(username)
+        && workflow_field_value(bridge_state, "history_event_assignee").as_deref() == Some(assignee)
+        && workflow_field_value(bridge_state, "history_event_status").as_deref() == Some(status)
+        && workflow_field_value(bridge_state, "history_event_note").as_deref() == Some(note)
 }
 
 fn workflow_selector_token(value: &str) -> String {
@@ -3454,11 +3478,7 @@ async fn run_workflow_ticket_routing_runtime_sequence(harness: &mut DirectHarnes
     Ok(())
 }
 
-fn workflow_observed_value(
-    bridge_state: &BridgeState,
-    key: &str,
-    label: &str,
-) -> Result<String> {
+fn workflow_observed_value(bridge_state: &BridgeState, key: &str, label: &str) -> Result<String> {
     workflow_field_value(bridge_state, key)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| anyhow!("workflow observed '{}' missing", label))
@@ -3500,7 +3520,8 @@ async fn run_workflow_queue_verification_runtime_sequence(
     harness.click_selector("#review-update").await?;
 
     let review_state = harness.refresh_bridge_state().await?;
-    let review_ticket = workflow_observed_value(&review_state, "active_ticket_id", "review ticket")?;
+    let review_ticket =
+        workflow_observed_value(&review_state, "active_ticket_id", "review ticket")?;
     let review_assignee =
         workflow_observed_value(&review_state, "current_assignee", "review assignee")?;
     let review_status = workflow_observed_value(&review_state, "current_status", "review status")?;
@@ -3521,7 +3542,9 @@ async fn run_workflow_queue_verification_runtime_sequence(
 
     harness.click_selector("#confirm-update").await?;
     harness.click_selector("#queue-link").await?;
-    harness.select_dropdown_label("#queue-status-filter", &status).await?;
+    harness
+        .select_dropdown_label("#queue-status-filter", &status)
+        .await?;
     harness.click_selector("#apply-filters").await?;
     harness.wait_ms(120).await?;
 
@@ -3571,7 +3594,9 @@ async fn run_workflow_queue_verification_oracle_sequence(
     harness.oracle_type_text("#username", &username).await?;
     harness.oracle_type_text("#password", &password).await?;
     harness.oracle_click_selector("#sign-in").await?;
-    harness.oracle_type_text("#queue-search", &queue_search).await?;
+    harness
+        .oracle_type_text("#queue-search", &queue_search)
+        .await?;
     harness
         .oracle_select_label("#queue-status-filter", &queue_filter)
         .await?;
@@ -3589,6 +3614,134 @@ async fn run_workflow_queue_verification_oracle_sequence(
         .oracle_select_label("#queue-status-filter", &status)
         .await?;
     harness.oracle_click_selector("#apply-filters").await?;
+    Ok(())
+}
+
+async fn run_workflow_audit_history_runtime_sequence(harness: &mut DirectHarness) -> Result<()> {
+    let username = workflow_required_target(&harness.bridge_state, "username", "username")?;
+    let password = workflow_required_target(&harness.bridge_state, "password", "password")?;
+    let ticket_id = workflow_required_target(&harness.bridge_state, "ticket_id", "ticket_id")?;
+    let assignee = workflow_required_target(&harness.bridge_state, "assignee", "assignee")?;
+    let status = workflow_required_target(&harness.bridge_state, "status", "status")?;
+    let note = workflow_required_target(&harness.bridge_state, "note", "note")?;
+    let queue_search =
+        workflow_required_target(&harness.bridge_state, "queue_search", "queue_search")?;
+    let queue_filter = workflow_required_target(
+        &harness.bridge_state,
+        "queue_status_filter",
+        "queue_status_filter",
+    )?;
+
+    harness.type_text("#username", &username).await?;
+    harness.type_text("#password", &password).await?;
+    harness.click_selector("#sign-in").await?;
+    harness.type_text("#queue-search", &queue_search).await?;
+    harness
+        .select_dropdown_label("#queue-status-filter", &queue_filter)
+        .await?;
+    harness.click_selector("#apply-filters").await?;
+    harness
+        .click_selector(&workflow_ticket_link_selector(&ticket_id))
+        .await?;
+    harness
+        .select_dropdown_label("#assignee", &assignee)
+        .await?;
+    harness.select_dropdown_label("#status", &status).await?;
+    harness.type_text("#note", &note).await?;
+    harness.click_selector("#review-update").await?;
+
+    let review_state = harness.refresh_bridge_state().await?;
+    let review_ticket =
+        workflow_observed_value(&review_state, "active_ticket_id", "review ticket")?;
+    let review_assignee =
+        workflow_observed_value(&review_state, "current_assignee", "review assignee")?;
+    let review_status = workflow_observed_value(&review_state, "current_status", "review status")?;
+    let review_note = workflow_observed_value(&review_state, "current_note", "review note")?;
+    if review_ticket != ticket_id
+        || review_assignee != assignee
+        || review_status != status
+        || review_note != note
+    {
+        return Err(anyhow!(
+            "workflow audit review mismatch ticket={} assignee={} status={} note={}",
+            review_ticket,
+            review_assignee,
+            review_status,
+            review_note
+        ));
+    }
+
+    harness.click_selector("#confirm-update").await?;
+    let confirmation_state = harness.refresh_bridge_state().await?;
+    let saved_assignee =
+        workflow_observed_value(&confirmation_state, "saved_assignee", "saved assignee")?;
+    let saved_status =
+        workflow_observed_value(&confirmation_state, "saved_status", "saved status")?;
+    let saved_note = workflow_observed_value(&confirmation_state, "saved_note", "saved note")?;
+    if saved_assignee != assignee || saved_status != status || saved_note != note {
+        return Err(anyhow!(
+            "workflow audit confirmation mismatch assignee={} status={} note={}",
+            saved_assignee,
+            saved_status,
+            saved_note
+        ));
+    }
+
+    harness.click_selector("#history-link").await?;
+    harness.wait_ms(120).await?;
+    let history_state = harness.refresh_bridge_state().await?;
+    if !workflow_field_is_true(&history_state, "history_verified")
+        || !workflow_history_event_matches(
+            &history_state,
+            &ticket_id,
+            &username,
+            &assignee,
+            &status,
+            &note,
+        )
+    {
+        return Err(anyhow!(
+            "workflow audit history verification did not complete for ticket {}",
+            ticket_id
+        ));
+    }
+    Ok(())
+}
+
+async fn run_workflow_audit_history_oracle_sequence(harness: &mut DirectHarness) -> Result<()> {
+    let username = workflow_required_target(&harness.bridge_state, "username", "username")?;
+    let password = workflow_required_target(&harness.bridge_state, "password", "password")?;
+    let ticket_id = workflow_required_target(&harness.bridge_state, "ticket_id", "ticket_id")?;
+    let assignee = workflow_required_target(&harness.bridge_state, "assignee", "assignee")?;
+    let status = workflow_required_target(&harness.bridge_state, "status", "status")?;
+    let note = workflow_required_target(&harness.bridge_state, "note", "note")?;
+    let queue_search =
+        workflow_required_target(&harness.bridge_state, "queue_search", "queue_search")?;
+    let queue_filter = workflow_required_target(
+        &harness.bridge_state,
+        "queue_status_filter",
+        "queue_status_filter",
+    )?;
+
+    harness.oracle_type_text("#username", &username).await?;
+    harness.oracle_type_text("#password", &password).await?;
+    harness.oracle_click_selector("#sign-in").await?;
+    harness
+        .oracle_type_text("#queue-search", &queue_search)
+        .await?;
+    harness
+        .oracle_select_label("#queue-status-filter", &queue_filter)
+        .await?;
+    harness.oracle_click_selector("#apply-filters").await?;
+    harness
+        .oracle_click_selector(&workflow_ticket_link_selector(&ticket_id))
+        .await?;
+    harness.oracle_select_label("#assignee", &assignee).await?;
+    harness.oracle_select_label("#status", &status).await?;
+    harness.oracle_type_text("#note", &note).await?;
+    harness.oracle_click_selector("#review-update").await?;
+    harness.oracle_click_selector("#confirm-update").await?;
+    harness.oracle_click_selector("#history-link").await?;
     Ok(())
 }
 
@@ -6088,7 +6241,10 @@ mod tests {
         let action = runtime.next_action(&queue_state);
         let parsed: Value =
             serde_json::from_slice(&action).expect("parse workflow queue search action");
-        assert_eq!(parsed.get("name").and_then(Value::as_str), Some("browser__type"));
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__type")
+        );
         assert_eq!(
             parsed
                 .get("arguments")
@@ -6197,7 +6353,10 @@ mod tests {
         );
 
         let mut mismatch_state = review_state.clone();
-        mismatch_state.info.fields.retain(|field| field.key != "current_status");
+        mismatch_state
+            .info
+            .fields
+            .retain(|field| field.key != "current_status");
         mismatch_state.info.fields.push(BridgeField {
             key: "current_status".to_string(),
             value: "Awaiting Dispatch".to_string(),
@@ -6211,6 +6370,287 @@ mod tests {
                 .and_then(|args| args.get("selector"))
                 .and_then(Value::as_str),
             Some("#edit-update")
+        );
+    }
+
+    #[test]
+    fn workflow_audit_history_agent_cancels_review_when_draft_mismatches() {
+        let runtime = test_runtime(RecipeId::WorkflowAuditHistory, 1.0);
+        let review_state = BridgeState {
+            utterance: "Verify the saved workflow update from audit history.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                page_url: Some("http://127.0.0.1/workflow/test/review".to_string()),
+                fields: vec![
+                    BridgeField {
+                        key: "username".to_string(),
+                        value: "dispatch.agent".to_string(),
+                    },
+                    BridgeField {
+                        key: "password".to_string(),
+                        value: "dispatch-215".to_string(),
+                    },
+                    BridgeField {
+                        key: "ticket_id".to_string(),
+                        value: "T-215".to_string(),
+                    },
+                    BridgeField {
+                        key: "assignee".to_string(),
+                        value: "Network Ops".to_string(),
+                    },
+                    BridgeField {
+                        key: "status".to_string(),
+                        value: "Escalated".to_string(),
+                    },
+                    BridgeField {
+                        key: "note".to_string(),
+                        value: "Escalate fiber outage to on-call".to_string(),
+                    },
+                    BridgeField {
+                        key: "queue_search".to_string(),
+                        value: "fiber".to_string(),
+                    },
+                    BridgeField {
+                        key: "queue_status_filter".to_string(),
+                        value: "Awaiting Dispatch".to_string(),
+                    },
+                    BridgeField {
+                        key: "active_ticket_id".to_string(),
+                        value: "T-215".to_string(),
+                    },
+                    BridgeField {
+                        key: "current_assignee".to_string(),
+                        value: "Network Ops".to_string(),
+                    },
+                    BridgeField {
+                        key: "current_status".to_string(),
+                        value: "Awaiting Dispatch".to_string(),
+                    },
+                    BridgeField {
+                        key: "current_note".to_string(),
+                        value: "Escalate fiber outage to on-call".to_string(),
+                    },
+                ],
+                interactive_elements: vec![
+                    BridgeInteractiveElement {
+                        selector: Some("#edit-update".to_string()),
+                        text: "Edit draft".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#confirm-update".to_string()),
+                        text: "Confirm update".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#cancel-update".to_string()),
+                        text: "Cancel draft".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&review_state);
+        let parsed: Value =
+            serde_json::from_slice(&action).expect("parse workflow audit cancel action");
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#cancel-update")
+        );
+    }
+
+    #[test]
+    fn workflow_audit_history_agent_opens_history_after_confirmation() {
+        let runtime = test_runtime(RecipeId::WorkflowAuditHistory, 1.0);
+        let confirmation_state = BridgeState {
+            utterance: "Verify the saved workflow update from audit history.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                page_url: Some("http://127.0.0.1/workflow/test/confirmation".to_string()),
+                fields: vec![
+                    BridgeField {
+                        key: "username".to_string(),
+                        value: "dispatch.agent".to_string(),
+                    },
+                    BridgeField {
+                        key: "password".to_string(),
+                        value: "dispatch-215".to_string(),
+                    },
+                    BridgeField {
+                        key: "ticket_id".to_string(),
+                        value: "T-215".to_string(),
+                    },
+                    BridgeField {
+                        key: "assignee".to_string(),
+                        value: "Network Ops".to_string(),
+                    },
+                    BridgeField {
+                        key: "status".to_string(),
+                        value: "Escalated".to_string(),
+                    },
+                    BridgeField {
+                        key: "note".to_string(),
+                        value: "Escalate fiber outage to on-call".to_string(),
+                    },
+                    BridgeField {
+                        key: "queue_search".to_string(),
+                        value: "fiber".to_string(),
+                    },
+                    BridgeField {
+                        key: "queue_status_filter".to_string(),
+                        value: "Awaiting Dispatch".to_string(),
+                    },
+                    BridgeField {
+                        key: "saved_assignee".to_string(),
+                        value: "Network Ops".to_string(),
+                    },
+                    BridgeField {
+                        key: "saved_status".to_string(),
+                        value: "Escalated".to_string(),
+                    },
+                    BridgeField {
+                        key: "saved_note".to_string(),
+                        value: "Escalate fiber outage to on-call".to_string(),
+                    },
+                    BridgeField {
+                        key: "history_verified".to_string(),
+                        value: "false".to_string(),
+                    },
+                ],
+                interactive_elements: vec![
+                    BridgeInteractiveElement {
+                        selector: Some("#history-link".to_string()),
+                        text: "Open audit history".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#reopen-ticket".to_string()),
+                        text: "Reopen ticket".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&confirmation_state);
+        let parsed: Value =
+            serde_json::from_slice(&action).expect("parse workflow audit history-link action");
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#history-link")
+        );
+    }
+
+    #[test]
+    fn workflow_audit_history_agent_reopens_when_history_entry_mismatches() {
+        let runtime = test_runtime(RecipeId::WorkflowAuditHistory, 1.0);
+        let history_state = BridgeState {
+            utterance: "Verify the saved workflow update from audit history.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                page_url: Some("http://127.0.0.1/workflow/test/tickets/T-215/history".to_string()),
+                fields: vec![
+                    BridgeField {
+                        key: "username".to_string(),
+                        value: "dispatch.agent".to_string(),
+                    },
+                    BridgeField {
+                        key: "password".to_string(),
+                        value: "dispatch-215".to_string(),
+                    },
+                    BridgeField {
+                        key: "ticket_id".to_string(),
+                        value: "T-215".to_string(),
+                    },
+                    BridgeField {
+                        key: "assignee".to_string(),
+                        value: "Network Ops".to_string(),
+                    },
+                    BridgeField {
+                        key: "status".to_string(),
+                        value: "Escalated".to_string(),
+                    },
+                    BridgeField {
+                        key: "note".to_string(),
+                        value: "Escalate fiber outage to on-call".to_string(),
+                    },
+                    BridgeField {
+                        key: "queue_search".to_string(),
+                        value: "fiber".to_string(),
+                    },
+                    BridgeField {
+                        key: "queue_status_filter".to_string(),
+                        value: "Awaiting Dispatch".to_string(),
+                    },
+                    BridgeField {
+                        key: "active_ticket_id".to_string(),
+                        value: "T-215".to_string(),
+                    },
+                    BridgeField {
+                        key: "history_verified".to_string(),
+                        value: "false".to_string(),
+                    },
+                    BridgeField {
+                        key: "history_event_exists".to_string(),
+                        value: "true".to_string(),
+                    },
+                    BridgeField {
+                        key: "history_event_ticket_id".to_string(),
+                        value: "T-215".to_string(),
+                    },
+                    BridgeField {
+                        key: "history_event_actor".to_string(),
+                        value: "dispatch.agent".to_string(),
+                    },
+                    BridgeField {
+                        key: "history_event_assignee".to_string(),
+                        value: "Network Ops".to_string(),
+                    },
+                    BridgeField {
+                        key: "history_event_status".to_string(),
+                        value: "Awaiting Dispatch".to_string(),
+                    },
+                    BridgeField {
+                        key: "history_event_note".to_string(),
+                        value: "Escalate fiber outage to on-call".to_string(),
+                    },
+                ],
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#reopen-ticket".to_string()),
+                    text: "Reopen ticket".to_string(),
+                    visible: true,
+                    ..BridgeInteractiveElement::default()
+                }],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&history_state);
+        let parsed: Value =
+            serde_json::from_slice(&action).expect("parse workflow audit reopen action");
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#reopen-ticket")
         );
     }
 
@@ -7146,6 +7586,9 @@ async fn run_oracle_recipe(harness: &mut DirectHarness, case: &ComputerUseCase) 
         RecipeId::WorkflowQueueVerification => {
             run_workflow_queue_verification_oracle_sequence(harness).await?;
         }
+        RecipeId::WorkflowAuditHistory => {
+            run_workflow_audit_history_oracle_sequence(harness).await?;
+        }
         RecipeId::HoverShape => {
             run_hover_shape_sequence(harness).await?;
         }
@@ -7445,6 +7888,9 @@ async fn run_runtime_recipe(harness: &mut DirectHarness, case: &ComputerUseCase)
         }
         RecipeId::WorkflowQueueVerification => {
             run_workflow_queue_verification_runtime_sequence(harness).await?;
+        }
+        RecipeId::WorkflowAuditHistory => {
+            run_workflow_audit_history_runtime_sequence(harness).await?;
         }
         RecipeId::HoverShape => {
             run_hover_shape_sequence(harness).await?;
@@ -8975,15 +9421,25 @@ impl MiniwobAgentRuntime {
             if workflow_field_value(bridge_state, "current_assignee").as_deref()
                 != Some(assignee.as_str())
             {
-                return inference_tool_call("browser__click", json!({ "selector": "#edit-update" }));
+                return inference_tool_call(
+                    "browser__click",
+                    json!({ "selector": "#edit-update" }),
+                );
             }
             if workflow_field_value(bridge_state, "current_status").as_deref()
                 != Some(status.as_str())
             {
-                return inference_tool_call("browser__click", json!({ "selector": "#edit-update" }));
+                return inference_tool_call(
+                    "browser__click",
+                    json!({ "selector": "#edit-update" }),
+                );
             }
-            if workflow_field_value(bridge_state, "current_note").as_deref() != Some(note.as_str()) {
-                return inference_tool_call("browser__click", json!({ "selector": "#edit-update" }));
+            if workflow_field_value(bridge_state, "current_note").as_deref() != Some(note.as_str())
+            {
+                return inference_tool_call(
+                    "browser__click",
+                    json!({ "selector": "#edit-update" }),
+                );
             }
             return inference_tool_call("browser__click", json!({ "selector": "#confirm-update" }));
         }
@@ -8993,6 +9449,176 @@ impl MiniwobAgentRuntime {
                 return inference_wait(100);
             }
             return inference_tool_call("browser__click", json!({ "selector": "#queue-link" }));
+        }
+
+        inference_wait(120)
+    }
+
+    fn workflow_audit_history_action(
+        &self,
+        bridge_state: &BridgeState,
+        elements: &[BridgeInteractiveElement],
+    ) -> Vec<u8> {
+        let Some(username) = workflow_target_username(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow username missing");
+        };
+        let Some(password) = workflow_target_password(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow password missing");
+        };
+        let Some(ticket_id) = workflow_target_ticket_id(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow ticket id missing");
+        };
+        let Some(assignee) = workflow_target_assignee(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow assignee missing");
+        };
+        let Some(status) = workflow_target_status(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow status missing");
+        };
+        let Some(note) = workflow_target_note(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow note missing");
+        };
+        let Some(queue_search) = workflow_target_queue_search(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow queue search missing");
+        };
+        let Some(queue_filter) = workflow_target_queue_status_filter(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow queue filter missing");
+        };
+        let page_url = bridge_state.info.page_url.as_deref().unwrap_or_default();
+
+        if page_url.contains("/login") {
+            if bridge_value_by_selector(elements, "#username") != username {
+                return inference_tool_call(
+                    "browser__type",
+                    json!({ "selector": "#username", "text": username }),
+                );
+            }
+            if bridge_value_by_selector(elements, "#password") != password {
+                return inference_tool_call(
+                    "browser__type",
+                    json!({ "selector": "#password", "text": password }),
+                );
+            }
+            return inference_tool_call("browser__click", json!({ "selector": "#sign-in" }));
+        }
+
+        if page_url.contains("/queue") {
+            if bridge_value_by_selector(elements, "#queue-search") != queue_search {
+                return inference_tool_call(
+                    "browser__type",
+                    json!({ "selector": "#queue-search", "text": queue_search }),
+                );
+            }
+            if !bridge_selected_contains(elements, "#queue-status-filter", &queue_filter) {
+                return inference_tool_call(
+                    "browser__select_dropdown",
+                    json!({ "selector": "#queue-status-filter", "label": queue_filter }),
+                );
+            }
+            let selector = workflow_ticket_link_selector(&ticket_id);
+            if bridge_element_by_selector(elements, &selector).is_none() {
+                return inference_tool_call(
+                    "browser__click",
+                    json!({ "selector": "#apply-filters" }),
+                );
+            }
+            return inference_tool_call("browser__click", json!({ "selector": selector }));
+        }
+
+        if page_url.contains("/history") {
+            if workflow_field_is_true(bridge_state, "history_verified") {
+                return inference_wait(100);
+            }
+            if workflow_active_ticket_id(bridge_state).as_deref() != Some(ticket_id.as_str()) {
+                return inference_tool_call("browser__click", json!({ "selector": "#queue-link" }));
+            }
+            if workflow_history_event_matches(
+                bridge_state,
+                &ticket_id,
+                &username,
+                &assignee,
+                &status,
+                &note,
+            ) {
+                return inference_wait(120);
+            }
+            return inference_tool_call("browser__click", json!({ "selector": "#reopen-ticket" }));
+        }
+
+        if page_url.contains("/tickets/") {
+            if workflow_active_ticket_id(bridge_state).as_deref() != Some(ticket_id.as_str()) {
+                return inference_tool_call("browser__click", json!({ "selector": "#queue-link" }));
+            }
+            if !bridge_selected_contains(elements, "#assignee", &assignee) {
+                return inference_tool_call(
+                    "browser__select_dropdown",
+                    json!({ "selector": "#assignee", "label": assignee }),
+                );
+            }
+            if !bridge_selected_contains(elements, "#status", &status) {
+                return inference_tool_call(
+                    "browser__select_dropdown",
+                    json!({ "selector": "#status", "label": status }),
+                );
+            }
+            if bridge_value_by_selector(elements, "#note") != note {
+                return inference_tool_call(
+                    "browser__type",
+                    json!({ "selector": "#note", "text": note }),
+                );
+            }
+            return inference_tool_call("browser__click", json!({ "selector": "#review-update" }));
+        }
+
+        if page_url.contains("/review") {
+            if workflow_active_ticket_id(bridge_state).as_deref() != Some(ticket_id.as_str()) {
+                return inference_tool_call(
+                    "browser__click",
+                    json!({ "selector": "#cancel-update" }),
+                );
+            }
+            if workflow_field_value(bridge_state, "current_assignee").as_deref()
+                != Some(assignee.as_str())
+            {
+                return inference_tool_call(
+                    "browser__click",
+                    json!({ "selector": "#cancel-update" }),
+                );
+            }
+            if workflow_field_value(bridge_state, "current_status").as_deref()
+                != Some(status.as_str())
+            {
+                return inference_tool_call(
+                    "browser__click",
+                    json!({ "selector": "#cancel-update" }),
+                );
+            }
+            if workflow_field_value(bridge_state, "current_note").as_deref() != Some(note.as_str())
+            {
+                return inference_tool_call(
+                    "browser__click",
+                    json!({ "selector": "#cancel-update" }),
+                );
+            }
+            return inference_tool_call("browser__click", json!({ "selector": "#confirm-update" }));
+        }
+
+        if page_url.contains("/confirmation") {
+            if workflow_field_is_true(bridge_state, "history_verified") {
+                return inference_wait(100);
+            }
+            if workflow_field_value(bridge_state, "saved_assignee").as_deref()
+                != Some(assignee.as_str())
+                || workflow_field_value(bridge_state, "saved_status").as_deref()
+                    != Some(status.as_str())
+                || workflow_field_value(bridge_state, "saved_note").as_deref()
+                    != Some(note.as_str())
+            {
+                return inference_tool_call(
+                    "browser__click",
+                    json!({ "selector": "#reopen-ticket" }),
+                );
+            }
+            return inference_tool_call("browser__click", json!({ "selector": "#history-link" }));
         }
 
         inference_wait(120)
@@ -9398,6 +10024,7 @@ impl MiniwobAgentRuntime {
             | RecipeId::FindMidpoint
             | RecipeId::WorkflowTicketRouting
             | RecipeId::WorkflowQueueVerification
+            | RecipeId::WorkflowAuditHistory
             | RecipeId::SurveyOnly => self.recovery_tool_or_safe_fallback(
                 system_prompt,
                 &[("browser__wait", json!({ "ms": 180 }))],
@@ -9950,6 +10577,9 @@ impl MiniwobAgentRuntime {
             }
             RecipeId::WorkflowQueueVerification => {
                 self.workflow_queue_verification_action(bridge_state, elements)
+            }
+            RecipeId::WorkflowAuditHistory => {
+                self.workflow_audit_history_action(bridge_state, elements)
             }
             RecipeId::HoverShape => match self.hover_shape_phase().as_deref() {
                 None => {

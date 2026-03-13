@@ -47,6 +47,7 @@ struct WorkflowAppState {
 enum WorkflowScenario {
     TicketRouting,
     QueueVerification,
+    AuditHistory,
 }
 
 #[derive(Debug, Clone)]
@@ -71,6 +72,7 @@ enum WorkflowPage {
     Detail { ticket_id: String },
     Review,
     Confirmation,
+    History { ticket_id: String },
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +83,16 @@ struct WorkflowTicketRecord {
     current_status: String,
     current_assignee: String,
     current_note: String,
+}
+
+#[derive(Debug, Clone)]
+struct WorkflowHistoryEntry {
+    ticket_id: String,
+    actor: String,
+    action: String,
+    assignee: String,
+    status: String,
+    note: String,
 }
 
 #[derive(Debug, Clone)]
@@ -99,6 +111,8 @@ struct WorkflowSession {
     draft_note: String,
     confirmation_seen: bool,
     queue_verified: bool,
+    history_verified: bool,
+    history_entries: Vec<WorkflowHistoryEntry>,
     reward: f32,
     terminated: bool,
     truncated: bool,
@@ -174,7 +188,19 @@ impl WorkflowBridgeProcess {
                 "/workflow/:session_id/review/confirm",
                 post(review_confirm_submit),
             )
+            .route(
+                "/workflow/:session_id/review/cancel",
+                post(review_cancel_submit),
+            )
             .route("/workflow/:session_id/confirmation", get(confirmation_page))
+            .route(
+                "/workflow/:session_id/tickets/:ticket_id/history",
+                get(ticket_history_page),
+            )
+            .route(
+                "/workflow/:session_id/tickets/:ticket_id/reopen",
+                post(ticket_reopen_submit),
+            )
             .route("/workflow/:session_id/observe", post(observe_page))
             .with_state(state);
 
@@ -241,6 +267,8 @@ impl WorkflowBridgeClient {
             draft_note: String::new(),
             confirmation_seen: false,
             queue_verified: false,
+            history_verified: false,
+            history_entries: workflow_initial_history_entries(),
             reward: 0.0,
             terminated: false,
             truncated: false,
@@ -375,6 +403,32 @@ fn workflow_case_spec(case: &ComputerUseCase) -> Result<WorkflowCaseSpec> {
             queue_search: "invoice".to_string(),
             queue_status_filter: "Pending Review".to_string(),
         }),
+        "workflow_audit_history_network_ops" => Ok(WorkflowCaseSpec {
+            case_id: case.id.clone(),
+            scenario: WorkflowScenario::AuditHistory,
+            instruction: "Sign in to the dispatch console with username \"dispatch.agent\" and password \"dispatch-215\". Search the queue for \"fiber\", keep the queue status filter on \"Awaiting Dispatch\", open ticket T-215 even though other fiber tickets remain visible, assign it to Network Ops, set the status to \"Escalated\", add the note \"Escalate fiber outage to on-call\", review the draft, confirm it, open the audit history, and stop only after the audit history shows a saved dispatch update for T-215 with assignee Network Ops, status Escalated, and note \"Escalate fiber outage to on-call\". If the draft or saved history does not match, cancel or reopen the update and fix it before stopping.".to_string(),
+            username: "dispatch.agent".to_string(),
+            password: "dispatch-215".to_string(),
+            ticket_id: "T-215".to_string(),
+            assignee: "Network Ops".to_string(),
+            note: "Escalate fiber outage to on-call".to_string(),
+            status: "Escalated".to_string(),
+            queue_search: "fiber".to_string(),
+            queue_status_filter: "Awaiting Dispatch".to_string(),
+        }),
+        "workflow_audit_history_billing_review" => Ok(WorkflowCaseSpec {
+            case_id: case.id.clone(),
+            scenario: WorkflowScenario::AuditHistory,
+            instruction: "Sign in to the dispatch console with username \"dispatch.agent\" and password \"billing-318\". Search the queue for \"invoice\", keep the queue status filter on \"Pending Review\", open ticket T-318 even though other invoice tickets remain visible, assign it to Billing Review, set the status to \"Pending Customer Reply\", add the note \"Validate recurring invoice delta\", review the draft, confirm it, open the audit history, and stop only after the audit history shows a saved dispatch update for T-318 with assignee Billing Review, status Pending Customer Reply, and note \"Validate recurring invoice delta\". If the draft or saved history does not match, cancel or reopen the update and fix it before stopping.".to_string(),
+            username: "dispatch.agent".to_string(),
+            password: "billing-318".to_string(),
+            ticket_id: "T-318".to_string(),
+            assignee: "Billing Review".to_string(),
+            note: "Validate recurring invoice delta".to_string(),
+            status: "Pending Customer Reply".to_string(),
+            queue_search: "invoice".to_string(),
+            queue_status_filter: "Pending Review".to_string(),
+        }),
         other => Err(anyhow!(
             "no workflow benchmark spec is defined for case '{}'",
             other
@@ -500,8 +554,9 @@ async fn ticket_assign_submit(
                 session.truncated = false;
                 format!("/workflow/{}/confirmation", session_id)
             }
-            WorkflowScenario::QueueVerification => {
+            WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
                 session.current_page = WorkflowPage::Review;
+                session.history_verified = false;
                 session.reward = 0.0;
                 session.terminated = false;
                 session.truncated = false;
@@ -547,13 +602,35 @@ async fn review_confirm_submit(
     State(state): State<WorkflowAppState>,
 ) -> impl IntoResponse {
     let target = with_session(&state.sessions, &session_id, |session| {
-        persist_ticket_update(session, &session.active_ticket_id.clone());
+        let ticket_id = session.active_ticket_id.clone();
+        persist_ticket_update(session, &ticket_id);
+        if matches!(session.spec.scenario, WorkflowScenario::AuditHistory) {
+            append_history_entry(session, &ticket_id);
+        }
         session.current_page = WorkflowPage::Confirmation;
         session.confirmation_seen = true;
+        session.history_verified = false;
         session.reward = 0.0;
         session.terminated = false;
         session.truncated = false;
         format!("/workflow/{}/confirmation", session_id)
+    })
+    .unwrap_or_else(|| format!("/workflow/{}/queue", session_id));
+    Redirect::to(&target)
+}
+
+async fn review_cancel_submit(
+    Path(session_id): Path<String>,
+    State(state): State<WorkflowAppState>,
+) -> impl IntoResponse {
+    let target = with_session(&state.sessions, &session_id, |session| {
+        reset_draft_from_saved_ticket(session, &session.active_ticket_id.clone());
+        session.current_page = WorkflowPage::Queue;
+        session.history_verified = false;
+        session.reward = 0.0;
+        session.terminated = false;
+        session.truncated = false;
+        format!("/workflow/{}/queue", session_id)
     })
     .unwrap_or_else(|| format!("/workflow/{}/queue", session_id));
     Redirect::to(&target)
@@ -571,6 +648,48 @@ async fn confirmation_page(
         return Html("<h1>unknown workflow session</h1>".to_string());
     };
     Html(session)
+}
+
+async fn ticket_history_page(
+    Path((session_id, ticket_id)): Path<(String, String)>,
+    State(state): State<WorkflowAppState>,
+) -> Html<String> {
+    let Some(session) = with_session(&state.sessions, &session_id, |session| {
+        session.active_ticket_id = ticket_id.clone();
+        session.current_page = WorkflowPage::History {
+            ticket_id: ticket_id.clone(),
+        };
+        session.bridge_state.info.task_ready = Some(false);
+        render_page_html(
+            session,
+            &WorkflowPage::History {
+                ticket_id: ticket_id.clone(),
+            },
+        )
+    }) else {
+        return Html("<h1>unknown workflow session</h1>".to_string());
+    };
+    Html(session)
+}
+
+async fn ticket_reopen_submit(
+    Path((session_id, ticket_id)): Path<(String, String)>,
+    State(state): State<WorkflowAppState>,
+) -> impl IntoResponse {
+    let target = with_session(&state.sessions, &session_id, |session| {
+        session.active_ticket_id = ticket_id.clone();
+        reset_draft_from_saved_ticket(session, &ticket_id);
+        session.current_page = WorkflowPage::Detail {
+            ticket_id: ticket_id.clone(),
+        };
+        session.history_verified = false;
+        session.reward = 0.0;
+        session.terminated = false;
+        session.truncated = false;
+        format!("/workflow/{}/tickets/{}", session_id, ticket_id)
+    })
+    .unwrap_or_else(|| format!("/workflow/{}/queue", session_id));
+    Redirect::to(&target)
 }
 
 async fn observe_page(
@@ -666,6 +785,7 @@ fn apply_oracle_step(
                 }
                 "#review-update" => {
                     session.current_page = WorkflowPage::Review;
+                    session.history_verified = false;
                     session.reward = 0.0;
                     session.terminated = false;
                     session.truncated = false;
@@ -678,8 +798,35 @@ fn apply_oracle_step(
                 "#confirm-update" => {
                     let ticket_id = session.active_ticket_id.clone();
                     persist_ticket_update(session, &ticket_id);
+                    if matches!(session.spec.scenario, WorkflowScenario::AuditHistory) {
+                        append_history_entry(session, &ticket_id);
+                    }
                     session.current_page = WorkflowPage::Confirmation;
                     session.confirmation_seen = true;
+                    session.history_verified = false;
+                    session.reward = 0.0;
+                    session.terminated = false;
+                    session.truncated = false;
+                }
+                "#cancel-update" => {
+                    let ticket_id = session.active_ticket_id.clone();
+                    reset_draft_from_saved_ticket(session, &ticket_id);
+                    session.current_page = WorkflowPage::Queue;
+                    session.history_verified = false;
+                    session.reward = 0.0;
+                    session.terminated = false;
+                    session.truncated = false;
+                }
+                "#history-link" => {
+                    session.current_page = WorkflowPage::History {
+                        ticket_id: session.active_ticket_id.clone(),
+                    };
+                }
+                "#reopen-ticket" => {
+                    let ticket_id = session.active_ticket_id.clone();
+                    reset_draft_from_saved_ticket(session, &ticket_id);
+                    session.current_page = WorkflowPage::Detail { ticket_id };
+                    session.history_verified = false;
                     session.reward = 0.0;
                     session.terminated = false;
                     session.truncated = false;
@@ -695,9 +842,7 @@ fn apply_oracle_step(
                         session.draft_status = ticket.current_status.clone();
                         session.draft_note = ticket.current_note.clone();
                     }
-                    session.current_page = WorkflowPage::Detail {
-                        ticket_id,
-                    };
+                    session.current_page = WorkflowPage::Detail { ticket_id };
                 }
                 _ => {}
             }
@@ -731,17 +876,15 @@ fn sync_bridge_state_from_observation(
         observation_selected_label(&payload.interactive_elements, "#queue-status-filter")
             .or_else(|| observation_value(&payload.interactive_elements, "#queue-status-filter"))
             .unwrap_or_else(|| session.queue_status_filter.clone());
-    session.draft_assignee =
-        observation_selected_label(&payload.interactive_elements, "#assignee")
-            .or_else(|| observation_value(&payload.interactive_elements, "#assignee"))
-            .unwrap_or_else(|| session.draft_assignee.clone());
-    session.draft_status =
-        observation_selected_label(&payload.interactive_elements, "#status")
-            .or_else(|| observation_value(&payload.interactive_elements, "#status"))
-            .unwrap_or_else(|| session.draft_status.clone());
+    session.draft_assignee = observation_selected_label(&payload.interactive_elements, "#assignee")
+        .or_else(|| observation_value(&payload.interactive_elements, "#assignee"))
+        .unwrap_or_else(|| session.draft_assignee.clone());
+    session.draft_status = observation_selected_label(&payload.interactive_elements, "#status")
+        .or_else(|| observation_value(&payload.interactive_elements, "#status"))
+        .unwrap_or_else(|| session.draft_status.clone());
     session.draft_note = observation_value(&payload.interactive_elements, "#note")
         .unwrap_or_else(|| session.draft_note.clone());
-    maybe_complete_queue_verification(session, Some(payload.visible_text_excerpt.as_str()));
+    maybe_complete_workflow_verification(session, Some(payload.visible_text_excerpt.as_str()));
 
     session.bridge_state.reward = session.reward;
     session.bridge_state.terminated = session.terminated;
@@ -767,7 +910,7 @@ fn sync_bridge_state_from_observation(
 
 fn sync_bridge_state_from_synthesized_page(session: &mut WorkflowSession) {
     let visible_text = workflow_visible_text(session, &session.current_page);
-    maybe_complete_queue_verification(session, Some(visible_text.as_str()));
+    maybe_complete_workflow_verification(session, Some(visible_text.as_str()));
     session.bridge_state.reward = session.reward;
     session.bridge_state.terminated = session.terminated;
     session.bridge_state.truncated = session.truncated;
@@ -797,6 +940,7 @@ fn render_page_html(session: &WorkflowSession, page: &WorkflowPage) -> String {
         WorkflowPage::Detail { ticket_id } => render_detail_body(session, ticket_id),
         WorkflowPage::Review => render_review_body(session),
         WorkflowPage::Confirmation => render_confirmation_body(session),
+        WorkflowPage::History { ticket_id } => render_history_body(session, ticket_id),
     };
     format!(
         r#"<!doctype html>
@@ -883,7 +1027,9 @@ fn render_login_body(session: &WorkflowSession) -> String {
 fn render_queue_body(session: &WorkflowSession) -> String {
     match session.spec.scenario {
         WorkflowScenario::TicketRouting => render_ticket_routing_queue_body(session),
-        WorkflowScenario::QueueVerification => render_queue_verification_queue_body(session),
+        WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
+            render_queue_verification_queue_body(session)
+        }
     }
 }
 
@@ -932,17 +1078,31 @@ fn render_queue_verification_queue_body(session: &WorkflowSession) -> String {
     };
     let queue_hint = if session.queue_search.trim().is_empty() {
         "Search is required to reveal the full queue; blank search only shows the first two filtered rows."
+    } else if matches!(session.spec.scenario, WorkflowScenario::AuditHistory)
+        && session.history_verified
+    {
+        "Audit history verification completed from typed saved-event state."
     } else if session.queue_verified {
         "Queue verification completed from typed queue state."
     } else {
         "Apply the queue search and filter before opening the target ticket."
     };
+    let heading = if matches!(session.spec.scenario, WorkflowScenario::AuditHistory) {
+        "Dispatch audit queue"
+    } else {
+        "Dispatch verification queue"
+    };
+    let description = if matches!(session.spec.scenario, WorkflowScenario::AuditHistory) {
+        "Search and filter the queue to reveal the target ticket while distractors remain visible, then confirm the saved update on the audit history page."
+    } else {
+        "Search and filter the queue to reveal the target ticket, then confirm the saved update survives navigation back to the queue."
+    };
     format!(
         r#"<div class="breadcrumbs">Login / Queue</div>
 <div class="grid two-col">
   <section class="panel">
-    <h1>Dispatch verification queue</h1>
-    <p>Search and filter the queue to reveal the target ticket, then confirm the saved update survives navigation back to the queue.</p>
+    <h1>{heading}</h1>
+    <p>{description}</p>
     <form action="/workflow/{session_id}/queue/filter" method="post">
       <label for="queue-search">Queue search</label>
       <input id="queue-search" name="search" type="text" autocomplete="off" value="{search}">
@@ -967,6 +1127,8 @@ fn render_queue_verification_queue_body(session: &WorkflowSession) -> String {
   </aside>
 </div>"#,
         session_id = session.bridge_state.session_id,
+        heading = heading,
+        description = description,
         search = escape_html(&session.queue_search),
         status_options = render_queue_status_filter_options(&session.queue_status_filter),
         queue_hint = escape_html(queue_hint),
@@ -1012,11 +1174,11 @@ fn render_detail_body(session: &WorkflowSession, ticket_id: &str) -> String {
         .unwrap_or_else(|| "Untracked ticket".to_string());
     let submit_id = match session.spec.scenario {
         WorkflowScenario::TicketRouting => "submit-update",
-        WorkflowScenario::QueueVerification => "review-update",
+        WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => "review-update",
     };
     let submit_text = match session.spec.scenario {
         WorkflowScenario::TicketRouting => "Submit update",
-        WorkflowScenario::QueueVerification => "Review update",
+        WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => "Review update",
     };
     let step_text = match session.spec.scenario {
         WorkflowScenario::TicketRouting => {
@@ -1024,6 +1186,9 @@ fn render_detail_body(session: &WorkflowSession, ticket_id: &str) -> String {
         }
         WorkflowScenario::QueueVerification => {
             "Prepare the requested assignee, status, and note before review."
+        }
+        WorkflowScenario::AuditHistory => {
+            "Prepare the requested assignee, status, and note before review, then verify the persisted audit event."
         }
     };
     format!(
@@ -1067,6 +1232,22 @@ fn render_detail_body(session: &WorkflowSession, ticket_id: &str) -> String {
 
 fn render_review_body(session: &WorkflowSession) -> String {
     let ticket_id = session.active_ticket_id.clone();
+    let recovery_actions = if matches!(session.spec.scenario, WorkflowScenario::AuditHistory) {
+        format!(
+            r#"
+      <form class="inline-form" action="/workflow/{session_id}/review/cancel" method="post">
+        <button id="cancel-update" type="submit">Cancel draft</button>
+      </form>"#,
+            session_id = session.bridge_state.session_id,
+        )
+    } else {
+        String::new()
+    };
+    let step_text = if matches!(session.spec.scenario, WorkflowScenario::AuditHistory) {
+        "Review the draft and confirm it only if the ticket, assignee, status, and note match the request. Cancel the draft if anything is stale or wrong."
+    } else {
+        "Review the draft and confirm it only if the ticket, assignee, status, and note match the request."
+    };
     format!(
         r#"<div class="breadcrumbs"><a id="queue-link" href="/workflow/{session_id}/queue">Queue</a> / Review draft</div>
 <div class="grid two-col">
@@ -1083,12 +1264,13 @@ fn render_review_body(session: &WorkflowSession) -> String {
       <form class="inline-form" action="/workflow/{session_id}/review/confirm" method="post">
         <button id="confirm-update" type="submit">Confirm update</button>
       </form>
+      {recovery_actions}
     </div>
   </section>
   <aside class="panel">
     <h2>Task brief</h2>
     <p id="task-brief">{instruction}</p>
-    <p><span class="status-pill">Step 4</span> Review the draft and confirm it only if the ticket, assignee, status, and note match the request.</p>
+    <p><span class="status-pill">Step 4</span> {step_text}</p>
   </aside>
 </div>"#,
         session_id = session.bridge_state.session_id,
@@ -1096,7 +1278,9 @@ fn render_review_body(session: &WorkflowSession) -> String {
         assignee = escape_html(&session.draft_assignee),
         status = escape_html(&session.draft_status),
         note = escape_html(&session.draft_note),
+        recovery_actions = recovery_actions,
         instruction = escape_html(&session.spec.instruction),
+        step_text = escape_html(step_text),
     )
 }
 
@@ -1117,6 +1301,7 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
     let success = match session.spec.scenario {
         WorkflowScenario::TicketRouting => (session.reward - 1.0).abs() < f32::EPSILON,
         WorkflowScenario::QueueVerification => session.queue_verified,
+        WorkflowScenario::AuditHistory => session.history_verified,
     };
     let status_class = if success {
         "status-pill success"
@@ -1128,12 +1313,32 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
         WorkflowScenario::TicketRouting => "Saved with validation mismatch",
         WorkflowScenario::QueueVerification if success => "Saved and queue-verified",
         WorkflowScenario::QueueVerification => "Saved, queue verification pending",
+        WorkflowScenario::AuditHistory if success => "Saved and audit-verified",
+        WorkflowScenario::AuditHistory => "Saved, audit verification pending",
     };
     let step_text = match session.spec.scenario {
         WorkflowScenario::TicketRouting => "Confirmation page reached.",
         WorkflowScenario::QueueVerification => {
             "Return to the queue and verify the persisted assignee and status."
         }
+        WorkflowScenario::AuditHistory => {
+            "Open the audit history and verify the persisted update. Reopen the ticket if the saved event is wrong."
+        }
+    };
+    let followup_actions = if matches!(session.spec.scenario, WorkflowScenario::AuditHistory) {
+        format!(
+            r#"
+    <div class="inline-actions">
+      <a id="history-link" class="button-link" href="/workflow/{session_id}/tickets/{ticket_id}/history">Open audit history</a>
+      <form class="inline-form" action="/workflow/{session_id}/tickets/{ticket_id}/reopen" method="post">
+        <button id="reopen-ticket" type="submit">Reopen ticket</button>
+      </form>
+    </div>"#,
+            session_id = session.bridge_state.session_id,
+            ticket_id = escape_html(&session.active_ticket_id),
+        )
+    } else {
+        String::new()
     };
     format!(
         r#"<div class="breadcrumbs"><a id="queue-link" href="/workflow/{session_id}/queue">Queue</a> / Confirmation</div>
@@ -1144,6 +1349,7 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
     <p id="assignment-banner">Ticket <strong>{ticket_id}</strong> was routed to <strong>{assignee}</strong>.</p>
     <p id="status-summary">Saved status: {status}</p>
     <p id="note-summary">Saved note: {note}</p>
+    {followup_actions}
   </section>
   <aside class="panel">
     <h2>Task brief</h2>
@@ -1158,8 +1364,73 @@ fn render_confirmation_body(session: &WorkflowSession) -> String {
         assignee = escape_html(&saved_assignee),
         status = escape_html(&saved_status),
         note = escape_html(&saved_note),
+        followup_actions = followup_actions,
         instruction = escape_html(&session.spec.instruction),
         step_text = escape_html(step_text),
+    )
+}
+
+fn render_history_body(session: &WorkflowSession, ticket_id: &str) -> String {
+    let rows = history_entries_for_ticket(session, ticket_id)
+        .into_iter()
+        .map(|entry| {
+            format!(
+                r#"<tr>
+  <td>{actor}</td>
+  <td>{action}</td>
+  <td>{assignee}</td>
+  <td>{status}</td>
+  <td>{note}</td>
+</tr>"#,
+                actor = escape_html(&entry.actor),
+                action = escape_html(&entry.action),
+                assignee = escape_html(&display_assignee(&entry.assignee)),
+                status = escape_html(&entry.status),
+                note = escape_html(&entry.note),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let body_rows = if rows.is_empty() {
+        "<tr><td colspan=\"5\" class=\"muted\">No persisted audit events are available for this ticket yet.</td></tr>"
+            .to_string()
+    } else {
+        rows
+    };
+    let audit_status = if session.history_verified {
+        "Typed audit verification complete."
+    } else {
+        "Verify that the saved dispatch event matches the requested ticket, assignee, status, and note."
+    };
+    format!(
+        r#"<div class="breadcrumbs"><a id="queue-link" href="/workflow/{session_id}/queue">Queue</a> / <a id="confirmation-link" href="/workflow/{session_id}/confirmation">Confirmation</a> / Audit history</div>
+<div class="grid two-col">
+  <section class="panel">
+    <h1>Audit history for ticket {ticket_id}</h1>
+    <p id="history-status" class="muted">{audit_status}</p>
+    <table>
+      <thead>
+        <tr><th>Actor</th><th>Action</th><th>Assignee</th><th>Status</th><th>Note</th></tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>
+    <div class="inline-actions">
+      <form class="inline-form" action="/workflow/{session_id}/tickets/{ticket_id}/reopen" method="post">
+        <button id="reopen-ticket" type="submit">Reopen ticket</button>
+      </form>
+    </div>
+  </section>
+  <aside class="panel">
+    <h2>Task brief</h2>
+    <p id="task-brief">{instruction}</p>
+    <p><span class="status-pill">Step 5</span> Stop only after this audit history shows the saved event for ticket <code>{ticket_id}</code>. Reopen the ticket if the saved event is wrong.</p>
+  </aside>
+</div>"#,
+        session_id = session.bridge_state.session_id,
+        ticket_id = escape_html(ticket_id),
+        audit_status = escape_html(audit_status),
+        rows = body_rows,
+        instruction = escape_html(&session.spec.instruction),
     )
 }
 
@@ -1326,8 +1597,44 @@ fn workflow_observer_script(report_path: &str) -> String {
     )
 }
 
+fn history_entries_for_ticket<'a>(
+    session: &'a WorkflowSession,
+    ticket_id: &str,
+) -> Vec<&'a WorkflowHistoryEntry> {
+    session
+        .history_entries
+        .iter()
+        .rev()
+        .filter(|entry| entry.ticket_id == ticket_id)
+        .collect()
+}
+
+fn latest_history_entry_for_ticket<'a>(
+    session: &'a WorkflowSession,
+    ticket_id: &str,
+) -> Option<&'a WorkflowHistoryEntry> {
+    history_entries_for_ticket(session, ticket_id)
+        .into_iter()
+        .next()
+}
+
+fn history_entry_matches_spec(session: &WorkflowSession, entry: &WorkflowHistoryEntry) -> bool {
+    entry.ticket_id == session.spec.ticket_id
+        && entry.actor == session.spec.username
+        && entry.assignee == session.spec.assignee
+        && entry.status == session.spec.status
+        && entry.note == session.spec.note
+}
+
+fn target_history_entry(session: &WorkflowSession) -> Option<&WorkflowHistoryEntry> {
+    latest_history_entry_for_ticket(session, &session.spec.ticket_id)
+        .filter(|entry| history_entry_matches_spec(session, entry))
+}
+
 fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
     let saved_target = session.tickets.get(&session.spec.ticket_id);
+    let latest_history = latest_history_entry_for_ticket(session, &session.spec.ticket_id);
+    let history_match = target_history_entry(session);
     vec![
         BridgeField {
             key: "workflow_case_id".to_string(),
@@ -1338,6 +1645,7 @@ fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
             value: match session.spec.scenario {
                 WorkflowScenario::TicketRouting => "ticket_routing".to_string(),
                 WorkflowScenario::QueueVerification => "queue_verification".to_string(),
+                WorkflowScenario::AuditHistory => "audit_history".to_string(),
             },
         },
         BridgeField {
@@ -1431,6 +1739,56 @@ fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
             value: session.queue_verified.to_string(),
         },
         BridgeField {
+            key: "history_verified".to_string(),
+            value: session.history_verified.to_string(),
+        },
+        BridgeField {
+            key: "history_event_exists".to_string(),
+            value: history_match.is_some().to_string(),
+        },
+        BridgeField {
+            key: "history_event_ticket_id".to_string(),
+            value: latest_history
+                .map(|entry| entry.ticket_id.clone())
+                .unwrap_or_default(),
+        },
+        BridgeField {
+            key: "history_event_actor".to_string(),
+            value: latest_history
+                .map(|entry| entry.actor.clone())
+                .unwrap_or_default(),
+        },
+        BridgeField {
+            key: "history_event_action".to_string(),
+            value: latest_history
+                .map(|entry| entry.action.clone())
+                .unwrap_or_default(),
+        },
+        BridgeField {
+            key: "history_event_assignee".to_string(),
+            value: latest_history
+                .map(|entry| entry.assignee.clone())
+                .unwrap_or_default(),
+        },
+        BridgeField {
+            key: "history_event_status".to_string(),
+            value: latest_history
+                .map(|entry| entry.status.clone())
+                .unwrap_or_default(),
+        },
+        BridgeField {
+            key: "history_event_note".to_string(),
+            value: latest_history
+                .map(|entry| entry.note.clone())
+                .unwrap_or_default(),
+        },
+        BridgeField {
+            key: "history_event_count".to_string(),
+            value: history_entries_for_ticket(session, &session.spec.ticket_id)
+                .len()
+                .to_string(),
+        },
+        BridgeField {
             key: "current_page_kind".to_string(),
             value: match session.current_page {
                 WorkflowPage::Login => "login".to_string(),
@@ -1438,6 +1796,7 @@ fn workflow_fields(session: &WorkflowSession) -> Vec<BridgeField> {
                 WorkflowPage::Detail { .. } => "detail".to_string(),
                 WorkflowPage::Review => "review".to_string(),
                 WorkflowPage::Confirmation => "confirmation".to_string(),
+                WorkflowPage::History { .. } => "history".to_string(),
             },
         },
     ]
@@ -1481,10 +1840,47 @@ fn workflow_visible_text(session: &WorkflowSession, page: &WorkflowPage) -> Stri
             "Review queued update. Ticket {}. Draft assignee {}. Draft status {}. Draft note {}. {}",
             session.active_ticket_id, session.draft_assignee, session.draft_status, session.draft_note, session.spec.instruction
         ),
-        WorkflowPage::Confirmation => format!(
-            "Assignment confirmation. Ticket {} routed to {}. Saved status {}. Saved note {}. Queue verified {}. {}",
-            session.active_ticket_id, session.draft_assignee, session.draft_status, session.draft_note, session.queue_verified, session.spec.instruction
-        ),
+        WorkflowPage::Confirmation => {
+            let saved_ticket = session
+                .tickets
+                .get(&session.active_ticket_id)
+                .or_else(|| session.tickets.get(&session.spec.ticket_id));
+            let saved_assignee = saved_ticket
+                .map(|ticket| display_assignee(&ticket.current_assignee))
+                .unwrap_or_else(|| "Unassigned".to_string());
+            let saved_status = saved_ticket
+                .map(|ticket| ticket.current_status.clone())
+                .unwrap_or_else(|| "Unknown".to_string());
+            let saved_note = saved_ticket
+                .map(|ticket| ticket.current_note.clone())
+                .unwrap_or_default();
+            format!(
+                "Assignment confirmation. Ticket {} routed to {}. Saved status {}. Saved note {}. Queue verified {}. History verified {}. {}",
+                session.active_ticket_id,
+                saved_assignee,
+                saved_status,
+                saved_note,
+                session.queue_verified,
+                session.history_verified,
+                session.spec.instruction
+            )
+        }
+        WorkflowPage::History { ticket_id } => {
+            let entries = history_entries_for_ticket(session, ticket_id)
+                .into_iter()
+                .map(|entry| {
+                    format!(
+                        "{} {} {} {} {}",
+                        entry.ticket_id, entry.actor, entry.assignee, entry.status, entry.note
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            format!(
+                "Audit history for ticket {}. Entries {}. History verified {}. {}",
+                ticket_id, entries, session.history_verified, session.spec.instruction
+            )
+        }
     }
 }
 
@@ -1501,7 +1897,7 @@ fn synthesized_interactive_elements(
         WorkflowPage::Queue => {
             let mut elements = match session.spec.scenario {
                 WorkflowScenario::TicketRouting => Vec::new(),
-                WorkflowScenario::QueueVerification => vec![
+                WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => vec![
                     text_input("#queue-search", "search", &session.queue_search),
                     select_input_named(
                         "#queue-status-filter",
@@ -1512,9 +1908,9 @@ fn synthesized_interactive_elements(
                 ],
             };
             elements.extend(
-                visible_queue_tickets(session)
-                    .into_iter()
-                    .map(|ticket| link(&ticket_link_selector(&ticket.ticket_id), &ticket.ticket_id)),
+                visible_queue_tickets(session).into_iter().map(|ticket| {
+                    link(&ticket_link_selector(&ticket.ticket_id), &ticket.ticket_id)
+                }),
             );
             elements
         }
@@ -1526,21 +1922,43 @@ fn synthesized_interactive_elements(
             button(
                 match session.spec.scenario {
                     WorkflowScenario::TicketRouting => "#submit-update",
-                    WorkflowScenario::QueueVerification => "#review-update",
+                    WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
+                        "#review-update"
+                    }
                 },
                 match session.spec.scenario {
                     WorkflowScenario::TicketRouting => "Submit update",
-                    WorkflowScenario::QueueVerification => "Review update",
+                    WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory => {
+                        "Review update"
+                    }
                 },
             ),
             link(&ticket_link_selector(ticket_id), ticket_id),
         ],
-        WorkflowPage::Review => vec![
+        WorkflowPage::Review => {
+            let mut elements = vec![
+                link("#queue-link", "Queue"),
+                button("#edit-update", "Edit draft"),
+                button("#confirm-update", "Confirm update"),
+            ];
+            if matches!(session.spec.scenario, WorkflowScenario::AuditHistory) {
+                elements.push(button("#cancel-update", "Cancel draft"));
+            }
+            elements
+        }
+        WorkflowPage::Confirmation => {
+            let mut elements = vec![link("#queue-link", "Queue")];
+            if matches!(session.spec.scenario, WorkflowScenario::AuditHistory) {
+                elements.push(link("#history-link", "Open audit history"));
+                elements.push(button("#reopen-ticket", "Reopen ticket"));
+            }
+            elements
+        }
+        WorkflowPage::History { .. } => vec![
             link("#queue-link", "Queue"),
-            button("#edit-update", "Edit draft"),
-            button("#confirm-update", "Confirm update"),
+            link("#confirmation-link", "Confirmation"),
+            button("#reopen-ticket", "Reopen ticket"),
         ],
-        WorkflowPage::Confirmation => vec![link("#queue-link", "Queue")],
     }
     .into_iter()
     .map(|mut element| {
@@ -1577,6 +1995,10 @@ fn current_page_url(session: &WorkflowSession) -> String {
             "{}/workflow/{}/confirmation",
             session.base_url, session.bridge_state.session_id
         ),
+        WorkflowPage::History { ticket_id } => format!(
+            "{}/workflow/{}/tickets/{}/history",
+            session.base_url, session.bridge_state.session_id, ticket_id
+        ),
     }
 }
 
@@ -1599,6 +2021,11 @@ fn page_from_url(url: &str) -> Option<WorkflowPage> {
         .split('/')
         .next()
         .filter(|value| !value.is_empty())?;
+    if url.contains("/history") {
+        return Some(WorkflowPage::History {
+            ticket_id: ticket_id.to_string(),
+        });
+    }
     Some(WorkflowPage::Detail {
         ticket_id: ticket_id.to_string(),
     })
@@ -1682,6 +2109,27 @@ fn workflow_initial_tickets() -> BTreeMap<String, WorkflowTicketRecord> {
     .collect()
 }
 
+fn workflow_initial_history_entries() -> Vec<WorkflowHistoryEntry> {
+    vec![
+        WorkflowHistoryEntry {
+            ticket_id: "T-215".to_string(),
+            actor: "dispatch.agent".to_string(),
+            action: "Viewed ticket".to_string(),
+            assignee: String::new(),
+            status: "Awaiting Dispatch".to_string(),
+            note: String::new(),
+        },
+        WorkflowHistoryEntry {
+            ticket_id: "T-318".to_string(),
+            actor: "dispatch.agent".to_string(),
+            action: "Requested billing callback".to_string(),
+            assignee: String::new(),
+            status: "Pending Review".to_string(),
+            note: "Awaiting customer callback".to_string(),
+        },
+    ]
+}
+
 fn display_assignee(value: &str) -> String {
     if value.trim().is_empty() {
         "Unassigned".to_string()
@@ -1710,12 +2158,22 @@ fn visible_queue_tickets(session: &WorkflowSession) -> Vec<&WorkflowTicketRecord
                 && ticket_matches_search(ticket, &session.queue_search)
         })
         .collect::<Vec<_>>();
-    if matches!(session.spec.scenario, WorkflowScenario::QueueVerification)
-        && session.queue_search.trim().is_empty()
+    if matches!(
+        session.spec.scenario,
+        WorkflowScenario::QueueVerification | WorkflowScenario::AuditHistory
+    ) && session.queue_search.trim().is_empty()
     {
         tickets.truncate(2);
     }
     tickets
+}
+
+fn reset_draft_from_saved_ticket(session: &mut WorkflowSession, ticket_id: &str) {
+    if let Some(ticket) = session.tickets.get(ticket_id) {
+        session.draft_assignee = ticket.current_assignee.clone();
+        session.draft_status = ticket.current_status.clone();
+        session.draft_note = ticket.current_note.clone();
+    }
 }
 
 fn persist_ticket_update(session: &mut WorkflowSession, ticket_id: &str) {
@@ -1728,14 +2186,31 @@ fn persist_ticket_update(session: &mut WorkflowSession, ticket_id: &str) {
     }
 }
 
+fn append_history_entry(session: &mut WorkflowSession, ticket_id: &str) {
+    session.history_entries.push(WorkflowHistoryEntry {
+        ticket_id: ticket_id.to_string(),
+        actor: session.spec.username.clone(),
+        action: "Saved dispatch update".to_string(),
+        assignee: session.draft_assignee.clone(),
+        status: session.draft_status.clone(),
+        note: session.draft_note.clone(),
+    });
+}
+
 fn target_ticket_matches_spec(session: &WorkflowSession) -> bool {
     let Some(ticket) = session.tickets.get(&session.spec.ticket_id) else {
         return false;
     };
-    let status_matches = session.spec.status.is_empty() || ticket.current_status == session.spec.status;
+    let status_matches =
+        session.spec.status.is_empty() || ticket.current_status == session.spec.status;
     ticket.current_assignee == session.spec.assignee
         && ticket.current_note == session.spec.note
         && status_matches
+}
+
+fn maybe_complete_workflow_verification(session: &mut WorkflowSession, visible_text: Option<&str>) {
+    maybe_complete_queue_verification(session, visible_text);
+    maybe_complete_audit_history_verification(session, visible_text);
 }
 
 fn maybe_complete_queue_verification(session: &mut WorkflowSession, visible_text: Option<&str>) {
@@ -1761,9 +2236,35 @@ fn maybe_complete_queue_verification(session: &mut WorkflowSession, visible_text
     }
 }
 
+fn maybe_complete_audit_history_verification(
+    session: &mut WorkflowSession,
+    visible_text: Option<&str>,
+) {
+    if !matches!(session.spec.scenario, WorkflowScenario::AuditHistory)
+        || !session.confirmation_seen
+        || !matches!(session.current_page, WorkflowPage::History { .. })
+    {
+        return;
+    }
+    let history_match = target_history_entry(session);
+    let observed_match = visible_text.is_some_and(|text| {
+        text.contains(&session.spec.ticket_id)
+            && text.contains(&session.spec.assignee)
+            && text.contains(&session.spec.status)
+            && text.contains(&session.spec.note)
+    });
+    if history_match.is_some() && observed_match && target_ticket_matches_spec(session) {
+        session.history_verified = true;
+        session.reward = 1.0;
+        session.terminated = true;
+        session.truncated = false;
+    }
+}
+
 fn active_ticket_id_from_page(session: &WorkflowSession) -> Option<String> {
     match &session.current_page {
         WorkflowPage::Detail { ticket_id } => Some(ticket_id.clone()),
+        WorkflowPage::History { ticket_id } => Some(ticket_id.clone()),
         WorkflowPage::Review | WorkflowPage::Confirmation => Some(session.active_ticket_id.clone()),
         WorkflowPage::Login | WorkflowPage::Queue => None,
     }
@@ -1956,7 +2457,12 @@ mod tests {
         })
     }
 
-    fn workflow_case(case_id: &str, env_id: &str, task_set: TaskSet, recipe: RecipeId) -> ComputerUseCase {
+    fn workflow_case(
+        case_id: &str,
+        env_id: &str,
+        task_set: TaskSet,
+        recipe: RecipeId,
+    ) -> ComputerUseCase {
         ComputerUseCase {
             id: case_id.to_string(),
             env_id: env_id.to_string(),
@@ -2184,6 +2690,137 @@ mod tests {
             .page_url
             .as_deref()
             .is_some_and(|url| url.contains("/queue")));
+
+        process.stop().await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn workflow_audit_history_oracle_requires_history_verification() -> Result<()> {
+        let mut process = WorkflowBridgeProcess::start().await?;
+        let client = process.client();
+        let created = client
+            .create_session(&workflow_case(
+                "workflow_audit_history_network_ops",
+                "workflow-audit-history",
+                TaskSet::WorkflowAudit,
+                RecipeId::WorkflowAuditHistory,
+            ))
+            .await?;
+
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#username", "text": "dispatch.agent" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#password", "text": "dispatch-215" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#sign-in" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#queue-search", "text": "fiber" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#queue-status-filter", "label": "Awaiting Dispatch" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#apply-filters" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": ticket_link_selector("T-215") }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#assignee", "label": "Network Ops" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "select_label",
+                json!({ "selector": "#status", "label": "Escalated" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "type_selector",
+                json!({ "selector": "#note", "text": "Escalate fiber outage to on-call" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#review-update" }),
+            )
+            .await?;
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#confirm-update" }),
+            )
+            .await?;
+
+        let confirmation_state = client.state(&created.session_id).await?;
+        assert!(!confirmation_state.terminated);
+        assert_eq!(
+            field_value(&confirmation_state, "history_verified"),
+            Some("false")
+        );
+
+        client
+            .oracle_step(
+                &created.session_id,
+                "click_selector",
+                json!({ "selector": "#history-link" }),
+            )
+            .await?;
+
+        let final_state = client.state(&created.session_id).await?;
+        assert!(final_state.terminated);
+        assert_eq!(final_state.reward, 1.0);
+        assert_eq!(field_value(&final_state, "history_verified"), Some("true"));
+        assert_eq!(
+            field_value(&final_state, "history_event_exists"),
+            Some("true")
+        );
+        assert!(final_state
+            .info
+            .page_url
+            .as_deref()
+            .is_some_and(|url| url.contains("/history")));
 
         process.stop().await;
         Ok(())
