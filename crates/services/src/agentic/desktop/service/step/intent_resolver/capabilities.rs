@@ -5,6 +5,19 @@ pub(super) fn capability(id: &str) -> CapabilityId {
     CapabilityId::from(id)
 }
 
+fn browser_interact_capabilities() -> Vec<CapabilityId> {
+    vec![capability("browser.interact"), capability("ui.interact")]
+}
+
+fn browser_inspect_capabilities() -> Vec<CapabilityId> {
+    vec![
+        capability("browser.inspect"),
+        capability("ui.inspect"),
+        capability("browser.interact"),
+        capability("ui.interact"),
+    ]
+}
+
 pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
     let mut bindings = vec![
         ToolCapabilityBinding {
@@ -307,141 +320,140 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         ToolCapabilityBinding {
             tool_name: "browser__navigate".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__snapshot".to_string(),
             action_target: ActionTarget::BrowserInspect,
-            capabilities: vec![
-                capability("browser.inspect"),
-                capability("browser.interact"),
-            ],
+            capabilities: browser_inspect_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__click".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__hover".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__move_mouse".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__mouse_down".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__mouse_up".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__click_element".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__synthetic_click".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__scroll".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__type".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__select_text".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__key".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__copy_selection".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__paste_clipboard".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__find_text".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__screenshot".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__canvas_summary".to_string(),
             action_target: ActionTarget::BrowserInspect,
-            capabilities: vec![
-                capability("browser.inspect"),
-                capability("browser.interact"),
-            ],
+            capabilities: browser_inspect_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__wait".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact"), capability("sys.time.read")],
+            capabilities: {
+                let mut caps = browser_interact_capabilities();
+                caps.push(capability("sys.time.read"));
+                caps
+            },
         },
         ToolCapabilityBinding {
             tool_name: "browser__upload_file".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![
-                capability("browser.interact"),
-                capability("filesystem.read"),
-            ],
+            capabilities: {
+                let mut caps = browser_interact_capabilities();
+                caps.push(capability("filesystem.read"));
+                caps
+            },
         },
         ToolCapabilityBinding {
             tool_name: "browser__dropdown_options".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__select_dropdown".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__go_back".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__tab_list".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__tab_switch".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
             tool_name: "browser__tab_close".to_string(),
             action_target: ActionTarget::BrowserInteract,
-            capabilities: vec![capability("browser.interact")],
+            capabilities: browser_interact_capabilities(),
         },
     ];
     bindings.extend(google_workspace::google_connector_tool_bindings());

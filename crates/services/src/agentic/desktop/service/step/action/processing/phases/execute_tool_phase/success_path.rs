@@ -1592,9 +1592,14 @@ pub(super) async fn handle_execution_success(
         if let Some(entry) = history_entry.clone() {
             let compact_entry = compact_tool_history_entry_for_chat(current_tool_name, &entry);
             if !compact_entry.trim().is_empty() {
+                let content = if current_tool_name == "browser__snapshot" {
+                    format!("Tool Output (browser__snapshot): {}", compact_entry)
+                } else {
+                    compact_entry
+                };
                 let tool_msg = ioi_types::app::agentic::ChatMessage {
                     role: "tool".to_string(),
-                    content: compact_entry,
+                    content,
                     timestamp: std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()

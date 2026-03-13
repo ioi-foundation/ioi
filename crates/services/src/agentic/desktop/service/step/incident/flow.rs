@@ -4,7 +4,8 @@ use super::core::{
 };
 use super::recovery::{
     build_planner_prompt, deterministic_recovery_tool, effective_forbidden_tools,
-    is_recoverable_failure, policy_max_transitions, policy_strategy_override,
+    incident_specific_forbidden_tools, is_recoverable_failure, policy_max_transitions,
+    policy_strategy_override,
     queue_recovery_action, queue_root_retry, validate_recovery_tool,
 };
 use super::store::{clear_incident_state, load_incident_state, persist_incident_state};
@@ -602,7 +603,8 @@ pub async fn start_or_continue_incident_recovery(
 
     let available_tool_names: BTreeSet<String> =
         tools.iter().map(|tool| tool.name.clone()).collect();
-    let forbidden_tools = effective_forbidden_tools(rules);
+    let mut forbidden_tools = effective_forbidden_tools(rules);
+    forbidden_tools.extend(incident_specific_forbidden_tools(&incident_state));
     let planner_tools: Vec<LlmToolDefinition> = tools
         .into_iter()
         .filter(|tool| !forbidden_tools.contains(&tool.name))

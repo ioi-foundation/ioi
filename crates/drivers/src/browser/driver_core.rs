@@ -35,6 +35,17 @@ impl BrowserDriver {
         }
     }
 
+    pub async fn debugger_websocket_url(&self) -> std::result::Result<String, BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        let browser = { self.browser.lock().await.clone() }.ok_or_else(|| {
+            BrowserError::Internal("Browser session missing while resolving CDP endpoint".into())
+        })?;
+
+        Ok(browser.websocket_address().clone())
+    }
+
     pub(crate) fn require_runtime(&self) -> std::result::Result<(), BrowserError> {
         if tokio::runtime::Handle::try_current().is_err() {
             return Err(BrowserError::NoTokioRuntime);
