@@ -3,7 +3,9 @@
 This file is the single authoritative backlog, status ledger, benchmark snapshot,
 and living roadmap for browser/computer-use discovery. Historical MiniWoB and
 local workflow results remain recorded here as regression and reproduction
-baselines; active discovery is live-inference browser-first work.
+baselines; browser-first external discovery was exhausted in-repo by true
+repo-external blockers, so the active frontier is now the next cross-app bring-
+up lane.
 
 - primary discovery lane: live inference on browser-first external benchmarks
 - secondary reproduction lane: deterministic local reproductions for reusable gaps
@@ -13,9 +15,12 @@ baselines; active discovery is live-inference browser-first work.
 
 Current phase:
 
-- Active frontier: prove and use real live inference on the repo's existing browser
-  / computer-use stack, then push that stack against BrowserGym-style browser-first
-  benchmarks.
+- Active frontier: carry the repo's proven live-inference computer-use stack from
+  the now-blocked browser-first external lane into the smallest viable OSWorld /
+  OSWorld-Verified cross-app bring-up surface.
+- Frontier discipline: exhaust the browser-first external frontier before moving
+  to cross-app benchmarks. Do not actively advance WorkArena/browser-first and
+  OSWorld/cross-app in parallel.
 - Target north star:
   - first: live inference + browser-first benchmark, preferably WorkArena or
     WebArenaVerified through a BrowserGym-style integration
@@ -47,26 +52,61 @@ Current assessment:
   shape when visual evidence is placeholder-only, which removed the prior
   `gpt-4o` refusal on this smoke and yielded a clean `agent__complete` under
   `run-1773433420`.
+- The current live local gap has moved twice on the `gpt-4o-mini` lane:
+  `run-1773434964` still hit `Failed("Resources/Retry limit exceeded")` after
+  typed success, `run-1773435501` auto-queued a repo-real `browser__snapshot`
+  verification step and improved the terminal state to `Completed(None)`, and
+  `run-1773436568` narrowed the remaining root to a smaller shared
+  `verification_gap`: instruction-contract success criteria were still too vague
+  to let the verified browser snapshot auto-complete. That local
+  post-success terminalization gap is now closed authoritatively by
+  `run-1773436925` on `gpt-4o-mini`.
+- The latest authoritative local browser smoke state is green on both live
+  models:
+  - `run-1773436925`: `HttpInferenceRuntime` + `gpt-4o-mini` cleanly completed
+    from queued `browser__snapshot` verification with
+    `success_criteria=status_text.updated_to_done`
+  - `run-1773437051`: `HttpInferenceRuntime` + `gpt-4o` remained clean after one
+    transient diagnostic intent-resolution availability failure under
+    `run-1773436988`
+- The browser-first external frontier remains explicitly blocked by a true
+  repo-external constraint: WorkArena still lacks the required Python
+  dependencies and benchmark credentials/access, and no alternate
+  repo-integrated browser-first external adapter exists today.
+- A smallest-viable OSWorld DesktopEnv adapter surface now exists via
+  `crates/cli/tests/osworld_live_e2e.rs` and
+  `tools/osworld/osworld_desktop_env_bridge.py`, but the current environment is
+  blocked before smoke execution by missing `desktop_env`, missing `gymnasium`,
+  the absence of any supported provider command (`docker`, `vmrun`, or
+  `VBoxManage`), and the host Python currently lacks a safe local package
+  bootstrap path (`pip`, `ensurepip`, and working `venv` are unavailable).
+- Browser-first external discovery is therefore formally exhausted for the
+  current environment and repo state; cross-app OSWorld bring-up is now the
+  active frontier rather than a parallel lane.
 
 Immediate goals:
 
 1. Keep the live-inference browser proof path green on the repo-real
-   `DesktopAgentService` / `BrowserDriver` stack and carry the current prompt
-   shaping into the first browser-first external slice.
-2. Convert the landed WorkArena adapter from typed preflight to an actual external
-   browser-first live slice as soon as repo-external blockers are removed.
-3. Backfill deterministic local reproduction only if a live artifact proves the
-   remaining gap is reusable enough to justify it.
+   `DesktopAgentService` / `BrowserDriver` stack as regression coverage now that
+   the local post-success terminalization gap is closed.
+2. Convert the landed OSWorld DesktopEnv bridge from typed preflight to a
+   quickstart-style cross-app smoke slice as soon as the repo-external
+   environment blockers are removed.
+3. Once the OSWorld environment smoke is ready, push immediately to the first
+   live-inference cross-app slice on the same runtime/receipt discipline rather
+   than drifting back into deterministic-local work.
+4. Backfill deterministic local reproduction only if a future live artifact
+   proves another reusable shared gap.
 
 Exit criteria for the current phase:
 
-- one authoritative artifact-backed run proving real provider-backed inference in a
-  browser/computer-use benchmark flow
-- one authoritative browser-first external smoke slice with typed success/failure
-  classification
-- the first live-discovered product gap either fixed or explicitly classified as a
-  true repo-external blocker
-- the next frontier after browser-first discovery clearly defined in this document
+- preserve the authoritative artifact-backed proof that real provider-backed
+  inference is already working on the repo-real browser/computer-use path
+- one typed cross-app OSWorld bring-up slice, or a true repo-external blocker
+  documented at that frontier
+- the first live-inference cross-app rung clearly defined after bring-up
+- the next frontier after the current cross-app iteration clearly defined in this
+  document
 
 ## Validation status
 
@@ -124,6 +164,105 @@ Live-inference validation status:
     via `system::max_steps_reached`
   - Classification: authoritative capability proof plus a narrowed remaining
     `verification_gap`
+- Authoritative local live browser proof rerun after duplicate-success salience
+  and noop handling:
+  - Command:
+    `IOI_BROWSER_LIVE_MODELS=gpt-4o-mini cargo test -p ioi-cli --test browser_live_runtime_e2e browser_live_http_runtime_smoke -- --ignored --exact --nocapture`
+  - Result: passed
+  - Runtime/provider/model: `HttpInferenceRuntime` against
+    `https://api.openai.com/v1/chat/completions` with `gpt-4o-mini`
+  - Artifact root:
+    `crates/cli/target/browser_live_runtime/run-1773434964`
+  - Typed outcome: `dom_contains_done=true`, but final agent status
+    `Failed("Resources/Retry limit exceeded")`
+  - Classification: authoritative capability proof; the original immediate
+    replay failure was partially closed, but the remaining gap still
+    re-entered recovery after a later replay
+- Authoritative local live browser proof rerun after auto-queued browser
+  verification:
+  - Command:
+    `IOI_BROWSER_LIVE_MODELS=gpt-4o-mini cargo test -p ioi-cli --test browser_live_runtime_e2e browser_live_http_runtime_smoke -- --ignored --exact --nocapture`
+  - Result: passed
+  - Runtime/provider/model: `HttpInferenceRuntime` against
+    `https://api.openai.com/v1/chat/completions` with `gpt-4o-mini`
+  - Artifact root:
+    `crates/cli/target/browser_live_runtime/run-1773435501`
+  - Typed outcome: `dom_contains_done=true`, final agent status
+    `Completed(None)`, queued browser verification snapshot executed, but no
+    final reply / no clean `agent__complete`
+  - Classification: authoritative capability proof with the current smallest
+    honest remaining class narrowed to `planner_gap` on post-verified-snapshot
+    terminalization
+- Authoritative local live browser control rerun after the duplicate-verification
+  fix:
+  - Command:
+    `IOI_BROWSER_LIVE_MODELS=gpt-4o cargo test -p ioi-cli --test browser_live_runtime_e2e browser_live_http_runtime_smoke -- --ignored --exact --nocapture`
+  - Result: passed
+  - Runtime/provider/model: `HttpInferenceRuntime` against
+    `https://api.openai.com/v1/chat/completions` with `gpt-4o`
+  - Artifact root:
+    `crates/cli/target/browser_live_runtime/run-1773435563`
+  - Typed outcome: `dom_contains_done=true`, clean `agent__complete`
+  - Classification: authoritative regression control showing the stronger-model
+    local browser lane remains green
+- Authoritative local live browser rerun after shared browser-snapshot
+  auto-completion:
+  - Command:
+    `IOI_BROWSER_LIVE_MODELS=gpt-4o-mini cargo test -p ioi-cli --test browser_live_runtime_e2e browser_live_http_runtime_smoke -- --ignored --exact --nocapture`
+  - Result: passed
+  - Runtime/provider/model: `HttpInferenceRuntime` against
+    `https://api.openai.com/v1/chat/completions` with `gpt-4o-mini`
+  - Artifact root:
+    `crates/cli/target/browser_live_runtime/run-1773436568`
+  - Typed outcome: `dom_contains_done=true`, final agent status
+    `Completed(None)`, final reply absent, termination via
+    `system::max_steps_reached`
+  - Classification: authoritative capability proof with the previously suspected
+    `planner_gap` corrected to a narrower `verification_gap`; the shared browser
+    completion hook was present, but under-specified instruction-contract success
+    criteria (`status_text.updated`) prevented verified auto-completion
+- Authoritative local live browser rerun after instruction-contract success target
+  enrichment:
+  - Command:
+    `IOI_BROWSER_LIVE_MODELS=gpt-4o-mini cargo test -p ioi-cli --test browser_live_runtime_e2e browser_live_http_runtime_smoke -- --ignored --exact --nocapture`
+  - Result: passed
+  - Runtime/provider/model: `HttpInferenceRuntime` against
+    `https://api.openai.com/v1/chat/completions` with `gpt-4o-mini`
+  - Artifact root:
+    `crates/cli/target/browser_live_runtime/run-1773436925`
+  - Typed outcome: `dom_contains_done=true`, final agent status
+    `Completed(Some(...))`, final reply emitted, queued browser verification
+    snapshot auto-completed with
+    `success_criteria=status_text.updated_to_done`
+  - Classification: authoritative local browser smoke; the narrowed shared local
+    `verification_gap` is closed on the `gpt-4o-mini` lane
+- Diagnostic local live browser control rerun while revalidating after the shared
+  contract fix:
+  - Command:
+    `IOI_BROWSER_LIVE_MODELS=gpt-4o cargo test -p ioi-cli --test browser_live_runtime_e2e browser_live_http_runtime_smoke -- --ignored --exact --nocapture`
+  - Result: failed diagnostically
+  - Runtime/provider/model: `HttpInferenceRuntime` against
+    `https://api.openai.com/v1/chat/completions` with `gpt-4o`
+  - Artifact root:
+    `crates/cli/target/browser_live_runtime/run-1773436988`
+  - Typed outcome: `Paused("Waiting for intent clarification")`,
+    `dom_contains_done=false`, no action step executed
+  - Classification: diagnostic transient `infra_or_bridge_gap`; intent
+    resolution returned `resolver.unclassified` with
+    `embedding_model_id="resolver.unavailable"` and zeroed ranking scores
+- Authoritative local live browser control rerun after the transient intent
+  resolver failure:
+  - Command:
+    `IOI_BROWSER_LIVE_MODELS=gpt-4o cargo test -p ioi-cli --test browser_live_runtime_e2e browser_live_http_runtime_smoke -- --ignored --exact --nocapture`
+  - Result: passed
+  - Runtime/provider/model: `HttpInferenceRuntime` against
+    `https://api.openai.com/v1/chat/completions` with `gpt-4o`
+  - Artifact root:
+    `crates/cli/target/browser_live_runtime/run-1773437051`
+  - Typed outcome: `dom_contains_done=true`, clean `agent__complete`, final
+    reply emitted
+  - Classification: authoritative regression control showing the stronger-model
+    local browser lane remains green after the shared contract fix
 - Diagnostic live browser runs that informed the shared fixes:
   - `IOI_BROWSER_LIVE_MODELS=gpt-4o-mini ...` failed diagnostically under
     `crates/cli/target/browser_live_runtime/run-1773430382`,
@@ -142,6 +281,25 @@ Live-inference validation status:
     `cargo test -p ioi-cli --test workarena_live_e2e workarena_bridge_preflight_reports_repo_external_blockers_or_ready_state -- --exact`
   - Result: passed as typed diagnostic preflight
   - Classification: adapter bring-up succeeded, external execution still blocked
+- Direct WorkArena bridge preflight recorded:
+  - Command:
+    `python3 tools/browsergym/workarena_cdp_bridge.py preflight`
+  - Result: blocked diagnostic
+  - Classification: true repo-external blocker confirmed with typed details:
+    missing `playwright`, missing or unusable `browsergym.workarena`, missing
+    `INSTANCE_XOR_SEED`, and missing ServiceNow / Hugging Face benchmark access
+- Refreshed WorkArena blocker validation after the local browser rung closed:
+  - Command:
+    `cargo test -p ioi-cli --test workarena_live_e2e workarena_bridge_preflight_reports_repo_external_blockers_or_ready_state -- --exact`
+  - Result: passed as typed diagnostic preflight
+  - Classification: no change; the repo-integrated WorkArena surface is still
+    bring-up ready, but actual external execution remains blocked outside the repo
+  - Command:
+    `python3 tools/browsergym/workarena_cdp_bridge.py preflight`
+  - Result: blocked diagnostic
+  - Classification: true repo-external blocker unchanged; still missing
+    `playwright`, `browsergym.workarena`, `gymnasium`, `huggingface_hub`,
+    `numpy`, `INSTANCE_XOR_SEED`, and benchmark credentials/access
 - Shared-fix targeted tests recorded:
   - `cargo test -p ioi-services --lib cognition::tests -- --nocapture`
   - `cargo test -p ioi-services --lib 'agentic::desktop::service::step::intent_resolver::tests::scope_policy::ui_interaction_scope_allows_browser_safe_followups' -- --exact`
@@ -150,7 +308,50 @@ Live-inference validation status:
   - `cargo test -p ioi-services --lib 'agentic::desktop::service::step::incident::recovery::tests::duplicate_browser_snapshot_incident_forbids_navigation_remedies' -- --exact`
   - `cargo test -p ioi-services --lib 'agentic::desktop::service::step::incident::recovery::tests::deterministic_recovery_prefers_browser_snapshot_for_browser_target_not_found' -- --exact`
   - `cargo test -p ioi-services --lib browser_observation_context_ -- --nocapture`
+  - `cargo test -p ioi-services 'agentic::desktop::service::step::action::support::tests::action_fingerprint_label_roundtrips_when_recorded_with_step' -- --exact`
+  - `cargo test -p ioi-services 'agentic::desktop::service::step::action::processing::phases::execute_tool_phase::duplicate::tests'`
+  - `cargo test -p ioi-services 'agentic::desktop::service::step::cognition::history::tests'`
   - Result: all passed
+- Shared-fix targeted tests for the new browser completion and instruction-
+  contract path recorded:
+  - `cargo test -p ioi-services browser_snapshot_completion -- --nocapture`
+  - `cargo test -p ioi-services 'agentic::desktop::service::step::queue::processing::completion::tests'`
+  - `cargo test -p ioi-services 'agentic::desktop::service::step::intent_resolver::instruction_contract::tests' -- --nocapture`
+  - Result: all passed
+- OSWorld bridge bring-up validation recorded:
+  - Command:
+    `python3 -m py_compile tools/osworld/osworld_desktop_env_bridge.py`
+  - Result: passed
+  - Classification: bridge script syntax validated
+  - Command:
+    `cargo test -p ioi-cli --test osworld_live_e2e osworld_bridge_preflight_reports_repo_external_blockers_or_ready_state -- --exact --nocapture`
+  - Result: passed as typed diagnostic preflight
+  - Classification: cross-app adapter bring-up succeeded, but actual OSWorld
+    smoke execution is still blocked outside the repo/runtime environment
+  - Command:
+    `python3 tools/osworld/osworld_desktop_env_bridge.py preflight`
+  - Result: blocked diagnostic
+  - Classification: true repo-external blocker confirmed with typed details:
+    missing `desktop_env`, missing `gymnasium`, and no supported provider
+    command (`docker`, `vmrun`, or `VBoxManage`) in the current environment
+- OSWorld dependency bootstrap attempts recorded:
+  - Command:
+    `python3 -m pip install --user desktop-env gymnasium`
+  - Result: failed diagnostically with `/usr/bin/python3: No module named pip`
+  - Command:
+    `python3 -m ensurepip --user`
+  - Result: failed diagnostically with `/usr/bin/python3: No module named ensurepip`
+  - Command:
+    `python3 /tmp/get-pip.py --user`
+  - Result: failed diagnostically with `externally-managed-environment`
+    (PEP 668)
+  - Command:
+    `python3 -m venv /tmp/ioi-osworld-venv`
+  - Result: failed diagnostically because `ensurepip` / `python3.12-venv` is
+    unavailable on the host
+  - Classification: the missing OSWorld Python dependencies are now confirmed as
+    a true host-level repo-external blocker in this environment, not an in-repo
+    integration gap
 
 Required first validations for the new plan:
 
@@ -159,8 +360,9 @@ Required first validations for the new plan:
    `MockInferenceRuntime`, or the placeholder `StandardInferenceRuntime`.
 2. Preserve the existing proof that the live path is the repo's real
    `DesktopAgentService` plus `BrowserDriver` stack.
-3. Upgrade from the authoritative local live browser smoke to an authoritative
-   external browser-first slice once the WorkArena bring-up blockers are removed.
+3. After the browser-first external frontier is explicitly blocked, land a typed
+   OSWorld bring-up surface and record either a ready smoke rung or the exact
+   repo-external blockers on that cross-app lane.
 
 Validation rules for new work:
 
@@ -180,17 +382,32 @@ Validation rules for new work:
 - `StandardInferenceRuntime` in
   `crates/validator/src/standard/workload/runtime.rs` currently returns a
   placeholder response and is not acceptable as proof of live inference.
-- WorkArena external execution is currently blocked outside the repo by missing or
-  unavailable `playwright`, missing or unusable `browsergym-workarena`, missing
-  `INSTANCE_XOR_SEED`, and unavailable ServiceNow / Hugging Face access.
+- WorkArena external execution is currently blocked outside the repo by missing
+  Python packages (`playwright`, `browsergym.workarena`, `gymnasium`,
+  `huggingface_hub`, `numpy`), missing `INSTANCE_XOR_SEED`, and unavailable
+  ServiceNow / Hugging Face access.
+- OSWorld cross-app execution is currently blocked outside the repo/runtime
+  environment by missing Python packages (`desktop_env`, `gymnasium`) and the
+  absence of any supported provider command (`docker`, `vmrun`, `VBoxManage`).
+  The host also lacks `pip`, `ensurepip`, and working `python3 -m venv`, so the
+  missing Python dependencies cannot be bootstrapped safely in user space from
+  this environment. `IOI_OSWORLD_CLIENT_PASSWORD` is also unset, which is a
+  retained readiness warning for tasks that require sudo or proxy setup.
 - The earlier `gpt-4o` cognition refusal under
   `crates/cli/target/browser_live_runtime/run-1773430304` is now a historical
   diagnostic, not a current blocker; `run-1773433420` passed after prompt-shape
   hardening.
-- The post-success terminalization issue is now narrowed but still live:
-  `gpt-4o` terminated cleanly in `run-1773433420`, while `gpt-4o-mini`
-  reproduced `system::max_steps_reached` after typed success in
-  `run-1773433583`. Keep class: `verification_gap`.
+- The previously active local post-success terminalization issue on
+  `gpt-4o-mini` is now closed on the current authoritative local slice:
+  - `run-1773436568` corrected the remaining local issue to a narrow
+    `verification_gap` caused by under-specified instruction-contract success
+    criteria
+  - `run-1773436925` closed that local gap cleanly on `gpt-4o-mini`
+- `run-1773436988` is a retained diagnostic-only transient
+  `infra_or_bridge_gap`: intent resolution returned
+  `resolver.unclassified` with `embedding_model_id="resolver.unavailable"`, but
+  the exact rerun `run-1773437051` passed cleanly, so this is not the current
+  blocking frontier.
 - Repo-wide warnings and unrelated dirty-worktree changes may still exist and
   should not be confused with live benchmark capability signals.
 - `cargo-component` is not installed in the current environment, so the
@@ -283,6 +500,69 @@ Validation rules for new work:
   hardening. Authoritative `gpt-4o-mini` rerun `run-1773433583` still achieved
   `dom_contains_done=true`, but exhausted steps via `system::max_steps_reached`
   instead of cleanly finalizing.
+- 2026-03-13: Added shared post-success duplicate handling across the repo-real
+  browser path by:
+  - preserving action-fingerprint success labels for duplicate browser replays
+  - surfacing a high-salience recent-success block inside browser cognition
+  - converting immediate replays of previously successful identical browser
+    actions into typed noops instead of recovery-triggering errors
+  The targeted duplicate and cognition-history tests passed, but authoritative
+  `gpt-4o-mini` rerun `run-1773434964` showed the gap only partially closed:
+  the first replay no longer triggered recovery, but a later replay still did.
+- 2026-03-13: Added shared automatic browser verification queueing when a prior-
+  successful browser interaction is replayed:
+  - duplicate success provenance is now preserved as `success_duplicate_skip`
+  - duplicate replays of prior-successful browser interactions now queue a
+    repo-real `browser__snapshot` verification step on the existing execution
+    queue
+  Targeted duplicate tests passed. Authoritative `gpt-4o-mini` rerun
+  `run-1773435501` confirmed the queued verification snapshot executed and moved
+  terminal state from `Failed("Resources/Retry limit exceeded")` to
+  `Completed(None)`, but the model still did not cleanly finalize after verified
+  state. `gpt-4o` regression control `run-1773435563` remained clean.
+- 2026-03-13: Added shared browser-snapshot success-criteria auto-completion on
+  both direct and queued browser snapshot paths. The runtime can now finalize a
+  mutating `UiInteraction` from typed snapshot evidence when all recognized
+  instruction-contract success criteria are satisfied, and it emits terminal chat
+  reply bindings on that path. Targeted tests passed under
+  `browser_snapshot_completion` plus queue-completion coverage. Authoritative
+  `gpt-4o-mini` rerun `run-1773436568` proved the remaining local issue was no
+  longer post-verified-snapshot planning drift; the browser had typed success,
+  but the helper could not fire because the instruction contract still carried an
+  under-specified success criterion (`status_text.updated`).
+- 2026-03-13: Strengthened instruction-contract terminal-state fidelity by:
+  - enriching vague success criteria from explicit user end-state language, such
+    as upgrading `status_text.updated` to `status_text.updated_to_done`
+  - adding prompt examples that force terminal values into
+    `successCriteria` whenever the user provides them
+  Targeted tests passed under
+  `agentic::desktop::service::step::intent_resolver::instruction_contract::tests`.
+  Authoritative `gpt-4o-mini` rerun `run-1773436925` then completed cleanly from
+  queued verified snapshot evidence with
+  `success_criteria=status_text.updated_to_done`.
+- 2026-03-13: Reran the `gpt-4o` control lane after the shared contract fix.
+  `run-1773436988` failed diagnostically before any action step with
+  `resolver.unclassified` and `embedding_model_id="resolver.unavailable"`,
+  which is a transient `infra_or_bridge_gap` rather than a browser-action
+  regression. The exact rerun `run-1773437051` returned to a clean
+  authoritative pass.
+- 2026-03-13: Reconfirmed the WorkArena external blocker directly with
+  `python3 tools/browsergym/workarena_cdp_bridge.py preflight`. The bridge still
+  lacks the repo-external Python packages and credentials needed for an actual
+  browser-first external slice.
+- 2026-03-13: Added the smallest viable OSWorld cross-app bring-up surface in
+  `crates/cli/tests/osworld_live_e2e.rs` and
+  `tools/osworld/osworld_desktop_env_bridge.py`. The bridge follows the official
+  DesktopEnv quickstart pattern for a future smoke rung, but the current
+  environment is blocked before execution by missing `desktop_env`, missing
+  `gymnasium`, and no supported provider command (`docker`, `vmrun`, or
+  `VBoxManage`).
+- 2026-03-13: Attempted to reduce the OSWorld bring-up blockers in-place, but
+  the host Python environment is externally managed and lacks `pip`,
+  `ensurepip`, and working `python3 -m venv`. That means the missing
+  DesktopEnv/gymnasium dependencies cannot be installed safely from this repo
+  session, which tightens the OSWorld blocker to a true host-level
+  `infra_or_bridge_gap`.
 
 ## Benchmark Snapshot
 
@@ -290,9 +570,9 @@ Active discovery benchmarks:
 
 | Benchmark lane | Status | Authoritative result | Artifact root | Notes |
 | --- | --- | --- | --- | --- |
-| Live browser path proof / local browser smoke | authoritative local pass | `3/3 passed`; `gpt-4o` now cleanly completes, `gpt-4o-mini` still shows post-success terminalization drift | `crates/cli/target/browser_live_runtime/run-1773431386`, `crates/cli/target/browser_live_runtime/run-1773433420`, `crates/cli/target/browser_live_runtime/run-1773433583` | real `HttpInferenceRuntime` + repo-real browser/computer-use stack; local `gpt-4o` refusal is closed, but `verification_gap` remains on the `gpt-4o-mini` lane |
-| Live browser-first external benchmark | adapter landed, external slice blocked | none yet | `crates/cli/tests/workarena_live_e2e.rs`, `tools/browsergym/workarena_cdp_bridge.py` | WorkArena preflight is typed and passing, but actual external run is repo-external-blocked |
-| Live cross-app external benchmark | not started | none | none | blocked on browser-first lane maturity |
+| Live browser path proof / local browser smoke | authoritative green with retained diagnostic transient | `gpt-4o-mini` clean on `run-1773436925`; `gpt-4o` clean on `run-1773437051` after one transient diagnostic `resolver.unavailable` run | `crates/cli/target/browser_live_runtime/run-1773436925`, `run-1773436988`, `run-1773437051` | real `HttpInferenceRuntime` + repo-real browser/computer-use stack; the shared local post-success `verification_gap` is now closed, and the remaining active frontier blocker is external |
+| Live browser-first external benchmark | blocked by true repo-external constraint | none yet | `crates/cli/tests/workarena_live_e2e.rs`, `tools/browsergym/workarena_cdp_bridge.py` | WorkArena preflight remains typed and passing, but direct preflight still reports missing Python deps plus missing benchmark credentials/access; no alternate repo-integrated browser-first external adapter exists today |
+| Live cross-app external benchmark | blocked by true repo-external constraint | none yet | `crates/cli/tests/osworld_live_e2e.rs`, `tools/osworld/osworld_desktop_env_bridge.py` | the next frontier is now active and has a typed preflight surface, but the current environment lacks `desktop_env`, `gymnasium`, any supported provider command for DesktopEnv bring-up, and a safe local pip/venv bootstrap path |
 
 Regression and reproduction baselines:
 
@@ -317,11 +597,11 @@ live browser-first workflow.
 | `missing_selection_primitive` | not yet re-evaluated | dormant baseline | keep MiniWoB coverage; do not reopen proactively |
 | `missing_keyboard_primitive` | not yet re-evaluated | dormant baseline | reopen only on live evidence |
 | `missing_clipboard_primitive` | not yet re-evaluated | dormant baseline | reopen only on live evidence |
-| `observation_gap` | partially closed on live browser path | partially closed in local baselines | semantic snapshot evidence now survives incident chatter and enabled the authoritative semantic click |
-| `verification_gap` | active but narrowed | partially closed in local baselines | `run-1773433420` terminated cleanly with `agent__complete`, but `run-1773433583` still hit `system::max_steps_reached` after typed success |
-| `recovery_gap` | partially closed on live browser path | partially closed in local baselines | duplicate snapshot incidents no longer choose page-leaving browser remedies |
-| `planner_gap` | narrowed / partially closed | several prior labels corrected away in local baselines | local live smoke now converts semantic snapshot evidence into `browser__click_element`; keep class open for harder slices |
-| `infra_or_bridge_gap` | active non-product blocker class | known from prior local diagnostics | current active blockers are WorkArena external dependency / credential constraints; the local `gpt-4o` refusal is corrected |
+| `observation_gap` | closed on the current authoritative local slice | partially closed in local baselines | semantic snapshot evidence now survives incident chatter and supports clean authoritative completion on both live local lanes |
+| `verification_gap` | closed on the current authoritative local slice | partially closed in local baselines | the remaining local issue narrowed to under-specified success criteria on `run-1773436568`, then closed via instruction-contract enrichment on `run-1773436925` |
+| `recovery_gap` | not active on the current authoritative local slice | partially closed in local baselines | keep duplicate snapshot and page-leaving remedy guards in place; reopen only on new live evidence |
+| `planner_gap` | not active on the current authoritative local slice | several prior labels corrected away in local baselines | previous post-verified-snapshot suspicion was corrected to the smaller `verification_gap` and then closed on the local smoke |
+| `infra_or_bridge_gap` | active current blocker class | known from prior local diagnostics | current active blockers are WorkArena external Python dependencies plus benchmark credentials/access, OSWorld DesktopEnv/provider prerequisites, and the retained transient intent-resolution availability failure under `run-1773436988` |
 
 Interpretation rules:
 
@@ -360,12 +640,14 @@ recorded in `Benchmark Snapshot` as baselines.
      authoritative local live browser pass on `HttpInferenceRuntime`
 
 2. Browser-first adapter bring-up
-   Status: in progress; repo-external blocker on actual external execution.
+   Status: blocked on actual external execution by a true repo-external constraint.
    Objective:
    - land the smallest viable BrowserGym-style integration on the existing repo
      stack
    Preferred targets:
    - WorkArena first if it is the lightest realistic path
+   - if WorkArena is truly repo-external blocked, use another browser-first
+     benchmark in the same frontier before switching to cross-app work
    - WebArenaVerified first if its verification surfaces are easier to make typed
    Requirements:
    - no parallel execution stack
@@ -373,15 +655,32 @@ recorded in `Benchmark Snapshot` as baselines.
    - use typed observations and typed postconditions
    Exit criteria:
    - authoritative smoke slice runs end to end on a live browser-first benchmark
+   Next smallest pending rung once blockers clear:
+   - target:
+     WorkArena bridge prepare smoke on the repo-real `BrowserDriver` session
+   - exact command shape:
+     `cargo test -p ioi-cli --test workarena_live_e2e workarena_bridge_prepare_smoke_uses_browser_driver_session -- --ignored --exact --nocapture`
+   - expected artifact root:
+     temporary bridge `state_path` emitted by the test; no dedicated repo
+     artifact directory exists yet for this rung
+   - smallest honest exit criterion:
+     preflight reports ready, the bridge returns `ok=true`, emits a non-empty
+     goal, and writes the task state file against the repo-real browser session
    Recorded evidence:
    - Command:
      `cargo test -p ioi-cli --test workarena_live_e2e workarena_bridge_preflight_reports_repo_external_blockers_or_ready_state -- --exact`
    - Outcome:
      typed preflight passed; actual external run still blocked by missing
      dependencies / credentials outside the repo
+   - Command:
+     `python3 tools/browsergym/workarena_cdp_bridge.py preflight`
+   - Outcome:
+     blocked diagnostic with explicit blockers: missing `playwright`, missing
+     `browsergym.workarena`, missing `INSTANCE_XOR_SEED`, and missing benchmark
+     credentials/access
 
 3. Browser-first live smoke slice
-   Status: partially complete.
+   Status: closed for the local live browser slice.
    Objective:
    - run a small authoritative live-inference slice and classify the first real
      failures
@@ -401,16 +700,20 @@ recorded in `Benchmark Snapshot` as baselines.
      `crates/cli/target/browser_live_runtime/run-1773430304`,
      `run-1773430382`, `run-1773430679`, `run-1773430842`,
      `run-1773431173`
-   - Authoritative pass:
+   - Authoritative progression:
      `crates/cli/target/browser_live_runtime/run-1773431386`,
-     `run-1773433420`, `run-1773433583`
+     `run-1773433420`, `run-1773433583`, `run-1773434964`,
+     `run-1773435501`, `run-1773435563`, `run-1773436568`,
+     `run-1773436925`, `run-1773437051`
+   - Diagnostic transient:
+     `crates/cli/target/browser_live_runtime/run-1773436988`
    - Current interpretation:
-     the local live browser slice now passes authoritatively on both `gpt-4o-mini`
-     and `gpt-4o`; the local refusal issue is closed, while the remaining shared
-     gap is a narrower post-success terminalization issue on `gpt-4o-mini`
+     the local live browser slice is now green on both live models; the next
+     harder browser-first rung remains the external WorkArena slice, which is
+     currently blocked by true repo-external constraints
 
 4. Shared browser-first gap closure
-   Status: in progress.
+   Status: closed for the current local browser gap.
    Objective:
    - close the first live-discovered reusable browser/computer-use gap using shared
      tooling/runtime/observation/recovery improvements
@@ -421,12 +724,18 @@ recorded in `Benchmark Snapshot` as baselines.
    - authoritative rerun passes and the broader slice does not regress
    Progress:
    - closed / partially closed:
-     duplicate snapshot page-leaving recovery drift and semantic browser snapshot
-     evidence loss and local `gpt-4o` refusal on placeholder-visual browser
-     prompts
+     duplicate snapshot page-leaving recovery drift, semantic browser snapshot
+     evidence loss, local `gpt-4o` refusal on placeholder-visual browser prompts,
+     duplicate-success replay drift, queued browser verification, and the final
+     narrowed local `verification_gap` caused by under-specified instruction-
+     contract success criteria
+   - recorded closure evidence:
+     `run-1773436925` on `gpt-4o-mini` and `run-1773437051` on `gpt-4o`
    - next read:
-     close the narrowed `verification_gap` on the local browser path, then carry
-     the hardened browser prompt shape into the first external slice
+     carry the hardened browser path into the first external slice when the
+     WorkArena blockers clear; if the browser-first external frontier remains
+     blocked, switch the next frontier to OSWorld / OSWorld-Verified rather than
+     expanding deterministic-local coverage
 
 5. Deterministic reproduction backfill
    Status: pending.
@@ -439,7 +748,8 @@ recorded in `Benchmark Snapshot` as baselines.
    - the live-discovered gap now has stable regression protection
 
 6. Browser-first exhaustion checkpoint
-   Status: pending; not yet exhausted.
+   Status: reached; browser-first external frontier is blocked by a true
+   repo-external constraint.
    Objective:
    - determine whether browser-first live discovery is still yielding product
      signal
@@ -447,19 +757,66 @@ recorded in `Benchmark Snapshot` as baselines.
    - either continue browser-first escalation, or define the next frontier as
      cross-app OSWorld / OSWorld-Verified
    Current read:
-   - browser-first discovery is still yielding product-relevant signal because the
-     remaining local gap is now narrow and model-sensitive (`verification_gap` on
-     `gpt-4o-mini`), after which the next unresolved frontier is external browser
-     benchmark bring-up
+   - browser-first discovery yielded a product-relevant shared local
+     `verification_gap`, and that gap is now closed on the authoritative local
+     browser slice
+   - browser-first external escalation is explicitly blocked by a true
+     repo-external constraint: WorkArena still lacks the required Python
+     dependencies and benchmark credentials/access, and no alternate
+     repo-integrated browser-first external adapter exists today
+   - the next frontier beyond the blocked browser-first external rung is
+     OSWorld / OSWorld-Verified; do not advance it in parallel with browser-first
+     work
 
 7. Cross-app escalation
-   Status: pending.
+   Status: in progress; blocked on actual OSWorld execution by a true
+   repo-external constraint in the current environment.
    Objective:
-   - move to OSWorld / OSWorld-Verified after browser-first discovery reaches a
-     stable checkpoint
+   - move to OSWorld / OSWorld-Verified only after browser-first discovery is
+     explicitly marked exhausted or blocked by a true repo-external constraint
+   Next frontier target:
+   - land and validate the smallest typed OSWorld DesktopEnv bring-up surface on
+     repo surfaces, then convert it to a quickstart-style smoke slice once
+     blockers clear
    Requirements:
    - keep the same artifact discipline and classification rules
    - prefer shared fixes over benchmark-local workarounds
+   Next smallest pending rung once blockers clear:
+   - target:
+     OSWorld DesktopEnv quickstart smoke on the resolved provider
+   - exact command shape:
+     `cargo test -p ioi-cli --test osworld_live_e2e osworld_bridge_quickstart_smoke_runs_minimal_task -- --ignored --exact --nocapture`
+   - expected artifact root:
+     temporary `result_path` emitted by the test; no dedicated repo artifact
+     directory exists yet for this rung
+   - smallest honest exit criterion:
+     preflight reports ready, the bridge returns `ok=true`, writes the result
+     JSON, and reports non-empty reset/step observation keys from DesktopEnv
+   Recorded evidence:
+   - Command:
+     `python3 -m py_compile tools/osworld/osworld_desktop_env_bridge.py`
+   - Outcome:
+     passed
+   - Command:
+     `cargo test -p ioi-cli --test osworld_live_e2e osworld_bridge_preflight_reports_repo_external_blockers_or_ready_state -- --exact --nocapture`
+   - Outcome:
+     typed preflight passed; adapter bring-up is wired into repo tests
+   - Command:
+     `python3 tools/osworld/osworld_desktop_env_bridge.py preflight`
+   - Outcome:
+     blocked diagnostic with explicit blockers: missing `desktop_env`, missing
+     `gymnasium`, and no supported provider command (`docker`, `vmrun`, or
+     `VBoxManage`) in the current environment
+   - Command:
+     `python3 -m pip install --user desktop-env gymnasium`
+   - Outcome:
+     failed because `/usr/bin/python3` has no `pip`
+   - Command:
+     `python3 -m venv /tmp/ioi-osworld-venv`
+   - Outcome:
+     failed because `ensurepip` / `python3.12-venv` is unavailable, confirming
+     the missing Python dependencies cannot be safely bootstrapped from this
+     host session
    Exit criteria:
    - first authoritative cross-app smoke slice recorded, or a true repo-external
      blocker documented
@@ -482,7 +839,8 @@ For every meaningful iteration:
    - typed postconditions that failed
 4. When a live run passes the typed browser postcondition but does not terminate
    cleanly, record the run as authoritative for capability proof while separately
-   classifying the remaining issue as `verification_gap` with the corrected gap
+   classifying the remaining issue as the smallest honest class (for example
+   `verification_gap`, then a later-narrowed `planner_gap`) with the corrected
    classification recorded explicitly.
 5. Do not claim success from motion, screenshots, or logs alone. Require typed
    receipts, typed observations, or typed postconditions.
@@ -500,6 +858,8 @@ For every meaningful iteration:
    live discovery evidence in summaries or decision-making.
 11. When the browser-first frontier reaches exhaustion, define the next frontier
     explicitly before ending the iteration.
+12. Do not alternate between browser-first external work and cross-app external
+    work within the same iteration band; keep one active frontier at a time.
 
 Decision rules:
 
@@ -510,3 +870,6 @@ Decision rules:
 - If browser-first live runs are unavailable because the repo lacks an adapter,
   the immediate task is to land the adapter on existing repo surfaces, not to
   continue expanding deterministic local workflow ladders.
+- Do not switch from WorkArena/browser-first to OSWorld/cross-app just because
+  the latter looks interesting; switch only after the browser-first frontier is
+  explicitly exhausted or hard-blocked.

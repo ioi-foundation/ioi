@@ -46,8 +46,9 @@ mod routing;
 mod web_pipeline;
 
 use self::completion::{
-    maybe_complete_command_probe, maybe_complete_mail_reply, maybe_complete_open_app,
-    maybe_complete_screenshot_capture, normalize_output_only_success,
+    maybe_complete_browser_snapshot_interaction, maybe_complete_command_probe,
+    maybe_complete_mail_reply, maybe_complete_open_app, maybe_complete_screenshot_capture,
+    normalize_output_only_success,
 };
 use self::failure::{apply_queue_failure_policies, QueueFailureHandlingOutcome};
 use self::routing::{is_web_research_scope, resolve_queue_routing_context as resolve_routing};
@@ -872,6 +873,17 @@ pub async fn process_queue_item(
         &mut out,
         &mut err,
         &mut completion_summary,
+        p.session_id,
+    );
+    maybe_complete_browser_snapshot_interaction(
+        agent_state,
+        &tool_name,
+        is_gated,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
         p.session_id,
     );
     maybe_complete_mail_reply(

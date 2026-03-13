@@ -2,6 +2,7 @@ use crate::agentic::desktop::service::step::action::{
     has_execution_postcondition, is_command_probe_intent, is_ui_capture_screenshot_intent,
     summarize_command_probe_output,
 };
+use crate::agentic::desktop::service::step::browser_completion::browser_snapshot_completion;
 use crate::agentic::desktop::service::step::helpers::should_auto_complete_open_app_goal;
 use crate::agentic::desktop::service::step::intent_resolver::tool_has_capability;
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
@@ -256,9 +257,56 @@ pub(super) fn maybe_complete_screenshot_capture(
     );
 }
 
+pub(super) fn maybe_complete_browser_snapshot_interaction(
+    agent_state: &mut AgentState,
+    tool_name: &str,
+    is_gated: bool,
+    success: &mut bool,
+    out: &mut Option<String>,
+    err: &mut Option<String>,
+    completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    session_id: [u8; 32],
+) {
+    if is_gated || !*success || completion_summary.is_some() {
+        return;
+    }
+
+    let Some(completion) =
+        browser_snapshot_completion(agent_state, tool_name, out.as_deref())
+    else {
+        return;
+    };
+
+    complete_with_summary(
+        agent_state,
+        completion.summary,
+        success,
+        out,
+        err,
+        completion_summary,
+        false,
+    );
+    verification_checks.push("browser_snapshot_success_criteria_auto_completed=true".to_string());
+    verification_checks.push(format!(
+        "browser_snapshot_success_criteria_count={}",
+        completion.matched_success_criteria.len()
+    ));
+    verification_checks.push(format!(
+        "browser_snapshot_success_criteria={}",
+        completion.matched_success_criteria.join(",")
+    ));
+    verification_checks.push("terminal_chat_reply_ready=true".to_string());
+    log::info!(
+        "Auto-completed browser snapshot interaction for session {}.",
+        hex::encode(&session_id[..4])
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::desktop::service::step::action::mark_execution_postcondition;
     use crate::agentic::desktop::types::{AgentMode, ExecutionTier};
     use ioi_types::app::agentic::{
         CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
@@ -359,6 +407,7 @@ mod tests {
     fn completes_mail_reply_after_first_successful_provider_action() {
         let mut agent_state = agent_state_with_mail_reply();
         let session_id = agent_state.session_id;
+        mark_execution_postcondition(&mut agent_state.tool_execution_log, "mail.reply.completed");
         agent_state
             .execution_queue
             .push(ioi_types::app::ActionRequest {
@@ -400,6 +449,7 @@ mod tests {
         let mut agent_state = agent_state_with_mail_reply();
         let session_id = agent_state.session_id;
         agent_state.resolved_intent = None;
+        mark_execution_postcondition(&mut agent_state.tool_execution_log, "mail.reply.completed");
         agent_state
             .execution_queue
             .push(ioi_types::app::ActionRequest {

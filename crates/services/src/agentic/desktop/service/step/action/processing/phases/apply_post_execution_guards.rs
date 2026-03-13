@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::desktop::service::step::browser_completion::browser_snapshot_completion;
 
 fn blocked_web_read_note(read_url: &str, challenged: bool) -> String {
     if challenged {
@@ -263,6 +264,42 @@ pub(crate) async fn apply_post_execution_guards(
         action_output = Some(note);
         agent_state.status = AgentStatus::Running;
         verification_checks.push("invalid_tool_call_bootstrap_web=true".to_string());
+    }
+
+    if !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+        && success
+        && terminal_chat_reply_output.is_none()
+    {
+        if let Some(completion) = browser_snapshot_completion(
+            agent_state,
+            &current_tool_name,
+            history_entry.as_deref().or(action_output.as_deref()),
+        ) {
+            let summary = completion.summary;
+            history_entry = Some(summary.clone());
+            action_output = Some(summary.clone());
+            terminal_chat_reply_output = Some(summary.clone());
+            is_lifecycle_action = true;
+            stop_condition_hit = true;
+            escalation_path = None;
+            agent_state.status = AgentStatus::Completed(Some(summary));
+            agent_state.execution_queue.clear();
+            agent_state.recent_actions.clear();
+            agent_state.pending_search_completion = None;
+            verification_checks
+                .push("browser_snapshot_success_criteria_auto_completed=true".to_string());
+            verification_checks.push(format!(
+                "browser_snapshot_success_criteria_count={}",
+                completion.matched_success_criteria.len()
+            ));
+            verification_checks.push(format!(
+                "browser_snapshot_success_criteria={}",
+                completion.matched_success_criteria.join(",")
+            ));
+            verification_checks.push("terminal_chat_reply_ready=true".to_string());
+        }
     }
 
     if !is_gated
