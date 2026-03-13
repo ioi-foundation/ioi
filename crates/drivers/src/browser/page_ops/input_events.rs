@@ -40,7 +40,9 @@ impl BrowserDriver {
         }
     }
 
-    fn parse_keyboard_modifier(modifier: &str) -> std::result::Result<(&'static str, i64), BrowserError> {
+    fn parse_keyboard_modifier(
+        modifier: &str,
+    ) -> std::result::Result<(&'static str, i64), BrowserError> {
         match modifier.trim().to_ascii_lowercase().as_str() {
             "alt" | "option" => Ok(("Alt", 1)),
             "control" | "ctrl" => Ok(("Control", 2)),
@@ -51,6 +53,57 @@ impl BrowserDriver {
                 other
             ))),
         }
+    }
+
+    async fn dispatch_text_keyup(
+        &self,
+        selector: Option<&str>,
+        text: &str,
+    ) -> std::result::Result<(), BrowserError> {
+        let selector_json = serde_json::to_string(&selector)
+            .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
+        let key = text
+            .chars()
+            .last()
+            .map(|ch| ch.to_string())
+            .unwrap_or_else(|| "Unidentified".to_string());
+        let key_json = serde_json::to_string(&key)
+            .map_err(|e| BrowserError::Internal(format!("Key encode failed: {}", e)))?;
+        let helpers = Self::deep_dom_helper_js();
+        let script = format!(
+            r#"(() => {{
+                const selector = {selector_json};
+                const key = {key_json};
+                {helpers}
+                const el = selector ? deepQuerySelector(selector) : deepActiveElement();
+                if (!el) {{
+                    return false;
+                }}
+                try {{
+                    const upper = key.length === 1 ? key.toUpperCase() : key;
+                    const keyCode =
+                        upper.length === 1 ? upper.charCodeAt(0) : 0;
+                    const event = new KeyboardEvent("keyup", {{
+                        key,
+                        code: key.length === 1 ? `Key${{upper}}` : key,
+                        keyCode,
+                        which: keyCode,
+                        bubbles: true,
+                        cancelable: true,
+                        composed: true,
+                    }});
+                    el.dispatchEvent(event);
+                    return true;
+                }} catch (_e) {{
+                    return false;
+                }}
+            }})()"#,
+            selector_json = selector_json,
+            key_json = key_json,
+            helpers = helpers
+        );
+        let _: bool = self.evaluate_js(&script).await?;
+        Ok(())
     }
 
     pub async fn reset_pointer_state(&self) {
@@ -260,6 +313,10 @@ impl BrowserDriver {
         page.execute(InsertTextParams::new(text))
             .await
             .map_err(|e| BrowserError::Internal(format!("Type failed: {}", e)))?;
+
+        if !text.is_empty() {
+            self.dispatch_text_keyup(selector, text).await?;
+        }
 
         tokio::time::sleep(Duration::from_millis(50)).await;
         Ok(())

@@ -252,10 +252,19 @@ impl ToolNormalizer {
                         // Ensure arguments are numbers (LLM might pass strings)
                         if let Some(args) = map_mut.get_mut("arguments") {
                             if let Some(x) = args.get("x").and_then(|v| v.as_f64()) {
-                                args["x"] = json!(x as u32);
+                                args["x"] = json!(x);
                             }
                             if let Some(y) = args.get("y").and_then(|v| v.as_f64()) {
-                                args["y"] = json!(y as u32);
+                                args["y"] = json!(y);
+                            }
+                        }
+                    } else if name == "browser__move_mouse" {
+                        if let Some(args) = map_mut.get_mut("arguments") {
+                            if let Some(x) = args.get("x").and_then(|v| v.as_f64()) {
+                                args["x"] = json!(x);
+                            }
+                            if let Some(y) = args.get("y").and_then(|v| v.as_f64()) {
+                                args["y"] = json!(y);
                             }
                         }
                     } else if name == "browser__scroll" {

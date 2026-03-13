@@ -230,9 +230,9 @@ pub enum AgentTool {
     #[serde(rename = "browser__move_mouse")]
     BrowserMoveMouse {
         /// X coordinate relative to viewport.
-        x: u32,
+        x: f64,
         /// Y coordinate relative to viewport.
-        y: u32,
+        y: f64,
     },
 
     /// Press a mouse button at the current browser pointer position.
@@ -255,9 +255,9 @@ pub enum AgentTool {
     #[serde(rename = "browser__synthetic_click")]
     BrowserSyntheticClick {
         /// X coordinate relative to viewport.
-        x: u32,
+        x: f64,
         /// Y coordinate relative to viewport.
-        y: u32,
+        y: f64,
     },
 
     /// Scroll the browser viewport (headless-compatible).

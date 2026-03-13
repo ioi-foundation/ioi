@@ -266,7 +266,7 @@ fn browser_pointer_primitives_target_map_to_browser_interact_scope() {
         selector: Some("#highlight".to_string()),
         id: None,
     };
-    let move_tool = AgentTool::BrowserMoveMouse { x: 120, y: 80 };
+    let move_tool = AgentTool::BrowserMoveMouse { x: 120.0, y: 80.0 };
     let down_tool = AgentTool::BrowserMouseDown {
         button: Some("left".to_string()),
     };

@@ -312,7 +312,10 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         ToolCapabilityBinding {
             tool_name: "browser__snapshot".to_string(),
             action_target: ActionTarget::BrowserInspect,
-            capabilities: vec![capability("browser.inspect")],
+            capabilities: vec![
+                capability("browser.inspect"),
+                capability("browser.interact"),
+            ],
         },
         ToolCapabilityBinding {
             tool_name: "browser__click".to_string(),
@@ -388,6 +391,14 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             tool_name: "browser__screenshot".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: vec![capability("browser.interact")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__canvas_summary".to_string(),
+            action_target: ActionTarget::BrowserInspect,
+            capabilities: vec![
+                capability("browser.inspect"),
+                capability("browser.interact"),
+            ],
         },
         ToolCapabilityBinding {
             tool_name: "browser__wait".to_string(),

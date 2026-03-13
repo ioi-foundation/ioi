@@ -45,8 +45,8 @@ use tokio::sync::broadcast;
 use tokio::time::{sleep, timeout};
 
 use super::types::{
-    ArtifactBundle, BenchmarkSupportState, BridgeInteractiveElement, BridgeScrollTarget,
-    BridgeState, ComputerUseCase, ComputerUseCaseResult, ComputerUseMode,
+    ArtifactBundle, BenchmarkSupportState, BridgeDomElement, BridgeInteractiveElement,
+    BridgeScrollTarget, BridgeState, ComputerUseCase, ComputerUseCaseResult, ComputerUseMode,
     KernelBehaviorObservation, LocalJudge, OracleStepRecord, RecipeId, SuiteConfig, TaskSet,
     ToolStepRecord, ValidationSummary,
 };
@@ -947,6 +947,75 @@ fn parse_count_shape_descriptor(query: &str) -> Option<String> {
     between(query, "How many ", "s are there?").map(str::to_string)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GuessNumberFeedback {
+    Correct,
+    Higher(i32),
+    Lower(i32),
+}
+
+fn parse_guess_number_feedback(visible_text: &str) -> Option<GuessNumberFeedback> {
+    let content = trim_submit_button_suffix(visible_text);
+    let normalized = normalize_label(content);
+    if normalized.contains("correct!") {
+        return Some(GuessNumberFeedback::Correct);
+    }
+    if let Some(feedback) = normalized
+        .split_once("higher than")
+        .map(|(_, suffix)| suffix.trim())
+    {
+        return parse_first_integer(feedback).map(GuessNumberFeedback::Higher);
+    }
+    if let Some(feedback) = normalized
+        .split_once("lower than")
+        .map(|(_, suffix)| suffix.trim())
+    {
+        return parse_first_integer(feedback).map(GuessNumberFeedback::Lower);
+    }
+    None
+}
+
+fn social_media_matching_rows(visible_text: &str, target_user: &str) -> Vec<usize> {
+    let content = trim_submit_button_suffix(visible_text);
+    let tokens = content.split_whitespace().collect::<Vec<_>>();
+    let target = normalize_label(target_user);
+    let uses_time_marker = content.contains(" ago");
+    let mut row_index = 0;
+    let mut rows = Vec::new();
+
+    for index in 0..tokens.len() {
+        let token = normalize_label(tokens[index]);
+        if !token.starts_with('@') {
+            continue;
+        }
+
+        let is_row_start = if uses_time_marker {
+            let Some(time_token) = tokens.get(index + 1) else {
+                continue;
+            };
+            let Some(next_token) = tokens.get(index + 2) else {
+                continue;
+            };
+            time_token
+                .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+                .ends_with('h')
+                && normalize_label(next_token) == "ago"
+        } else {
+            true
+        };
+        if !is_row_start {
+            continue;
+        }
+
+        row_index += 1;
+        if token == target {
+            rows.push(row_index);
+        }
+    }
+
+    rows
+}
+
 fn bridge_visible_text_excerpt(bridge_state: &BridgeState) -> &str {
     bridge_state
         .info
@@ -1587,11 +1656,11 @@ fn write_text_file(path: &PathBuf, content: &str) -> Result<()> {
     Ok(())
 }
 
-fn round_pointer_coordinate(value: f64) -> Result<u32> {
+fn validate_pointer_coordinate(value: f64) -> Result<f64> {
     if !value.is_finite() || value < 0.0 || value > u32::MAX as f64 {
         return Err(anyhow!("invalid pointer coordinate: {}", value));
     }
-    Ok(value.round() as u32)
+    Ok(value)
 }
 
 struct DirectHarness {
@@ -1829,8 +1898,8 @@ impl DirectHarness {
         let result = self
             .execute_tool_with_state_timeout(
                 AgentTool::BrowserSyntheticClick {
-                    x: round_pointer_coordinate(x)?,
-                    y: round_pointer_coordinate(y)?,
+                    x: validate_pointer_coordinate(x)?,
+                    y: validate_pointer_coordinate(y)?,
                 },
                 POINTER_BRIDGE_STATE_TIMEOUT,
             )
@@ -1879,8 +1948,8 @@ impl DirectHarness {
         let result = self
             .execute_tool_with_state_timeout(
                 AgentTool::BrowserMoveMouse {
-                    x: round_pointer_coordinate(x)?,
-                    y: round_pointer_coordinate(y)?,
+                    x: validate_pointer_coordinate(x)?,
+                    y: validate_pointer_coordinate(y)?,
                 },
                 POINTER_BRIDGE_STATE_TIMEOUT,
             )
@@ -2469,21 +2538,92 @@ fn bridge_checkbox_checked_for_label(
 }
 
 fn bridge_focus_matches(bridge_state: &BridgeState, selector: &str) -> bool {
+    if let Some(id) = selector.strip_prefix('#').filter(|id| {
+        id.chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+    }) {
+        return bridge_state.info.focused_id.as_deref() == Some(id);
+    }
     match selector {
-        "#tt" => bridge_state.info.focused_id.as_deref() == Some("tt"),
-        "#tt1" => bridge_state.info.focused_id.as_deref() == Some("tt1"),
-        "#tt2" => bridge_state.info.focused_id.as_deref() == Some("tt2"),
-        "#tt3" => bridge_state.info.focused_id.as_deref() == Some("tt3"),
-        "#math-answer" => bridge_state.info.focused_id.as_deref() == Some("math-answer"),
-        "#answer-input" => bridge_state.info.focused_id.as_deref() == Some("answer-input"),
-        "#tags" => bridge_state.info.focused_id.as_deref() == Some("tags"),
-        "#username" => bridge_state.info.focused_id.as_deref() == Some("username"),
-        "#password" => bridge_state.info.focused_id.as_deref() == Some("password"),
-        "#verify" => bridge_state.info.focused_id.as_deref() == Some("verify"),
-        "#search-text" => bridge_state.info.focused_id.as_deref() == Some("search-text"),
-        "#text-area" => bridge_state.info.focused_id.as_deref() == Some("text-area"),
         _ => false,
     }
+}
+
+fn bridge_dom_class_contains(element: &BridgeDomElement, class_name: &str) -> bool {
+    element
+        .attributes
+        .get("class")
+        .map(|value| value.split_whitespace().any(|entry| entry == class_name))
+        .unwrap_or(false)
+}
+
+fn bridge_dom_selector_starts_with(element: &BridgeDomElement, prefix: &str) -> bool {
+    element
+        .selector
+        .as_deref()
+        .map(|selector| selector.starts_with(prefix))
+        .unwrap_or(false)
+}
+
+fn bridge_dom_summary(element: &BridgeDomElement) -> BrowserDomElementSummary {
+    BrowserDomElementSummary {
+        tag: element.tag.clone(),
+        text: element.text.clone(),
+        visible: element.visible,
+        attributes: element
+            .attributes
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect(),
+        x: element.x,
+        y: element.y,
+        width: element.width,
+        height: element.height,
+        center_x: element.center_x,
+        center_y: element.center_y,
+    }
+}
+
+fn bridge_dom_summaries_with_selector_prefix(
+    elements: &[BridgeDomElement],
+    prefix: &str,
+) -> Vec<BrowserDomElementSummary> {
+    elements
+        .iter()
+        .filter(|element| bridge_dom_selector_starts_with(element, prefix))
+        .map(bridge_dom_summary)
+        .collect()
+}
+
+fn bridge_dom_numeric_attribute(element: &BridgeDomElement, name: &str) -> Option<f64> {
+    element
+        .attributes
+        .get(name)
+        .and_then(|value| value.trim().parse::<f64>().ok())
+}
+
+fn selector_nth_of_type_after_prefix(selector: &str, prefix: &str) -> Option<usize> {
+    let suffix = selector.strip_prefix(prefix)?;
+    let digits = suffix
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect::<String>();
+    digits.parse::<usize>().ok()
+}
+
+fn bridge_find_greatest_dom_card(elements: &[BridgeDomElement]) -> Option<(usize, i32)> {
+    elements
+        .iter()
+        .filter(|element| element.visible)
+        .filter(|element| bridge_dom_class_contains(element, "card"))
+        .filter_map(|element| {
+            let selector = element.selector.as_deref()?;
+            let card_index =
+                selector_nth_of_type_after_prefix(selector, "#cardholder > div:nth-of-type(")?;
+            let value = parse_first_integer(&element.text)?;
+            Some((card_index, value))
+        })
+        .max_by_key(|(_, value)| *value)
 }
 
 fn scroll_target_by_id<'a>(
@@ -2517,7 +2657,11 @@ fn scroll_target_reached(target: &BridgeScrollTarget, go_bottom: bool) -> bool {
 }
 
 fn scroll_page_key(go_bottom: bool) -> &'static str {
-    if go_bottom { "PageDown" } else { "PageUp" }
+    if go_bottom {
+        "PageDown"
+    } else {
+        "PageUp"
+    }
 }
 
 fn scroll_jump_key(go_bottom: bool) -> (&'static str, &'static [&'static str]) {
@@ -3244,22 +3388,28 @@ async fn run_find_midpoint_sequence(harness: &mut DirectHarness) -> Result<()> {
             visible_circles.len()
         ));
     }
-    let svg_rect = harness
-        .browser
-        .get_selector_rect_window_logical("#svg-grid")
-        .await
-        .map_err(|err| anyhow!("find-midpoint svg rect: {}", err))?;
-    let point_a_x = svg_numeric_attribute(&visible_circles[0], "cx")
-        .unwrap_or(visible_circles[0].center_x - svg_rect.x);
-    let point_a_y = svg_numeric_attribute(&visible_circles[0], "cy")
-        .unwrap_or(visible_circles[0].center_y - svg_rect.y);
-    let point_b_x = svg_numeric_attribute(&visible_circles[1], "cx")
-        .unwrap_or(visible_circles[1].center_x - svg_rect.x);
-    let point_b_y = svg_numeric_attribute(&visible_circles[1], "cy")
-        .unwrap_or(visible_circles[1].center_y - svg_rect.y);
-    let midpoint_x = svg_rect.x + ((point_a_x + point_b_x) / 2.0);
-    let midpoint_y = svg_rect.y + ((point_a_y + point_b_y) / 2.0);
-    harness.click_point(midpoint_x, midpoint_y).await?;
+    let midpoint = if let (Some(point_a_x), Some(point_a_y), Some(point_b_x), Some(point_b_y)) = (
+        svg_numeric_attribute(&visible_circles[0], "cx"),
+        svg_numeric_attribute(&visible_circles[0], "cy"),
+        svg_numeric_attribute(&visible_circles[1], "cx"),
+        svg_numeric_attribute(&visible_circles[1], "cy"),
+    ) {
+        let query_rect = harness
+            .browser
+            .get_selector_rect_window_logical("#query")
+            .await
+            .map_err(|err| anyhow!("find-midpoint query rect: {}", err))?;
+        (
+            (point_a_x + point_b_x) / 2.0,
+            (point_a_y + point_b_y) / 2.0 + query_rect.height,
+        )
+    } else {
+        (
+            (visible_circles[0].center_x + visible_circles[1].center_x) / 2.0,
+            (visible_circles[0].center_y + visible_circles[1].center_y) / 2.0,
+        )
+    };
+    harness.click_point(midpoint.0, midpoint.1).await?;
     harness.wait_ms(80).await?;
     harness.click_selector("#subbtn").await?;
     Ok(())
@@ -3277,11 +3427,11 @@ mod tests {
         parse_stock_market_threshold, parse_stock_market_visible_price,
         should_break_agent_loop_for_reward, solve_simple_algebra_problem,
         solve_simple_arithmetic_problem, svg_shape_kind, visible_table_value_map, BridgeClient,
-        ComputerUseCase, MiniwobAgentRuntime,
+        ComputerUseCase, FindGreatestState, GuessNumberState, MiniwobAgentRuntime, TextEditorPhase,
     };
     use crate::computer_use_suite::types::{
-        AllowedToolProfile, BridgeField, BridgeInfo, BridgeInteractiveElement, BridgeScrollTarget,
-        BridgeState, LocalJudge, RecipeId, TaskSet,
+        AllowedToolProfile, BridgeDomElement, BridgeField, BridgeInfo, BridgeInteractiveElement,
+        BridgeScrollTarget, BridgeState, LocalJudge, RecipeId, TaskSet,
     };
     use ioi_drivers::browser::BrowserDomElementSummary;
     use ioi_types::app::agentic::StepTrace;
@@ -3320,6 +3470,11 @@ mod tests {
             last_scroll_action: Mutex::new(None),
             last_copy_paste_action: Mutex::new(None),
             last_hover_shape_phase: Mutex::new(None),
+            text_editor_phase: Mutex::new(TextEditorPhase::default()),
+            guess_number_state: Mutex::new(GuessNumberState::default()),
+            find_greatest_state: Mutex::new(FindGreatestState::default()),
+            count_sides_estimate: Mutex::new(None),
+            pending_social_media_menu_action: Mutex::new(None),
         }
     }
 
@@ -3624,6 +3779,11 @@ mod tests {
             last_scroll_action: Mutex::new(None),
             last_copy_paste_action: Mutex::new(None),
             last_hover_shape_phase: Mutex::new(None),
+            text_editor_phase: Mutex::new(TextEditorPhase::default()),
+            guess_number_state: Mutex::new(GuessNumberState::default()),
+            find_greatest_state: Mutex::new(FindGreatestState::default()),
+            count_sides_estimate: Mutex::new(None),
+            pending_social_media_menu_action: Mutex::new(None),
         };
         let bridge_state = BridgeState {
             utterance: "Keep the mouse hovered over the colored square.".to_string(),
@@ -3753,6 +3913,11 @@ mod tests {
             last_scroll_action: Mutex::new(None),
             last_copy_paste_action: Mutex::new(None),
             last_hover_shape_phase: Mutex::new(Some("await_post_hover_2".to_string())),
+            text_editor_phase: Mutex::new(TextEditorPhase::default()),
+            guess_number_state: Mutex::new(GuessNumberState::default()),
+            find_greatest_state: Mutex::new(FindGreatestState::default()),
+            count_sides_estimate: Mutex::new(None),
+            pending_social_media_menu_action: Mutex::new(None),
         };
         let bridge_state = BridgeState {
             utterance: "Keep the mouse hovered over the colored square.".to_string(),
@@ -4273,6 +4438,1184 @@ mod tests {
     }
 
     #[test]
+    fn form_sequence_agent_uses_arrow_key_after_slider_focus() {
+        let runtime = test_runtime(RecipeId::FormSequence, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Select 6 with the slider, click the 3rd checkbox, then hit Submit."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                focused_tag: Some("span".to_string()),
+                visible_text_excerpt: Some(
+                    "Select 6 with the slider, click the 3rd checkbox, then hit Submit. 4 Submit Last reward: 0.00"
+                        .to_string(),
+                ),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#checkbox-3".to_string()),
+                    id: Some("checkbox-3".to_string()),
+                    checked: Some(false),
+                    visible: true,
+                    disabled: false,
+                    ..BridgeInteractiveElement::default()
+                }],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse form-sequence action");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__key")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("key"))
+                .and_then(Value::as_str),
+            Some("ArrowRight")
+        );
+    }
+
+    #[test]
+    fn form_sequence_agent_waits_before_repeating_slider_adjustment() {
+        let runtime = test_runtime(RecipeId::FormSequence, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Select 6 with the slider, click the 3rd checkbox, then hit Submit."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                focused_tag: Some("span".to_string()),
+                visible_text_excerpt: Some(
+                    "Select 6 with the slider, click the 3rd checkbox, then hit Submit. 4 Submit Last reward: 0.00"
+                        .to_string(),
+                ),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#checkbox-3".to_string()),
+                    id: Some("checkbox-3".to_string()),
+                    checked: Some(false),
+                    visible: true,
+                    disabled: false,
+                    ..BridgeInteractiveElement::default()
+                }],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let _ = runtime.next_action(&bridge_state);
+        let followup = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&followup).expect("parse form-sequence wait");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__wait")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("ms"))
+                .and_then(Value::as_u64),
+            Some(120)
+        );
+    }
+
+    #[test]
+    fn form_sequence_3_agent_uses_dropdown_value_to_detect_completion() {
+        let runtime = test_runtime(RecipeId::FormSequence3, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Choose 6ft 1in from the dropdown, then click the button labeled \"No\"."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                interactive_elements: vec![
+                    BridgeInteractiveElement {
+                        selector: Some("#dropdown".to_string()),
+                        id: Some("dropdown".to_string()),
+                        value: Some("6ft 1in".to_string()),
+                        visible: true,
+                        disabled: false,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#button-no".to_string()),
+                        text: "No".to_string(),
+                        visible: true,
+                        disabled: false,
+                        ..BridgeInteractiveElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse form-sequence-3 action");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__click")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#button-no")
+        );
+    }
+
+    #[test]
+    fn text_editor_agent_selects_target_word_offsets() {
+        let runtime = test_runtime(RecipeId::TextEditor, 1.0);
+        let bridge_state = BridgeState {
+            utterance:
+                "Using the text editor, give the text pharetra the style bold and press Submit."
+                    .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                visible_text_excerpt: Some(
+                    "Using the text editor, give the text pharetra the style bold and press Submit. Ut pharetra, eu. Submit Last reward: 0.00"
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse text-editor action");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__select_text")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("start_offset"))
+                .and_then(Value::as_u64),
+            Some(3)
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("end_offset"))
+                .and_then(Value::as_u64),
+            Some(11)
+        );
+    }
+
+    #[test]
+    fn text_editor_agent_advances_to_apply_phase_after_selection() {
+        let runtime = test_runtime(RecipeId::TextEditor, 1.0);
+        let bridge_state = BridgeState {
+            utterance:
+                "Using the text editor, give the text pharetra the style bold and press Submit."
+                    .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                visible_text_excerpt: Some(
+                    "Using the text editor, give the text pharetra the style bold and press Submit. Ut pharetra, eu. Submit Last reward: 0.00"
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let _ = runtime.next_action(&bridge_state);
+        let followup = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&followup).expect("parse text-editor apply");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__key")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("key"))
+                .and_then(Value::as_str),
+            Some("b")
+        );
+    }
+
+    #[test]
+    fn guess_number_agent_updates_bounds_from_feedback() {
+        let runtime = test_runtime(RecipeId::GuessNumber, 1.0);
+        runtime.update_guess_number_state(|state| state.last_submitted_guess = Some(4));
+        let bridge_state = BridgeState {
+            utterance:
+                "Guess the number between 0-9 and press Submit. Use the feedback below to find the right number."
+                    .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                focused_id: Some("tt".to_string()),
+                visible_text_excerpt: Some(
+                    "Guess the number between 0-9 and press Submit. Use the feedback below to find the right number. The number is higher than 4. Submit Last reward: 0.00"
+                        .to_string(),
+                ),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#tt".to_string()),
+                    id: Some("tt".to_string()),
+                    value: Some("4".to_string()),
+                    visible: true,
+                    disabled: false,
+                    ..BridgeInteractiveElement::default()
+                }],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse guess-number action");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__key")
+        );
+        assert_eq!(runtime.guess_number_state().low, 5);
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("key"))
+                .and_then(Value::as_str),
+            Some("a")
+        );
+    }
+
+    #[test]
+    fn guess_number_agent_selects_all_then_retypes_and_submits() {
+        let runtime = test_runtime(RecipeId::GuessNumber, 1.0);
+        runtime.update_guess_number_state(|state| state.last_submitted_guess = Some(4));
+        let bridge_state = BridgeState {
+            utterance:
+                "Guess the number between 0-9 and press Submit. Use the feedback below to find the right number."
+                    .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                focused_id: Some("tt".to_string()),
+                visible_text_excerpt: Some(
+                    "Guess the number between 0-9 and press Submit. Use the feedback below to find the right number. The number is higher than 4. Submit Last reward: 0.00"
+                        .to_string(),
+                ),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#tt".to_string()),
+                    id: Some("tt".to_string()),
+                    value: Some("4".to_string()),
+                    visible: true,
+                    disabled: false,
+                    ..BridgeInteractiveElement::default()
+                }],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let first_action = runtime.next_action(&bridge_state);
+        let first_parsed: Value =
+            serde_json::from_slice(&first_action).expect("parse guess-number select-all");
+        assert_eq!(
+            first_parsed.get("name").and_then(Value::as_str),
+            Some("browser__key")
+        );
+        assert_eq!(
+            first_parsed
+                .get("arguments")
+                .and_then(|args| args.get("key"))
+                .and_then(Value::as_str),
+            Some("a")
+        );
+
+        let second_action = runtime.next_action(&bridge_state);
+        let second_parsed: Value =
+            serde_json::from_slice(&second_action).expect("parse guess-number type");
+        assert_eq!(
+            second_parsed.get("name").and_then(Value::as_str),
+            Some("browser__type")
+        );
+        assert_eq!(
+            second_parsed
+                .get("arguments")
+                .and_then(|args| args.get("text"))
+                .and_then(Value::as_str),
+            Some("7")
+        );
+
+        let third_action = runtime.next_action(&bridge_state);
+        let third_parsed: Value =
+            serde_json::from_slice(&third_action).expect("parse guess-number submit");
+        assert_eq!(
+            third_parsed.get("name").and_then(Value::as_str),
+            Some("browser__key")
+        );
+        assert_eq!(
+            third_parsed
+                .get("arguments")
+                .and_then(|args| args.get("key"))
+                .and_then(Value::as_str),
+            Some("Enter")
+        );
+    }
+
+    #[test]
+    fn social_media_agent_opens_then_uses_more_menu() {
+        let runtime = test_runtime(RecipeId::SocialMedia, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "For the user @olin, click on the \"Share via DM\" button.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                visible_text_excerpt: Some(
+                    "For the user @olin, click on the \"Share via DM\" button. Cotton @olin 14h ago Elit. Quam id tincidunt. Last reward: 0.00"
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let first_action = runtime.next_action(&bridge_state);
+        let first_parsed: Value =
+            serde_json::from_slice(&first_action).expect("parse social-media menu open");
+        assert_eq!(
+            first_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#area .media:nth-of-type(1) .more")
+        );
+
+        let second_action = runtime.next_action(&bridge_state);
+        let second_parsed: Value =
+            serde_json::from_slice(&second_action).expect("parse social-media menu action");
+        assert_eq!(
+            second_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#area .media:nth-of-type(1) ul:not(.hide) .share")
+        );
+    }
+
+    #[test]
+    fn email_inbox_agent_opens_search_from_main_view() {
+        let runtime = test_runtime(RecipeId::EmailInbox, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Find the email by Lonna and reply to them with the text \"see you\"."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#search-input".to_string()),
+                    id: Some("search-input".to_string()),
+                    visible: false,
+                    disabled: false,
+                    ..BridgeInteractiveElement::default()
+                }],
+                visible_text_excerpt: Some(
+                    "Find the email by Lonna and reply to them with the text \"see you\". Primary Lonna Diam. Erat mauris mor.. Last reward: 0.00"
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse email search action");
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#open-search")
+        );
+    }
+
+    #[test]
+    fn email_inbox_agent_uses_open_email_actions_for_delete() {
+        let runtime = test_runtime(RecipeId::EmailInbox, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Find the email by Lonna and click the trash icon to delete it."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                visible_text_excerpt: Some(
+                    "Find the email by Lonna and click the trash icon to delete it. Cras. Lonna to me A dictumst. Reply Forward Last reward: 0.00"
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse email delete action");
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#email .trash")
+        );
+    }
+
+    #[test]
+    fn email_inbox_agent_types_forward_recipient_from_compose_view() {
+        let runtime = test_runtime(RecipeId::EmailInbox, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Find the email by Constancia and forward that email to Leanna."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#forward .forward-sender".to_string()),
+                    visible: true,
+                    disabled: false,
+                    value: Some(String::new()),
+                    class_list: vec!["forward-sender".to_string()],
+                    ..BridgeInteractiveElement::default()
+                }],
+                visible_text_excerpt: Some(
+                    "Find the email by Constancia and forward that email to Leanna. to: subject: Vitae nullam."
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse email forward action");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__type")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#forward .forward-sender")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("text"))
+                .and_then(Value::as_str),
+            Some("Leanna")
+        );
+    }
+
+    #[test]
+    fn login_user_popup_agent_clicks_popup_cancel_when_visible() {
+        let runtime = test_runtime(RecipeId::LoginUserPopup, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Enter the username \"emile\" and the password \"open sesame\".".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#popup-cancel".to_string()),
+                    id: Some("popup-cancel".to_string()),
+                    text: "Cancel".to_string(),
+                    visible: true,
+                    disabled: false,
+                    ..BridgeInteractiveElement::default()
+                }],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse login-user-popup cancel");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__click")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#popup-cancel")
+        );
+    }
+
+    #[test]
+    fn login_user_popup_recovery_prefers_popup_cancel_selector() {
+        let runtime = test_runtime(RecipeId::LoginUserPopup, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Enter the username \"emile\" and the password \"open sesame\".".to_string(),
+            info: BridgeInfo {
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#popup-cancel".to_string()),
+                    id: Some("popup-cancel".to_string()),
+                    text: "Cancel".to_string(),
+                    visible: true,
+                    disabled: false,
+                    ..BridgeInteractiveElement::default()
+                }],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.recovery_action(
+            &bridge_state,
+            "You are an ontology incident resolver.\n2. Forbidden tools: browser__snapshot\n- Visited remedy fingerprints: none\n",
+        );
+        let parsed: Value =
+            serde_json::from_slice(&action).expect("parse login-user-popup recovery");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__click")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#popup-cancel")
+        );
+    }
+
+    #[test]
+    fn find_greatest_agent_revisits_best_card_before_submit() {
+        let runtime = test_runtime(RecipeId::FindGreatest, 1.0);
+        runtime.update_find_greatest_state(|state| {
+            state.pending_observation_index = Some(3);
+            state.next_probe_index = 4;
+            state.best_card_index = Some(2);
+            state.best_value = 12;
+        });
+        let bridge_state = BridgeState {
+            utterance: "Find and pick the card with the greatest number, then press submit."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                visible_text_excerpt: Some(
+                    "Find and pick the card with the greatest number, then press submit. 7 Submit Last reward: 0.00"
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let first_action = runtime.next_action(&bridge_state);
+        let first_parsed: Value =
+            serde_json::from_slice(&first_action).expect("parse find-greatest revisit");
+        assert_eq!(
+            first_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#cardholder .card:nth-of-type(2)")
+        );
+
+        let second_action = runtime.next_action(&bridge_state);
+        let second_parsed: Value =
+            serde_json::from_slice(&second_action).expect("parse find-greatest submit");
+        assert_eq!(
+            second_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#submit")
+        );
+    }
+
+    #[test]
+    fn find_greatest_agent_uses_dom_card_values_when_available() {
+        let runtime = test_runtime(RecipeId::FindGreatest, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Find and pick the card with the greatest number, then press submit."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                dom_elements: vec![
+                    BridgeDomElement {
+                        tag: "div".to_string(),
+                        selector: Some("#cardholder > div:nth-of-type(1)".to_string()),
+                        text: "3".to_string(),
+                        visible: true,
+                        attributes: [
+                            ("class".to_string(), "card hidden".to_string()),
+                            ("data-index".to_string(), "0".to_string()),
+                        ]
+                            .into_iter()
+                            .collect(),
+                        ..BridgeDomElement::default()
+                    },
+                    BridgeDomElement {
+                        tag: "div".to_string(),
+                        selector: Some("#cardholder > div:nth-of-type(2)".to_string()),
+                        text: "23".to_string(),
+                        visible: true,
+                        attributes: [
+                            ("class".to_string(), "card hidden".to_string()),
+                            ("data-index".to_string(), "1".to_string()),
+                        ]
+                            .into_iter()
+                            .collect(),
+                        ..BridgeDomElement::default()
+                    },
+                    BridgeDomElement {
+                        tag: "div".to_string(),
+                        selector: Some("#cardholder > div:nth-of-type(3)".to_string()),
+                        text: "14".to_string(),
+                        visible: true,
+                        attributes: [
+                            ("class".to_string(), "card hidden".to_string()),
+                            ("data-index".to_string(), "2".to_string()),
+                        ]
+                            .into_iter()
+                            .collect(),
+                        ..BridgeDomElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let first_action = runtime.next_action(&bridge_state);
+        let first_parsed: Value =
+            serde_json::from_slice(&first_action).expect("parse find-greatest dom click");
+        assert_eq!(
+            first_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#cardholder > div:nth-of-type(2)")
+        );
+
+        let second_action = runtime.next_action(&bridge_state);
+        let second_parsed: Value =
+            serde_json::from_slice(&second_action).expect("parse find-greatest dom submit");
+        assert_eq!(
+            second_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#submit")
+        );
+    }
+
+    #[test]
+    fn visual_addition_agent_counts_bridge_blocks_then_submits() {
+        let runtime = test_runtime(RecipeId::VisualAddition, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Type the total number of blocks into the textbox and press Submit."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#math-answer".to_string()),
+                    id: Some("math-answer".to_string()),
+                    value: Some(String::new()),
+                    visible: true,
+                    disabled: false,
+                    ..BridgeInteractiveElement::default()
+                }],
+                dom_elements: vec![
+                    BridgeDomElement {
+                        tag: "span".to_string(),
+                        selector: Some("#visual-1 > span:nth-of-type(1)".to_string()),
+                        visible: true,
+                        attributes: [("class".to_string(), "addition-block".to_string())]
+                            .into_iter()
+                            .collect(),
+                        ..BridgeDomElement::default()
+                    },
+                    BridgeDomElement {
+                        tag: "span".to_string(),
+                        selector: Some("#visual-1 > span:nth-of-type(2)".to_string()),
+                        visible: true,
+                        attributes: [("class".to_string(), "addition-block".to_string())]
+                            .into_iter()
+                            .collect(),
+                        ..BridgeDomElement::default()
+                    },
+                    BridgeDomElement {
+                        tag: "span".to_string(),
+                        selector: Some("#visual-2 > span:nth-of-type(1)".to_string()),
+                        visible: true,
+                        attributes: [("class".to_string(), "addition-block".to_string())]
+                            .into_iter()
+                            .collect(),
+                        ..BridgeDomElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let first_action = runtime.next_action(&bridge_state);
+        let first_parsed: Value =
+            serde_json::from_slice(&first_action).expect("parse visual-addition type");
+        assert_eq!(
+            first_parsed.get("name").and_then(Value::as_str),
+            Some("browser__type")
+        );
+        assert_eq!(
+            first_parsed
+                .get("arguments")
+                .and_then(|args| args.get("text"))
+                .and_then(Value::as_str),
+            Some("3")
+        );
+
+        let filled_state = BridgeState {
+            utterance: bridge_state.utterance.clone(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#math-answer".to_string()),
+                    id: Some("math-answer".to_string()),
+                    value: Some("3".to_string()),
+                    visible: true,
+                    disabled: false,
+                    ..BridgeInteractiveElement::default()
+                }],
+                dom_elements: bridge_state.info.dom_elements.clone(),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+        let second_action = runtime.next_action(&filled_state);
+        let second_parsed: Value =
+            serde_json::from_slice(&second_action).expect("parse visual-addition submit");
+        assert_eq!(
+            second_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#subbtn")
+        );
+    }
+
+    #[test]
+    fn identify_shape_agent_uses_bridge_svg_shape_kind() {
+        let runtime = test_runtime(RecipeId::IdentifyShape, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Click the button that best describes the figure below.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                dom_elements: vec![BridgeDomElement {
+                    tag: "polygon".to_string(),
+                    selector: Some("#area_svg > polygon:nth-of-type(1)".to_string()),
+                    visible: true,
+                    attributes: [("points".to_string(), "0,10 5,0 10,10".to_string())]
+                        .into_iter()
+                        .collect(),
+                    ..BridgeDomElement::default()
+                }],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse identify-shape action");
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#area-buttons button[data-type='triangle']")
+        );
+    }
+
+    #[test]
+    fn count_shape_agent_counts_bridge_svg_matches() {
+        let runtime = test_runtime(RecipeId::CountShape, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "How many large red items are there?".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                interactive_elements: vec![
+                    BridgeInteractiveElement {
+                        selector: Some("#count-buttons button:nth-of-type(1)".to_string()),
+                        text: "1".to_string(),
+                        visible: true,
+                        disabled: false,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#count-buttons button:nth-of-type(2)".to_string()),
+                        text: "2".to_string(),
+                        visible: true,
+                        disabled: false,
+                        ..BridgeInteractiveElement::default()
+                    },
+                ],
+                dom_elements: vec![
+                    BridgeDomElement {
+                        tag: "rect".to_string(),
+                        selector: Some("#area_svg > rect:nth-of-type(1)".to_string()),
+                        visible: true,
+                        attributes: [
+                            ("fill".to_string(), "red".to_string()),
+                            ("width".to_string(), "20".to_string()),
+                            ("height".to_string(), "20".to_string()),
+                        ]
+                        .into_iter()
+                        .collect(),
+                        width: 20.0,
+                        height: 20.0,
+                        ..BridgeDomElement::default()
+                    },
+                    BridgeDomElement {
+                        tag: "rect".to_string(),
+                        selector: Some("#area_svg > rect:nth-of-type(2)".to_string()),
+                        visible: true,
+                        attributes: [
+                            ("fill".to_string(), "red".to_string()),
+                            ("width".to_string(), "20".to_string()),
+                            ("height".to_string(), "20".to_string()),
+                        ]
+                        .into_iter()
+                        .collect(),
+                        width: 20.0,
+                        height: 20.0,
+                        ..BridgeDomElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse count-shape action");
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#count-buttons button:nth-of-type(2)")
+        );
+    }
+
+    #[test]
+    fn find_midpoint_agent_clicks_midpoint_then_submits() {
+        let runtime = test_runtime(RecipeId::FindMidpoint, 1.0);
+        let bridge_state = BridgeState {
+            utterance:
+                "Find and click on the shortest mid-point between the two points, then press submit."
+                    .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                dom_elements: vec![
+                    BridgeDomElement {
+                        tag: "circle".to_string(),
+                        selector: Some("#svg-grid > circle:nth-of-type(1)".to_string()),
+                        visible: true,
+                        attributes: [("class".to_string(), "black-circle".to_string())]
+                            .into_iter()
+                            .collect(),
+                        center_x: 20.0,
+                        center_y: 70.0,
+                        ..BridgeDomElement::default()
+                    },
+                    BridgeDomElement {
+                        tag: "circle".to_string(),
+                        selector: Some("#svg-grid > circle:nth-of-type(2)".to_string()),
+                        visible: true,
+                        attributes: [("class".to_string(), "black-circle".to_string())]
+                            .into_iter()
+                            .collect(),
+                        center_x: 80.0,
+                        center_y: 110.0,
+                        ..BridgeDomElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let first_action = runtime.next_action(&bridge_state);
+        let first_parsed: Value =
+            serde_json::from_slice(&first_action).expect("parse find-midpoint click");
+        assert_eq!(
+            first_parsed.get("name").and_then(Value::as_str),
+            Some("browser__synthetic_click")
+        );
+        assert_eq!(
+            first_parsed
+                .get("arguments")
+                .and_then(|args| args.get("x"))
+                .and_then(Value::as_f64),
+            Some(50.0)
+        );
+        assert_eq!(
+            first_parsed
+                .get("arguments")
+                .and_then(|args| args.get("y"))
+                .and_then(Value::as_f64),
+            Some(90.0)
+        );
+
+        let second_action = runtime.next_action(&bridge_state);
+        let second_parsed: Value =
+            serde_json::from_slice(&second_action).expect("parse find-midpoint wait");
+        assert_eq!(
+            second_parsed.get("name").and_then(Value::as_str),
+            Some("browser__wait")
+        );
+
+        let third_action = runtime.next_action(&bridge_state);
+        let third_parsed: Value =
+            serde_json::from_slice(&third_action).expect("parse find-midpoint submit");
+        assert_eq!(
+            third_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#subbtn")
+        );
+    }
+
+    #[test]
+    fn find_midpoint_agent_prefers_svg_coordinates_when_available() {
+        let runtime = test_runtime(RecipeId::FindMidpoint, 1.0);
+        let bridge_state = BridgeState {
+            utterance:
+                "Find and click on the shortest mid-point between the two points, then press submit."
+                    .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                dom_elements: vec![
+                    BridgeDomElement {
+                        tag: "div".to_string(),
+                        selector: Some("#query".to_string()),
+                        visible: true,
+                        height: 50.0,
+                        ..BridgeDomElement::default()
+                    },
+                    BridgeDomElement {
+                        tag: "circle".to_string(),
+                        selector: Some("#svg-grid > circle:nth-of-type(1)".to_string()),
+                        visible: true,
+                        attributes: [
+                            ("class".to_string(), "black-circle".to_string()),
+                            ("cx".to_string(), "88".to_string()),
+                            ("cy".to_string(), "118".to_string()),
+                        ]
+                        .into_iter()
+                        .collect(),
+                        center_x: 90.0,
+                        center_y: 170.0,
+                        ..BridgeDomElement::default()
+                    },
+                    BridgeDomElement {
+                        tag: "circle".to_string(),
+                        selector: Some("#svg-grid > circle:nth-of-type(2)".to_string()),
+                        visible: true,
+                        attributes: [
+                            ("class".to_string(), "black-circle".to_string()),
+                            ("cx".to_string(), "55".to_string()),
+                            ("cy".to_string(), "34".to_string()),
+                        ]
+                        .into_iter()
+                        .collect(),
+                        center_x: 57.0,
+                        center_y: 86.0,
+                        ..BridgeDomElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse find-midpoint attrs");
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("x"))
+                .and_then(Value::as_f64),
+            Some(71.5)
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("y"))
+                .and_then(Value::as_f64),
+            Some(126.0)
+        );
+    }
+
+    #[test]
+    fn count_sides_agent_requests_canvas_summary_before_answering() {
+        let runtime = test_runtime(RecipeId::CountSides, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Press the button that correctly denotes how many sides the shape has."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                interactive_elements: vec![BridgeInteractiveElement {
+                    selector: Some("#form button:nth-of-type(1)".to_string()),
+                    text: "3".to_string(),
+                    visible: true,
+                    ..BridgeInteractiveElement::default()
+                }],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse count-sides summary");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__canvas_summary")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#c")
+        );
+    }
+
+    #[test]
+    fn stock_market_agent_tabs_until_buy_is_focused() {
+        let runtime = test_runtime(RecipeId::StockMarket, 1.0);
+        let bridge_state = BridgeState {
+            utterance: "Buy YJV stock when the price is less than $59.60.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                focused_id: Some("body".to_string()),
+                visible_text_excerpt: Some(
+                    "Buy YJV stock when the price is less than $59.60. Company: YJV Stock price: $67.00 Buy"
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse stock-market focus");
+        assert_eq!(parsed.get("name").and_then(Value::as_str), Some("browser__key"));
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("key"))
+                .and_then(Value::as_str),
+            Some("Tab")
+        );
+    }
+
+    #[test]
+    fn stock_market_agent_waits_until_threshold_then_submits() {
+        let runtime = test_runtime(RecipeId::StockMarket, 1.0);
+        let waiting_state = BridgeState {
+            utterance: "Buy YJV stock when the price is less than $59.60.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                focused_id: Some("buy".to_string()),
+                visible_text_excerpt: Some(
+                    "Buy YJV stock when the price is less than $59.60. Company: YJV Stock price: $67.00 Buy"
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+        let waiting_action = runtime.next_action(&waiting_state);
+        let waiting_parsed: Value =
+            serde_json::from_slice(&waiting_action).expect("parse stock-market wait");
+        assert_eq!(
+            waiting_parsed.get("name").and_then(Value::as_str),
+            Some("browser__wait")
+        );
+
+        let submit_state = BridgeState {
+            utterance: "Buy YJV stock when the price is less than $59.60.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                focused_id: Some("buy".to_string()),
+                visible_text_excerpt: Some(
+                    "Buy YJV stock when the price is less than $59.60. Company: YJV Stock price: $58.00 Buy"
+                        .to_string(),
+                ),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+        let submit_action = runtime.next_action(&submit_state);
+        let submit_parsed: Value =
+            serde_json::from_slice(&submit_action).expect("parse stock-market submit");
+        assert_eq!(
+            submit_parsed.get("name").and_then(Value::as_str),
+            Some("browser__key")
+        );
+        assert_eq!(
+            submit_parsed
+                .get("arguments")
+                .and_then(|args| args.get("key"))
+                .and_then(Value::as_str),
+            Some("Enter")
+        );
+    }
+
+    #[test]
+    fn count_sides_agent_clicks_cached_estimate() {
+        let runtime = test_runtime(RecipeId::CountSides, 1.0);
+        runtime.note_count_sides_estimate(5);
+        let bridge_state = BridgeState {
+            utterance: "Press the button that correctly denotes how many sides the shape has."
+                .to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                interactive_elements: vec![
+                    BridgeInteractiveElement {
+                        selector: Some("#form button:nth-of-type(1)".to_string()),
+                        text: "3".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#form button:nth-of-type(2)".to_string()),
+                        text: "4".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#form button:nth-of-type(3)".to_string()),
+                        text: "5".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&bridge_state);
+        let parsed: Value = serde_json::from_slice(&action).expect("parse count-sides click");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__click")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#form button:nth-of-type(3)")
+        );
+    }
+
+    #[test]
     fn odd_or_even_agent_clicks_row_specific_parity_button() {
         let runtime = test_runtime(RecipeId::OddOrEven, 1.0);
         let bridge_state = BridgeState {
@@ -4484,6 +5827,11 @@ mod tests {
             last_scroll_action: Mutex::new(None),
             last_copy_paste_action: Mutex::new(None),
             last_hover_shape_phase: Mutex::new(None),
+            text_editor_phase: Mutex::new(TextEditorPhase::default()),
+            guess_number_state: Mutex::new(GuessNumberState::default()),
+            find_greatest_state: Mutex::new(FindGreatestState::default()),
+            count_sides_estimate: Mutex::new(None),
+            pending_social_media_menu_action: Mutex::new(None),
         };
         let bridge_state = BridgeState {
             utterance: String::new(),
@@ -4868,9 +6216,10 @@ async fn run_oracle_recipe(harness: &mut DirectHarness, case: &ComputerUseCase) 
                     harness.oracle_click_selector(&selector).await?;
                 } else {
                     let state = harness.refresh_bridge_state().await?;
-                    if let Some(tab_selector) =
-                        bridge_hidden_tab_selector_for_label(&state.info.interactive_elements, &target)
-                    {
+                    if let Some(tab_selector) = bridge_hidden_tab_selector_for_label(
+                        &state.info.interactive_elements,
+                        &target,
+                    ) {
                         harness.oracle_click_selector(&tab_selector).await?;
                         let selector = wait_for_bridge_label_selector(harness, &target, 4, 80)
                             .await?
@@ -5157,9 +6506,10 @@ async fn run_runtime_recipe(harness: &mut DirectHarness, case: &ComputerUseCase)
                     harness.click_selector(&selector).await?;
                 } else {
                     let state = harness.refresh_bridge_state().await?;
-                    if let Some(tab_selector) =
-                        bridge_hidden_tab_selector_for_label(&state.info.interactive_elements, &target)
-                    {
+                    if let Some(tab_selector) = bridge_hidden_tab_selector_for_label(
+                        &state.info.interactive_elements,
+                        &target,
+                    ) {
                         harness.click_selector(&tab_selector).await?;
                         harness.wait_ms(120).await?;
                         let selector = wait_for_bridge_label_selector(harness, &target, 4, 80)
@@ -5732,6 +7082,80 @@ fn collect_agent_kernel_observations(
     observations
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GuessNumberInputPhase {
+    Idle,
+    TypeGuess(i32),
+    SubmitGuess(i32),
+}
+
+impl Default for GuessNumberInputPhase {
+    fn default() -> Self {
+        Self::Idle
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct GuessNumberState {
+    low: i32,
+    high: i32,
+    last_submitted_guess: Option<i32>,
+    feedback_applied_for: Option<i32>,
+    input_phase: GuessNumberInputPhase,
+}
+
+impl Default for GuessNumberState {
+    fn default() -> Self {
+        Self {
+            low: 0,
+            high: 9,
+            last_submitted_guess: None,
+            feedback_applied_for: None,
+            input_phase: GuessNumberInputPhase::Idle,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FindGreatestState {
+    pending_observation_index: Option<usize>,
+    next_probe_index: usize,
+    best_card_index: Option<usize>,
+    best_value: i32,
+    revisit_before_submit: bool,
+}
+
+impl Default for FindGreatestState {
+    fn default() -> Self {
+        Self {
+            pending_observation_index: None,
+            next_probe_index: 1,
+            best_card_index: None,
+            best_value: i32::MIN,
+            revisit_before_submit: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PendingSocialMediaMenuAction {
+    row_index: usize,
+    action_class: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TextEditorPhase {
+    SelectTarget,
+    ApplyAction,
+    Submit,
+}
+
+impl Default for TextEditorPhase {
+    fn default() -> Self {
+        Self::SelectTarget
+    }
+}
+
 struct MiniwobAgentRuntime {
     case: ComputerUseCase,
     client: BridgeClient,
@@ -5743,6 +7167,11 @@ struct MiniwobAgentRuntime {
     last_scroll_action: Mutex<Option<String>>,
     last_copy_paste_action: Mutex<Option<String>>,
     last_hover_shape_phase: Mutex<Option<String>>,
+    text_editor_phase: Mutex<TextEditorPhase>,
+    guess_number_state: Mutex<GuessNumberState>,
+    find_greatest_state: Mutex<FindGreatestState>,
+    count_sides_estimate: Mutex<Option<u32>>,
+    pending_social_media_menu_action: Mutex<Option<PendingSocialMediaMenuAction>>,
 }
 
 impl MiniwobAgentRuntime {
@@ -5770,6 +7199,43 @@ impl MiniwobAgentRuntime {
             .lock()
             .ok()
             .and_then(|mut pending| pending.take())
+    }
+
+    fn note_count_sides_estimate(&self, estimated_sides: u32) {
+        if let Ok(mut pending) = self.count_sides_estimate.lock() {
+            *pending = Some(estimated_sides);
+        }
+    }
+
+    fn take_count_sides_estimate(&self) -> Option<u32> {
+        self.count_sides_estimate
+            .lock()
+            .ok()
+            .and_then(|mut pending| pending.take())
+    }
+
+    fn observe_kernel_events(&self, kernel_events: &[KernelEvent]) {
+        for event in kernel_events {
+            let KernelEvent::AgentActionResult {
+                tool_name,
+                output,
+                error_class,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            if tool_name != "browser__canvas_summary" || error_class.is_some() {
+                continue;
+            }
+            let Some(summary) = extract_canvas_summary(Some(output.as_str())) else {
+                continue;
+            };
+            let Some(estimated_sides) = summary.estimated_sides else {
+                continue;
+            };
+            self.note_count_sides_estimate(estimated_sides);
+        }
     }
 
     fn note_checkbox_click(&self, label: &str) {
@@ -5831,6 +7297,61 @@ impl MiniwobAgentRuntime {
             .and_then(|last| last.clone())
     }
 
+    fn text_editor_phase(&self) -> TextEditorPhase {
+        self.text_editor_phase
+            .lock()
+            .map(|phase| *phase)
+            .unwrap_or_default()
+    }
+
+    fn set_text_editor_phase(&self, phase: TextEditorPhase) {
+        if let Ok(mut current) = self.text_editor_phase.lock() {
+            *current = phase;
+        }
+    }
+
+    fn guess_number_state(&self) -> GuessNumberState {
+        self.guess_number_state
+            .lock()
+            .map(|state| *state)
+            .unwrap_or_default()
+    }
+
+    fn update_guess_number_state(&self, update: impl FnOnce(&mut GuessNumberState)) {
+        if let Ok(mut state) = self.guess_number_state.lock() {
+            update(&mut state);
+        }
+    }
+
+    fn find_greatest_state(&self) -> FindGreatestState {
+        self.find_greatest_state
+            .lock()
+            .map(|state| *state)
+            .unwrap_or_default()
+    }
+
+    fn update_find_greatest_state(&self, update: impl FnOnce(&mut FindGreatestState)) {
+        if let Ok(mut state) = self.find_greatest_state.lock() {
+            update(&mut state);
+        }
+    }
+
+    fn note_pending_social_media_menu_action(&self, row_index: usize, action_class: &str) {
+        if let Ok(mut pending) = self.pending_social_media_menu_action.lock() {
+            *pending = Some(PendingSocialMediaMenuAction {
+                row_index,
+                action_class: action_class.to_string(),
+            });
+        }
+    }
+
+    fn take_pending_social_media_menu_action(&self) -> Option<PendingSocialMediaMenuAction> {
+        self.pending_social_media_menu_action
+            .lock()
+            .ok()
+            .and_then(|mut pending| pending.take())
+    }
+
     fn fill_text_field_if_needed(
         &self,
         bridge_state: &BridgeState,
@@ -5851,6 +7372,693 @@ impl MiniwobAgentRuntime {
         } else {
             inference_tool_call("browser__click", json!({ "selector": selector }))
         })
+    }
+
+    fn form_sequence_action(
+        &self,
+        bridge_state: &BridgeState,
+        elements: &[BridgeInteractiveElement],
+        query: &str,
+    ) -> Vec<u8> {
+        let target_value = parse_form_sequence_slider_target(query).unwrap_or_default();
+        let checkbox_index = parse_form_sequence_checkbox_index(query).unwrap_or(1);
+        let checkbox_selector = format!("#checkbox-{}", checkbox_index);
+        let current_value =
+            parse_first_integer(bridge_visible_content_after_query(bridge_state, query));
+        let checkbox_checked = bridge_element_by_selector(elements, &checkbox_selector)
+            .and_then(|element| element.checked)
+            .unwrap_or(false);
+
+        match current_value {
+            Some(value) if value != target_value => {
+                if bridge_state.info.focused_tag.as_deref() == Some("span") {
+                    let key = if value < target_value {
+                        "ArrowRight"
+                    } else {
+                        "ArrowLeft"
+                    };
+                    self.note_pending_followup("form_type");
+                    inference_tool_call("browser__key", json!({ "key": key }))
+                } else {
+                    inference_tool_call("browser__click", json!({ "selector": "#slider span" }))
+                }
+            }
+            Some(_) if !checkbox_checked => {
+                inference_tool_call("browser__click", json!({ "selector": checkbox_selector }))
+            }
+            Some(_) => inference_tool_call("browser__click", json!({ "selector": "#subbtn" })),
+            None => inference_tool_call("browser__click", json!({ "selector": "#slider span" })),
+        }
+    }
+
+    fn form_sequence_2_action(
+        &self,
+        bridge_state: &BridgeState,
+        elements: &[BridgeInteractiveElement],
+        query: &str,
+    ) -> Vec<u8> {
+        let radio_index = parse_form_sequence_2_radio_index(query).unwrap_or(1);
+        let textbox_index = parse_form_sequence_2_textbox_index(query).unwrap_or(1);
+        let number = quoted_values(query).into_iter().next().unwrap_or_default();
+        let radio_selector =
+            format!("#area > div:nth-of-type(1) > input:nth-of-type({radio_index})");
+        let textbox_selector = format!("#input-{textbox_index}");
+        let radio_checked = bridge_element_by_selector(elements, &radio_selector)
+            .and_then(|element| element.checked)
+            .unwrap_or(false);
+
+        if !radio_checked {
+            inference_tool_call("browser__click", json!({ "selector": radio_selector }))
+        } else if let Some(action) =
+            self.fill_text_field_if_needed(bridge_state, elements, &textbox_selector, &number)
+        {
+            action
+        } else {
+            inference_tool_call("browser__click", json!({ "selector": "#subbtn" }))
+        }
+    }
+
+    fn form_sequence_3_action(
+        &self,
+        elements: &[BridgeInteractiveElement],
+        query: &str,
+    ) -> Vec<u8> {
+        let dropdown_label = parse_form_sequence_3_dropdown_label(query).unwrap_or_default();
+        let button_label = quoted_values(query).into_iter().next().unwrap_or_default();
+
+        if bridge_value_by_selector(elements, "#dropdown") != dropdown_label {
+            self.note_pending_followup("form_type");
+            inference_tool_call(
+                "browser__select_dropdown",
+                json!({ "selector": "#dropdown", "label": dropdown_label }),
+            )
+        } else if let Some(selector) = bridge_selector_for_label(elements, &button_label) {
+            inference_tool_call("browser__click", json!({ "selector": selector }))
+        } else {
+            let normalized = normalize_label(&button_label);
+            inference_tool_call(
+                "browser__click",
+                json!({ "selector": format!("#{}", normalized.replace(' ', "-")) }),
+            )
+        }
+    }
+
+    fn login_user_popup_action(
+        &self,
+        bridge_state: &BridgeState,
+        elements: &[BridgeInteractiveElement],
+        query: &str,
+    ) -> Vec<u8> {
+        if bridge_element_by_selector(elements, "#popup-cancel")
+            .is_some_and(|element| element.visible && !element.disabled)
+        {
+            return inference_tool_call("browser__click", json!({ "selector": "#popup-cancel" }));
+        }
+
+        if let Some(selector) = bridge_selector_for_label(elements, "Cancel") {
+            return inference_tool_call("browser__click", json!({ "selector": selector }));
+        }
+
+        let quoted = quoted_values(query);
+        let username = quoted.first().cloned().unwrap_or_default();
+        let password = quoted.get(1).cloned().unwrap_or_default();
+        let username_value = bridge_value_by_selector(elements, "#username");
+        let password_value = bridge_value_by_selector(elements, "#password");
+
+        if username_value != username {
+            self.fill_text_field_if_needed(bridge_state, elements, "#username", &username)
+                .unwrap_or_else(|| {
+                    inference_tool_call("browser__click", json!({ "selector": "#username" }))
+                })
+        } else if password_value != password {
+            self.fill_text_field_if_needed(bridge_state, elements, "#password", &password)
+                .unwrap_or_else(|| {
+                    inference_tool_call("browser__click", json!({ "selector": "#password" }))
+                })
+        } else {
+            inference_tool_call("browser__click", json!({ "selector": "#subbtn" }))
+        }
+    }
+
+    fn text_editor_action(&self, bridge_state: &BridgeState, query: &str) -> Vec<u8> {
+        const EDITOR_SELECTOR: &str = "#editor .ql-editor";
+        const COLOR_SELECTOR: &str = "#area > div:nth-of-type(1) > span:nth-of-type(1) > select";
+
+        let editor_text =
+            trim_submit_button_suffix(bridge_visible_content_after_query(bridge_state, query));
+        if editor_text.is_empty() {
+            return inference_fail("ERROR_CLASS=ObservationGap text-editor content missing");
+        }
+
+        let action_token = parse_text_editor_action_token(query).unwrap_or_default();
+        let target = parse_text_editor_target(query).unwrap_or(Some(editor_text.to_string()));
+        let (start_offset, end_offset) = if let Some(target_text) = target {
+            let Some(start_byte) = editor_text.find(&target_text) else {
+                return inference_fail("ERROR_CLASS=ObservationGap text-editor target missing");
+            };
+            let prefix = &editor_text[..start_byte];
+            let start = prefix.chars().count() as u32;
+            let end = start + target_text.chars().count() as u32;
+            (start, end)
+        } else {
+            (0, editor_text.chars().count() as u32)
+        };
+
+        match self.text_editor_phase() {
+            TextEditorPhase::SelectTarget => {
+                self.set_text_editor_phase(TextEditorPhase::ApplyAction);
+                inference_tool_call(
+                    "browser__select_text",
+                    json!({
+                        "selector": EDITOR_SELECTOR,
+                        "start_offset": start_offset,
+                        "end_offset": end_offset,
+                    }),
+                )
+            }
+            TextEditorPhase::ApplyAction => {
+                self.set_text_editor_phase(TextEditorPhase::Submit);
+                self.note_pending_followup("text_editor_apply");
+                match action_token.as_str() {
+                    "bold" => inference_tool_call(
+                        "browser__key",
+                        json!({ "key": "b", "modifiers": [primary_browser_modifier()] }),
+                    ),
+                    "italics" => inference_tool_call(
+                        "browser__key",
+                        json!({ "key": "i", "modifiers": [primary_browser_modifier()] }),
+                    ),
+                    "underlined" => inference_tool_call(
+                        "browser__key",
+                        json!({ "key": "u", "modifiers": [primary_browser_modifier()] }),
+                    ),
+                    color_name => {
+                        let Some(color_value) = text_editor_color_value(color_name) else {
+                            return inference_fail(
+                                "ERROR_CLASS=ObservationGap text-editor color unsupported",
+                            );
+                        };
+                        inference_tool_call(
+                            "browser__select_dropdown",
+                            json!({ "selector": COLOR_SELECTOR, "value": color_value }),
+                        )
+                    }
+                }
+            }
+            TextEditorPhase::Submit => {
+                inference_tool_call("browser__click", json!({ "selector": "#subbtn" }))
+            }
+        }
+    }
+
+    fn guess_number_action(
+        &self,
+        bridge_state: &BridgeState,
+        elements: &[BridgeInteractiveElement],
+        query: &str,
+    ) -> Vec<u8> {
+        let visible = bridge_visible_content_after_query(bridge_state, query);
+        let current_guess = bridge_value_by_selector(elements, "#tt")
+            .parse::<i32>()
+            .ok();
+        let feedback = parse_guess_number_feedback(visible);
+        let mut state = self.guess_number_state();
+
+        if let (Some(last_guess), Some(current_guess)) = (state.last_submitted_guess, current_guess)
+        {
+            if current_guess == last_guess && state.feedback_applied_for != Some(last_guess) {
+                match feedback {
+                    Some(GuessNumberFeedback::Higher(pivot)) => {
+                        state.low = state.low.max(pivot + 1);
+                        state.feedback_applied_for = Some(last_guess);
+                    }
+                    Some(GuessNumberFeedback::Lower(pivot)) => {
+                        state.high = state.high.min(pivot - 1);
+                        state.feedback_applied_for = Some(last_guess);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        if state.low > state.high {
+            return inference_fail("ERROR_CLASS=PlannerGap guess-number bounds invalid");
+        }
+
+        let next_guess = ((state.low + state.high) / 2).clamp(0, 9).to_string();
+        let next_guess_number = next_guess.parse::<i32>().ok();
+        let current_value = bridge_value_by_selector(elements, "#tt");
+
+        match state.input_phase {
+            GuessNumberInputPhase::TypeGuess(pending_guess) => {
+                if !bridge_focus_matches(bridge_state, "#tt") {
+                    self.update_guess_number_state(|current| *current = state);
+                    return inference_tool_call("browser__click", json!({ "selector": "#tt" }));
+                } else {
+                    state.input_phase = GuessNumberInputPhase::SubmitGuess(pending_guess);
+                    self.update_guess_number_state(|current| *current = state);
+                    return inference_tool_call(
+                        "browser__type",
+                        json!({ "selector": "#tt", "text": pending_guess.to_string() }),
+                    );
+                }
+            }
+            GuessNumberInputPhase::SubmitGuess(pending_guess) => {
+                self.update_guess_number_state(|current| {
+                    current.last_submitted_guess = Some(pending_guess);
+                    current.feedback_applied_for = None;
+                    current.input_phase = GuessNumberInputPhase::Idle;
+                });
+                return if bridge_focus_matches(bridge_state, "#tt") {
+                    inference_tool_call("browser__key", json!({ "key": "Enter" }))
+                } else {
+                    inference_tool_call("browser__click", json!({ "selector": "#subbtn" }))
+                };
+            }
+            GuessNumberInputPhase::Idle => {}
+        }
+
+        self.update_guess_number_state(|current| *current = state);
+
+        if current_value != next_guess {
+            if !bridge_focus_matches(bridge_state, "#tt") {
+                return inference_tool_call("browser__click", json!({ "selector": "#tt" }));
+            }
+            if !current_value.is_empty() {
+                self.update_guess_number_state(|current| {
+                    current.input_phase = next_guess_number
+                        .map(GuessNumberInputPhase::TypeGuess)
+                        .unwrap_or_default();
+                });
+                return inference_tool_call(
+                    "browser__key",
+                    json!({ "key": "a", "modifiers": [primary_browser_modifier()] }),
+                );
+            }
+            self.update_guess_number_state(|current| {
+                current.input_phase = next_guess_number
+                    .map(GuessNumberInputPhase::SubmitGuess)
+                    .unwrap_or_default();
+            });
+            return inference_tool_call(
+                "browser__type",
+                json!({ "selector": "#tt", "text": next_guess }),
+            );
+        }
+
+        self.update_guess_number_state(|current| {
+            current.last_submitted_guess = next_guess_number;
+            current.feedback_applied_for = None;
+            current.input_phase = GuessNumberInputPhase::Idle;
+        });
+        if bridge_focus_matches(bridge_state, "#tt") {
+            inference_tool_call("browser__key", json!({ "key": "Enter" }))
+        } else {
+            inference_tool_call("browser__click", json!({ "selector": "#subbtn" }))
+        }
+    }
+
+    fn find_greatest_action(&self, bridge_state: &BridgeState, query: &str) -> Vec<u8> {
+        let mut state = self.find_greatest_state();
+        if let Some((best_card_index, best_value)) =
+            bridge_find_greatest_dom_card(&bridge_state.info.dom_elements)
+        {
+            let selected_card_index = bridge_state
+                .info
+                .dom_elements
+                .iter()
+                .filter(|element| element.visible)
+                .filter(|element| bridge_dom_class_contains(element, "card"))
+                .filter(|element| !bridge_dom_class_contains(element, "hidden"))
+                .find_map(|element| {
+                    let selector = element.selector.as_deref()?;
+                    selector_nth_of_type_after_prefix(selector, "#cardholder > div:nth-of-type(")
+                });
+            if selected_card_index == Some(best_card_index) {
+                return inference_tool_call("browser__click", json!({ "selector": "#submit" }));
+            }
+            self.update_find_greatest_state(|current| {
+                current.best_card_index = Some(best_card_index);
+                current.best_value = best_value;
+                current.pending_observation_index = None;
+                current.next_probe_index = 4;
+                current.revisit_before_submit = false;
+            });
+            self.note_pending_followup("find_greatest_submit");
+            return inference_tool_call(
+                "browser__click",
+                json!({ "selector": format!("#cardholder > div:nth-of-type({best_card_index})") }),
+            );
+        }
+
+        if let Some(card_index) = state.pending_observation_index.take() {
+            let visible =
+                trim_submit_button_suffix(bridge_visible_content_after_query(bridge_state, query));
+            let Some(card_value) = parse_first_integer(visible) else {
+                return inference_fail("ERROR_CLASS=ObservationGap find-greatest card missing");
+            };
+            if card_value > state.best_value {
+                state.best_value = card_value;
+                state.best_card_index = Some(card_index);
+            }
+        }
+
+        if state.next_probe_index <= 3 {
+            let probe_index = state.next_probe_index;
+            state.pending_observation_index = Some(probe_index);
+            state.next_probe_index += 1;
+            self.update_find_greatest_state(|current| *current = state);
+            return inference_tool_call(
+                "browser__click",
+                json!({ "selector": format!("#cardholder .card:nth-of-type({probe_index})") }),
+            );
+        }
+
+        if state.revisit_before_submit {
+            state.revisit_before_submit = false;
+            self.update_find_greatest_state(|current| *current = state);
+            return inference_tool_call("browser__click", json!({ "selector": "#submit" }));
+        }
+
+        let Some(best_card_index) = state.best_card_index else {
+            return inference_fail("ERROR_CLASS=ObservationGap find-greatest best card missing");
+        };
+        self.update_find_greatest_state(|current| {
+            current.best_card_index = state.best_card_index;
+            current.best_value = state.best_value;
+            current.pending_observation_index = None;
+            current.next_probe_index = state.next_probe_index;
+            current.revisit_before_submit = best_card_index != 3;
+        });
+        if best_card_index == 3 {
+            inference_tool_call("browser__click", json!({ "selector": "#submit" }))
+        } else {
+            inference_tool_call(
+                "browser__click",
+                json!({ "selector": format!("#cardholder .card:nth-of-type({best_card_index})") }),
+            )
+        }
+    }
+
+    fn visual_addition_action(&self, bridge_state: &BridgeState) -> Vec<u8> {
+        let addend_a = bridge_state
+            .info
+            .dom_elements
+            .iter()
+            .filter(|element| element.visible)
+            .filter(|element| bridge_dom_class_contains(element, "addition-block"))
+            .filter(|element| bridge_dom_selector_starts_with(element, "#visual-1"))
+            .count();
+        let addend_b = bridge_state
+            .info
+            .dom_elements
+            .iter()
+            .filter(|element| element.visible)
+            .filter(|element| bridge_dom_class_contains(element, "addition-block"))
+            .filter(|element| bridge_dom_selector_starts_with(element, "#visual-2"))
+            .count();
+        let answer = (addend_a + addend_b).to_string();
+        if bridge_value_by_selector(&bridge_state.info.interactive_elements, "#math-answer") != answer {
+            inference_tool_call(
+                "browser__type",
+                json!({ "selector": "#math-answer", "text": answer }),
+            )
+        } else {
+            inference_tool_call("browser__click", json!({ "selector": "#subbtn" }))
+        }
+    }
+
+    fn identify_shape_action(&self, bridge_state: &BridgeState) -> Vec<u8> {
+        let summaries =
+            bridge_dom_summaries_with_selector_prefix(&bridge_state.info.dom_elements, "#area_svg");
+        let Some(target) = summaries
+            .iter()
+            .filter(|summary| summary.visible)
+            .find_map(svg_shape_kind)
+        else {
+            return inference_fail("ERROR_CLASS=ObservationGap identify-shape figure missing");
+        };
+        inference_tool_call(
+            "browser__click",
+            json!({ "selector": format!("#area-buttons button[data-type='{target}']") }),
+        )
+    }
+
+    fn count_shape_action(
+        &self,
+        bridge_state: &BridgeState,
+        elements: &[BridgeInteractiveElement],
+        query: &str,
+    ) -> Vec<u8> {
+        let Some(descriptor) = parse_count_shape_descriptor(query) else {
+            return inference_fail("ERROR_CLASS=PlannerGap count-shape descriptor missing");
+        };
+        let summaries =
+            bridge_dom_summaries_with_selector_prefix(&bridge_state.info.dom_elements, "#area_svg");
+        let count = count_shape_matches(&summaries, &descriptor);
+        bridge_selector_for_label(elements, &count.to_string())
+            .map(|selector| inference_tool_call("browser__click", json!({ "selector": selector })))
+            .unwrap_or_else(|| {
+                inference_fail("ERROR_CLASS=ObservationGap count-shape answer button missing")
+            })
+    }
+
+    fn count_sides_action(&self, elements: &[BridgeInteractiveElement]) -> Vec<u8> {
+        if let Some(estimated_sides) = self.take_count_sides_estimate() {
+            let label = estimated_sides.to_string();
+            return bridge_selector_for_label(elements, &label)
+                .map(|selector| inference_tool_call("browser__click", json!({ "selector": selector })))
+                .unwrap_or_else(|| {
+                    inference_fail("ERROR_CLASS=ObservationGap count-sides answer button missing")
+                });
+        }
+
+        inference_tool_call("browser__canvas_summary", json!({ "selector": "#c" }))
+    }
+
+    fn find_midpoint_action(&self, bridge_state: &BridgeState) -> Vec<u8> {
+        let blue_circle_present = bridge_state
+            .info
+            .dom_elements
+            .iter()
+            .any(|element| element.visible && element.selector.as_deref() == Some("#blue-circle"));
+        if blue_circle_present {
+            return inference_tool_call("browser__click", json!({ "selector": "#subbtn" }));
+        }
+
+        let circles = bridge_state
+            .info
+            .dom_elements
+            .iter()
+            .filter(|element| element.visible)
+            .filter(|element| element.tag == "circle")
+            .filter(|element| bridge_dom_class_contains(element, "black-circle"))
+            .collect::<Vec<_>>();
+        if circles.len() != 2 {
+            return inference_fail("ERROR_CLASS=ObservationGap find-midpoint circles missing");
+        }
+        let midpoint = if let (Some(point_a_x), Some(point_a_y), Some(point_b_x), Some(point_b_y)) = (
+            bridge_dom_numeric_attribute(circles[0], "cx"),
+            bridge_dom_numeric_attribute(circles[0], "cy"),
+            bridge_dom_numeric_attribute(circles[1], "cx"),
+            bridge_dom_numeric_attribute(circles[1], "cy"),
+        ) {
+            let query_offset_y = bridge_state
+                .info
+                .dom_elements
+                .iter()
+                .find(|element| element.selector.as_deref() == Some("#query"))
+                .map(|element| element.height)
+                .unwrap_or(50.0);
+            (
+                (point_a_x + point_b_x) / 2.0,
+                ((point_a_y + point_b_y) / 2.0) + query_offset_y,
+            )
+        } else {
+            (
+                (circles[0].center_x + circles[1].center_x) / 2.0,
+                (circles[0].center_y + circles[1].center_y) / 2.0,
+            )
+        };
+        self.note_pending_followup("find_midpoint_wait");
+        inference_tool_call(
+            "browser__synthetic_click",
+            json!({ "x": midpoint.0, "y": midpoint.1 }),
+        )
+    }
+
+    fn social_media_action(&self, bridge_state: &BridgeState, query: &str) -> Vec<u8> {
+        let visible = bridge_visible_content_after_query(bridge_state, query);
+        if let Some(pending) = self.take_pending_social_media_menu_action() {
+            return inference_tool_call(
+                "browser__click",
+                json!({
+                    "selector": format!(
+                        "#area .media:nth-of-type({}) ul:not(.hide) .{}",
+                        pending.row_index, pending.action_class
+                    )
+                }),
+            );
+        }
+
+        let target_user = parse_social_media_user(query).unwrap_or_default();
+        let button_label = parse_social_media_button(query).unwrap_or_default();
+        let Some((action_class, requires_menu)) = social_media_action_class(&button_label) else {
+            return inference_fail("ERROR_CLASS=PlannerGap social-media action unsupported");
+        };
+        let Some(row_index) = social_media_matching_rows(visible, &target_user)
+            .into_iter()
+            .next()
+        else {
+            return inference_fail("ERROR_CLASS=ObservationGap social-media user missing");
+        };
+
+        if requires_menu {
+            self.note_pending_social_media_menu_action(row_index, action_class);
+            inference_tool_call(
+                "browser__click",
+                json!({ "selector": format!("#area .media:nth-of-type({row_index}) .more") }),
+            )
+        } else {
+            inference_tool_call(
+                "browser__click",
+                json!({ "selector": format!("#area .media:nth-of-type({row_index}) .{action_class}") }),
+            )
+        }
+    }
+
+    fn social_media_multi_action(
+        &self,
+        visible: &str,
+        query: &str,
+        stage: usize,
+        required_count: Option<usize>,
+    ) -> Vec<u8> {
+        let target_user = parse_social_media_user(query).unwrap_or_default();
+        let button_label = parse_social_media_button(query).unwrap_or_default();
+        let Some((action_class, requires_menu)) = social_media_action_class(&button_label) else {
+            return inference_fail("ERROR_CLASS=PlannerGap social-media action unsupported");
+        };
+        if requires_menu {
+            return inference_fail("ERROR_CLASS=PlannerGap social-media menu action unsupported");
+        }
+        let rows = social_media_matching_rows(visible, &target_user);
+        let expected_count = required_count.unwrap_or(rows.len());
+        if rows.len() < expected_count {
+            return inference_fail("ERROR_CLASS=ObservationGap social-media rows missing");
+        }
+        if stage < expected_count {
+            let row_index = rows[stage];
+            inference_tool_call(
+                "browser__click",
+                json!({ "selector": format!("#area .media:nth-of-type({row_index}) .{action_class}") }),
+            )
+        } else {
+            inference_tool_call("browser__click", json!({ "selector": "#submitRow button" }))
+        }
+    }
+
+    fn stock_market_action(&self, bridge_state: &BridgeState, query: &str) -> Vec<u8> {
+        let threshold = parse_stock_market_threshold(query).unwrap_or(f64::MAX);
+        let current_price =
+            parse_stock_market_visible_price(bridge_visible_text_excerpt(bridge_state));
+        if bridge_state.info.focused_id.as_deref() != Some("buy") {
+            return inference_tool_call("browser__key", json!({ "key": "Tab" }));
+        }
+        if current_price.is_some_and(|price| price <= threshold) {
+            inference_tool_call("browser__key", json!({ "key": "Enter" }))
+        } else {
+            inference_tool_call("browser__wait", json!({ "ms": 100 }))
+        }
+    }
+
+    fn email_inbox_action(
+        &self,
+        bridge_state: &BridgeState,
+        elements: &[BridgeInteractiveElement],
+        query: &str,
+    ) -> Vec<u8> {
+        let sender = email_inbox_sender_value(bridge_state, query).unwrap_or_default();
+        let Some(action) = email_inbox_action_value(bridge_state, query) else {
+            return inference_fail("ERROR_CLASS=PlannerGap email-inbox action missing");
+        };
+        let forward_input_selector = "#forward .forward-sender";
+        let forward_input = elements.iter().find(|element| {
+            element.visible
+                && element
+                    .class_list
+                    .iter()
+                    .any(|class_name| class_name == "forward-sender")
+        });
+
+        if bridge_element_by_selector(elements, "#reply-text")
+            .is_some_and(|element| element.visible)
+        {
+            let reply_text = email_inbox_reply_value(bridge_state, query).unwrap_or_default();
+            if let Some(action) =
+                self.fill_text_field_if_needed(bridge_state, elements, "#reply-text", &reply_text)
+            {
+                return action;
+            }
+            return inference_tool_call("browser__click", json!({ "selector": "#send-reply" }));
+        }
+
+        if let Some(element) = forward_input {
+            let recipient = email_inbox_forward_value(bridge_state, query).unwrap_or_default();
+            if element.value.as_deref().unwrap_or_default() != recipient {
+                self.note_pending_followup("form_type");
+                return inference_tool_call(
+                    "browser__type",
+                    json!({ "selector": forward_input_selector, "text": recipient }),
+                );
+            }
+            return inference_tool_call("browser__click", json!({ "selector": "#send-forward" }));
+        }
+
+        let search_open = bridge_element_by_selector(elements, "#search-input")
+            .map(|element| element.visible)
+            .unwrap_or(false);
+        if search_open {
+            if let Some(action) =
+                self.fill_text_field_if_needed(bridge_state, elements, "#search-input", &sender)
+            {
+                return action;
+            }
+            return match action {
+                "delete" | "important" | "reply" | "forward" => {
+                    self.note_pending_followup("email_open");
+                    inference_tool_call(
+                        "browser__click",
+                        json!({ "selector": "#search .email-thread" }),
+                    )
+                }
+                _ => inference_fail("ERROR_CLASS=PlannerGap email-inbox action unsupported"),
+            };
+        }
+
+        let visible = normalize_label(bridge_visible_content_after_query(bridge_state, query));
+        if visible.contains("to me") {
+            return match action {
+                "delete" => {
+                    inference_tool_call("browser__click", json!({ "selector": "#email .trash" }))
+                }
+                "important" => {
+                    inference_tool_call("browser__click", json!({ "selector": "#email .star" }))
+                }
+                "reply" | "forward" => {
+                    self.note_pending_followup("email_compose");
+                    let selector = if action == "reply" {
+                        "#email .email-reply"
+                    } else {
+                        "#email .email-forward"
+                    };
+                    inference_tool_call("browser__click", json!({ "selector": selector }))
+                }
+                _ => inference_fail("ERROR_CLASS=PlannerGap email-inbox action unsupported"),
+            };
+        }
+
+        inference_tool_call("browser__click", json!({ "selector": "#open-search" }))
     }
 
     fn hover_shape_recovery_action(&self, system_prompt: &str) -> Vec<u8> {
@@ -5957,6 +8165,32 @@ impl MiniwobAgentRuntime {
 
     fn recovery_action(&self, bridge_state: &BridgeState, system_prompt: &str) -> Vec<u8> {
         match self.case.recipe {
+            RecipeId::LoginUserPopup => {
+                if bridge_element_by_selector(
+                    &bridge_state.info.interactive_elements,
+                    "#popup-cancel",
+                )
+                .is_some_and(|element| element.visible && !element.disabled)
+                {
+                    return self.recovery_tool_or_safe_fallback(
+                        system_prompt,
+                        &[
+                            ("browser__click", json!({ "selector": "#popup-cancel" })),
+                            ("browser__key", json!({ "key": "Escape" })),
+                            ("browser__wait", json!({ "ms": 120 })),
+                        ],
+                    );
+                }
+
+                self.recovery_tool_or_safe_fallback(
+                    system_prompt,
+                    &[
+                        ("browser__wait", json!({ "ms": 120 })),
+                        ("browser__click", json!({ "selector": "#username" })),
+                        ("browser__click", json!({ "selector": "#password" })),
+                    ],
+                )
+            }
             RecipeId::ScrollText2 => {
                 let root_tool = incident_root_tool(system_prompt).unwrap_or_default();
                 let go_bottom = bridge_state
@@ -6266,12 +8500,28 @@ impl MiniwobAgentRuntime {
         let stage = bridge_state.episode_step as usize;
 
         if let Some(phase) = self.take_pending_followup() {
-            let wait_ms = match phase.as_str() {
-                "form_type" => 120,
-                "search_click" => 150,
-                _ => 50,
+            return match phase.as_str() {
+                "find_greatest_submit" => {
+                    inference_tool_call("browser__click", json!({ "selector": "#submit" }))
+                }
+                "find_midpoint_wait" => {
+                    self.note_pending_followup("find_midpoint_submit");
+                    inference_wait(80)
+                }
+                "find_midpoint_submit" => {
+                    inference_tool_call("browser__click", json!({ "selector": "#subbtn" }))
+                }
+                other => {
+                    let wait_ms = match other {
+                        "form_type" => 120,
+                        "search_click" => 150,
+                        "text_editor_apply" => 80,
+                        "email_open" | "email_compose" => 80,
+                        _ => 50,
+                    };
+                    inference_wait(wait_ms)
+                }
             };
-            return inference_wait(wait_ms);
         }
 
         let click_label = |label: &str| {
@@ -6553,8 +8803,10 @@ impl MiniwobAgentRuntime {
                 }
             }
             RecipeId::SimpleArithmetic => {
-                let problem =
-                    trim_submit_button_suffix(bridge_visible_content_after_query(bridge_state, &query));
+                let problem = trim_submit_button_suffix(bridge_visible_content_after_query(
+                    bridge_state,
+                    &query,
+                ));
                 let Some(answer) = solve_simple_arithmetic_problem(problem) else {
                     return inference_fail(
                         "ERROR_CLASS=ObservationGap simple-arithmetic prompt missing",
@@ -6570,8 +8822,9 @@ impl MiniwobAgentRuntime {
                 }
             }
             RecipeId::SimpleAlgebra => {
-                let visible_problem =
-                    trim_submit_button_suffix(bridge_visible_content_after_query(bridge_state, &query));
+                let visible_problem = trim_submit_button_suffix(
+                    bridge_visible_content_after_query(bridge_state, &query),
+                );
                 let problem = visible_problem
                     .split_once(" x =")
                     .map(|(value, _)| value.trim())
@@ -6591,8 +8844,9 @@ impl MiniwobAgentRuntime {
                 }
             }
             RecipeId::OddOrEven => {
-                let visible_numbers =
-                    odd_or_even_visible_numbers(bridge_visible_content_after_query(bridge_state, &query));
+                let visible_numbers = odd_or_even_visible_numbers(
+                    bridge_visible_content_after_query(bridge_state, &query),
+                );
                 if visible_numbers.is_empty() {
                     inference_fail("ERROR_CLASS=ObservationGap odd-or-even numbers missing")
                 } else if stage < visible_numbers.len() {
@@ -6617,8 +8871,10 @@ impl MiniwobAgentRuntime {
             }
             RecipeId::FindWord => {
                 let word_index = parse_find_word_index(&query).unwrap_or(1);
-                let paragraph =
-                    trim_submit_button_suffix(bridge_visible_content_after_query(bridge_state, &query));
+                let paragraph = trim_submit_button_suffix(bridge_visible_content_after_query(
+                    bridge_state,
+                    &query,
+                ));
                 let words = paragraph
                     .split_whitespace()
                     .map(|word| {
@@ -6631,12 +8887,9 @@ impl MiniwobAgentRuntime {
                 let Some(answer) = words.get(word_index.saturating_sub(1)) else {
                     return inference_fail("ERROR_CLASS=ObservationGap find-word target missing");
                 };
-                if let Some(action) = self.fill_text_field_if_needed(
-                    bridge_state,
-                    elements,
-                    "#answer-input",
-                    answer,
-                ) {
+                if let Some(action) =
+                    self.fill_text_field_if_needed(bridge_state, elements, "#answer-input", answer)
+                {
                     action
                 } else {
                     inference_tool_call("browser__click", json!({ "selector": "#subbtn" }))
@@ -6673,7 +8926,9 @@ impl MiniwobAgentRuntime {
                     .map(|text| text.trim().trim_end_matches(':').to_string())
                     .unwrap_or_default();
                 let Some(answer_1) = values.get(&label_1) else {
-                    return inference_fail("ERROR_CLASS=ObservationGap read-table-2 first value missing");
+                    return inference_fail(
+                        "ERROR_CLASS=ObservationGap read-table-2 first value missing",
+                    );
                 };
                 let Some(answer_2) = values.get(&label_2) else {
                     return inference_fail(
@@ -6711,35 +8966,45 @@ impl MiniwobAgentRuntime {
                 ))
                 .unwrap_or_default();
                 if normalize_label(&current_name) == normalize_label(&target_name) {
-                    inference_tool_call(
-                        "browser__click",
-                        json!({ "selector": property_selector }),
-                    )
+                    inference_tool_call("browser__click", json!({ "selector": property_selector }))
                 } else if let Some(next_selector) = bridge_selector_for_label(elements, ">") {
                     inference_tool_call("browser__click", json!({ "selector": next_selector }))
                 } else {
                     inference_fail("ERROR_CLASS=TargetNotFound phone-book next page missing")
                 }
             }
-            RecipeId::FormSequence
-            | RecipeId::FormSequence2
-            | RecipeId::FormSequence3
-            | RecipeId::LoginUserPopup
-            | RecipeId::TextEditor
-            | RecipeId::GuessNumber
-            | RecipeId::FindGreatest
-            | RecipeId::SocialMedia
-            | RecipeId::SocialMediaAll
-            | RecipeId::SocialMediaSome
-            | RecipeId::StockMarket
-            | RecipeId::EmailInbox
-            | RecipeId::VisualAddition
-            | RecipeId::IdentifyShape
-            | RecipeId::CountShape
-            | RecipeId::CountSides
-            | RecipeId::FindMidpoint => {
-                inference_fail("ERROR_CLASS=CatalogSurvey agent recipe pending for PR8 follow-up")
+            RecipeId::FormSequence => self.form_sequence_action(bridge_state, elements, &query),
+            RecipeId::FormSequence2 => self.form_sequence_2_action(bridge_state, elements, &query),
+            RecipeId::FormSequence3 => self.form_sequence_3_action(elements, &query),
+            RecipeId::LoginUserPopup => {
+                self.login_user_popup_action(bridge_state, elements, &query)
             }
+            RecipeId::TextEditor => self.text_editor_action(bridge_state, &query),
+            RecipeId::GuessNumber => self.guess_number_action(bridge_state, elements, &query),
+            RecipeId::FindGreatest => self.find_greatest_action(bridge_state, &query),
+            RecipeId::SocialMedia => self.social_media_action(bridge_state, &query),
+            RecipeId::SocialMediaAll => self.social_media_multi_action(
+                bridge_visible_content_after_query(bridge_state, &query),
+                &query,
+                stage,
+                None,
+            ),
+            RecipeId::SocialMediaSome => {
+                let amount = parse_social_media_amount(&query).unwrap_or(1);
+                self.social_media_multi_action(
+                    bridge_visible_content_after_query(bridge_state, &query),
+                    &query,
+                    stage,
+                    Some(amount),
+                )
+            }
+            RecipeId::StockMarket => self.stock_market_action(bridge_state, &query),
+            RecipeId::EmailInbox => self.email_inbox_action(bridge_state, elements, &query),
+            RecipeId::VisualAddition => self.visual_addition_action(bridge_state),
+            RecipeId::IdentifyShape => self.identify_shape_action(bridge_state),
+            RecipeId::CountShape => self.count_shape_action(bridge_state, elements, &query),
+            RecipeId::CountSides => self.count_sides_action(elements),
+            RecipeId::FindMidpoint => self.find_midpoint_action(bridge_state),
             RecipeId::HoverShape => match self.hover_shape_phase().as_deref() {
                 None => {
                     self.note_hover_shape_phase("await_post_hover_1");
@@ -7117,7 +9382,7 @@ async fn run_agent_case(
         .launch(headless)
         .await
         .map_err(|err| anyhow!("launch Chromium for agent mode: {}", err))?;
-    let runtime: Arc<dyn InferenceRuntime> = Arc::new(MiniwobAgentRuntime {
+    let runtime = Arc::new(MiniwobAgentRuntime {
         case: case.clone(),
         client: client.clone(),
         session_id: created.session_id.clone(),
@@ -7128,13 +9393,24 @@ async fn run_agent_case(
         last_scroll_action: Mutex::new(None),
         last_copy_paste_action: Mutex::new(None),
         last_hover_shape_phase: Mutex::new(None),
+        text_editor_phase: Mutex::new(TextEditorPhase::default()),
+        guess_number_state: Mutex::new(GuessNumberState::default()),
+        find_greatest_state: Mutex::new(FindGreatestState::default()),
+        count_sides_estimate: Mutex::new(None),
+        pending_social_media_menu_action: Mutex::new(None),
     });
+    let inference_runtime: Arc<dyn InferenceRuntime> = runtime.clone();
     let (scs, _scs_tmp_dir) = build_scs(&format!("computer_use_suite_{}.scs", case.id))?;
-    let service =
-        DesktopAgentService::new_hybrid(gui, terminal, browser.clone(), runtime.clone(), runtime)
-            .with_scs(Arc::new(Mutex::new(scs)))
-            .with_event_sender(event_tx)
-            .with_os_driver(Arc::new(StaticOsDriver::default()));
+    let service = DesktopAgentService::new_hybrid(
+        gui,
+        terminal,
+        browser.clone(),
+        inference_runtime.clone(),
+        inference_runtime,
+    )
+    .with_scs(Arc::new(Mutex::new(scs)))
+    .with_event_sender(event_tx)
+    .with_os_driver(Arc::new(StaticOsDriver::default()));
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let services_dir = ServiceDirectory::new(Vec::<Arc<dyn BlockchainService>>::new());
@@ -7187,6 +9463,7 @@ async fn run_agent_case(
             break;
         }
 
+        let previous_event_count = kernel_events.len();
         service
             .handle_service_call(
                 &mut state,
@@ -7196,6 +9473,8 @@ async fn run_agent_case(
                 &mut ctx,
             )
             .await?;
+        drain_events(&mut event_rx, &mut kernel_events);
+        runtime.observe_kernel_events(&kernel_events[previous_event_count..]);
     }
 
     let final_state = read_agent_state(&state, session_id);

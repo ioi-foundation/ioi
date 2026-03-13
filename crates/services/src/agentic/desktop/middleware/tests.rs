@@ -356,8 +356,8 @@ fn test_normalize_synthetic_click() {
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::BrowserSyntheticClick { x, y } => {
-            assert_eq!(x, 100);
-            assert_eq!(y, 200);
+            assert!((x - 100.5).abs() < f64::EPSILON);
+            assert!((y - 200.1).abs() < f64::EPSILON);
         }
         _ => panic!("Wrong tool type"),
     }

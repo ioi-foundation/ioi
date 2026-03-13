@@ -490,12 +490,14 @@ Validation:
 
 Current phase:
 
-- PR8 selection, keyboard, clipboard, and focus tranche is now fully closed in realistic modes as of 2026-03-13.
-- PR11 runtime and agent coverage expansion is now the active phase. The next benchmark frontier is no longer low-level primitive parity; it is broader agent coverage on catalog families the direct runtime already solves generically.
-- The broader PR8 realistic regression rung is now green in both lanes: `runtime 32/32` at `crates/cli/target/computer_use_suite/run-1773380341/runtime` and `agent 32/32` at `crates/cli/target/computer_use_suite/run-1773379509/agent`.
-- Agent coverage moved materially beyond the old curated slice during this iteration: `agent 7/7` at `crates/cli/target/computer_use_suite/run-1773381666/agent` for `simple-arithmetic`, `simple-algebra`, `odd-or-even`, `find-word`, `read-table`, `read-table-2`, and `phone-book`.
-- The latest authoritative full discovered-catalog pair is still `oracle 63/130` at `crates/cli/target/computer_use_suite/run-1773368165/oracle` and `runtime 63/130` at `crates/cli/target/computer_use_suite/run-1773369088/runtime`. A fresh full runtime recapture is still pending; the current targeted and broader slices prove that the former `click-tab-2*` misses are now closed, but that has not yet been rolled into a new full-catalog total.
-- PR7 pointer work remains complete and should not be reopened wholesale. The current benchmark pressure is on planner/recipe breadth plus remaining survey-only catalog families, not on the low-level pointer/selection substrate landed in PR7 and PR8.
+- PR11 runtime and agent coverage expansion reached the explicit MiniWoB exhaustion checkpoint for product-facing work on 2026-03-13. The runtime-covered agent family tranche now closes at `agent 25/25` under `crates/cli/target/computer_use_suite/run-1773396334/agent`.
+- The broader PR8 realistic regression rung remains green in both lanes: `runtime 32/32` at `crates/cli/target/computer_use_suite/run-1773380341/runtime` and `agent 32/32` at `crates/cli/target/computer_use_suite/run-1773379509/agent`. PR7 and PR8 stay closed; no current artifact-backed regression justifies reopening low-level pointer, selection, clipboard, or focus work.
+- Agent coverage had already moved beyond the old curated slice at `agent 7/7` under `crates/cli/target/computer_use_suite/run-1773381666/agent` for `simple-arithmetic`, `simple-algebra`, `odd-or-even`, `find-word`, `read-table`, `read-table-2`, and `phone-book`. The new authoritative `25/25` slice extends that breadth across forms, editors, social-media, inbox, visual, and canvas families that direct runtime already solved.
+- `count-sides` exposed a real observation/policy gap in realistic agent mode and is now closed. Diagnostic evidence: `agent 0/1` at `crates/cli/target/computer_use_suite/run-1773395523/agent` with `browser__canvas_summary` blocked by browser intent scope. Closure evidence: `agent 1/1` at `crates/cli/target/computer_use_suite/run-1773395678/agent`, plus inclusion in the authoritative `agent 25/25` slice at `crates/cli/target/computer_use_suite/run-1773396334/agent`.
+- `stock-market` exposed the last remaining runtime-covered agent recipe gap in the first broader recapture (`agent 24/25` at `crates/cli/target/computer_use_suite/run-1773395719/agent`) and is now closed via focus-before-wait sequencing. Targeted validation: `runtime 1/1` at `crates/cli/target/computer_use_suite/run-1773396230/runtime`, `agent 1/1` at `crates/cli/target/computer_use_suite/run-1773396302/agent`, and then the authoritative `agent 25/25` recapture at `crates/cli/target/computer_use_suite/run-1773396334/agent`.
+- The latest authoritative full discovered-catalog pair is still `oracle 63/130` at `crates/cli/target/computer_use_suite/run-1773368165/oracle` and `runtime 63/130` at `crates/cli/target/computer_use_suite/run-1773369088/runtime`. Those full totals remain historically correct, but they are no longer the product-facing control metric once the runtime-covered family tranche has closed.
+- `find-midpoint` remains the only named runtime-covered realistic non-pass on the current frontier, but current artifacts isolate it as benchmark-floor residue rather than a planner/runtime/browser gap: both realistic lanes top out at `raw_reward = 0.98333335` under `crates/cli/target/computer_use_suite/run-1773395042/{runtime,agent}` because the task expects a half-pixel midpoint. That residue moves to the benchmark-only `candidate` lane unless a non-MiniWoB product case later demands subpixel pointer primitives.
+- The next external benchmark frontier is now defined as a deterministic BrowserGym/WorkArena/WebArena-style multi-page real-browser workflow slice. MiniWoB's remaining open space is now mostly survey-only recipe additions plus benchmark-floor residue, not the main source of product-relevant capability pressure.
 
 Completed phases:
 
@@ -507,13 +509,14 @@ Completed phases:
 - PR6 complete: discovered full-catalog `oracle` and `runtime` baselines were captured, a first broad catalog `agent` slice was recorded, and the gap matrix/benchmark ledger now tracks support state plus primary/secondary capability gaps
 - PR7 complete: real browser pointer primitives (`hover`, `pointer_move`, `mouse_down`, `mouse_up`, composed `drag`) landed with typed receipts/postconditions, targeted pointer tasks pass in `oracle` and `runtime`, and the broad benchmark moved materially after the tranche
 - PR8 complete: selection-range support, modifier-aware key chords, clipboard flows, focus/startup hardening, duplicate-wait dedupe hardening, one-shot startup navigation for agent mode, zero-floor completion gating fixes, and the PR8 closure slices all landed with code, tests, docs, and broader realistic-mode validation
+- PR11 product-facing runtime-covered breadth tranche complete: authoritative realistic slices now include `agent 32/32` at `crates/cli/target/computer_use_suite/run-1773379509/agent`, `agent 7/7` at `crates/cli/target/computer_use_suite/run-1773381666/agent`, and `agent 25/25` at `crates/cli/target/computer_use_suite/run-1773396334/agent` without reopening low-level primitives
 
 Remaining phases:
 
 - PR9: observation hardening if a fresh broad/full recapture exposes a real observation-led family again
 - PR10: recovery and verification hardening
-- PR11: runtime and agent coverage expansion plus nightly regression tracking
-- PR12: separate full-catalog candidate lane
+- PR12: separate full-catalog `candidate` lane for residual MiniWoB survey-family parity plus `find-midpoint`
+- post-MiniWoB external benchmark expansion using deterministic BrowserGym/WorkArena/WebArena-style workflows
 
 Decisions made:
 
@@ -529,7 +532,11 @@ Decisions made:
 - authoritative benchmark runs should be taken serially; overlapping suite invocations can reuse the same timestamp root and make debugging harder even when the underlying code is correct
 - once a tranche closes its targeted slice, it must immediately earn at least one broader `runtime` and one broader `agent` recapture before the phase can be marked complete
 - partial diagnostic runs must be called out explicitly and left non-authoritative; the aborted full-agent diagnostic at `crates/cli/target/computer_use_suite/run-1773380439/agent` and the aborted combined 39-case agent diagnostic at `crates/cli/target/computer_use_suite/run-1773381814/agent` should not be treated as benchmark state
-- the next high-yield agent work should port runtime-covered catalog families before opening new survey-only recipes; the latest iteration followed that rule by adding agent coverage for text-and-logic families already solved in direct mode
+- the next high-yield agent work should port runtime-covered catalog families before opening new survey-only recipes; the latest iteration followed that rule through the closed `agent 25/25` runtime-covered family slice
+- non-mutating browser inspection helpers needed inside active browser tasks (`browser__snapshot`, `browser__canvas_summary`) must be callable under the browser interaction capability surface; blocking them creates false policy failures rather than meaningful product constraints
+- realistic browser pointer coordinates must preserve floats, and text insertion should emit the DOM key events pages actually observe, so benchmark pressure lands on real browser behavior instead of artificial truncation artifacts
+- `find-midpoint` should be classified from artifacts, not from the suite's generic fallback labels: the realistic residue is `missing_pointer_primitive` with `subpixel_click_precision` / `page_event_integer_quantization`, not a planner gap
+- once the runtime-covered MiniWoB families are closed and the remaining open work is mostly harness recipes or benchmark-floor residue, MiniWoB stops being the product-facing benchmark frontier and further parity work should move to `candidate`
 
 Deviations from original plan:
 
@@ -541,33 +548,44 @@ Deviations from original plan:
   - one-shot startup navigation in agent mode
   - zero-floor completion gating in both the outer agent loop and `next_action`
 - the hover-only agent reruns briefly looked like PR8 regressions, but after removing the startup/zero-floor false positives they resolved back to the real remaining pointer issue: hover verification still reports `hovered=false` on `#highlight`
-- the next post-PR8 movement came from agent-visible-text parsing and selector-driven recipe expansion, not from opening a new primitive tranche; the current frontier is broader coverage rather than another low-level browser tool gap
+- the next post-PR8 movement came from agent-visible-text parsing, broader DOM export, selector-driven recipe expansion, and browser-inspect follow-up scope fixes rather than from opening another low-level primitive tranche
+- the bridge now exports generic `dom_elements`, and the suite runtime consumes successful `browser__canvas_summary` kernel events to cache canvas observations without adding benchmark-native action shortcuts to realistic modes
+- `stock-market` agent behavior now mirrors the existing direct runtime strategy of focusing the buy control first and then waiting for the threshold, rather than relying on a simplified wait/click variant
+- `find-midpoint` remains in MiniWoB reporting but has been moved out of product-facing PR11 work and into the future benchmark-only `candidate` lane
 
 Validation status:
 
 - `cargo test -p ioi-services browser_interaction_scope_allows_pointer_followups -- --nocapture` passed on 2026-03-12 after extending browser interaction capability bindings for pointer follow-ups
 - `cargo test -p ioi-cli --test computer_use_suite_e2e synthetic_kernel_events_do_not_count_as_executed_tools -- --nocapture` passed on 2026-03-12 after filtering synthetic `system::max_steps_reached` events from kernel tool accounting
 - `cargo test -p ioi-services browser_wait_is_allowed_to_repeat_on_adjacent_steps -- --nocapture` passed on 2026-03-12 after exempting `browser__wait` from adjacent non-command replay blocking
-- `cargo test -p ioi-cli --test computer_use_suite_e2e 'computer_use_suite::harness::tests::' -- --nocapture` passed on 2026-03-13 (`32 passed`) after adding visible-text parsing and agent recipe coverage tests for the new text-and-logic slice
+- `cargo test -p ioi-services browser_interaction_scope_allows_ -- --nocapture` passed on 2026-03-13 after allowing non-mutating browser inspection follow-ups inside active browser interaction scope
+- `cargo test -p ioi-services test_normalize_synthetic_click -- --nocapture` passed on 2026-03-13 after preserving float pointer coordinates through tool normalization
+- `cargo test -p ioi-cli --test computer_use_suite_e2e 'computer_use_suite::harness::tests::find_midpoint_' -- --nocapture` passed on 2026-03-13 after updating midpoint geometry expectations for float coordinates
+- `cargo test -p ioi-cli --test computer_use_suite_e2e 'computer_use_suite::harness::tests::count_sides_' -- --nocapture` passed on 2026-03-13 after landing canvas-summary caching in `MiniwobAgentRuntime`
+- `cargo test -p ioi-cli --test computer_use_suite_e2e 'computer_use_suite::harness::tests::stock_market_' -- --nocapture` passed on 2026-03-13 after mirroring the direct runtime focus-before-wait sequence in the agent recipe
+- `cargo test -p ioi-cli --test computer_use_suite_e2e 'computer_use_suite::harness::tests::' -- --nocapture` passed on 2026-03-13 (`56 passed`) after the count-sides, stock-market, and midpoint updates
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=runtime COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_highlight_text,miniwob_catalog_highlight_text_2,miniwob_catalog_copy_paste,miniwob_catalog_copy_paste_2 COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-12 with targeted PR8 realistic-mode validation: `runtime 4/4`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773372368/runtime`
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_highlight_text,miniwob_catalog_highlight_text_2,miniwob_catalog_copy_paste,miniwob_catalog_copy_paste_2 COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-12 with targeted PR8 realistic-mode validation: `agent 4/4`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773372670/agent`
-- `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_scroll_text_2 COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-13 with `agent 1/1`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773379418/agent`
-- `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_click_checkboxes_soft,miniwob_catalog_scroll_text_2,miniwob_catalog_use_autocomplete COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-13 with `agent 3/3`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773379444/agent`
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_choose_list,miniwob_catalog_click_button,miniwob_catalog_click_button_sequence,miniwob_catalog_click_checkboxes,miniwob_catalog_click_checkboxes_large,miniwob_catalog_click_checkboxes_soft,miniwob_catalog_click_checkboxes_transfer,miniwob_catalog_click_collapsible,miniwob_catalog_click_collapsible_2,miniwob_catalog_click_collapsible_2_nodelay,miniwob_catalog_click_collapsible_nodelay,miniwob_catalog_click_link,miniwob_catalog_click_option,miniwob_catalog_click_tab,miniwob_catalog_click_tab_2,miniwob_catalog_click_tab_2_easy,miniwob_catalog_click_tab_2_hard,miniwob_catalog_click_tab_2_medium,miniwob_catalog_enter_password,miniwob_catalog_enter_text,miniwob_catalog_enter_text_2,miniwob_catalog_focus_text,miniwob_catalog_focus_text_2,miniwob_catalog_login_user,miniwob_catalog_scroll_text_2,miniwob_catalog_search_engine,miniwob_catalog_use_autocomplete,miniwob_catalog_use_autocomplete_nodelay,miniwob_catalog_highlight_text,miniwob_catalog_highlight_text_2,miniwob_catalog_copy_paste,miniwob_catalog_copy_paste_2 COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-13 with a broader realistic agent slice: `agent 32/32`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773379509/agent`
-- `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=runtime COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_click_tab_2,miniwob_catalog_click_tab_2_easy,miniwob_catalog_click_tab_2_hard,miniwob_catalog_click_tab_2_medium COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-13 with targeted `click-tab-2*` regression validation: `runtime 4/4`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773380215/runtime`
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=runtime COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_choose_list,miniwob_catalog_click_button,miniwob_catalog_click_button_sequence,miniwob_catalog_click_checkboxes,miniwob_catalog_click_checkboxes_large,miniwob_catalog_click_checkboxes_soft,miniwob_catalog_click_checkboxes_transfer,miniwob_catalog_click_collapsible,miniwob_catalog_click_collapsible_2,miniwob_catalog_click_collapsible_2_nodelay,miniwob_catalog_click_collapsible_nodelay,miniwob_catalog_click_link,miniwob_catalog_click_option,miniwob_catalog_click_tab,miniwob_catalog_click_tab_2,miniwob_catalog_click_tab_2_easy,miniwob_catalog_click_tab_2_hard,miniwob_catalog_click_tab_2_medium,miniwob_catalog_enter_password,miniwob_catalog_enter_text,miniwob_catalog_enter_text_2,miniwob_catalog_focus_text,miniwob_catalog_focus_text_2,miniwob_catalog_login_user,miniwob_catalog_scroll_text_2,miniwob_catalog_search_engine,miniwob_catalog_use_autocomplete,miniwob_catalog_use_autocomplete_nodelay,miniwob_catalog_highlight_text,miniwob_catalog_highlight_text_2,miniwob_catalog_copy_paste,miniwob_catalog_copy_paste_2 COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-13 with a broader direct-mode regression slice: `runtime 32/32`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773380341/runtime`
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_simple_arithmetic,miniwob_catalog_simple_algebra,miniwob_catalog_odd_or_even,miniwob_catalog_find_word,miniwob_catalog_read_table,miniwob_catalog_read_table_2,miniwob_catalog_phone_book COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-13 with targeted agent coverage-expansion validation: `agent 7/7`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773381666/agent`
+- `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=runtime COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_find_midpoint COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` and `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_find_midpoint COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` remained `0/1` on 2026-03-13 under `crates/cli/target/computer_use_suite/run-1773395042/{runtime,agent}` even after float-coordinate and midpoint-geometry fixes; bridge artifacts show `raw_reward = 0.98333335`
+- `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_count_sides COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` first failed diagnostically on 2026-03-13 with `agent 0/1` at `crates/cli/target/computer_use_suite/run-1773395523/agent` (`PolicyBlocked` on `browser__canvas_summary`), then passed at `agent 1/1` under `crates/cli/target/computer_use_suite/run-1773395678/agent`
+- `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_form_sequence,miniwob_catalog_form_sequence_2,miniwob_catalog_form_sequence_3,miniwob_catalog_login_user_popup,miniwob_catalog_text_editor,miniwob_catalog_guess_number,miniwob_catalog_find_greatest,miniwob_catalog_social_media,miniwob_catalog_social_media_all,miniwob_catalog_social_media_some,miniwob_catalog_stock_market,miniwob_catalog_email_inbox,miniwob_catalog_email_inbox_delete,miniwob_catalog_email_inbox_forward,miniwob_catalog_email_inbox_forward_nl,miniwob_catalog_email_inbox_forward_nl_turk,miniwob_catalog_email_inbox_important,miniwob_catalog_email_inbox_nl_turk,miniwob_catalog_email_inbox_noscroll,miniwob_catalog_email_inbox_reply,miniwob_catalog_email_inbox_star_reply,miniwob_catalog_visual_addition,miniwob_catalog_identify_shape,miniwob_catalog_count_shape,miniwob_catalog_count_sides COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` first completed diagnostically at `agent 24/25` under `crates/cli/target/computer_use_suite/run-1773395719/agent`, isolating `stock-market` as the last remaining gap in the batch
+- `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=runtime COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_stock_market COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-13 with `runtime 1/1`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773396230/runtime`
+- `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_stock_market COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-13 with `agent 1/1`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773396302/agent`
+- `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_form_sequence,miniwob_catalog_form_sequence_2,miniwob_catalog_form_sequence_3,miniwob_catalog_login_user_popup,miniwob_catalog_text_editor,miniwob_catalog_guess_number,miniwob_catalog_find_greatest,miniwob_catalog_social_media,miniwob_catalog_social_media_all,miniwob_catalog_social_media_some,miniwob_catalog_stock_market,miniwob_catalog_email_inbox,miniwob_catalog_email_inbox_delete,miniwob_catalog_email_inbox_forward,miniwob_catalog_email_inbox_forward_nl,miniwob_catalog_email_inbox_forward_nl_turk,miniwob_catalog_email_inbox_important,miniwob_catalog_email_inbox_nl_turk,miniwob_catalog_email_inbox_noscroll,miniwob_catalog_email_inbox_reply,miniwob_catalog_email_inbox_star_reply,miniwob_catalog_visual_addition,miniwob_catalog_identify_shape,miniwob_catalog_count_shape,miniwob_catalog_count_sides COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` then completed authoritatively on 2026-03-13 with `agent 25/25`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773396334/agent`
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=oracle COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-12 with the current authoritative full discovered-catalog oracle snapshot: `63/130`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773368165/oracle`
 - `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-src-ioi COMPUTER_USE_SUITE_MODE=runtime COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_FAIL_ON_FAILURE=0 COMPUTER_USE_SUITE_HEADLESS=1 COMPUTER_USE_SUITE_VERBOSE_ARTIFACTS=1 tools/miniwob/run_suite.sh` completed on 2026-03-12 with the current authoritative full discovered-catalog runtime snapshot: `63/130`, artifacts rooted at `crates/cli/target/computer_use_suite/run-1773369088/runtime`
 
 Known failures / unrelated issues:
 
 - repository-wide compiler/test warnings remain noisy but are pre-existing and unrelated to MiniWoB progress
-- the authoritative full-catalog `runtime`/`oracle` pair is still the older `63/130` snapshot; a fresh full runtime recapture is still needed before the full-catalog totals can absorb the now-closed `click-tab-2*` family
+- the authoritative full-catalog `runtime`/`oracle` pair is still the older `63/130` snapshot; no fresh full runtime or full agent recapture has been taken after the newer realistic slices because those totals are no longer the product-facing control metric
 - there is still no authoritative full-catalog `agent` total beyond the original broad baseline; the attempted all-catalog agent diagnostic at `crates/cli/target/computer_use_suite/run-1773380439/agent` was intentionally abandoned because it is too slow to be a useful iteration loop in its current form
-- the aborted combined 39-case agent diagnostic at `crates/cli/target/computer_use_suite/run-1773381814/agent` is non-authoritative and should not be used for status; rely on the closed `agent 32/32` and `agent 7/7` slices instead
-- the next unported runtime-covered `agent` families remain `form-sequence*`, `login-user-popup`, `text-editor`, `guess-number`, `find-greatest`, `social-media*`, `stock-market`, `email-inbox`, `visual-addition`, `identify-shape`, `count-shape`, `count-sides`, and `find-midpoint`
-- survey-only full-catalog families still dominate the remaining open space in the last authoritative full pair; those have not yet been reopened as new recipes during this iteration
+- the aborted combined 39-case agent diagnostic at `crates/cli/target/computer_use_suite/run-1773381814/agent` is non-authoritative and should not be used for status; rely on the closed `agent 32/32`, `agent 7/7`, and `agent 25/25` slices instead
+- `find-midpoint` remains a diagnostic realistic-mode non-pass at `crates/cli/target/computer_use_suite/run-1773395042/{runtime,agent}`. The artifact-backed primary gap is `missing_pointer_primitive`, with secondary tags `subpixel_click_precision` and `page_event_integer_quantization`; do not reopen PR7/PR8 wholesale for this MiniWoB-only residue
+- remaining MiniWoB open space beyond the closed runtime-covered family tranche is now dominated by survey-only recipe additions over already-covered primitives; that work belongs in the benchmark-only `candidate` lane rather than in product-facing PR11
 - authoritative benchmark runs should remain serial; overlapping or partial suite invocations make artifact roots and startup diagnosis harder
 
 Date-stamped implementation notes:
@@ -583,6 +601,12 @@ Date-stamped implementation notes:
 - 2026-03-13: closed the matching broader PR8 realistic regression rung in agent mode at `agent 32/32` under `crates/cli/target/computer_use_suite/run-1773379509/agent`, replacing the stale `agent 26/32` slice
 - 2026-03-13: added bridge-visible-text parsing plus deterministic agent recipes for `simple-arithmetic`, `simple-algebra`, `odd-or-even`, `find-word`, `read-table`, `read-table-2`, and `phone-book`; targeted live validation closed at `agent 7/7` under `crates/cli/target/computer_use_suite/run-1773381666/agent`
 - 2026-03-13: intentionally abandoned the partial full-agent diagnostic `run-1773380439` and the partial combined 39-case diagnostic `run-1773381814`; both roots are non-authoritative and exist only as troubleshooting residue
+- 2026-03-13: the bridge now exports generic `dom_elements`, and `MiniwobAgentRuntime` now consumes successful `browser__canvas_summary` kernel events to cache shape-side estimates; this closed the realistic agent `count-sides` gap after allowing browser-inspect follow-ups under browser interaction scope
+- 2026-03-13: preserved float `x/y` for `browser__synthetic_click` and `browser__move_mouse` and emitted synthetic DOM `keyup` after text insertion; these changes isolated `find-midpoint` to a half-pixel benchmark floor instead of a recipe math bug or coordinate truncation bug
+- 2026-03-13: first broader recapture of the runtime-covered family tranche landed at `agent 24/25` under `crates/cli/target/computer_use_suite/run-1773395719/agent`, isolating `stock-market` as the last remaining gap in the batch
+- 2026-03-13: updated the `stock-market` agent recipe to focus `#buy` via `Tab`, wait until the observed price crosses the query threshold, and then submit with `Enter`; targeted live reruns passed at `runtime 1/1` under `crates/cli/target/computer_use_suite/run-1773396230/runtime` and `agent 1/1` under `crates/cli/target/computer_use_suite/run-1773396302/agent`
+- 2026-03-13: clean serial recapture of the runtime-covered family tranche closed at `agent 25/25` under `crates/cli/target/computer_use_suite/run-1773396334/agent`; this is now the authoritative PR11 breadth checkpoint
+- 2026-03-13: MiniWoB reached the rung-7 product-facing exhaustion checkpoint. Remaining MiniWoB parity work (`find-midpoint` plus survey-only families) moves to the future benchmark-only `candidate` lane, and the next external frontier is now defined as deterministic BrowserGym/WorkArena/WebArena-style multi-page workflows
 
 ## Iteration Update Protocol
 
@@ -627,6 +651,8 @@ Latest snapshot:
   - targeted PR8 realistic slice: `4/4` at `crates/cli/target/computer_use_suite/run-1773372368/runtime`
   - targeted `click-tab-2*` repair slice: `4/4` at `crates/cli/target/computer_use_suite/run-1773380215/runtime`
   - broader PR8 realistic regression slice: `32/32` at `crates/cli/target/computer_use_suite/run-1773380341/runtime`
+  - diagnostic `find-midpoint` ceiling after float-coordinate and geometry fixes: `0/1` at `crates/cli/target/computer_use_suite/run-1773395042/runtime` with `raw_reward = 0.98333335`
+  - targeted `stock-market` validation after the agent-side diagnosis: `1/1` at `crates/cli/target/computer_use_suite/run-1773396230/runtime`
 - `agent`:
   - smoke: `8/8` passing
   - first broad catalog slice: `18/28` at `crates/cli/target/computer_use_suite/run-1773347279/agent`
@@ -637,7 +663,13 @@ Latest snapshot:
   - targeted residual planner slice: `3/3` at `crates/cli/target/computer_use_suite/run-1773379444/agent`
   - broader PR8 realistic regression slice: `32/32` at `crates/cli/target/computer_use_suite/run-1773379509/agent`
   - targeted text-and-logic coverage-expansion slice: `7/7` at `crates/cli/target/computer_use_suite/run-1773381666/agent`
-- `candidate`: not started
+  - diagnostic `find-midpoint` ceiling after float-coordinate and geometry fixes: `0/1` at `crates/cli/target/computer_use_suite/run-1773395042/agent` with `raw_reward = 0.98333335`
+  - diagnostic `count-sides` policy failure before browser-inspect scope expansion: `0/1` at `crates/cli/target/computer_use_suite/run-1773395523/agent`
+  - targeted `count-sides` closure slice: `1/1` at `crates/cli/target/computer_use_suite/run-1773395678/agent`
+  - diagnostic first broader recapture of the runtime-covered family tranche: `24/25` at `crates/cli/target/computer_use_suite/run-1773395719/agent`
+  - targeted `stock-market` closure slice: `1/1` at `crates/cli/target/computer_use_suite/run-1773396302/agent`
+  - authoritative runtime-covered family breadth slice: `25/25` at `crates/cli/target/computer_use_suite/run-1773396334/agent`
+- `candidate`: not started; designated for residual MiniWoB parity (`find-midpoint` plus survey-only families) rather than product-facing PR11 work
 
 Artifact roots for the main measured checkpoints:
 
@@ -658,17 +690,26 @@ Artifact roots for the main measured checkpoints:
 - `crates/cli/target/computer_use_suite/run-1773380215/runtime`
 - `crates/cli/target/computer_use_suite/run-1773380341/runtime`
 - `crates/cli/target/computer_use_suite/run-1773381666/agent`
+- `crates/cli/target/computer_use_suite/run-1773395042/runtime`
+- `crates/cli/target/computer_use_suite/run-1773395042/agent`
+- `crates/cli/target/computer_use_suite/run-1773395523/agent`
+- `crates/cli/target/computer_use_suite/run-1773395678/agent`
+- `crates/cli/target/computer_use_suite/run-1773395719/agent`
+- `crates/cli/target/computer_use_suite/run-1773396230/runtime`
+- `crates/cli/target/computer_use_suite/run-1773396302/agent`
+- `crates/cli/target/computer_use_suite/run-1773396334/agent`
 
 ## Capability Gap Matrix
 
 Latest measured matrix state on 2026-03-13:
 
-- the authoritative full discovered-catalog pair is still `oracle 63/130` and `runtime 63/130`; that full-pair ledger has not yet been refreshed after the `click-tab-2*` repair and the latest agent coverage expansion
-- the last full-pair open families therefore remain:
+- the authoritative full discovered-catalog pair is still `oracle 63/130` and `runtime 63/130`; that full-pair ledger has not been refreshed after the newer realistic slices, and it is now secondary to the closed runtime-covered family tranche
+- the last full-pair open families therefore still reflect the older full-pair ledger:
   - `planner_gap=51`
   - `missing_pointer_primitive=15`
   - `missing_keyboard_primitive=1`
-- no live `observation_gap` is currently exposed by the newest targeted or broader realistic slices; the active frontier is planner/recipe breadth rather than observation fallback weakness
+- the current high-yield realistic frontier is no longer exposing a live observation or recovery blocker. `count-sides` closed the last product-facing observation/policy issue in this batch, and `stock-market` closed the last planner/recipe hole in the runtime-covered family tranche
+- the only named realistic non-pass still tracked on this frontier is `find-midpoint`, and its current artifact-backed classification is `missing_pointer_primitive` with secondary tags `subpixel_click_precision` and `page_event_integer_quantization`; it should not be counted as a planner gap
 
 Closed tranche tasks with current measured evidence:
 
@@ -693,13 +734,20 @@ Agent coverage-expansion movement on 2026-03-13:
 
 - `simple-arithmetic`, `simple-algebra`, `odd-or-even`, `find-word`, `read-table`, `read-table-2`, and `phone-book` now pass in `agent` at `crates/cli/target/computer_use_suite/run-1773381666/agent`
 - that movement came from bridge-visible-text parsing plus generic typed form-entry and selector-driven actions; no MiniWoB-only product logic was added to the runtime or agent service layers
-- the next unported runtime-covered agent families are still concentrated in forms/editor/social/email/visual/canvas cases rather than in low-level browser primitives
+- the next runtime-covered agent families were then ported and closed in the authoritative `agent 25/25` slice at `crates/cli/target/computer_use_suite/run-1773396334/agent`: `form-sequence*`, `login-user-popup`, `text-editor`, `guess-number`, `find-greatest`, `social-media*`, `stock-market`, `email-inbox*`, `visual-addition`, `identify-shape`, `count-shape`, and `count-sides`
+- the reusable capability patterns that moved in this batch were:
+  - browser-inspect follow-ups under browser interaction scope for observation-assisted tasks (`count-sides`)
+  - kernel-event observation caching for `browser__canvas_summary`
+  - float-preserving pointer coordinates and DOM keyup parity
+  - focus-before-wait sequencing for event-driven browser tasks (`stock-market`)
+- after the `agent 25/25` closure slice, the remaining MiniWoB delta is mostly survey-only recipe parity plus the benchmark-floor `find-midpoint` residue, not product-relevant primitive or planner expansion
 
 Broad-mode deltas from the current authoritative full pair:
 
 - `oracle`-only pass: none
 - `runtime`-only pass: none
-- `agent` has now matched the 32-case broader PR8 realistic slice and added a separate `7/7` text-and-logic expansion slice, but an authoritative broader/full-catalog `agent` recapture is still pending
+- `agent` has now matched the 32-case broader PR8 realistic slice, added the separate `7/7` text-and-logic expansion slice, and closed an authoritative `25/25` runtime-covered family slice at `crates/cli/target/computer_use_suite/run-1773396334/agent`
+- MiniWoB exhaustion assessment: the closed `25/25` runtime-covered slice means the remaining product-facing MiniWoB movement is exhausted. Residual parity work belongs in `candidate`, and the next product-facing benchmark pressure should come from the new multi-page BrowserGym/WorkArena/WebArena-style frontier
 
 ## Benchmark Escalation Ladder
 
@@ -724,31 +772,43 @@ Measured ladder as of 2026-03-13:
    - broader realistic slices closed at `runtime 32/32` and `agent 32/32`
    - startup/readiness, zero-floor gating, hidden-tab recovery, selection range, clipboard, and key-chord work all landed with tests and artifacts
 6. Observation/verification hardening.
-   Status: pending only if a fresh broad/full recapture re-exposes an observation-led blocker.
-   Current read: the newest realistic slices are not observation-limited; no new PR9 observation tranche has been opened.
+   Status: closed for current MiniWoB product-facing work.
+   Evidence:
+   - `count-sides` first exposed a real observation/policy blocker at `crates/cli/target/computer_use_suite/run-1773395523/agent`
+   - browser-inspect follow-up scope plus canvas-summary event observation closed that blocker at `crates/cli/target/computer_use_suite/run-1773395678/agent` and inside the authoritative `agent 25/25` slice at `crates/cli/target/computer_use_suite/run-1773396334/agent`
 7. Stable broad `runtime` and `agent` coverage.
-   Status: in progress.
+   Status: complete for product-facing MiniWoB work; explicit exhaustion checkpoint reached.
    Evidence so far:
    - `runtime 32/32` at `crates/cli/target/computer_use_suite/run-1773380341/runtime`
    - `agent 32/32` at `crates/cli/target/computer_use_suite/run-1773379509/agent`
    - `agent 7/7` text-and-logic expansion slice at `crates/cli/target/computer_use_suite/run-1773381666/agent`
-   Next rung:
-   - port the remaining runtime-covered `agent` families (`form-sequence*`, `login-user-popup`, `text-editor`, `guess-number`, `find-greatest`, `social-media*`, `stock-market`, `email-inbox`, `visual-addition`, `identify-shape`, `count-shape`, `count-sides`, `find-midpoint`)
-   - rerun a larger authoritative `agent` slice once that next batch lands
+   - `agent 25/25` runtime-covered family breadth slice at `crates/cli/target/computer_use_suite/run-1773396334/agent`
+   Exhaustion checkpoint:
+   - this batch still closed real reusable capability patterns: browser-inspect follow-up scope, canvas-summary observation caching, float-preserving pointer coordinates, DOM keyup parity, and focus-before-wait sequencing
+   - after those closures, the only named realistic miss left on the runtime-covered frontier is `find-midpoint`, whose latest artifacts at `crates/cli/target/computer_use_suite/run-1773395042/{runtime,agent}` cap out at `raw_reward = 0.98333335` because the task expects a half-pixel midpoint; treat that as benchmark-only `candidate` residue
+   - the next MiniWoB batches are now mostly suite-harness recipe additions on top of already-covered primitives, which no longer represents product-facing progress
    Exit criterion:
    - authoritative agent breadth extends beyond the old 32-case slice without surfacing new low-level primitive regressions
+   Result:
+   - satisfied; product-facing MiniWoB work moves to rung 8 and rung 10
 8. Benchmark-only full-catalog `candidate` lane.
-   Status: pending.
-   Exit criterion:
-   - `candidate` exists as a clearly separated lane on the same real tool substrate and has its own typed reporting
+   Status: pending implementation, now designated as the only valid lane for residual MiniWoB parity work.
+   Scope:
+   - residual MiniWoB survey families
+   - `find-midpoint` half-pixel precision residue
+   Guardrail:
+   - no product-routing, capability, or benchmark-conditioned heuristics may be added while chasing this lane
 9. Repeated-seed and repeated-run stability targets.
    Status: pending.
    Exit criterion:
    - broadened runtime/agent slices stop surfacing new low-level failures across repeated seeds/runs before candidate-lane work is treated as stable
 10. Post-MiniWoB benchmark expansion.
-    Status: pending.
+    Status: defined and ready for follow-on implementation.
+    Next external frontier:
+    - deterministic BrowserGym/WorkArena/WebArena-style multi-page real-browser workflow slices
+    - prioritize tasks that force navigation, persistent state, verification, and recovery across realistic pages rather than single-page microworld recipes
     Exit criterion:
-    - MiniWoB no longer surfaces the primary missing primitive, observation, or planner requirements, at which point a new external benchmark frontier is added here immediately
+    - a new benchmark harness exists in the repo plan and begins replacing MiniWoB as the main product-facing browser/computer-use forcing function
 
 ## CI Strategy
 
