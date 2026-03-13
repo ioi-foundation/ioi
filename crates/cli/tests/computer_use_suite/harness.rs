@@ -50,6 +50,7 @@ use super::types::{
     KernelBehaviorObservation, LocalJudge, OracleStepRecord, RecipeId, SuiteConfig, TaskSet,
     ToolStepRecord, ValidationSummary,
 };
+use super::workflow_backend::{WorkflowBridgeClient, WorkflowBridgeProcess};
 
 pub struct ModeRunReport {
     pub results: Vec<ComputerUseCaseResult>,
@@ -63,14 +64,14 @@ struct BridgeCreateResponse {
 }
 
 #[derive(Clone)]
-struct BridgeClient {
-    http: Client,
-    base_url: String,
+enum BridgeClient {
+    Miniwob { http: Client, base_url: String },
+    Workflow(WorkflowBridgeClient),
 }
 
 impl BridgeClient {
-    fn new(base_url: String) -> Result<Self> {
-        Ok(Self {
+    fn new_miniwob(base_url: String) -> Result<Self> {
+        Ok(Self::Miniwob {
             http: Client::builder()
                 .timeout(Duration::from_secs(5))
                 .build()
@@ -80,92 +81,120 @@ impl BridgeClient {
     }
 
     async fn health(&self) -> Result<Value> {
-        let response = self
-            .http
-            .get(format!("{}/health", self.base_url))
-            .send()
-            .await
-            .context("bridge health request")?
-            .error_for_status()
-            .context("bridge health status")?;
-        Ok(response
-            .json::<Value>()
-            .await
-            .context("bridge health json")?)
+        match self {
+            Self::Miniwob { http, base_url } => {
+                let response = http
+                    .get(format!("{}/health", base_url))
+                    .send()
+                    .await
+                    .context("bridge health request")?
+                    .error_for_status()
+                    .context("bridge health status")?;
+                Ok(response
+                    .json::<Value>()
+                    .await
+                    .context("bridge health json")?)
+            }
+            Self::Workflow(_) => Ok(json!({ "ok": true })),
+        }
     }
 
     async fn create_session(&self, case: &ComputerUseCase) -> Result<BridgeCreateResponse> {
-        let response = self
-            .http
-            .post(format!("{}/session/create", self.base_url))
-            .json(&json!({
-                "env_id": &case.env_id,
-                "seed": case.seed,
-                "data_mode": "train",
-            }))
-            .send()
-            .await
-            .context("bridge create session")?
-            .error_for_status()
-            .context("bridge create session status")?;
-        response
-            .json::<BridgeCreateResponse>()
-            .await
-            .context("bridge create session json")
+        match self {
+            Self::Miniwob { http, base_url } => {
+                let response = http
+                    .post(format!("{}/session/create", base_url))
+                    .json(&json!({
+                        "env_id": &case.env_id,
+                        "seed": case.seed,
+                        "data_mode": "train",
+                    }))
+                    .send()
+                    .await
+                    .context("bridge create session")?
+                    .error_for_status()
+                    .context("bridge create session status")?;
+                response
+                    .json::<BridgeCreateResponse>()
+                    .await
+                    .context("bridge create session json")
+            }
+            Self::Workflow(client) => {
+                let response = client.create_session(case).await?;
+                Ok(BridgeCreateResponse {
+                    session_id: response.session_id,
+                    url: response.url,
+                    state: response.state,
+                })
+            }
+        }
     }
 
     async fn state(&self, session_id: &str) -> Result<BridgeState> {
-        let response = self
-            .http
-            .get(format!("{}/session/{}/state", self.base_url, session_id))
-            .send()
-            .await
-            .context("bridge state request")?
-            .error_for_status()
-            .context("bridge state status")?;
-        response
-            .json::<BridgeState>()
-            .await
-            .context("bridge state json")
+        match self {
+            Self::Miniwob { http, base_url } => {
+                let response = http
+                    .get(format!("{}/session/{}/state", base_url, session_id))
+                    .send()
+                    .await
+                    .context("bridge state request")?
+                    .error_for_status()
+                    .context("bridge state status")?;
+                response
+                    .json::<BridgeState>()
+                    .await
+                    .context("bridge state json")
+            }
+            Self::Workflow(client) => client.state(session_id).await,
+        }
     }
 
     async fn oracle_step(&self, session_id: &str, kind: &str, arguments: Value) -> Result<()> {
-        self.http
-            .post(format!(
-                "{}/session/{}/oracle_step",
-                self.base_url, session_id
-            ))
-            .json(&json!({
-                "type": kind,
-                "arguments": arguments,
-            }))
-            .send()
-            .await
-            .context("bridge oracle step request")?
-            .error_for_status()
-            .context("bridge oracle step status")?;
-        Ok(())
+        match self {
+            Self::Miniwob { http, base_url } => {
+                http.post(format!("{}/session/{}/oracle_step", base_url, session_id))
+                    .json(&json!({
+                        "type": kind,
+                        "arguments": arguments,
+                    }))
+                    .send()
+                    .await
+                    .context("bridge oracle step request")?
+                    .error_for_status()
+                    .context("bridge oracle step status")?;
+                Ok(())
+            }
+            Self::Workflow(client) => client.oracle_step(session_id, kind, arguments).await,
+        }
     }
 
     async fn close(&self, session_id: &str) -> Result<()> {
-        let _ = self
-            .http
-            .post(format!("{}/session/{}/close", self.base_url, session_id))
-            .json(&json!({}))
-            .send()
-            .await
-            .context("bridge close session request")?;
-        Ok(())
+        match self {
+            Self::Miniwob { http, base_url } => {
+                let _ = http
+                    .post(format!("{}/session/{}/close", base_url, session_id))
+                    .json(&json!({}))
+                    .send()
+                    .await
+                    .context("bridge close session request")?;
+                Ok(())
+            }
+            Self::Workflow(client) => client.close(session_id).await,
+        }
     }
 }
 
-struct BridgeProcess {
-    child: Child,
-    client: BridgeClient,
+enum BridgeProcess {
+    Miniwob { child: Child, client: BridgeClient },
+    Workflow(WorkflowBridgeProcess),
 }
 
 impl BridgeProcess {
     async fn start(config: &SuiteConfig) -> Result<Self> {
+        if matches!(config.task_set, TaskSet::Workflow) {
+            return Ok(Self::Workflow(WorkflowBridgeProcess::start().await?));
+        }
+
         let port = pick_unused_port().ok_or_else(|| anyhow!("no unused port for bridge"))?;
         let base_url = format!("http://127.0.0.1:{}", port);
         let mut command = Command::new(&config.python_bin);
@@ -183,7 +212,7 @@ impl BridgeProcess {
             command.env("COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR", source_dir);
         }
         let child = command.spawn().context("spawn MiniWoB bridge")?;
-        let client = BridgeClient::new(base_url)?;
+        let client = BridgeClient::new_miniwob(base_url)?;
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
             match client.health().await {
@@ -196,12 +225,24 @@ impl BridgeProcess {
                 }
             }
         }
-        Ok(Self { child, client })
+        Ok(Self::Miniwob { child, client })
+    }
+
+    fn client(&self) -> BridgeClient {
+        match self {
+            Self::Miniwob { client, .. } => client.clone(),
+            Self::Workflow(process) => BridgeClient::Workflow(process.client()),
+        }
     }
 
     async fn stop(&mut self) {
-        let _ = self.child.kill().await;
-        let _ = self.child.wait().await;
+        match self {
+            Self::Miniwob { child, .. } => {
+                let _ = child.kill().await;
+                let _ = child.wait().await;
+            }
+            Self::Workflow(process) => process.stop().await,
+        }
     }
 }
 
@@ -882,6 +923,47 @@ fn email_inbox_action_value(bridge_state: &BridgeState, query: &str) -> Option<&
         return Some("reply");
     }
     parse_email_inbox_action(query)
+}
+
+fn workflow_field_value(bridge_state: &BridgeState, key: &str) -> Option<String> {
+    bridge_field_value(bridge_state, key).map(str::to_string)
+}
+
+fn workflow_target_username(bridge_state: &BridgeState) -> Option<String> {
+    workflow_field_value(bridge_state, "username")
+}
+
+fn workflow_target_password(bridge_state: &BridgeState) -> Option<String> {
+    workflow_field_value(bridge_state, "password")
+}
+
+fn workflow_target_ticket_id(bridge_state: &BridgeState) -> Option<String> {
+    workflow_field_value(bridge_state, "ticket_id")
+}
+
+fn workflow_target_assignee(bridge_state: &BridgeState) -> Option<String> {
+    workflow_field_value(bridge_state, "assignee")
+}
+
+fn workflow_target_note(bridge_state: &BridgeState) -> Option<String> {
+    workflow_field_value(bridge_state, "note")
+}
+
+fn workflow_selector_token(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+fn workflow_ticket_link_selector(ticket_id: &str) -> String {
+    format!("#ticket-link-{}", workflow_selector_token(ticket_id))
 }
 
 fn email_inbox_row_selector(row_index: usize) -> String {
@@ -3323,6 +3405,52 @@ async fn run_email_inbox_sequence(harness: &mut DirectHarness, query: &str) -> R
     Ok(())
 }
 
+fn workflow_required_target(bridge_state: &BridgeState, key: &str, label: &str) -> Result<String> {
+    workflow_field_value(bridge_state, key)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow!("workflow target '{}' missing", label))
+}
+
+async fn run_workflow_ticket_routing_runtime_sequence(harness: &mut DirectHarness) -> Result<()> {
+    let username = workflow_required_target(&harness.bridge_state, "username", "username")?;
+    let password = workflow_required_target(&harness.bridge_state, "password", "password")?;
+    let ticket_id = workflow_required_target(&harness.bridge_state, "ticket_id", "ticket_id")?;
+    let assignee = workflow_required_target(&harness.bridge_state, "assignee", "assignee")?;
+    let note = workflow_required_target(&harness.bridge_state, "note", "note")?;
+
+    harness.type_text("#username", &username).await?;
+    harness.type_text("#password", &password).await?;
+    harness.click_selector("#sign-in").await?;
+    harness
+        .click_selector(&workflow_ticket_link_selector(&ticket_id))
+        .await?;
+    harness
+        .select_dropdown_label("#assignee", &assignee)
+        .await?;
+    harness.type_text("#note", &note).await?;
+    harness.click_selector("#submit-update").await?;
+    Ok(())
+}
+
+async fn run_workflow_ticket_routing_oracle_sequence(harness: &mut DirectHarness) -> Result<()> {
+    let username = workflow_required_target(&harness.bridge_state, "username", "username")?;
+    let password = workflow_required_target(&harness.bridge_state, "password", "password")?;
+    let ticket_id = workflow_required_target(&harness.bridge_state, "ticket_id", "ticket_id")?;
+    let assignee = workflow_required_target(&harness.bridge_state, "assignee", "assignee")?;
+    let note = workflow_required_target(&harness.bridge_state, "note", "note")?;
+
+    harness.oracle_type_text("#username", &username).await?;
+    harness.oracle_type_text("#password", &password).await?;
+    harness.oracle_click_selector("#sign-in").await?;
+    harness
+        .oracle_click_selector(&workflow_ticket_link_selector(&ticket_id))
+        .await?;
+    harness.oracle_select_label("#assignee", &assignee).await?;
+    harness.oracle_type_text("#note", &note).await?;
+    harness.oracle_click_selector("#submit-update").await?;
+    Ok(())
+}
+
 async fn run_visual_addition_sequence(harness: &mut DirectHarness) -> Result<()> {
     let addend_a = harness
         .selector_elements("#visual-1 .addition-block")
@@ -3458,7 +3586,7 @@ mod tests {
                 local_judge: LocalJudge::MiniwobReward,
                 recipe,
             },
-            client: BridgeClient {
+            client: BridgeClient::Miniwob {
                 http: Client::new(),
                 base_url: "http://127.0.0.1:1".to_string(),
             },
@@ -3767,7 +3895,7 @@ mod tests {
                 local_judge: LocalJudge::HoverShapeReceipts,
                 recipe: RecipeId::HoverShape,
             },
-            client: BridgeClient {
+            client: BridgeClient::Miniwob {
                 http: Client::new(),
                 base_url: "http://127.0.0.1:1".to_string(),
             },
@@ -3901,7 +4029,7 @@ mod tests {
                 local_judge: LocalJudge::HoverShapeReceipts,
                 recipe: RecipeId::HoverShape,
             },
-            client: BridgeClient {
+            client: BridgeClient::Miniwob {
                 http: Client::new(),
                 base_url: "http://127.0.0.1:1".to_string(),
             },
@@ -5043,8 +5171,8 @@ mod tests {
                             ("class".to_string(), "card hidden".to_string()),
                             ("data-index".to_string(), "0".to_string()),
                         ]
-                            .into_iter()
-                            .collect(),
+                        .into_iter()
+                        .collect(),
                         ..BridgeDomElement::default()
                     },
                     BridgeDomElement {
@@ -5056,8 +5184,8 @@ mod tests {
                             ("class".to_string(), "card hidden".to_string()),
                             ("data-index".to_string(), "1".to_string()),
                         ]
-                            .into_iter()
-                            .collect(),
+                        .into_iter()
+                        .collect(),
                         ..BridgeDomElement::default()
                     },
                     BridgeDomElement {
@@ -5069,8 +5197,8 @@ mod tests {
                             ("class".to_string(), "card hidden".to_string()),
                             ("data-index".to_string(), "2".to_string()),
                         ]
-                            .into_iter()
-                            .collect(),
+                        .into_iter()
+                        .collect(),
                         ..BridgeDomElement::default()
                     },
                 ],
@@ -5503,7 +5631,10 @@ mod tests {
 
         let action = runtime.next_action(&bridge_state);
         let parsed: Value = serde_json::from_slice(&action).expect("parse stock-market focus");
-        assert_eq!(parsed.get("name").and_then(Value::as_str), Some("browser__key"));
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__key")
+        );
         assert_eq!(
             parsed
                 .get("arguments")
@@ -5563,6 +5694,185 @@ mod tests {
                 .and_then(|args| args.get("key"))
                 .and_then(Value::as_str),
             Some("Enter")
+        );
+    }
+
+    #[test]
+    fn workflow_ticket_routing_agent_fills_login_before_submit() {
+        let runtime = test_runtime(RecipeId::WorkflowTicketRouting, 1.0);
+        let login_state = BridgeState {
+            utterance: "Route the requested ticket.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                page_url: Some("http://127.0.0.1/workflow/test/login".to_string()),
+                fields: vec![
+                    BridgeField {
+                        key: "username".to_string(),
+                        value: "dispatch.agent".to_string(),
+                    },
+                    BridgeField {
+                        key: "password".to_string(),
+                        value: "dispatch-204".to_string(),
+                    },
+                    BridgeField {
+                        key: "ticket_id".to_string(),
+                        value: "T-204".to_string(),
+                    },
+                    BridgeField {
+                        key: "assignee".to_string(),
+                        value: "Network Ops".to_string(),
+                    },
+                    BridgeField {
+                        key: "note".to_string(),
+                        value: "Escalate fiber outage to on-call".to_string(),
+                    },
+                ],
+                interactive_elements: vec![
+                    BridgeInteractiveElement {
+                        selector: Some("#username".to_string()),
+                        value: Some(String::new()),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#password".to_string()),
+                        value: Some(String::new()),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#sign-in".to_string()),
+                        text: "Sign in".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let first_action = runtime.next_action(&login_state);
+        let first_parsed: Value =
+            serde_json::from_slice(&first_action).expect("parse workflow username action");
+        assert_eq!(
+            first_parsed.get("name").and_then(Value::as_str),
+            Some("browser__type")
+        );
+        assert_eq!(
+            first_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#username")
+        );
+
+        let password_state = BridgeState {
+            utterance: login_state.utterance.clone(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                page_url: Some("http://127.0.0.1/workflow/test/login".to_string()),
+                fields: login_state.info.fields.clone(),
+                interactive_elements: vec![
+                    BridgeInteractiveElement {
+                        selector: Some("#username".to_string()),
+                        value: Some("dispatch.agent".to_string()),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#password".to_string()),
+                        value: Some(String::new()),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#sign-in".to_string()),
+                        text: "Sign in".to_string(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let second_action = runtime.next_action(&password_state);
+        let second_parsed: Value =
+            serde_json::from_slice(&second_action).expect("parse workflow password action");
+        assert_eq!(
+            second_parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#password")
+        );
+    }
+
+    #[test]
+    fn workflow_ticket_routing_agent_selects_assignment_before_note() {
+        let runtime = test_runtime(RecipeId::WorkflowTicketRouting, 1.0);
+        let detail_state = BridgeState {
+            utterance: "Route the requested ticket.".to_string(),
+            info: BridgeInfo {
+                task_ready: Some(true),
+                page_url: Some("http://127.0.0.1/workflow/test/tickets/T-204".to_string()),
+                fields: vec![
+                    BridgeField {
+                        key: "username".to_string(),
+                        value: "dispatch.agent".to_string(),
+                    },
+                    BridgeField {
+                        key: "password".to_string(),
+                        value: "dispatch-204".to_string(),
+                    },
+                    BridgeField {
+                        key: "ticket_id".to_string(),
+                        value: "T-204".to_string(),
+                    },
+                    BridgeField {
+                        key: "assignee".to_string(),
+                        value: "Network Ops".to_string(),
+                    },
+                    BridgeField {
+                        key: "note".to_string(),
+                        value: "Escalate fiber outage to on-call".to_string(),
+                    },
+                ],
+                interactive_elements: vec![
+                    BridgeInteractiveElement {
+                        selector: Some("#assignee".to_string()),
+                        value: Some(String::new()),
+                        selected_labels: Vec::new(),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                    BridgeInteractiveElement {
+                        selector: Some("#note".to_string()),
+                        value: Some(String::new()),
+                        visible: true,
+                        ..BridgeInteractiveElement::default()
+                    },
+                ],
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        let action = runtime.next_action(&detail_state);
+        let parsed: Value =
+            serde_json::from_slice(&action).expect("parse workflow assignee action");
+        assert_eq!(
+            parsed.get("name").and_then(Value::as_str),
+            Some("browser__select_dropdown")
+        );
+        assert_eq!(
+            parsed
+                .get("arguments")
+                .and_then(|args| args.get("selector"))
+                .and_then(Value::as_str),
+            Some("#assignee")
         );
     }
 
@@ -5815,7 +6125,7 @@ mod tests {
                 local_judge: LocalJudge::MiniwobReward,
                 recipe: RecipeId::HighlightText,
             },
-            client: BridgeClient {
+            client: BridgeClient::Miniwob {
                 http: Client::new(),
                 base_url: "http://127.0.0.1:1".to_string(),
             },
@@ -6431,6 +6741,9 @@ async fn run_oracle_recipe(harness: &mut DirectHarness, case: &ComputerUseCase) 
         RecipeId::FindMidpoint => {
             run_find_midpoint_sequence(harness).await?;
         }
+        RecipeId::WorkflowTicketRouting => {
+            run_workflow_ticket_routing_oracle_sequence(harness).await?;
+        }
         RecipeId::HoverShape => {
             run_hover_shape_sequence(harness).await?;
         }
@@ -6724,6 +7037,9 @@ async fn run_runtime_recipe(harness: &mut DirectHarness, case: &ComputerUseCase)
         }
         RecipeId::FindMidpoint => {
             run_find_midpoint_sequence(harness).await?;
+        }
+        RecipeId::WorkflowTicketRouting => {
+            run_workflow_ticket_routing_runtime_sequence(harness).await?;
         }
         RecipeId::HoverShape => {
             run_hover_shape_sequence(harness).await?;
@@ -7778,7 +8094,9 @@ impl MiniwobAgentRuntime {
             .filter(|element| bridge_dom_selector_starts_with(element, "#visual-2"))
             .count();
         let answer = (addend_a + addend_b).to_string();
-        if bridge_value_by_selector(&bridge_state.info.interactive_elements, "#math-answer") != answer {
+        if bridge_value_by_selector(&bridge_state.info.interactive_elements, "#math-answer")
+            != answer
+        {
             inference_tool_call(
                 "browser__type",
                 json!({ "selector": "#math-answer", "text": answer }),
@@ -7827,7 +8145,9 @@ impl MiniwobAgentRuntime {
         if let Some(estimated_sides) = self.take_count_sides_estimate() {
             let label = estimated_sides.to_string();
             return bridge_selector_for_label(elements, &label)
-                .map(|selector| inference_tool_call("browser__click", json!({ "selector": selector })))
+                .map(|selector| {
+                    inference_tool_call("browser__click", json!({ "selector": selector }))
+                })
                 .unwrap_or_else(|| {
                     inference_fail("ERROR_CLASS=ObservationGap count-sides answer button missing")
                 });
@@ -7837,11 +8157,10 @@ impl MiniwobAgentRuntime {
     }
 
     fn find_midpoint_action(&self, bridge_state: &BridgeState) -> Vec<u8> {
-        let blue_circle_present = bridge_state
-            .info
-            .dom_elements
-            .iter()
-            .any(|element| element.visible && element.selector.as_deref() == Some("#blue-circle"));
+        let blue_circle_present =
+            bridge_state.info.dom_elements.iter().any(|element| {
+                element.visible && element.selector.as_deref() == Some("#blue-circle")
+            });
         if blue_circle_present {
             return inference_tool_call("browser__click", json!({ "selector": "#subbtn" }));
         }
@@ -8059,6 +8378,75 @@ impl MiniwobAgentRuntime {
         }
 
         inference_tool_call("browser__click", json!({ "selector": "#open-search" }))
+    }
+
+    fn workflow_ticket_routing_action(
+        &self,
+        bridge_state: &BridgeState,
+        elements: &[BridgeInteractiveElement],
+    ) -> Vec<u8> {
+        let Some(username) = workflow_target_username(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow username missing");
+        };
+        let Some(password) = workflow_target_password(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow password missing");
+        };
+        let Some(ticket_id) = workflow_target_ticket_id(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow ticket id missing");
+        };
+        let Some(assignee) = workflow_target_assignee(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow assignee missing");
+        };
+        let Some(note) = workflow_target_note(bridge_state) else {
+            return inference_fail("ERROR_CLASS=ObservationGap workflow note missing");
+        };
+        let page_url = bridge_state.info.page_url.as_deref().unwrap_or_default();
+
+        if page_url.contains("/login") {
+            if bridge_value_by_selector(elements, "#username") != username {
+                return inference_tool_call(
+                    "browser__type",
+                    json!({ "selector": "#username", "text": username }),
+                );
+            }
+            if bridge_value_by_selector(elements, "#password") != password {
+                return inference_tool_call(
+                    "browser__type",
+                    json!({ "selector": "#password", "text": password }),
+                );
+            }
+            return inference_tool_call("browser__click", json!({ "selector": "#sign-in" }));
+        }
+
+        if page_url.contains("/queue") {
+            let selector = workflow_ticket_link_selector(&ticket_id);
+            if bridge_element_by_selector(elements, &selector).is_none() {
+                return inference_wait(120);
+            }
+            return inference_tool_call("browser__click", json!({ "selector": selector }));
+        }
+
+        if page_url.contains("/tickets/") {
+            if !bridge_selected_contains(elements, "#assignee", &assignee) {
+                return inference_tool_call(
+                    "browser__select_dropdown",
+                    json!({ "selector": "#assignee", "label": assignee }),
+                );
+            }
+            if bridge_value_by_selector(elements, "#note") != note {
+                return inference_tool_call(
+                    "browser__type",
+                    json!({ "selector": "#note", "text": note }),
+                );
+            }
+            return inference_tool_call("browser__click", json!({ "selector": "#submit-update" }));
+        }
+
+        if page_url.contains("/confirmation") {
+            return inference_wait(100);
+        }
+
+        inference_wait(120)
     }
 
     fn hover_shape_recovery_action(&self, system_prompt: &str) -> Vec<u8> {
@@ -8459,6 +8847,7 @@ impl MiniwobAgentRuntime {
             | RecipeId::CountShape
             | RecipeId::CountSides
             | RecipeId::FindMidpoint
+            | RecipeId::WorkflowTicketRouting
             | RecipeId::SurveyOnly => self.recovery_tool_or_safe_fallback(
                 system_prompt,
                 &[("browser__wait", json!({ "ms": 180 }))],
@@ -9005,6 +9394,9 @@ impl MiniwobAgentRuntime {
             RecipeId::CountShape => self.count_shape_action(bridge_state, elements, &query),
             RecipeId::CountSides => self.count_sides_action(elements),
             RecipeId::FindMidpoint => self.find_midpoint_action(bridge_state),
+            RecipeId::WorkflowTicketRouting => {
+                self.workflow_ticket_routing_action(bridge_state, elements)
+            }
             RecipeId::HoverShape => match self.hover_shape_phase().as_deref() {
                 None => {
                     self.note_hover_shape_phase("await_post_hover_1");
@@ -9630,7 +10022,7 @@ pub async fn run_mode(
                     Box::pin(run_direct_case(
                         config,
                         mode,
-                        bridge.client.clone(),
+                        bridge.client(),
                         case,
                         case_root.clone(),
                         direct_context
@@ -9670,7 +10062,7 @@ pub async fn run_mode(
                 }
             }
             ComputerUseMode::Agent => {
-                run_agent_case(config, bridge.client.clone(), case, case_root).await
+                run_agent_case(config, bridge.client(), case, case_root).await
             }
         };
         match result {

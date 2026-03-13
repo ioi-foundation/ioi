@@ -2,13 +2,69 @@ use super::super::DesktopAgentService;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_pii::{build_decision_material, build_review_summary, RiskSurface, REVIEW_REQUEST_VERSION};
-use ioi_types::app::agentic::{PiiEgressRiskSurface, PiiReviewRequest, PiiTarget};
+use ioi_types::app::agentic::{
+    AgentTool, PiiEgressField, PiiEgressRiskSurface, PiiEgressSpec, PiiReviewRequest, PiiTarget,
+};
+use ioi_types::app::ActionTarget;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use std::net::IpAddr;
+use url::Url;
 
 fn to_shared_risk_surface(risk_surface: PiiEgressRiskSurface) -> RiskSurface {
     match risk_surface {
         PiiEgressRiskSurface::Egress => RiskSurface::Egress,
+    }
+}
+
+fn browser_url_uses_local_processing(url: &str) -> bool {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    let Ok(parsed) = Url::parse(trimmed) else {
+        return false;
+    };
+
+    match parsed.scheme() {
+        "about" | "data" | "file" => true,
+        "http" | "https" => parsed.host_str().is_some_and(browser_host_is_local),
+        _ => false,
+    }
+}
+
+fn browser_host_is_local(host: &str) -> bool {
+    if host.eq_ignore_ascii_case("localhost") || host.to_ascii_lowercase().ends_with(".localhost") {
+        return true;
+    }
+
+    host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
+}
+
+fn pii_risk_surface_for_spec(
+    tool: &AgentTool,
+    spec: &PiiEgressSpec,
+    active_browser_url: Option<&str>,
+) -> RiskSurface {
+    if !matches!(
+        spec.target,
+        PiiTarget::Action(ActionTarget::BrowserInteract)
+    ) {
+        return to_shared_risk_surface(spec.risk_surface);
+    }
+
+    let browser_url = match (tool, spec.field) {
+        (AgentTool::BrowserNavigate { url }, PiiEgressField::BrowserNavigateUrl) => {
+            Some(url.as_str())
+        }
+        _ => active_browser_url,
+    };
+
+    if browser_url.is_some_and(browser_url_uses_local_processing) {
+        RiskSurface::LocalProcessing
+    } else {
+        to_shared_risk_surface(spec.risk_surface)
     }
 }
 
@@ -261,7 +317,19 @@ pub(super) async fn apply_pii_transform_first(
     tool: &mut ioi_types::app::agentic::AgentTool,
 ) -> Result<(), TransactionError> {
     let specs = tool.pii_egress_specs();
+    let needs_active_browser_url = specs.iter().any(|spec| {
+        matches!(
+            spec.target,
+            PiiTarget::Action(ActionTarget::BrowserInteract)
+        ) && !matches!(spec.field, PiiEgressField::BrowserNavigateUrl)
+    });
+    let active_browser_url = if needs_active_browser_url {
+        service.browser.active_url().await.ok()
+    } else {
+        None
+    };
     for spec in specs {
+        let risk_surface = pii_risk_surface_for_spec(tool, &spec, active_browser_url.as_deref());
         if let Some(text) = tool.pii_egress_field_mut(spec.field) {
             enforce_text_egress_policy(
                 service,
@@ -269,7 +337,7 @@ pub(super) async fn apply_pii_transform_first(
                 session_id,
                 spec.field,
                 &spec.target,
-                to_shared_risk_surface(spec.risk_surface),
+                risk_surface,
                 spec.supports_transform,
                 scoped_exception_hash,
                 text,
@@ -278,4 +346,83 @@ pub(super) async fn apply_pii_transform_first(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        browser_url_uses_local_processing, pii_risk_surface_for_spec, to_shared_risk_surface,
+    };
+    use ioi_pii::RiskSurface;
+    use ioi_types::app::agentic::{
+        AgentTool, PiiEgressField, PiiEgressRiskSurface, PiiEgressSpec, PiiTarget,
+    };
+    use ioi_types::app::ActionTarget;
+
+    fn browser_interact_spec(field: PiiEgressField, supports_transform: bool) -> PiiEgressSpec {
+        PiiEgressSpec {
+            field,
+            target: PiiTarget::Action(ActionTarget::BrowserInteract),
+            supports_transform,
+            risk_surface: PiiEgressRiskSurface::Egress,
+        }
+    }
+
+    #[test]
+    fn browser_local_processing_detection_covers_loopback_and_local_schemes() {
+        assert!(browser_url_uses_local_processing(
+            "http://127.0.0.1:8000/login"
+        ));
+        assert!(browser_url_uses_local_processing(
+            "http://localhost:3000/queue"
+        ));
+        assert!(browser_url_uses_local_processing(
+            "https://bench.localhost/workflow"
+        ));
+        assert!(browser_url_uses_local_processing(
+            "file:///tmp/miniwob.html"
+        ));
+        assert!(browser_url_uses_local_processing("about:blank"));
+        assert!(browser_url_uses_local_processing(
+            "data:text/html,<p>fixture</p>"
+        ));
+        assert!(!browser_url_uses_local_processing(
+            "https://example.com/login"
+        ));
+    }
+
+    #[test]
+    fn browser_navigate_uses_destination_url_for_local_processing_routing() {
+        let tool = AgentTool::BrowserNavigate {
+            url: "http://127.0.0.1:4123/workflow/login".to_string(),
+        };
+        let spec = browser_interact_spec(PiiEgressField::BrowserNavigateUrl, false);
+
+        assert!(matches!(
+            pii_risk_surface_for_spec(&tool, &spec, None),
+            RiskSurface::LocalProcessing
+        ));
+    }
+
+    #[test]
+    fn browser_type_uses_active_page_context_for_local_processing_routing() {
+        let tool = AgentTool::BrowserType {
+            text: "secret".to_string(),
+            selector: Some("#password".to_string()),
+        };
+        let spec = browser_interact_spec(PiiEgressField::BrowserTypeText, true);
+
+        assert!(matches!(
+            pii_risk_surface_for_spec(&tool, &spec, Some("file:///tmp/workflow.html")),
+            RiskSurface::LocalProcessing
+        ));
+        assert!(matches!(
+            pii_risk_surface_for_spec(&tool, &spec, Some("https://example.com/login")),
+            RiskSurface::Egress
+        ));
+        assert_eq!(
+            pii_risk_surface_for_spec(&tool, &spec, None),
+            to_shared_risk_surface(PiiEgressRiskSurface::Egress)
+        );
+    }
 }
