@@ -47,8 +47,8 @@ mod workload_event_mapping_tests {
     use ioi_types::app::{
         AdapterArtifactPointer, AdapterKind, AdapterReceipt, AdapterRedactionSummary, KernelEvent,
         WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt, WorkloadFsWriteReceipt,
-        WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent,
-        WorkloadScsRetrieveReceipt, WorkloadWebRetrieveReceipt,
+        WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent, WorkloadScsRetrieveReceipt,
+        WorkloadWebRetrieveReceipt,
     };
 
     #[test]
@@ -336,7 +336,9 @@ mod workload_event_mapping_tests {
                     redaction_count: 1,
                     redaction_version: "adapter_receipt.redaction.v1".to_string(),
                 }),
-                replay_classification: Some(ioi_types::app::AdapterReplayClassification::ReplaySafe),
+                replay_classification: Some(
+                    ioi_types::app::AdapterReplayClassification::ReplaySafe,
+                ),
             }),
         });
         let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
@@ -363,10 +365,7 @@ mod workload_event_mapping_tests {
                     assert_eq!(adapter.artifact_pointers[0].media_type, "application/json");
                     assert_eq!(adapter.redacted_fields, vec!["arguments.token".to_string()]);
                     assert_eq!(adapter.redaction_count, 1);
-                    assert_eq!(
-                        adapter.redaction_version,
-                        "adapter_receipt.redaction.v1"
-                    );
+                    assert_eq!(adapter.redaction_version, "adapter_receipt.redaction.v1");
                 }
                 other => panic!("expected adapter receipt, got: {:?}", other),
             },

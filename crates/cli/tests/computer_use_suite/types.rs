@@ -25,6 +25,7 @@ pub enum TaskSet {
     Smoke,
     Core,
     Stress,
+    Catalog,
 }
 
 impl TaskSet {
@@ -33,6 +34,7 @@ impl TaskSet {
             Self::Smoke => "smoke",
             Self::Core => "core",
             Self::Stress => "stress",
+            Self::Catalog => "catalog",
         }
     }
 }
@@ -43,12 +45,14 @@ pub enum AllowedToolProfile {
     OracleBridge,
     BrowserCore,
     BrowserCoreWithSelect,
+    BrowserCoreWithSelectionClipboard,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LocalJudge {
     MiniwobReward,
+    HoverShapeReceipts,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,12 +77,41 @@ pub enum RecipeId {
     ClickCollapsible,
     ClickCollapsible2,
     SearchEngine,
+    HoverShape,
+    DragItems,
+    HighlightText,
+    CopyPaste,
+    FormSequence,
+    FormSequence2,
+    FormSequence3,
+    LoginUserPopup,
+    TextEditor,
+    SimpleArithmetic,
+    SimpleAlgebra,
+    OddOrEven,
+    GuessNumber,
+    FindGreatest,
+    FindWord,
+    ReadTable,
+    ReadTable2,
+    PhoneBook,
+    SocialMedia,
+    SocialMediaAll,
+    SocialMediaSome,
+    StockMarket,
+    EmailInbox,
+    VisualAddition,
+    IdentifyShape,
+    CountShape,
+    CountSides,
+    FindMidpoint,
+    SurveyOnly,
 }
 
 #[derive(Debug, Clone)]
 pub struct ComputerUseCase {
-    pub id: &'static str,
-    pub env_id: &'static str,
+    pub id: String,
+    pub env_id: String,
     pub seed: u64,
     pub task_set: TaskSet,
     pub max_steps: u32,
@@ -88,6 +121,56 @@ pub struct ComputerUseCase {
     pub expected_pass: bool,
     pub local_judge: LocalJudge,
     pub recipe: RecipeId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BenchmarkSupportState {
+    Passing,
+    KnownGap,
+    InfraBlocked,
+    NotYetAttempted,
+}
+
+impl BenchmarkSupportState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Passing => "passing",
+            Self::KnownGap => "known_gap",
+            Self::InfraBlocked => "infra_blocked",
+            Self::NotYetAttempted => "not_yet_attempted",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GapClass {
+    MissingPointerPrimitive,
+    MissingSelectionPrimitive,
+    MissingKeyboardPrimitive,
+    MissingClipboardPrimitive,
+    ObservationGap,
+    VerificationGap,
+    RecoveryGap,
+    PlannerGap,
+    InfraOrBridgeGap,
+}
+
+impl GapClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::MissingPointerPrimitive => "missing_pointer_primitive",
+            Self::MissingSelectionPrimitive => "missing_selection_primitive",
+            Self::MissingKeyboardPrimitive => "missing_keyboard_primitive",
+            Self::MissingClipboardPrimitive => "missing_clipboard_primitive",
+            Self::ObservationGap => "observation_gap",
+            Self::VerificationGap => "verification_gap",
+            Self::RecoveryGap => "recovery_gap",
+            Self::PlannerGap => "planner_gap",
+            Self::InfraOrBridgeGap => "infra_or_bridge_gap",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -248,6 +331,10 @@ pub struct ComputerUseCaseResult {
     pub validation: ValidationSummary,
     pub artifacts: ArtifactBundle,
     pub failure_class: Option<String>,
+    pub support_state: BenchmarkSupportState,
+    pub primary_gap_class: Option<GapClass>,
+    #[serde(default)]
+    pub secondary_gap_tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -273,4 +360,5 @@ pub struct SuiteConfig {
     pub require_browser_display: bool,
     pub bridge_source_dir: Option<std::path::PathBuf>,
     pub python_bin: String,
+    pub fail_on_case_failure: bool,
 }

@@ -32,10 +32,18 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::BrowserSnapshot {}
         | AgentTool::BrowserClick { .. }
         | AgentTool::BrowserClickElement { .. }
+        | AgentTool::BrowserHover { .. }
+        | AgentTool::BrowserMoveMouse { .. }
+        | AgentTool::BrowserMouseDown { .. }
+        | AgentTool::BrowserMouseUp { .. }
         | AgentTool::BrowserSyntheticClick { .. }
         | AgentTool::BrowserScroll { .. }
         | AgentTool::BrowserKey { .. }
+        | AgentTool::BrowserSelectText { .. }
+        | AgentTool::BrowserCopySelection {}
+        | AgentTool::BrowserPasteClipboard { .. }
         | AgentTool::BrowserFindText { .. }
+        | AgentTool::BrowserCanvasSummary { .. }
         | AgentTool::BrowserScreenshot { .. }
         | AgentTool::BrowserWait { .. }
         | AgentTool::BrowserUploadFile { .. }
@@ -253,6 +261,35 @@ fn browser_click_element_target_maps_to_browser_click_element_scope() {
 }
 
 #[test]
+fn browser_pointer_primitives_target_map_to_browser_interact_scope() {
+    let hover_tool = AgentTool::BrowserHover {
+        selector: Some("#highlight".to_string()),
+        id: None,
+    };
+    let move_tool = AgentTool::BrowserMoveMouse { x: 120, y: 80 };
+    let down_tool = AgentTool::BrowserMouseDown {
+        button: Some("left".to_string()),
+    };
+    let up_tool = AgentTool::BrowserMouseUp {
+        button: Some("left".to_string()),
+    };
+
+    assert_eq!(
+        hover_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
+    assert_eq!(
+        move_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
+    assert_eq!(
+        down_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
+    assert_eq!(up_tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
 fn browser_scroll_target_maps_to_browser_scroll_scope() {
     let tool = AgentTool::BrowserScroll {
         delta_x: 0,
@@ -274,8 +311,35 @@ fn browser_type_target_maps_to_custom_browser_type_tool() {
 fn browser_key_target_maps_to_custom_browser_key_tool() {
     let tool = AgentTool::BrowserKey {
         key: "Enter".to_string(),
+        modifiers: None,
     };
     assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_selection_and_clipboard_tools_map_to_browser_interact_scope() {
+    let select_tool = AgentTool::BrowserSelectText {
+        selector: Some("#editor".to_string()),
+        start_offset: Some(0),
+        end_offset: Some(5),
+    };
+    let copy_tool = AgentTool::BrowserCopySelection {};
+    let paste_tool = AgentTool::BrowserPasteClipboard {
+        selector: Some("#destination".to_string()),
+    };
+
+    assert_eq!(
+        select_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
+    assert_eq!(
+        copy_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
+    assert_eq!(
+        paste_tool.target(),
+        crate::app::ActionTarget::BrowserInteract
+    );
 }
 
 #[test]
@@ -289,9 +353,17 @@ fn browser_find_text_target_maps_to_browser_interact_scope() {
 }
 
 #[test]
+fn browser_canvas_summary_target_maps_to_browser_inspect_scope() {
+    let tool = AgentTool::BrowserCanvasSummary {
+        selector: "#canvas".to_string(),
+    };
+    assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInspect);
+}
+
+#[test]
 fn browser_screenshot_target_maps_to_browser_interact_scope() {
     let tool = AgentTool::BrowserScreenshot { full_page: true };
-    assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+    assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInspect);
 }
 
 #[test]

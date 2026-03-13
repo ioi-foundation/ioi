@@ -1,12 +1,10 @@
-use super::super::types::{
-    AllowedToolProfile, ComputerUseCase, LocalJudge, RecipeId, TaskSet,
-};
+use super::super::types::{AllowedToolProfile, ComputerUseCase, LocalJudge, RecipeId, TaskSet};
 
 pub fn cases() -> Vec<ComputerUseCase> {
     vec![
         ComputerUseCase {
-            id: "miniwob_click_button_smoke",
-            env_id: "click-button",
+            id: "miniwob_click_button_smoke".to_string(),
+            env_id: "click-button".to_string(),
             seed: 101,
             task_set: TaskSet::Smoke,
             max_steps: 8,
@@ -18,8 +16,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::ClickButton,
         },
         ComputerUseCase {
-            id: "miniwob_click_link_smoke",
-            env_id: "click-link",
+            id: "miniwob_click_link_smoke".to_string(),
+            env_id: "click-link".to_string(),
             seed: 102,
             task_set: TaskSet::Smoke,
             max_steps: 8,
@@ -31,8 +29,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::ClickLink,
         },
         ComputerUseCase {
-            id: "miniwob_enter_text_smoke",
-            env_id: "enter-text",
+            id: "miniwob_enter_text_smoke".to_string(),
+            env_id: "enter-text".to_string(),
             seed: 103,
             task_set: TaskSet::Smoke,
             max_steps: 10,
@@ -44,8 +42,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::EnterText,
         },
         ComputerUseCase {
-            id: "miniwob_focus_text_smoke",
-            env_id: "focus-text",
+            id: "miniwob_focus_text_smoke".to_string(),
+            env_id: "focus-text".to_string(),
             seed: 104,
             task_set: TaskSet::Smoke,
             max_steps: 6,
@@ -57,8 +55,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::FocusText,
         },
         ComputerUseCase {
-            id: "miniwob_choose_list_smoke",
-            env_id: "choose-list",
+            id: "miniwob_choose_list_smoke".to_string(),
+            env_id: "choose-list".to_string(),
             seed: 105,
             task_set: TaskSet::Smoke,
             max_steps: 10,
@@ -70,8 +68,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::ChooseList,
         },
         ComputerUseCase {
-            id: "miniwob_click_tab_smoke",
-            env_id: "click-tab",
+            id: "miniwob_click_tab_smoke".to_string(),
+            env_id: "click-tab".to_string(),
             seed: 106,
             task_set: TaskSet::Smoke,
             max_steps: 8,
@@ -83,8 +81,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::ClickTab,
         },
         ComputerUseCase {
-            id: "miniwob_use_autocomplete_smoke",
-            env_id: "use-autocomplete-nodelay",
+            id: "miniwob_use_autocomplete_smoke".to_string(),
+            env_id: "use-autocomplete-nodelay".to_string(),
             seed: 107,
             task_set: TaskSet::Smoke,
             max_steps: 12,
@@ -96,8 +94,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::UseAutocomplete,
         },
         ComputerUseCase {
-            id: "miniwob_scroll_text_direction_smoke",
-            env_id: "scroll-text-2",
+            id: "miniwob_scroll_text_direction_smoke".to_string(),
+            env_id: "scroll-text-2".to_string(),
             seed: 108,
             task_set: TaskSet::Smoke,
             max_steps: 10,

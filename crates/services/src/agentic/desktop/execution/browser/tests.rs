@@ -64,6 +64,23 @@ fn focus_postcondition_accepts_disappearing_target_transition() {
 }
 
 #[test]
+fn focus_postcondition_accepts_target_becoming_hidden() {
+    let pre = probe(false, false, true, true);
+    let post = probe(false, false, false, false);
+
+    assert!(selector_focus_postcondition(&pre, Some(&post)));
+}
+
+#[test]
+fn focus_postcondition_accepts_new_blocking_overlay() {
+    let pre = probe(false, false, true, true);
+    let mut post = probe(false, false, true, false);
+    post.blocked_by = Some("#modal".to_string());
+
+    assert!(selector_focus_postcondition(&pre, Some(&post)));
+}
+
+#[test]
 fn search_selector_detection_catches_google_box() {
     assert!(selector_looks_like_search_target("textarea[name='q']"));
     assert!(selector_looks_like_search_target(

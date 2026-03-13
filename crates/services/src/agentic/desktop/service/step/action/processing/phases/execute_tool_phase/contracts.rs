@@ -192,14 +192,20 @@ pub(super) fn duplicate_execution_state(
         verification_checks
             .push("duplicate_action_fingerprint_stale_or_cross_turn=true".to_string());
     }
-    let duplicate_non_command_immediate_replay = if duplicate_marker_seen && !is_command_tool {
-        action_fingerprint_step
-            .map(|last_step_index| current_step_index == last_step_index.saturating_add(1))
-            .unwrap_or(false)
-    } else {
-        false
-    };
-    if duplicate_marker_seen && !is_command_tool && !duplicate_non_command_immediate_replay {
+    let duplicate_safe_repeat_tool = matches!(tool, AgentTool::BrowserWait { .. });
+    let duplicate_non_command_immediate_replay =
+        if duplicate_marker_seen && !is_command_tool && !duplicate_safe_repeat_tool {
+            action_fingerprint_step
+                .map(|last_step_index| current_step_index == last_step_index.saturating_add(1))
+                .unwrap_or(false)
+        } else {
+            false
+        };
+    if duplicate_marker_seen
+        && !is_command_tool
+        && !duplicate_safe_repeat_tool
+        && !duplicate_non_command_immediate_replay
+    {
         verification_checks.push(
             "duplicate_action_fingerprint_non_command_stale_or_non_adjacent=true".to_string(),
         );
@@ -347,5 +353,27 @@ mod tests {
         assert!(!state
             .tool_execution_log
             .contains_key("action_fingerprint::legacy"));
+    }
+
+    #[test]
+    fn browser_wait_is_allowed_to_repeat_on_adjacent_steps() {
+        let mut state = test_agent_state();
+        mark_action_fingerprint_executed_at_step(&mut state.tool_execution_log, "fp", 3, "success");
+        let tool = AgentTool::BrowserWait {
+            ms: Some(100),
+            condition: None,
+            selector: None,
+            query: None,
+            scope: None,
+            timeout_ms: None,
+        };
+        let mut checks = Vec::new();
+        let (is_duplicate, history) =
+            duplicate_execution_state(&mut state, &tool, false, 4, "fp", &mut checks);
+        assert!(!is_duplicate);
+        assert!(history.is_none());
+        assert!(!checks.iter().any(|c| {
+            c == "duplicate_action_fingerprint_non_command_stale_or_non_adjacent=true"
+        }));
     }
 }

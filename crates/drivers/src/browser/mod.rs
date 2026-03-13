@@ -113,6 +113,59 @@ pub struct BrowserWaitResult {
     pub elapsed_ms: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserSelectionResult {
+    pub found: bool,
+    pub target_kind: String,
+    pub selected_text: String,
+    pub start_offset: u32,
+    pub end_offset: u32,
+    pub text_length: u32,
+    pub focused: bool,
+    pub collapsed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserDomElementSummary {
+    pub tag: String,
+    pub text: String,
+    pub visible: bool,
+    pub attributes: HashMap<String, String>,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub center_x: f64,
+    pub center_y: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserCanvasShapeSummary {
+    pub found: bool,
+    pub readable: bool,
+    pub target_kind: String,
+    pub width: u32,
+    pub height: u32,
+    pub dark_pixel_count: u32,
+    pub component_count: u32,
+    pub dominant_component_pixels: u32,
+    pub dominant_component_ratio: f64,
+    pub bounding_box_x: u32,
+    pub bounding_box_y: u32,
+    pub bounding_box_width: u32,
+    pub bounding_box_height: u32,
+    pub convex_hull_vertices: u32,
+    pub estimated_sides: Option<u32>,
+    pub analysis_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BrowserPointerState {
+    pub x: f64,
+    pub y: f64,
+    pub buttons: i64,
+}
+
 pub struct BrowserDriver {
     // Hermetic Instance
     browser: Arc<Mutex<Option<Arc<Browser>>>>,
@@ -129,6 +182,9 @@ pub struct BrowserDriver {
 
     // Lease for demand-driven activation.
     lease_active: Arc<AtomicBool>,
+
+    // Browser-local pointer state for composed pointer primitives.
+    pointer_state: Arc<Mutex<BrowserPointerState>>,
 }
 
 impl Drop for BrowserDriver {

@@ -1,12 +1,10 @@
-use super::super::types::{
-    AllowedToolProfile, ComputerUseCase, LocalJudge, RecipeId, TaskSet,
-};
+use super::super::types::{AllowedToolProfile, ComputerUseCase, LocalJudge, RecipeId, TaskSet};
 
 pub fn cases() -> Vec<ComputerUseCase> {
     vec![
         ComputerUseCase {
-            id: "miniwob_click_option_core",
-            env_id: "click-option",
+            id: "miniwob_click_option_core".to_string(),
+            env_id: "click-option".to_string(),
             seed: 201,
             task_set: TaskSet::Core,
             max_steps: 10,
@@ -18,8 +16,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::ClickOption,
         },
         ComputerUseCase {
-            id: "miniwob_click_checkboxes_core",
-            env_id: "click-checkboxes",
+            id: "miniwob_click_checkboxes_core".to_string(),
+            env_id: "click-checkboxes".to_string(),
             seed: 202,
             task_set: TaskSet::Core,
             max_steps: 14,
@@ -31,8 +29,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::ClickCheckboxes,
         },
         ComputerUseCase {
-            id: "miniwob_click_checkboxes_transfer_core",
-            env_id: "click-checkboxes-transfer",
+            id: "miniwob_click_checkboxes_transfer_core".to_string(),
+            env_id: "click-checkboxes-transfer".to_string(),
             seed: 203,
             task_set: TaskSet::Core,
             max_steps: 16,
@@ -44,8 +42,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::ClickCheckboxesTransfer,
         },
         ComputerUseCase {
-            id: "miniwob_enter_password_core",
-            env_id: "enter-password",
+            id: "miniwob_enter_password_core".to_string(),
+            env_id: "enter-password".to_string(),
             seed: 204,
             task_set: TaskSet::Core,
             max_steps: 12,
@@ -57,8 +55,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::EnterPassword,
         },
         ComputerUseCase {
-            id: "miniwob_login_user_core",
-            env_id: "login-user",
+            id: "miniwob_login_user_core".to_string(),
+            env_id: "login-user".to_string(),
             seed: 205,
             task_set: TaskSet::Core,
             max_steps: 12,
@@ -70,8 +68,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::LoginUser,
         },
         ComputerUseCase {
-            id: "miniwob_focus_text_2_core",
-            env_id: "focus-text-2",
+            id: "miniwob_focus_text_2_core".to_string(),
+            env_id: "focus-text-2".to_string(),
             seed: 206,
             task_set: TaskSet::Core,
             max_steps: 8,
@@ -83,8 +81,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::FocusText2,
         },
         ComputerUseCase {
-            id: "miniwob_enter_text_2_core",
-            env_id: "enter-text-2",
+            id: "miniwob_enter_text_2_core".to_string(),
+            env_id: "enter-text-2".to_string(),
             seed: 207,
             task_set: TaskSet::Core,
             max_steps: 12,
@@ -96,8 +94,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::EnterText2,
         },
         ComputerUseCase {
-            id: "miniwob_click_button_sequence_core",
-            env_id: "click-button-sequence",
+            id: "miniwob_click_button_sequence_core".to_string(),
+            env_id: "click-button-sequence".to_string(),
             seed: 208,
             task_set: TaskSet::Core,
             max_steps: 8,
@@ -109,8 +107,8 @@ pub fn cases() -> Vec<ComputerUseCase> {
             recipe: RecipeId::ClickButtonSequence,
         },
         ComputerUseCase {
-            id: "miniwob_click_collapsible_core",
-            env_id: "click-collapsible",
+            id: "miniwob_click_collapsible_core".to_string(),
+            env_id: "click-collapsible".to_string(),
             seed: 209,
             task_set: TaskSet::Core,
             max_steps: 10,

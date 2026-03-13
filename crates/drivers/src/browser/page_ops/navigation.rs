@@ -18,6 +18,7 @@ impl BrowserDriver {
                     details: e.to_string(),
                 })?;
 
+            self.reset_pointer_state().await;
             let content = self.check_connection_error(p.content().await).await?;
             Ok(content)
         } else {

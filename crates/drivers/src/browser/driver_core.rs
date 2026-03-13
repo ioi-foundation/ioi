@@ -22,6 +22,7 @@ impl BrowserDriver {
             profile_dir: Arc::new(Mutex::new(None)),
             handler_alive: Arc::new(AtomicBool::new(false)),
             lease_active: Arc::new(AtomicBool::new(false)),
+            pointer_state: Arc::new(Mutex::new(BrowserPointerState::default())),
         }
     }
 
@@ -195,6 +196,7 @@ impl BrowserDriver {
             let mut guard = self.retrieval_page.lock().await;
             *guard = None;
         }
+        self.reset_pointer_state().await;
         self.handler_alive.store(false, Ordering::SeqCst);
         self.cleanup_profile_dir().await;
     }

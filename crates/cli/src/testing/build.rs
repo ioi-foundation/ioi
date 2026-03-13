@@ -5,12 +5,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Once;
 
-// --- One-Time Build ---
-static BUILD: Once = Once::new();
+static BUILD_MOCK_VERIFIER: Once = Once::new();
 
-/// Builds test artifacts that are NOT configuration-dependent (like contracts).
-pub fn build_test_artifacts() {
-    BUILD.call_once(|| {
+/// Builds the mock verifier component used by dynamic verifier tests.
+pub fn build_mock_verifier_artifact() {
+    BUILD_MOCK_VERIFIER.call_once(|| {
         println!("--- Building Test Artifacts (one-time setup) ---");
 
         let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -28,6 +27,11 @@ pub fn build_test_artifacts() {
 
         println!("--- Test Artifacts built successfully ---");
     });
+}
+
+/// Builds test artifacts that are NOT configuration-dependent (like contracts).
+pub fn build_test_artifacts() {
+    build_mock_verifier_artifact();
 }
 
 #[cfg(windows)]

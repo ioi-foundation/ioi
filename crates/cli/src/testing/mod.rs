@@ -23,7 +23,7 @@ pub use assert::{
     wait_for_oracle_data, wait_for_pending_oracle_request, wait_for_quarantine_status,
     wait_for_stake_to_be, wait_until,
 };
-pub use build::build_test_artifacts;
+pub use build::{build_mock_verifier_artifact, build_test_artifacts};
 pub use cluster::{TestCluster, TestClusterBuilder};
 pub use genesis::{add_genesis_identity, add_genesis_identity_custom};
 pub use rpc::{submit_transaction, submit_transaction_no_wait};

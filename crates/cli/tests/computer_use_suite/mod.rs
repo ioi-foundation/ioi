@@ -23,7 +23,11 @@ fn parse_modes(raw: &str) -> Result<Vec<ComputerUseMode>> {
     }
 
     let mut modes = Vec::new();
-    for part in normalized.split(',').map(str::trim).filter(|part| !part.is_empty()) {
+    for part in normalized
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+    {
         let mode = match part {
             "oracle" => ComputerUseMode::Oracle,
             "runtime" => ComputerUseMode::Runtime,
@@ -47,8 +51,9 @@ fn parse_task_set(raw: &str) -> Result<TaskSet> {
         "" | "smoke" => Ok(TaskSet::Smoke),
         "core" => Ok(TaskSet::Core),
         "stress" => Ok(TaskSet::Stress),
+        "catalog" => Ok(TaskSet::Catalog),
         other => Err(anyhow!(
-            "invalid COMPUTER_USE_SUITE_TASK_SET value '{}'; expected smoke|core|stress",
+            "invalid COMPUTER_USE_SUITE_TASK_SET value '{}'; expected smoke|core|stress|catalog",
             other
         )),
     }
@@ -79,9 +84,8 @@ fn configured_case_filter() -> Option<Vec<String>> {
 }
 
 pub fn config_from_env() -> Result<SuiteConfig> {
-    let modes = parse_modes(
-        &env::var("COMPUTER_USE_SUITE_MODE").unwrap_or_else(|_| "all".to_string()),
-    )?;
+    let modes =
+        parse_modes(&env::var("COMPUTER_USE_SUITE_MODE").unwrap_or_else(|_| "all".to_string()))?;
     let task_set = parse_task_set(
         &env::var("COMPUTER_USE_SUITE_TASK_SET").unwrap_or_else(|_| "smoke".to_string()),
     )?;
@@ -103,6 +107,9 @@ pub fn config_from_env() -> Result<SuiteConfig> {
         .map(PathBuf::from);
     let python_bin =
         env::var("COMPUTER_USE_SUITE_PYTHON").unwrap_or_else(|_| "python3".to_string());
+    let fail_on_case_failure = env::var("COMPUTER_USE_SUITE_FAIL_ON_FAILURE")
+        .map(|value| !(value == "0" || value.eq_ignore_ascii_case("false")))
+        .unwrap_or(true);
 
     Ok(SuiteConfig {
         modes,
@@ -114,6 +121,7 @@ pub fn config_from_env() -> Result<SuiteConfig> {
         require_browser_display,
         bridge_source_dir,
         python_bin,
+        fail_on_case_failure,
     })
 }
 
@@ -131,12 +139,10 @@ fn print_summary(summary: &SuiteSummary) {
 }
 
 pub async fn run_computer_use_suite(config: SuiteConfig) -> Result<Vec<SuiteSummary>> {
-    ioi_cli::testing::build_test_artifacts();
-
-    let mut cases = cases_for_task_set(config.task_set);
+    let mut cases = cases_for_task_set(config.task_set, config.bridge_source_dir.as_deref())?;
     validate_case_catalog(&cases)?;
     if let Some(filter) = &config.case_filter {
-        cases.retain(|case| filter.iter().any(|entry| entry == case.id));
+        cases.retain(|case| filter.iter().any(|entry| entry == &case.id));
     }
     if let Some(max_cases) = config.max_cases {
         cases.truncate(max_cases);
@@ -149,6 +155,7 @@ pub async fn run_computer_use_suite(config: SuiteConfig) -> Result<Vec<SuiteSumm
     }
 
     let mut suite_summaries = Vec::new();
+    let mut failure_messages = Vec::new();
     for mode in &config.modes {
         let report = harness::run_mode(&config, *mode, &cases).await?;
         let judged_results = report
@@ -163,8 +170,14 @@ pub async fn run_computer_use_suite(config: SuiteConfig) -> Result<Vec<SuiteSumm
             mode: *mode,
             task_set: config.task_set,
             total_cases: judged_results.len(),
-            passing_cases: judged_results.iter().filter(|result| result.overall_pass).count(),
-            failing_cases: judged_results.iter().filter(|result| !result.overall_pass).count(),
+            passing_cases: judged_results
+                .iter()
+                .filter(|result| result.overall_pass)
+                .count(),
+            failing_cases: judged_results
+                .iter()
+                .filter(|result| !result.overall_pass)
+                .count(),
             task_successes: judged_results
                 .iter()
                 .filter(|result| result.validation.task_success)
@@ -176,8 +189,8 @@ pub async fn run_computer_use_suite(config: SuiteConfig) -> Result<Vec<SuiteSumm
             artifact_root: config.artifact_root.to_string_lossy().to_string(),
         };
         print_summary(&summary);
-        if summary.failing_cases > 0 {
-            return Err(anyhow!(
+        if summary.failing_cases > 0 && config.fail_on_case_failure {
+            failure_messages.push(format!(
                 "computer_use_suite mode={} had {} failing case(s); see {}",
                 mode.as_str(),
                 summary.failing_cases,
@@ -185,6 +198,10 @@ pub async fn run_computer_use_suite(config: SuiteConfig) -> Result<Vec<SuiteSumm
             ));
         }
         suite_summaries.push(summary);
+    }
+
+    if let Some(message) = failure_messages.into_iter().next() {
+        return Err(anyhow!(message));
     }
 
     Ok(suite_summaries)

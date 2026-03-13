@@ -366,7 +366,7 @@ fn verify_required_receipt_set(
         ));
     };
 
-    let mut required_receipts = canonical_markers(&entry.required_receipts);
+    let required_receipts = canonical_markers(&entry.required_receipts);
     let mut required_postconditions = canonical_markers(&entry.required_postconditions);
 
     if intent_id == "system.clock.read" {

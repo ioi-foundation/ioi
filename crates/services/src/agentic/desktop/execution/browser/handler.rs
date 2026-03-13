@@ -7,6 +7,7 @@ use serde_json::json;
 use std::collections::BTreeMap;
 use std::env;
 use std::path::PathBuf;
+use tokio::time::{sleep, Duration};
 
 fn semantic_candidates(semantic_blob: &str) -> Vec<String> {
     semantic_blob
@@ -162,6 +163,102 @@ async fn resolve_semantic_target_from_som(
     ))
 }
 
+fn normalized_browser_button(button: Option<&str>) -> &'static str {
+    match button
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("right") => "right",
+        Some("middle") => "middle",
+        Some("back") => "back",
+        Some("forward") => "forward",
+        _ => "left",
+    }
+}
+
+async fn resolve_hover_target(
+    exec: &ToolExecutor,
+    selector: Option<&str>,
+    id: Option<&str>,
+) -> Result<(f64, f64, serde_json::Value), String> {
+    let selector = selector
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let id = id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+
+    if selector.is_some() == id.is_some() {
+        return Err("provide exactly one of selector or id".to_string());
+    }
+
+    if let Some(selector) = selector {
+        let rect = exec
+            .browser
+            .get_selector_rect_window_logical(&selector)
+            .await
+            .map_err(|e| format!("resolve hover selector '{}': {}", selector, e))?;
+        let center = rect.center();
+        return Ok((
+            center.x,
+            center.y,
+            json!({
+                "selector": selector,
+                "target_kind": "selector",
+            }),
+        ));
+    }
+
+    let id = id.expect("exactly one hover locator should be present");
+    let raw_tree = exec
+        .browser
+        .get_accessibility_tree()
+        .await
+        .map_err(|e| format!("resolve hover semantic id '{}': {}", id, e))?;
+    let transformed = apply_browser_auto_lens(raw_tree);
+    let target = find_semantic_target_by_id(&transformed, &id)
+        .ok_or_else(|| format!("semantic browser target '{}' not found", id))?;
+    let center = target
+        .center_point
+        .ok_or_else(|| format!("semantic browser target '{}' has no geometry center", id))?;
+    Ok((
+        center.0,
+        center.1,
+        json!({
+            "id": id,
+            "target_kind": "semantic_id",
+            "focused": target.focused,
+            "editable": target.editable,
+            "backend_dom_node_id": target.backend_dom_node_id,
+            "cdp_node_id": target.cdp_node_id,
+        }),
+    ))
+}
+
+async fn confirm_selector_hover(exec: &ToolExecutor, selector: &str, x: f64, y: f64) -> bool {
+    for attempt in 0..3 {
+        if exec
+            .browser
+            .is_selector_hovered(selector)
+            .await
+            .unwrap_or(false)
+        {
+            return true;
+        }
+        if attempt >= 2 {
+            break;
+        }
+        sleep(Duration::from_millis(35)).await;
+        if exec.browser.move_mouse(x, y).await.is_err() {
+            break;
+        }
+    }
+    false
+}
+
 pub async fn handle(
     exec: &ToolExecutor,
     tool: AgentTool,
@@ -194,6 +291,97 @@ pub async fn handle(
         },
         AgentTool::BrowserClick { selector } => handle_browser_click(exec, &selector).await,
         AgentTool::BrowserClickElement { id } => handle_browser_click_element(exec, &id).await,
+        AgentTool::BrowserHover { selector, id } => {
+            let selector_ref = selector.as_deref();
+            let id_ref = id.as_deref();
+            match resolve_hover_target(exec, selector_ref, id_ref).await {
+                Ok((x, y, target)) => match exec.browser.move_mouse(x, y).await {
+                    Ok(()) => {
+                        let hovered = if let Some(selector) = selector_ref {
+                            Some(confirm_selector_hover(exec, selector, x, y).await)
+                        } else {
+                            None
+                        };
+                        let payload = json!({
+                            "pointer": {
+                                "action": "hover",
+                                "x": x,
+                                "y": y,
+                                "target": target,
+                                "hovered": hovered,
+                            }
+                        });
+                        if selector_ref.is_some() && hovered != Some(true) {
+                            ToolExecutionResult::failure(format!(
+                                "ERROR_CLASS=NoEffectAfterAction Browser hover target was not hovered: {}",
+                                payload
+                            ))
+                        } else {
+                            ToolExecutionResult::success(payload.to_string())
+                        }
+                    }
+                    Err(e) => ToolExecutionResult::failure(format!("Browser hover failed: {}", e)),
+                },
+                Err(reason) => {
+                    ToolExecutionResult::failure(format!("Browser hover failed: {}", reason))
+                }
+            }
+        }
+        AgentTool::BrowserMoveMouse { x, y } => match exec.browser.move_mouse(x as f64, y as f64).await {
+            Ok(()) => {
+                let state = exec.browser.pointer_state().await;
+                let payload = json!({
+                    "pointer": {
+                        "action": "move",
+                        "x": state.x,
+                        "y": state.y,
+                        "buttons": state.buttons,
+                    }
+                });
+                ToolExecutionResult::success(payload.to_string())
+            }
+            Err(e) => ToolExecutionResult::failure(format!("Browser mouse move failed: {}", e)),
+        },
+        AgentTool::BrowserMouseDown { button } => {
+            let button = normalized_browser_button(button.as_deref());
+            let state = exec.browser.pointer_state().await;
+            match exec.browser.mouse_down(state.x, state.y, button).await {
+                Ok(()) => {
+                    let state = exec.browser.pointer_state().await;
+                    let payload = json!({
+                        "pointer": {
+                            "action": "mouse_down",
+                            "button": button,
+                            "x": state.x,
+                            "y": state.y,
+                            "buttons": state.buttons,
+                        }
+                    });
+                    ToolExecutionResult::success(payload.to_string())
+                }
+                Err(e) => ToolExecutionResult::failure(format!("Browser mouse down failed: {}", e)),
+            }
+        }
+        AgentTool::BrowserMouseUp { button } => {
+            let button = normalized_browser_button(button.as_deref());
+            let state = exec.browser.pointer_state().await;
+            match exec.browser.mouse_up(state.x, state.y, button).await {
+                Ok(()) => {
+                    let state = exec.browser.pointer_state().await;
+                    let payload = json!({
+                        "pointer": {
+                            "action": "mouse_up",
+                            "button": button,
+                            "x": state.x,
+                            "y": state.y,
+                            "buttons": state.buttons,
+                        }
+                    });
+                    ToolExecutionResult::success(payload.to_string())
+                }
+                Err(e) => ToolExecutionResult::failure(format!("Browser mouse up failed: {}", e)),
+            }
+        }
         AgentTool::BrowserSyntheticClick { x, y } => {
             match exec.browser.synthetic_click(x as f64, y as f64).await {
                 Ok(_) => ToolExecutionResult::success(format!("Clicked at ({}, {})", x, y)),
@@ -202,10 +390,15 @@ pub async fn handle(
         }
         AgentTool::BrowserScroll { delta_x, delta_y } => {
             match exec.browser.scroll(delta_x, delta_y).await {
-                Ok(_) => ToolExecutionResult::success(format!(
-                    "Scrolled browser by ({}, {})",
-                    delta_x, delta_y
-                )),
+                Ok(_) => {
+                    let payload = json!({
+                        "scroll": {
+                            "delta_x": delta_x,
+                            "delta_y": delta_y,
+                        }
+                    });
+                    ToolExecutionResult::success(payload.to_string())
+                }
                 Err(e) => ToolExecutionResult::failure(format!("Browser scroll failed: {}", e)),
             }
         }
@@ -215,9 +408,114 @@ pub async fn handle(
                 Err(e) => ToolExecutionResult::failure(format!("Browser type failed: {}", e)),
             }
         }
-        AgentTool::BrowserKey { key } => match exec.browser.press_key(&key).await {
-            Ok(_) => ToolExecutionResult::success(format!("Pressed '{}' in browser", key)),
-            Err(e) => ToolExecutionResult::failure(format!("Browser key press failed: {}", e)),
+        AgentTool::BrowserSelectText {
+            selector,
+            start_offset,
+            end_offset,
+        } => match exec
+            .browser
+            .select_text(selector.as_deref(), start_offset, end_offset)
+            .await
+        {
+            Ok(result) if result.found && !result.selected_text.is_empty() => {
+                let payload = json!({
+                    "selection": {
+                        "selector": selector,
+                        "target_kind": result.target_kind,
+                        "selected_text": result.selected_text,
+                        "start_offset": result.start_offset,
+                        "end_offset": result.end_offset,
+                        "text_length": result.text_length,
+                        "focused": result.focused,
+                        "collapsed": result.collapsed,
+                    }
+                });
+                ToolExecutionResult::success(payload.to_string())
+            }
+            Ok(result) if !result.found => {
+                ToolExecutionResult::failure("Browser select text failed: target not found")
+            }
+            Ok(result) => ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=NoEffectAfterAction Browser select text produced an empty selection: {}",
+                json!({ "selection": result })
+            )),
+            Err(e) => ToolExecutionResult::failure(format!("Browser select text failed: {}", e)),
+        },
+        AgentTool::BrowserKey { key, modifiers } => {
+            let modifiers = modifiers.unwrap_or_default();
+            match exec.browser.press_key(&key, &modifiers).await {
+                Ok(_) => {
+                    let payload = json!({
+                        "key": {
+                            "key": key,
+                            "modifiers": modifiers,
+                            "is_chord": !modifiers.is_empty(),
+                        }
+                    });
+                    ToolExecutionResult::success(payload.to_string())
+                }
+                Err(e) => ToolExecutionResult::failure(format!("Browser key press failed: {}", e)),
+            }
+        }
+        AgentTool::BrowserCopySelection {} => match exec.browser.read_selection().await {
+            Ok(selection) if selection.found && !selection.selected_text.is_empty() => {
+                match exec.os.set_clipboard(&selection.selected_text).await {
+                    Ok(()) => {
+                        let payload = json!({
+                            "clipboard": {
+                                "action": "copy_selection",
+                                "target_kind": selection.target_kind,
+                                "text": selection.selected_text,
+                                "text_length": selection.selected_text.chars().count(),
+                                "selection_start": selection.start_offset,
+                                "selection_end": selection.end_offset,
+                            }
+                        });
+                        ToolExecutionResult::success(payload.to_string())
+                    }
+                    Err(err) => ToolExecutionResult::failure(format!(
+                        "Browser copy selection failed: {}",
+                        err
+                    )),
+                }
+            }
+            Ok(selection) => ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=NoEffectAfterAction Browser copy selection has no selected text: {}",
+                json!({ "selection": selection })
+            )),
+            Err(e) => ToolExecutionResult::failure(format!("Browser copy selection failed: {}", e)),
+        },
+        AgentTool::BrowserPasteClipboard { selector } => match exec.os.get_clipboard().await {
+            Ok(clipboard_text) if !clipboard_text.is_empty() => {
+                match exec
+                    .browser
+                    .type_text(&clipboard_text, selector.as_deref())
+                    .await
+                {
+                    Ok(()) => {
+                        let payload = json!({
+                            "clipboard": {
+                                "action": "paste_clipboard",
+                                "selector": selector,
+                                "text": clipboard_text,
+                                "text_length": clipboard_text.chars().count(),
+                            }
+                        });
+                        ToolExecutionResult::success(payload.to_string())
+                    }
+                    Err(e) => ToolExecutionResult::failure(format!(
+                        "Browser paste clipboard failed: {}",
+                        e
+                    )),
+                }
+            }
+            Ok(_) => ToolExecutionResult::failure(
+                "ERROR_CLASS=NoEffectAfterAction Browser paste clipboard has no clipboard text",
+            ),
+            Err(err) => ToolExecutionResult::failure(format!(
+                "Browser paste clipboard failed: {}",
+                err
+            )),
         },
         AgentTool::BrowserFindText {
             query,
@@ -237,6 +535,26 @@ pub async fn handle(
             }
             Err(e) => ToolExecutionResult::failure(format!("Browser find_text failed: {}", e)),
         },
+        AgentTool::BrowserCanvasSummary { selector } => {
+            match exec.browser.selector_canvas_shape_summary(&selector).await {
+                Ok(summary) if summary.found => {
+                    let payload = json!({
+                        "canvas": {
+                            "selector": selector,
+                            "summary": summary,
+                        }
+                    });
+                    ToolExecutionResult::success(payload.to_string())
+                }
+                Ok(_) => ToolExecutionResult::failure(format!(
+                    "Browser canvas summary failed: selector '{}' not found",
+                    selector
+                )),
+                Err(e) => {
+                    ToolExecutionResult::failure(format!("Browser canvas summary failed: {}", e))
+                }
+            }
+        }
         AgentTool::BrowserScreenshot { full_page } => {
             match exec.browser.capture_tab_screenshot(full_page).await {
                 Ok(image_bytes) => ToolExecutionResult::success_with_visual_observation(

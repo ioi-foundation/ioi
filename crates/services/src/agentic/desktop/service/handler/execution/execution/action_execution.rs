@@ -147,11 +147,19 @@ pub async fn handle_action_execution(
             | AgentTool::BrowserSnapshot { .. }
             | AgentTool::BrowserClick { .. }
             | AgentTool::BrowserClickElement { .. }
+            | AgentTool::BrowserHover { .. }
+            | AgentTool::BrowserMoveMouse { .. }
+            | AgentTool::BrowserMouseDown { .. }
+            | AgentTool::BrowserMouseUp { .. }
             | AgentTool::BrowserSyntheticClick { .. }
             | AgentTool::BrowserScroll { .. }
             | AgentTool::BrowserType { .. }
+            | AgentTool::BrowserSelectText { .. }
             | AgentTool::BrowserKey { .. }
+            | AgentTool::BrowserCopySelection {}
+            | AgentTool::BrowserPasteClipboard { .. }
             | AgentTool::BrowserFindText { .. }
+            | AgentTool::BrowserCanvasSummary { .. }
             | AgentTool::BrowserScreenshot { .. }
             | AgentTool::BrowserWait { .. }
             | AgentTool::BrowserUploadFile { .. }

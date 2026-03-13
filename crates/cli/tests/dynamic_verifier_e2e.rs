@@ -1,6 +1,6 @@
 // Path: crates/cli/tests/dynamic_verifier_e2e.rs
 #![cfg(all(
-    feature = "consensus-poa",
+    feature = "consensus-admft",
     feature = "vm-wasm",
     feature = "state-iavl",
     feature = "ibc-deps"
@@ -9,7 +9,7 @@
 use anyhow::{anyhow, Result};
 use ioi_api::state::service_namespace_prefix;
 use ioi_cli::testing::{
-    build_test_artifacts,
+    build_mock_verifier_artifact,
     rpc::{query_state_key, submit_transaction_and_get_block},
     wait_for_height, TestCluster,
 };
@@ -63,7 +63,7 @@ fn create_gov_tx(signer: &Keypair, payload: SystemPayload, nonce: u64) -> Result
 #[tokio::test(flavor = "multi_thread")]
 async fn test_dynamic_verifier_lifecycle() -> Result<()> {
     // 1. Build Artifacts
-    build_test_artifacts();
+    build_mock_verifier_artifact();
 
     // Load WASM
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -73,11 +73,13 @@ async fn test_dynamic_verifier_lifecycle() -> Result<()> {
 
     if !wasm_path.exists() {
         println!(
-            "WARN: Mock verifier WASM not found at {:?}. Skipping test.",
+            "WARN: Mock verifier WASM not found at {:?}. Ensure `cargo-component` is installed before running dynamic verifier tests.",
             wasm_path
         );
-        // Fail explicitly if we can't find the artifact, as the test is meaningless without it
-        return Err(anyhow::anyhow!("Mock verifier WASM not found"));
+        return Err(anyhow!(
+            "mock verifier WASM not found at {:?}; install `cargo-component` and rerun this test",
+            wasm_path
+        ));
     }
     let wasm_bytes = std::fs::read(&wasm_path)?;
 

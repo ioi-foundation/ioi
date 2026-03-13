@@ -1440,8 +1440,8 @@ mod tests {
     }
 
     #[test]
-    fn source_document_authority_rejects_generic_public_authority_surface_without_query_grounding(
-    ) {
+    fn source_document_authority_rejects_generic_public_authority_surface_without_query_grounding()
+    {
         let query =
             "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
         let url = "https://www.nist.gov/cybersecurity-and-privacy";

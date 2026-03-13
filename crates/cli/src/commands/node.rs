@@ -2,7 +2,6 @@
 
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use ioi_api::crypto::SerializableKey;
 use ioi_cli::{build_test_artifacts, TestCluster};
 use ioi_types::{
     app::{

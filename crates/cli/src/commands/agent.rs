@@ -5,7 +5,7 @@ use clap::Parser;
 // [FIX] Import AgentMode
 use crate::util::create_cli_tx;
 use ioi_services::agentic::desktop::{AgentMode, StartAgentParams, StepAgentParams};
-use ioi_types::app::{ChainTransaction, SystemPayload};
+use ioi_types::app::SystemPayload;
 
 #[derive(Parser, Debug)]
 pub struct AgentArgs {

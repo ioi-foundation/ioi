@@ -180,6 +180,12 @@ pub(super) fn infer_browser_interact_tool_name(
     if obj.contains_key("text") {
         return Ok("browser__type");
     }
+    if obj.contains_key("start_offset") || obj.contains_key("end_offset") {
+        return Ok("browser__select_text");
+    }
+    if obj.contains_key("modifiers") {
+        return Ok("browser__key");
+    }
     if obj.contains_key("id") {
         return Ok("browser__click_element");
     }
@@ -289,10 +295,17 @@ pub(super) fn is_explicit_tool_name_allowed_for_scope(
             "browser__navigate"
                 | "browser__click"
                 | "browser__click_element"
+                | "browser__hover"
+                | "browser__move_mouse"
+                | "browser__mouse_down"
+                | "browser__mouse_up"
                 | "browser__synthetic_click"
                 | "browser__scroll"
                 | "browser__type"
+                | "browser__select_text"
                 | "browser__key"
+                | "browser__copy_selection"
+                | "browser__paste_clipboard"
                 | "browser__find_text"
                 | "browser__screenshot"
                 | "browser__wait"

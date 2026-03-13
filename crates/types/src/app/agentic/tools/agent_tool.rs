@@ -215,6 +215,42 @@ pub enum AgentTool {
         id: String,
     },
 
+    /// Move the browser pointer onto a target without clicking.
+    #[serde(rename = "browser__hover")]
+    BrowserHover {
+        /// Optional CSS selector for the hover target. Provide this or `id`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        /// Optional semantic ID from `browser__snapshot`. Provide this or `selector`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+    },
+
+    /// Move the browser pointer to raw viewport coordinates.
+    #[serde(rename = "browser__move_mouse")]
+    BrowserMoveMouse {
+        /// X coordinate relative to viewport.
+        x: u32,
+        /// Y coordinate relative to viewport.
+        y: u32,
+    },
+
+    /// Press a mouse button at the current browser pointer position.
+    #[serde(rename = "browser__mouse_down")]
+    BrowserMouseDown {
+        /// Mouse button name (for example: "left", "right", "middle"). Defaults to left.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        button: Option<String>,
+    },
+
+    /// Release a mouse button at the current browser pointer position.
+    #[serde(rename = "browser__mouse_up")]
+    BrowserMouseUp {
+        /// Mouse button name (for example: "left", "right", "middle"). Defaults to left.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        button: Option<String>,
+    },
+
     /// Synthetic click for background execution.
     #[serde(rename = "browser__synthetic_click")]
     BrowserSyntheticClick {
@@ -245,11 +281,40 @@ pub enum AgentTool {
         selector: Option<String>,
     },
 
+    /// Select text within a browser element or the current active element.
+    #[serde(rename = "browser__select_text")]
+    BrowserSelectText {
+        /// Optional CSS selector for the selection target. Defaults to the active element.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
+        /// Optional inclusive start offset within the target text/value. Defaults to `0`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        start_offset: Option<u32>,
+        /// Optional exclusive end offset within the target text/value. Defaults to the full length.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        end_offset: Option<u32>,
+    },
+
     /// Press a keyboard key in the browser via CDP key events (headless-compatible).
     #[serde(rename = "browser__key")]
     BrowserKey {
         /// Key name (for example: "Enter", "Tab", "ArrowDown").
         key: String,
+        /// Optional modifier keys to hold while pressing `key`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        modifiers: Option<Vec<String>>,
+    },
+
+    /// Copy the current browser text selection into the system clipboard.
+    #[serde(rename = "browser__copy_selection")]
+    BrowserCopySelection {},
+
+    /// Paste the current system clipboard contents into the browser.
+    #[serde(rename = "browser__paste_clipboard")]
+    BrowserPasteClipboard {
+        /// Optional CSS selector to focus before inserting clipboard text.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
     },
 
     /// Find literal text on the current page and optionally scroll to the first match.
@@ -263,6 +328,13 @@ pub enum AgentTool {
         /// Whether to scroll the first match into view.
         #[serde(default)]
         scroll: bool,
+    },
+
+    /// Summarize the visible content of a browser canvas element.
+    #[serde(rename = "browser__canvas_summary")]
+    BrowserCanvasSummary {
+        /// CSS selector for the canvas element or a container that resolves to a canvas.
+        selector: String,
     },
 
     /// Capture a browser screenshot as a visual observation.
@@ -653,11 +725,19 @@ impl AgentTool {
                 | "browser__snapshot"
                 | "browser__click"
                 | "browser__click_element"
+                | "browser__hover"
+                | "browser__move_mouse"
+                | "browser__mouse_down"
+                | "browser__mouse_up"
                 | "browser__synthetic_click"
                 | "browser__scroll"
                 | "browser__type"
+                | "browser__select_text"
                 | "browser__key"
+                | "browser__copy_selection"
+                | "browser__paste_clipboard"
                 | "browser__find_text"
+                | "browser__canvas_summary"
                 | "browser__screenshot"
                 | "browser__wait"
                 | "browser__upload_file"
