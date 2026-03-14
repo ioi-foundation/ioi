@@ -146,6 +146,8 @@ commitment-kzg = ["ioi-state/commitment-kzg", "ioi-validator/commitment-kzg"]
 # Other features also propagate to the validator lib
 vm-wasm = ["ioi-validator/vm-wasm"]
 consensus-admft = ["ioi-validator/consensus-admft"]
+consensus-poa = ["ioi-validator/consensus-poa"]
+consensus-pos = ["ioi-validator/consensus-pos"]
 
 # Service Features
 # IBC plugin wiring now flows through ioi-validator

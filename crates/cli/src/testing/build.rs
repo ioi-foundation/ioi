@@ -241,6 +241,12 @@ pub(crate) fn resolve_node_features(user_supplied: &str) -> String {
     if cfg!(feature = "consensus-admft") {
         feats.push("consensus-admft");
     }
+    if cfg!(feature = "consensus-poa") {
+        feats.push("consensus-poa");
+    }
+    if cfg!(feature = "consensus-pos") {
+        feats.push("consensus-pos");
+    }
 
     // --- VMs / extras ---
     if cfg!(feature = "vm-wasm") {

@@ -106,6 +106,8 @@ validator-bins = [
 ]
 
 consensus-admft = ["ioi-consensus/admft"]
+consensus-poa = ["ioi-consensus/poa"]
+consensus-pos = ["ioi-consensus/pos"]
 
 # This feature flag corresponds to the cfg(feature = "vm-wasm") check in the code
 vm-wasm = ["dep:ioi-vm-wasm"]

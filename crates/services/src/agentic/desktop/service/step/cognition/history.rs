@@ -111,6 +111,37 @@ fn extract_scoped_compact_jsonish_string_field(
     extract_compact_jsonish_string_field(&text[scope_start..], key)
 }
 
+fn extract_compact_jsonish_number_field(text: &str, key: &str) -> Option<f64> {
+    let marker = format!("\"{}\":", key);
+    let start = text.find(&marker)? + marker.len();
+    let rest = &text[start..];
+    let token = rest
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit() || matches!(ch, '.' | '-'))
+        .collect::<String>();
+    (!token.is_empty())
+        .then(|| token.parse::<f64>().ok())
+        .flatten()
+}
+
+fn format_prompt_number(value: f64) -> String {
+    if value.fract() == 0.0 {
+        return format!("{}", value as i64);
+    }
+
+    format!("{value}")
+}
+
+fn focused_home_should_jump_to_top_edge(compact: &str) -> Option<String> {
+    let scroll_top = extract_compact_jsonish_number_field(compact, "scroll_top")?;
+    if scroll_top <= 0.0 {
+        return None;
+    }
+
+    let client_height = extract_compact_jsonish_number_field(compact, "client_height")?;
+    (scroll_top >= client_height).then(|| format_prompt_number(scroll_top))
+}
+
 fn extract_json_object_fragment(text: &str) -> Option<&str> {
     let start = text.find('{')?;
     let end = text.rfind('}')?;
@@ -155,6 +186,54 @@ fn extract_assistive_browser_hints(snapshot: &str) -> Vec<String> {
     }
 
     hints
+}
+
+fn browser_fragment_scroll_target_summary(fragment: &str) -> Option<String> {
+    if !fragment.contains(" scroll_top=\"") || !fragment.contains(" client_height=\"") {
+        return None;
+    }
+
+    if !(fragment.contains(" can_scroll_up=\"true\"")
+        || fragment.contains(" can_scroll_down=\"true\""))
+    {
+        return None;
+    }
+
+    let tag_name = browser_fragment_tag_name(fragment)?;
+    let semantic_id = extract_browser_xml_attr(fragment, "id")?;
+    let dom_id = extract_browser_xml_attr(fragment, "dom_id")
+        .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+        .filter(|value| !value.is_empty());
+
+    let mut summary = format!("{tag_name}#{semantic_id}");
+    if let Some(dom_id) = dom_id {
+        summary.push_str(&format!(" dom_id={dom_id}"));
+    }
+
+    Some(summary)
+}
+
+fn extract_scroll_target_focus_hint(snapshot: &str) -> Option<String> {
+    let mut candidate = None;
+
+    for fragment in snapshot.split('<') {
+        let Some(summary) = browser_fragment_scroll_target_summary(fragment) else {
+            continue;
+        };
+
+        if fragment.contains(" focused=\"true\"") {
+            return None;
+        }
+
+        if candidate.replace(summary).is_some() {
+            return None;
+        }
+    }
+
+    let summary = candidate?;
+    Some(format!(
+        "Visible scroll target `{summary}` is already on the page. Focus it before `Home` or `End`; do not start with page-level edge keys."
+    ))
 }
 
 fn browser_fragment_tag_name(fragment: &str) -> Option<&str> {
@@ -405,6 +484,13 @@ fn browser_snapshot_pending_signal(snapshot: &str) -> Option<String> {
         return Some("The page-visible instruction requires no selections, but current browser state already shows checked or selected controls. Do not submit yet. Clear those selections so the relevant controls return to unchecked or unselected, then continue with the next required control.".to_string());
     }
 
+    if let Some(summary) = extract_scroll_target_focus_hint(snapshot) {
+        return Some(format!(
+            "{} Focus that control first with `browser__click_element`, then use control-local keys instead of page-level `Home` or `End`.",
+            summary
+        ));
+    }
+
     None
 }
 
@@ -554,6 +640,64 @@ fn normalized_exact_target_text(text: &str) -> String {
         .filter(|token| !token.is_empty())
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct RankedResultRequest {
+    rank: usize,
+    ordinal_text: String,
+}
+
+fn parse_ordinal_token(token: &str) -> Option<usize> {
+    let trimmed = token.trim_matches(|ch: char| !ch.is_ascii_alphanumeric());
+    let lower = trimmed.to_ascii_lowercase();
+    let digits_len = lower.chars().take_while(|ch| ch.is_ascii_digit()).count();
+    if digits_len == 0 {
+        return None;
+    }
+
+    let (digits, suffix) = lower.split_at(digits_len);
+    if !matches!(suffix, "st" | "nd" | "rd" | "th") {
+        return None;
+    }
+
+    digits.parse::<usize>().ok().filter(|value| *value > 0)
+}
+
+fn recent_requested_result_rank(history: &[ChatMessage]) -> Option<RankedResultRequest> {
+    for message in history
+        .iter()
+        .rev()
+        .filter(|message| message.role == "user")
+        .take(3)
+    {
+        let tokens = message.content.split_whitespace().collect::<Vec<_>>();
+        for (idx, token) in tokens.iter().enumerate() {
+            let ordinal_text = token.trim_matches(|ch: char| !ch.is_ascii_alphanumeric());
+            let Some(rank) = parse_ordinal_token(ordinal_text) else {
+                continue;
+            };
+            let mentions_result = tokens
+                .iter()
+                .skip(idx + 1)
+                .take(3)
+                .map(|part| {
+                    part.trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+                        .to_ascii_lowercase()
+                })
+                .any(|part| part.starts_with("result"));
+            if !mentions_result {
+                continue;
+            }
+
+            return Some(RankedResultRequest {
+                rank,
+                ordinal_text: ordinal_text.to_string(),
+            });
+        }
+    }
+
+    None
 }
 
 fn recent_requested_sort_label(history: &[ChatMessage]) -> Option<String> {
@@ -715,8 +859,12 @@ fn recent_successful_click_has_post_action_observation(
     semantic_id: &str,
     current_snapshot: Option<&str>,
 ) -> bool {
+    if recent_successful_click_is_observed_in_later_snapshot(history, semantic_id) {
+        return true;
+    }
+
     current_snapshot.is_some()
-        || recent_successful_click_is_observed_in_later_snapshot(history, semantic_id)
+        && recent_successful_click_semantic_id(history).as_deref() == Some(semantic_id)
 }
 
 fn semantic_id_is_submit_like(semantic_id: &str) -> bool {
@@ -796,6 +944,7 @@ struct SnapshotLinkState {
     dom_id: Option<String>,
     selector: Option<String>,
     context: Option<String>,
+    visible: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -875,6 +1024,7 @@ fn snapshot_link_states(snapshot: &str) -> Vec<SnapshotLinkState> {
         let context = extract_browser_xml_attr(fragment, "context")
             .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
             .filter(|value| !value.is_empty());
+        let visible = !fragment.contains(r#" visible="false""#);
 
         states.push(SnapshotLinkState {
             semantic_id,
@@ -882,6 +1032,7 @@ fn snapshot_link_states(snapshot: &str) -> Vec<SnapshotLinkState> {
             dom_id,
             selector,
             context,
+            visible,
         });
     }
 
@@ -1446,6 +1597,219 @@ fn snapshot_visible_item_order(snapshot: &str) -> Vec<String> {
     }
 
     ids
+}
+
+fn link_name_is_pagination_like(name: &str) -> bool {
+    let raw = compact_ws_for_prompt(name);
+    let raw_trimmed = raw.trim();
+    if matches!(
+        raw_trimmed,
+        "<" | ">" | "<<" | ">>" | "&lt;" | "&gt;" | "&lt;&lt;" | "&gt;&gt;"
+    ) {
+        return true;
+    }
+
+    let normalized = normalized_exact_target_text(name);
+    !normalized.is_empty()
+        && (normalized.chars().all(|ch| ch.is_ascii_digit())
+            || matches!(
+                normalized.as_str(),
+                "first" | "last" | "next" | "previous" | "prev"
+            )
+            || matches!(name.trim(), "<" | ">" | "<<" | ">>"))
+}
+
+fn parse_zero_based_result_rank_marker(raw: &str) -> Option<usize> {
+    let normalized = raw.trim().to_ascii_lowercase();
+    let suffix = normalized
+        .strip_prefix("result-")
+        .or_else(|| normalized.strip_prefix("result_"))?;
+    suffix.parse::<usize>().ok().map(|rank| rank + 1)
+}
+
+fn snapshot_link_result_rank(link: &SnapshotLinkState) -> Option<usize> {
+    link.dom_id
+        .as_deref()
+        .and_then(parse_zero_based_result_rank_marker)
+        .or_else(|| {
+            link.selector
+                .as_deref()
+                .and_then(parse_zero_based_result_rank_marker)
+        })
+        .or_else(|| {
+            link.context
+                .as_deref()
+                .and_then(parse_zero_based_result_rank_marker)
+        })
+        .or_else(|| {
+            link.semantic_id
+                .to_ascii_lowercase()
+                .contains("result")
+                .then(|| semantic_id_numeric_suffix(&link.semantic_id))
+                .flatten()
+        })
+}
+
+fn snapshot_visible_result_links(snapshot: &str) -> Vec<SnapshotLinkState> {
+    let visible_links = snapshot_link_states(snapshot)
+        .into_iter()
+        .filter(|link| link.visible)
+        .collect::<Vec<_>>();
+    let mut explicit_ranked_links = visible_links
+        .iter()
+        .filter_map(|link| snapshot_link_result_rank(link).map(|rank| (rank, link.clone())))
+        .collect::<Vec<_>>();
+    explicit_ranked_links.sort_by(|(left_rank, left_link), (right_rank, right_link)| {
+        left_rank
+            .cmp(right_rank)
+            .then_with(|| left_link.semantic_id.cmp(&right_link.semantic_id))
+    });
+    explicit_ranked_links.dedup_by(|(left_rank, _), (right_rank, _)| left_rank == right_rank);
+    if !explicit_ranked_links.is_empty() {
+        return explicit_ranked_links
+            .into_iter()
+            .map(|(_, link)| link)
+            .collect();
+    }
+
+    visible_links
+        .into_iter()
+        .filter(|link| {
+            link.name
+                .as_deref()
+                .is_some_and(|name| !link_name_is_pagination_like(name))
+        })
+        .collect()
+}
+
+fn snapshot_visible_pagination_links(snapshot: &str) -> Vec<SnapshotLinkState> {
+    snapshot_link_states(snapshot)
+        .into_iter()
+        .filter(|link| link.visible)
+        .filter(|link| {
+            link.name
+                .as_deref()
+                .is_some_and(link_name_is_pagination_like)
+        })
+        .collect()
+}
+
+fn snapshot_pagination_link_for_page(snapshot: &str, page: usize) -> Option<SnapshotLinkState> {
+    let page_label = page.to_string();
+    snapshot_visible_pagination_links(snapshot).into_iter().find(|link| {
+        link.name
+            .as_deref()
+            .is_some_and(|name| normalized_exact_target_text(name) == page_label)
+    })
+}
+
+fn pagination_name_is_previous_like(name: &str) -> bool {
+    matches!(compact_ws_for_prompt(name).trim(), "<" | "<<" | "&lt;" | "&lt;&lt;")
+        || matches!(
+            normalized_exact_target_text(name).as_str(),
+            "previous" | "prev"
+        )
+}
+
+fn pagination_name_is_next_like(name: &str) -> bool {
+    matches!(compact_ws_for_prompt(name).trim(), ">" | ">>" | "&gt;" | "&gt;&gt;")
+        || matches!(normalized_exact_target_text(name).as_str(), "next")
+}
+
+fn snapshot_current_pagination_page(snapshot: &str) -> Option<usize> {
+    let pagination_links = snapshot_visible_pagination_links(snapshot);
+    if pagination_links.is_empty() {
+        return None;
+    }
+
+    let has_previous = pagination_links
+        .iter()
+        .filter_map(|link| link.name.as_deref())
+        .any(pagination_name_is_previous_like);
+    let has_next = pagination_links
+        .iter()
+        .filter_map(|link| link.name.as_deref())
+        .any(pagination_name_is_next_like);
+    let numeric_pages = pagination_links
+        .iter()
+        .filter_map(|link| link.name.as_deref())
+        .filter_map(|name| normalized_exact_target_text(name).parse::<usize>().ok())
+        .collect::<Vec<_>>();
+    if numeric_pages.is_empty() {
+        return None;
+    }
+
+    if !has_previous && numeric_pages.contains(&1) {
+        return Some(1);
+    }
+
+    if !has_next {
+        return numeric_pages.iter().max().copied();
+    }
+
+    None
+}
+
+fn snapshot_next_pagination_link(snapshot: &str) -> Option<SnapshotLinkState> {
+    snapshot_visible_pagination_links(snapshot).into_iter().find(|link| {
+        link.name
+            .as_deref()
+            .is_some_and(pagination_name_is_next_like)
+    })
+}
+
+fn semantic_id_numeric_suffix(semantic_id: &str) -> Option<usize> {
+    let digits = semantic_id
+        .chars()
+        .rev()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect::<String>();
+    (!digits.is_empty())
+        .then(|| digits.parse::<usize>().ok())
+        .flatten()
+}
+
+fn tool_output_click_semantic_id(message: &ChatMessage) -> Option<String> {
+    clicked_element_semantic_id(message).or_else(|| {
+        (message.role == "tool")
+            .then(|| {
+                extract_compact_jsonish_string_field(&compact_ws_for_prompt(&message.content), "id")
+            })
+            .flatten()
+    })
+}
+
+fn recent_clicked_pagination_page_number(history: &[ChatMessage], snapshot: &str) -> Option<usize> {
+    if let Some(current_page) = snapshot_current_pagination_page(snapshot) {
+        return Some(current_page);
+    }
+
+    let pagination_links = snapshot_visible_pagination_links(snapshot);
+    history.iter().rev().find_map(|message| {
+        if message.role != "tool" {
+            return None;
+        }
+
+        let compact = compact_ws_for_prompt(&message.content);
+        let semantic_id = tool_output_click_semantic_id(message)?;
+        let mapped = pagination_links
+            .iter()
+            .find(|link| link.semantic_id == semantic_id)
+            .and_then(|link| link.name.as_deref())
+            .and_then(|name| normalized_exact_target_text(name).parse::<usize>().ok());
+        let effective_transition = compact.contains("\"postcondition\":{")
+            && (compact.contains("\"met\":true")
+                || compact.contains("\"tree_changed\":true")
+                || compact.contains("\"url_changed\":true"));
+        if !effective_transition {
+            return None;
+        }
+
+        mapped.or_else(|| semantic_id_numeric_suffix(&semantic_id))
+    })
 }
 
 fn contains_ascii_case_insensitive(text: &str, needle: &str) -> bool {
@@ -2959,6 +3323,139 @@ fn reviewed_draft_confirmation_pending_signal(
     ))
 }
 
+fn ranked_result_pending_signal(
+    history: &[ChatMessage],
+    current_snapshot: Option<&str>,
+) -> Option<String> {
+    let snapshot =
+        current_snapshot.or_else(|| history.iter().rev().find_map(browser_snapshot_payload))?;
+    let request = recent_requested_result_rank(history)?;
+    let visible_results = snapshot_visible_result_links(snapshot);
+    if visible_results.is_empty() {
+        return None;
+    }
+
+    let instruction_token =
+        snapshot_visible_exact_text_target(snapshot, &request.ordinal_text).filter(|target| {
+            matches!(target.semantic_role.as_str(), "generic" | "label" | "text" | "heading")
+        })?;
+    let repeated_submit_clause = recent_successful_click_semantic_id(history)
+        .filter(|semantic_id| {
+            semantic_id_is_submit_like(semantic_id)
+                || semantic_id.to_ascii_lowercase().contains("search")
+        })
+        .filter(|semantic_id| {
+            recent_successful_click_has_post_action_observation(
+                history,
+                semantic_id,
+                current_snapshot,
+            )
+        })
+        .map(|semantic_id| {
+            format!(
+                " The search results are already updated, so do not use `{semantic_id}` again."
+            )
+        })
+        .unwrap_or_default();
+    let results_per_page = visible_results.len();
+    let explicit_visible_ranks = visible_results
+        .iter()
+        .filter_map(snapshot_link_result_rank)
+        .collect::<Vec<_>>();
+    let (page_start_rank, page_end_rank) = if explicit_visible_ranks.is_empty() {
+        let current_page = recent_clicked_pagination_page_number(history, snapshot).unwrap_or(1);
+        let page_start_rank = current_page.saturating_sub(1) * results_per_page + 1;
+        let page_end_rank = page_start_rank + results_per_page.saturating_sub(1);
+        (page_start_rank, page_end_rank)
+    } else {
+        (
+            *explicit_visible_ranks.iter().min()?,
+            *explicit_visible_ranks.iter().max()?,
+        )
+    };
+
+    if request.rank < page_start_rank || request.rank > page_end_rank {
+        let target_page = (request.rank + results_per_page - 1) / results_per_page;
+        let page_control = snapshot_pagination_link_for_page(snapshot, target_page)
+            .or_else(|| snapshot_next_pagination_link(snapshot));
+        let recent_instruction_click = recent_successful_click_semantic_id(history).as_deref()
+            == Some(instruction_token.semantic_id.as_str());
+        let page_hint = page_control
+            .as_ref()
+            .map(|link| {
+                format!(
+                    "Use `browser__click_element` on `{}` now to reach result {}.",
+                    link.semantic_id, request.rank
+                )
+            })
+            .unwrap_or_else(|| {
+                format!(
+                    "Use a visible pagination control now to reach result {}.",
+                    request.rank
+                )
+            });
+        let recovery_clause = if recent_instruction_click {
+            " That recent click hit the instruction token, not a result, so do not finish."
+        } else {
+            ""
+        };
+
+        return Some(format!(
+            "{} `{}` is the instruction token for `{}`, not a search result. Only {} actual result links are visible here (ranks {}-{}), so result {} is still off-screen. Do not click `{}`, do not use `browser__scroll`, and do not spend the next step on `browser__snapshot`.{}{}",
+            page_hint,
+            instruction_token.semantic_id,
+            request.ordinal_text,
+            results_per_page,
+            page_start_rank,
+            page_end_rank,
+            request.rank,
+            instruction_token.semantic_id,
+            recovery_clause,
+            repeated_submit_clause,
+        ));
+    }
+
+    let target_result = visible_results
+        .iter()
+        .find(|link| snapshot_link_result_rank(link) == Some(request.rank))
+        .or_else(|| {
+            let local_index = request.rank.saturating_sub(page_start_rank);
+            visible_results.get(local_index)
+        })?;
+    if recent_successful_click_has_post_action_observation(
+        history,
+        &target_result.semantic_id,
+        current_snapshot,
+    ) {
+        return None;
+    }
+
+    let result_name = target_result
+        .name
+        .as_deref()
+        .unwrap_or(target_result.semantic_id.as_str());
+    let recent_instruction_click = recent_successful_click_semantic_id(history).as_deref()
+        == Some(instruction_token.semantic_id.as_str());
+    let recovery_clause = if recent_instruction_click {
+        " The recent click on the instruction token did not satisfy the task, so do not finish."
+    } else {
+        ""
+    };
+
+    Some(format!(
+        "Use `browser__click_element` on `{}` now. Result {} on this page is visible result link `{}` (`{}`). `{}` is the visible instruction token for `{}`, not the result to click. Do not use `browser__scroll`, do not spend the next step on `browser__snapshot`, and do not click `{}` or finish.{}{}",
+        target_result.semantic_id,
+        request.rank,
+        target_result.semantic_id,
+        result_name,
+        instruction_token.semantic_id,
+        request.ordinal_text,
+        instruction_token.semantic_id,
+        recovery_clause,
+        repeated_submit_clause,
+    ))
+}
+
 fn alternate_tab_exploration_pending_signal(
     history: &[ChatMessage],
     current_snapshot: Option<&str>,
@@ -3200,7 +3697,10 @@ fn recent_browser_success_signal(
 }
 
 pub(super) fn build_browser_observation_context_from_snapshot(snapshot: &str) -> String {
-    let assistive_hints = extract_assistive_browser_hints(snapshot);
+    let mut assistive_hints = extract_assistive_browser_hints(snapshot);
+    if let Some(scroll_target_hint) = extract_scroll_target_focus_hint(snapshot) {
+        assistive_hints.push(scroll_target_hint);
+    }
     let compact_observation = compact_browser_observation(snapshot);
     if compact_observation.is_empty() {
         return String::new();
@@ -3256,6 +3756,13 @@ fn browser_effect_pending_signal(message: &ChatMessage) -> Option<String> {
                 "A recent `{}` still left the focused scrollable control with `can_scroll_up=true`. Do not call `{}` again, and do not submit or finish yet. Use `PageUp` next, and stop only when grounded state shows `can_scroll_up=false` or `scroll_top=0`.",
                 top_edge_jump_name(),
                 top_edge_jump_name(),
+            ));
+        }
+
+        if let Some(scroll_top) = focused_home_should_jump_to_top_edge(&compact) {
+            return Some(format!(
+                "`Home` left a focused scrollable control far from top (`scroll_top={scroll_top}`, `can_scroll_up=true`). Do not use `Home` again or spend the next step on `PageUp`. Do not submit yet. Use `{}` next. Stop only at top (`can_scroll_up=false` or `scroll_top=0`).",
+                top_edge_jump_call(),
             ));
         }
 
@@ -3533,6 +4040,7 @@ pub(super) fn build_recent_pending_browser_state_context_with_snapshot(
         .or_else(|| auth_form_pending_signal(history))
         .or_else(|| autocomplete_follow_up_pending_signal(history, current_snapshot))
         .or_else(|| filter_mismatch_pending_signal(history, current_snapshot))
+        .or_else(|| ranked_result_pending_signal(history, current_snapshot))
         .or_else(|| visible_target_click_pending_signal(history, current_snapshot))
         .or_else(|| alternate_tab_exploration_pending_signal(history, current_snapshot))
         .or_else(|| stale_queue_reverification_pending_signal(history, current_snapshot))
@@ -3584,6 +4092,7 @@ pub(crate) fn build_browser_snapshot_pending_state_context_with_history(
     let Some(signal) = auth_form_pending_signal_from_snapshot(snapshot, history)
         .or_else(|| autocomplete_follow_up_pending_signal(history, Some(snapshot)))
         .or_else(|| dropdown_filter_mismatch_pending_signal(snapshot, history))
+        .or_else(|| ranked_result_pending_signal(history, Some(snapshot)))
         .or_else(|| visible_target_click_pending_signal(history, Some(snapshot)))
         .or_else(|| alternate_tab_exploration_pending_signal(history, Some(snapshot)))
         .or_else(|| stale_queue_reverification_pending_signal(history, Some(snapshot)))
@@ -3626,6 +4135,7 @@ pub(super) fn build_recent_success_signal_context_with_snapshot(
         || auth_form_pending_signal(history).is_some()
         || autocomplete_follow_up_pending_signal(history, current_snapshot).is_some()
         || filter_mismatch_pending_signal(history, current_snapshot).is_some()
+        || ranked_result_pending_signal(history, current_snapshot).is_some()
         || visible_target_click_pending_signal(history, current_snapshot).is_some()
         || alternate_tab_exploration_pending_signal(history, current_snapshot).is_some()
         || stale_queue_reverification_pending_signal(history, current_snapshot).is_some()
@@ -3791,6 +4301,22 @@ mod tests {
         let context = build_browser_observation_context_from_snapshot(&snapshot);
         assert!(context.contains("ASSISTIVE BROWSER HINTS: Poland"));
         assert!(context.contains("RECENT BROWSER OBSERVATION:"));
+    }
+
+    #[test]
+    fn browser_observation_context_surfaces_visible_scroll_target_focus_hint() {
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" scroll_top=\"257\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+            "</root>",
+        );
+
+        let context = build_browser_observation_context_from_snapshot(snapshot);
+        assert!(context.contains("ASSISTIVE BROWSER HINTS:"));
+        assert!(context.contains(
+            "Visible scroll target `textbox#inp_lorem dom_id=text-area` is already on the page."
+        ));
+        assert!(context.contains("do not start with page-level edge keys"));
     }
 
     #[test]
@@ -4684,6 +5210,231 @@ mod tests {
         );
         assert!(context.contains("`browser__find_text`"), "{context}");
         assert!(context.contains("another `browser__snapshot`"), "{context}");
+    }
+
+    #[test]
+    fn pending_browser_state_context_suppresses_exact_visible_target_after_target_click() {
+        let history = vec![
+            chat_message(
+                "user",
+                r#"Expand the sections below, to find and click on the link "elit"."#,
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'grp_elit' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                2,
+            ),
+        ];
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<tab id=\"tab_section_3\" name=\"Section #3\" focused=\"true\" dom_id=\"ui-id-5\" selector=\"[id=&quot;ui-id-5&quot;]\" tag_name=\"h3\" controls_dom_id=\"ui-id-6\" rect=\"4,92,152,17\" />",
+            "<tabpanel id=\"tabpanel_section_3\" name=\"Consectetur. Gravida. Consectetur elit non,. In enim.\" dom_id=\"ui-id-6\" selector=\"[id=&quot;ui-id-6&quot;]\" tag_name=\"div\" rect=\"4,111,152,58\" />",
+            "<generic id=\"grp_elit\" name=\"elit\" tag_name=\"span\" rect=\"63,123,13,11\" />",
+            "</root>",
+        );
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+        assert!(context.is_empty(), "{context}");
+    }
+
+    #[test]
+    fn pending_browser_state_context_guides_ranked_result_pagination() {
+        let history = vec![
+            chat_message(
+                "user",
+                r#"Use the textbox to enter "Sergio" and press "Search", then find and click the 6th search result."#,
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'btn_search' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                2,
+            ),
+        ];
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_sergio\" name=\"Sergio\" tag_name=\"span\" rect=\"115,3,31,11\" />",
+            "<generic id=\"grp_6th\" name=\"6th\" tag_name=\"span\" rect=\"42,25,15,11\" />",
+            "<link id=\"lnk_karrie\" name=\"Karrie\" dom_id=\"result-0\" selector=\"#page-content > div:nth-of-type(1) > a\" rect=\"4,77,29,11\" />",
+            "<link id=\"lnk_riley\" name=\"Riley\" dom_id=\"result-1\" selector=\"#page-content > div:nth-of-type(2) > a\" rect=\"4,110,24,11\" />",
+            "<link id=\"lnk_kanesha\" name=\"Kanesha\" dom_id=\"result-2\" selector=\"#page-content > div:nth-of-type(3) > a\" rect=\"4,143,42,11\" />",
+            "<link id=\"lnk_page_1\" name=\"1\" selector=\"#pagination > li:nth-of-type(3) > a\" rect=\"44,191,8,17\" />",
+            "<link id=\"lnk_page_2\" name=\"2\" selector=\"#pagination > li:nth-of-type(4) > a\" rect=\"56,191,8,17\" />",
+            "<link id=\"lnk_page_3\" name=\"3\" selector=\"#pagination > li:nth-of-type(5) > a\" rect=\"68,191,8,17\" />",
+            "<link id=\"lnk_next\" name=\">\" selector=\"#pagination > li:nth-of-type(6) > a\" rect=\"81,191,9,17\" />",
+            "</root>",
+        );
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(context.contains("`grp_6th`"), "{context}");
+        assert!(context.contains("not a search result"), "{context}");
+        assert!(context.contains("Only 3 actual result links"), "{context}");
+        assert!(context.contains("ranks 1-3"), "{context}");
+        assert!(context.contains("`lnk_page_2`"), "{context}");
+        assert!(context.contains("Do not click `grp_6th`"), "{context}");
+        assert!(context.contains("`browser__scroll`"), "{context}");
+    }
+
+    #[test]
+    fn pending_browser_state_context_guides_ranked_result_link_after_page_change() {
+        let history = vec![
+            chat_message(
+                "user",
+                r#"Use the textbox to enter "Sergio" and press "Search", then find and click the 6th search result."#,
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'lnk_page_2' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                2,
+            ),
+        ];
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_6th\" name=\"6th\" tag_name=\"span\" rect=\"42,25,15,11\" />",
+            "<link id=\"lnk_result_4\" name=\"Teodora\" dom_id=\"result-3\" selector=\"#page-content > div:nth-of-type(1) > a\" rect=\"4,77,29,11\" />",
+            "<link id=\"lnk_result_5\" name=\"Merrie\" dom_id=\"result-4\" selector=\"#page-content > div:nth-of-type(2) > a\" rect=\"4,110,24,11\" />",
+            "<link id=\"lnk_result_6\" name=\"Sergio result\" dom_id=\"result-5\" selector=\"#page-content > div:nth-of-type(3) > a\" rect=\"4,143,42,11\" />",
+            "<link id=\"lnk_page_1\" name=\"1\" selector=\"#pagination > li:nth-of-type(3) > a\" rect=\"44,191,8,17\" />",
+            "<link id=\"lnk_page_2\" name=\"2\" selector=\"#pagination > li:nth-of-type(4) > a\" rect=\"56,191,8,17\" />",
+            "<link id=\"lnk_page_3\" name=\"3\" selector=\"#pagination > li:nth-of-type(5) > a\" rect=\"68,191,8,17\" />",
+            "</root>",
+        );
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(context.contains("`grp_6th`"), "{context}");
+        assert!(context.contains("`lnk_result_6`"), "{context}");
+        assert!(context.contains("not the result to click"), "{context}");
+        assert!(context.contains("`browser__scroll`"), "{context}");
+    }
+
+    #[test]
+    fn pending_browser_state_context_guides_ranked_result_link_after_failed_page_click() {
+        let history = vec![
+            chat_message(
+                "user",
+                r#"Use the textbox to enter "Sergio" and press "Search", then find and click the 6th search result."#,
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"Tool Output (browser__click_element): ERROR_CLASS=NoEffectAfterAction Failed to click element 'lnk_page_2'. verify={"postcondition":{"met":false,"tree_changed":true,"url_changed":false}}"#,
+                2,
+            ),
+        ];
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_6th\" name=\"6th\" tag_name=\"span\" rect=\"42,25,15,11\" />",
+            "<link id=\"lnk_thaddeus\" name=\"Thaddeus\" dom_id=\"result-3\" selector=\"#page-content > div:nth-of-type(1) > a\" rect=\"4,77,47,11\" />",
+            "<link id=\"lnk_emile\" name=\"Emile\" dom_id=\"result-4\" selector=\"#page-content > div:nth-of-type(2) > a\" rect=\"4,110,27,11\" />",
+            "<link id=\"lnk_sergio\" name=\"Sergio\" dom_id=\"result-5\" selector=\"#page-content > div:nth-of-type(3) > a\" rect=\"4,143,31,11\" />",
+            "<link id=\"lnk_prev\" name=\"<\" selector=\"#pagination > li:nth-of-type(2) > a\" rect=\"44,191,9,17\" />",
+            "<link id=\"lnk_page_1\" name=\"1\" selector=\"#pagination > li:nth-of-type(3) > a\" rect=\"57,191,8,17\" />",
+            "<link id=\"lnk_page_2\" name=\"2\" selector=\"#pagination > li:nth-of-type(4) > a\" rect=\"69,191,8,17\" />",
+            "<link id=\"lnk_page_3\" name=\"3\" selector=\"#pagination > li:nth-of-type(5) > a\" rect=\"81,191,8,17\" />",
+            "</root>",
+        );
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(context.contains("Result 6 on this page"), "{context}");
+        assert!(context.contains("`lnk_sergio`"), "{context}");
+        assert!(!context.contains("`lnk_page_2`"), "{context}");
+        assert!(context.contains("`browser__scroll`"), "{context}");
+    }
+
+    #[test]
+    fn pending_browser_state_context_guides_ranked_result_link_after_failed_page_click_without_result_markers(
+    ) {
+        let history = vec![
+            chat_message(
+                "user",
+                r#"Use the textbox to enter "Sergio" and press "Search", then find and click the 6th search result."#,
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"Tool Output (browser__click_element): ERROR_CLASS=NoEffectAfterAction Failed to click element 'lnk_2'. verify={"attempts":[{"postcondition":{"met":false,"tree_changed":true,"url_changed":false}}],"id":"lnk_2"}"#,
+                2,
+            ),
+        ];
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_6th\" name=\"6th\" tag_name=\"span\" rect=\"42,25,15,11\" />",
+            "<link id=\"lnk_thaddeus\" name=\"Thaddeus\" tag_name=\"a\" rect=\"4,77,47,11\" />",
+            "<link id=\"lnk_emile\" name=\"Emile\" tag_name=\"a\" rect=\"4,110,27,11\" />",
+            "<link id=\"lnk_sergio\" name=\"Sergio\" tag_name=\"a\" rect=\"4,143,31,11\" />",
+            "<generic id=\"grp_123\" name=\"&lt;123&gt;\" dom_id=\"pagination\" selector=\"#pagination\" tag_name=\"ul\" rect=\"2,191,103,17\" />",
+            "<link id=\"lnk_prev\" name=\"&lt;\" tag_name=\"a\" rect=\"44,191,9,17\" />",
+            "<link id=\"lnk_1\" name=\"1\" tag_name=\"a\" rect=\"57,191,8,17\" />",
+            "<link id=\"lnk_2\" name=\"2\" tag_name=\"a\" rect=\"69,191,8,17\" />",
+            "<link id=\"lnk_3\" name=\"3\" tag_name=\"a\" rect=\"81,191,8,17\" />",
+            "<link id=\"lnk_next\" name=\"&gt;\" omitted=\"true\" tag_name=\"a\" rect=\"94,191,9,17\" />",
+            "</root>",
+        );
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(context.contains("Result 6 on this page"), "{context}");
+        assert!(context.contains("`lnk_sergio`"), "{context}");
+        assert!(!context.contains("`lnk_2` (`2`) now to advance"), "{context}");
+        assert!(context.contains("`browser__scroll`"), "{context}");
+    }
+
+    #[test]
+    fn pending_browser_state_context_resets_ranked_result_page_after_resubmit_returns_to_first_page()
+    {
+        let history = vec![
+            chat_message(
+                "user",
+                r#"Use the textbox to enter "Sergio" and press "Search", then find and click the 6th search result."#,
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'btn_search' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                2,
+            ),
+            chat_message(
+                "tool",
+                r#"Tool Output (browser__click_element): ERROR_CLASS=NoEffectAfterAction Failed to click element 'lnk_2'. verify={"attempts":[{"postcondition":{"met":false,"tree_changed":true,"url_changed":false}}],"id":"lnk_2"}"#,
+                3,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'btn_search' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                4,
+            ),
+        ];
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_6th\" name=\"6th\" tag_name=\"span\" rect=\"42,25,15,11\" />",
+            "<link id=\"lnk_karrie\" name=\"Karrie\" tag_name=\"a\" rect=\"4,77,29,11\" />",
+            "<link id=\"lnk_riley\" name=\"Riley\" tag_name=\"a\" rect=\"4,110,24,11\" />",
+            "<link id=\"lnk_kanesha\" name=\"Kanesha\" tag_name=\"a\" rect=\"4,143,42,11\" />",
+            "<generic id=\"grp_123\" name=\"123&gt;\" dom_id=\"pagination\" selector=\"#pagination\" tag_name=\"ul\" rect=\"2,191,90,17\" />",
+            "<link id=\"lnk_1\" name=\"1\" tag_name=\"a\" rect=\"44,191,8,17\" />",
+            "<link id=\"lnk_2\" name=\"2\" tag_name=\"a\" rect=\"56,191,8,17\" />",
+            "<link id=\"lnk_3\" name=\"3\" tag_name=\"a\" rect=\"69,191,8,17\" />",
+            "<link id=\"lnk_next\" name=\"&gt;\" omitted=\"true\" tag_name=\"a\" rect=\"81,191,9,17\" />",
+            "</root>",
+        );
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(context.contains("Only 3 actual result links"), "{context}");
+        assert!(context.contains("ranks 1-3"), "{context}");
+        assert!(context.contains("`lnk_2`"), "{context}");
+        assert!(!context.contains("`lnk_kanesha`"), "{context}");
     }
 
     #[test]
@@ -5857,11 +6608,28 @@ mod tests {
 
         let context = build_recent_pending_browser_state_context(&history);
         assert!(context.contains("RECENT PENDING BROWSER STATE:"));
-        assert!(context.contains("do not submit or finish"));
-        assert!(context.contains("Do not call `Home` again"));
+        assert!(context.contains("Do not submit yet"));
+        assert!(context.contains("Do not use `Home` again"));
+        assert!(context.contains("scroll_top=257"));
+        assert!(context.contains("spend the next step on `PageUp`"));
         assert!(context.contains("can_scroll_up=true"));
         assert!(context.contains("can_scroll_up=false"));
         assert!(context.contains("scroll_top=0"));
+        assert!(context.contains(top_edge_jump_call()));
+    }
+
+    #[test]
+    fn pending_browser_state_context_keeps_page_up_option_when_home_is_near_top() {
+        let history = vec![chat_message(
+            "tool",
+            r##"{"key":{"key":"Home","modifiers":[],"is_chord":false,"selector":"[id=\"text-area\"]","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":24,"scroll_height":565,"client_height":104,"can_scroll_up":true,"can_scroll_down":true,"autocomplete":null}}"##,
+            1,
+        )];
+
+        let context = build_recent_pending_browser_state_context(&history);
+        assert!(context.contains("RECENT PENDING BROWSER STATE:"));
+        assert!(context.contains("Use `PageUp` or"));
+        assert!(!context.contains("Do not spend the next step on `PageUp`"));
         assert!(context.contains(top_edge_jump_call()));
     }
 
@@ -5922,5 +6690,24 @@ mod tests {
         assert!(context.contains("requires no selections"));
         assert!(context.contains("Do not submit yet"));
         assert!(context.contains("unchecked or unselected"));
+    }
+
+    #[test]
+    fn snapshot_pending_signal_highlights_visible_scroll_target_before_body_key() {
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_query\" name=\"Scroll the textarea to the top of the text hit submit.\" />",
+            "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" scroll_top=\"257\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+            "<button id=\"btn_submit\" name=\"Submit\" />",
+            "</root>",
+        );
+
+        let context = build_browser_snapshot_pending_state_context(snapshot);
+        assert!(context.contains("RECENT PENDING BROWSER STATE:"));
+        assert!(context.contains(
+            "Visible scroll target `textbox#inp_lorem dom_id=text-area` is already on the page."
+        ));
+        assert!(context.contains("browser__click_element"));
+        assert!(context.contains("page-level `Home` or `End`"));
     }
 }
