@@ -392,10 +392,12 @@ fn browser_upload_target_maps_to_browser_interact_scope() {
 #[test]
 fn browser_dropdown_tools_target_map_to_browser_interact_scope() {
     let options_tool = AgentTool::BrowserDropdownOptions {
+        id: None,
         selector: Some("select[name='country']".to_string()),
         som_id: None,
     };
     let select_tool = AgentTool::BrowserSelectDropdown {
+        id: None,
         selector: Some("select[name='country']".to_string()),
         som_id: None,
         value: Some("US".to_string()),

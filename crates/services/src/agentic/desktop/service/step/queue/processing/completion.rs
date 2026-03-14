@@ -272,8 +272,7 @@ pub(super) fn maybe_complete_browser_snapshot_interaction(
         return;
     }
 
-    let Some(completion) =
-        browser_snapshot_completion(agent_state, tool_name, out.as_deref())
+    let Some(completion) = browser_snapshot_completion(agent_state, tool_name, out.as_deref())
     else {
         return;
     };

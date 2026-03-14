@@ -387,6 +387,9 @@ pub enum AgentTool {
     /// List options for a native `<select>` dropdown.
     #[serde(rename = "browser__dropdown_options")]
     BrowserDropdownOptions {
+        /// Optional semantic browser ID from `browser__snapshot` / browser observations.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
         /// Optional CSS selector for the dropdown element.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         selector: Option<String>,
@@ -398,6 +401,9 @@ pub enum AgentTool {
     /// Select a value or label for a native `<select>` dropdown.
     #[serde(rename = "browser__select_dropdown")]
     BrowserSelectDropdown {
+        /// Optional semantic browser ID from `browser__snapshot` / browser observations.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
         /// Optional CSS selector for the dropdown element.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         selector: Option<String>,

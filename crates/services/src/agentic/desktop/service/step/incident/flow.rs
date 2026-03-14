@@ -5,8 +5,7 @@ use super::core::{
 use super::recovery::{
     build_planner_prompt, deterministic_recovery_tool, effective_forbidden_tools,
     incident_specific_forbidden_tools, is_recoverable_failure, policy_max_transitions,
-    policy_strategy_override,
-    queue_recovery_action, queue_root_retry, validate_recovery_tool,
+    policy_strategy_override, queue_recovery_action, queue_root_retry, validate_recovery_tool,
 };
 use super::store::{clear_incident_state, load_incident_state, persist_incident_state};
 use crate::agentic::desktop::middleware;

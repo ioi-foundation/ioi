@@ -125,6 +125,51 @@ pub struct BrowserSelectionResult {
     pub collapsed: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BrowserScrollPosition {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BrowserScrollTargetState {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selector: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dom_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    pub focused: bool,
+    pub scroll_top: f64,
+    pub scroll_height: f64,
+    pub client_height: f64,
+    pub can_scroll_up: bool,
+    pub can_scroll_down: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub center_x: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub center_y: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BrowserScrollOutcome {
+    pub delta_x: i32,
+    pub delta_y: i32,
+    pub anchor: String,
+    pub anchor_x: f64,
+    pub anchor_y: f64,
+    pub page_before: BrowserScrollPosition,
+    pub page_after: BrowserScrollPosition,
+    pub page_moved: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_before: Option<BrowserScrollTargetState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_after: Option<BrowserScrollTargetState>,
+    pub target_moved: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrowserDomElementSummary {
     pub tag: String,

@@ -1,5 +1,6 @@
 use super::element_click::{
-    click_element_postcondition_met, find_semantic_target_by_browser_ids,
+    click_element_postcondition_counts_as_success, click_element_postcondition_met,
+    find_semantic_target_by_browser_ids, find_semantic_target_by_dom_id,
     find_semantic_target_by_id, BrowserSemanticTarget,
 };
 use super::selector_click::{
@@ -313,19 +314,114 @@ fn browser_id_lookup_matches_backend_and_cdp_ids() {
 }
 
 #[test]
+fn dom_id_lookup_matches_dom_fallback_targets() {
+    let node = AccessibilityNode {
+        id: "root".to_string(),
+        role: "root".to_string(),
+        name: None,
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        },
+        children: vec![AccessibilityNode {
+            id: "inp_6ba480".to_string(),
+            role: "textbox".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 2,
+                y: 66,
+                width: 128,
+                height: 21,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([
+                ("dom_id".to_string(), "tt".to_string()),
+                ("focused".to_string(), "true".to_string()),
+            ]),
+            som_id: None,
+        }],
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+    };
+
+    let target =
+        find_semantic_target_by_dom_id(&node, "tt").expect("lookup by dom id should resolve");
+    assert_eq!(target.semantic_id.as_deref(), Some("inp_6ba480"));
+    assert_eq!(target.dom_id.as_deref(), Some("tt"));
+    assert!(target.focused);
+}
+
+#[test]
+fn semantic_target_lookup_matches_dom_id_aliases() {
+    let node = AccessibilityNode {
+        id: "root".to_string(),
+        role: "root".to_string(),
+        name: None,
+        value: None,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        },
+        children: vec![AccessibilityNode {
+            id: "inp_awaiting_dispatch".to_string(),
+            role: "combobox".to_string(),
+            name: Some("Awaiting Dispatch".to_string()),
+            value: Some("Awaiting Dispatch".to_string()),
+            rect: Rect {
+                x: 20,
+                y: 90,
+                width: 180,
+                height: 40,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([
+                ("dom_id".to_string(), "status".to_string()),
+                (
+                    "semantic_aliases".to_string(),
+                    "awaitingdispatch inp_awaiting_dispatch status inp_status".to_string(),
+                ),
+            ]),
+            som_id: None,
+        }],
+        is_visible: true,
+        attributes: HashMap::new(),
+        som_id: None,
+    };
+
+    let target =
+        find_semantic_target_by_id(&node, "inp_status").expect("alias lookup should resolve");
+    assert_eq!(target.semantic_id.as_deref(), Some("inp_awaiting_dispatch"));
+    assert_eq!(target.dom_id.as_deref(), Some("status"));
+}
+
+#[test]
 fn click_element_postcondition_succeeds_when_target_disappears() {
     let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("btn_submit".to_string()),
+        dom_id: None,
         cdp_node_id: Some("ax-42".to_string()),
         backend_dom_node_id: Some("73".to_string()),
         center_point: Some((12.0, 20.0)),
         focused: false,
         editable: false,
+        ..Default::default()
     };
 
     let postcondition = click_element_postcondition_met(
         "<root><button/></root>",
         &pre_target,
+        None,
         "<root><div/></root>",
+        None,
         None,
     );
     assert!(postcondition.target_disappeared);
@@ -335,25 +431,33 @@ fn click_element_postcondition_succeeds_when_target_disappears() {
 #[test]
 fn click_element_postcondition_succeeds_on_editable_focus_transition() {
     let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("search_input".to_string()),
+        dom_id: None,
         cdp_node_id: Some("ax-100".to_string()),
         backend_dom_node_id: Some("88".to_string()),
         center_point: Some((40.0, 22.0)),
         focused: false,
         editable: true,
+        ..Default::default()
     };
     let post_target = BrowserSemanticTarget {
+        semantic_id: Some("search_input".to_string()),
+        dom_id: None,
         cdp_node_id: Some("ax-100".to_string()),
         backend_dom_node_id: Some("88".to_string()),
         center_point: Some((40.0, 22.0)),
         focused: true,
         editable: true,
+        ..Default::default()
     };
 
     let postcondition = click_element_postcondition_met(
         "<root><textbox/></root>",
         &pre_target,
+        None,
         "<root><textbox/></root>",
         Some(&post_target),
+        None,
     );
     assert!(postcondition.editable_focus_transition);
     assert!(postcondition.met());
@@ -362,25 +466,33 @@ fn click_element_postcondition_succeeds_on_editable_focus_transition() {
 #[test]
 fn click_element_postcondition_succeeds_on_tree_change() {
     let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("btn_confirm".to_string()),
+        dom_id: None,
         cdp_node_id: Some("ax-77".to_string()),
         backend_dom_node_id: Some("99".to_string()),
         center_point: Some((20.0, 20.0)),
         focused: false,
         editable: false,
+        ..Default::default()
     };
     let post_target = BrowserSemanticTarget {
+        semantic_id: Some("btn_confirm".to_string()),
+        dom_id: None,
         cdp_node_id: Some("ax-77".to_string()),
         backend_dom_node_id: Some("99".to_string()),
         center_point: Some((20.0, 20.0)),
         focused: false,
         editable: false,
+        ..Default::default()
     };
 
     let postcondition = click_element_postcondition_met(
         "<root><button name='continue'/></root>",
         &pre_target,
+        None,
         "<root><dialog name='confirm'/></root>",
         Some(&post_target),
+        None,
     );
     assert!(postcondition.tree_changed);
     assert!(postcondition.met());
@@ -389,28 +501,199 @@ fn click_element_postcondition_succeeds_on_tree_change() {
 #[test]
 fn click_element_postcondition_fails_without_effect_signals() {
     let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("btn_same".to_string()),
+        dom_id: None,
         cdp_node_id: Some("ax-5".to_string()),
         backend_dom_node_id: Some("7".to_string()),
         center_point: Some((8.0, 8.0)),
         focused: false,
         editable: false,
+        ..Default::default()
     };
     let post_target = BrowserSemanticTarget {
+        semantic_id: Some("btn_same".to_string()),
+        dom_id: None,
         cdp_node_id: Some("ax-5".to_string()),
         backend_dom_node_id: Some("7".to_string()),
         center_point: Some((8.0, 8.0)),
         focused: false,
         editable: false,
+        ..Default::default()
     };
 
     let postcondition = click_element_postcondition_met(
         "<root><button id='same'/></root>",
         &pre_target,
+        None,
         "<root><button id='same'/></root>",
         Some(&post_target),
+        None,
     );
     assert!(!postcondition.target_disappeared);
     assert!(!postcondition.editable_focus_transition);
     assert!(!postcondition.tree_changed);
+    assert!(!postcondition.url_changed);
     assert!(!postcondition.met());
+}
+
+#[test]
+fn click_element_postcondition_succeeds_on_url_change() {
+    let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_ticket".to_string()),
+        dom_id: Some("ticket-link-t-204".to_string()),
+        cdp_node_id: Some("ax-204".to_string()),
+        backend_dom_node_id: Some("204".to_string()),
+        center_point: Some((98.5, 642.0)),
+        focused: false,
+        editable: false,
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+    let post_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_ticket".to_string()),
+        dom_id: Some("ticket-link-t-204".to_string()),
+        cdp_node_id: Some("ax-204".to_string()),
+        backend_dom_node_id: Some("204".to_string()),
+        center_point: Some((98.5, 642.0)),
+        focused: false,
+        editable: false,
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+
+    let postcondition = click_element_postcondition_met(
+        "<root><link id='ticket-link-t-204'/></root>",
+        &pre_target,
+        Some("http://127.0.0.1:34049/workflow/session/queue"),
+        "<root><link id='ticket-link-t-204'/></root>",
+        Some(&post_target),
+        Some("http://127.0.0.1:34049/workflow/session/tickets/T-204"),
+    );
+    assert!(postcondition.url_changed);
+    assert!(postcondition.met());
+    assert!(click_element_postcondition_counts_as_success(
+        &pre_target,
+        Some(&post_target),
+        &postcondition
+    ));
+}
+
+#[test]
+fn link_click_tree_change_without_navigation_does_not_count_as_success() {
+    let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_ticket".to_string()),
+        dom_id: Some("ticket-link-t-215".to_string()),
+        cdp_node_id: Some("ax-215".to_string()),
+        backend_dom_node_id: Some("215".to_string()),
+        center_point: Some((98.5, 813.0)),
+        focused: false,
+        editable: false,
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+    let post_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_ticket".to_string()),
+        dom_id: Some("ticket-link-t-215".to_string()),
+        cdp_node_id: Some("ax-215".to_string()),
+        backend_dom_node_id: Some("215".to_string()),
+        center_point: Some((98.5, 813.0)),
+        focused: false,
+        editable: false,
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+
+    let postcondition = click_element_postcondition_met(
+        "<root><link id='ticket-link-t-215'/><table id='queue'/></root>",
+        &pre_target,
+        Some("http://127.0.0.1:34049/workflow/session/queue"),
+        "<root><link id='ticket-link-t-215'/><table id='queue' data-refresh='1'/></root>",
+        Some(&post_target),
+        Some("http://127.0.0.1:34049/workflow/session/queue"),
+    );
+    assert!(postcondition.tree_changed);
+    assert!(!postcondition.url_changed);
+    assert!(postcondition.met());
+    assert!(!click_element_postcondition_counts_as_success(
+        &pre_target,
+        Some(&post_target),
+        &postcondition
+    ));
+}
+
+#[test]
+fn link_click_tree_change_with_selected_state_counts_as_success() {
+    let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_tab".to_string()),
+        dom_id: Some("tab-overview".to_string()),
+        cdp_node_id: Some("ax-tab".to_string()),
+        backend_dom_node_id: Some("tab-1".to_string()),
+        focused: false,
+        editable: false,
+        selected: Some(false),
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+    let post_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_tab".to_string()),
+        dom_id: Some("tab-overview".to_string()),
+        cdp_node_id: Some("ax-tab".to_string()),
+        backend_dom_node_id: Some("tab-1".to_string()),
+        focused: false,
+        editable: false,
+        selected: Some(true),
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+
+    let postcondition = click_element_postcondition_met(
+        "<root><link id='tab-overview' selected='false'/></root>",
+        &pre_target,
+        Some("http://127.0.0.1:34049/workflow/session/dashboard"),
+        "<root><link id='tab-overview' selected='true'/><region id='overview'/></root>",
+        Some(&post_target),
+        Some("http://127.0.0.1:34049/workflow/session/dashboard"),
+    );
+    assert!(postcondition.tree_changed);
+    assert!(!postcondition.url_changed);
+    assert!(click_element_postcondition_counts_as_success(
+        &pre_target,
+        Some(&post_target),
+        &postcondition
+    ));
+}
+
+#[test]
+fn click_element_postcondition_accepts_dom_fallback_focus_transition() {
+    let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("inp_6ba480".to_string()),
+        dom_id: Some("tt".to_string()),
+        cdp_node_id: None,
+        backend_dom_node_id: None,
+        center_point: Some((66.0, 76.5)),
+        focused: false,
+        editable: true,
+        ..Default::default()
+    };
+    let post_target = BrowserSemanticTarget {
+        semantic_id: Some("inp_6ba480".to_string()),
+        dom_id: Some("tt".to_string()),
+        cdp_node_id: None,
+        backend_dom_node_id: None,
+        center_point: Some((66.0, 76.5)),
+        focused: true,
+        editable: true,
+        ..Default::default()
+    };
+
+    let postcondition = click_element_postcondition_met(
+        "<root><textbox id='inp_6ba480'/></root>",
+        &pre_target,
+        None,
+        "<root><textbox id='inp_6ba480' focused='true'/></root>",
+        Some(&post_target),
+        None,
+    );
+    assert!(postcondition.editable_focus_transition);
+    assert!(postcondition.met());
 }

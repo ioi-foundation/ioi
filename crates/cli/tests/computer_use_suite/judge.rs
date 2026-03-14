@@ -218,7 +218,8 @@ fn classify_gap(case: &ComputerUseCase, result: &ComputerUseCaseResult) -> GapCl
         };
     }
 
-    if !result.validation.kernel_success {
+    let failure_gap = primary_gap_from_failure_class(result.failure_class.as_deref());
+    if !result.validation.kernel_success && failure_gap.is_none() {
         return GapClassification {
             support_state: BenchmarkSupportState::KnownGap,
             primary_gap_class: Some(GapClass::VerificationGap),
@@ -226,7 +227,6 @@ fn classify_gap(case: &ComputerUseCase, result: &ComputerUseCaseResult) -> GapCl
         };
     }
 
-    let failure_gap = primary_gap_from_failure_class(result.failure_class.as_deref());
     let (env_gap, mut env_tags) = env_gap_hints(&case.env_id);
     let support_state = if matches!(failure_gap, Some(GapClass::InfraOrBridgeGap)) {
         BenchmarkSupportState::InfraBlocked
@@ -413,7 +413,7 @@ fn push_unique_tag(tags: &mut Vec<String>, tag: impl Into<String>) {
 mod tests {
     use super::*;
     use crate::computer_use_suite::types::{
-        ArtifactBundle, BenchmarkSupportState, BridgeState, ComputerUseMode, TaskSet,
+        AgentBackend, ArtifactBundle, BenchmarkSupportState, BridgeState, ComputerUseMode, TaskSet,
         ToolStepRecord,
     };
     use serde_json::json;
@@ -424,6 +424,7 @@ mod tests {
             env_id: "hover-shape".to_string(),
             seed: 1,
             mode: ComputerUseMode::Runtime,
+            agent_backend: None,
             task_set: TaskSet::Catalog,
             utterance: String::new(),
             elapsed_ms: 0,
@@ -668,6 +669,44 @@ mod tests {
             .secondary_gap_tags
             .iter()
             .any(|tag| tag == "approval_required"));
+    }
+
+    #[test]
+    fn bridge_startup_failure_is_classified_as_infra_even_without_kernel_success() {
+        let case = ComputerUseCase {
+            id: "miniwob_click_button_smoke".to_string(),
+            env_id: "click-button".to_string(),
+            seed: 101,
+            task_set: TaskSet::Smoke,
+            max_steps: 8,
+            timeout_seconds: 20,
+            allowed_tool_profile: AllowedToolProfile::BrowserCore,
+            expected_reward_floor: 1.0,
+            expected_pass: true,
+            local_judge: LocalJudge::MiniwobReward,
+            recipe: RecipeId::ClickButton,
+        };
+
+        let mut result = base_result();
+        result.case_id = case.id.clone();
+        result.env_id = case.env_id.clone();
+        result.task_set = TaskSet::Smoke;
+        result.mode = ComputerUseMode::Agent;
+        result.agent_backend = Some(AgentBackend::LiveHttp);
+        result.kernel_behavior = KernelBehaviorObservation::default();
+        result.validation = ValidationSummary {
+            kernel_success: false,
+            ..ValidationSummary::default()
+        };
+        result.failure_class = Some("bridge_startup_failure".to_string());
+
+        let judged = judge_case(&case, result);
+        assert_eq!(judged.support_state, BenchmarkSupportState::InfraBlocked);
+        assert_eq!(judged.primary_gap_class, Some(GapClass::InfraOrBridgeGap));
+        assert!(judged
+            .secondary_gap_tags
+            .iter()
+            .all(|tag| tag != "kernel_contract"));
     }
 
     #[test]

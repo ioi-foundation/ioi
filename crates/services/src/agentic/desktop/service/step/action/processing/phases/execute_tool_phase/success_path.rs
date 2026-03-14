@@ -7,12 +7,15 @@ use crate::agentic::desktop::connectors::{
     connector_id_for_tool_name, connector_postcondition_verifier_bindings,
 };
 use crate::agentic::desktop::service::step::action::command_contract::contract_requires_postcondition_with_rules;
+use crate::agentic::desktop::service::step::cognition::build_browser_snapshot_pending_state_context_with_history;
 use ioi_types::app::agentic::{
     MediaFrameEvidence, MediaMultimodalBundle, MediaTimelineOutlineBundle, MediaTranscriptBundle,
     MediaVisualEvidenceBundle,
 };
+use std::collections::HashSet;
 
 const TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT: usize = 3_200;
+const TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT: usize = 1_800;
 const MEDIA_TRANSCRIPT_CONTEXT_EXCERPT_LIMIT: usize = 6;
 const MEDIA_TRANSCRIPT_CONTEXT_EXCERPT_CHARS: usize = 220;
 const MEDIA_VISUAL_CONTEXT_FRAME_LIMIT: usize = 6;
@@ -297,6 +300,167 @@ fn summarize_media_timeline_bundle_for_chat(bundle: &MediaTimelineOutlineBundle)
     )
 }
 
+fn looks_like_browser_snapshot_history_entry(text: &str) -> bool {
+    let trimmed = text.trim();
+    trimmed.starts_with("<root") && trimmed.contains("id=\"") && trimmed.contains("rect=\"")
+}
+
+fn decode_browser_xml_text_for_chat(text: &str) -> String {
+    text.replace("&quot;", "\"")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+}
+
+fn extract_browser_xml_attr_for_chat(fragment: &str, attr: &str) -> Option<String> {
+    let marker = format!(r#"{attr}=""#);
+    let start = fragment.find(&marker)? + marker.len();
+    let rest = &fragment[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
+}
+
+fn browser_fragment_tag_name_for_chat(fragment: &str) -> Option<&str> {
+    let trimmed = fragment.trim_start();
+    if trimmed.is_empty() || trimmed.starts_with("!--") || trimmed.starts_with('/') {
+        return None;
+    }
+
+    let end = trimmed
+        .find(|ch: char| ch.is_whitespace() || ch == '>' || ch == '/')
+        .unwrap_or(trimmed.len());
+    Some(&trimmed[..end])
+}
+
+fn browser_fragment_priority_score_for_chat(fragment: &str, tag_name: &str) -> Option<u8> {
+    let mut score = 0u8;
+
+    if fragment.contains(" dom_id=\"") {
+        score = score.saturating_add(8);
+    }
+    if fragment.contains(" selector=\"") {
+        score = score.saturating_add(2);
+    }
+    if matches!(
+        tag_name,
+        "button"
+            | "link"
+            | "textbox"
+            | "combobox"
+            | "checkbox"
+            | "radio"
+            | "searchbox"
+            | "menuitem"
+            | "option"
+    ) {
+        score = score.saturating_add(6);
+    } else if tag_name == "listitem" {
+        score = score.saturating_add(2);
+    }
+    if fragment.contains(" focused=\"true\"")
+        || fragment.contains(" checked=\"true\"")
+        || fragment.contains(" selected=\"true\"")
+    {
+        score = score.saturating_add(4);
+    }
+    if fragment.contains(" assistive_hint=\"true\"") {
+        score = score.saturating_add(2);
+    }
+    if fragment.contains(" omitted=\"true\"") {
+        score = score.saturating_add(1);
+    }
+
+    (score > 0).then_some(score)
+}
+
+fn browser_fragment_priority_summary_for_chat(fragment: &str) -> Option<(String, u8, String)> {
+    let id = extract_browser_xml_attr_for_chat(fragment, "id")?;
+    let tag_name = browser_fragment_tag_name_for_chat(fragment)?;
+    let score = browser_fragment_priority_score_for_chat(fragment, tag_name)?;
+
+    let name = extract_browser_xml_attr_for_chat(fragment, "name")
+        .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
+        .filter(|value| !value.is_empty());
+    let dom_id = extract_browser_xml_attr_for_chat(fragment, "dom_id")
+        .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
+        .filter(|value| !value.is_empty());
+    let selector = extract_browser_xml_attr_for_chat(fragment, "selector")
+        .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
+        .filter(|value| !value.is_empty());
+    let context = extract_browser_xml_attr_for_chat(fragment, "context")
+        .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
+        .filter(|value| !value.is_empty());
+
+    let mut summary = format!("{tag_name}#{id}");
+    if let Some(name) = name {
+        summary.push_str(&format!(" name={}", name));
+    }
+    if let Some(dom_id) = dom_id {
+        summary.push_str(&format!(" dom_id={}", dom_id));
+    }
+    if let Some(selector) = selector {
+        summary.push_str(&format!(" selector={}", selector));
+    }
+    if let Some(context) = context {
+        summary.push_str(&format!(" context={}", context));
+    }
+    if fragment.contains(" omitted=\"true\"") {
+        summary.push_str(" omitted");
+    }
+
+    Some((id, score, summary))
+}
+
+fn extract_priority_browser_targets_for_chat(snapshot: &str, max_targets: usize) -> Vec<String> {
+    let mut seen_ids = HashSet::new();
+    let mut targets = Vec::new();
+    let mut order = 0usize;
+
+    for fragment in snapshot.split('<') {
+        let Some((id, score, summary)) = browser_fragment_priority_summary_for_chat(fragment)
+        else {
+            continue;
+        };
+        if !seen_ids.insert(id) {
+            continue;
+        }
+        targets.push((score, order, summary));
+        order += 1;
+    }
+
+    targets.sort_by(|left, right| right.0.cmp(&left.0).then(left.1.cmp(&right.1)));
+    targets
+        .into_iter()
+        .take(max_targets)
+        .map(|(_, _, summary)| summary)
+        .collect()
+}
+
+fn compact_browser_snapshot_history_entry(snapshot: &str) -> String {
+    let compact = compact_ws_for_chat_context(snapshot.trim());
+    if compact.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT {
+        return compact;
+    }
+
+    let priority_targets = extract_priority_browser_targets_for_chat(snapshot, 6);
+    if priority_targets.is_empty() {
+        return truncate_chars_for_chat_context(
+            snapshot,
+            TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT,
+        );
+    }
+
+    let suffix = format!(" IMPORTANT TARGETS: {}", priority_targets.join(" | "));
+    let suffix =
+        truncate_chars_for_chat_context(&suffix, TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT / 2);
+    let prefix_budget = TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT
+        .saturating_sub(suffix.chars().count() + 1)
+        .max(TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT / 3);
+    let prefix = truncate_chars_for_chat_context(snapshot, prefix_budget);
+
+    format!("{prefix} {suffix}")
+}
+
 fn compact_tool_history_entry_for_chat(current_tool_name: &str, history_entry: &str) -> String {
     let trimmed = history_entry.trim();
     if trimmed.is_empty() {
@@ -316,6 +480,13 @@ fn compact_tool_history_entry_for_chat(current_tool_name: &str, history_entry: &
             .unwrap_or_else(|_| {
                 truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
             }),
+        "browser__snapshot" => {
+            if looks_like_browser_snapshot_history_entry(trimmed) {
+                compact_browser_snapshot_history_entry(trimmed)
+            } else {
+                truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
+            }
+        }
         _ => truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT),
     }
 }
@@ -1590,6 +1761,17 @@ pub(super) async fn handle_execution_success(
             }
         }
         if let Some(entry) = history_entry.clone() {
+            let snapshot_pending_context = if current_tool_name == "browser__snapshot" {
+                service
+                    .hydrate_session_history(session_id)
+                    .ok()
+                    .map(|history| {
+                        build_browser_snapshot_pending_state_context_with_history(&entry, &history)
+                    })
+                    .filter(|context| !context.trim().is_empty())
+            } else {
+                None
+            };
             let compact_entry = compact_tool_history_entry_for_chat(current_tool_name, &entry);
             if !compact_entry.trim().is_empty() {
                 let content = if current_tool_name == "browser__snapshot" {
@@ -1608,6 +1790,20 @@ pub(super) async fn handle_execution_success(
                 };
                 let _ = service
                     .append_chat_to_scs(session_id, &tool_msg, block_height)
+                    .await?;
+            }
+            if let Some(pending_context) = snapshot_pending_context {
+                let sys_msg = ioi_types::app::agentic::ChatMessage {
+                    role: "system".to_string(),
+                    content: pending_context,
+                    timestamp: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64,
+                    trace_hash: None,
+                };
+                let _ = service
+                    .append_chat_to_scs(session_id, &sys_msg, block_height)
                     .await?;
             }
         }
@@ -1646,7 +1842,7 @@ pub(super) async fn handle_execution_success(
 mod tests {
     use super::{
         compact_tool_history_entry_for_chat, transcript_context_excerpts,
-        TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
+        TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
     };
     use serde_json::json;
 
@@ -1776,5 +1972,25 @@ mod tests {
         assert!(compact.contains("visual_evidence[1]="));
         assert!(!compact.contains("\"transcript_text\""));
         assert!(compact.chars().count() < TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT * 2);
+    }
+
+    #[test]
+    fn compact_browser_snapshot_history_entry_preserves_late_actionable_targets() {
+        let snapshot = format!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">{}<textbox id=\"inp_fiber\" name=\"fiber\" dom_id=\"queue-search\" selector=\"[id=&quot;queue-search&quot;]\" rect=\"0,0,1,1\" /><combobox id=\"inp_awaiting_dispatch\" name=\"Awaiting Dispatch\" dom_id=\"queue-status-filter\" selector=\"[id=&quot;queue-status-filter&quot;]\" rect=\"0,0,1,1\" /><button id=\"btn_apply_filters\" name=\"Apply filters\" dom_id=\"apply-filters\" selector=\"[id=&quot;apply-filters&quot;]\" rect=\"0,0,1,1\" /><generic id=\"grp_row_noise_0\" name=\"Row noise\" omitted=\"true\" rect=\"0,0,1,1\" /><listitem id=\"item_noise_0\" name=\"Noise row\" omitted=\"true\" rect=\"0,0,1,1\" /><link id=\"lnk_t_202\" name=\"T-202\" omitted=\"true\" dom_id=\"ticket-link-t-202\" selector=\"[id=&quot;ticket-link-t-202&quot;]\" rect=\"0,0,1,1\" /><generic id=\"grp_row_noise_1\" name=\"Row noise\" omitted=\"true\" rect=\"0,0,1,1\" /><listitem id=\"item_noise_1\" name=\"Noise row\" omitted=\"true\" rect=\"0,0,1,1\" /><link id=\"lnk_t_204\" name=\"T-204\" omitted=\"true\" dom_id=\"ticket-link-t-204\" selector=\"[id=&quot;ticket-link-t-204&quot;]\" context=\"Unassigned / Awaiting Dispatch\" rect=\"0,0,1,1\" /><generic id=\"grp_row_noise_2\" name=\"Row noise\" omitted=\"true\" rect=\"0,0,1,1\" /><listitem id=\"item_noise_2\" name=\"Noise row\" omitted=\"true\" rect=\"0,0,1,1\" /><link id=\"lnk_t_215\" name=\"T-215\" omitted=\"true\" dom_id=\"ticket-link-t-215\" selector=\"[id=&quot;ticket-link-t-215&quot;]\" rect=\"0,0,1,1\" /></root>",
+            "<generic id=\"grp_noise\" name=\"alpha beta gamma delta\" rect=\"0,0,1,1\" /> ".repeat(200)
+        );
+
+        let compact = compact_tool_history_entry_for_chat("browser__snapshot", &snapshot);
+
+        assert!(compact.starts_with("<root"), "{compact}");
+        assert!(compact.contains("ticket-link-t-202"), "{compact}");
+        assert!(compact.contains("ticket-link-t-204"), "{compact}");
+        assert!(compact.contains("ticket-link-t-215"), "{compact}");
+        assert!(
+            compact.contains("context=Unassigned / Awaiting Dispatch"),
+            "{compact}"
+        );
+        assert!(compact.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT + 1);
     }
 }

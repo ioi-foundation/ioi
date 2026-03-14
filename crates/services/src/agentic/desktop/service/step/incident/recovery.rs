@@ -99,7 +99,9 @@ fn is_browser_root_tool(root_tool_name: &str) -> bool {
 }
 
 fn is_browser_snapshot_root_tool(root_tool_name: &str) -> bool {
-    root_tool_name.trim().eq_ignore_ascii_case("browser__snapshot")
+    root_tool_name
+        .trim()
+        .eq_ignore_ascii_case("browser__snapshot")
 }
 
 fn is_browser_reacquisition_failure(class: FailureClass) -> bool {
@@ -390,8 +392,7 @@ pub(super) fn queue_root_retry(
 mod tests {
     use super::{
         deterministic_recovery_tool, incident_specific_forbidden_tools, tool_fingerprint,
-        tool_to_action_request, IncidentState,
-        QUEUE_TOOL_NAME_KEY,
+        tool_to_action_request, IncidentState, QUEUE_TOOL_NAME_KEY,
     };
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget,

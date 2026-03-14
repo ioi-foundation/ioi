@@ -179,11 +179,13 @@ fn queue_maps_browser_select_dropdown_from_browser_interact_target() {
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
         AgentTool::BrowserSelectDropdown {
+            id,
             selector,
             som_id,
             value,
             label,
         } => {
+            assert!(id.is_none());
             assert_eq!(selector.as_deref(), Some("select[name='country']"));
             assert!(som_id.is_none());
             assert_eq!(value.as_deref(), Some("US"));
@@ -207,11 +209,13 @@ fn queue_maps_browser_select_dropdown_with_som_id_from_browser_interact_target()
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
         AgentTool::BrowserSelectDropdown {
+            id,
             selector,
             som_id,
             value,
             label,
         } => {
+            assert!(id.is_none());
             assert!(selector.is_none());
             assert_eq!(som_id, Some(12));
             assert!(value.is_none());
@@ -234,7 +238,12 @@ fn queue_uses_explicit_browser_tool_name_override_for_dropdown_options() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::BrowserDropdownOptions { selector, som_id } => {
+        AgentTool::BrowserDropdownOptions {
+            id,
+            selector,
+            som_id,
+        } => {
+            assert!(id.is_none());
             assert_eq!(selector.as_deref(), Some("select[name='country']"));
             assert!(som_id.is_none());
         }
@@ -311,11 +320,46 @@ fn queue_maps_browser_dropdown_options_from_som_id_payload() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::BrowserDropdownOptions { selector, som_id } => {
+        AgentTool::BrowserDropdownOptions {
+            id,
+            selector,
+            som_id,
+        } => {
+            assert!(id.is_none());
             assert!(selector.is_none());
             assert_eq!(som_id, Some(42));
         }
         other => panic!("expected BrowserDropdownOptions, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_select_dropdown_with_semantic_id_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        280,
+        serde_json::json!({
+            "id": "inp_country",
+            "label": "United States"
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserSelectDropdown {
+            id,
+            selector,
+            som_id,
+            value,
+            label,
+        } => {
+            assert_eq!(id.as_deref(), Some("inp_country"));
+            assert!(selector.is_none());
+            assert!(som_id.is_none());
+            assert!(value.is_none());
+            assert_eq!(label.as_deref(), Some("United States"));
+        }
+        other => panic!("expected BrowserSelectDropdown, got {:?}", other),
     }
 }
 

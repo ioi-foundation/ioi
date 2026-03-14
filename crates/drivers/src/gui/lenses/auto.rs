@@ -73,6 +73,7 @@ impl AutoLens {
         let is_interactive = self.is_interactive_role(&node.role);
         let has_primary_content = node.name.as_ref().map_or(false, |s| !s.trim().is_empty())
             || node.value.as_ref().map_or(false, |s| !s.trim().is_empty());
+        let is_assistive_hint = node.attributes.contains_key("assistive_hint");
         let has_content = has_primary_content
             || self
                 .first_non_empty_attr(
@@ -112,7 +113,7 @@ impl AutoLens {
 
         // Rule A: If node is invisible AND has no surviving visible children -> Drop.
         // We always keep the root (depth 0) to maintain tree integrity.
-        if depth > 0 && !node.is_visible && new_children.is_empty() {
+        if depth > 0 && !node.is_visible && new_children.is_empty() && !is_assistive_hint {
             return None;
         }
 
@@ -129,6 +130,7 @@ impl AutoLens {
         // We guard with !is_structural to ensure we don't collapse meaningful layout anchors like panes or windows.
         if depth > 0
             && !node.is_visible
+            && !is_assistive_hint
             && !is_interactive
             && !has_content
             && !is_structural
@@ -255,6 +257,27 @@ impl AutoLens {
         score
     }
 
+    fn semantic_prefix_for_role(&self, role: &str) -> String {
+        let normalized_role = role.trim().to_ascii_lowercase();
+        match normalized_role.as_str() {
+            "button" | "push button" | "pushbutton" | "toggle button" => "btn".to_string(),
+            "link" | "hyperlink" => "lnk".to_string(),
+            "text" | "edit" | "entry" | "combo box" | "combobox" | "search box" | "searchbox"
+            | "text box" | "textbox" => "inp".to_string(),
+            "window" | "frame" | "dialog" => "win".to_string(),
+            "group" | "generic" | "pane" | "panel" => "grp".to_string(),
+            "image" | "icon" | "graphic" => "img".to_string(),
+            _ => {
+                let role_slug = self.slugify(&normalized_role);
+                if role_slug.is_empty() {
+                    "el".to_string()
+                } else {
+                    role_slug
+                }
+            }
+        }
+    }
+
     fn generate_robust_id(
         &self,
         node: &AccessibilityNode,
@@ -289,25 +312,7 @@ impl AutoLens {
             String::new()
         };
 
-        let normalized_role = node.role.trim().to_ascii_lowercase();
-        let fallback_prefix = {
-            let role_slug = self.slugify(&normalized_role);
-            if role_slug.is_empty() {
-                "el".to_string()
-            } else {
-                role_slug
-            }
-        };
-        let prefix = match normalized_role.as_str() {
-            "button" | "push button" | "pushbutton" | "toggle button" => "btn",
-            "link" | "hyperlink" => "lnk",
-            "text" | "edit" | "entry" | "combo box" | "combobox" | "search box" | "searchbox"
-            | "text box" | "textbox" => "inp",
-            "window" | "frame" | "dialog" => "win",
-            "group" | "generic" | "pane" | "panel" => "grp",
-            "image" | "icon" | "graphic" => "img",
-            _ => fallback_prefix.as_str(),
-        };
+        let prefix = self.semantic_prefix_for_role(&node.role);
 
         if !semantic_part.is_empty() {
             format!("{}_{}", prefix, semantic_part)
@@ -486,6 +491,16 @@ impl AutoLens {
         };
 
         push_alias(&node.id);
+        let role_prefix = self.semantic_prefix_for_role(&node.role);
+        if let Some(dom_id) = node.attributes.get("dom_id").map(String::as_str) {
+            push_alias(dom_id);
+            let dom_slug = self.slugify(dom_id);
+            if !dom_slug.is_empty() {
+                push_alias(&dom_slug);
+                let prefixed_dom_alias = format!("{}_{}", role_prefix, dom_slug);
+                push_alias(&prefixed_dom_alias);
+            }
+        }
         if let Some(name) = node.name.as_deref() {
             push_alias(name);
         }
@@ -571,5 +586,131 @@ impl AutoLens {
         } else {
             Some(values.join(" "))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AutoLens;
+    use crate::gui::accessibility::{AccessibilityNode, Rect};
+    use crate::gui::lenses::AppLens;
+    use std::collections::HashMap;
+
+    #[test]
+    fn transform_keeps_hidden_assistive_hint_nodes() {
+        let root = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: Some("DOM fallback tree".to_string()),
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 160,
+                height: 210,
+            },
+            children: vec![
+                AccessibilityNode {
+                    id: "input".to_string(),
+                    role: "textbox".to_string(),
+                    name: Some("Poland".to_string()),
+                    value: Some("Poland".to_string()),
+                    rect: Rect {
+                        x: 10,
+                        y: 71,
+                        width: 128,
+                        height: 21,
+                    },
+                    children: vec![],
+                    is_visible: true,
+                    attributes: HashMap::from([("focused".to_string(), "true".to_string())]),
+                    som_id: None,
+                },
+                AccessibilityNode {
+                    id: "assistive-ui-id-2".to_string(),
+                    role: "status".to_string(),
+                    name: Some(
+                        "1 result is available, use up and down arrow keys to navigate. Poland"
+                            .to_string(),
+                    ),
+                    value: None,
+                    rect: Rect {
+                        x: -1,
+                        y: 209,
+                        width: 1,
+                        height: 16,
+                    },
+                    children: vec![],
+                    is_visible: false,
+                    attributes: HashMap::from([("assistive_hint".to_string(), "true".to_string())]),
+                    som_id: None,
+                },
+            ],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let transformed = AutoLens.transform(&root).expect("tree should transform");
+        assert!(
+            transformed
+                .children
+                .iter()
+                .any(|child| child.attributes.contains_key("assistive_hint")),
+            "{transformed:#?}"
+        );
+    }
+
+    #[test]
+    fn transform_adds_dom_id_based_aliases_for_mutable_controls() {
+        let root = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: Some("DOM fallback tree".to_string()),
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 240,
+                height: 180,
+            },
+            children: vec![AccessibilityNode {
+                id: "dom-id-status".to_string(),
+                role: "combobox".to_string(),
+                name: Some("Awaiting Dispatch".to_string()),
+                value: Some("Awaiting Dispatch".to_string()),
+                rect: Rect {
+                    x: 12,
+                    y: 30,
+                    width: 160,
+                    height: 40,
+                },
+                children: vec![],
+                is_visible: true,
+                attributes: HashMap::from([
+                    ("dom_id".to_string(), "status".to_string()),
+                    ("tag_name".to_string(), "select".to_string()),
+                ]),
+                som_id: None,
+            }],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let transformed = AutoLens.transform(&root).expect("tree should transform");
+        let child = transformed
+            .children
+            .first()
+            .expect("mutable control should survive");
+        let aliases = child
+            .attributes
+            .get("semantic_aliases")
+            .expect("semantic aliases should be present");
+
+        assert!(aliases.split_whitespace().any(|alias| alias == "status"));
+        assert!(aliases
+            .split_whitespace()
+            .any(|alias| alias == "inp_status"));
     }
 }

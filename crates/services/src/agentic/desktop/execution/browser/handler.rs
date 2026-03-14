@@ -1,5 +1,8 @@
 use super::super::{ToolExecutionResult, ToolExecutor};
-use super::element_click::{find_semantic_target_by_id, handle_browser_click_element};
+use super::element_click::{
+    find_semantic_target_by_id, handle_browser_click_element, selector_fallback_candidates,
+    BrowserSemanticTarget,
+};
 use super::selector_click::handle_browser_click;
 use super::tree::{apply_browser_auto_lens, detect_human_challenge, render_browser_tree_xml};
 use ioi_types::app::agentic::AgentTool;
@@ -161,6 +164,100 @@ async fn resolve_semantic_target_from_som(
         "None of the semantic IDs for SoM id '{}' are present in the current browser snapshot.",
         som_id
     ))
+}
+
+async fn resolve_browser_target_from_id(
+    exec: &ToolExecutor,
+    id: &str,
+) -> Result<BrowserSemanticTarget, String> {
+    let id = id.trim();
+    if id.is_empty() {
+        return Err("semantic browser id cannot be empty".to_string());
+    }
+
+    let raw_tree = exec
+        .browser
+        .get_accessibility_tree()
+        .await
+        .map_err(|e| format!("Failed to fetch browser accessibility tree: {}", e))?;
+    let transformed = apply_browser_auto_lens(raw_tree);
+
+    find_semantic_target_by_id(&transformed, id).ok_or_else(|| {
+        format!(
+            "Semantic browser id '{}' not found in current browser snapshot.",
+            id
+        )
+    })
+}
+
+fn browser_type_selector_lookup_token(selector: &str) -> Option<&str> {
+    let selector = selector.trim();
+    if selector.is_empty() {
+        return None;
+    }
+
+    let token = selector.strip_prefix('#').unwrap_or(selector);
+    if token.is_empty()
+        || token
+            .chars()
+            .any(|ch| !(ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'))
+    {
+        return None;
+    }
+
+    Some(token)
+}
+
+fn browser_type_selector_fallbacks_for_target(
+    requested_selector: &str,
+    target: &BrowserSemanticTarget,
+) -> Vec<String> {
+    let requested_selector = requested_selector.trim();
+    selector_fallback_candidates(target)
+        .into_iter()
+        .filter(|candidate| candidate.trim() != requested_selector)
+        .collect()
+}
+
+async fn browser_type_selector_candidates(
+    exec: &ToolExecutor,
+    selector: Option<&str>,
+) -> Vec<Option<String>> {
+    let Some(requested_selector) = selector
+        .map(str::trim)
+        .filter(|selector| !selector.is_empty())
+        .map(str::to_string)
+    else {
+        return vec![None];
+    };
+
+    let mut candidates = vec![Some(requested_selector.clone())];
+    let Some(token) = browser_type_selector_lookup_token(&requested_selector) else {
+        return candidates;
+    };
+
+    let Ok(target) = resolve_browser_target_from_id(exec, token).await else {
+        return candidates;
+    };
+
+    for fallback in browser_type_selector_fallbacks_for_target(&requested_selector, &target) {
+        if !candidates
+            .iter()
+            .flatten()
+            .any(|candidate| candidate == &fallback)
+        {
+            candidates.push(Some(fallback));
+        }
+    }
+
+    candidates
+}
+
+fn browser_type_error_supports_selector_retry(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("failed to focus selector")
+        || message.contains("selector focus failed")
+        || message.contains("target not found")
 }
 
 fn normalized_browser_button(button: Option<&str>) -> &'static str {
@@ -390,23 +487,56 @@ pub async fn handle(
         }
         AgentTool::BrowserScroll { delta_x, delta_y } => {
             match exec.browser.scroll(delta_x, delta_y).await {
-                Ok(_) => {
-                    let payload = json!({
-                        "scroll": {
-                            "delta_x": delta_x,
-                            "delta_y": delta_y,
-                        }
-                    });
+                Ok(outcome) => {
+                    let payload = json!({ "scroll": outcome });
                     ToolExecutionResult::success(payload.to_string())
                 }
                 Err(e) => ToolExecutionResult::failure(format!("Browser scroll failed: {}", e)),
             }
         }
         AgentTool::BrowserType { text, selector } => {
-            match exec.browser.type_text(&text, selector.as_deref()).await {
-                Ok(_) => ToolExecutionResult::success(format!("Typed '{}' into browser", text)),
-                Err(e) => ToolExecutionResult::failure(format!("Browser type failed: {}", e)),
+            let selector_candidates = browser_type_selector_candidates(exec, selector.as_deref()).await;
+            let mut last_error = None;
+
+            for (index, candidate) in selector_candidates.iter().enumerate() {
+                match exec.browser.type_text(&text, candidate.as_deref()).await {
+                    Ok(outcome) => {
+                    let payload = json!({
+                        "typed": {
+                            "requested_selector": selector,
+                            "resolved_selector": candidate,
+                            "selector": outcome.selector,
+                            "dom_id": outcome.dom_id,
+                            "tag_name": outcome.tag_name,
+                            "text": text,
+                            "value": outcome.value,
+                            "focused": outcome.focused,
+                            "scroll_top": outcome.scroll_top,
+                            "scroll_height": outcome.scroll_height,
+                            "client_height": outcome.client_height,
+                            "can_scroll_up": outcome.can_scroll_up,
+                            "can_scroll_down": outcome.can_scroll_down,
+                            "already_satisfied": outcome.already_satisfied,
+                            "autocomplete": outcome.autocomplete,
+                        }
+                    });
+                        return ToolExecutionResult::success(payload.to_string());
+                    }
+                    Err(e) => {
+                        let message = e.to_string();
+                        last_error = Some(message.clone());
+                        let has_more_candidates = index + 1 < selector_candidates.len();
+                        if !(has_more_candidates && browser_type_error_supports_selector_retry(&message)) {
+                            break;
+                        }
+                    }
+                }
             }
+
+            ToolExecutionResult::failure(format!(
+                "Browser type failed: {}",
+                last_error.unwrap_or_else(|| "unknown type error".to_string())
+            ))
         }
         AgentTool::BrowserSelectText {
             selector,
@@ -444,12 +574,23 @@ pub async fn handle(
         AgentTool::BrowserKey { key, modifiers } => {
             let modifiers = modifiers.unwrap_or_default();
             match exec.browser.press_key(&key, &modifiers).await {
-                Ok(_) => {
+                Ok(outcome) => {
                     let payload = json!({
                         "key": {
                             "key": key,
                             "modifiers": modifiers,
                             "is_chord": !modifiers.is_empty(),
+                            "selector": outcome.selector,
+                            "dom_id": outcome.dom_id,
+                            "tag_name": outcome.tag_name,
+                            "value": outcome.value,
+                            "focused": outcome.focused,
+                            "scroll_top": outcome.scroll_top,
+                            "scroll_height": outcome.scroll_height,
+                            "client_height": outcome.client_height,
+                            "can_scroll_up": outcome.can_scroll_up,
+                            "can_scroll_down": outcome.can_scroll_down,
+                            "autocomplete": outcome.autocomplete,
                         }
                     });
                     ToolExecutionResult::success(payload.to_string())
@@ -492,13 +633,16 @@ pub async fn handle(
                     .type_text(&clipboard_text, selector.as_deref())
                     .await
                 {
-                    Ok(()) => {
+                    Ok(outcome) => {
                         let payload = json!({
                             "clipboard": {
                                 "action": "paste_clipboard",
-                                "selector": selector,
+                                "selector": outcome.selector,
                                 "text": clipboard_text,
                                 "text_length": clipboard_text.chars().count(),
+                                "value": outcome.value,
+                                "focused": outcome.focused,
+                                "autocomplete": outcome.autocomplete,
                             }
                         });
                         ToolExecutionResult::success(payload.to_string())
@@ -699,18 +843,58 @@ pub async fn handle(
                 }
             }
         }
-        AgentTool::BrowserDropdownOptions { selector, som_id } => {
+        AgentTool::BrowserDropdownOptions {
+            id,
+            selector,
+            som_id,
+        } => {
+            let id = id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
             let selector = selector
                 .as_deref()
                 .map(str::trim)
                 .filter(|value| !value.is_empty());
-            if selector.is_some() && som_id.is_some() {
+            let locator_count = usize::from(id.is_some())
+                + usize::from(selector.is_some())
+                + usize::from(som_id.is_some());
+            if locator_count != 1 {
                 return ToolExecutionResult::failure(
-                    "Browser dropdown options failed: provide either selector or som_id, not both.",
+                    "Browser dropdown options failed: provide exactly one of id, selector, or som_id.",
                 );
             }
 
-            if let Some(selector) = selector {
+            if let Some(id) = id {
+                let target = match resolve_browser_target_from_id(exec, id).await {
+                    Ok(target) => target,
+                    Err(reason) => {
+                        return ToolExecutionResult::failure(format!(
+                            "Browser dropdown options failed: {}",
+                            reason
+                        ))
+                    }
+                };
+                let Some((x, y)) = target.center_point else {
+                    return ToolExecutionResult::failure(format!(
+                        "Browser dropdown options failed: target for id='{}' has no geometry center.",
+                        id
+                    ));
+                };
+                match exec.browser.dropdown_options_at_point(x, y).await {
+                    Ok(options) => {
+                        let payload = json!({
+                            "id": id,
+                            "options": options,
+                        });
+                        ToolExecutionResult::success(payload.to_string())
+                    }
+                    Err(e) => ToolExecutionResult::failure(format!(
+                        "Browser dropdown options failed: {}",
+                        e
+                    )),
+                }
+            } else if let Some(selector) = selector {
                 match exec.browser.dropdown_options(selector).await {
                     Ok(options) => {
                         let payload = json!({
@@ -756,27 +940,68 @@ pub async fn handle(
                 }
             } else {
                 ToolExecutionResult::failure(
-                    "Browser dropdown options failed: provide selector or som_id.",
+                    "Browser dropdown options failed: provide id, selector, or som_id.",
                 )
             }
         }
         AgentTool::BrowserSelectDropdown {
+            id,
             selector,
             som_id,
             value,
             label,
         } => {
+            let id = id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
             let selector = selector
                 .as_deref()
                 .map(str::trim)
                 .filter(|value| !value.is_empty());
-            if selector.is_some() && som_id.is_some() {
+            let locator_count = usize::from(id.is_some())
+                + usize::from(selector.is_some())
+                + usize::from(som_id.is_some());
+            if locator_count != 1 {
                 return ToolExecutionResult::failure(
-                    "Browser dropdown select failed: provide either selector or som_id, not both.",
+                    "Browser dropdown select failed: provide exactly one of id, selector, or som_id.",
                 );
             }
 
-            if let Some(selector) = selector {
+            if let Some(id) = id {
+                let target = match resolve_browser_target_from_id(exec, id).await {
+                    Ok(target) => target,
+                    Err(reason) => {
+                        return ToolExecutionResult::failure(format!(
+                            "Browser dropdown select failed: {}",
+                            reason
+                        ))
+                    }
+                };
+                let Some((x, y)) = target.center_point else {
+                    return ToolExecutionResult::failure(format!(
+                        "Browser dropdown select failed: target for id='{}' has no geometry center.",
+                        id
+                    ));
+                };
+                match exec
+                    .browser
+                    .select_dropdown_at_point(x, y, value.as_deref(), label.as_deref())
+                    .await
+                {
+                    Ok(selected) => {
+                        let payload = json!({
+                            "id": id,
+                            "selected": selected,
+                        });
+                        ToolExecutionResult::success(payload.to_string())
+                    }
+                    Err(e) => ToolExecutionResult::failure(format!(
+                        "Browser dropdown select failed: {}",
+                        e
+                    )),
+                }
+            } else if let Some(selector) = selector {
                 match exec
                     .browser
                     .select_dropdown(selector, value.as_deref(), label.as_deref())
@@ -830,7 +1055,7 @@ pub async fn handle(
                 }
             } else {
                 ToolExecutionResult::failure(
-                    "Browser dropdown select failed: provide selector or som_id.",
+                    "Browser dropdown select failed: provide id, selector, or som_id.",
                 )
             }
         }
@@ -870,7 +1095,10 @@ pub async fn handle(
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_scoped_upload_paths;
+    use super::{
+        browser_type_error_supports_selector_retry, browser_type_selector_fallbacks_for_target,
+        browser_type_selector_lookup_token, resolve_scoped_upload_paths, BrowserSemanticTarget,
+    };
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -928,5 +1156,46 @@ mod tests {
 
         let _ = fs::remove_dir_all(&scope_root);
         let _ = fs::remove_dir_all(&outside_root);
+    }
+
+    #[test]
+    fn browser_type_selector_lookup_token_accepts_semantic_hash_reference() {
+        assert_eq!(
+            browser_type_selector_lookup_token("#inp_dispatch_note"),
+            Some("inp_dispatch_note")
+        );
+    }
+
+    #[test]
+    fn browser_type_selector_lookup_token_rejects_complex_css() {
+        assert_eq!(browser_type_selector_lookup_token("#note textarea"), None);
+        assert_eq!(browser_type_selector_lookup_token("[id=\"note\"]"), None);
+    }
+
+    #[test]
+    fn browser_type_selector_fallbacks_prefer_grounded_dom_selector_for_semantic_ids() {
+        let target = BrowserSemanticTarget {
+            semantic_id: Some("inp_dispatch_note".to_string()),
+            dom_id: Some("note".to_string()),
+            selector: Some("[id=\"note\"]".to_string()),
+            ..Default::default()
+        };
+
+        let fallbacks = browser_type_selector_fallbacks_for_target("#inp_dispatch_note", &target);
+
+        assert_eq!(fallbacks, vec!["[id=\"note\"]".to_string()]);
+    }
+
+    #[test]
+    fn browser_type_focus_errors_retry_with_alternate_selectors() {
+        assert!(browser_type_error_supports_selector_retry(
+            "Failed to focus selector '#inp_dispatch_note'"
+        ));
+        assert!(browser_type_error_supports_selector_retry(
+            "Selector focus failed for '#inp_dispatch_note': hidden"
+        ));
+        assert!(!browser_type_error_supports_selector_retry(
+            "Type failed: session crashed"
+        ));
     }
 }

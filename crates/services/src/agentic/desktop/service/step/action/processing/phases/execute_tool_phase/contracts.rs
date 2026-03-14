@@ -192,7 +192,7 @@ pub(super) fn duplicate_execution_state(
         verification_checks
             .push("duplicate_action_fingerprint_stale_or_cross_turn=true".to_string());
     }
-    let duplicate_safe_repeat_tool = matches!(tool, AgentTool::BrowserWait { .. });
+    let duplicate_safe_repeat_tool = is_duplicate_safe_repeat_tool(tool);
     let duplicate_non_command_immediate_replay =
         if duplicate_marker_seen && !is_command_tool && !duplicate_safe_repeat_tool {
             action_fingerprint_step
@@ -220,9 +220,32 @@ pub(super) fn duplicate_execution_state(
     )
 }
 
+fn is_duplicate_safe_repeat_tool(tool: &AgentTool) -> bool {
+    match tool {
+        AgentTool::BrowserWait { .. } | AgentTool::BrowserScroll { .. } => true,
+        AgentTool::BrowserKey { key, .. } => is_repeatable_browser_motion_key(key),
+        _ => false,
+    }
+}
+
+fn is_repeatable_browser_motion_key(key: &str) -> bool {
+    matches!(
+        key,
+        "ArrowUp"
+            | "ArrowDown"
+            | "ArrowLeft"
+            | "ArrowRight"
+            | "PageUp"
+            | "PageDown"
+            | "Home"
+            | "End"
+            | "Tab"
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::duplicate_execution_state;
+    use super::{duplicate_execution_state, is_duplicate_safe_repeat_tool};
     use crate::agentic::desktop::service::step::action::mark_action_fingerprint_executed_at_step;
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, ExecutionTier, ToolCallStatus,
@@ -375,5 +398,52 @@ mod tests {
         assert!(!checks.iter().any(|c| {
             c == "duplicate_action_fingerprint_non_command_stale_or_non_adjacent=true"
         }));
+    }
+
+    #[test]
+    fn browser_scroll_is_allowed_to_repeat_on_adjacent_steps() {
+        let mut state = test_agent_state();
+        mark_action_fingerprint_executed_at_step(&mut state.tool_execution_log, "fp", 3, "success");
+        let tool = AgentTool::BrowserScroll {
+            delta_x: 0,
+            delta_y: -120,
+        };
+        let mut checks = Vec::new();
+        let (is_duplicate, history) =
+            duplicate_execution_state(&mut state, &tool, false, 4, "fp", &mut checks);
+        assert!(!is_duplicate);
+        assert!(history.is_none());
+    }
+
+    #[test]
+    fn browser_page_up_is_allowed_to_repeat_on_adjacent_steps() {
+        let mut state = test_agent_state();
+        mark_action_fingerprint_executed_at_step(&mut state.tool_execution_log, "fp", 3, "success");
+        let tool = AgentTool::BrowserKey {
+            key: "PageUp".to_string(),
+            modifiers: None,
+        };
+        let mut checks = Vec::new();
+        let (is_duplicate, history) =
+            duplicate_execution_state(&mut state, &tool, false, 4, "fp", &mut checks);
+        assert!(!is_duplicate);
+        assert!(history.is_none());
+        assert!(is_duplicate_safe_repeat_tool(&tool));
+    }
+
+    #[test]
+    fn browser_enter_replay_remains_deduped() {
+        let mut state = test_agent_state();
+        mark_action_fingerprint_executed_at_step(&mut state.tool_execution_log, "fp", 3, "success");
+        let tool = AgentTool::BrowserKey {
+            key: "Enter".to_string(),
+            modifiers: None,
+        };
+        let mut checks = Vec::new();
+        let (is_duplicate, history) =
+            duplicate_execution_state(&mut state, &tool, false, 4, "fp", &mut checks);
+        assert!(is_duplicate);
+        assert!(history.is_none());
+        assert!(!is_duplicate_safe_repeat_tool(&tool));
     }
 }

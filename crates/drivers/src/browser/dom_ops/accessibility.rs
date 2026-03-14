@@ -1,4 +1,5 @@
 use super::super::*;
+use std::collections::HashSet;
 
 #[derive(Debug, serde::Deserialize)]
 struct DomFallbackRect {
@@ -42,6 +43,160 @@ fn allow_dom_fallback_for_ax_error(message: &str) -> bool {
     lower.contains("uninteresting")
         || lower.contains("empty accessibility tree")
         || lower.contains("empty tree")
+        || lower.contains("notrendered")
+        || lower.contains("not rendered")
+}
+
+fn node_attr_value<'a>(node: &'a AccessibilityNode, key: &str) -> Option<&'a str> {
+    node.attributes
+        .iter()
+        .find(|(candidate, _)| candidate.eq_ignore_ascii_case(key))
+        .map(|(_, value)| value.as_str())
+        .filter(|value| !value.trim().is_empty())
+}
+
+fn rect_contains(outer: &AccessibilityRect, inner: &AccessibilityRect) -> bool {
+    if outer.width <= 0 || outer.height <= 0 || inner.width <= 0 || inner.height <= 0 {
+        return false;
+    }
+
+    let tolerance = 1;
+    let outer_right = outer.x.saturating_add(outer.width);
+    let outer_bottom = outer.y.saturating_add(outer.height);
+    let inner_right = inner.x.saturating_add(inner.width);
+    let inner_bottom = inner.y.saturating_add(inner.height);
+
+    inner.x >= outer.x.saturating_sub(tolerance)
+        && inner.y >= outer.y.saturating_sub(tolerance)
+        && inner_right <= outer_right.saturating_add(tolerance)
+        && inner_bottom <= outer_bottom.saturating_add(tolerance)
+}
+
+fn normalized_text_tokens(text: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+
+    for ch in text.chars() {
+        if ch.is_ascii_alphanumeric() {
+            current.push(ch.to_ascii_lowercase());
+        } else if !current.is_empty() {
+            tokens.push(std::mem::take(&mut current));
+        }
+    }
+
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+
+    tokens
+}
+
+fn node_text_tokens(node: &AccessibilityNode) -> HashSet<String> {
+    let mut tokens = HashSet::new();
+    for text in [node.name.as_deref(), node.value.as_deref()]
+        .into_iter()
+        .flatten()
+    {
+        for token in normalized_text_tokens(text) {
+            tokens.insert(token);
+        }
+    }
+    tokens
+}
+
+fn is_dom_fallback_aggregate_candidate(node: &AccessibilityNode) -> bool {
+    if node_attr_value(node, "dom_fallback") != Some("true") || node.is_interactive() {
+        return false;
+    }
+
+    let role = node.role.trim().to_ascii_lowercase();
+    if !matches!(role.as_str(), "generic" | "group" | "presentation") {
+        return false;
+    }
+
+    let tag_name = node_attr_value(node, "tag_name")
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    if !matches!(
+        tag_name.as_str(),
+        "div" | "section" | "main" | "article" | "form" | "fieldset" | "td"
+    ) {
+        return false;
+    }
+
+    ![
+        "focused",
+        "checked",
+        "selected",
+        "scroll_top",
+        "scroll_height",
+        "client_height",
+        "can_scroll_up",
+        "can_scroll_down",
+        "autocomplete",
+    ]
+    .iter()
+    .any(|key| node_attr_value(node, key).is_some())
+}
+
+fn is_redundant_dom_fallback_aggregate(
+    candidate: &AccessibilityNode,
+    siblings: &[AccessibilityNode],
+) -> bool {
+    if !is_dom_fallback_aggregate_candidate(candidate) {
+        return false;
+    }
+
+    let candidate_tokens = node_text_tokens(candidate);
+    if candidate_tokens.is_empty() {
+        return false;
+    }
+
+    let mut descendant_tokens = HashSet::new();
+    let mut interactive_descendants = 0usize;
+    let mut contained_descendants = 0usize;
+
+    for sibling in siblings {
+        if sibling.id == candidate.id || !sibling.is_visible {
+            continue;
+        }
+        if !rect_contains(&candidate.rect, &sibling.rect) {
+            continue;
+        }
+
+        contained_descendants += 1;
+        descendant_tokens.extend(node_text_tokens(sibling));
+        if sibling.is_interactive() {
+            interactive_descendants += 1;
+        }
+    }
+
+    contained_descendants > 0
+        && interactive_descendants > 0
+        && candidate_tokens
+            .iter()
+            .all(|token| descendant_tokens.contains(token))
+}
+
+fn prune_redundant_dom_fallback_aggregates(mut root: AccessibilityNode) -> AccessibilityNode {
+    if node_attr_value(&root, "snapshot_fallback") != Some("dom") {
+        return root;
+    }
+
+    let snapshot = root.children.clone();
+    let before = root.children.len();
+    root.children
+        .retain(|node| !is_redundant_dom_fallback_aggregate(node, &snapshot));
+    let pruned = before.saturating_sub(root.children.len());
+    if pruned > 0 {
+        root.attributes.insert(
+            "dom_fallback_pruned_aggregate_count".to_string(),
+            pruned.to_string(),
+        );
+    }
+
+    root
 }
 
 impl DomFallbackNode {
@@ -101,6 +256,29 @@ impl BrowserDriver {
             const MAX_CANDIDATES = 220;
             const normalize = (value) =>
                 (value || "").replace(/\s+/g, " ").trim();
+            const deepActiveElement = () => {
+                let active = document.activeElement;
+                let guard = 0;
+                while (active && guard < 32) {
+                    let next = null;
+                    try {
+                        if (active.shadowRoot && active.shadowRoot.activeElement) {
+                            next = active.shadowRoot.activeElement;
+                        } else if ((active.tagName || "").toLowerCase() === "iframe") {
+                            const childDoc = active.contentDocument;
+                            if (childDoc && childDoc.activeElement) {
+                                next = childDoc.activeElement;
+                            }
+                        }
+                    } catch (_e) {}
+                    if (!next || next === active) {
+                        break;
+                    }
+                    active = next;
+                    guard += 1;
+                }
+                return active;
+            };
             const toRole = (el) => {
                 if (!el) return "generic";
                 const ariaRole = normalize(el.getAttribute("role")).toLowerCase();
@@ -166,9 +344,60 @@ impl BrowserDriver {
                     return parts[0].slice(0, 120);
                 }
                 const tag = (el.tagName || "").toLowerCase();
+                const inputType =
+                    tag === "input"
+                        ? normalize(el.getAttribute("type")).toLowerCase()
+                        : "";
+                const associatedLabelText = (() => {
+                    const labels = [];
+                    const seen = new Set();
+                    const pushLabel = (candidate) => {
+                        const text = normalize(
+                            candidate ? (candidate.innerText || candidate.textContent || "") : ""
+                        );
+                        if (!text || seen.has(text)) return;
+                        seen.add(text);
+                        labels.push(text);
+                    };
+
+                    try {
+                        if (el.labels && typeof el.labels.length === "number") {
+                            for (const labelEl of Array.from(el.labels)) {
+                                pushLabel(labelEl);
+                            }
+                        }
+                    } catch (_e) {}
+
+                    const domId = normalize(el.id);
+                    if (labels.length === 0 && domId) {
+                        for (const labelEl of Array.from(document.querySelectorAll("label"))) {
+                            if (normalize(labelEl.getAttribute("for")) === domId) {
+                                pushLabel(labelEl);
+                            }
+                        }
+                    }
+
+                    return labels.length > 0 ? labels.join(" ").slice(0, 120) : null;
+                })();
+
+                if (
+                    associatedLabelText &&
+                    tag === "input" &&
+                    (inputType === "checkbox" || inputType === "radio")
+                ) {
+                    return associatedLabelText;
+                }
                 if (tag === "input" || tag === "textarea" || tag === "select") {
+                    if (associatedLabelText) {
+                        return associatedLabelText;
+                    }
                     const controlText = normalize(el.value || "");
-                    if (controlText) {
+                    if (
+                        controlText &&
+                        !(tag === "input"
+                            && (inputType === "checkbox" || inputType === "radio")
+                            && controlText.toLowerCase() === "on")
+                    ) {
                         return controlText.slice(0, 120);
                     }
                 }
@@ -178,6 +407,15 @@ impl BrowserDriver {
             };
             const elementValue = (el) => {
                 const tag = (el.tagName || "").toLowerCase();
+                if (tag === "input") {
+                    const type = normalize(el.getAttribute("type")).toLowerCase();
+                    if (type === "checkbox" || type === "radio") {
+                        const controlText = normalize(el.value || "");
+                        return controlText && controlText.toLowerCase() !== "on"
+                            ? controlText.slice(0, 120)
+                            : null;
+                    }
+                }
                 if (tag === "input" || tag === "textarea" || tag === "select") {
                     const controlText = normalize(el.value || "");
                     return controlText ? controlText.slice(0, 120) : null;
@@ -188,6 +426,93 @@ impl BrowserDriver {
                 }
                 return null;
             };
+            const scrollStateFor = (el) => {
+                if (!el) return null;
+                const scrollHeight = Number(el.scrollHeight || 0);
+                const clientHeight = Number(el.clientHeight || 0);
+                const scrollTop = Number(el.scrollTop || 0);
+                if (!(scrollHeight > clientHeight + 1)) {
+                    return null;
+                }
+                return {
+                    scroll_top: String(Math.round(scrollTop)),
+                    scroll_height: String(Math.round(scrollHeight)),
+                    client_height: String(Math.round(clientHeight)),
+                    can_scroll_up: scrollTop > 1 ? "true" : "false",
+                    can_scroll_down:
+                        scrollTop + clientHeight + 1 < scrollHeight ? "true" : "false",
+                };
+            };
+            const controlStateFor = (el) => {
+                if (!el || !el.tagName) return null;
+                const tag = (el.tagName || "").toLowerCase();
+                if (tag === "input") {
+                    const type = normalize(el.getAttribute("type")).toLowerCase();
+                    if ((type === "checkbox" || type === "radio") && !!el.checked) {
+                        return { checked: "true" };
+                    }
+                }
+                if (tag === "option" && !!el.selected) {
+                    return { selected: "true" };
+                }
+                return null;
+            };
+            const firstIdToken = (value) => {
+                const tokens = normalize(value).split(/\s+/).filter(Boolean);
+                return tokens.length > 0 ? tokens[0] : "";
+            };
+            const relatedElementIds = (el) => {
+                if (!el || typeof el.getAttribute !== "function") {
+                    return [];
+                }
+                const ids = [];
+                const seen = new Set();
+                for (const attr of [
+                    "aria-controls",
+                    "aria-owns",
+                    "aria-describedby",
+                    "aria-activedescendant",
+                ]) {
+                    const raw = normalize(el.getAttribute(attr));
+                    if (!raw) continue;
+                    for (const token of raw.split(/\s+/).filter(Boolean)) {
+                        if (seen.has(token)) continue;
+                        seen.add(token);
+                        ids.push(token);
+                    }
+                }
+                return ids;
+            };
+            const hasAutocompleteSemantics = (el) => {
+                if (!el || typeof el.getAttribute !== "function") {
+                    return false;
+                }
+                const autocomplete = normalize(el.getAttribute("aria-autocomplete")).toLowerCase();
+                if (autocomplete) return true;
+                if (normalize(el.getAttribute("aria-controls"))) return true;
+                if (normalize(el.getAttribute("aria-activedescendant"))) return true;
+                const className = normalize(String(el.className || "")).toLowerCase();
+                return className.includes("autocomplete");
+            };
+            const assistiveText = (el) =>
+                normalize(el ? (el.innerText || el.textContent || "") : "");
+            const assistiveRole = (el) => {
+                const explicitRole = normalize(
+                    el && typeof el.getAttribute === "function"
+                        ? el.getAttribute("role")
+                        : ""
+                ).toLowerCase();
+                if (explicitRole) return explicitRole;
+                const ariaLive = normalize(
+                    el && typeof el.getAttribute === "function"
+                        ? el.getAttribute("aria-live")
+                        : ""
+                ).toLowerCase();
+                if (ariaLive) return "status";
+                const className = normalize(String((el && el.className) || "")).toLowerCase();
+                if (className.includes("ui-helper-hidden-accessible")) return "status";
+                return toRole(el);
+            };
 
             const bodyRect = {
                 x: 0,
@@ -195,6 +520,7 @@ impl BrowserDriver {
                 width: Math.max(1, Math.round(window.innerWidth || 1)),
                 height: Math.max(1, Math.round(window.innerHeight || 1)),
             };
+            const activeElement = deepActiveElement();
 
             const root = {
                 id: "dom-root",
@@ -226,6 +552,13 @@ impl BrowserDriver {
                 if (!keep) continue;
 
                 const domId = normalize(el.id);
+                const focused = activeElement === el;
+                const autocomplete = normalize(el.getAttribute("aria-autocomplete")).toLowerCase();
+                const controlsDomId = firstIdToken(el.getAttribute("aria-controls"));
+                const activeDescendantDomId = firstIdToken(
+                    el.getAttribute("aria-activedescendant")
+                );
+                const scrollState = scrollStateFor(el);
                 const stableId = domId
                     ? `dom-id-${domId}`
                     : `dom-node-${root.children.length + 1}`;
@@ -246,9 +579,85 @@ impl BrowserDriver {
                         dom_fallback: "true",
                         dom_id: domId,
                         tag_name: (el.tagName || "").toLowerCase(),
+                        ...(focused ? { focused: "true" } : {}),
+                        ...(autocomplete ? { autocomplete } : {}),
+                        ...(controlsDomId ? { controls_dom_id: controlsDomId } : {}),
+                        ...(activeDescendantDomId
+                            ? { active_descendant_dom_id: activeDescendantDomId }
+                            : {}),
+                        ...(controlStateFor(el) || {}),
+                        ...(scrollState || {}),
                     },
                     children: [],
                 });
+            }
+
+            if (activeElement && root.children.length < MAX_CANDIDATES) {
+                const assistiveSeen = new Set();
+                const pushAssistiveHint = (el, reason) => {
+                    if (!el || !el.tagName || root.children.length >= MAX_CANDIDATES) {
+                        return;
+                    }
+
+                    const text = assistiveText(el);
+                    if (!text) return;
+
+                    const domId = normalize(el.id);
+                    const key = domId || `${reason}:${text}`;
+                    if (assistiveSeen.has(key)) return;
+                    assistiveSeen.add(key);
+
+                    let rect = null;
+                    try {
+                        rect = el.getBoundingClientRect();
+                    } catch (_e) {}
+
+                    const hintRole = assistiveRole(el) || "status";
+                    const stableId = domId
+                        ? `assistive-${domId}`
+                        : `assistive-${root.children.length + 1}`;
+
+                    root.children.push({
+                        id: stableId,
+                        role: hintRole,
+                        name: text.slice(0, 120),
+                        value: null,
+                        rect: {
+                            x: Math.round(rect && Number.isFinite(rect.left) ? rect.left : -1),
+                            y: Math.round(rect && Number.isFinite(rect.top) ? rect.top : -1),
+                            width: Math.max(
+                                1,
+                                Math.round(rect && Number.isFinite(rect.width) ? rect.width : 1)
+                            ),
+                            height: Math.max(
+                                1,
+                                Math.round(rect && Number.isFinite(rect.height) ? rect.height : 1)
+                            ),
+                        },
+                        is_visible: false,
+                        attributes: {
+                            dom_fallback: "true",
+                            dom_id: domId,
+                            tag_name: (el.tagName || "").toLowerCase(),
+                            assistive_hint: "true",
+                            assistive_reason: reason,
+                        },
+                        children: [],
+                    });
+                };
+
+                for (const refId of relatedElementIds(activeElement)) {
+                    pushAssistiveHint(document.getElementById(refId), "aria_reference");
+                }
+
+                if (hasAutocompleteSemantics(activeElement)) {
+                    const assistiveRegions = document.querySelectorAll(
+                        "[role='status'], [role='alert'], [role='log'], [aria-live], .ui-helper-hidden-accessible"
+                    );
+                    for (const assistiveRegion of assistiveRegions) {
+                        pushAssistiveHint(assistiveRegion, "assistive_live_region");
+                    }
+                }
             }
 
             if (root.children.length === 0) {
@@ -269,7 +678,7 @@ impl BrowserDriver {
             .into_value::<DomFallbackNode>()
             .map_err(|e| BrowserError::Internal(format!("DOM fallback decode failed: {}", e)))?;
 
-        let mut tree = node.into_accessibility();
+        let mut tree = prune_redundant_dom_fallback_aggregates(node.into_accessibility());
         tree.attributes
             .insert("snapshot_fallback_cause".to_string(), cause.to_string());
         Ok(tree)
@@ -715,7 +1124,10 @@ impl BrowserDriver {
 
 #[cfg(test)]
 mod tests {
-    use super::BrowserDriver;
+    use super::{
+        prune_redundant_dom_fallback_aggregates, BrowserDriver, DomFallbackNode, DomFallbackRect,
+    };
+    use std::collections::HashMap;
 
     #[test]
     fn rect_from_dom_quad_builds_bounds() {
@@ -738,5 +1150,226 @@ mod tests {
     fn rect_from_dom_quad_rejects_non_finite_values() {
         let bad = [10.0, 10.0, f64::NAN, 10.0, 50.0, 50.0, 10.0, 50.0];
         assert!(BrowserDriver::rect_from_dom_quad(&bad).is_none());
+    }
+
+    #[test]
+    fn dom_fallback_is_allowed_for_not_rendered_ax_errors() {
+        assert!(super::allow_dom_fallback_for_ax_error(
+            "CDP GetAxTree failed: notRendered"
+        ));
+        assert!(super::allow_dom_fallback_for_ax_error(
+            "AX snapshot failed because the page is not rendered"
+        ));
+    }
+
+    fn dom_node(
+        id: &str,
+        role: &str,
+        name: Option<&str>,
+        rect: (f64, f64, f64, f64),
+        attrs: &[(&str, &str)],
+    ) -> DomFallbackNode {
+        DomFallbackNode {
+            id: id.to_string(),
+            role: role.to_string(),
+            name: name.map(str::to_string),
+            value: None,
+            rect: DomFallbackRect {
+                x: rect.0,
+                y: rect.1,
+                width: rect.2,
+                height: rect.3,
+            },
+            is_visible: Some(true),
+            attributes: attrs
+                .iter()
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect::<HashMap<_, _>>(),
+            children: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn prune_redundant_dom_fallback_aggregates_drops_flat_container_noise() {
+        let root = DomFallbackNode {
+            id: "dom-root".to_string(),
+            role: "root".to_string(),
+            name: Some("DOM fallback tree".to_string()),
+            value: None,
+            rect: DomFallbackRect {
+                x: 0.0,
+                y: 0.0,
+                width: 800.0,
+                height: 600.0,
+            },
+            is_visible: Some(true),
+            attributes: HashMap::from([("snapshot_fallback".to_string(), "dom".to_string())]),
+            children: vec![
+                dom_node(
+                    "grp_wrap",
+                    "generic",
+                    Some("Select TeCSlMn and click Submit. TeCSlMn Submit"),
+                    (0.0, 0.0, 160.0, 210.0),
+                    &[("dom_fallback", "true"), ("tag_name", "div")],
+                ),
+                dom_node(
+                    "grp_query",
+                    "generic",
+                    Some("Select TeCSlMn and click Submit."),
+                    (0.0, 0.0, 160.0, 50.0),
+                    &[("dom_fallback", "true"), ("tag_name", "div")],
+                ),
+                dom_node(
+                    "grp_area",
+                    "generic",
+                    Some("TeCSlMn Submit"),
+                    (0.0, 50.0, 160.0, 136.0),
+                    &[("dom_fallback", "true"), ("tag_name", "div")],
+                ),
+                dom_node(
+                    "radio_tecslmn",
+                    "radio",
+                    Some("TeCSlMn"),
+                    (7.0, 55.0, 20.0, 13.0),
+                    &[("dom_fallback", "true"), ("tag_name", "input")],
+                ),
+                dom_node(
+                    "btn_submit",
+                    "button",
+                    Some("Submit"),
+                    (2.0, 153.0, 95.0, 31.0),
+                    &[("dom_fallback", "true"), ("tag_name", "button")],
+                ),
+            ],
+        }
+        .into_accessibility();
+
+        let pruned = prune_redundant_dom_fallback_aggregates(root);
+        let child_ids = pruned
+            .children
+            .iter()
+            .map(|child| child.id.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(!child_ids.contains(&"grp_wrap"));
+        assert!(!child_ids.contains(&"grp_area"));
+        assert!(child_ids.contains(&"grp_query"));
+        assert!(child_ids.contains(&"radio_tecslmn"));
+        assert!(child_ids.contains(&"btn_submit"));
+        assert_eq!(
+            pruned
+                .attributes
+                .get("dom_fallback_pruned_aggregate_count")
+                .map(String::as_str),
+            Some("2")
+        );
+    }
+
+    #[test]
+    fn prune_redundant_dom_fallback_aggregates_keeps_scrollable_container_state() {
+        let root = DomFallbackNode {
+            id: "dom-root".to_string(),
+            role: "root".to_string(),
+            name: Some("DOM fallback tree".to_string()),
+            value: None,
+            rect: DomFallbackRect {
+                x: 0.0,
+                y: 0.0,
+                width: 800.0,
+                height: 600.0,
+            },
+            is_visible: Some(true),
+            attributes: HashMap::from([("snapshot_fallback".to_string(), "dom".to_string())]),
+            children: vec![
+                dom_node(
+                    "grp_scroll_region",
+                    "generic",
+                    Some("Messages Submit"),
+                    (0.0, 0.0, 160.0, 210.0),
+                    &[
+                        ("dom_fallback", "true"),
+                        ("tag_name", "div"),
+                        ("scroll_top", "12"),
+                    ],
+                ),
+                dom_node(
+                    "btn_submit",
+                    "button",
+                    Some("Submit"),
+                    (2.0, 153.0, 95.0, 31.0),
+                    &[("dom_fallback", "true"), ("tag_name", "button")],
+                ),
+            ],
+        }
+        .into_accessibility();
+
+        let pruned = prune_redundant_dom_fallback_aggregates(root);
+        let child_ids = pruned
+            .children
+            .iter()
+            .map(|child| child.id.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(child_ids.contains(&"grp_scroll_region"));
+        assert!(pruned
+            .attributes
+            .get("dom_fallback_pruned_aggregate_count")
+            .is_none());
+    }
+
+    #[test]
+    fn prune_redundant_dom_fallback_aggregates_drops_table_cell_wrapper_for_link_child() {
+        let root = DomFallbackNode {
+            id: "dom-root".to_string(),
+            role: "root".to_string(),
+            name: Some("DOM fallback tree".to_string()),
+            value: None,
+            rect: DomFallbackRect {
+                x: 0.0,
+                y: 0.0,
+                width: 800.0,
+                height: 600.0,
+            },
+            is_visible: Some(true),
+            attributes: HashMap::from([("snapshot_fallback".to_string(), "dom".to_string())]),
+            children: vec![
+                dom_node(
+                    "grp_t_215",
+                    "generic",
+                    Some("T-215"),
+                    (66.0, 850.0, 73.0, 91.0),
+                    &[("dom_fallback", "true"), ("tag_name", "td")],
+                ),
+                dom_node(
+                    "lnk_t_215",
+                    "link",
+                    Some("T-215"),
+                    (78.0, 884.0, 41.0, 22.0),
+                    &[
+                        ("dom_fallback", "true"),
+                        ("tag_name", "a"),
+                        ("dom_id", "ticket-link-t-215"),
+                    ],
+                ),
+            ],
+        }
+        .into_accessibility();
+
+        let pruned = prune_redundant_dom_fallback_aggregates(root);
+        let child_ids = pruned
+            .children
+            .iter()
+            .map(|child| child.id.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(!child_ids.contains(&"grp_t_215"));
+        assert!(child_ids.contains(&"lnk_t_215"));
+        assert_eq!(
+            pruned
+                .attributes
+                .get("dom_fallback_pruned_aggregate_count")
+                .map(String::as_str),
+            Some("1")
+        );
     }
 }

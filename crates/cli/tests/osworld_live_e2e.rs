@@ -81,8 +81,12 @@ fn osworld_bridge_quickstart_smoke_runs_minimal_task() -> Result<()> {
     let result_path = temp_dir.path().join("osworld_smoke.json");
     let result_path_string = result_path.display().to_string();
 
-    let (payload, status, _) =
-        run_bridge_json(&["smoke", "--headless", "--result-path", result_path_string.as_str()])?;
+    let (payload, status, _) = run_bridge_json(&[
+        "smoke",
+        "--headless",
+        "--result-path",
+        result_path_string.as_str(),
+    ])?;
 
     anyhow::ensure!(
         status == 0,

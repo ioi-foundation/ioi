@@ -435,6 +435,9 @@ mod tests {
 
         assert!(tools.iter().any(|t| t.name == "browser__snapshot"));
         assert!(tools.iter().any(|t| t.name == "browser__click_element"));
+        assert!(tools.iter().any(|t| t.name == "agent__complete"));
+        assert!(tools.iter().any(|t| t.name == "agent__pause"));
+        assert!(tools.iter().any(|t| t.name == "agent__await_result"));
     }
 
     #[tokio::test(flavor = "current_thread")]

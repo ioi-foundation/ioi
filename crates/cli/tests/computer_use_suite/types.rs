@@ -22,6 +22,22 @@ impl ComputerUseMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum AgentBackend {
+    DeterministicMiniwob,
+    LiveHttp,
+}
+
+impl AgentBackend {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::DeterministicMiniwob => "deterministic_miniwob",
+            Self::LiveHttp => "live_http",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TaskSet {
     Smoke,
     Core,
@@ -321,9 +337,12 @@ pub struct ArtifactBundle {
     pub artifact_root: String,
     pub bridge_state_path: Option<String>,
     pub kernel_events_path: Option<String>,
+    pub agent_state_path: Option<String>,
     pub json_report_path: Option<String>,
     pub markdown_summary_path: Option<String>,
     pub csv_summary_path: Option<String>,
+    pub inference_trace_path: Option<String>,
+    pub inference_calls_path: Option<String>,
     #[serde(default)]
     pub screenshot_paths: Vec<String>,
     #[serde(default)]
@@ -346,6 +365,8 @@ pub struct ComputerUseCaseResult {
     pub env_id: String,
     pub seed: u64,
     pub mode: ComputerUseMode,
+    #[serde(default)]
+    pub agent_backend: Option<AgentBackend>,
     pub task_set: TaskSet,
     pub utterance: String,
     pub elapsed_ms: u128,
@@ -387,6 +408,7 @@ pub struct SuiteSummary {
 #[derive(Debug, Clone)]
 pub struct SuiteConfig {
     pub modes: Vec<ComputerUseMode>,
+    pub agent_backend: AgentBackend,
     pub task_set: TaskSet,
     pub case_filter: Option<Vec<String>>,
     pub max_cases: Option<usize>,

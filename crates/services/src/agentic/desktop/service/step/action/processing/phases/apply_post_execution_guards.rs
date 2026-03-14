@@ -1,6 +1,9 @@
 use super::*;
 use crate::agentic::desktop::service::step::browser_completion::browser_snapshot_completion;
 
+const BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT: &str = "browser_snapshot_content_hash";
+const BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT: &str = "browser_snapshot_content_step";
+
 fn blocked_web_read_note(read_url: &str, challenged: bool) -> String {
     if challenged {
         return format!(
@@ -38,6 +41,77 @@ fn normalize_blocked_web_read_for_continuation(
     *stop_condition_hit = false;
     *escalation_path = None;
     verification_checks.push("web_blocked_read_continues=true".to_string());
+}
+
+fn maybe_normalize_unchanged_browser_snapshot(
+    agent_state: &mut AgentState,
+    current_tool_name: &str,
+    success: &mut bool,
+    error_msg: &mut Option<String>,
+    history_entry: &mut Option<String>,
+    action_output: &mut Option<String>,
+    failure_class: &mut Option<FailureClass>,
+    verification_checks: &mut Vec<String>,
+) {
+    if !*success
+        || current_tool_name != "browser__snapshot"
+        || agent_state.pending_search_completion.is_some()
+    {
+        return;
+    }
+
+    let snapshot_output = history_entry
+        .as_deref()
+        .or(action_output.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let Some(snapshot_output) = snapshot_output else {
+        return;
+    };
+
+    let Ok(snapshot_digest) = sha256(snapshot_output.as_bytes()) else {
+        return;
+    };
+    let snapshot_hash = hex::encode(snapshot_digest);
+    let current_step = agent_state.step_count;
+    let prior_hash = execution_receipt_value(
+        &agent_state.tool_execution_log,
+        BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT,
+    )
+    .map(str::to_string);
+    let prior_step = execution_receipt_value(
+        &agent_state.tool_execution_log,
+        BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT,
+    )
+    .and_then(|value| value.parse::<u32>().ok());
+
+    mark_execution_receipt_with_value(
+        &mut agent_state.tool_execution_log,
+        BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT,
+        snapshot_hash.clone(),
+    );
+    mark_execution_receipt_with_value(
+        &mut agent_state.tool_execution_log,
+        BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT,
+        current_step.to_string(),
+    );
+    verification_checks.push("browser_snapshot_content_hash_recorded=true".to_string());
+
+    let unchanged_immediate_replay = prior_hash.as_deref() == Some(snapshot_hash.as_str())
+        && prior_step
+            .map(|step| current_step == step.saturating_add(1))
+            .unwrap_or(false);
+    if !unchanged_immediate_replay {
+        return;
+    }
+
+    let summary = "Repeated `browser__snapshot` returned the same browser state as the previous step. Do not call `browser__snapshot` again yet. Use a different browser action or act on the visible control already named in `RECENT PENDING BROWSER STATE`.".to_string();
+    *success = false;
+    *failure_class = Some(FailureClass::NoEffectAfterAction);
+    *error_msg = Some(format!("ERROR_CLASS=NoEffectAfterAction {}", summary));
+    *history_entry = Some(summary);
+    *action_output = error_msg.clone();
+    verification_checks.push("browser_snapshot_immediate_replay_unchanged=true".to_string());
 }
 
 pub(crate) async fn apply_post_execution_guards(
@@ -264,6 +338,19 @@ pub(crate) async fn apply_post_execution_guards(
         action_output = Some(note);
         agent_state.status = AgentStatus::Running;
         verification_checks.push("invalid_tool_call_bootstrap_web=true".to_string());
+    }
+
+    if !is_gated && !awaiting_sudo_password && !awaiting_clarification {
+        maybe_normalize_unchanged_browser_snapshot(
+            agent_state,
+            &current_tool_name,
+            &mut success,
+            &mut error_msg,
+            &mut history_entry,
+            &mut action_output,
+            &mut failure_class,
+            &mut verification_checks,
+        );
     }
 
     if !is_gated
@@ -499,7 +586,59 @@ pub(crate) async fn apply_post_execution_guards(
 
 #[cfg(test)]
 mod tests {
-    use super::{blocked_web_read_note, normalize_blocked_web_read_for_continuation};
+    use super::{
+        blocked_web_read_note, maybe_normalize_unchanged_browser_snapshot,
+        normalize_blocked_web_read_for_continuation, BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT,
+        BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT,
+    };
+    use crate::agentic::desktop::service::step::action::support::{
+        execution_receipt_value, receipt_marker,
+    };
+    use crate::agentic::desktop::service::step::anti_loop::FailureClass;
+    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use ioi_types::app::ActionRequest;
+    use std::collections::{BTreeMap, VecDeque};
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [7u8; 32],
+            goal: "test".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 0,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_request_nonce: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: Vec::<ActionRequest>::new(),
+            pending_search_completion: None,
+            planner_state: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: VecDeque::new(),
+            active_lens: None,
+        }
+    }
 
     #[test]
     fn blocked_web_read_note_distinguishes_challenge_from_generic_failure() {
@@ -549,5 +688,121 @@ mod tests {
         assert!(verification_checks
             .iter()
             .any(|check| check == "web_blocked_read_continues=true"));
+    }
+
+    #[test]
+    fn unchanged_immediate_browser_snapshot_becomes_no_effect_failure() {
+        let mut state = test_agent_state();
+        let snapshot =
+            r#"<root><combobox id="inp_queue_status_filter" value="Awaiting Dispatch" /></root>"#;
+
+        let mut success = true;
+        let mut error_msg = None;
+        let mut history_entry = Some(snapshot.to_string());
+        let mut action_output = Some(snapshot.to_string());
+        let mut failure_class = None;
+        let mut verification_checks = Vec::new();
+        maybe_normalize_unchanged_browser_snapshot(
+            &mut state,
+            "browser__snapshot",
+            &mut success,
+            &mut error_msg,
+            &mut history_entry,
+            &mut action_output,
+            &mut failure_class,
+            &mut verification_checks,
+        );
+
+        assert!(success);
+        assert!(error_msg.is_none());
+        assert!(state
+            .tool_execution_log
+            .contains_key(&receipt_marker(BROWSER_SNAPSHOT_CONTENT_HASH_RECEIPT)));
+        assert_eq!(
+            execution_receipt_value(
+                &state.tool_execution_log,
+                BROWSER_SNAPSHOT_CONTENT_STEP_RECEIPT
+            ),
+            Some("0")
+        );
+
+        state.step_count = 1;
+        let mut success = true;
+        let mut error_msg = None;
+        let mut history_entry = Some(snapshot.to_string());
+        let mut action_output = Some(snapshot.to_string());
+        let mut failure_class = None;
+        let mut verification_checks = Vec::new();
+        maybe_normalize_unchanged_browser_snapshot(
+            &mut state,
+            "browser__snapshot",
+            &mut success,
+            &mut error_msg,
+            &mut history_entry,
+            &mut action_output,
+            &mut failure_class,
+            &mut verification_checks,
+        );
+
+        assert!(!success);
+        assert!(error_msg
+            .as_deref()
+            .unwrap_or_default()
+            .contains("ERROR_CLASS=NoEffectAfterAction"));
+        assert_eq!(failure_class, Some(FailureClass::NoEffectAfterAction));
+        assert!(verification_checks
+            .iter()
+            .any(|check| check == "browser_snapshot_immediate_replay_unchanged=true"));
+    }
+
+    #[test]
+    fn changed_or_non_adjacent_browser_snapshot_stays_success() {
+        let mut state = test_agent_state();
+        let first_snapshot =
+            r#"<root><combobox id="inp_queue_status_filter" value="Awaiting Dispatch" /></root>"#;
+        let second_snapshot =
+            r#"<root><combobox id="inp_queue_status_filter" value="Escalated" /></root>"#;
+
+        let mut success = true;
+        let mut error_msg = None;
+        let mut history_entry = Some(first_snapshot.to_string());
+        let mut action_output = Some(first_snapshot.to_string());
+        let mut failure_class = None;
+        let mut verification_checks = Vec::new();
+        maybe_normalize_unchanged_browser_snapshot(
+            &mut state,
+            "browser__snapshot",
+            &mut success,
+            &mut error_msg,
+            &mut history_entry,
+            &mut action_output,
+            &mut failure_class,
+            &mut verification_checks,
+        );
+
+        state.step_count = 2;
+        let mut success = true;
+        let mut error_msg = None;
+        let mut history_entry = Some(second_snapshot.to_string());
+        let mut action_output = Some(second_snapshot.to_string());
+        let mut failure_class = None;
+        let mut verification_checks = Vec::new();
+        maybe_normalize_unchanged_browser_snapshot(
+            &mut state,
+            "browser__snapshot",
+            &mut success,
+            &mut error_msg,
+            &mut history_entry,
+            &mut action_output,
+            &mut failure_class,
+            &mut verification_checks,
+        );
+
+        assert!(success);
+        assert!(error_msg.is_none());
+        assert!(failure_class.is_none());
+        assert!(!verification_checks
+            .iter()
+            .any(|check| check == "browser_snapshot_immediate_replay_unchanged=true"));
     }
 }

@@ -230,7 +230,13 @@ impl InferenceRuntime for CountingInferenceRuntime {
             .inner
             .execute_inference(model_hash, input_context, options)
             .await;
-        self.record_call(ordinal, "execute_inference", model_hash, input_context, &outcome);
+        self.record_call(
+            ordinal,
+            "execute_inference",
+            model_hash,
+            input_context,
+            &outcome,
+        );
         outcome
     }
 

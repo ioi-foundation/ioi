@@ -8,9 +8,21 @@ const CHROMIUM_REVISION_ENV: &str = "IOI_CHROMIUM_REVISION";
 const CHROMIUM_SHA256_ENV: &str = "IOI_CHROMIUM_SHA256";
 const CHROMIUM_PIN_FILE_PREFIX: &str = "chromium-pin-";
 const HANDLER_ERROR_TOLERANCE: usize = 3;
+const LAUNCH_RETRY_ATTEMPTS: usize = 3;
+const LAUNCH_RETRY_DELAY_MS: u64 = 250;
 
 fn evaluate_health(cdp_ok: bool, _handler_alive: bool) -> bool {
     cdp_ok
+}
+
+fn is_retryable_launch_error(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("before websocket url could be resolved")
+        || (lower.contains("browser process exited with status") && lower.contains("websocket"))
+}
+
+fn launch_retry_backoff(attempt_index: usize) -> Duration {
+    Duration::from_millis(LAUNCH_RETRY_DELAY_MS * (attempt_index as u64 + 1))
 }
 
 impl BrowserDriver {
@@ -178,19 +190,23 @@ impl BrowserDriver {
         Ok(path)
     }
 
+    fn remove_profile_dir(path: &Path) {
+        if let Err(e) = std::fs::remove_dir_all(path) {
+            if e.kind() != ErrorKind::NotFound {
+                log::warn!(
+                    target: "browser",
+                    "Failed to clean browser profile dir {:?}: {}",
+                    path,
+                    e
+                );
+            }
+        }
+    }
+
     async fn cleanup_profile_dir(&self) {
         let profile_path = { self.profile_dir.lock().await.take() };
         if let Some(path) = profile_path {
-            if let Err(e) = std::fs::remove_dir_all(&path) {
-                if e.kind() != ErrorKind::NotFound {
-                    log::warn!(
-                        target: "browser",
-                        "Failed to clean browser profile dir {:?}: {}",
-                        path,
-                        e
-                    );
-                }
-            }
+            Self::remove_profile_dir(&path);
         }
     }
 
@@ -301,9 +317,7 @@ impl BrowserDriver {
             }
         }
 
-        let profile_dir = Self::create_profile_dir()?;
-
-        let mut delta_args = vec![
+        let mut base_args = vec![
             "--disable-dev-shm-usage".to_string(),
             "--disable-gpu".to_string(),
             "--disable-infobars".to_string(),
@@ -312,16 +326,15 @@ impl BrowserDriver {
             "--disable-setuid-sandbox".to_string(),
             "--disable-extensions".to_string(),
             "--force-renderer-accessibility".to_string(),
-            format!("--user-data-dir={}", profile_dir.display()),
         ];
         if headless {
-            delta_args.push("--headless=new".to_string());
+            base_args.push("--headless=new".to_string());
         }
         if std::env::var("CI").is_ok()
             || std::env::var("NO_SANDBOX").is_ok()
             || unsafe { libc::geteuid() == 0 }
         {
-            delta_args.push("--no-sandbox".to_string());
+            base_args.push("--no-sandbox".to_string());
         }
 
         let run_launch_attempt = |bin: PathBuf, extra_args: Vec<String>| async move {
@@ -403,13 +416,48 @@ impl BrowserDriver {
                 .map_err(|e| e.to_string())
         };
 
-        let launch_result = run_launch_attempt(info.executable_path.clone(), delta_args).await;
-        let (browser, mut handler) = match launch_result {
-            Ok(tuple) => tuple,
-            Err(e) => {
-                let _ = std::fs::remove_dir_all(&profile_dir);
-                return Err(BrowserError::Internal(e));
+        let (profile_dir, browser, mut handler) = {
+            let mut last_error: Option<String> = None;
+            let mut launched = None;
+
+            for attempt_index in 0..LAUNCH_RETRY_ATTEMPTS {
+                let profile_dir = Self::create_profile_dir()?;
+                let mut delta_args = base_args.clone();
+                delta_args.push(format!("--user-data-dir={}", profile_dir.display()));
+
+                match run_launch_attempt(info.executable_path.clone(), delta_args).await {
+                    Ok((browser, handler)) => {
+                        launched = Some((profile_dir, browser, handler));
+                        break;
+                    }
+                    Err(err) => {
+                        let retryable = attempt_index + 1 < LAUNCH_RETRY_ATTEMPTS
+                            && is_retryable_launch_error(&err);
+                        Self::remove_profile_dir(&profile_dir);
+                        if retryable {
+                            let delay = launch_retry_backoff(attempt_index);
+                            log::warn!(
+                                target: "browser",
+                                "Chromium launch attempt {}/{} failed before websocket resolution: {}. Retrying in {} ms.",
+                                attempt_index + 1,
+                                LAUNCH_RETRY_ATTEMPTS,
+                                err,
+                                delay.as_millis()
+                            );
+                            last_error = Some(err);
+                            tokio::time::sleep(delay).await;
+                            continue;
+                        }
+                        return Err(BrowserError::Internal(err));
+                    }
+                }
             }
+
+            launched.ok_or_else(|| {
+                BrowserError::Internal(
+                    last_error.unwrap_or_else(|| "Chromium launch failed without an error".into()),
+                )
+            })?
         };
 
         let alive_signal = self.handler_alive.clone();
@@ -548,12 +596,26 @@ impl BrowserDriver {
 
 #[cfg(test)]
 mod tests {
-    use super::evaluate_health;
+    use super::{evaluate_health, is_retryable_launch_error};
 
     #[test]
     fn cdp_health_overrides_dead_handler_flag() {
         assert!(evaluate_health(true, false));
         assert!(evaluate_health(true, true));
         assert!(!evaluate_health(false, true));
+    }
+
+    #[test]
+    fn websocket_resolution_exit_is_retryable() {
+        assert!(is_retryable_launch_error(
+            "Browser process exited with status ExitStatus(unix_wait_status(0)) before websocket URL could be resolved, stderr: BrowserStderr(\"...\")",
+        ));
+    }
+
+    #[test]
+    fn unrelated_launch_failure_is_not_retryable() {
+        assert!(!is_retryable_launch_error(
+            "Config failed: unsupported browser configuration",
+        ));
     }
 }

@@ -302,10 +302,7 @@ fn rewrites_browser_snapshot_to_web_search_for_web_research_scope() {
             limit,
             url,
         } => {
-            assert_eq!(
-                query,
-                "Find the three best-reviewed Italian restaurants near me and compare their menus."
-            );
+            assert_eq!(query, "italian menus");
             assert_eq!(
                 query_contract.as_deref(),
                 Some(
@@ -317,9 +314,7 @@ fn rewrites_browser_snapshot_to_web_search_for_web_research_scope() {
                 limit,
                 Some(crate::agentic::desktop::service::step::queue::web_pipeline::WEB_PIPELINE_SEARCH_LIMIT)
             );
-            let expected = crate::agentic::web::build_default_search_url(
-                "Find the three best-reviewed Italian restaurants near me and compare their menus.",
-            );
+            let expected = crate::agentic::web::build_default_search_url("italian menus");
             assert_eq!(url.as_deref(), Some(expected.as_str()));
         }
         other => panic!("expected WebSearch, got {:?}", other),
@@ -341,6 +336,29 @@ fn does_not_rewrite_non_search_navigation_or_non_web_scope() {
     let web_intent = resolved(IntentScopeProfile::WebResearch);
     normalize_web_research_tool_call(&mut non_http_tool, Some(&web_intent), "fallback");
     assert!(matches!(non_http_tool, AgentTool::BrowserNavigate { .. }));
+}
+
+#[test]
+fn does_not_rewrite_browser_actions_when_goal_explicitly_forbids_web_retrieval() {
+    let mut tool = AgentTool::BrowserType {
+        text: "dispatch.agent".to_string(),
+        selector: Some("#username".to_string()),
+    };
+    let intent = resolved(IntentScopeProfile::UiInteraction);
+
+    normalize_web_research_tool_call(
+        &mut tool,
+        Some(&intent),
+        "Navigate to the assigned MiniWoB page and complete the on-page task using browser tools only. Do not use web retrieval tools. Search the queue for fiber, switch the sort to Recently Updated, and verify the saved dispatch update was not persisted.",
+    );
+
+    match tool {
+        AgentTool::BrowserType { text, selector } => {
+            assert_eq!(text, "dispatch.agent");
+            assert_eq!(selector.as_deref(), Some("#username"));
+        }
+        other => panic!("expected BrowserType, got {:?}", other),
+    }
 }
 
 #[test]

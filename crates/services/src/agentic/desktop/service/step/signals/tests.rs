@@ -18,6 +18,13 @@ fn live_external_research_signal_ignores_workspace_local_prompts() {
 }
 
 #[test]
+fn live_external_research_signal_respects_explicit_browser_only_constraints() {
+    assert!(!is_live_external_research_goal(
+        "Navigate to the assigned MiniWoB page and complete the on-page task using browser tools only. Do not use web retrieval tools. Search the queue for fiber, switch the sort to Recently Updated, and verify the saved dispatch update was not persisted."
+    ));
+}
+
+#[test]
 fn infers_interaction_target_from_launch_goal() {
     let target = infer_interaction_target("Launch Visual Studio Code and open this folder")
         .expect("target should be inferred");
