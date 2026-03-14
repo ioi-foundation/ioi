@@ -64,7 +64,7 @@ pub async fn run(args: NodeArgs) -> Result<()> {
     println!("   • State Tree: {:?}", args.tree);
 
     let consensus_str = match args.consensus {
-        ConsensusMode::Poa => "Admft",
+        ConsensusMode::Poa => "ProofOfAuthority",
         ConsensusMode::Pos => "ProofOfStake",
     };
 

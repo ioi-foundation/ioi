@@ -48,6 +48,8 @@ impl<'a> BinaryFeatureConfig<'a> {
     fn resolve(&self) -> Result<String> {
         let consensus_feature = match self.consensus_type {
             "Admft" => "consensus-admft",
+            "ProofOfAuthority" => "consensus-poa",
+            "ProofOfStake" => "consensus-pos",
             other => return Err(anyhow!("Unsupported test consensus type: {}", other)),
         };
 
@@ -356,6 +358,7 @@ impl TestValidator {
 
         let consensus_enum = match consensus_type {
             "Admft" => ConsensusType::Admft,
+            "ProofOfAuthority" => ConsensusType::ProofOfAuthority,
             "ProofOfStake" => ConsensusType::ProofOfStake,
             _ => return Err(anyhow!("Unsupported consensus type: {}", consensus_type)),
         };

@@ -34,4 +34,6 @@ tracing = { workspace = true }
 [features]
 default = []
 admft = ["dep:tokio", "dep:ioi-crypto"]
+poa = ["dep:ioi-crypto"]
+pos = ["dep:ioi-crypto"]
 custom-consensus = []

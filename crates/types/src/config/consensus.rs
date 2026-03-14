@@ -15,5 +15,7 @@ pub enum ConsensusType {
     /// Proof of Stake consensus.
     ProofOfStake,
     /// Proof of Authority consensus.
+    ProofOfAuthority,
+    /// Lazarus Fault Tolerance deterministic mode.
     Admft,
 }

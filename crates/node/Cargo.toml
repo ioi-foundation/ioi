@@ -98,6 +98,12 @@ state-iavl = [
     "commitment-hash",
 ]
 
+state-sparse-merkle = [
+    "ioi-state/state-sparse-merkle",
+    "ioi-validator/state-sparse-merkle",
+    "commitment-hash",
+]
+
 state-verkle = [
     "ioi-state/state-verkle",
     "ioi-validator/state-verkle",
@@ -114,6 +120,8 @@ commitment-kzg = ["ioi-state/commitment-kzg", "ioi-validator/commitment-kzg"]
 
 # Consensus engine features
 consensus-admft = ["ioi-validator/consensus-admft", "ioi-consensus/admft"]
+consensus-poa = ["ioi-validator/consensus-poa", "ioi-consensus/poa"]
+consensus-pos = ["ioi-validator/consensus-pos", "ioi-consensus/pos"]
 
 # VM Features
 vm-wasm = ["dep:ioi-vm-wasm", "ioi-validator/vm-wasm"]
