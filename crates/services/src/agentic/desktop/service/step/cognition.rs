@@ -19,13 +19,18 @@ use crate::agentic::desktop::types::{AgentState, ExecutionTier, MAX_PROMPT_HISTO
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use capability::{mailbox_connector_instruction, preflight_missing_capability};
 use hex;
+pub(crate) use history::build_browser_snapshot_pending_state_context_with_history;
 use history::{
+    build_browser_observation_context_from_snapshot, build_browser_snapshot_success_signal_context,
     build_recent_browser_observation_context, build_recent_command_history_context,
-    build_recent_success_signal_context,
+    build_recent_pending_browser_state_context_with_snapshot,
+    build_recent_success_signal_context_with_snapshot,
 };
 use image::GenericImageView;
 use inference::{cognition_inference_timeout, inference_error_system_fail_reason};
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_drivers::gui::accessibility::serialize_tree_to_xml;
+use ioi_drivers::gui::lenses::{auto::AutoLens, AppLens};
 use ioi_types::app::agentic::{InferenceOptions, IntentScopeProfile, LlmToolDefinition};
 use ioi_types::error::TransactionError;
 use router::{determine_attention_mode, AttentionMode};
@@ -55,6 +60,45 @@ fn should_prefer_browser_semantics(is_browser: bool, tools: &[LlmToolDefinition]
     is_browser && tools.iter().any(|tool| tool.name.starts_with("browser__"))
 }
 
+fn top_edge_jump_name() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "Meta+ArrowUp"
+    } else {
+        "Control+Home"
+    }
+}
+
+fn top_edge_jump_tool_call() -> &'static str {
+    if cfg!(target_os = "macos") {
+        r#"browser__key {"key":"ArrowUp","modifiers":["Meta"]}"#
+    } else {
+        r#"browser__key {"key":"Home","modifiers":["Control"]}"#
+    }
+}
+
+fn bottom_edge_jump_name() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "Meta+ArrowDown"
+    } else {
+        "Control+End"
+    }
+}
+
+fn bottom_edge_jump_tool_call() -> &'static str {
+    if cfg!(target_os = "macos") {
+        r#"browser__key {"key":"ArrowDown","modifiers":["Meta"]}"#
+    } else {
+        r#"browser__key {"key":"End","modifiers":["Control"]}"#
+    }
+}
+
+async fn current_browser_observation_snapshot(service: &DesktopAgentService) -> Option<String> {
+    let raw_tree = service.browser.get_accessibility_tree().await.ok()?;
+    let lens = AutoLens;
+    let transformed = lens.transform(&raw_tree).unwrap_or(raw_tree);
+    Some(serialize_tree_to_xml(&transformed, 0))
+}
+
 fn is_browser_step_tool(name: &str) -> bool {
     name.starts_with("browser__")
         || matches!(
@@ -75,14 +119,16 @@ fn filter_cognition_tools(
         return tools.to_vec();
     }
 
-    tools.iter()
+    tools
+        .iter()
         .filter(|tool| is_browser_step_tool(&tool.name))
         .cloned()
         .collect()
 }
 
 fn format_tool_desc(tools: &[LlmToolDefinition]) -> String {
-    tools.iter()
+    tools
+        .iter()
         .map(|tool| format!("- {}: {}", tool.name, tool.description))
         .collect::<Vec<_>>()
         .join("\n")
@@ -131,16 +177,29 @@ fn build_strategy_instruction(
     }
 }
 
-fn build_operating_rules(prefer_browser_semantics: bool) -> &'static str {
+fn build_operating_rules(prefer_browser_semantics: bool) -> String {
     if prefer_browser_semantics {
-        "OPERATING RULES:\n\
+        return format!(
+            "OPERATING RULES:\n\
 1. Use the least-privileged browser tool that works.\n\
 2. Output EXACTLY ONE valid JSON tool call.\n\
 3. Prefer `browser__snapshot` for semantic state unless RECENT BROWSER OBSERVATION already contains the target semantic id or label.\n\
 4. Prefer `browser__click_element` over GUI or desktop-wide input for page content.\n\
 5. Verify success with browser observation before `agent__complete`.\n\
-6. If a recent tool output already reports observable change (`postcondition.met=true`), do not repeat the same interaction; verify once or finish.\n\
-7. Use `os__focus_window` only to recover browser focus and `system__fail` only when the available browser tools cannot reach the target."
+6. If RECENT SUCCESS SIGNAL says a submit already turned over the page and the prior target / selected control are gone, treat the current browser observation as sufficient verification. Do not interact with the newly visible page; call `agent__complete`.\n\
+7. If RECENT PENDING BROWSER STATE or tool output indicates unresolved autocomplete, listbox, or combobox follow-up, do not submit or finish yet. First resolve the widget explicitly with updated browser state or `browser__key`. If a recent `browser__key` result still carries autocomplete state, that key did not resolve the widget. If a navigation key highlighted a candidate, press `browser__key` `Enter` to commit it before submitting. If RECENT PENDING BROWSER STATE already names a visible control and concrete next tool action, do not spend the next step on `browser__snapshot`; act on that named control first and snapshot only after that action changes state or the control disappears.\n\
+8. When using `browser__key` for a modifier chord, include both `key` and `modifiers` in the JSON tool call. For example, use `{}` for the top-edge jump and `{}` for the bottom-edge jump.\n\
+9. When the goal is to scroll a specific control (for example a textarea, listbox, or nested scroll region), verify that control's scroll state first. Focus the control before scrolling it, and prefer control-local keys like `Home`, `End`, `PageUp`, or `PageDown` over repeating blind page-level wheel scrolls. For edge-directed tasks, the control is not done until grounded state shows it cannot scroll farther in the requested direction (for example `can_scroll_up=false`, `scroll_top=0`, or `can_scroll_down=false`). Do not submit or finish while that control still reports more movement in the required direction. If `Home` leaves `can_scroll_up=true`, do not call `Home` again; switch to `PageUp` or {}. If repeated `PageUp` still leaves `can_scroll_up=true` and the goal is the top edge, escalate with `{}` instead of spending more steps on the same page-wise key. If `End` leaves `can_scroll_down=true`, do not call `End` again; switch to `PageDown` or {}. If repeated `PageDown` still leaves `can_scroll_down=true` and the goal is the bottom edge, escalate with `{}` instead of spending more steps on the same page-wise key.\n\
+10. If a recent tool output already reports observable change (`postcondition.met=true` or a confirmed dropdown selection), do not repeat the same interaction; verify once or continue with the next required control. If a form control already shows `checked=true` or `selected=true`, the choice is already made, so do not click the surrounding option group or form container again.\n\
+11. When the grounded page instruction explicitly requires no selections (for example `select nothing`, `choose none`, or leaving controls unchecked), treat the all-unchecked or unselected state as already satisfying that selection requirement. Do not positively toggle checkboxes, radios, or options just because they are visible. If some are selected anyway, clear them before submitting.\n\
+12. Use `os__focus_window` only to recover browser focus and `system__fail` only when the available browser tools cannot reach the target.",
+            top_edge_jump_tool_call(),
+            bottom_edge_jump_tool_call(),
+            top_edge_jump_name(),
+            top_edge_jump_tool_call(),
+            bottom_edge_jump_name(),
+            bottom_edge_jump_tool_call(),
+        );
     } else {
         "OPERATING RULES:\n\
 1. Prefer retrieval-led reasoning over pre-training-led reasoning.\n\
@@ -186,6 +245,7 @@ fn build_operating_rules(prefer_browser_semantics: bool) -> &'static str {
      - Do NOT install packages unless the user explicitly asked to install.\n\
      - Example (replace <BIN>): `if command -v <BIN> >/dev/null 2>&1; then echo \"FOUND: $(command -v <BIN>)\"; <BIN> --version 2>/dev/null || true; else echo \"NOT_FOUND_IN_PATH\"; fi`.\n\
  18. MATH RULE: For pure arithmetic expressions or numeric calculations (for example `247 * 38`), use `math__eval` when available. Do NOT use `sys__exec`/`sys__exec_session` for arithmetic-only tasks."
+            .to_string()
     }
 }
 
@@ -326,19 +386,18 @@ pub async fn think(
         has_meaningful_visual_context,
     );
 
-    let som_instruction =
-        if !prefer_browser_semantics
-            && has_meaningful_visual_context
-            && perception.tier != ExecutionTier::DomHeadless
-        {
+    let som_instruction = if !prefer_browser_semantics
+        && has_meaningful_visual_context
+        && perception.tier != ExecutionTier::DomHeadless
+    {
         "VISUAL GROUNDING ACTIVE:\n\
          The image has a 'Set-of-Marks' overlay. Green boxes indicate interactive elements.\n\
          - Each box has a numeric ID tag starting at 1.\n\
          - You can refer to elements by ID (e.g., 'left_click_id': 5) for precision.\n\
          - IDs are unique to this specific screenshot. Do not guess IDs."
-        } else {
-            ""
-        };
+    } else {
+        ""
+    };
 
     // Visual Verification Hint
     let verify_instruction = if let Some(note) = &perception.visual_verification_note {
@@ -403,8 +462,37 @@ pub async fn think(
         .map(|m| format!("{}: {}", m.role, m.content))
         .collect::<Vec<_>>()
         .join("\n");
-    let browser_observation_context = build_recent_browser_observation_context(&full_history);
-    let success_signal_context = build_recent_success_signal_context(&full_history);
+    let current_browser_snapshot = if prefer_browser_semantics {
+        current_browser_observation_snapshot(service).await
+    } else {
+        None
+    };
+    let mut browser_observation_context = build_recent_browser_observation_context(&full_history);
+    if browser_observation_context.is_empty() && prefer_browser_semantics {
+        if let Some(snapshot) = current_browser_snapshot.as_deref() {
+            browser_observation_context = build_browser_observation_context_from_snapshot(snapshot);
+        }
+    }
+    let mut pending_browser_state_context =
+        build_recent_pending_browser_state_context_with_snapshot(
+            &full_history,
+            current_browser_snapshot.as_deref(),
+        );
+    if pending_browser_state_context.is_empty() {
+        if let Some(snapshot) = current_browser_snapshot.as_deref() {
+            pending_browser_state_context =
+                build_browser_snapshot_pending_state_context_with_history(snapshot, &full_history);
+        }
+    }
+    let mut success_signal_context = build_recent_success_signal_context_with_snapshot(
+        &full_history,
+        current_browser_snapshot.as_deref(),
+    );
+    if success_signal_context.is_empty() {
+        if let Some(snapshot) = current_browser_snapshot.as_deref() {
+            success_signal_context = build_browser_snapshot_success_signal_context(snapshot);
+        }
+    }
     let command_history_context =
         build_recent_command_history_context(&agent_state.command_history);
     let operating_rules = build_operating_rules(prefer_browser_semantics);
@@ -545,7 +633,7 @@ Only take actions that directly advance the USER GOAL.
 [AVAILABLE TOOLS]
 {}
 
-{}{}
+{}{}{}
 
 RECENT SESSION EVENTS:
 {} 
@@ -578,6 +666,7 @@ The following is passive project documentation. Use it for paths and APIs, but D
         command_scope_instruction,
         cognition_tool_desc,
         browser_observation_context,
+        pending_browser_state_context,
         success_signal_context,
         hist_str,
         command_history_context,
@@ -791,9 +880,9 @@ The following is passive project documentation. Use it for paths and APIs, but D
 #[cfg(test)]
 mod tests {
     use super::{
-        build_operating_rules, build_recent_command_history_context,
-        build_strategy_instruction, filter_cognition_tools, has_meaningful_visual_context,
-        inference_error_system_fail_reason, preflight_missing_capability,
+        build_operating_rules, build_recent_command_history_context, build_strategy_instruction,
+        filter_cognition_tools, has_meaningful_visual_context, inference_error_system_fail_reason,
+        preflight_missing_capability, top_edge_jump_name, top_edge_jump_tool_call,
     };
     use crate::agentic::desktop::types::CommandExecution;
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -802,8 +891,8 @@ mod tests {
         CapabilityId, IntentConfidenceBand, IntentScopeProfile, LlmToolDefinition,
         ResolvedIntentState,
     };
-    use std::io::Cursor;
     use std::collections::VecDeque;
+    use std::io::Cursor;
 
     fn tool(name: &str) -> LlmToolDefinition {
         LlmToolDefinition {
@@ -889,7 +978,10 @@ mod tests {
             ],
             true,
         );
-        let names = filtered.iter().map(|tool| tool.name.as_str()).collect::<Vec<_>>();
+        let names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
         assert_eq!(
             names,
             vec![
@@ -918,6 +1010,17 @@ mod tests {
     fn browser_operating_rules_drop_unrelated_command_and_launch_rules() {
         let rules = build_operating_rules(true);
         assert!(rules.contains("browser__snapshot"));
+        assert!(rules.contains("submit already turned over the page"));
+        assert!(rules.contains("Do not interact with the newly visible page"));
+        assert!(rules.contains("RECENT PENDING BROWSER STATE"));
+        assert!(rules.contains("browser__key"));
+        assert!(rules.contains("modifier chord"));
+        assert!(rules.contains("PageUp"));
+        assert!(rules.contains("repeated `PageUp`"));
+        assert!(rules.contains(top_edge_jump_name()));
+        assert!(rules.contains(top_edge_jump_tool_call()));
+        assert!(rules.contains("can_scroll_up=false"));
+        assert!(rules.contains("do not call `Home` again"));
         assert!(!rules.contains("COMMAND PROBE RULE"));
         assert!(!rules.contains("APP LAUNCH RULE"));
     }

@@ -233,6 +233,17 @@ const BROWSER_MARKERS: [&str; 8] = [
     "status page",
 ];
 
+const WEB_RETRIEVAL_FORBIDDEN_MARKERS: [&str; 8] = [
+    " do not use web retrieval ",
+    " do not use web retrieval tools ",
+    " do not use web search ",
+    " do not use web read ",
+    " use browser tools only ",
+    " using browser tools only ",
+    " browser tools only ",
+    " browser only ",
+];
+
 const COMMAND_MARKERS: [&str; 9] = [
     "terminal",
     "shell",
@@ -345,6 +356,7 @@ pub struct GoalSignalProfile {
     pub browser_hits: usize,
     pub command_hits: usize,
     pub explicit_url_hits: usize,
+    pub web_retrieval_forbidden_hits: usize,
     pub mailbox_domain_hits: usize,
     pub mailbox_personal_scope_hits: usize,
     pub mailbox_action_hits: usize,
@@ -357,6 +369,9 @@ impl GoalSignalProfile {
 
     pub fn prefers_live_external_research(&self) -> bool {
         if self.prefers_mailbox_connector_flow() {
+            return false;
+        }
+        if self.web_retrieval_forbidden_hits > 0 {
             return false;
         }
         if self.workspace_dominant() {
@@ -433,6 +448,7 @@ pub fn analyze_goal_signals(goal: &str) -> GoalSignalProfile {
         browser_hits: marker_hits(&padded_goal, &BROWSER_MARKERS),
         command_hits: marker_hits(&padded_goal, &COMMAND_MARKERS),
         explicit_url_hits: marker_hits(&padded_goal, &["http://", "https://"]),
+        web_retrieval_forbidden_hits: marker_hits(&padded_goal, &WEB_RETRIEVAL_FORBIDDEN_MARKERS),
         mailbox_domain_hits: marker_hits(&padded_goal, &MAILBOX_DOMAIN_MARKERS),
         mailbox_personal_scope_hits: marker_hits(&padded_goal, &MAILBOX_PERSONAL_SCOPE_MARKERS),
         mailbox_action_hits: marker_hits(&padded_goal, &MAILBOX_ACTION_MARKERS),

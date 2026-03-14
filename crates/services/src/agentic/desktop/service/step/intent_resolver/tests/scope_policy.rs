@@ -238,6 +238,15 @@ fn ui_interaction_scope_allows_browser_safe_followups() {
         Some(&state),
         "browser__type"
     ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "agent__complete"
+    ));
+    assert!(is_tool_allowed_for_resolution(Some(&state), "agent__pause"));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "agent__await_result"
+    ));
 }
 
 #[test]

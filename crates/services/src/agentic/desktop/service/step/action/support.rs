@@ -362,8 +362,7 @@ pub fn persist_step_contract_evidence(
 mod tests {
     use super::{
         action_fingerprint_execution_label, action_fingerprint_execution_step,
-        drop_legacy_action_fingerprint_receipt,
-        mark_action_fingerprint_executed_at_step,
+        drop_legacy_action_fingerprint_receipt, mark_action_fingerprint_executed_at_step,
     };
     use crate::agentic::desktop::types::ToolCallStatus;
     use std::collections::BTreeMap;

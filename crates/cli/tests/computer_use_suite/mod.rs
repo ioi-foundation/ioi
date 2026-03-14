@@ -1,5 +1,7 @@
 pub(crate) mod harness;
 pub(crate) mod judge;
+#[path = "../live_inference_support.rs"]
+pub(crate) mod live_inference_support;
 pub(crate) mod tasks;
 pub(crate) mod types;
 pub(crate) mod workflow_backend;
@@ -11,7 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use judge::judge_case;
 use tasks::{cases_for_task_set, validate_case_catalog};
-use types::{ComputerUseMode, SuiteConfig, SuiteSummary, TaskSet};
+use types::{AgentBackend, ComputerUseMode, SuiteConfig, SuiteSummary, TaskSet};
 
 fn parse_modes(raw: &str) -> Result<Vec<ComputerUseMode>> {
     let normalized = raw.trim().to_ascii_lowercase();
@@ -65,6 +67,19 @@ fn parse_task_set(raw: &str) -> Result<TaskSet> {
     }
 }
 
+fn parse_agent_backend(raw: &str) -> Result<AgentBackend> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "" | "deterministic_miniwob" | "deterministic" => {
+            Ok(AgentBackend::DeterministicMiniwob)
+        }
+        "live_http" | "http" | "live" => Ok(AgentBackend::LiveHttp),
+        other => Err(anyhow!(
+            "invalid COMPUTER_USE_SUITE_AGENT_BACKEND value '{}'; expected deterministic_miniwob|live_http",
+            other
+        )),
+    }
+}
+
 fn default_artifact_root() -> PathBuf {
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -90,8 +105,14 @@ fn configured_case_filter() -> Option<Vec<String>> {
 }
 
 pub fn config_from_env() -> Result<SuiteConfig> {
+    live_inference_support::load_env_from_workspace_dotenv_if_present();
+
     let modes =
         parse_modes(&env::var("COMPUTER_USE_SUITE_MODE").unwrap_or_else(|_| "all".to_string()))?;
+    let agent_backend = parse_agent_backend(
+        &env::var("COMPUTER_USE_SUITE_AGENT_BACKEND")
+            .unwrap_or_else(|_| "deterministic_miniwob".to_string()),
+    )?;
     let task_set = parse_task_set(
         &env::var("COMPUTER_USE_SUITE_TASK_SET").unwrap_or_else(|_| "smoke".to_string()),
     )?;
@@ -119,6 +140,7 @@ pub fn config_from_env() -> Result<SuiteConfig> {
 
     Ok(SuiteConfig {
         modes,
+        agent_backend,
         task_set,
         case_filter: configured_case_filter(),
         max_cases,
@@ -211,4 +233,31 @@ pub async fn run_computer_use_suite(config: SuiteConfig) -> Result<Vec<SuiteSumm
     }
 
     Ok(suite_summaries)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_agent_backend, AgentBackend};
+
+    #[test]
+    fn parse_agent_backend_accepts_live_http_aliases() {
+        assert_eq!(
+            parse_agent_backend("live_http").unwrap(),
+            AgentBackend::LiveHttp
+        );
+        assert_eq!(parse_agent_backend("HTTP").unwrap(), AgentBackend::LiveHttp);
+        assert_eq!(parse_agent_backend("live").unwrap(), AgentBackend::LiveHttp);
+    }
+
+    #[test]
+    fn parse_agent_backend_defaults_to_deterministic() {
+        assert_eq!(
+            parse_agent_backend("deterministic_miniwob").unwrap(),
+            AgentBackend::DeterministicMiniwob
+        );
+        assert_eq!(
+            parse_agent_backend("").unwrap(),
+            AgentBackend::DeterministicMiniwob
+        );
+    }
 }

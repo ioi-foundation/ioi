@@ -185,9 +185,8 @@ pub(super) fn handle_duplicate_command_execution(
             && tool.target() == ActionTarget::BrowserInteract
             && queue_browser_snapshot_verification(agent_state, session_id);
         if queued_browser_snapshot_verification {
-            summary.push_str(
-                " A browser__snapshot verification step has been queued automatically.",
-            );
+            summary
+                .push_str(" A browser__snapshot verification step has been queued automatically.");
         }
         mark_action_fingerprint_executed_at_step(
             &mut agent_state.tool_execution_log,
@@ -312,10 +311,7 @@ fn has_prior_successful_duplicate_action(
         .unwrap_or(false)
 }
 
-fn queue_browser_snapshot_verification(
-    agent_state: &mut AgentState,
-    session_id: [u8; 32],
-) -> bool {
+fn queue_browser_snapshot_verification(agent_state: &mut AgentState, session_id: [u8; 32]) -> bool {
     let request = ActionRequest {
         target: ActionTarget::BrowserInspect,
         params: match serde_jcs::to_vec(&json!({})) {
@@ -497,18 +493,33 @@ mod tests {
         );
 
         assert!(has_prior_successful_duplicate_action(&agent_state, "fp"));
-        assert!(has_prior_successful_duplicate_action(&agent_state, "fp-noop"));
-        assert!(!has_prior_successful_duplicate_action(&agent_state, "missing"));
+        assert!(has_prior_successful_duplicate_action(
+            &agent_state,
+            "fp-noop"
+        ));
+        assert!(!has_prior_successful_duplicate_action(
+            &agent_state,
+            "missing"
+        ));
     }
 
     #[test]
     fn browser_snapshot_verification_is_queued_once() {
         let mut agent_state = test_agent_state();
 
-        assert!(queue_browser_snapshot_verification(&mut agent_state, [7u8; 32]));
+        assert!(queue_browser_snapshot_verification(
+            &mut agent_state,
+            [7u8; 32]
+        ));
         assert_eq!(agent_state.execution_queue.len(), 1);
-        assert_eq!(agent_state.execution_queue[0].target, ActionTarget::BrowserInspect);
-        assert!(!queue_browser_snapshot_verification(&mut agent_state, [7u8; 32]));
+        assert_eq!(
+            agent_state.execution_queue[0].target,
+            ActionTarget::BrowserInspect
+        );
+        assert!(!queue_browser_snapshot_verification(
+            &mut agent_state,
+            [7u8; 32]
+        ));
         assert_eq!(agent_state.execution_queue.len(), 1);
     }
 }

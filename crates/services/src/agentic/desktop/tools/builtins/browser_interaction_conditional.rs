@@ -2,6 +2,19 @@
     // Browser Interaction (CONDITIONAL)
     // Follow-up browser tools are exposed in DOM headless flows and when a browser
     // window is active (including visual tiers) to prevent navigate-only loops.
+    let (browser_top_edge_jump_json, browser_bottom_edge_jump_json) = if cfg!(target_os = "macos")
+    {
+        (
+            r#"{"key":"ArrowUp","modifiers":["Meta"]}"#,
+            r#"{"key":"ArrowDown","modifiers":["Meta"]}"#,
+        )
+    } else {
+        (
+            r#"{"key":"Home","modifiers":["Control"]}"#,
+            r#"{"key":"End","modifiers":["Control"]}"#,
+        )
+    };
+
     if is_browser_active
         && tier == ExecutionTier::VisualBackground
         && is_tool_allowed_for_resolution(resolved_intent, "browser__synthetic_click")
@@ -147,15 +160,21 @@
                     "modifiers": {
                         "type": "array",
                         "items": { "type": "string" },
-                        "description": "Optional modifier keys to hold while pressing the key (for example: ['Control'], ['Meta', 'Shift'])."
+                        "description": format!(
+                            "Optional modifier keys to hold while pressing the key (for example: ['Control'], ['Meta', 'Shift']). For edge-jump chords, emit {} or {}.",
+                            browser_top_edge_jump_json,
+                            browser_bottom_edge_jump_json,
+                        )
                     }
                 },
                 "required": ["key"]
             });
             tools.push(LlmToolDefinition {
                 name: "browser__key".to_string(),
-                description: "Press a keyboard key or modifier-aware key chord in the browser via CDP. Works in headless mode."
-                    .to_string(),
+                description: format!(
+                    "Press a keyboard key or modifier-aware key chord in the browser via CDP. For chords, include both `key` and `modifiers`, for example {}. Works in headless mode.",
+                    browser_top_edge_jump_json,
+                ),
                 parameters: browser_key_params.to_string(),
             });
         }
@@ -283,13 +302,14 @@
             let browser_dropdown_options_params = json!({
                 "type": "object",
                 "properties": {
-                    "selector": { "type": "string", "description": "CSS selector for a native <select> element. Provide this or som_id." },
-                    "som_id": { "type": "integer", "description": "SoM ID for a native <select> element. Provide this or selector." }
+                    "id": { "type": "string", "description": "Semantic browser ID from browser__snapshot or the recent browser observation. Prefer this in headless browser mode." },
+                    "selector": { "type": "string", "description": "CSS selector for a native <select> element. Provide this, id, or som_id." },
+                    "som_id": { "type": "integer", "description": "Visual SoM ID for a native <select> element. Use this only when a screenshot/SoM view is present. Provide this, id, or selector." }
                 }
             });
             tools.push(LlmToolDefinition {
                 name: "browser__dropdown_options".to_string(),
-                description: "List options for a native <select> dropdown. Provide exactly one locator: selector or som_id; executor validates this contract."
+                description: "List options for a native <select> dropdown. Provide exactly one locator: id, selector, or som_id; executor validates this contract."
                     .to_string(),
                 parameters: browser_dropdown_options_params.to_string(),
             });
@@ -299,15 +319,16 @@
             let browser_select_dropdown_params = json!({
                 "type": "object",
                 "properties": {
-                    "selector": { "type": "string", "description": "CSS selector for a native <select> element. Provide this or som_id." },
-                    "som_id": { "type": "integer", "description": "SoM ID for a native <select> element. Provide this or selector." },
+                    "id": { "type": "string", "description": "Semantic browser ID from browser__snapshot or the recent browser observation. Prefer this in headless browser mode." },
+                    "selector": { "type": "string", "description": "CSS selector for a native <select> element. Provide this, id, or som_id." },
+                    "som_id": { "type": "integer", "description": "Visual SoM ID for a native <select> element. Use this only when a screenshot/SoM view is present. Provide this, id, or selector." },
                     "value": { "type": "string", "description": "Option value to select (exact match). Provide this or label." },
                     "label": { "type": "string", "description": "Visible option label to select (exact match). Provide this or value." }
                 }
             });
             tools.push(LlmToolDefinition {
                 name: "browser__select_dropdown".to_string(),
-                description: "Select an option in a native <select> dropdown. Provide exactly one locator (selector or som_id) and one selector target (value or label); executor validates this contract."
+                description: "Select an option in a native <select> dropdown. Provide exactly one locator (id, selector, or som_id) and one selector target (value or label); executor validates this contract."
                     .to_string(),
                 parameters: browser_select_dropdown_params.to_string(),
             });

@@ -550,6 +550,17 @@ pub(super) fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {
     vec![]
 }
 
+fn is_unconditional_resolution_tool(tool_name: &str) -> bool {
+    matches!(
+        tool_name,
+        "system__fail"
+            | "agent__complete"
+            | "agent__pause"
+            | "agent__await_result"
+            | "agent__await"
+    )
+}
+
 pub(super) fn policy_explicitly_blocks_target(rules: &ActionRules, target: &ActionTarget) -> bool {
     let canonical = target.canonical_label();
     rules.rules.iter().any(|rule| {
@@ -691,7 +702,7 @@ pub fn is_tool_allowed_for_resolution(
         return false;
     };
     let normalized = tool_name.trim().to_ascii_lowercase();
-    if normalized == "system__fail" {
+    if is_unconditional_resolution_tool(&normalized) {
         return true;
     }
     let tool_caps = tool_capabilities(tool_name);

@@ -154,7 +154,14 @@ fn head_clause_target(suffix: &str) -> &str {
             end = end.min(idx);
         }
     }
-    for marker in [" and ", " but ", " without ", " do not ", " don't ", " then "] {
+    for marker in [
+        " and ",
+        " but ",
+        " without ",
+        " do not ",
+        " don't ",
+        " then ",
+    ] {
         if let Some(idx) = lower.find(marker) {
             end = end.min(idx);
         }
@@ -240,10 +247,9 @@ fn enrich_success_criterion_from_query(
     for (generic_suffix, enriched_suffix) in variants {
         if let Some(root) = lower.strip_suffix(generic_suffix) {
             let criterion_root_token = normalize_contract_token(root);
-            if let Some(target) = query_targets
-                .iter()
-                .find(|target| subject_matches_criterion(&target.subject_token, &criterion_root_token))
-            {
+            if let Some(target) = query_targets.iter().find(|target| {
+                subject_matches_criterion(&target.subject_token, &criterion_root_token)
+            }) {
                 let trimmed_root = &trimmed[..trimmed.len() - generic_suffix.len()];
                 return format!("{trimmed_root}{enriched_suffix}{}", target.target_token);
             }
@@ -381,7 +387,10 @@ mod tests {
             &mut contract,
         );
 
-        assert_eq!(contract.success_criteria, vec!["status_text.updated_to_done"]);
+        assert_eq!(
+            contract.success_criteria,
+            vec!["status_text.updated_to_done"]
+        );
     }
 
     #[test]
@@ -393,7 +402,10 @@ mod tests {
             &mut contract,
         );
 
-        assert_eq!(contract.success_criteria, vec!["status_text.updated_to_done"]);
+        assert_eq!(
+            contract.success_criteria,
+            vec!["status_text.updated_to_done"]
+        );
     }
 
     #[test]
