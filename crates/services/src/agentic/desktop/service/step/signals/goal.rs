@@ -402,6 +402,9 @@ impl GoalSignalProfile {
     }
 
     pub fn prefers_mailbox_connector_flow(&self) -> bool {
+        if self.web_retrieval_forbidden_hits > 0 {
+            return false;
+        }
         let has_mailbox_domain = self.mailbox_domain_hits > 0;
         let has_personal_anchor = self.mailbox_personal_scope_hits > 0;
         let has_mailbox_action = self.mailbox_action_hits > 0;

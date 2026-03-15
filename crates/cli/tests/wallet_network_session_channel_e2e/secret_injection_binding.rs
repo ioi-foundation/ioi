@@ -7,7 +7,7 @@ async fn wallet_network_secret_injection_requires_attested_request_binding() -> 
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Admft")
+        .with_consensus_type("Convergent")
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_network_user_policy())
         .build()
@@ -88,8 +88,11 @@ async fn wallet_network_secret_injection_requires_attested_request_binding() -> 
                 measurement_hash: unique_id("wallet_network_secret_injection_measurement"),
                 guardian_ephemeral_public_key: vec![7, 7, 7],
                 nonce: attestation_nonce,
+                verifier_id: String::new(),
+                manifest_hash: [0u8; 32],
                 issued_at_ms: 4_099_999_999_000,
                 expires_at_ms: 4_200_000_000_000,
+                evidence: None,
             },
         };
         submit_wallet_call(

@@ -5,7 +5,12 @@ use serde::{Deserialize, Serialize};
 
 // Re-export core config types from the central `types` crate
 // to avoid circular dependencies and establish a single source of truth.
-pub use ioi_types::config::{ConsensusType, OrchestrationConfig, WorkloadConfig};
+use ioi_types::app::{GuardianProductionMode, KeyAuthorityDescriptor};
+pub use ioi_types::config::{
+    ConsensusType, ConvergentSafetyMode, GuardianCommitteeConfig, GuardianHardeningConfig,
+    GuardianTransparencyLogConfig, GuardianVerifierPolicyConfig, GuardianWitnessCommitteeConfig,
+    OrchestrationConfig, WorkloadConfig,
+};
 
 fn default_true() -> bool {
     true
@@ -16,6 +21,27 @@ fn default_true() -> bool {
 pub struct GuardianConfig {
     /// The policy defining which signature suite to use for container attestation.
     pub signature_policy: AttestationSignaturePolicy,
+    /// Deployment profile controlling fallback behavior.
+    #[serde(default)]
+    pub production_mode: GuardianProductionMode,
+    /// External signing / unwrap authority descriptor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_authority: Option<KeyAuthorityDescriptor>,
+    /// Threshold guardian committee configuration.
+    #[serde(default)]
+    pub committee: GuardianCommitteeConfig,
+    /// Research-only witness committees hosted by this guardian process.
+    #[serde(default)]
+    pub experimental_witness_committees: Vec<GuardianWitnessCommitteeConfig>,
+    /// Runtime hardening profile for guardian workers.
+    #[serde(default)]
+    pub hardening: GuardianHardeningConfig,
+    /// Transparency-log policy for guardian receipts and checkpoints.
+    #[serde(default)]
+    pub transparency_log: GuardianTransparencyLogConfig,
+    /// Attestation verifier policy.
+    #[serde(default)]
+    pub verifier_policy: GuardianVerifierPolicyConfig,
 
     /// Enforce that the orchestration and workload binaries match specific hashes.
     /// Defaults to TRUE for security.

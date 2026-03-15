@@ -4,13 +4,12 @@ use super::context::MainLoopContext;
 use super::{gossip, oracle, peer_management, sync as sync_handlers};
 use ioi_api::{
     commitment::CommitmentScheme,
-    consensus::ConsensusEngine,
+    consensus::{ConsensusControl, ConsensusEngine},
     crypto::{SerializableKey, SigningKeyPair},
     state::{StateManager, Verifier},
 };
 
 use ioi_networking::libp2p::{NetworkEvent, SwarmCommand}; // [FIX] Added SwarmCommand import
-use ioi_networking::traits::NodeState;
 use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
 use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
@@ -19,10 +18,9 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-// [NEW] Import verification logic and transition handler
-use crate::standard::orchestration::transition::execute_kill_switch;
-use ioi_consensus::admft::divergence::verify_divergence_proof;
-use ioi_types::app::PanicMessage;
+use crate::standard::orchestration::transition::execute_divergence_response;
+use ioi_consensus::convergent::guardian_majority::divergence::verify_divergence_proof;
+use ioi_types::config::ConvergentSafetyMode;
 
 pub async fn handle_network_event<CS, ST, CE, V>(
     event: NetworkEvent,
@@ -45,7 +43,7 @@ pub async fn handle_network_event<CS, ST, CE, V>(
         + Debug
         + Clone,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    CE: ConsensusEngine<ChainTransaction> + ConsensusControl + Send + Sync + 'static,
     V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
         + Clone
         + Send
@@ -89,18 +87,21 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             }
         }
         NetworkEvent::GossipBlock { block, mirror_id } => {
-            let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
+            let (is_quarantined, node_state) = {
+                let ctx = context_arc.lock().await;
+                let state = (
+                    ctx.is_quarantined.load(std::sync::atomic::Ordering::SeqCst),
+                    ctx.node_state.lock().await.clone(),
+                );
+                state
+            };
 
-            // [MODIFIED] Reject standard blocks if in Panic/Transition/Survival modes
-            if matches!(
-                node_state,
-                NodeState::Transitioning | NodeState::SurvivalMode
-            ) {
-                tracing::debug!(target: "gossip", "Block ignored: Node is in {:?} state.", node_state);
+            if is_quarantined {
+                tracing::debug!(target: "gossip", "Block ignored: node is quarantined.");
                 return;
             }
 
-            if node_state == NodeState::Syncing {
+            if matches!(node_state, ioi_networking::traits::NodeState::Syncing) {
                 tracing::debug!(
                     target: "gossip",
                     event = "block_ignored",
@@ -146,12 +147,12 @@ pub async fn handle_network_event<CS, ST, CE, V>(
         }
 
         NetworkEvent::ConsensusVoteReceived { vote, from } => {
-            // [MODIFIED] Ignore votes if panicked
-            let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
-            if matches!(
-                node_state,
-                NodeState::Transitioning | NodeState::SurvivalMode
-            ) {
+            let is_quarantined = context_arc
+                .lock()
+                .await
+                .is_quarantined
+                .load(std::sync::atomic::Ordering::SeqCst);
+            if is_quarantined {
                 return;
             }
 
@@ -181,12 +182,12 @@ pub async fn handle_network_event<CS, ST, CE, V>(
         }
 
         NetworkEvent::ViewChangeVoteReceived { vote, from } => {
-            // [MODIFIED] Ignore view changes if panicked
-            let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
-            if matches!(
-                node_state,
-                NodeState::Transitioning | NodeState::SurvivalMode
-            ) {
+            let is_quarantined = context_arc
+                .lock()
+                .await
+                .is_quarantined
+                .load(std::sync::atomic::Ordering::SeqCst);
+            if is_quarantined {
                 return;
             }
 
@@ -214,45 +215,54 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             }
         }
 
-        // [NEW] Handle Protocol Apex Panic (Kill Switch)
         NetworkEvent::PanicReceived { panic, from } => {
-            tracing::warn!(target: "orchestration", "Received Panic Message from peer {}", from);
+            tracing::warn!(
+                target: "orchestration",
+                "Received divergence alert from peer {}",
+                from
+            );
 
-            // 1. Verify Divergence Proof
             match verify_divergence_proof(&panic.proof) {
                 Ok(true) => {
-                    tracing::error!(target: "orchestration", "Panic Validated! Hardware Compromise Confirmed.");
+                    tracing::error!(
+                        target: "orchestration",
+                        "Divergence alert validated; quarantining local node and propagating evidence."
+                    );
 
-                    // 2. Trigger Kill Switch (Transition Node State)
-                    if let Err(e) = execute_kill_switch(context_arc, panic.proof.clone()).await {
-                        tracing::error!(target: "orchestration", "Failed to execute Kill Switch: {}", e);
+                    if let Err(e) =
+                        execute_divergence_response(context_arc, panic.proof.clone()).await
+                    {
+                        tracing::error!(
+                            target: "orchestration",
+                            "Failed to execute divergence response: {}",
+                            e
+                        );
                     }
 
-                    // 3. Re-gossip (Epidemic Propagation)
                     if let Ok(data) = codec::to_bytes_canonical(&panic) {
-                        // Must unlock context to get commander, but execute_kill_switch already used it.
-                        // We re-acquire briefly.
                         let swarm_sender = context_arc.lock().await.swarm_commander.clone();
                         let _ = swarm_sender.send(SwarmCommand::BroadcastPanic(data)).await;
                     }
                 }
                 Ok(false) => {
-                    tracing::warn!(target: "orchestration", "Panic invalid: Proof does not show divergence.");
+                    tracing::warn!(
+                        target: "orchestration",
+                        "Divergence alert invalid: proof does not show divergence."
+                    );
                 }
                 Err(e) => {
-                    tracing::warn!(target: "orchestration", "Panic malformed: {}", e);
+                    tracing::warn!(target: "orchestration", "Divergence alert malformed: {}", e);
                 }
             }
         }
 
-        // [NEW] Echo Handler
         NetworkEvent::EchoReceived { echo, from } => {
-            // [MODIFIED] Ignore echoes if panicked
-            let node_state = { context_arc.lock().await.node_state.lock().await.clone() };
-            if matches!(
-                node_state,
-                NodeState::Transitioning | NodeState::SurvivalMode
-            ) {
+            let is_quarantined = context_arc
+                .lock()
+                .await
+                .is_quarantined
+                .load(std::sync::atomic::Ordering::SeqCst);
+            if is_quarantined {
                 return;
             }
 
@@ -261,7 +271,6 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             // For now, assume engine handles internal gossip or we extend trait later.
         }
 
-        // [NEW] Handle A-PMFT Sample Request
         NetworkEvent::SampleRequestReceived {
             peer,
             height: _,
@@ -276,13 +285,16 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             };
 
             // We lock the engine via the Consensus wrapper helper
-            let mut engine = engine_ref.lock().await;
+            let engine = engine_ref.lock().await;
 
-            // This method `get_apmft_tip` is defined on the `Consensus` enum wrapper in `consensus/src/lib.rs`
-            // It safely downcasts/matches the internal engine variant.
-            // If the engine is A-DMFT, it returns None.
-            if let Some((block_hash, confidence)) = engine.get_apmft_tip() {
-                tracing::debug!(target: "apmft", "Replying to sample from {}: {:?} (C={})", peer, block_hash, confidence);
+            if let Some((block_hash, confidence)) = engine.experimental_sample_tip() {
+                tracing::debug!(
+                    target: "experimental_nested_guardian",
+                    "Replying to audit sample from {}: {:?} (C={})",
+                    peer,
+                    block_hash,
+                    confidence
+                );
                 let _ = swarm_sender
                     .send(SwarmCommand::SendSampleResponse {
                         channel,
@@ -293,7 +305,6 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             }
         }
 
-        // [NEW] Handle A-PMFT Sample Response
         NetworkEvent::SampleResponseReceived {
             peer,
             block_hash,
@@ -302,9 +313,33 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             let engine_ref = context_arc.lock().await.consensus_engine_ref.clone();
             let mut engine = engine_ref.lock().await;
 
-            // Feed sample back to engine
-            tracing::debug!(target: "apmft", "Sample received from {}: {:?} (C={})", peer, block_hash, confidence);
-            engine.feed_apmft_sample(block_hash);
+            tracing::debug!(
+                target: "experimental_nested_guardian",
+                "Audit sample received from {}: {:?} (C={})",
+                peer,
+                block_hash,
+                confidence
+            );
+            engine.observe_experimental_sample(block_hash);
+        }
+
+        NetworkEvent::ConfidenceVoteReceived(_vote) => {
+            let is_experimental = {
+                let ctx = context_arc.lock().await;
+                matches!(
+                    ctx.config.convergent_safety_mode,
+                    ConvergentSafetyMode::ExperimentalNestedGuardian
+                )
+            };
+
+            if !is_experimental {
+                return;
+            }
+
+            tracing::debug!(
+                target: "experimental_nested_guardian",
+                "Received research-only confidence gossip."
+            );
         }
 
         NetworkEvent::ConnectionEstablished(peer_id) => {

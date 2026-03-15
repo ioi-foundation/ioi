@@ -205,7 +205,7 @@ fn browser_fragment_scroll_target_summary(fragment: &str) -> Option<String> {
         .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
         .filter(|value| !value.is_empty());
 
-    let mut summary = format!("{tag_name}#{semantic_id}");
+    let mut summary = format!("{semantic_id} tag={tag_name}");
     if let Some(dom_id) = dom_id {
         summary.push_str(&format!(" dom_id={dom_id}"));
     }
@@ -232,7 +232,7 @@ fn extract_scroll_target_focus_hint(snapshot: &str) -> Option<String> {
 
     let summary = candidate?;
     Some(format!(
-        "Visible scroll target `{summary}` is already on the page. Focus it before `Home` or `End`; do not start with page-level edge keys."
+        "Visible scroll target `{summary}` is already on the page. If the goal requires interacting with that control, use control-local actions there; for scroll-specific keys like `Home` or `End`, focus that control instead of sending page-level edge keys."
     ))
 }
 
@@ -248,7 +248,46 @@ fn browser_fragment_tag_name(fragment: &str) -> Option<&str> {
     Some(&trimmed[..end])
 }
 
+fn browser_fragment_looks_like_instruction_context(fragment: &str, tag_name: &str) -> bool {
+    if !matches!(tag_name, "generic" | "group" | "presentation") {
+        return false;
+    }
+
+    let dom_id = extract_browser_xml_attr(fragment, "dom_id")
+        .map(|value| decode_browser_xml_text(&value).to_ascii_lowercase())
+        .unwrap_or_default();
+    let selector = extract_browser_xml_attr(fragment, "selector")
+        .map(|value| decode_browser_xml_text(&value).to_ascii_lowercase())
+        .unwrap_or_default();
+    let name = extract_browser_xml_attr(fragment, "name")
+        .map(|value| decode_browser_xml_text(&value).to_ascii_lowercase())
+        .unwrap_or_default();
+
+    let instruction_hint = [
+        "query",
+        "instruction",
+        "prompt",
+        "goal",
+        "task",
+        "directions",
+    ]
+    .iter()
+    .any(|hint| dom_id.contains(hint) || selector.contains(hint));
+    let wrapper_hint = matches!(dom_id.as_str(), "wrap" | "wrapper" | "container")
+        || selector.contains("[id=\"wrap\"]")
+        || selector.contains("[id=\"wrapper\"]");
+    let imperative_name = ["find ", "click ", "select ", "choose ", "enter ", "type "]
+        .iter()
+        .any(|prefix| name.starts_with(prefix));
+
+    instruction_hint || wrapper_hint || imperative_name
+}
+
 fn browser_fragment_priority_score(fragment: &str, tag_name: &str) -> Option<u8> {
+    if browser_fragment_looks_like_instruction_context(fragment, tag_name) {
+        return None;
+    }
+
     let mut score = 0u8;
 
     if fragment.contains(" dom_id=\"") {
@@ -256,6 +295,9 @@ fn browser_fragment_priority_score(fragment: &str, tag_name: &str) -> Option<u8>
     }
     if fragment.contains(" selector=\"") {
         score = score.saturating_add(2);
+    }
+    if fragment.contains(" dom_clickable=\"true\"") {
+        score = score.saturating_add(6);
     }
     if matches!(
         tag_name,
@@ -303,11 +345,14 @@ fn browser_fragment_priority_summary(fragment: &str) -> Option<(String, u8, Stri
     let selector = extract_browser_xml_attr(fragment, "selector")
         .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
         .filter(|value| !value.is_empty());
+    let class_name = extract_browser_xml_attr(fragment, "class_name")
+        .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+        .filter(|value| !value.is_empty());
     let context = extract_browser_xml_attr(fragment, "context")
         .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
         .filter(|value| !value.is_empty());
 
-    let mut summary = format!("{tag_name}#{id}");
+    let mut summary = format!("{id} tag={tag_name}");
     if let Some(name) = name {
         summary.push_str(&format!(" name={}", name));
     }
@@ -317,8 +362,14 @@ fn browser_fragment_priority_summary(fragment: &str) -> Option<(String, u8, Stri
     if let Some(selector) = selector {
         summary.push_str(&format!(" selector={}", selector));
     }
+    if let Some(class_name) = class_name {
+        summary.push_str(&format!(" class_name={}", class_name));
+    }
     if let Some(context) = context {
         summary.push_str(&format!(" context={}", context));
+    }
+    if fragment.contains(" dom_clickable=\"true\"") {
+        summary.push_str(" dom_clickable=true");
     }
     if fragment.contains(" omitted=\"true\"") {
         summary.push_str(" omitted");
@@ -327,7 +378,29 @@ fn browser_fragment_priority_summary(fragment: &str) -> Option<(String, u8, Stri
     Some((id, score, summary))
 }
 
+fn compact_priority_target_looks_like_instruction_context(summary: &str) -> bool {
+    let lower = summary.to_ascii_lowercase();
+    lower.contains(" dom_id=query")
+        || lower.contains(" selector=[id=\"query\"]")
+        || lower.contains(" dom_id=instruction")
+        || lower.contains(" dom_id=prompt")
+        || lower.contains(" dom_id=goal")
+        || lower.contains(" dom_id=task")
+        || lower.contains(" dom_id=wrap")
+        || lower.contains(" selector=[id=\"wrap\"]")
+        || lower.contains(" name=find ")
+        || lower.contains(" name=click ")
+        || lower.contains(" name=select ")
+        || lower.contains(" name=choose ")
+        || lower.contains(" name=enter ")
+        || lower.contains(" name=type ")
+}
+
 fn compact_priority_target_score(summary: &str) -> Option<u8> {
+    if compact_priority_target_looks_like_instruction_context(summary) {
+        return None;
+    }
+
     let tag_name = priority_target_tag(summary)?;
     let mut score = 0u8;
 
@@ -336,6 +409,9 @@ fn compact_priority_target_score(summary: &str) -> Option<u8> {
     }
     if summary.contains(" selector=") {
         score = score.saturating_add(2);
+    }
+    if summary.contains(" dom_clickable=true") {
+        score = score.saturating_add(6);
     }
     if matches!(
         tag_name,
@@ -421,6 +497,16 @@ fn extract_priority_browser_targets(snapshot: &str, max_targets: usize) -> Vec<S
         .collect()
 }
 
+fn browser_snapshot_root_summary(snapshot: &str) -> Option<String> {
+    let trimmed = snapshot.trim();
+    let start = trimmed.find("<root")?;
+    let rest = &trimmed[start..];
+    let end = rest.find('>')?;
+    Some(compact_ws_for_prompt(&decode_browser_xml_text(
+        &rest[..=end],
+    )))
+}
+
 fn compact_browser_observation(snapshot: &str) -> String {
     let compact = compact_ws_for_prompt(snapshot.trim());
     if compact.chars().count() <= BROWSER_OBSERVATION_CONTEXT_MAX_CHARS {
@@ -432,14 +518,18 @@ fn compact_browser_observation(snapshot: &str) -> String {
         return safe_truncate(&compact, BROWSER_OBSERVATION_CONTEXT_MAX_CHARS);
     }
 
-    let suffix = format!(" IMPORTANT TARGETS: {}", priority_targets.join(" | "));
-    let suffix = safe_truncate(&suffix, BROWSER_OBSERVATION_CONTEXT_MAX_CHARS / 2);
-    let prefix_budget = BROWSER_OBSERVATION_CONTEXT_MAX_CHARS
-        .saturating_sub(suffix.chars().count() + 1)
-        .max(BROWSER_OBSERVATION_CONTEXT_MAX_CHARS / 3);
-    let prefix = safe_truncate(&compact, prefix_budget);
+    let root_summary =
+        browser_snapshot_root_summary(snapshot).unwrap_or_else(|| safe_truncate(&compact, 96));
+    let suffix_prefix = " IMPORTANT TARGETS: ";
+    let closing = " </root>";
+    let suffix_budget = BROWSER_OBSERVATION_CONTEXT_MAX_CHARS
+        .saturating_sub(
+            root_summary.chars().count() + suffix_prefix.chars().count() + closing.chars().count(),
+        )
+        .max(64);
+    let suffix = safe_truncate(&priority_targets.join(" | "), suffix_budget);
 
-    format!("{prefix} {suffix}")
+    format!("{root_summary}{suffix_prefix}{suffix}{closing}")
 }
 
 fn snapshot_lower_text(snapshot: &str) -> String {
@@ -486,7 +576,7 @@ fn browser_snapshot_pending_signal(snapshot: &str) -> Option<String> {
 
     if let Some(summary) = extract_scroll_target_focus_hint(snapshot) {
         return Some(format!(
-            "{} Focus that control first with `browser__click_element`, then use control-local keys instead of page-level `Home` or `End`.",
+            "{} If you need control-local scrolling, focus that control with `browser__click_element` or `browser__click` before sending `Home` or `End`; otherwise continue with the next required visible control.",
             summary
         ));
     }
@@ -757,15 +847,26 @@ fn recent_goal_mentions_submit(history: &[ChatMessage]) -> bool {
 
 fn priority_target_semantic_id(summary: &str) -> Option<&str> {
     let token = summary.split_whitespace().next()?;
-    token.split_once('#').map(|(_, value)| value)
+    if let Some(value) = token.strip_prefix("id=") {
+        return Some(value);
+    }
+    token
+        .split_once('#')
+        .map(|(_, value)| value)
+        .or(Some(token))
 }
 
 fn priority_target_tag(summary: &str) -> Option<&str> {
     summary
         .split_whitespace()
-        .next()?
-        .split_once('#')
-        .map(|(tag, _)| tag)
+        .find_map(|token| token.strip_prefix("tag="))
+        .or_else(|| {
+            summary
+                .split_whitespace()
+                .next()?
+                .split_once('#')
+                .map(|(tag, _)| tag)
+        })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -867,6 +968,40 @@ fn recent_successful_click_has_post_action_observation(
         && recent_successful_click_semantic_id(history).as_deref() == Some(semantic_id)
 }
 
+fn tree_change_link_reverification_pending_signal(history: &[ChatMessage]) -> Option<String> {
+    let latest_snapshot_idx = history
+        .iter()
+        .rposition(|message| browser_snapshot_payload(message).is_some());
+    let search_start = latest_snapshot_idx.map_or(0, |idx| idx + 1);
+
+    let clicked_id = history[search_start..].iter().rev().find_map(|message| {
+        if message.role != "tool" {
+            return None;
+        }
+
+        let compact = compact_ws_for_prompt(&message.content);
+        let has_click_postcondition_success = (compact.contains("\"postcondition\":{")
+            && compact.contains("\"met\":true"))
+            || compact.contains("\"postcondition_met\":true");
+        if !has_click_postcondition_success
+            || !compact.contains("Clicked element")
+            || !compact.contains("\"tree_changed\":true")
+            || compact.contains("\"url_changed\":true")
+        {
+            return None;
+        }
+
+        let clicked_id = clicked_element_semantic_id(message)?;
+        let link_like = clicked_id.to_ascii_lowercase().starts_with("lnk_")
+            || compact.contains(r#""tag_name":"a""#);
+        link_like.then_some(clicked_id)
+    })?;
+
+    Some(format!(
+        "A recent click on `{clicked_id}` already changed the page state (`tree_changed=true`). Do not click `{clicked_id}` again or act on stale controls from the previous browser observation. Use `browser__snapshot` once now to ground the updated page before taking the next action."
+    ))
+}
+
 fn semantic_id_is_submit_like(semantic_id: &str) -> bool {
     let lower = semantic_id.to_ascii_lowercase();
     lower.contains("submit") || lower.contains("subbtn")
@@ -875,7 +1010,12 @@ fn semantic_id_is_submit_like(semantic_id: &str) -> bool {
 fn snapshot_contains_semantic_id(snapshot: &str, semantic_id: &str) -> bool {
     let semantic_id_attr = format!(r#"id="{}""#, semantic_id);
     let compact_summary = format!("#{semantic_id}");
-    snapshot.contains(&semantic_id_attr) || snapshot.contains(&compact_summary)
+    let compact_summary_raw = format!("{semantic_id} tag=");
+    let compact_summary_attr = format!("id={semantic_id}");
+    snapshot.contains(&semantic_id_attr)
+        || snapshot.contains(&compact_summary)
+        || snapshot.contains(&compact_summary_raw)
+        || snapshot.contains(&compact_summary_attr)
 }
 
 fn recent_confirmation_queue_return(history: &[ChatMessage]) -> bool {
@@ -995,6 +1135,12 @@ struct RecentAutocompleteToolState {
     selector: Option<String>,
     value: Option<String>,
     has_active_candidate: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct RecentFindTextState {
+    query: String,
+    first_snippet: Option<String>,
 }
 
 fn snapshot_link_states(snapshot: &str) -> Vec<SnapshotLinkState> {
@@ -1352,6 +1498,40 @@ fn recent_autocomplete_tool_state(history: &[ChatMessage]) -> Option<RecentAutoc
     history.iter().rev().find_map(autocomplete_tool_state)
 }
 
+fn recent_find_text_state(history: &[ChatMessage]) -> Option<RecentFindTextState> {
+    history.iter().rev().find_map(|message| {
+        if message.role != "tool" {
+            return None;
+        }
+
+        let payload = parse_json_value_from_message(&message.content)?;
+        let query = payload
+            .get("query")
+            .and_then(Value::as_str)
+            .map(compact_ws_for_prompt)
+            .filter(|value| !value.is_empty())?;
+        let result = payload.get("result")?;
+        if !result
+            .get("found")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            return None;
+        }
+
+        let first_snippet = result
+            .get("first_snippet")
+            .and_then(Value::as_str)
+            .map(compact_ws_for_prompt)
+            .filter(|value| !value.is_empty());
+
+        Some(RecentFindTextState {
+            query,
+            first_snippet,
+        })
+    })
+}
+
 fn autocomplete_hint_signals_single_result(hint: &str) -> bool {
     let lower = hint.to_ascii_lowercase();
     lower.contains("1 result is available")
@@ -1696,24 +1876,30 @@ fn snapshot_visible_pagination_links(snapshot: &str) -> Vec<SnapshotLinkState> {
 
 fn snapshot_pagination_link_for_page(snapshot: &str, page: usize) -> Option<SnapshotLinkState> {
     let page_label = page.to_string();
-    snapshot_visible_pagination_links(snapshot).into_iter().find(|link| {
-        link.name
-            .as_deref()
-            .is_some_and(|name| normalized_exact_target_text(name) == page_label)
-    })
+    snapshot_visible_pagination_links(snapshot)
+        .into_iter()
+        .find(|link| {
+            link.name
+                .as_deref()
+                .is_some_and(|name| normalized_exact_target_text(name) == page_label)
+        })
 }
 
 fn pagination_name_is_previous_like(name: &str) -> bool {
-    matches!(compact_ws_for_prompt(name).trim(), "<" | "<<" | "&lt;" | "&lt;&lt;")
-        || matches!(
-            normalized_exact_target_text(name).as_str(),
-            "previous" | "prev"
-        )
+    matches!(
+        compact_ws_for_prompt(name).trim(),
+        "<" | "<<" | "&lt;" | "&lt;&lt;"
+    ) || matches!(
+        normalized_exact_target_text(name).as_str(),
+        "previous" | "prev"
+    )
 }
 
 fn pagination_name_is_next_like(name: &str) -> bool {
-    matches!(compact_ws_for_prompt(name).trim(), ">" | ">>" | "&gt;" | "&gt;&gt;")
-        || matches!(normalized_exact_target_text(name).as_str(), "next")
+    matches!(
+        compact_ws_for_prompt(name).trim(),
+        ">" | ">>" | "&gt;" | "&gt;&gt;"
+    ) || matches!(normalized_exact_target_text(name).as_str(), "next")
 }
 
 fn snapshot_current_pagination_page(snapshot: &str) -> Option<usize> {
@@ -1751,10 +1937,37 @@ fn snapshot_current_pagination_page(snapshot: &str) -> Option<usize> {
 }
 
 fn snapshot_next_pagination_link(snapshot: &str) -> Option<SnapshotLinkState> {
-    snapshot_visible_pagination_links(snapshot).into_iter().find(|link| {
-        link.name
-            .as_deref()
-            .is_some_and(pagination_name_is_next_like)
+    snapshot_visible_pagination_links(snapshot)
+        .into_iter()
+        .find(|link| {
+            link.name
+                .as_deref()
+                .is_some_and(pagination_name_is_next_like)
+        })
+}
+
+fn snapshot_forward_pagination_link(snapshot: &str) -> Option<SnapshotLinkState> {
+    snapshot_next_pagination_link(snapshot).or_else(|| {
+        let current_page = snapshot_current_pagination_page(snapshot).unwrap_or(0);
+        let mut numeric_links = snapshot_visible_pagination_links(snapshot)
+            .into_iter()
+            .filter_map(|link| {
+                let page = link
+                    .name
+                    .as_deref()
+                    .and_then(|name| normalized_exact_target_text(name).parse::<usize>().ok())?;
+                Some((page, link))
+            })
+            .collect::<Vec<_>>();
+        numeric_links.sort_by(|(left_page, left_link), (right_page, right_link)| {
+            left_page
+                .cmp(right_page)
+                .then_with(|| left_link.semantic_id.cmp(&right_link.semantic_id))
+        });
+        numeric_links
+            .into_iter()
+            .find(|(page, _)| *page > current_page)
+            .map(|(_, link)| link)
     })
 }
 
@@ -1815,6 +2028,107 @@ fn recent_clicked_pagination_page_number(history: &[ChatMessage], snapshot: &str
 fn contains_ascii_case_insensitive(text: &str, needle: &str) -> bool {
     text.to_ascii_lowercase()
         .contains(&needle.to_ascii_lowercase())
+}
+
+fn instruction_like_attr_matches(value: &str) -> bool {
+    let lowered = value.to_ascii_lowercase();
+    lowered.contains("query") || lowered.contains("instruction") || lowered.contains("prompt")
+}
+
+fn snapshot_visible_instruction_query_target(
+    snapshot: &str,
+    query: &str,
+) -> Option<SnapshotVisibleTargetState> {
+    if query.trim().is_empty() {
+        return None;
+    }
+
+    let mut best_match: Option<(u8, usize, SnapshotVisibleTargetState)> = None;
+
+    for fragment in snapshot.split('<') {
+        if fragment.contains(r#" omitted="true""#) || fragment.contains(r#" visible="false""#) {
+            continue;
+        }
+
+        let Some(semantic_role) = browser_fragment_tag_name(fragment)
+            .map(str::to_string)
+            .filter(|role| !role.is_empty())
+        else {
+            continue;
+        };
+        let Some(semantic_id) = extract_browser_xml_attr(fragment, "id")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        let Some(name) = extract_browser_xml_attr(fragment, "name")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        if !contains_ascii_case_insensitive(&name, query) {
+            continue;
+        }
+
+        let dom_id = extract_browser_xml_attr(fragment, "dom_id")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)));
+        let selector = extract_browser_xml_attr(fragment, "selector")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)));
+        if !instruction_like_attr_matches(&semantic_id)
+            && !dom_id.as_deref().is_some_and(instruction_like_attr_matches)
+            && !selector
+                .as_deref()
+                .is_some_and(instruction_like_attr_matches)
+        {
+            continue;
+        }
+
+        let candidate = SnapshotVisibleTargetState {
+            semantic_id,
+            name: name.clone(),
+            semantic_role: semantic_role.clone(),
+        };
+        let candidate_score = visible_target_role_priority(&semantic_role);
+        let candidate_name_len = name.chars().count();
+
+        match best_match.as_ref() {
+            Some((best_score, best_len, best_candidate))
+                if *best_score > candidate_score
+                    || (*best_score == candidate_score
+                        && (*best_len < candidate_name_len
+                            || (*best_len == candidate_name_len
+                                && best_candidate.semantic_id <= candidate.semantic_id))) => {}
+            _ => best_match = Some((candidate_score, candidate_name_len, candidate)),
+        }
+    }
+
+    best_match.map(|(_, _, candidate)| candidate)
+}
+
+fn snapshot_primary_visible_heading(snapshot: &str) -> Option<SnapshotVisibleTargetState> {
+    snapshot.split('<').find_map(|fragment| {
+        if !fragment.trim_start().starts_with("heading ")
+            || fragment.contains(r#" omitted="true""#)
+            || fragment.contains(r#" visible="false""#)
+        {
+            return None;
+        }
+
+        let semantic_id = extract_browser_xml_attr(fragment, "id")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .filter(|value| !value.is_empty())?;
+        let name = extract_browser_xml_attr(fragment, "name")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .filter(|value| !value.is_empty())?;
+
+        Some(SnapshotVisibleTargetState {
+            semantic_id,
+            name,
+            semantic_role: "heading".to_string(),
+        })
+    })
 }
 
 fn recent_history_viewed_item_ids(history: &[ChatMessage]) -> Vec<String> {
@@ -3274,9 +3588,7 @@ fn reopened_draft_resume_pending_signal(
 ) -> Option<String> {
     let snapshot =
         current_snapshot.or_else(|| history.iter().rev().find_map(browser_snapshot_payload))?;
-    if !snapshot.contains(r#"id="btn_review_update""#)
-        && !snapshot.contains("button#btn_review_update")
-    {
+    if !snapshot_contains_semantic_id(snapshot, "btn_review_update") {
         return None;
     }
     if recent_successful_click_semantic_id(history).as_deref() != Some("btn_reopen_ticket") {
@@ -3335,9 +3647,12 @@ fn ranked_result_pending_signal(
         return None;
     }
 
-    let instruction_token =
-        snapshot_visible_exact_text_target(snapshot, &request.ordinal_text).filter(|target| {
-            matches!(target.semantic_role.as_str(), "generic" | "label" | "text" | "heading")
+    let instruction_token = snapshot_visible_exact_text_target(snapshot, &request.ordinal_text)
+        .filter(|target| {
+            matches!(
+                target.semantic_role.as_str(),
+                "generic" | "label" | "text" | "heading"
+            )
         })?;
     let repeated_submit_clause = recent_successful_click_semantic_id(history)
         .filter(|semantic_id| {
@@ -3352,9 +3667,7 @@ fn ranked_result_pending_signal(
             )
         })
         .map(|semantic_id| {
-            format!(
-                " The search results are already updated, so do not use `{semantic_id}` again."
-            )
+            format!(" The search results are already updated, so do not use `{semantic_id}` again.")
         })
         .unwrap_or_default();
     let results_per_page = visible_results.len();
@@ -3454,6 +3767,46 @@ fn ranked_result_pending_signal(
         recovery_clause,
         repeated_submit_clause,
     ))
+}
+
+fn instruction_only_find_text_pagination_pending_signal(
+    history: &[ChatMessage],
+    current_snapshot: Option<&str>,
+) -> Option<String> {
+    let snapshot =
+        current_snapshot.or_else(|| history.iter().rev().find_map(browser_snapshot_payload))?;
+    let recent_find = recent_find_text_state(history)?;
+    if recent_find
+        .first_snippet
+        .as_deref()
+        .is_some_and(|snippet| !contains_ascii_case_insensitive(snippet, &recent_find.query))
+    {
+        return None;
+    }
+    if snapshot_visible_exact_text_target(snapshot, &recent_find.query).is_some() {
+        return None;
+    }
+
+    let instruction_token =
+        snapshot_visible_instruction_query_target(snapshot, &recent_find.query)?;
+    let page_control = snapshot_forward_pagination_link(snapshot)?;
+    let current_heading = snapshot_primary_visible_heading(snapshot)
+        .filter(|heading| !contains_ascii_case_insensitive(&heading.name, &recent_find.query));
+
+    Some(match current_heading {
+        Some(heading) => format!(
+            "`{}` is not on the current record `{}`. Do not click this record's links. The only valid next `browser__click_element` id here is `{}`. Use it now. Do not invent ids or repeat `browser__find_text`.",
+            recent_find.query,
+            heading.name,
+            page_control.semantic_id,
+        ),
+        None => format!(
+            "Recent `browser__find_text` for `{}` matched instruction token `{}`, not the current record. The only valid next `browser__click_element` id here is `{}`. Use it now. Do not invent ids, repeat `browser__find_text`, or spend the next step on `browser__snapshot`.",
+            recent_find.query,
+            instruction_token.semantic_id,
+            page_control.semantic_id,
+        ),
+    })
 }
 
 fn alternate_tab_exploration_pending_signal(
@@ -3826,7 +4179,7 @@ fn browser_effect_pending_signal(message: &ChatMessage) -> Option<String> {
             || compact.contains("\"can_scroll_down\":true"))
         && compact.contains("Clicked element")
     {
-        return Some("A recent browser click already focused a scrollable control. Do not keep clicking the surrounding wrapper or container. If that focused control is the intended target, use a control-local key next, such as `Home`, `End`, `PageUp`, or `PageDown`, instead of repeating the click.".to_string());
+        return Some("A recent browser click already focused a scrollable control. Do not keep clicking the surrounding wrapper or container. If the goal is control-local scrolling or text selection in that control, continue there with a control-local action such as `browser__key` or `browser__select_text`; otherwise move to the next required visible control.".to_string());
     }
 
     None
@@ -4009,6 +4362,149 @@ pub(super) fn build_recent_command_history_context(
     section
 }
 
+fn is_browser_snapshot_no_effect_message(message: &ChatMessage) -> bool {
+    if message.role != "tool" {
+        return false;
+    }
+
+    let compact = compact_ws_for_prompt(&message.content);
+    compact.starts_with(BROWSER_SNAPSHOT_TOOL_PREFIX)
+        && compact.contains("ERROR_CLASS=NoEffectAfterAction")
+}
+
+fn is_browser_observation_refresh_message(message: &ChatMessage) -> bool {
+    if browser_snapshot_payload(message).is_some() {
+        return true;
+    }
+
+    if message.role != "tool" {
+        return false;
+    }
+
+    let compact = compact_ws_for_prompt(&message.content);
+    let has_success = (compact.contains("\"postcondition\":{") && compact.contains("\"met\":true"))
+        || compact.contains("\"postcondition_met\":true");
+    has_success && (compact.contains("browser__") || compact.contains("Clicked element"))
+}
+
+fn is_incident_follow_up_system_message(message: &ChatMessage) -> bool {
+    if message.role != "system" {
+        return false;
+    }
+
+    let compact = compact_ws_for_prompt(&message.content);
+    compact.starts_with("System: Remedy")
+        || compact.starts_with("System: Incident")
+        || compact.starts_with("System: Selected recovery action")
+}
+
+fn is_browser_context_echo_system_message(message: &ChatMessage) -> bool {
+    if message.role != "system" {
+        return false;
+    }
+
+    let compact = compact_ws_for_prompt(&message.content);
+    compact.starts_with("RECENT PENDING BROWSER STATE:")
+        || compact.starts_with("RECENT SUCCESS SIGNAL:")
+        || compact.starts_with("RECENT BROWSER OBSERVATION:")
+}
+
+fn explicit_pending_browser_state_context_message(message: &ChatMessage) -> Option<String> {
+    if message.role != "system" {
+        return None;
+    }
+
+    let compact = compact_ws_for_prompt(&message.content);
+    if !compact.starts_with("RECENT PENDING BROWSER STATE:") {
+        return None;
+    }
+
+    let content = message.content.trim();
+    (!content.is_empty()).then(|| content.to_string())
+}
+
+pub(crate) fn latest_recent_pending_browser_state_context(
+    history: &[ChatMessage],
+) -> Option<String> {
+    let idx = history
+        .iter()
+        .rposition(|message| explicit_pending_browser_state_context_message(message).is_some())?;
+    if history[idx + 1..]
+        .iter()
+        .any(is_browser_observation_refresh_message)
+    {
+        return None;
+    }
+
+    explicit_pending_browser_state_context_message(&history[idx])
+}
+
+fn filtered_recent_session_events<'a>(
+    history: &'a [ChatMessage],
+    prefer_browser_semantics: bool,
+) -> Vec<&'a ChatMessage> {
+    if !prefer_browser_semantics {
+        return history.iter().collect();
+    }
+
+    let mut suppressed = HashSet::new();
+
+    for (idx, message) in history.iter().enumerate() {
+        if !is_browser_snapshot_no_effect_message(message) {
+            continue;
+        }
+
+        if !history[idx + 1..]
+            .iter()
+            .any(is_browser_observation_refresh_message)
+        {
+            continue;
+        }
+
+        suppressed.insert(idx);
+        let mut follow_up_idx = idx + 1;
+        while follow_up_idx < history.len()
+            && is_incident_follow_up_system_message(&history[follow_up_idx])
+        {
+            suppressed.insert(follow_up_idx);
+            follow_up_idx += 1;
+        }
+    }
+
+    history
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, message)| {
+            if suppressed.contains(&idx) {
+                return None;
+            }
+
+            if is_browser_context_echo_system_message(message) {
+                return None;
+            }
+
+            if recent_unobserved_navigation_transition(history).is_none()
+                && browser_snapshot_payload(message).is_some()
+            {
+                return None;
+            }
+
+            Some(message)
+        })
+        .collect()
+}
+
+pub(super) fn build_recent_session_events_context(
+    history: &[ChatMessage],
+    prefer_browser_semantics: bool,
+) -> String {
+    filtered_recent_session_events(history, prefer_browser_semantics)
+        .into_iter()
+        .map(|message| format!("{}: {}", message.role, message.content))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 pub(super) fn build_recent_browser_observation_context(history: &[ChatMessage]) -> String {
     if recent_unobserved_navigation_transition(history).is_some() {
         return String::new();
@@ -4021,11 +4517,11 @@ pub(super) fn build_recent_browser_observation_context(history: &[ChatMessage]) 
     build_browser_observation_context_from_snapshot(observation)
 }
 
-pub(super) fn build_recent_pending_browser_state_context(history: &[ChatMessage]) -> String {
+pub(crate) fn build_recent_pending_browser_state_context(history: &[ChatMessage]) -> String {
     build_recent_pending_browser_state_context_with_snapshot(history, None)
 }
 
-pub(super) fn build_recent_pending_browser_state_context_with_snapshot(
+pub(crate) fn build_recent_pending_browser_state_context_with_snapshot(
     history: &[ChatMessage],
     current_snapshot: Option<&str>,
 ) -> String {
@@ -4039,8 +4535,10 @@ pub(super) fn build_recent_pending_browser_state_context_with_snapshot(
     let Some(signal) = navigation_signal
         .or_else(|| auth_form_pending_signal(history))
         .or_else(|| autocomplete_follow_up_pending_signal(history, current_snapshot))
+        .or_else(|| tree_change_link_reverification_pending_signal(history))
         .or_else(|| filter_mismatch_pending_signal(history, current_snapshot))
         .or_else(|| ranked_result_pending_signal(history, current_snapshot))
+        .or_else(|| instruction_only_find_text_pagination_pending_signal(history, current_snapshot))
         .or_else(|| visible_target_click_pending_signal(history, current_snapshot))
         .or_else(|| alternate_tab_exploration_pending_signal(history, current_snapshot))
         .or_else(|| stale_queue_reverification_pending_signal(history, current_snapshot))
@@ -4069,7 +4567,7 @@ pub(super) fn build_recent_pending_browser_state_context_with_snapshot(
     format!("RECENT PENDING BROWSER STATE:\n{}\n", compact_signal)
 }
 
-pub(super) fn build_recent_pending_browser_state_context_with_current_snapshot(
+pub(crate) fn build_recent_pending_browser_state_context_with_current_snapshot(
     history: &[ChatMessage],
     has_current_snapshot: bool,
 ) -> String {
@@ -4091,8 +4589,10 @@ pub(crate) fn build_browser_snapshot_pending_state_context_with_history(
 ) -> String {
     let Some(signal) = auth_form_pending_signal_from_snapshot(snapshot, history)
         .or_else(|| autocomplete_follow_up_pending_signal(history, Some(snapshot)))
+        .or_else(|| tree_change_link_reverification_pending_signal(history))
         .or_else(|| dropdown_filter_mismatch_pending_signal(snapshot, history))
         .or_else(|| ranked_result_pending_signal(history, Some(snapshot)))
+        .or_else(|| instruction_only_find_text_pagination_pending_signal(history, Some(snapshot)))
         .or_else(|| visible_target_click_pending_signal(history, Some(snapshot)))
         .or_else(|| alternate_tab_exploration_pending_signal(history, Some(snapshot)))
         .or_else(|| stale_queue_reverification_pending_signal(history, Some(snapshot)))
@@ -4134,8 +4634,10 @@ pub(super) fn build_recent_success_signal_context_with_snapshot(
     if navigation_signal.is_some()
         || auth_form_pending_signal(history).is_some()
         || autocomplete_follow_up_pending_signal(history, current_snapshot).is_some()
+        || tree_change_link_reverification_pending_signal(history).is_some()
         || filter_mismatch_pending_signal(history, current_snapshot).is_some()
         || ranked_result_pending_signal(history, current_snapshot).is_some()
+        || instruction_only_find_text_pagination_pending_signal(history, current_snapshot).is_some()
         || visible_target_click_pending_signal(history, current_snapshot).is_some()
         || alternate_tab_exploration_pending_signal(history, current_snapshot).is_some()
         || stale_queue_reverification_pending_signal(history, current_snapshot).is_some()
@@ -4187,8 +4689,9 @@ mod tests {
         build_recent_pending_browser_state_context,
         build_recent_pending_browser_state_context_with_current_snapshot,
         build_recent_pending_browser_state_context_with_snapshot,
-        build_recent_success_signal_context, build_recent_success_signal_context_with_snapshot,
-        extract_priority_browser_targets, recent_goal_primary_target,
+        build_recent_session_events_context, build_recent_success_signal_context,
+        build_recent_success_signal_context_with_snapshot, extract_priority_browser_targets,
+        latest_recent_pending_browser_state_context, recent_goal_primary_target,
         recent_history_return_item_id, top_edge_jump_call, BROWSER_OBSERVATION_CONTEXT_MAX_CHARS,
     };
     use ioi_types::app::agentic::ChatMessage;
@@ -4304,6 +4807,148 @@ mod tests {
     }
 
     #[test]
+    fn recent_session_events_context_suppresses_stale_snapshot_no_effect_after_later_tree_change() {
+        let history = vec![
+            chat_message(
+                "tool",
+                "Tool Output (browser__snapshot): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
+                1,
+            ),
+            chat_message(
+                "system",
+                "System: Remedy succeeded for incident 'abc'; queued root retry.",
+                2,
+            ),
+            chat_message(
+                "system",
+                "System: Incident 'abc' resolved after 1 transition(s).",
+                3,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'lnk_next' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                4,
+            ),
+        ];
+
+        let context = build_recent_session_events_context(&history, true);
+        assert!(!context.contains("duplicate replay guard"), "{context}");
+        assert!(!context.contains("queued root retry"), "{context}");
+        assert!(
+            !context.contains("resolved after 1 transition"),
+            "{context}"
+        );
+        assert!(context.contains("Clicked element 'lnk_next'"), "{context}");
+    }
+
+    #[test]
+    fn recent_session_events_context_keeps_snapshot_no_effect_without_later_refresh() {
+        let history = vec![
+            chat_message(
+                "tool",
+                "Tool Output (browser__snapshot): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
+                1,
+            ),
+            chat_message(
+                "system",
+                "System: Remedy succeeded for incident 'abc'; queued root retry.",
+                2,
+            ),
+        ];
+
+        let context = build_recent_session_events_context(&history, true);
+        assert!(context.contains("duplicate replay guard"), "{context}");
+        assert!(context.contains("queued root retry"), "{context}");
+    }
+
+    #[test]
+    fn recent_session_events_context_suppresses_browser_context_echoes_when_latest_snapshot_is_grounded(
+    ) {
+        let snapshot = r#"<root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_lauraine" name="Lauraine" rect="2,64,156,17" /></root>"#;
+        let history = vec![
+            chat_message(
+                "tool",
+                &format!("Tool Output (browser__snapshot): {snapshot}"),
+                1,
+            ),
+            chat_message(
+                "system",
+                "RECENT PENDING BROWSER STATE:\nUse `browser__snapshot` once now.\n",
+                2,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'lnk_443422' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                3,
+            ),
+        ];
+
+        let context = build_recent_session_events_context(&history, true);
+        assert!(
+            !context.contains("Tool Output (browser__snapshot)"),
+            "{context}"
+        );
+        assert!(
+            !context.contains("RECENT PENDING BROWSER STATE:"),
+            "{context}"
+        );
+        assert!(
+            context.contains("Clicked element 'lnk_443422'"),
+            "{context}"
+        );
+    }
+
+    #[test]
+    fn latest_recent_pending_browser_state_context_keeps_recent_explicit_context_without_refresh() {
+        let history = vec![
+            chat_message(
+                "system",
+                "RECENT PENDING BROWSER STATE:\nUse `browser__click_element` on `lnk_443422` now.\n",
+                1,
+            ),
+            chat_message(
+                "tool",
+                "Tool Output (browser__snapshot): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
+                2,
+            ),
+            chat_message(
+                "system",
+                "System: Selected recovery action `browser__wait`.",
+                3,
+            ),
+        ];
+
+        let pending = latest_recent_pending_browser_state_context(&history)
+            .expect("explicit pending browser state should remain available");
+        assert!(
+            pending.contains("RECENT PENDING BROWSER STATE:"),
+            "{pending}"
+        );
+        assert!(pending.contains("`lnk_443422`"), "{pending}");
+    }
+
+    #[test]
+    fn latest_recent_pending_browser_state_context_drops_stale_explicit_context_after_refresh() {
+        let history = vec![
+            chat_message(
+                "system",
+                "RECENT PENDING BROWSER STATE:\nUse `browser__click_element` on `lnk_443422` now.\n",
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'lnk_443422' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                2,
+            ),
+        ];
+
+        assert!(
+            latest_recent_pending_browser_state_context(&history).is_none(),
+            "explicit pending browser state should not survive a later browser refresh"
+        );
+    }
+
+    #[test]
     fn browser_observation_context_surfaces_visible_scroll_target_focus_hint() {
         let snapshot = concat!(
             "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
@@ -4314,9 +4959,10 @@ mod tests {
         let context = build_browser_observation_context_from_snapshot(snapshot);
         assert!(context.contains("ASSISTIVE BROWSER HINTS:"));
         assert!(context.contains(
-            "Visible scroll target `textbox#inp_lorem dom_id=text-area` is already on the page."
+            "Visible scroll target `inp_lorem tag=textbox dom_id=text-area` is already on the page."
         ));
-        assert!(context.contains("do not start with page-level edge keys"));
+        assert!(context.contains("If the goal requires interacting with that control"));
+        assert!(context.contains("page-level edge keys"));
     }
 
     #[test]
@@ -4328,7 +4974,7 @@ mod tests {
 
         let context = build_browser_observation_context_from_snapshot(&snapshot);
         assert!(context.contains("IMPORTANT TARGETS:"));
-        assert!(context.contains("link#lnk_t_215"));
+        assert!(context.contains("lnk_t_215 tag=link"));
         assert!(context.contains("ticket-link-t-215"));
     }
 
@@ -4365,7 +5011,10 @@ mod tests {
         assert!(context.contains("ticket-link-t-202"), "{context}");
         assert!(context.contains("ticket-link-t-204"), "{context}");
         assert!(context.contains("ticket-link-t-215"), "{context}");
-        assert!(!context.contains("generic#grp_row_noise_0"), "{context}");
+        assert!(
+            !context.contains("grp_row_noise_0 tag=generic"),
+            "{context}"
+        );
     }
 
     #[test]
@@ -4379,6 +5028,37 @@ mod tests {
         assert!(context.contains("ticket-link-t-204"), "{context}");
         assert!(
             context.contains("context=Unassigned / Awaiting Dispatch"),
+            "{context}"
+        );
+    }
+
+    #[test]
+    fn browser_observation_context_prioritizes_clickable_controls_over_instruction_copy() {
+        let snapshot = format!(
+            concat!(
+                "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+                "<generic id=\"grp_find_the_email_by_lonna\" name=\"Find the email by Lonna and click the trash icon.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
+                "<generic id=\"grp_lonna\" name=\"Lonna\" tag_name=\"span\" class_name=\"bold\" rect=\"82,3,30,11\" />",
+                "{}",
+                "<generic id=\"grp_email_row\" name=\"Lonna Cras. A dictumst. Ali..\" tag_name=\"div\" class_name=\"email-thread\" dom_clickable=\"true\" rect=\"2,112,140,39\" />",
+                "<generic id=\"grp_trash\" name=\"trash\" tag_name=\"span\" class_name=\"trash\" dom_clickable=\"true\" rect=\"117,119,12,12\" />",
+                "</root>"
+            ),
+            "<generic id=\"grp_noise\" name=\"alpha beta gamma delta\" rect=\"0,0,1,1\" /> ".repeat(200)
+        );
+
+        let context = build_browser_observation_context_from_snapshot(&snapshot);
+
+        assert!(context.contains("IMPORTANT TARGETS:"), "{context}");
+        assert!(context.contains("grp_email_row tag=generic"), "{context}");
+        assert!(context.contains("grp_trash tag=generic"), "{context}");
+        assert!(context.contains("dom_clickable=true"), "{context}");
+        assert!(
+            !context.contains("grp_find_the_email_by_lonna tag=generic"),
+            "{context}"
+        );
+        assert!(
+            !context.contains("grp_lonna tag=generic name=Lonna"),
             "{context}"
         );
     }
@@ -4569,7 +5249,7 @@ mod tests {
         let history = vec![
             chat_message(
                 "tool",
-                r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"> <generic id="grp_ticket_t_215" name="Ticket T-215" rect="0,0,1,1" /> IMPORTANT TARGETS: link#lnk_queue name=Queue dom_id=queue-link selector=[id="queue-link"] | combobox#inp_assign_team name=Assign team dom_id=assignee selector=[id="assignee"] | combobox#inp_awaiting_dispatch name=Awaiting Dispatch dom_id=status selector=[id="status"] | textbox#inp_dispatch_note name=Dispatch note dom_id=note selector=[id="note"] | button#btn_review_update name=Review update dom_id=review-update selector=[id="review-update"]</root>"#,
+                r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"> <generic id="grp_ticket_t_215" name="Ticket T-215" rect="0,0,1,1" /> IMPORTANT TARGETS: lnk_queue tag=link name=Queue dom_id=queue-link selector=[id="queue-link"] | inp_assign_team tag=combobox name=Assign team dom_id=assignee selector=[id="assignee"] | inp_awaiting_dispatch tag=combobox name=Awaiting Dispatch dom_id=status selector=[id="status"] | inp_dispatch_note tag=textbox name=Dispatch note dom_id=note selector=[id="note"] | btn_review_update tag=button name=Review update dom_id=review-update selector=[id="review-update"]</root>"#,
                 1,
             ),
             chat_message(
@@ -4590,24 +5270,24 @@ mod tests {
 
     #[test]
     fn priority_target_extraction_reads_compact_summary_targets() {
-        let snapshot = r#"<root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"> <generic id="grp_ticket_t_215" name="Ticket T-215" rect="0,0,1,1" /> IMPORTANT TARGETS: link#lnk_queue name=Queue dom_id=queue-link selector=[id="queue-link"] | combobox#inp_assign_team name=Assign team dom_id=assignee selector=[id="assignee"] | combobox#inp_awaiting_dispatch name=Awaiting Dispatch dom_id=status selector=[id="status"] | textbox#inp_dispatch_note name=Dispatch note dom_id=note selector=[id="note"] | button#btn_review_update name=Review update dom_id=review-update selector=[id="review-update"] | heading#heading_ticket_t_215 name=Ticket T-215 dom_id=ticket-title selector=[id="ticket-title"]</root>"#;
+        let snapshot = r#"<root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"> <generic id="grp_ticket_t_215" name="Ticket T-215" rect="0,0,1,1" /> IMPORTANT TARGETS: lnk_queue tag=link name=Queue dom_id=queue-link selector=[id="queue-link"] | inp_assign_team tag=combobox name=Assign team dom_id=assignee selector=[id="assignee"] | inp_awaiting_dispatch tag=combobox name=Awaiting Dispatch dom_id=status selector=[id="status"] | inp_dispatch_note tag=textbox name=Dispatch note dom_id=note selector=[id="note"] | btn_review_update tag=button name=Review update dom_id=review-update selector=[id="review-update"] | heading_ticket_t_215 tag=heading name=Ticket T-215 dom_id=ticket-title selector=[id="ticket-title"]</root>"#;
 
         let targets = extract_priority_browser_targets(snapshot, 8);
         assert!(targets
             .iter()
-            .any(|target| target.contains("link#lnk_queue")));
+            .any(|target| target.contains("lnk_queue tag=link")));
         assert!(targets
             .iter()
-            .any(|target| target.contains("combobox#inp_assign_team")));
+            .any(|target| target.contains("inp_assign_team tag=combobox")));
         assert!(targets
             .iter()
-            .any(|target| target.contains("combobox#inp_awaiting_dispatch")));
+            .any(|target| target.contains("inp_awaiting_dispatch tag=combobox")));
         assert!(targets
             .iter()
-            .any(|target| target.contains("textbox#inp_dispatch_note")));
+            .any(|target| target.contains("inp_dispatch_note tag=textbox")));
         assert!(targets
             .iter()
-            .any(|target| target.contains("button#btn_review_update")));
+            .any(|target| target.contains("btn_review_update tag=button")));
     }
 
     #[test]
@@ -5269,7 +5949,10 @@ mod tests {
 
         let context =
             build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(
+            context.contains("RECENT PENDING BROWSER STATE:"),
+            "{context}"
+        );
         assert!(context.contains("`grp_6th`"), "{context}");
         assert!(context.contains("not a search result"), "{context}");
         assert!(context.contains("Only 3 actual result links"), "{context}");
@@ -5307,7 +5990,10 @@ mod tests {
 
         let context =
             build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(
+            context.contains("RECENT PENDING BROWSER STATE:"),
+            "{context}"
+        );
         assert!(context.contains("`grp_6th`"), "{context}");
         assert!(context.contains("`lnk_result_6`"), "{context}");
         assert!(context.contains("not the result to click"), "{context}");
@@ -5343,7 +6029,10 @@ mod tests {
 
         let context =
             build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(
+            context.contains("RECENT PENDING BROWSER STATE:"),
+            "{context}"
+        );
         assert!(context.contains("Result 6 on this page"), "{context}");
         assert!(context.contains("`lnk_sergio`"), "{context}");
         assert!(!context.contains("`lnk_page_2`"), "{context}");
@@ -5382,16 +6071,182 @@ mod tests {
 
         let context =
             build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(
+            context.contains("RECENT PENDING BROWSER STATE:"),
+            "{context}"
+        );
         assert!(context.contains("Result 6 on this page"), "{context}");
         assert!(context.contains("`lnk_sergio`"), "{context}");
-        assert!(!context.contains("`lnk_2` (`2`) now to advance"), "{context}");
+        assert!(
+            !context.contains("`lnk_2` (`2`) now to advance"),
+            "{context}"
+        );
         assert!(context.contains("`browser__scroll`"), "{context}");
     }
 
     #[test]
-    fn pending_browser_state_context_resets_ranked_result_page_after_resubmit_returns_to_first_page()
-    {
+    fn pending_browser_state_context_guides_pagination_after_instruction_only_find_text_hit() {
+        let history = vec![
+            chat_message(
+                "user",
+                "Find Deena in the contact book and click on their address.",
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"{"query":"Deena","result":{"count":1,"first_snippet":"Find Deena in the contact book and click on their address.","found":true,"scope":"document","scrolled":true}}"#,
+                2,
+            ),
+        ];
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_find_deena_in_the_contact_book\" name=\"Find Deena in the contact book and click on their address.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
+            "<heading id=\"heading_karol\" name=\"Karol\" tag_name=\"h2\" rect=\"2,64,156,17\" />",
+            "<generic id=\"grp_address\" name=\"Address:\" tag_name=\"span\" rect=\"6,124,46,11\" />",
+            "<link id=\"lnk_5735_valdez_crescent\" name=\"5735 Valdez Crescent\" tag_name=\"a\" rect=\"52,124,98,11\" />",
+            "<generic id=\"grp_1\" name=\"1&gt;\" dom_id=\"pagination\" selector=\"[id=&quot;pagination&quot;]\" tag_name=\"ul\" rect=\"2,183,65,17\" />",
+            "<link id=\"lnk_1\" name=\"1\" tag_name=\"a\" rect=\"44,183,8,17\" />",
+            "<link id=\"lnk_443422\" name=\"&gt;\" tag_name=\"a\" rect=\"56,183,9,17\" />",
+            "</root>",
+        );
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+        assert!(
+            context.contains("RECENT PENDING BROWSER STATE:"),
+            "{context}"
+        );
+        assert!(context.contains("`Deena`"), "{context}");
+        assert!(context.contains("`Karol`"), "{context}");
+        assert!(
+            context.contains("Do not click this record's links"),
+            "{context}"
+        );
+        assert!(context.contains("`lnk_443422`"), "{context}");
+        assert!(context.contains("`browser__find_text`"), "{context}");
+        assert!(context.contains("Do not invent ids"), "{context}");
+    }
+
+    #[test]
+    fn pending_browser_state_context_suppresses_instruction_only_find_text_hint_once_target_is_visible(
+    ) {
+        let history = vec![
+            chat_message(
+                "user",
+                "Find Deena in the contact book and click on their address.",
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"{"query":"Deena","result":{"count":1,"first_snippet":"Find Deena in the contact book and click on their address.","found":true,"scope":"document","scrolled":true}}"#,
+                2,
+            ),
+        ];
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_find_deena_in_the_contact_book\" name=\"Find Deena in the contact book and click on their address.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
+            "<heading id=\"heading_deena\" name=\"Deena\" tag_name=\"h2\" rect=\"2,64,156,17\" />",
+            "<link id=\"lnk_19_townsend_road\" name=\"19 Townsend Road\" tag_name=\"a\" rect=\"52,124,98,11\" />",
+            "<generic id=\"grp_2\" name=\"2&gt;\" dom_id=\"pagination\" selector=\"[id=&quot;pagination&quot;]\" tag_name=\"ul\" rect=\"2,183,65,17\" />",
+            "<link id=\"lnk_2\" name=\"2\" tag_name=\"a\" rect=\"44,183,8,17\" />",
+            "<link id=\"lnk_443422\" name=\"&gt;\" tag_name=\"a\" rect=\"56,183,9,17\" />",
+            "</root>",
+        );
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+        assert!(context.is_empty(), "{context}");
+    }
+
+    #[test]
+    fn pending_browser_state_context_requests_snapshot_after_successful_tree_change_link_click_without_reobservation(
+    ) {
+        let snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_find_deena_in_the_contact_book\" name=\"Find Deena in the contact book and click on their address.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
+            "<heading id=\"heading_karol\" name=\"Karol\" tag_name=\"h2\" rect=\"2,64,156,17\" />",
+            "<link id=\"lnk_5735_valdez_crescent\" name=\"5735 Valdez Crescent\" tag_name=\"a\" rect=\"52,124,98,11\" />",
+            "<link id=\"lnk_443422\" name=\"&gt;\" tag_name=\"a\" rect=\"56,183,9,17\" />",
+            "</root>",
+        );
+        let history = vec![
+            chat_message(
+                "user",
+                "Find Deena in the contact book and click on their address.",
+                1,
+            ),
+            chat_message(
+                "tool",
+                &format!("Tool Output (browser__snapshot): {snapshot}"),
+                2,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'lnk_443422' via geometry fallback. verify={"post_target":{"semantic_id":"lnk_443422","tag_name":"a","center_point":[73.5,191.5]},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                3,
+            ),
+        ];
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+        assert!(
+            context.contains("RECENT PENDING BROWSER STATE:"),
+            "{context}"
+        );
+        assert!(context.contains("`lnk_443422`"), "{context}");
+        assert!(context.contains("`browser__snapshot`"), "{context}");
+        assert!(context.contains("stale controls"), "{context}");
+        assert!(
+            !context.contains("Do not click this record's links"),
+            "{context}"
+        );
+    }
+
+    #[test]
+    fn pending_browser_state_context_suppresses_tree_change_reverification_after_later_snapshot() {
+        let old_snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<heading id=\"heading_karol\" name=\"Karol\" tag_name=\"h2\" rect=\"2,64,156,17\" />",
+            "<link id=\"lnk_443422\" name=\"&gt;\" tag_name=\"a\" rect=\"56,183,9,17\" />",
+            "</root>",
+        );
+        let new_snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<heading id=\"heading_deena\" name=\"Deena\" tag_name=\"h2\" rect=\"2,64,156,17\" />",
+            "<link id=\"lnk_5159_middleton_crescent_apt_5\" name=\"5159 Middleton Crescent, Apt 5\" tag_name=\"a\" rect=\"6,124,115,22\" />",
+            "</root>",
+        );
+        let history = vec![
+            chat_message(
+                "user",
+                "Find Deena in the contact book and click on their address.",
+                1,
+            ),
+            chat_message(
+                "tool",
+                &format!("Tool Output (browser__snapshot): {old_snapshot}"),
+                2,
+            ),
+            chat_message(
+                "tool",
+                r#"Clicked element 'lnk_443422' via geometry fallback. verify={"post_target":{"semantic_id":"lnk_443422","tag_name":"a","center_point":[73.5,191.5]},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
+                3,
+            ),
+            chat_message(
+                "tool",
+                &format!("Tool Output (browser__snapshot): {new_snapshot}"),
+                4,
+            ),
+        ];
+
+        let context =
+            build_recent_pending_browser_state_context_with_snapshot(&history, Some(new_snapshot));
+        assert!(context.is_empty(), "{context}");
+    }
+
+    #[test]
+    fn pending_browser_state_context_resets_ranked_result_page_after_resubmit_returns_to_first_page(
+    ) {
         let history = vec![
             chat_message(
                 "user",
@@ -5430,7 +6285,10 @@ mod tests {
 
         let context =
             build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-        assert!(context.contains("RECENT PENDING BROWSER STATE:"), "{context}");
+        assert!(
+            context.contains("RECENT PENDING BROWSER STATE:"),
+            "{context}"
+        );
         assert!(context.contains("Only 3 actual result links"), "{context}");
         assert!(context.contains("ranks 1-3"), "{context}");
         assert!(context.contains("`lnk_2`"), "{context}");
@@ -5516,7 +6374,7 @@ mod tests {
             r#"Clicked element 'btn_sign_in' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/login","post_url":"http://127.0.0.1:40363/workflow/case/queue"}"#,
             1,
         )];
-        let snapshot = r#"<root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"> <generic id="grp_login_divide_queue" name="Login / Queue" rect="0,0,1,1" /> IMPORTANT TARGETS: link#lnk_history name=History dom_id=ticket-history-link-t-202 selector=[id="ticket-history-link-t-202"] | link#lnk_t_204 name=T-204 dom_id=ticket-link-t-204 selector=[id="ticket-link-t-204"] | link#lnk_history_4c23bd name=History dom_id=ticket-history-link-t-204 selector=[id="ticket-history-link-t-204"] | link#lnk_t_215 name=T-215 dom_id=ticket-link-t-215 selector=[id="ticket-link-t-215"]</root>"#;
+        let snapshot = r#"<root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"> <generic id="grp_login_divide_queue" name="Login / Queue" rect="0,0,1,1" /> IMPORTANT TARGETS: lnk_history tag=link name=History dom_id=ticket-history-link-t-202 selector=[id="ticket-history-link-t-202"] | lnk_t_204 tag=link name=T-204 dom_id=ticket-link-t-204 selector=[id="ticket-link-t-204"] | lnk_history_4c23bd tag=link name=History dom_id=ticket-history-link-t-204 selector=[id="ticket-history-link-t-204"] | lnk_t_215 tag=link name=T-215 dom_id=ticket-link-t-215 selector=[id="ticket-link-t-215"]</root>"#;
 
         let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
         assert!(context.contains("RECENT SUCCESS SIGNAL:"), "{context}");
@@ -6580,6 +7438,7 @@ mod tests {
         assert!(context.contains("page itself"));
         assert!(context.contains("focus that control first"));
         assert!(context.contains("browser__click_element"));
+        assert!(context.contains("otherwise continue with the next required visible control"));
     }
 
     #[test]
@@ -6594,8 +7453,8 @@ mod tests {
         assert!(context.contains("RECENT PENDING BROWSER STATE:"));
         assert!(context.contains("already focused a scrollable control"));
         assert!(context.contains("Do not keep clicking"));
-        assert!(context.contains("Home"));
-        assert!(context.contains("PageDown"));
+        assert!(context.contains("text selection"));
+        assert!(context.contains("browser__select_text"));
     }
 
     #[test]
@@ -6705,9 +7564,9 @@ mod tests {
         let context = build_browser_snapshot_pending_state_context(snapshot);
         assert!(context.contains("RECENT PENDING BROWSER STATE:"));
         assert!(context.contains(
-            "Visible scroll target `textbox#inp_lorem dom_id=text-area` is already on the page."
+            "Visible scroll target `inp_lorem tag=textbox dom_id=text-area` is already on the page."
         ));
         assert!(context.contains("browser__click_element"));
-        assert!(context.contains("page-level `Home` or `End`"));
+        assert!(context.contains("otherwise continue with the next required visible control"));
     }
 }

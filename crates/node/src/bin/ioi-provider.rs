@@ -60,6 +60,36 @@ struct ProviderOpts {
     model_dir: Option<PathBuf>,
 }
 
+fn ensure_guardianized_local_signer_allowed(config: &OrchestrationConfig) -> Result<()> {
+    let guardianized_mode = !matches!(
+        config.convergent_safety_mode,
+        ioi_types::config::ConvergentSafetyMode::ClassicBft
+    );
+    let production_mode = matches!(
+        config.guardian_production_mode,
+        ioi_types::app::GuardianProductionMode::Production
+    );
+    if production_mode
+        && matches!(
+            config
+                .key_authority
+                .as_ref()
+                .map(|descriptor| descriptor.kind),
+            Some(ioi_types::app::KeyAuthorityKind::DevMemory)
+        )
+    {
+        return Err(anyhow!(
+            "production guardian profile refuses dev-memory key authority"
+        ));
+    }
+    if guardianized_mode || production_mode {
+        return Err(anyhow!(
+            "guardianized or production mode requires external guardian signing; LocalSigner is disabled"
+        ));
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
@@ -92,7 +122,10 @@ async fn main() -> Result<()> {
             accelerator_type: "cpu-candle".to_string(), // Detect hardware in real implementation
             vram_capacity: 0,
         },
-        consensus_type: ConsensusType::Admft, // Follows chain consensus
+        consensus_type: ConsensusType::Convergent, // Follows chain consensus
+        convergent_safety_mode: Default::default(),
+        guardian_production_mode: Default::default(),
+        key_authority: None,
         rpc_listen_address: "0.0.0.0:8545".to_string(),
         rpc_hardening: Default::default(),
         initial_sync_timeout_secs: 5,
@@ -118,7 +151,7 @@ async fn main() -> Result<()> {
         runtimes: vec!["wasm".to_string()],
         state_tree: ioi_types::config::StateTreeType::IAVL,
         commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
-        consensus_type: ConsensusType::Admft,
+        consensus_type: ConsensusType::Convergent,
         genesis_file: opts
             .data_dir
             .join("genesis.json")
@@ -208,6 +241,7 @@ async fn main() -> Result<()> {
 
     let consensus_engine = engine_from_config(&config)?;
     let verifier = create_default_verifier(None);
+    ensure_guardianized_local_signer_allowed(&config)?;
 
     let sk_bytes = local_key.clone().try_into_ed25519()?.secret();
     let internal_sk = Ed25519PrivateKey::from_bytes(sk_bytes.as_ref())?;

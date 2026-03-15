@@ -14,7 +14,7 @@ ioi-types = { path = "../types" }
 ioi-state = { path = "../state" }
 ioi-tx = { path = "../tx" }
 ioi-services = { path = "../services" }
-ioi-consensus = { path = "../consensus", features = ["admft"] }
+ioi-consensus = { path = "../consensus", features = ["convergent"] }
 ioi-crypto = { path = "../crypto" }
 log = { workspace = true }
 tracing = { workspace = true }

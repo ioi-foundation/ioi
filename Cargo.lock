@@ -7721,6 +7721,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ioi-tee-driver"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "ioi-types",
+]
+
+[[package]]
 name = "ioi-telemetry"
 version = "0.1.0"
 dependencies = [
@@ -7797,6 +7806,9 @@ dependencies = [
  "env_logger",
  "futures",
  "hex",
+ "http-body-util",
+ "hyper 1.8.1",
+ "hyper-util",
  "ioi-api",
  "ioi-client",
  "ioi-consensus",

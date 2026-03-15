@@ -216,7 +216,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         )
     };
 
-    tracing::debug!(target: "admft", "Received block {} on Mirror {}", block.header.height, if mirror_id == 0 { "A" } else { "B" });
+    tracing::debug!(target: "convergent", "Received block {} on Mirror {}", block.header.height, if mirror_id == 0 { "A" } else { "B" });
 
     if let Err(e) = engine_ref
         .lock()

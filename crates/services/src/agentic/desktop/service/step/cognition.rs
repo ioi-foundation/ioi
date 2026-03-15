@@ -19,12 +19,17 @@ use crate::agentic::desktop::types::{AgentState, ExecutionTier, MAX_PROMPT_HISTO
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use capability::{mailbox_connector_instruction, preflight_missing_capability};
 use hex;
-pub(crate) use history::build_browser_snapshot_pending_state_context_with_history;
 use history::{
     build_browser_observation_context_from_snapshot, build_browser_snapshot_success_signal_context,
     build_recent_browser_observation_context, build_recent_command_history_context,
+    build_recent_session_events_context, build_recent_success_signal_context_with_snapshot,
+};
+pub(crate) use history::{
+    build_browser_snapshot_pending_state_context_with_history,
+    build_recent_pending_browser_state_context,
+    build_recent_pending_browser_state_context_with_current_snapshot,
     build_recent_pending_browser_state_context_with_snapshot,
-    build_recent_success_signal_context_with_snapshot,
+    latest_recent_pending_browser_state_context,
 };
 use image::GenericImageView;
 use inference::{cognition_inference_timeout, inference_error_system_fail_reason};
@@ -35,7 +40,9 @@ use ioi_types::app::agentic::{InferenceOptions, IntentScopeProfile, LlmToolDefin
 use ioi_types::error::TransactionError;
 use router::{determine_attention_mode, AttentionMode};
 use serde_json::json;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+const CURRENT_BROWSER_OBSERVATION_TIMEOUT: Duration = Duration::from_millis(1_500);
 
 pub struct CognitionResult {
     pub raw_output: String,
@@ -92,8 +99,31 @@ fn bottom_edge_jump_tool_call() -> &'static str {
     }
 }
 
-async fn current_browser_observation_snapshot(service: &DesktopAgentService) -> Option<String> {
-    let raw_tree = service.browser.get_accessibility_tree().await.ok()?;
+pub(crate) async fn current_browser_observation_snapshot(
+    service: &DesktopAgentService,
+) -> Option<String> {
+    let raw_tree = match tokio::time::timeout(
+        CURRENT_BROWSER_OBSERVATION_TIMEOUT,
+        service.browser.get_accessibility_tree(),
+    )
+    .await
+    {
+        Ok(Ok(tree)) => tree,
+        Ok(Err(err)) => {
+            log::warn!(
+                "Current browser observation fetch failed before timeout: {}",
+                err
+            );
+            return None;
+        }
+        Err(_) => {
+            log::warn!(
+                "Current browser observation fetch timed out after {:?}.",
+                CURRENT_BROWSER_OBSERVATION_TIMEOUT
+            );
+            return None;
+        }
+    };
     let lens = AutoLens;
     let transformed = lens.transform(&raw_tree).unwrap_or(raw_tree);
     Some(serialize_tree_to_xml(&transformed, 0))
@@ -183,17 +213,18 @@ fn build_operating_rules(prefer_browser_semantics: bool) -> String {
             "OPERATING RULES:\n\
 1. Use the least-privileged browser tool that works.\n\
 2. Output EXACTLY ONE valid JSON tool call.\n\
-3. Prefer `browser__snapshot` for semantic state unless RECENT BROWSER OBSERVATION already contains the target semantic id or label.\n\
+3. Prefer `browser__snapshot` for semantic state unless RECENT BROWSER OBSERVATION already contains the target semantic id or label. Only use `browser__click_element` ids that appear verbatim in RECENT BROWSER OBSERVATION or RECENT PENDING BROWSER STATE; never synthesize ids from requested names, guessed headings, or tool-inferred labels. If a target summary is shown as `<raw_id> tag=...`, the click id is the leading raw token `<raw_id>` only.\n\
 4. Prefer `browser__click_element` over GUI or desktop-wide input for page content.\n\
 5. Verify success with browser observation before `agent__complete`.\n\
 6. If RECENT SUCCESS SIGNAL says a submit already turned over the page and the prior target / selected control are gone, treat the current browser observation as sufficient verification. Do not interact with the newly visible page; call `agent__complete`.\n\
-7. If RECENT PENDING BROWSER STATE or tool output indicates unresolved autocomplete, listbox, or combobox follow-up, do not submit or finish yet. First resolve the widget explicitly with updated browser state or `browser__key`. If a recent `browser__key` result still carries autocomplete state, that key did not resolve the widget. If a navigation key highlighted a candidate, press `browser__key` `Enter` to commit it before submitting. If RECENT PENDING BROWSER STATE already names a visible control and concrete next tool action, do not spend the next step on `browser__snapshot` or `browser__scroll`; act on that named control first and snapshot only after that action changes state or the control disappears.\n\
+7. If RECENT PENDING BROWSER STATE or tool output indicates unresolved autocomplete, listbox, or combobox follow-up, do not submit or finish yet. First resolve the widget explicitly with updated browser state or `browser__key`. If a recent `browser__key` result still carries autocomplete state, that key did not resolve the widget. If a navigation key highlighted a candidate, press `browser__key` `Enter` to commit it before submitting. If RECENT PENDING BROWSER STATE already names a visible control and concrete next tool action, do not spend the next step on `browser__snapshot` or `browser__scroll`; act on that named control first and snapshot only after that action changes state or the control disappears. If `browser__find_text` matched only instruction or query text, treat that as navigation evidence, not proof that the target record or item is visible; do not click current-record links until the target label or the grounded next navigation control is visible in RECENT BROWSER OBSERVATION. If a requested name appears both in page instructions and in the working area, the instruction copy is descriptive only; do not click the instruction/query token when the actual row, item, or action control is visible.\n\
 8. When using `browser__key` for a modifier chord, include both `key` and `modifiers` in the JSON tool call. For example, use `{}` for the top-edge jump and `{}` for the bottom-edge jump.\n\
 9. When the goal is to scroll a specific control (for example a textarea, listbox, or nested scroll region), verify that control's scroll state first. If RECENT BROWSER OBSERVATION already exposes the intended scrollable control, focus that control first and do not start with page-level `Home` or `End` on `body`. Prefer control-local keys like `Home`, `End`, `PageUp`, or `PageDown` over repeating blind page-level wheel scrolls. For edge-directed tasks, the control is not done until grounded state shows it cannot scroll farther in the requested direction (for example `can_scroll_up=false`, `scroll_top=0`, or `can_scroll_down=false`). Do not submit or finish while that control still reports more movement in the required direction. If `Home` leaves `can_scroll_up=true`, do not call `Home` again; if grounded `scroll_top` is still far from `0`, jump straight to {} instead of spending another step on `PageUp`, otherwise use `PageUp` or {}. If repeated `PageUp` still leaves `can_scroll_up=true` and the goal is the top edge, escalate with `{}` instead of spending more steps on the same page-wise key. If `End` leaves `can_scroll_down=true`, do not call `End` again; switch to `PageDown` or {}. If repeated `PageDown` still leaves `can_scroll_down=true` and the goal is the bottom edge, escalate with `{}` instead of spending more steps on the same page-wise key.\n\
-10. If a recent tool output already reports observable change (`postcondition.met=true` or a confirmed dropdown selection), do not repeat the same interaction; verify once or continue with the next required control. If a form control already shows `checked=true` or `selected=true`, the choice is already made, so do not click the surrounding option group or form container again.\n\
-11. For ranked lists or search-result tasks, ordinal words in the instruction (for example `6th result`) are not the clickable target. Count actual visible result links/items. If the requested rank is not yet visible, use pagination or scrolling to reveal it before clicking a real result link. Do not click the ordinal token in the instruction and do not finish while the requested result is still off-screen.\n\
-12. When the grounded page instruction explicitly requires no selections (for example `select nothing`, `choose none`, or leaving controls unchecked), treat the all-unchecked or unselected state as already satisfying that selection requirement. Do not positively toggle checkboxes, radios, or options just because they are visible. If some are selected anyway, clear them before submitting.\n\
-13. Use `os__focus_window` only to recover browser focus and `system__fail` only when the available browser tools cannot reach the target.",
+10. If multiple nearby controls are visible, prefer the control whose visible name matches the requested action or outcome (for example `trash`, `delete`, `submit`, `reply`, `confirm`) instead of adjacent navigation controls like `close`, `back`, or `cancel` unless the goal explicitly asks for those navigation actions.\n\
+11. If a recent tool output already reports observable change (`postcondition.met=true` or a confirmed dropdown selection), do not repeat the same interaction; verify once or continue with the next required control. If a form control already shows `checked=true` or `selected=true`, the choice is already made, so do not click the surrounding option group or form container again.\n\
+12. For ranked lists or search-result tasks, ordinal words in the instruction (for example `6th result`) are not the clickable target. Count actual visible result links/items. If the requested rank is not yet visible, use pagination or scrolling to reveal it before clicking a real result link. Do not click the ordinal token in the instruction and do not finish while the requested result is still off-screen.\n\
+13. When the grounded page instruction explicitly requires no selections (for example `select nothing`, `choose none`, or leaving controls unchecked), treat the all-unchecked or unselected state as already satisfying that selection requirement. Do not positively toggle checkboxes, radios, or options just because they are visible. If some are selected anyway, clear them before submitting.\n\
+14. Use `os__focus_window` only to recover browser focus and `system__fail` only when the available browser tools cannot reach the target.",
             top_edge_jump_tool_call(),
             bottom_edge_jump_tool_call(),
             top_edge_jump_tool_call(),
@@ -459,11 +490,7 @@ pub async fn think(
     } else {
         &full_history[..]
     };
-    let hist_str = recent_history
-        .iter()
-        .map(|m| format!("{}: {}", m.role, m.content))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let hist_str = build_recent_session_events_context(recent_history, prefer_browser_semantics);
     let current_browser_snapshot = if prefer_browser_semantics {
         current_browser_observation_snapshot(service).await
     } else {
@@ -884,7 +911,8 @@ mod tests {
     use super::{
         build_operating_rules, build_recent_command_history_context, build_strategy_instruction,
         filter_cognition_tools, has_meaningful_visual_context, inference_error_system_fail_reason,
-        preflight_missing_capability, top_edge_jump_name, top_edge_jump_tool_call,
+        mailbox_connector_instruction, preflight_missing_capability, top_edge_jump_name,
+        top_edge_jump_tool_call,
     };
     use crate::agentic::desktop::types::CommandExecution;
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -1012,9 +1040,17 @@ mod tests {
     fn browser_operating_rules_drop_unrelated_command_and_launch_rules() {
         let rules = build_operating_rules(true);
         assert!(rules.contains("browser__snapshot"));
+        assert!(rules.contains("Only use `browser__click_element` ids"));
+        assert!(rules.contains("never synthesize ids"));
+        assert!(rules.contains("leading raw token"));
         assert!(rules.contains("submit already turned over the page"));
         assert!(rules.contains("Do not interact with the newly visible page"));
         assert!(rules.contains("RECENT PENDING BROWSER STATE"));
+        assert!(rules.contains("navigation evidence, not proof"));
+        assert!(rules.contains("instruction copy is descriptive only"));
+        assert!(
+            rules.contains("prefer the control whose visible name matches the requested action")
+        );
         assert!(rules.contains("browser__scroll"));
         assert!(rules.contains("browser__key"));
         assert!(rules.contains("modifier chord"));
@@ -1027,6 +1063,12 @@ mod tests {
         assert!(rules.contains("do not call `Home` again"));
         assert!(!rules.contains("COMMAND PROBE RULE"));
         assert!(!rules.contains("APP LAUNCH RULE"));
+    }
+
+    #[test]
+    fn browser_only_goals_do_not_append_mailbox_connector_rule() {
+        let goal = "Navigate to the assigned MiniWoB page and complete the on-page task using browser tools only. Do not use web retrieval tools. Task brief: Find the email by Lonna and click the trash icon to delete it.";
+        assert!(mailbox_connector_instruction(goal, &[]).is_none());
     }
 
     #[test]

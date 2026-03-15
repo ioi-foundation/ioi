@@ -28,20 +28,12 @@ impl SoloEngine {
     }
 }
 
-// [NEW] Implement ConsensusControl for SoloEngine
 impl ConsensusControl for SoloEngine {
-    fn switch_to_apmft(&mut self) {
-        // No-op for Solo mode (no hardware failure possible in local dev)
-    }
-    fn switch_to_admft(&mut self) {
-        // No-op
-    }
-    fn get_apmft_tip(&self) -> Option<([u8; 32], u32)> {
+    fn experimental_sample_tip(&self) -> Option<([u8; 32], u32)> {
         None
     }
-    fn feed_apmft_sample(&mut self, _hash: [u8; 32]) {
-        // No-op
-    }
+
+    fn observe_experimental_sample(&mut self, _hash: [u8; 32]) {}
 }
 
 #[async_trait]

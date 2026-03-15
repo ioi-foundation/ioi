@@ -238,8 +238,8 @@ pub(crate) fn resolve_node_features(user_supplied: &str) -> String {
     }
 
     // --- Consensus engines ---
-    if cfg!(feature = "consensus-admft") {
-        feats.push("consensus-admft");
+    if cfg!(feature = "consensus-convergent") {
+        feats.push("consensus-convergent");
     }
     if cfg!(feature = "consensus-poa") {
         feats.push("consensus-poa");

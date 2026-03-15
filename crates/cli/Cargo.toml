@@ -87,7 +87,7 @@ ssz_rs = { version = "0.9", optional = true }
 ioi-relayer = { path = "../plugins/relayer" } # [FIX] Updated path to plugins/relayer
 ioi-execution = { path = "../execution" }
 # [NEW] Add ioi-consensus for E2E tests verification logic
-ioi-consensus = { path = "../consensus", features = ["admft"] }
+ioi-consensus = { path = "../consensus", features = ["convergent"] }
 ioi-scs = { path = "../scs" }
 ioi-drivers = { path = "../drivers" }
 
@@ -131,7 +131,7 @@ default = [
     "state-jellyfish",
     "commitment-hash",
     "commitment-kzg",
-    "consensus-admft",
+    "consensus-convergent",
 ]
 # Features must propagate to the validator library, which is a direct dependency.
 # The node binaries are built separately by the test runner, which handles passing features.
@@ -145,7 +145,7 @@ commitment-kzg = ["ioi-state/commitment-kzg", "ioi-validator/commitment-kzg"]
 
 # Other features also propagate to the validator lib
 vm-wasm = ["ioi-validator/vm-wasm"]
-consensus-admft = ["ioi-validator/consensus-admft"]
+consensus-convergent = ["ioi-validator/consensus-convergent"]
 consensus-poa = ["ioi-validator/consensus-poa"]
 consensus-pos = ["ioi-validator/consensus-pos"]
 

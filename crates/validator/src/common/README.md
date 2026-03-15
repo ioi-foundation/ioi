@@ -19,7 +19,7 @@ Upon startup, the Guardian performs a self-check and a sibling-check:
 *   **Locking:** It holds open file handles to these binaries to prevent them from being swapped out or modified by an attacker while the node is running (utilizing OS-level `ETXTBSY` protections on Linux).
 
 ### 3. Oracle-Anchored Signing
-To prevent **Equivocation** (signing two different blocks at the same height) in the A-DMFT consensus:
+To prevent **Equivocation** (signing two different blocks at the same height) in the Convergent deterministic consensus:
 *   The Guardian maintains a local, monotonic counter and a hash chain (Trace).
 *   **Signature Payload:** `Hash(BlockHeader) || Counter || Trace`.
 *   This binds every signature to a unique point in the node's history. If a node tries to "forget" it signed a block and sign a conflicting one, the counter sequence would break or diverge, providing cryptographic proof of fraud.

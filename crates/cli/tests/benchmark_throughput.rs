@@ -100,7 +100,7 @@ async fn test_benchmark_100k_throughput() -> Result<()> {
     // 0. Environment Setup
     println!("--- Starting IOI Kernel Throughput Benchmark (Corrected) ---");
     println!("Configuration:");
-    println!("  - Consensus: Admft");
+    println!("  - Consensus: Convergent");
     println!("  - State Tree: Jellyfish Merkle Tree");
     println!("  - Execution: Block-STM (Optimistic Parallel)");
     println!("  - Client Strategy: Sequential Per-Account w/ Retry (Gap Healing)");
@@ -127,7 +127,7 @@ async fn test_benchmark_100k_throughput() -> Result<()> {
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Admft")
+        .with_consensus_type("Convergent")
         .with_state_tree("Jellyfish")
         .with_commitment_scheme("Hash")
         .with_role(0, ValidatorRole::Consensus)

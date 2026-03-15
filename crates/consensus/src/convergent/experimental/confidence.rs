@@ -1,4 +1,4 @@
-// Path: crates/consensus/src/apmft/confidence.rs
+// Path: crates/consensus/src/convergent/experimental/confidence.rs
 
 //! Manages the Confidence Score (C_B) for blocks in the mesh.
 //!

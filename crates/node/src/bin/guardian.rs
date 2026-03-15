@@ -13,10 +13,20 @@
 
 use anyhow::Result;
 use clap::Parser;
+use ioi_api::crypto::SerializableKey;
 use ioi_api::validator::Container;
 use ioi_ipc::control::guardian_control_server::{GuardianControl, GuardianControlServer};
-use ioi_ipc::control::{SecureEgressRequest, SecureEgressResponse};
-use ioi_types::app::GuardianReport;
+use ioi_ipc::control::{
+    GuardianMemberSignature, ReportWitnessFaultRequest, ReportWitnessFaultResponse,
+    SecureEgressRequest, SecureEgressResponse, SignCommitteeDecisionRequest,
+    SignCommitteeDecisionResponse, SignConsensusRequest, SignConsensusResponse,
+    SignWitnessStatementRequest, SignWitnessStatementResponse,
+};
+use ioi_types::app::{
+    account_id_from_key_material, GuardianDecision, GuardianDecisionDomain, GuardianReport,
+    GuardianWitnessStatement, SignatureSuite,
+};
+use ioi_types::codec;
 use ioi_validator::common::{generate_certificates_if_needed, GuardianContainer};
 use ioi_validator::config::GuardianConfig;
 use std::path::Path;
@@ -30,7 +40,7 @@ struct GuardianOpts {
     #[clap(long)]
     config_dir: String,
     #[clap(long)]
-    agentic_model_path: String,
+    agentic_model_path: Option<String>,
     #[clap(
         long,
         env = "GUARDIAN_LISTEN_ADDR",
@@ -59,7 +69,7 @@ impl GuardianControl for GuardianControlImpl {
             Some(req.json_patch_path.as_str())
         };
 
-        let (body, cert_hash, signature) = self
+        let (body, cert_hash, signature, receipt) = self
             .container
             .secure_http_call(
                 &req.domain,
@@ -77,6 +87,206 @@ impl GuardianControl for GuardianControlImpl {
             body,
             cert_hash: cert_hash.to_vec(),
             guardian_signature: signature,
+            receipt: codec::to_bytes_canonical(&receipt)
+                .map_err(|e| Status::internal(e.to_string()))?,
+        }))
+    }
+
+    async fn sign_consensus(
+        &self,
+        request: Request<SignConsensusRequest>,
+    ) -> Result<Response<SignConsensusResponse>, Status> {
+        let req = request.into_inner();
+        let payload_hash: [u8; 32] = req
+            .payload_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| Status::invalid_argument("payload_hash must be 32 bytes"))?;
+        let expected_trace_hash: [u8; 32] = if req.expected_trace_hash.is_empty() {
+            [0u8; 32]
+        } else {
+            req.expected_trace_hash
+                .as_slice()
+                .try_into()
+                .map_err(|_| Status::invalid_argument("expected_trace_hash must be 32 bytes"))?
+        };
+        let requested_measurement_root = if req.measurement_root.is_empty() {
+            None
+        } else {
+            Some(
+                req.measurement_root
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Status::invalid_argument("measurement_root must be 32 bytes"))?,
+            )
+        };
+        let requested_policy_hash = if req.policy_hash.is_empty() {
+            None
+        } else {
+            Some(
+                req.policy_hash
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Status::invalid_argument("policy_hash must be 32 bytes"))?,
+            )
+        };
+        let requested_manifest_hash = if req.manifest_hash.is_empty() {
+            None
+        } else {
+            Some(
+                req.manifest_hash
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Status::invalid_argument("manifest_hash must be 32 bytes"))?,
+            )
+        };
+
+        let bundle = self
+            .container
+            .sign_consensus_with_guardian(
+                &self.keypair,
+                payload_hash,
+                req.height,
+                req.view,
+                req.subject,
+                req.expected_counter,
+                expected_trace_hash,
+                requested_measurement_root,
+                requested_policy_hash,
+                requested_manifest_hash,
+                if req.witness_manifest_hash.is_empty() {
+                    None
+                } else {
+                    Some(
+                        req.witness_manifest_hash
+                            .as_slice()
+                            .try_into()
+                            .map_err(|_| {
+                                Status::invalid_argument("witness_manifest_hash must be 32 bytes")
+                            })?,
+                    )
+                },
+                u8::try_from(req.witness_reassignment_depth).map_err(|_| {
+                    Status::invalid_argument("witness_reassignment_depth must fit into u8")
+                })?,
+            )
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        Ok(Response::new(SignConsensusResponse {
+            signature: bundle.signature,
+            counter: bundle.counter,
+            trace_hash: bundle.trace_hash.to_vec(),
+            guardian_certificate: bundle
+                .guardian_certificate
+                .as_ref()
+                .map(|certificate| codec::to_bytes_canonical(certificate))
+                .transpose()
+                .map_err(|e| Status::internal(e.to_string()))?
+                .unwrap_or_default(),
+        }))
+    }
+
+    async fn sign_committee_decision(
+        &self,
+        request: Request<SignCommitteeDecisionRequest>,
+    ) -> Result<Response<SignCommitteeDecisionResponse>, Status> {
+        let req = request.into_inner();
+        let decision: GuardianDecision = codec::from_bytes_canonical(&req.decision)
+            .map_err(|e| Status::invalid_argument(format!("invalid decision payload: {e}")))?;
+        let requested_manifest_hash = if req.manifest_hash.is_empty() {
+            None
+        } else {
+            Some(
+                req.manifest_hash
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Status::invalid_argument("manifest_hash must be 32 bytes"))?,
+            )
+        };
+        let slot = match decision.domain {
+            domain if domain == GuardianDecisionDomain::ConsensusSlot as u8 => {
+                Some((req.height, req.view))
+            }
+            _ => None,
+        };
+        let member_signatures = self
+            .container
+            .sign_committee_decision_members(&decision, requested_manifest_hash, slot)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+        let decision_hash =
+            ioi_crypto::sign::guardian_committee::canonical_decision_hash(&decision)
+                .map_err(|e| Status::internal(e.to_string()))?;
+
+        Ok(Response::new(SignCommitteeDecisionResponse {
+            manifest_hash: requested_manifest_hash.unwrap_or_default().to_vec(),
+            decision_hash: decision_hash.to_vec(),
+            partial_signatures: member_signatures
+                .into_iter()
+                .map(|(member_index, signature)| GuardianMemberSignature {
+                    member_index: u32::try_from(member_index).unwrap_or_default(),
+                    signature: signature.to_bytes(),
+                })
+                .collect(),
+        }))
+    }
+
+    async fn sign_witness_statement(
+        &self,
+        request: Request<SignWitnessStatementRequest>,
+    ) -> Result<Response<SignWitnessStatementResponse>, Status> {
+        let req = request.into_inner();
+        let statement: GuardianWitnessStatement = codec::from_bytes_canonical(&req.statement)
+            .map_err(|e| Status::invalid_argument(format!("invalid witness statement: {e}")))?;
+        let requested_manifest_hash = if req.manifest_hash.is_empty() {
+            None
+        } else {
+            Some(
+                req.manifest_hash
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Status::invalid_argument("manifest_hash must be 32 bytes"))?,
+            )
+        };
+        let member_signatures = self
+            .container
+            .sign_witness_statement_members(&statement, requested_manifest_hash)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+        let statement_hash =
+            ioi_crypto::sign::guardian_committee::canonical_witness_statement_hash(&statement)
+                .map_err(|e| Status::internal(e.to_string()))?;
+
+        Ok(Response::new(SignWitnessStatementResponse {
+            manifest_hash: requested_manifest_hash.unwrap_or_default().to_vec(),
+            statement_hash: statement_hash.to_vec(),
+            partial_signatures: member_signatures
+                .into_iter()
+                .map(|(member_index, signature)| GuardianMemberSignature {
+                    member_index: u32::try_from(member_index).unwrap_or_default(),
+                    signature: signature.to_bytes(),
+                })
+                .collect(),
+        }))
+    }
+
+    async fn report_witness_fault(
+        &self,
+        request: Request<ReportWitnessFaultRequest>,
+    ) -> Result<Response<ReportWitnessFaultResponse>, Status> {
+        let req = request.into_inner();
+        let evidence = codec::from_bytes_canonical(&req.evidence).map_err(|e| {
+            Status::invalid_argument(format!("invalid witness fault evidence: {e}"))
+        })?;
+        let checkpoint = self
+            .container
+            .report_witness_fault_evidence(&evidence)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(ReportWitnessFaultResponse {
+            checkpoint: codec::to_bytes_canonical(&checkpoint)
+                .map_err(|e| Status::internal(e.to_string()))?,
         }))
     }
 }
@@ -112,9 +322,23 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|| "127.0.0.1:8443".to_string());
     tracing::info!(target: "guardian", listen_addr = %listen_addr);
 
+    // Prepare key for boot attestation logic.
+    // In production, the key is already loaded, but here we reload or access it.
+    // This is safe because the file is encrypted-at-rest.
+    let identity_key_path = Path::new(&certs_dir)
+        .parent()
+        .ok_or(anyhow::anyhow!("Invalid certs dir path"))?
+        .join("identity.key");
+
+    let keypair_bytes = GuardianContainer::load_encrypted_file(&identity_key_path)?;
+    let keypair = libp2p::identity::Keypair::from_protobuf_encoding(&keypair_bytes)?;
+    let validator_account_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &keypair.public().encode_protobuf())?;
+
     let guardian = Arc::new(GuardianContainer::new(
         config_dir_path.to_path_buf(),
         config.clone(),
+        validator_account_id.into(),
     )?);
 
     // --- PHASE 2 IMPLEMENTATION: Boot Measurement ---
@@ -127,17 +351,6 @@ async fn main() -> Result<()> {
 
     // Print the readiness signal for the test harness after the listener is up.
     eprintln!("GUARDIAN_IPC_LISTENING_ON_{}", listen_addr);
-
-    // Prepare key for boot attestation logic.
-    // In production, the key is already loaded, but here we reload or access it.
-    // This is safe because the file is encrypted-at-rest.
-    let identity_key_path = Path::new(&certs_dir)
-        .parent()
-        .ok_or(anyhow::anyhow!("Invalid certs dir path"))?
-        .join("identity.key");
-
-    let keypair_bytes = GuardianContainer::load_encrypted_file(&identity_key_path)?;
-    let keypair = libp2p::identity::Keypair::from_protobuf_encoding(&keypair_bytes)?;
 
     // Spawn gRPC server for Control Plane (Secure Egress)
     // NOTE: This assumes the Guardian listens on a separate port/interface for gRPC commands
@@ -170,9 +383,16 @@ async fn main() -> Result<()> {
         }
 
         // 1. Agentic Model Hash
-        let local_hash_result = guardian_clone
-            .attest_weights(&opts.agentic_model_path)
-            .await;
+        let Some(agentic_model_path) = opts.agentic_model_path.as_ref() else {
+            tracing::info!(
+                target: "guardian",
+                event = "attestation_skipped",
+                "No agentic model path configured; skipping Guardian attestation report."
+            );
+            return Ok::<(), anyhow::Error>(());
+        };
+
+        let local_hash_result = guardian_clone.attest_weights(agentic_model_path).await;
 
         // FIX: Propagate errors or log them, don't just return Ok(()) silently on error cases
         // inside the Result-returning async block.

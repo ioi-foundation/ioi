@@ -1,5 +1,5 @@
 // Path: crates/cli/tests/workload_control_e2e.rs
-#![cfg(all(feature = "consensus-admft", feature = "vm-wasm"))]
+#![cfg(all(feature = "consensus-convergent", feature = "vm-wasm"))]
 
 use anyhow::{anyhow, Result};
 use ioi_cli::testing::{build_test_artifacts, TestCluster};

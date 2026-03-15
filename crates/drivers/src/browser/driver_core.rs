@@ -10,6 +10,7 @@ const CHROMIUM_PIN_FILE_PREFIX: &str = "chromium-pin-";
 const HANDLER_ERROR_TOLERANCE: usize = 3;
 const LAUNCH_RETRY_ATTEMPTS: usize = 3;
 const LAUNCH_RETRY_DELAY_MS: u64 = 250;
+const HEALTH_PROBE_TIMEOUT: Duration = Duration::from_millis(1_500);
 
 fn evaluate_health(cdp_ok: bool, _handler_alive: bool) -> bool {
     cdp_ok
@@ -25,12 +26,23 @@ fn launch_retry_backoff(attempt_index: usize) -> Duration {
     Duration::from_millis(LAUNCH_RETRY_DELAY_MS * (attempt_index as u64 + 1))
 }
 
+fn restorable_page_url(raw: Option<&str>) -> Option<String> {
+    let url = raw?.trim();
+    if url.is_empty() || url.eq_ignore_ascii_case("about:blank") {
+        None
+    } else {
+        Some(url.to_string())
+    }
+}
+
 impl BrowserDriver {
     pub fn new() -> Self {
         Self {
             browser: Arc::new(Mutex::new(None)),
             active_page: Arc::new(Mutex::new(None)),
+            active_page_url: Arc::new(Mutex::new(None)),
             retrieval_page: Arc::new(Mutex::new(None)),
+            retrieval_page_url: Arc::new(Mutex::new(None)),
             profile_dir: Arc::new(Mutex::new(None)),
             handler_alive: Arc::new(AtomicBool::new(false)),
             lease_active: Arc::new(AtomicBool::new(false)),
@@ -210,7 +222,7 @@ impl BrowserDriver {
         }
     }
 
-    async fn force_reset(&self) {
+    pub(crate) async fn force_reset(&self) {
         {
             let mut b_guard = self.browser.lock().await;
             *b_guard = None;
@@ -237,7 +249,25 @@ impl BrowserDriver {
         };
 
         if let Some(browser) = browser_arc {
-            let cdp_ok = browser.version().await.is_ok();
+            let cdp_ok = match tokio::time::timeout(HEALTH_PROBE_TIMEOUT, browser.version()).await {
+                Ok(Ok(_)) => true,
+                Ok(Err(err)) => {
+                    log::warn!(
+                        target: "browser",
+                        "Browser CDP health probe failed before timeout: {}",
+                        err
+                    );
+                    false
+                }
+                Err(_) => {
+                    log::warn!(
+                        target: "browser",
+                        "Browser CDP health probe timed out after {:?}; session will restart if lease is active.",
+                        HEALTH_PROBE_TIMEOUT
+                    );
+                    false
+                }
+            };
             if cdp_ok && !handler_alive {
                 log::warn!(
                     target: "browser",
@@ -253,6 +283,37 @@ impl BrowserDriver {
             return evaluate_health(cdp_ok, handler_alive);
         }
         false
+    }
+
+    async fn new_page_with_restore(
+        &self,
+        browser: &Arc<Browser>,
+        restore_url: Option<String>,
+        page_kind: &str,
+    ) -> std::result::Result<Page, BrowserError> {
+        let page = browser
+            .new_page("about:blank")
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
+
+        if let Some(url) = restorable_page_url(restore_url.as_deref()) {
+            log::warn!(
+                target: "browser",
+                "Rehydrating {} browser page after session reset with {}",
+                page_kind,
+                url
+            );
+            self.check_connection_error(page.goto(&url).await)
+                .await?
+                .wait_for_navigation()
+                .await
+                .map_err(|e| BrowserError::NavigateFailed {
+                    url: url.clone(),
+                    details: e.to_string(),
+                })?;
+        }
+
+        Ok(page)
     }
 
     pub async fn launch(&self, headless: bool) -> std::result::Result<(), BrowserError> {
@@ -530,10 +591,10 @@ impl BrowserDriver {
 
             let browser_arc = { self.browser.lock().await.clone() };
             if let Some(b) = browser_arc {
-                let page = b
-                    .new_page("about:blank")
-                    .await
-                    .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
+                let restore_url = { self.active_page_url.lock().await.clone() };
+                let page = self
+                    .new_page_with_restore(&b, restore_url, "active")
+                    .await?;
                 *self.active_page.lock().await = Some(page);
                 return Ok(());
             }
@@ -550,10 +611,10 @@ impl BrowserDriver {
             );
             let browser_arc = { self.browser.lock().await.clone() };
             if let Some(b) = browser_arc {
-                let page = b
-                    .new_page("about:blank")
-                    .await
-                    .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
+                let restore_url = { self.active_page_url.lock().await.clone() };
+                let page = self
+                    .new_page_with_restore(&b, restore_url, "active")
+                    .await?;
                 *self.active_page.lock().await = Some(page);
             } else {
                 log::warn!(
@@ -580,10 +641,10 @@ impl BrowserDriver {
         );
         let browser_arc = { self.browser.lock().await.clone() };
         if let Some(b) = browser_arc {
-            let page = b
-                .new_page("about:blank")
-                .await
-                .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
+            let restore_url = { self.retrieval_page_url.lock().await.clone() };
+            let page = self
+                .new_page_with_restore(&b, restore_url, "retrieval")
+                .await?;
             *self.retrieval_page.lock().await = Some(page);
             Ok(())
         } else {
@@ -596,7 +657,7 @@ impl BrowserDriver {
 
 #[cfg(test)]
 mod tests {
-    use super::{evaluate_health, is_retryable_launch_error};
+    use super::{evaluate_health, is_retryable_launch_error, restorable_page_url};
 
     #[test]
     fn cdp_health_overrides_dead_handler_flag() {
@@ -617,5 +678,17 @@ mod tests {
         assert!(!is_retryable_launch_error(
             "Config failed: unsupported browser configuration",
         ));
+    }
+
+    #[test]
+    fn restorable_page_url_skips_blank_and_empty_values() {
+        assert_eq!(restorable_page_url(None), None);
+        assert_eq!(restorable_page_url(Some("")), None);
+        assert_eq!(restorable_page_url(Some("   ")), None);
+        assert_eq!(restorable_page_url(Some("about:blank")), None);
+        assert_eq!(
+            restorable_page_url(Some(" file:///tmp/example.html ")),
+            Some("file:///tmp/example.html".to_string())
+        );
     }
 }

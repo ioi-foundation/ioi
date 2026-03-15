@@ -59,6 +59,9 @@ cfg-if = "1.0"
 dashmap = { workspace = true }
 reqwest = { version = "0.11", features = ["json"] }
 dcrypt = { workspace = true }
+hyper = { workspace = true, features = ["client", "http1"] }
+http-body-util = { workspace = true }
+hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
 
 # Parallel processing for signature verification
 rayon = "1.8"
@@ -101,11 +104,11 @@ default = []
 validator-bins = [
     "dep:clap",
     "dep:env_logger",
-    "ioi-consensus/admft",
+    "ioi-consensus/convergent",
     "vm-wasm",  # <--- CHANGED from "dep:ioi-vm-wasm" to "vm-wasm"
 ]
 
-consensus-admft = ["ioi-consensus/admft"]
+consensus-convergent = ["ioi-consensus/convergent"]
 consensus-poa = ["ioi-consensus/poa"]
 consensus-pos = ["ioi-consensus/pos"]
 

@@ -21,8 +21,7 @@ use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{
         account_id_from_key_material, to_root_hash, AccountId, Block, BlockHeader,
-        ChainTransaction, ConsensusVote, QuorumCertificate, SignatureSuite, StateAnchor, StateRoot,
-        TxHash,
+        ChainTransaction, ConsensusVote, SignatureSuite, StateAnchor, StateRoot, TxHash,
     },
     codec,
     keys::VALIDATOR_SET_KEY,
@@ -80,7 +79,7 @@ where
         swarm_commander,
         local_keypair,
         pqc_signer,
-        last_committed_block_opt,
+        mut last_committed_block_opt,
         node_state_arc,
         signer,
         batch_verifier,
@@ -103,14 +102,47 @@ where
     };
 
     let node_state: NodeState = node_state_arc.lock().await.clone();
+    let is_quarantined = {
+        let ctx = context_arc.lock().await;
+        ctx.is_quarantined.load(std::sync::atomic::Ordering::SeqCst)
+    };
 
-    // [MODIFIED] Reject tick if in Panic/Transition/Survival modes
-    if matches!(
-        node_state,
-        NodeState::Transitioning | NodeState::SurvivalMode
-    ) {
-        tracing::info!(target: "consensus", "Consensus halted: Node is in {:?} state.", node_state);
+    if is_quarantined {
+        tracing::info!(target: "consensus", "Consensus halted: local validator is quarantined.");
         return Ok(());
+    }
+
+    let local_tip_height = last_committed_block_opt
+        .as_ref()
+        .map(|block| block.header.height)
+        .unwrap_or(0);
+    if let Ok(status) = view_resolver.workload_client().get_status().await {
+        if status.height > local_tip_height {
+            if let Ok(Some(workload_tip)) = view_resolver
+                .workload_client()
+                .get_block_by_height(status.height)
+                .await
+            {
+                {
+                    let mut ctx = context_arc.lock().await;
+                    let ctx_tip_height = ctx
+                        .last_committed_block
+                        .as_ref()
+                        .map(|block| block.header.height)
+                        .unwrap_or(0);
+                    if workload_tip.header.height > ctx_tip_height {
+                        tracing::info!(
+                            target: "consensus",
+                            reconciled_height = workload_tip.header.height,
+                            previous_height = ctx_tip_height,
+                            "Hydrating last_committed_block from workload status before consensus tick."
+                        );
+                        ctx.last_committed_block = Some(workload_tip.clone());
+                    }
+                }
+                last_committed_block_opt = Some(workload_tip);
+            }
+        }
     }
 
     let parent_h = last_committed_block_opt
@@ -120,7 +152,7 @@ where
 
     let consensus_allows_bootstrap = matches!(
         cons_ty,
-        ioi_types::config::ConsensusType::Admft
+        ioi_types::config::ConsensusType::Convergent
             | ioi_types::config::ConsensusType::ProofOfAuthority
             | ioi_types::config::ConsensusType::ProofOfStake
     );
@@ -166,11 +198,12 @@ where
     };
 
     match decision {
-        // [NEW] Handle Panic Decision (Kill Switch Trigger)
         ioi_api::consensus::ConsensusDecision::Panic(proof) => {
-            tracing::error!(target: "consensus", "CRITICAL: Engine Triggered Panic! Hardware Divergence Detected.");
+            tracing::error!(
+                target: "consensus",
+                "CRITICAL: consensus engine detected divergence evidence."
+            );
 
-            // 1. Sign Panic Message (to bind our identity to the alert and prevent griefing)
             let proof_bytes = codec::to_bytes_canonical(&proof)
                 .map_err(|e| anyhow!("Failed to serialize proof: {}", e))?;
             let sig = local_keypair.sign(&proof_bytes)?;
@@ -183,20 +216,21 @@ where
             let panic_bytes = codec::to_bytes_canonical(&panic_msg)
                 .map_err(|e| anyhow!("Failed to serialize PanicMessage: {}", e))?;
 
-            // 2. Broadcast immediately
             let _ = swarm_commander
                 .send(SwarmCommand::BroadcastPanic(panic_bytes))
                 .await;
 
-            // 3. Execute Local Transition (Freeze A-DMFT)
-            crate::standard::orchestration::transition::execute_kill_switch(context_arc, proof)
-                .await?;
+            crate::standard::orchestration::transition::execute_divergence_response(
+                context_arc,
+                proof,
+            )
+            .await?;
         }
 
         ioi_api::consensus::ConsensusDecision::Timeout { view, height } => {
             tracing::warn!(target: "consensus", "Consensus timeout at H={} View={}. Broadcasting ViewChange.", height, view);
 
-            use ioi_consensus::admft::ViewChangeVote;
+            use ioi_consensus::convergent::guardian_majority::ViewChangeVote;
 
             // Sign the (height, view) tuple to authenticate the vote
             let sign_payload = (height, view);
@@ -272,7 +306,7 @@ where
         ioi_api::consensus::ConsensusDecision::ProduceBlock {
             expected_timestamp_secs,
             view,
-            parent_qc,
+            mut parent_qc,
             ..
         } => {
             tracing::info!(target: "consensus", "Decision: ProduceBlock for H={} V={}", producing_h, view);
@@ -335,6 +369,11 @@ where
             let producer_pubkey_hash =
                 account_id_from_key_material(producer_key_suite, &producer_pubkey)?;
 
+            if producing_h == 2 && parent_qc.height == 0 {
+                parent_qc.height = 1;
+                parent_qc.block_hash = parent_ref.block_hash;
+            }
+
             let new_block_template = Block {
                 header: BlockHeader {
                     height: producing_h,
@@ -354,6 +393,7 @@ where
                     oracle_counter: 0,
                     oracle_trace_hash: [0u8; 32],
                     parent_qc,
+                    guardian_certificate: None,
                 },
                 transactions: valid_txs.clone(),
             };

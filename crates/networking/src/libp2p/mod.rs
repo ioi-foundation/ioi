@@ -30,7 +30,7 @@ pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
 pub use self::types::{NetworkEvent, SwarmCommand, SwarmInternalEvent};
 
 // Import ViewChangeVote for use in forwarder
-use ioi_consensus::admft::ViewChangeVote;
+use ioi_consensus::convergent::guardian_majority::ViewChangeVote;
 
 /// The main networking struct.
 pub struct Libp2pSync {

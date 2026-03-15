@@ -282,7 +282,7 @@ async fn test_binary_integrity_attestation_flow() -> Result<()> {
         // [FIX] Inject policy
         .with_service_policy("identity_hub", id_policy)
         .with_validators(1)
-        .with_consensus_type("Admft")
+        .with_consensus_type("Convergent")
         .with_state_tree("IAVL")
         .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {

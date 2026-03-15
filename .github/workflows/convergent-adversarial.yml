@@ -1,0 +1,32 @@
+name: Convergent Adversarial
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  convergent_adversarial:
+    name: Convergent Adversarial Harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-convergent-adversarial-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run adversarial convergent harness
+        run: bash ops/convergent/adversarial_testnet.sh

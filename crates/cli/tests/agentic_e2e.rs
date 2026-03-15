@@ -1,5 +1,5 @@
 // Path: crates/cli/tests/agentic_e2e.rs
-#![cfg(all(feature = "consensus-admft", feature = "vm-wasm"))]
+#![cfg(all(feature = "consensus-convergent", feature = "vm-wasm"))]
 
 use anyhow::Result;
 use async_trait::async_trait;

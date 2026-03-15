@@ -53,6 +53,10 @@ impl AccessibilityNode {
             || role.contains("searchbox")
             || role.contains("search_box")
             || role.contains("entry")
+            || self
+                .attributes
+                .get("dom_clickable")
+                .is_some_and(|value| value.eq_ignore_ascii_case("true"))
     }
 
     /// Checks if the node carries meaningful text content.
@@ -376,6 +380,8 @@ fn node_has_high_priority_signal(node: &AccessibilityNode) -> bool {
         || node.is_interactive()
         || node.attributes.contains_key("focused")
         || node.attributes.contains_key("dom_id")
+        || node.attributes.contains_key("data_index")
+        || node.attributes.contains_key("shape_kind")
         || node.attributes.contains_key("assistive_hint")
 }
 
@@ -393,6 +399,9 @@ fn node_actionability_priority(node: &AccessibilityNode) -> Option<u8> {
 
     if node.attributes.contains_key("dom_id") {
         score = score.saturating_add(8);
+    }
+    if node.attributes.contains_key("data_index") || node.attributes.contains_key("shape_kind") {
+        score = score.saturating_add(4);
     }
     if role.contains("button")
         || role.contains("link")
@@ -893,6 +902,32 @@ fn browser_locator_attrs(node: &AccessibilityNode, max_len: usize) -> String {
         ));
     }
 
+    if let Some(class_name) = node
+        .attributes
+        .get("class_name")
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        attrs.push_str(&format!(
+            " class_name=\"{}\"",
+            escape_xml(&truncate_attr_value(class_name, max_len))
+        ));
+    }
+
+    if let Some(dom_clickable) = node
+        .attributes
+        .get("dom_clickable")
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        attrs.push_str(&format!(
+            " dom_clickable=\"{}\"",
+            escape_xml(&truncate_attr_value(dom_clickable, max_len))
+        ));
+    }
+
     if let Some(autocomplete) = node
         .attributes
         .get("autocomplete")
@@ -929,6 +964,30 @@ fn browser_locator_attrs(node: &AccessibilityNode, max_len: usize) -> String {
         attrs.push_str(&format!(
             " active_descendant_dom_id=\"{}\"",
             escape_xml(&truncate_attr_value(active_descendant_dom_id, max_len))
+        ));
+    }
+
+    for key in ["shape_kind", "shape_size", "shape_color", "data_index"] {
+        if let Some(value) = node
+            .attributes
+            .get(key)
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            attrs.push_str(&format!(
+                " {}=\"{}\"",
+                key,
+                escape_xml(&truncate_attr_value(value, max_len))
+            ));
+        }
+    }
+
+    if node.attributes.contains_key("shape_kind") || node.attributes.contains_key("data_index") {
+        attrs.push_str(&format!(
+            " center_x=\"{}\" center_y=\"{}\"",
+            node.rect.x.saturating_add(node.rect.width / 2),
+            node.rect.y.saturating_add(node.rect.height / 2)
         ));
     }
 
@@ -1019,6 +1078,34 @@ mod tests {
             "{xml}"
         );
         assert!(xml.contains(r#"focused="true""#), "{xml}");
+    }
+
+    #[test]
+    fn serialize_tree_to_xml_includes_dom_clickable_locator_attr_for_generic_targets() {
+        let node = AccessibilityNode {
+            id: "grp_trash".to_string(),
+            role: "generic".to_string(),
+            name: Some("trash".to_string()),
+            value: None,
+            rect: Rect {
+                x: 117,
+                y: 119,
+                width: 12,
+                height: 12,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([
+                ("tag_name".to_string(), "span".to_string()),
+                ("class_name".to_string(), "trash".to_string()),
+                ("dom_clickable".to_string(), "true".to_string()),
+            ]),
+            som_id: None,
+        };
+
+        let xml = serialize_tree_to_xml(&node, 0);
+        assert!(xml.contains(r#"class_name="trash""#), "{xml}");
+        assert!(xml.contains(r#"dom_clickable="true""#), "{xml}");
     }
 
     #[test]
@@ -1142,6 +1229,39 @@ mod tests {
     }
 
     #[test]
+    fn serialize_tree_to_xml_includes_svg_shape_attrs() {
+        let node = AccessibilityNode {
+            id: "grp_2".to_string(),
+            role: "generic".to_string(),
+            name: Some("2".to_string()),
+            value: None,
+            rect: Rect {
+                x: 30,
+                y: 100,
+                width: 20,
+                height: 20,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([
+                ("tag_name".to_string(), "rect".to_string()),
+                ("shape_kind".to_string(), "rectangle".to_string()),
+                ("shape_size".to_string(), "large".to_string()),
+                ("data_index".to_string(), "2".to_string()),
+            ]),
+            som_id: None,
+        };
+
+        let xml = serialize_tree_to_xml(&node, 0);
+        assert!(xml.contains(r#"tag_name="rect""#), "{xml}");
+        assert!(xml.contains(r#"shape_kind="rectangle""#), "{xml}");
+        assert!(xml.contains(r#"shape_size="large""#), "{xml}");
+        assert!(xml.contains(r#"data_index="2""#), "{xml}");
+        assert!(xml.contains(r#"center_x="40""#), "{xml}");
+        assert!(xml.contains(r#"center_y="110""#), "{xml}");
+    }
+
+    #[test]
     fn selected_child_indices_preserve_late_interactive_children_under_truncation() {
         let mut children = (0..30)
             .map(|idx| AccessibilityNode {
@@ -1166,6 +1286,40 @@ mod tests {
         children[29].name = Some("T-215".to_string());
         children[29].attributes =
             HashMap::from([("dom_id".to_string(), "ticket-link-t-215".to_string())]);
+
+        let selected = selected_child_indices(&children, 25);
+        assert_eq!(selected.len(), 25);
+        assert!(selected.contains(&29), "{selected:?}");
+        assert!(!selected.contains(&28), "{selected:?}");
+    }
+
+    #[test]
+    fn selected_child_indices_preserve_late_svg_targets_under_truncation() {
+        let mut children = (0..30)
+            .map(|idx| AccessibilityNode {
+                id: format!("grp_{idx}"),
+                role: "generic".to_string(),
+                name: Some(format!("Group {idx}")),
+                value: None,
+                rect: Rect {
+                    x: 0,
+                    y: idx,
+                    width: 10,
+                    height: 10,
+                },
+                children: vec![],
+                is_visible: true,
+                attributes: HashMap::new(),
+                som_id: None,
+            })
+            .collect::<Vec<_>>();
+        children[29].id = "grp_2".to_string();
+        children[29].name = Some("2".to_string());
+        children[29].attributes = HashMap::from([
+            ("tag_name".to_string(), "rect".to_string()),
+            ("shape_kind".to_string(), "rectangle".to_string()),
+            ("data_index".to_string(), "2".to_string()),
+        ]);
 
         let selected = selected_child_indices(&children, 25);
         assert_eq!(selected.len(), 25);

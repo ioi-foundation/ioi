@@ -25,7 +25,7 @@ async fn test_jellyfish_merkle_tree_e2e() -> Result<()> {
     // 2. Launch Cluster with Jellyfish config
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Admft")
+        .with_consensus_type("Convergent")
         .with_state_tree("Jellyfish") // Use new JMT backend
         .with_commitment_scheme("Hash")
         .with_genesis_modifier(|builder, keys| {

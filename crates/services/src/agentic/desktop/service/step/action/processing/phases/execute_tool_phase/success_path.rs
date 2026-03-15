@@ -332,7 +332,49 @@ fn browser_fragment_tag_name_for_chat(fragment: &str) -> Option<&str> {
     Some(&trimmed[..end])
 }
 
+fn browser_fragment_looks_like_instruction_context_for_chat(
+    fragment: &str,
+    tag_name: &str,
+) -> bool {
+    if !matches!(tag_name, "generic" | "group" | "presentation") {
+        return false;
+    }
+
+    let dom_id = extract_browser_xml_attr_for_chat(fragment, "dom_id")
+        .map(|value| decode_browser_xml_text_for_chat(&value).to_ascii_lowercase())
+        .unwrap_or_default();
+    let selector = extract_browser_xml_attr_for_chat(fragment, "selector")
+        .map(|value| decode_browser_xml_text_for_chat(&value).to_ascii_lowercase())
+        .unwrap_or_default();
+    let name = extract_browser_xml_attr_for_chat(fragment, "name")
+        .map(|value| decode_browser_xml_text_for_chat(&value).to_ascii_lowercase())
+        .unwrap_or_default();
+
+    let instruction_hint = [
+        "query",
+        "instruction",
+        "prompt",
+        "goal",
+        "task",
+        "directions",
+    ]
+    .iter()
+    .any(|hint| dom_id.contains(hint) || selector.contains(hint));
+    let wrapper_hint = matches!(dom_id.as_str(), "wrap" | "wrapper" | "container")
+        || selector.contains("[id=\"wrap\"]")
+        || selector.contains("[id=\"wrapper\"]");
+    let imperative_name = ["find ", "click ", "select ", "choose ", "enter ", "type "]
+        .iter()
+        .any(|prefix| name.starts_with(prefix));
+
+    instruction_hint || wrapper_hint || imperative_name
+}
+
 fn browser_fragment_priority_score_for_chat(fragment: &str, tag_name: &str) -> Option<u8> {
+    if browser_fragment_looks_like_instruction_context_for_chat(fragment, tag_name) {
+        return None;
+    }
+
     let mut score = 0u8;
 
     if fragment.contains(" dom_id=\"") {
@@ -340,6 +382,9 @@ fn browser_fragment_priority_score_for_chat(fragment: &str, tag_name: &str) -> O
     }
     if fragment.contains(" selector=\"") {
         score = score.saturating_add(2);
+    }
+    if fragment.contains(" dom_clickable=\"true\"") {
+        score = score.saturating_add(6);
     }
     if matches!(
         tag_name,
@@ -387,11 +432,14 @@ fn browser_fragment_priority_summary_for_chat(fragment: &str) -> Option<(String,
     let selector = extract_browser_xml_attr_for_chat(fragment, "selector")
         .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
         .filter(|value| !value.is_empty());
+    let class_name = extract_browser_xml_attr_for_chat(fragment, "class_name")
+        .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
+        .filter(|value| !value.is_empty());
     let context = extract_browser_xml_attr_for_chat(fragment, "context")
         .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
         .filter(|value| !value.is_empty());
 
-    let mut summary = format!("{tag_name}#{id}");
+    let mut summary = format!("{id} tag={tag_name}");
     if let Some(name) = name {
         summary.push_str(&format!(" name={}", name));
     }
@@ -401,14 +449,30 @@ fn browser_fragment_priority_summary_for_chat(fragment: &str) -> Option<(String,
     if let Some(selector) = selector {
         summary.push_str(&format!(" selector={}", selector));
     }
+    if let Some(class_name) = class_name {
+        summary.push_str(&format!(" class_name={}", class_name));
+    }
     if let Some(context) = context {
         summary.push_str(&format!(" context={}", context));
+    }
+    if fragment.contains(" dom_clickable=\"true\"") {
+        summary.push_str(" dom_clickable=true");
     }
     if fragment.contains(" omitted=\"true\"") {
         summary.push_str(" omitted");
     }
 
     Some((id, score, summary))
+}
+
+fn browser_snapshot_root_summary_for_chat(snapshot: &str) -> Option<String> {
+    let trimmed = snapshot.trim();
+    let start = trimmed.find("<root")?;
+    let rest = &trimmed[start..];
+    let end = rest.find('>')?;
+    Some(compact_ws_for_chat_context(
+        &decode_browser_xml_text_for_chat(&rest[..=end]),
+    ))
 }
 
 fn extract_priority_browser_targets_for_chat(snapshot: &str, max_targets: usize) -> Vec<String> {
@@ -450,15 +514,18 @@ fn compact_browser_snapshot_history_entry(snapshot: &str) -> String {
         );
     }
 
-    let suffix = format!(" IMPORTANT TARGETS: {}", priority_targets.join(" | "));
-    let suffix =
-        truncate_chars_for_chat_context(&suffix, TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT / 2);
-    let prefix_budget = TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT
-        .saturating_sub(suffix.chars().count() + 1)
-        .max(TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT / 3);
-    let prefix = truncate_chars_for_chat_context(snapshot, prefix_budget);
+    let root_summary = browser_snapshot_root_summary_for_chat(snapshot)
+        .unwrap_or_else(|| truncate_chars_for_chat_context(snapshot, 96));
+    let suffix_prefix = " IMPORTANT TARGETS: ";
+    let closing = " </root>";
+    let suffix_budget = TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT
+        .saturating_sub(
+            root_summary.chars().count() + suffix_prefix.chars().count() + closing.chars().count(),
+        )
+        .max(64);
+    let suffix = truncate_chars_for_chat_context(&priority_targets.join(" | "), suffix_budget);
 
-    format!("{prefix} {suffix}")
+    format!("{root_summary}{suffix_prefix}{suffix}{closing}")
 }
 
 fn compact_tool_history_entry_for_chat(current_tool_name: &str, history_entry: &str) -> String {
@@ -1992,5 +2059,37 @@ mod tests {
             "{compact}"
         );
         assert!(compact.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT + 1);
+    }
+
+    #[test]
+    fn compact_browser_snapshot_history_entry_prioritizes_clickable_controls_over_instruction_copy()
+    {
+        let snapshot = format!(
+            concat!(
+                "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+                "<generic id=\"grp_find_the_email_by_lonna\" name=\"Find the email by Lonna and click the trash icon.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
+                "<generic id=\"grp_lonna\" name=\"Lonna\" tag_name=\"span\" class_name=\"bold\" rect=\"82,3,30,11\" />",
+                "{}",
+                "<generic id=\"grp_email_row\" name=\"Lonna Cras. A dictumst. Ali..\" tag_name=\"div\" class_name=\"email-thread\" dom_clickable=\"true\" rect=\"2,112,140,39\" />",
+                "<generic id=\"grp_trash\" name=\"trash\" tag_name=\"span\" class_name=\"trash\" dom_clickable=\"true\" rect=\"117,119,12,12\" />",
+                "</root>"
+            ),
+            "<generic id=\"grp_noise\" name=\"alpha beta gamma delta\" rect=\"0,0,1,1\" /> ".repeat(200)
+        );
+
+        let compact = compact_tool_history_entry_for_chat("browser__snapshot", &snapshot);
+
+        assert!(compact.starts_with("<root"), "{compact}");
+        assert!(compact.contains("grp_email_row tag=generic"), "{compact}");
+        assert!(compact.contains("grp_trash tag=generic"), "{compact}");
+        assert!(compact.contains("dom_clickable=true"), "{compact}");
+        assert!(
+            !compact.contains("grp_find_the_email_by_lonna tag=generic"),
+            "{compact}"
+        );
+        assert!(
+            !compact.contains("grp_lonna tag=generic name=Lonna"),
+            "{compact}"
+        );
     }
 }

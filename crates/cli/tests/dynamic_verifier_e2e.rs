@@ -1,6 +1,6 @@
 // Path: crates/cli/tests/dynamic_verifier_e2e.rs
 #![cfg(all(
-    feature = "consensus-admft",
+    feature = "consensus-convergent",
     feature = "vm-wasm",
     feature = "state-iavl",
     feature = "ibc-deps"
@@ -89,7 +89,7 @@ async fn test_dynamic_verifier_lifecycle() -> Result<()> {
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Admft")
+        .with_consensus_type("Convergent")
         .with_initial_service(InitialServiceConfig::Governance(Default::default()))
         // Enable IBC to ensure the registry and tables are initialized
         .with_initial_service(InitialServiceConfig::Ibc(IbcConfig {

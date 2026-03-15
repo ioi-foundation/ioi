@@ -19,6 +19,7 @@ use ioi_services::{
     agentic::desktop::DesktopAgentService,
     agentic::optimizer::OptimizerService, // Import Optimizer
     governance::GovernanceModule,
+    guardian_registry::GuardianRegistry,
     identity::IdentityHub,
     provider_registry::ProviderRegistryService,
     wallet_network::WalletNetworkService,
@@ -324,6 +325,9 @@ where
         chain_id: 1.into(),
         config_schema_version: 0,
         consensus_type: config.consensus_type,
+        convergent_safety_mode: Default::default(),
+        guardian_production_mode: Default::default(),
+        key_authority: None,
         rpc_listen_address: String::new(),
         rpc_hardening: Default::default(),
         initial_sync_timeout_secs: 0,
@@ -363,6 +367,12 @@ where
             InitialServiceConfig::Oracle(_params) => {
                 tracing::info!(target: "workload", event = "service_init", name = "ProviderRegistry", impl="native", capabilities="");
                 let _registry = ProviderRegistryService::default();
+                initial_services
+                    .push(Arc::new(_registry) as Arc<dyn ioi_api::services::UpgradableService>);
+            }
+            InitialServiceConfig::GuardianRegistry(_params) => {
+                tracing::info!(target: "workload", event = "service_init", name = "GuardianRegistry", impl="native", capabilities="attestation_registry_witness");
+                let _registry = GuardianRegistry::new(_params.clone());
                 initial_services
                     .push(Arc::new(_registry) as Arc<dyn ioi_api::services::UpgradableService>);
             }

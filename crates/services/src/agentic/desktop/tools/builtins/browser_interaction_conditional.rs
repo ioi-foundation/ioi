@@ -15,8 +15,7 @@
         )
     };
 
-    if is_browser_active
-        && tier == ExecutionTier::VisualBackground
+    if should_expose_headless_browser_followups(tier, allow_browser_navigation, is_browser_active)
         && is_tool_allowed_for_resolution(resolved_intent, "browser__synthetic_click")
     {
         let synthetic_click_params = json!({
@@ -30,7 +29,7 @@
 
         tools.push(LlmToolDefinition {
             name: "browser__synthetic_click".to_string(),
-            description: "Click a coordinate (x,y) inside the web page directly. Does NOT move the user's mouse cursor.".to_string(),
+            description: "Click a coordinate (x,y) inside the web page directly. Useful for canvases, SVG surfaces, and blank regions that do not expose a semantic element. Does NOT move the user's mouse cursor.".to_string(),
             parameters: synthetic_click_params.to_string(),
         });
     }
@@ -146,7 +145,7 @@
             });
             tools.push(LlmToolDefinition {
                 name: "browser__select_text".to_string(),
-                description: "Select text within a browser element or the active field via DOM selection APIs. Works in headless mode."
+                description: "Select text directly inside a browser element by `selector`, or within the active field if no selector is provided. Works in headless mode."
                     .to_string(),
                 parameters: browser_select_text_params.to_string(),
             });
@@ -201,7 +200,7 @@
             });
             tools.push(LlmToolDefinition {
                 name: "browser__paste_clipboard".to_string(),
-                description: "Insert the current system clipboard contents into the browser."
+                description: "Insert the current system clipboard contents into the browser. Pass `selector` to focus a target field first when you want to paste without a separate click."
                     .to_string(),
                 parameters: browser_paste_clipboard_params.to_string(),
             });

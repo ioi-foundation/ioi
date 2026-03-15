@@ -3,22 +3,113 @@
 // REMOVE: use super::assert::wait_for_height;
 use super::genesis::GenesisBuilder;
 use super::validator::{TestValidator, ValidatorGuard};
-use anyhow::Result; // Fixed unused import
+use anyhow::{anyhow, Result};
+use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use dcrypt::sign::eddsa::Ed25519SecretKey;
 use futures_util::{stream::FuturesUnordered, StreamExt};
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_crypto::sign::bls::BlsKeyPair;
+use ioi_crypto::sign::guardian_committee::{
+    canonical_manifest_hash, canonical_witness_manifest_hash,
+};
 use ioi_types::config::ValidatorRole;
-use ioi_types::config::{InitialServiceConfig, ServicePolicy};
+use ioi_types::config::{
+    ConvergentSafetyMode, GuardianCommitteeConfig, GuardianCommitteeMemberConfig,
+    GuardianWitnessCommitteeConfig, InitialServiceConfig, ServicePolicy,
+};
 // [FIX] Add imports for default genesis setup
 use ioi_types::app::{
-    account_id_from_key_material, ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime,
-    SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    account_id_from_key_material, guardian_registry_committee_key, guardian_registry_log_key,
+    guardian_registry_witness_key, guardian_registry_witness_seed_key,
+    guardian_registry_witness_set_key, AccountId, ActiveKeyRecord, BlockTimingParams,
+    BlockTimingRuntime, GuardianCommitteeManifest, GuardianCommitteeMember,
+    GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed,
+    GuardianWitnessSet, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
+use ioi_types::keys::CURRENT_EPOCH_KEY;
+use ioi_validator::config::{AttestationSignaturePolicy, GuardianConfig};
 use libp2p::{
     identity::{self, ed25519, Keypair},
     Multiaddr,
 };
 use std::collections::BTreeMap;
+use std::fs::{self, OpenOptions};
+use std::net::{Ipv4Addr, TcpListener};
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
+use tempfile::TempDir;
+
+const VALIDATOR_PORT_STRIDE: u16 = 100;
+const VALIDATOR_PORT_FANOUT: u16 = 8;
+
+struct ValidatorPortAllocation {
+    bases: Vec<u16>,
+    lock_path: PathBuf,
+}
+
+fn allocate_validator_port_bases(num_validators: usize) -> Result<ValidatorPortAllocation> {
+    let lock_dir = std::env::temp_dir().join("ioi-test-port-blocks");
+    fs::create_dir_all(&lock_dir)?;
+
+    for block_start in (20_000u16..55_000u16).step_by(1_000) {
+        let lock_path = lock_dir.join(format!("{block_start}.lock"));
+        let mut lock_file = match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&lock_path)
+        {
+            Ok(file) => file,
+            Err(_) => continue,
+        };
+
+        let mut reservations = Vec::new();
+        let mut bases = Vec::with_capacity(num_validators);
+        let mut available = true;
+
+        for validator_index in 0..num_validators {
+            let base_port = block_start
+                .checked_add((validator_index as u16) * VALIDATOR_PORT_STRIDE)
+                .ok_or_else(|| anyhow!("validator port allocation overflow"))?;
+            let block_end = base_port
+                .checked_add(VALIDATOR_PORT_FANOUT)
+                .ok_or_else(|| anyhow!("validator port allocation overflow"))?;
+            if block_end >= u16::MAX {
+                available = false;
+                break;
+            }
+
+            for port in base_port..=block_end {
+                match TcpListener::bind((Ipv4Addr::LOCALHOST, port)) {
+                    Ok(listener) => reservations.push(listener),
+                    Err(_) => {
+                        available = false;
+                        break;
+                    }
+                }
+            }
+
+            if !available {
+                break;
+            }
+            bases.push(base_port);
+        }
+
+        if available {
+            use std::io::Write as _;
+            writeln!(lock_file, "pid={}", std::process::id())?;
+            return Ok(ValidatorPortAllocation { bases, lock_path });
+        }
+
+        drop(lock_file);
+        let _ = fs::remove_file(&lock_path);
+    }
+
+    Err(anyhow!(
+        "failed to allocate a free validator port block for {} validators",
+        num_validators
+    ))
+}
 
 // Helper to fetch peer count from metrics
 async fn fetch_peer_count(metrics_addr: &str) -> String {
@@ -47,6 +138,8 @@ type GenesisModifier = Box<dyn FnOnce(&mut GenesisBuilder, &Vec<identity::Keypai
 pub struct TestCluster {
     pub validators: Vec<ValidatorGuard>,
     pub genesis_content: String,
+    _shared_artifacts: Option<Arc<TempDir>>,
+    _port_block_lock_path: Option<PathBuf>,
 }
 
 impl TestCluster {
@@ -57,6 +150,9 @@ impl TestCluster {
     pub async fn shutdown(self) -> Result<()> {
         for guard in self.validators {
             guard.shutdown().await?;
+        }
+        if let Some(lock_path) = self._port_block_lock_path {
+            let _ = fs::remove_file(lock_path);
         }
         Ok(())
     }
@@ -83,6 +179,8 @@ pub struct TestClusterBuilder {
     min_finality_depth: Option<u64>,
     service_policies_override: BTreeMap<String, ServicePolicy>,
     roles: BTreeMap<usize, ValidatorRole>,
+    convergent_safety_mode: ConvergentSafetyMode,
+    guardian_config_toml: Option<String>,
 }
 
 impl Default for TestClusterBuilder {
@@ -92,7 +190,7 @@ impl Default for TestClusterBuilder {
             keypairs: None,
             chain_id: ioi_types::app::ChainId(1),
             genesis_modifiers: Vec::new(),
-            consensus_type: "Admft".to_string(),
+            consensus_type: "Convergent".to_string(),
             agentic_model_path: None,
             use_docker: false,
             state_tree: "IAVL".to_string(),
@@ -108,6 +206,8 @@ impl Default for TestClusterBuilder {
             min_finality_depth: None,
             service_policies_override: BTreeMap::new(),
             roles: BTreeMap::new(),
+            convergent_safety_mode: ConvergentSafetyMode::GuardianMajority,
+            guardian_config_toml: None,
         }
     }
 }
@@ -121,6 +221,290 @@ fn libp2p_keypair_from_dcrypt_seed(seed: [u8; 32]) -> libp2p::identity::Keypair 
     let ed = ed25519::Keypair::try_from_bytes(&mut bytes[..])
         .expect("libp2p ed25519 keypair from (seed||pub)");
     Keypair::from(ed)
+}
+
+struct AutoGuardianHarness {
+    temp_dir: Arc<TempDir>,
+    guardian_config_toml: String,
+    transparency_log_descriptors: Vec<(Vec<u8>, Vec<u8>)>,
+    committee_manifests: Vec<(Vec<u8>, Vec<u8>)>,
+    witness_manifests: Vec<(Vec<u8>, Vec<u8>)>,
+    witness_seed: Option<(Vec<u8>, Vec<u8>)>,
+    witness_set: Option<(Vec<u8>, Vec<u8>)>,
+}
+
+fn digest_to_array(digest: impl AsRef<[u8]>) -> Result<[u8; 32]> {
+    digest
+        .as_ref()
+        .try_into()
+        .map_err(|_| anyhow!("sha256 digest was not 32 bytes"))
+}
+
+fn derive_guardian_policy_hash(config: &GuardianConfig) -> Result<[u8; 32]> {
+    digest_to_array(
+        Sha256::digest(&serde_json::to_vec(&(
+            config.production_mode,
+            &config.hardening,
+            &config.verifier_policy,
+            &config.transparency_log,
+        ))?)
+        .map_err(|e| anyhow!(e.to_string()))?,
+    )
+}
+
+fn derive_guardian_measurement_root(config: &GuardianConfig) -> Result<[u8; 32]> {
+    digest_to_array(
+        Sha256::digest(&serde_json::to_vec(&(
+            config.approved_orchestrator_hash.clone(),
+            config.approved_workload_hash.clone(),
+            config.hardening.measured_boot_required,
+        ))?)
+        .map_err(|e| anyhow!(e.to_string()))?,
+    )
+}
+
+fn derive_witness_policy_hash(
+    config: &GuardianConfig,
+    witness_config: &GuardianWitnessCommitteeConfig,
+) -> Result<[u8; 32]> {
+    if let Some(policy_hash) = witness_config.policy_hash {
+        return Ok(policy_hash);
+    }
+    digest_to_array(
+        Sha256::digest(&serde_json::to_vec(&(
+            &witness_config.committee_id,
+            witness_config.epoch,
+            witness_config.threshold,
+            &config.verifier_policy,
+            &config.transparency_log,
+        ))?)
+        .map_err(|e| anyhow!(e.to_string()))?,
+    )
+}
+
+fn build_auto_guardian_harness(
+    validator_keys: &[identity::Keypair],
+    safety_mode: ConvergentSafetyMode,
+) -> Result<AutoGuardianHarness> {
+    let temp_dir = Arc::new(tempfile::tempdir()?);
+    let committee_keys = [BlsKeyPair::generate()?, BlsKeyPair::generate()?];
+    let witness_keys = [BlsKeyPair::generate()?, BlsKeyPair::generate()?];
+    let transparency_log_key = identity::Keypair::generate_ed25519();
+    let transparency_log_key_path = temp_dir.path().join("guardian-log.key");
+    std::fs::write(
+        &transparency_log_key_path,
+        transparency_log_key.to_protobuf_encoding()?,
+    )?;
+
+    let committee_members = committee_keys
+        .iter()
+        .enumerate()
+        .map(|(index, keypair)| {
+            let private_key_path = temp_dir.path().join(format!("guardian-member-{index}.bls"));
+            std::fs::write(
+                &private_key_path,
+                hex::encode(SigningKeyPair::private_key(keypair).to_bytes()),
+            )?;
+            Ok::<_, anyhow::Error>(GuardianCommitteeMemberConfig {
+                member_id: format!("guardian-member-{index}"),
+                endpoint: None,
+                public_key: SigningKeyPair::public_key(keypair).to_bytes(),
+                private_key_path: Some(private_key_path.to_string_lossy().to_string()),
+                provider: Some(format!("provider-{index}")),
+                region: Some(format!("region-{index}")),
+                host_class: Some(format!("host-class-{index}")),
+                key_authority_kind: Some(ioi_types::app::KeyAuthorityKind::DevMemory),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let mut guardian_config = GuardianConfig {
+        signature_policy: AttestationSignaturePolicy::FollowChain,
+        production_mode: ioi_types::app::GuardianProductionMode::Compatibility,
+        key_authority: None,
+        committee: GuardianCommitteeConfig {
+            threshold: 2,
+            members: committee_members,
+            transparency_log_id: "guardian-test-log".to_string(),
+        },
+        experimental_witness_committees: Vec::new(),
+        hardening: Default::default(),
+        transparency_log: ioi_types::config::GuardianTransparencyLogConfig {
+            log_id: "guardian-test-log".to_string(),
+            endpoint: None,
+            signing_key_path: Some(transparency_log_key_path.to_string_lossy().to_string()),
+            required: true,
+        },
+        verifier_policy: Default::default(),
+        enforce_binary_integrity: false,
+        approved_orchestrator_hash: None,
+        approved_workload_hash: None,
+        binary_dir_override: None,
+    };
+
+    if matches!(
+        safety_mode,
+        ConvergentSafetyMode::ExperimentalNestedGuardian
+    ) {
+        let witness_members = witness_keys
+            .iter()
+            .enumerate()
+            .map(|(index, keypair)| {
+                let private_key_path = temp_dir.path().join(format!("witness-member-{index}.bls"));
+                std::fs::write(
+                    &private_key_path,
+                    hex::encode(SigningKeyPair::private_key(keypair).to_bytes()),
+                )?;
+                Ok::<_, anyhow::Error>(GuardianCommitteeMemberConfig {
+                    member_id: format!("witness-member-{index}"),
+                    endpoint: None,
+                    public_key: SigningKeyPair::public_key(keypair).to_bytes(),
+                    private_key_path: Some(private_key_path.to_string_lossy().to_string()),
+                    provider: Some(format!("witness-provider-{index}")),
+                    region: Some(format!("witness-region-{index}")),
+                    host_class: Some(format!("witness-host-class-{index}")),
+                    key_authority_kind: Some(ioi_types::app::KeyAuthorityKind::DevMemory),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        guardian_config
+            .experimental_witness_committees
+            .push(GuardianWitnessCommitteeConfig {
+                committee_id: "witness-alpha".to_string(),
+                epoch: 1,
+                threshold: 2,
+                members: witness_members,
+                transparency_log_id: "witness-test-log".to_string(),
+                policy_hash: None,
+            });
+    }
+
+    let measurement_profile_root = derive_guardian_measurement_root(&guardian_config)?;
+    let guardian_policy_hash = derive_guardian_policy_hash(&guardian_config)?;
+    let manifest_members = guardian_config
+        .committee
+        .members
+        .iter()
+        .map(|member| GuardianCommitteeMember {
+            member_id: member.member_id.clone(),
+            signature_suite: SignatureSuite::BLS12_381,
+            public_key: member.public_key.clone(),
+            endpoint: member.endpoint.clone(),
+            provider: member.provider.clone(),
+            region: member.region.clone(),
+            host_class: member.host_class.clone(),
+            key_authority_kind: member.key_authority_kind,
+        })
+        .collect::<Vec<_>>();
+
+    let mut committee_manifests = Vec::new();
+    for key in validator_keys {
+        let validator_account_id = AccountId(account_id_from_key_material(
+            SignatureSuite::ED25519,
+            &key.public().encode_protobuf(),
+        )?);
+        let manifest = GuardianCommitteeManifest {
+            validator_account_id,
+            epoch: 1,
+            threshold: guardian_config.committee.threshold,
+            members: manifest_members.clone(),
+            measurement_profile_root,
+            policy_hash: guardian_policy_hash,
+            transparency_log_id: guardian_config.committee.transparency_log_id.clone(),
+        };
+        let manifest_hash =
+            canonical_manifest_hash(&manifest).map_err(|e| anyhow!(e.to_string()))?;
+        committee_manifests.push((
+            guardian_registry_committee_key(&manifest_hash),
+            ioi_types::codec::to_bytes_canonical(&manifest).map_err(|e| anyhow!(e.to_string()))?,
+        ));
+    }
+
+    let mut witness_manifests = Vec::new();
+    let mut witness_seed = None;
+    let mut witness_set = None;
+    if let Some(witness_config) = guardian_config.experimental_witness_committees.first() {
+        let witness_manifest = GuardianWitnessCommitteeManifest {
+            committee_id: witness_config.committee_id.clone(),
+            epoch: witness_config.epoch,
+            threshold: witness_config.threshold,
+            members: witness_config
+                .members
+                .iter()
+                .map(|member| GuardianCommitteeMember {
+                    member_id: member.member_id.clone(),
+                    signature_suite: SignatureSuite::BLS12_381,
+                    public_key: member.public_key.clone(),
+                    endpoint: member.endpoint.clone(),
+                    provider: member.provider.clone(),
+                    region: member.region.clone(),
+                    host_class: member.host_class.clone(),
+                    key_authority_kind: member.key_authority_kind,
+                })
+                .collect(),
+            policy_hash: derive_witness_policy_hash(&guardian_config, witness_config)?,
+            transparency_log_id: witness_config.transparency_log_id.clone(),
+        };
+        let witness_manifest_hash = canonical_witness_manifest_hash(&witness_manifest)
+            .map_err(|e| anyhow!(e.to_string()))?;
+        witness_manifests.push((
+            guardian_registry_witness_key(&witness_manifest_hash),
+            ioi_types::codec::to_bytes_canonical(&witness_manifest)
+                .map_err(|e| anyhow!(e.to_string()))?,
+        ));
+        let seed = GuardianWitnessEpochSeed {
+            epoch: 1,
+            seed: [7u8; 32],
+            checkpoint_interval_blocks: 1,
+            max_reassignment_depth: 0,
+        };
+        let set = GuardianWitnessSet {
+            epoch: 1,
+            manifest_hashes: vec![witness_manifest_hash],
+            checkpoint_interval_blocks: 1,
+        };
+        witness_seed = Some((
+            guardian_registry_witness_seed_key(1),
+            ioi_types::codec::to_bytes_canonical(&seed).map_err(|e| anyhow!(e.to_string()))?,
+        ));
+        witness_set = Some((
+            guardian_registry_witness_set_key(1),
+            ioi_types::codec::to_bytes_canonical(&set).map_err(|e| anyhow!(e.to_string()))?,
+        ));
+    }
+
+    let mut transparency_log_descriptors = vec![(
+        guardian_registry_log_key(&guardian_config.committee.transparency_log_id),
+        ioi_types::codec::to_bytes_canonical(&GuardianTransparencyLogDescriptor {
+            log_id: guardian_config.committee.transparency_log_id.clone(),
+            signature_suite: SignatureSuite::ED25519,
+            public_key: transparency_log_key.public().encode_protobuf(),
+        })
+        .map_err(|e| anyhow!(e.to_string()))?,
+    )];
+    if let Some(witness_config) = guardian_config.experimental_witness_committees.first() {
+        if witness_config.transparency_log_id != guardian_config.committee.transparency_log_id {
+            transparency_log_descriptors.push((
+                guardian_registry_log_key(&witness_config.transparency_log_id),
+                ioi_types::codec::to_bytes_canonical(&GuardianTransparencyLogDescriptor {
+                    log_id: witness_config.transparency_log_id.clone(),
+                    signature_suite: SignatureSuite::ED25519,
+                    public_key: transparency_log_key.public().encode_protobuf(),
+                })
+                .map_err(|e| anyhow!(e.to_string()))?,
+            ));
+        }
+    }
+
+    Ok(AutoGuardianHarness {
+        temp_dir,
+        guardian_config_toml: toml::to_string(&guardian_config)?,
+        transparency_log_descriptors,
+        committee_manifests,
+        witness_manifests,
+        witness_seed,
+        witness_set,
+    })
 }
 
 impl TestClusterBuilder {
@@ -249,7 +633,21 @@ impl TestClusterBuilder {
         self
     }
 
+    pub fn with_convergent_safety_mode(mut self, mode: ConvergentSafetyMode) -> Self {
+        self.convergent_safety_mode = mode;
+        self
+    }
+
+    pub fn with_guardian_config_toml(mut self, guardian_config_toml: impl Into<String>) -> Self {
+        self.guardian_config_toml = Some(guardian_config_toml.into());
+        self
+    }
+
     pub async fn build(mut self) -> Result<TestCluster> {
+        let guardianized_mode = !matches!(
+            self.convergent_safety_mode,
+            ConvergentSafetyMode::ClassicBft
+        );
         let mut validator_keys = self.keypairs.take().unwrap_or_else(|| {
             (0..self.num_validators)
                 .map(|_| identity::Keypair::generate_ed25519())
@@ -273,6 +671,46 @@ impl TestClusterBuilder {
                 account_id_from_key_material(SignatureSuite::ED25519, &pk_b).unwrap_or([0; 32]);
             id_a.cmp(&id_b)
         });
+
+        let shared_guardian_harness = if guardianized_mode && self.guardian_config_toml.is_none() {
+            let harness =
+                build_auto_guardian_harness(&validator_keys, self.convergent_safety_mode)?;
+            self.guardian_config_toml = Some(harness.guardian_config_toml.clone());
+            if !self
+                .initial_services
+                .iter()
+                .any(|service| matches!(service, InitialServiceConfig::GuardianRegistry(_)))
+            {
+                self.initial_services
+                    .push(InitialServiceConfig::GuardianRegistry(Default::default()));
+            }
+            let transparency_log_descriptors = harness.transparency_log_descriptors.clone();
+            let committee_manifests = harness.committee_manifests.clone();
+            let witness_manifests = harness.witness_manifests.clone();
+            let witness_seed = harness.witness_seed.clone();
+            let witness_set = harness.witness_set.clone();
+            self.genesis_modifiers.push(Box::new(move |builder, _keys| {
+                builder.insert_typed(CURRENT_EPOCH_KEY, &1u64);
+                for (key, value) in &transparency_log_descriptors {
+                    builder.insert_raw(key, value);
+                }
+                for (key, value) in &committee_manifests {
+                    builder.insert_raw(key, value);
+                }
+                for (key, value) in &witness_manifests {
+                    builder.insert_raw(key, value);
+                }
+                if let Some((key, value)) = &witness_seed {
+                    builder.insert_raw(key, value);
+                }
+                if let Some((key, value)) = &witness_set {
+                    builder.insert_raw(key, value);
+                }
+            }));
+            Some(harness)
+        } else {
+            None
+        };
 
         // [FIX] Insert default genesis configuration to register validators
         // and set block timing. This ensures nodes don't stall on startup.
@@ -340,6 +778,10 @@ impl TestClusterBuilder {
 
         let mut validators: Vec<ValidatorGuard> = Vec::new();
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
+        let ValidatorPortAllocation {
+            bases: validator_base_ports,
+            lock_path: validator_port_lock_path,
+        } = allocate_validator_port_bases(validator_keys.len())?;
 
         if let Some(boot_key) = validator_keys.first() {
             let role = self
@@ -351,7 +793,7 @@ impl TestClusterBuilder {
             let bootnode_guard = TestValidator::launch(
                 boot_key.clone(),
                 genesis_content.clone(),
-                5000,
+                validator_base_ports[0],
                 self.chain_id,
                 None,
                 &self.consensus_type,
@@ -370,8 +812,14 @@ impl TestClusterBuilder {
                 self.min_finality_depth,
                 service_policies.clone(),
                 role,
+                self.convergent_safety_mode,
+                self.guardian_config_toml.clone(),
             )
-            .await?;
+            .await
+            .map_err(|error| {
+                let _ = fs::remove_file(&validator_port_lock_path);
+                error
+            })?;
 
             bootnode_addrs.push(bootnode_guard.validator().p2p_addr.clone());
             validators.push(bootnode_guard);
@@ -380,7 +828,7 @@ impl TestClusterBuilder {
         if validator_keys.len() > 1 {
             let mut launch_futures = FuturesUnordered::new();
             for (i, key) in validator_keys.iter().enumerate().skip(1) {
-                let base_port = 5000 + (i * 100) as u16;
+                let base_port = validator_base_ports[i];
                 let captured_bootnodes = bootnode_addrs.clone();
                 let captured_chain_id = self.chain_id;
                 let captured_genesis = genesis_content.clone();
@@ -398,6 +846,8 @@ impl TestClusterBuilder {
                 let captured_gc_interval = self.gc_interval_secs;
                 let captured_min_finality = self.min_finality_depth;
                 let captured_policies = service_policies.clone();
+                let captured_safety_mode = self.convergent_safety_mode;
+                let captured_guardian_config = self.guardian_config_toml.clone();
                 let key_clone = key.clone();
 
                 let role = self
@@ -429,6 +879,8 @@ impl TestClusterBuilder {
                         captured_min_finality,
                         captured_policies,
                         role,
+                        captured_safety_mode,
+                        captured_guardian_config,
                     )
                     .await
                 };
@@ -442,6 +894,7 @@ impl TestClusterBuilder {
                         for guard in validators {
                             let _ = guard.shutdown().await;
                         }
+                        let _ = fs::remove_file(&validator_port_lock_path);
                         return Err(e);
                     }
                 }
@@ -522,6 +975,7 @@ impl TestClusterBuilder {
                 for guard in validators {
                     let _ = guard.shutdown().await;
                 }
+                let _ = fs::remove_file(&validator_port_lock_path);
                 return Err(anyhow::anyhow!("Timeout waiting for cluster sync"));
             }
 
@@ -531,6 +985,8 @@ impl TestClusterBuilder {
         Ok(TestCluster {
             validators,
             genesis_content,
+            _shared_artifacts: shared_guardian_harness.map(|harness| harness.temp_dir),
+            _port_block_lock_path: Some(validator_port_lock_path),
         })
     }
 }

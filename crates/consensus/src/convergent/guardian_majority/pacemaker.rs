@@ -1,6 +1,6 @@
-// Path: crates/consensus/src/admft/pacemaker.rs
+// Path: crates/consensus/src/convergent/guardian_majority/pacemaker.rs
 
-//! Manages the timing and view progression for the A-DMFT consensus engine.
+//! Manages the timing and view progression for the Convergent deterministic consensus engine.
 //!
 //! The Pacemaker decouples the "when" from the "what" of consensus. It tracks
 //! the current view, calculates timeouts based on exponential backoff, and

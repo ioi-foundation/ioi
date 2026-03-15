@@ -1,4 +1,5 @@
 use super::*;
+use ioi_api::services::BlockchainService;
 
 #[test]
 fn approved_decision_requires_token() {
@@ -436,8 +437,11 @@ fn secret_injection_grant_requires_attested_request_and_alias_binding() {
         measurement_hash: [65u8; 32],
         guardian_ephemeral_public_key: vec![10, 11, 12],
         nonce: [63u8; 32],
+        verifier_id: String::new(),
+        manifest_hash: [0u8; 32],
         issued_at_ms: 1_749_999_999_000,
         expires_at_ms: 1_850_000_000_000,
+        evidence: None,
     };
 
     with_ctx(|ctx| {
@@ -515,4 +519,118 @@ fn secret_injection_grant_requires_attested_request_and_alias_binding() {
     )
     .expect("decode");
     assert_eq!(stored.secret_id, "openai-prod");
+}
+
+#[test]
+fn software_guardian_attestation_requires_registered_manifest() {
+    let state = MockState::default();
+    let attestation = GuardianAttestation {
+        quote_hash: [11u8; 32],
+        measurement_hash: [12u8; 32],
+        guardian_ephemeral_public_key: vec![1, 2, 3],
+        nonce: [13u8; 32],
+        verifier_id: "software-guardian".to_string(),
+        manifest_hash: [14u8; 32],
+        issued_at_ms: 10,
+        expires_at_ms: 100,
+        evidence: Some(ioi_types::app::GuardianAttestationEvidence {
+            verifier: ioi_types::app::GuardianAttestationVerifierKind::SoftwareGuardian,
+            manifest_hash: [14u8; 32],
+            measurement_root: [12u8; 32],
+            checkpoint: None,
+            inclusion_proof: vec![1],
+            evidence: vec![2],
+        }),
+    };
+
+    let err = super::super::validation::validate_guardian_attestation(&state, &attestation, 50)
+        .expect_err("missing manifest must fail");
+    assert!(err.to_string().contains("manifest not found"));
+}
+
+#[test]
+fn software_guardian_attestation_accepts_registered_manifest_and_measurement() {
+    let mut state = MockState::default();
+    let registry = crate::guardian_registry::GuardianRegistry::new(
+        ioi_types::config::GuardianRegistryParams {
+            enabled: true,
+            minimum_committee_size: 1,
+            minimum_witness_committee_size: 1,
+            minimum_provider_diversity: 1,
+            minimum_region_diversity: 1,
+            minimum_host_class_diversity: 1,
+            minimum_backend_diversity: 0,
+            require_even_committee_sizes: false,
+            require_checkpoint_anchoring: true,
+            max_checkpoint_staleness_ms: 120_000,
+            max_committee_outage_members: 0,
+        },
+    );
+    let manifest = ioi_types::app::GuardianCommitteeManifest {
+        validator_account_id: AccountId([21u8; 32]),
+        epoch: 1,
+        threshold: 1,
+        members: vec![ioi_types::app::GuardianCommitteeMember {
+            member_id: "guardian-1".to_string(),
+            signature_suite: SignatureSuite::ED25519,
+            public_key: vec![7, 7, 7],
+            endpoint: Some("https://guardian-1.example".to_string()),
+            provider: Some("provider-a".to_string()),
+            region: Some("us-east-1".to_string()),
+            host_class: Some("amd-sev".to_string()),
+            key_authority_kind: None,
+        }],
+        measurement_profile_root: [22u8; 32],
+        policy_hash: [23u8; 32],
+        transparency_log_id: "default".to_string(),
+    };
+    let manifest_hash = crate::guardian_registry::GuardianRegistry::manifest_hash(&manifest)
+        .expect("manifest hash");
+    let profile = ioi_types::app::GuardianMeasurementProfile {
+        profile_id: "default".to_string(),
+        allowed_measurement_roots: vec![[24u8; 32]],
+        policy_hash: [25u8; 32],
+    };
+
+    with_ctx(|ctx| {
+        let manifest_params = codec::to_bytes_canonical(&manifest).expect("encode manifest");
+        run_async(registry.handle_service_call(
+            &mut state,
+            "register_guardian_committee@v1",
+            &manifest_params,
+            ctx,
+        ))
+        .expect("register manifest");
+
+        let profile_params = codec::to_bytes_canonical(&profile).expect("encode profile");
+        run_async(registry.handle_service_call(
+            &mut state,
+            "publish_measurement_profile@v1",
+            &profile_params,
+            ctx,
+        ))
+        .expect("publish profile");
+    });
+
+    let attestation = GuardianAttestation {
+        quote_hash: [26u8; 32],
+        measurement_hash: [24u8; 32],
+        guardian_ephemeral_public_key: vec![8, 8, 8],
+        nonce: [27u8; 32],
+        verifier_id: "software-guardian".to_string(),
+        manifest_hash,
+        issued_at_ms: 100,
+        expires_at_ms: 1_000,
+        evidence: Some(ioi_types::app::GuardianAttestationEvidence {
+            verifier: ioi_types::app::GuardianAttestationVerifierKind::SoftwareGuardian,
+            manifest_hash,
+            measurement_root: [24u8; 32],
+            checkpoint: None,
+            inclusion_proof: vec![9],
+            evidence: vec![10],
+        }),
+    };
+
+    super::super::validation::validate_guardian_attestation(&state, &attestation, 500)
+        .expect("registered software guardian attestation should validate");
 }

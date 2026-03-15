@@ -168,8 +168,15 @@ pub(super) fn handle_duplicate_command_execution(
             is_active_web_pipeline_chat_reply_duplicate(&tool_name, agent_state);
         let prior_successful_duplicate =
             has_prior_successful_duplicate_action(agent_state, action_fingerprint);
+        let noop_duplicate_allowed = is_duplicate_non_command_noop_allowed(
+            &tool_name,
+            prior_successful_duplicate,
+            active_web_pipeline_chat_reply,
+        );
         let mut summary = if active_web_pipeline_chat_reply {
             "Deferred final reply while web research continues gathering evidence.".to_string()
+        } else if tool_name.eq_ignore_ascii_case("browser__snapshot") {
+            browser_snapshot_immediate_replay_summary()
         } else if prior_successful_duplicate {
             format!(
                 "Skipped immediate replay of '{}' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence.",
@@ -192,15 +199,8 @@ pub(super) fn handle_duplicate_command_execution(
             &mut agent_state.tool_execution_log,
             action_fingerprint,
             step_index,
-            if prior_successful_duplicate {
-                "success_duplicate_skip"
-            } else {
-                "duplicate_skip"
-            },
+            duplicate_skip_execution_label(prior_successful_duplicate, noop_duplicate_allowed),
         );
-        let noop_duplicate_allowed = prior_successful_duplicate
-            || is_non_command_duplicate_noop_tool(&tool_name)
-            || active_web_pipeline_chat_reply;
         if noop_duplicate_allowed {
             success = true;
             error_msg = None;
@@ -297,6 +297,37 @@ fn is_active_web_pipeline_chat_reply_duplicate(tool_name: &str, agent_state: &Ag
     tool_name == "chat__reply" && agent_state.pending_search_completion.is_some()
 }
 
+fn browser_snapshot_immediate_replay_summary() -> String {
+    "Immediate replay of `browser__snapshot` is not a valid next step. Do not call `browser__snapshot` again yet. Use a different browser action or act on the visible control already named in `RECENT PENDING BROWSER STATE`; if the page still needs time to change, use `browser__wait` before snapshot.".to_string()
+}
+
+fn is_duplicate_non_command_noop_allowed(
+    tool_name: &str,
+    prior_successful_duplicate: bool,
+    active_web_pipeline_chat_reply: bool,
+) -> bool {
+    if active_web_pipeline_chat_reply {
+        return true;
+    }
+
+    if tool_name.eq_ignore_ascii_case("browser__snapshot") {
+        return false;
+    }
+
+    prior_successful_duplicate || is_non_command_duplicate_noop_tool(tool_name)
+}
+
+fn duplicate_skip_execution_label(
+    prior_successful_duplicate: bool,
+    noop_duplicate_allowed: bool,
+) -> &'static str {
+    if prior_successful_duplicate && noop_duplicate_allowed {
+        "success_duplicate_skip"
+    } else {
+        "duplicate_skip"
+    }
+}
+
 fn has_prior_successful_duplicate_action(
     agent_state: &AgentState,
     action_fingerprint: &str,
@@ -362,7 +393,8 @@ fn is_mail_reply_tool(tool_name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        has_prior_successful_duplicate_action, is_active_web_pipeline_chat_reply_duplicate,
+        duplicate_skip_execution_label, has_prior_successful_duplicate_action,
+        is_active_web_pipeline_chat_reply_duplicate, is_duplicate_non_command_noop_allowed,
         is_mail_read_latest_tool, is_mail_reply_tool, is_non_command_duplicate_noop_tool,
         is_read_only_filesystem_tool, queue_browser_snapshot_verification,
     };
@@ -521,5 +553,18 @@ mod tests {
             [7u8; 32]
         ));
         assert_eq!(agent_state.execution_queue.len(), 1);
+    }
+
+    #[test]
+    fn browser_snapshot_duplicate_is_not_noop_safe_after_prior_success() {
+        assert!(!is_duplicate_non_command_noop_allowed(
+            "browser__snapshot",
+            true,
+            false
+        ));
+        assert_eq!(
+            duplicate_skip_execution_label(true, false),
+            "duplicate_skip"
+        );
     }
 }

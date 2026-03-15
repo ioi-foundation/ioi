@@ -51,10 +51,13 @@ impl BrowserDriver {
         self.ensure_page().await?;
 
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
-        self.check_connection_error(page.url().await)
+        let current_url = self
+            .check_connection_error(page.url().await)
             .await
             .map_err(|e| BrowserError::Internal(format!("Failed to query active URL: {}", e)))
-            .map(|url| url.unwrap_or_default())
+            .map(|url| url.unwrap_or_default())?;
+        *self.active_page_url.lock().await = Some(current_url.clone());
+        Ok(current_url)
     }
 
     pub async fn go_back(&self, steps: u32) -> std::result::Result<(u32, String), BrowserError> {
@@ -107,6 +110,7 @@ impl BrowserDriver {
             .await
             .map_err(|e| BrowserError::Internal(format!("Failed to query active URL: {}", e)))?
             .unwrap_or_default();
+        *self.active_page_url.lock().await = Some(current_url.clone());
 
         Ok((moved, current_url))
     }

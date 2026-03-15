@@ -7,7 +7,7 @@ The Orchestrator is the central coordinator of the IOI Node. It acts as the gate
 ### 1. Main Event Loop (`mod.rs`)
 The orchestrator runs a `tokio::select!` loop that processes disparate event streams:
 *   **Network Events:** Incoming blocks, transactions, and peer messages from `libp2p`.
-*   **Consensus Ticks:** Signals from the A-DMFT engine to produce blocks.
+*   **Consensus Ticks:** Signals from the Convergent deterministic engine to produce blocks.
 *   **Ingestion Results:** Validated transactions returning from the ingestion worker.
 
 ### 2. Ingestion Worker (`ingestion.rs`)
@@ -28,7 +28,7 @@ The Orchestrator does not have direct access to the database (RocksDB/Redb). Ins
 
 ## Consensus Integration
 
-The Orchestrator holds the `ConsensusEngine` (A-DMFT).
+The Orchestrator holds the `ConsensusEngine` (Convergent deterministic).
 1.  **Decide:** It asks the engine "What should I do?" (Produce, Wait, Vote).
 2.  **Sign:** If producing, it constructs a block header and sends it to the **Guardian** for signing.
 3.  **Process:** It sends the block to the **Workload** for execution/commit.

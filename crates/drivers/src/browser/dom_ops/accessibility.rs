@@ -1,6 +1,8 @@
 use super::super::*;
 use std::collections::HashSet;
 
+const ACCESSIBILITY_TREE_TIMEOUT: Duration = Duration::from_millis(1_500);
+
 #[derive(Debug, serde::Deserialize)]
 struct DomFallbackRect {
     x: f64,
@@ -104,6 +106,62 @@ fn node_text_tokens(node: &AccessibilityNode) -> HashSet<String> {
     tokens
 }
 
+fn is_semantic_dom_hint_token(token: &str) -> bool {
+    if token.len() <= 1 || token.chars().all(|ch| ch.is_ascii_digit()) {
+        return false;
+    }
+
+    !matches!(
+        token,
+        "ui" | "btn"
+            | "button"
+            | "icon"
+            | "img"
+            | "image"
+            | "item"
+            | "row"
+            | "col"
+            | "container"
+            | "content"
+            | "wrapper"
+            | "wrap"
+            | "left"
+            | "right"
+            | "top"
+            | "bottom"
+            | "current"
+            | "selected"
+            | "clicked"
+            | "active"
+            | "inactive"
+            | "disabled"
+            | "enabled"
+            | "hover"
+    )
+}
+
+fn dom_fallback_semantic_name(attributes: &HashMap<String, String>) -> Option<String> {
+    let mut seen = HashSet::new();
+    let mut tokens = Vec::new();
+
+    for key in ["dom_id", "class_name"] {
+        let Some(raw) = attributes.get(key) else {
+            continue;
+        };
+        for token in normalized_text_tokens(raw) {
+            if !is_semantic_dom_hint_token(&token) || !seen.insert(token.clone()) {
+                continue;
+            }
+            tokens.push(token);
+            if tokens.len() >= 3 {
+                return Some(tokens.join(" "));
+            }
+        }
+    }
+
+    (!tokens.is_empty()).then(|| tokens.join(" "))
+}
+
 fn is_dom_fallback_aggregate_candidate(node: &AccessibilityNode) -> bool {
     if node_attr_value(node, "dom_fallback") != Some("true") || node.is_interactive() {
         return false;
@@ -201,6 +259,7 @@ fn prune_redundant_dom_fallback_aggregates(mut root: AccessibilityNode) -> Acces
 
 impl DomFallbackNode {
     fn into_accessibility(self) -> AccessibilityNode {
+        let synthesized_name = dom_fallback_semantic_name(&self.attributes);
         AccessibilityNode {
             id: if self.id.trim().is_empty() {
                 "dom-node".to_string()
@@ -212,14 +271,17 @@ impl DomFallbackNode {
             } else {
                 self.role.to_ascii_lowercase()
             },
-            name: self.name.and_then(|v| {
-                let trimmed = v.trim().to_string();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(trimmed)
-                }
-            }),
+            name: self
+                .name
+                .and_then(|v| {
+                    let trimmed = v.trim().to_string();
+                    if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed)
+                    }
+                })
+                .or(synthesized_name),
             value: self.value.and_then(|v| {
                 let trimmed = v.trim().to_string();
                 if trimmed.is_empty() {
@@ -334,7 +396,113 @@ impl BrowserDriver {
                 }
                 return true;
             };
-            const elementName = (el) => {
+            const SVG_LEAF_TAGS = new Set([
+                "rect",
+                "circle",
+                "ellipse",
+                "polygon",
+                "polyline",
+                "path",
+                "line",
+                "text",
+            ]);
+            const svgKindFor = (tag, text) => {
+                switch (tag) {
+                    case "rect":
+                        return "rectangle";
+                    case "circle":
+                        return "circle";
+                    case "polygon":
+                        return "triangle";
+                    case "text":
+                        if (text.length === 1 && /^[0-9]$/.test(text)) return "digit";
+                        if (text.length === 1 && /^[a-z]$/i.test(text)) return "letter";
+                        return null;
+                    default:
+                        return null;
+                }
+            };
+            const svgSizeFor = (el, tag, rect) => {
+                if (!el || !rect) return null;
+                if (tag === "text") {
+                    const fontSize = parseFloat(normalize(el.getAttribute("font-size")));
+                    if (Number.isFinite(fontSize)) {
+                        return fontSize >= 15 ? "large" : "small";
+                    }
+                    const textHeight = Number(rect.height || 0);
+                    return textHeight >= 15 ? "large" : "small";
+                }
+                const extent = Math.max(Number(rect.width || 0), Number(rect.height || 0));
+                if (!(extent > 0)) return null;
+                return extent >= 15 ? "large" : "small";
+            };
+            const svgColorFor = (el) => {
+                if (!el || typeof el.getAttribute !== "function") return null;
+                const fill = normalize(el.getAttribute("fill")).toLowerCase();
+                if (fill && fill !== "none") return fill.slice(0, 120);
+                const stroke = normalize(el.getAttribute("stroke")).toLowerCase();
+                if (stroke && stroke !== "none") return stroke.slice(0, 120);
+                return null;
+            };
+            const svgIndexFor = (el) => {
+                if (!el || typeof el.getAttribute !== "function") return null;
+                const dataIndex = normalize(el.getAttribute("data-index"));
+                return dataIndex ? dataIndex.slice(0, 120) : null;
+            };
+            const svgLeafMetadata = (el, rect) => {
+                if (!el || !el.ownerSVGElement) return null;
+                const tag = (el.tagName || "").toLowerCase();
+                if (!SVG_LEAF_TAGS.has(tag)) return null;
+
+                const text = normalize(el.textContent || "");
+                const dataIndex = svgIndexFor(el);
+                const kind = svgKindFor(tag, text);
+                const size = svgSizeFor(el, tag, rect);
+                const color = svgColorFor(el);
+                const labelCandidates = [
+                    normalize(el.getAttribute("aria-label")),
+                    normalize(el.getAttribute("title")),
+                    normalize(el.getAttribute("data-label")),
+                    normalize(el.getAttribute("data-name")),
+                    normalize(el.getAttribute("data-value")),
+                    dataIndex,
+                    text,
+                ].filter(Boolean);
+
+                let label = labelCandidates.length > 0 ? labelCandidates[0].slice(0, 120) : null;
+                if (!label && kind) {
+                    const parts = [];
+                    if (size) parts.push(size);
+                    if (color) parts.push(color);
+                    parts.push(kind);
+                    const synthesized = normalize(parts.join(" "));
+                    label = synthesized ? synthesized.slice(0, 120) : null;
+                }
+
+                return {
+                    kind,
+                    size,
+                    color,
+                    dataIndex,
+                    label,
+                };
+            };
+            const svgAttrsFor = (el, rect) => {
+                const metadata = svgLeafMetadata(el, rect);
+                if (!metadata) return null;
+
+                const attrs = {};
+                if (metadata.kind) attrs.shape_kind = metadata.kind;
+                if (metadata.size) attrs.shape_size = metadata.size;
+                if (metadata.color) attrs.shape_color = metadata.color;
+                if (metadata.dataIndex) attrs.data_index = metadata.dataIndex;
+                return Object.keys(attrs).length > 0 ? attrs : null;
+            };
+            const isSemanticSvgLeaf = (el, rect) => {
+                const metadata = svgLeafMetadata(el, rect);
+                return !!metadata && (!!metadata.label || !!metadata.kind);
+            };
+            const elementName = (el, rect) => {
                 const parts = [
                     normalize(el.getAttribute("aria-label")),
                     normalize(el.getAttribute("title")),
@@ -400,6 +568,10 @@ impl BrowserDriver {
                     ) {
                         return controlText.slice(0, 120);
                     }
+                }
+                const svgMetadata = svgLeafMetadata(el, rect);
+                if (svgMetadata && svgMetadata.label) {
+                    return svgMetadata.label;
                 }
                 const text = normalize(el.innerText || el.textContent || "");
                 if (!text) return null;
@@ -545,13 +717,29 @@ impl BrowserDriver {
                 }
                 if (!isVisible(el, rect)) continue;
 
+                const tag = (el.tagName || "").toLowerCase();
                 const role = toRole(el);
-                const name = elementName(el);
+                const name = elementName(el, rect);
                 const value = elementValue(el);
-                const keep = isInteractive(el, role) || !!name || !!value;
-                if (!keep) continue;
-
                 const domId = normalize(el.id);
+                const className = normalize(String(el.className || ""));
+                const hasInlineClick = !!normalize(el.getAttribute("onclick")) || typeof el.onclick === "function";
+                const domClickable = isInteractive(el, role) || hasInlineClick || (() => {
+                    let style = null;
+                    try {
+                        style = window.getComputedStyle(el);
+                    } catch (_e) {}
+                    return !!style && style.cursor === "pointer";
+                })();
+                const svgAttrs = svgAttrsFor(el, rect);
+                const keep =
+                    domClickable
+                    || !!name
+                    || !!value
+                    || !!svgAttrs
+                    || (tag === "svg" && !!domId)
+                    || isSemanticSvgLeaf(el, rect);
+                if (!keep) continue;
                 const focused = activeElement === el;
                 const autocomplete = normalize(el.getAttribute("aria-autocomplete")).toLowerCase();
                 const controlsDomId = firstIdToken(el.getAttribute("aria-controls"));
@@ -578,7 +766,9 @@ impl BrowserDriver {
                     attributes: {
                         dom_fallback: "true",
                         dom_id: domId,
+                        ...(className ? { class_name: className.slice(0, 120) } : {}),
                         tag_name: (el.tagName || "").toLowerCase(),
+                        ...(domClickable ? { dom_clickable: "true" } : {}),
                         ...(focused ? { focused: "true" } : {}),
                         ...(autocomplete ? { autocomplete } : {}),
                         ...(controlsDomId ? { controls_dom_id: controlsDomId } : {}),
@@ -587,6 +777,7 @@ impl BrowserDriver {
                             : {}),
                         ...(controlStateFor(el) || {}),
                         ...(scrollState || {}),
+                        ...(svgAttrs || {}),
                     },
                     children: [],
                 });
@@ -693,6 +884,32 @@ impl BrowserDriver {
         let page = { self.active_page.lock().await.clone() };
         let p = page.ok_or(BrowserError::NoActivePage)?;
 
+        match tokio::time::timeout(
+            ACCESSIBILITY_TREE_TIMEOUT,
+            self.get_accessibility_tree_inner(&p),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => {
+                log::warn!(
+                    target: "browser",
+                    "Browser accessibility snapshot timed out after {:?}; forcing session reset.",
+                    ACCESSIBILITY_TREE_TIMEOUT
+                );
+                self.force_reset().await;
+                Err(BrowserError::Internal(format!(
+                    "Browser accessibility snapshot timed out after {:?}. Retry the action.",
+                    ACCESSIBILITY_TREE_TIMEOUT
+                )))
+            }
+        }
+    }
+
+    async fn get_accessibility_tree_inner(
+        &self,
+        p: &Page,
+    ) -> std::result::Result<AccessibilityNode, BrowserError> {
         p.execute(accessibility::EnableParams::default())
             .await
             .map_err(|e| BrowserError::Internal(format!("CDP AxEnable failed: {}", e)))?;
@@ -1187,6 +1404,46 @@ mod tests {
                 .collect::<HashMap<_, _>>(),
             children: Vec::new(),
         }
+    }
+
+    #[test]
+    fn dom_fallback_icon_control_synthesizes_name_from_class_hint() {
+        let node = dom_node(
+            "dom-node-1",
+            "generic",
+            None,
+            (120.0, 57.0, 12.0, 12.0),
+            &[
+                ("dom_fallback", "true"),
+                ("tag_name", "span"),
+                ("class_name", "trash"),
+                ("dom_clickable", "true"),
+            ],
+        )
+        .into_accessibility();
+
+        assert_eq!(node.name.as_deref(), Some("trash"));
+        assert!(node.is_interactive());
+    }
+
+    #[test]
+    fn dom_fallback_icon_control_synthesizes_name_from_dom_id_hint() {
+        let node = dom_node(
+            "dom-node-2",
+            "generic",
+            None,
+            (2.0, 56.0, 12.0, 12.0),
+            &[
+                ("dom_fallback", "true"),
+                ("tag_name", "span"),
+                ("dom_id", "close-email"),
+                ("dom_clickable", "true"),
+            ],
+        )
+        .into_accessibility();
+
+        assert_eq!(node.name.as_deref(), Some("close email"));
+        assert!(node.is_interactive());
     }
 
     #[test]

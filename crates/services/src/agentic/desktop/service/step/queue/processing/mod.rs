@@ -170,6 +170,44 @@ fn web_queue_action_timeout() -> Duration {
         .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECS))
 }
 
+fn browser_queue_action_timeout() -> Duration {
+    const DEFAULT_TIMEOUT_SECS: u64 = 12;
+    std::env::var("IOI_BROWSER_QUEUE_TOOL_TIMEOUT_SECS")
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(Duration::from_secs)
+        .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+}
+
+fn browser_queue_timeout_for_tool(tool: &AgentTool) -> Duration {
+    const WAIT_GRACE_MS: u64 = 5_000;
+
+    let baseline = browser_queue_action_timeout();
+    match tool {
+        AgentTool::BrowserWait { ms, timeout_ms, .. } => {
+            let requested_ms = ms.or(*timeout_ms).unwrap_or(0);
+            let requested = Duration::from_millis(requested_ms.saturating_add(WAIT_GRACE_MS));
+            requested.max(baseline)
+        }
+        _ => baseline,
+    }
+}
+
+fn queue_tool_timeout_policy(
+    agent_state: &AgentState,
+    tool: &AgentTool,
+    tool_name: &str,
+) -> Option<(&'static str, Duration)> {
+    if is_web_research_scope(agent_state) {
+        return Some(("Web", web_queue_action_timeout()));
+    }
+    if tool_name.starts_with("browser__") {
+        return Some(("Browser", browser_queue_timeout_for_tool(tool)));
+    }
+    None
+}
+
 async fn execute_queue_tool_request(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
@@ -192,8 +230,9 @@ async fn execute_queue_tool_request(
         )));
     }
 
-    if is_web_research_scope(agent_state) {
-        let timeout = web_queue_action_timeout();
+    if let Some((timeout_scope, timeout)) =
+        queue_tool_timeout_policy(agent_state, &tool_wrapper, tool_name)
+    {
         match tokio::time::timeout(
             timeout,
             service.handle_action_execution_with_state(
@@ -214,13 +253,15 @@ async fn execute_queue_tool_request(
             Ok(result) => result,
             Err(_) => {
                 log::warn!(
-                    "Web queue tool execution timed out after {:?} (session={} tool={}).",
+                    "{} queue tool execution timed out after {:?} (session={} tool={}).",
+                    timeout_scope,
                     timeout,
                     hex::encode(&session_id[..4]),
                     tool_name
                 );
                 Err(TransactionError::Invalid(format!(
-                    "ERROR_CLASS=TimeoutOrHang Web queue tool '{}' timed out after {}ms.",
+                    "ERROR_CLASS=TimeoutOrHang {} queue tool '{}' timed out after {}ms.",
+                    timeout_scope,
                     tool_name,
                     timeout.as_millis()
                 )))
@@ -1232,9 +1273,12 @@ pub async fn process_queue_item(
 #[cfg(test)]
 mod tests {
     use super::{
+        browser_queue_action_timeout, browser_queue_timeout_for_tool,
         observe_terminal_chat_reply_shape, terminal_chat_reply_layout_profile,
         TerminalChatReplyLayoutProfile,
     };
+    use ioi_types::app::agentic::AgentTool;
+    use std::time::Duration;
 
     #[test]
     fn terminal_chat_reply_shape_detects_story_collection_output() {
@@ -1282,6 +1326,32 @@ mod tests {
         assert_eq!(
             terminal_chat_reply_layout_profile(&facts),
             TerminalChatReplyLayoutProfile::SingleSnapshot
+        );
+    }
+
+    #[test]
+    fn browser_queue_timeout_defaults_for_non_wait_tools() {
+        let tool = AgentTool::BrowserSnapshot {};
+        assert_eq!(
+            browser_queue_timeout_for_tool(&tool),
+            browser_queue_action_timeout()
+        );
+    }
+
+    #[test]
+    fn browser_wait_timeout_honors_requested_duration_plus_grace() {
+        let tool = AgentTool::BrowserWait {
+            ms: Some(15_000),
+            condition: None,
+            selector: None,
+            query: None,
+            scope: None,
+            timeout_ms: None,
+        };
+
+        assert_eq!(
+            browser_queue_timeout_for_tool(&tool),
+            Duration::from_millis(20_000)
         );
     }
 }

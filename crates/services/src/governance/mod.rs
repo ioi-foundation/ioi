@@ -12,7 +12,7 @@ use ioi_api::crypto::{SerializableKey, VerifyingKey};
 
 use ioi_macros::service_interface;
 use ioi_types::app::{
-    read_validator_sets, write_validator_sets, AccountId, ActiveKeyRecord, LazarusUpgrade,
+    read_validator_sets, write_validator_sets, AccountId, ActiveKeyRecord, ConvergentEpochUpgrade,
     Proposal, ProposalStatus, ProposalType, StateEntry, TallyResult, ValidatorV1, VoteOption,
 };
 use ioi_types::codec;
@@ -597,13 +597,12 @@ impl GovernanceModule {
         Ok(())
     }
 
-    /// Executes the Lazarus Recovery Protocol to transition from A-PMFT back to A-DMFT.
-    /// This requires a supermajority of validators to provide new BootAttestations.
+    /// Governance hook for explicit convergent epoch reset or recovery procedures.
     #[method]
-    pub fn lazarus_upgrade(
+    pub fn convergent_epoch_upgrade(
         &self,
         state: &mut dyn StateAccess,
-        params: LazarusUpgrade,
+        params: ConvergentEpochUpgrade,
         _ctx: &TxContext,
     ) -> Result<(), TransactionError> {
         // 1. Load Current Epoch
@@ -674,14 +673,14 @@ impl GovernanceModule {
 
         if attested_weight < threshold {
             return Err(TransactionError::Invalid(format!(
-                "Lazarus Quorum not met: {} < {}",
+                "Legacy recovery quorum not met: {} < {}",
                 attested_weight, threshold
             )));
         }
 
         // 5. Commit New Epoch
         log::info!(
-            "Lazarus Protocol: Quorum met. Advancing to Epoch {}.",
+            "Legacy recovery quorum met. Advancing to Epoch {}.",
             params.new_epoch
         );
         state.insert(

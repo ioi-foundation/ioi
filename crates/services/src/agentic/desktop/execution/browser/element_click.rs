@@ -3,7 +3,12 @@ use super::selector_click::{ensure_browser_focus_guard, handle_browser_click};
 use super::tree::{apply_browser_auto_lens, render_browser_tree_xml};
 use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
 use serde_json::json;
+use std::collections::HashMap;
 use tokio::time::{sleep, Duration};
+
+// Allow one tail recheck for asynchronous browser updates before classifying a click as no-op.
+const CLICK_DISPATCH_SETTLE_MS: [u64; 4] = [0, 180, 360, 900];
+const LINK_STABLE_TARGET_MATERIAL_TREE_CHANGE_MIN_DELTA: usize = 4;
 
 fn rect_center(rect: Rect) -> Option<(f64, f64)> {
     if rect.width <= 0 || rect.height <= 0 {
@@ -42,6 +47,8 @@ pub(super) struct ClickElementPostcondition {
     pub(super) editable_focus_transition: bool,
     pub(super) tree_changed: bool,
     pub(super) url_changed: bool,
+    pub(super) material_semantic_change: bool,
+    pub(super) semantic_change_delta: usize,
 }
 
 impl ClickElementPostcondition {
@@ -51,6 +58,105 @@ impl ClickElementPostcondition {
             || self.tree_changed
             || self.url_changed
     }
+}
+
+fn xml_attr_value<'a>(fragment: &'a str, key: &str) -> Option<&'a str> {
+    let key_start = fragment.find(key)?;
+    let after_key = fragment.get(key_start + key.len()..)?;
+    let after_equals = after_key.strip_prefix('=')?;
+    let quote = after_equals.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let value = after_equals.get(1..)?;
+    let end_idx = value.find(quote)?;
+    value.get(..end_idx)
+}
+
+fn semantic_name_signatures(
+    xml: &str,
+    target: &BrowserSemanticTarget,
+) -> HashMap<(String, String), usize> {
+    let mut signatures = HashMap::new();
+    let mut cursor = xml;
+
+    while let Some(start_idx) = cursor.find('<') {
+        let rest = &cursor[start_idx + 1..];
+        let Some(end_idx) = rest.find('>') else {
+            break;
+        };
+        let fragment = &rest[..end_idx];
+        cursor = &rest[end_idx + 1..];
+
+        let trimmed = fragment.trim();
+        if trimmed.is_empty() || trimmed.starts_with('/') || trimmed.starts_with('!') {
+            continue;
+        }
+
+        let tag = trimmed
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .trim_end_matches('/');
+        if tag.is_empty() || tag.eq_ignore_ascii_case("root") {
+            continue;
+        }
+
+        let omitted = xml_attr_value(trimmed, "omitted")
+            .is_some_and(|value| parse_attr_bool(value).unwrap_or(true));
+        if omitted {
+            continue;
+        }
+
+        let is_clicked_target = target
+            .semantic_id
+            .as_deref()
+            .zip(xml_attr_value(trimmed, "id"))
+            .is_some_and(|(target_id, node_id)| target_id == node_id)
+            || target
+                .dom_id
+                .as_deref()
+                .zip(xml_attr_value(trimmed, "dom_id"))
+                .is_some_and(|(target_dom_id, node_dom_id)| target_dom_id == node_dom_id);
+        if is_clicked_target {
+            continue;
+        }
+
+        let Some(name) = xml_attr_value(trimmed, "name") else {
+            continue;
+        };
+        let normalized_name = name.split_whitespace().collect::<Vec<_>>().join(" ");
+        if normalized_name.is_empty() {
+            continue;
+        }
+
+        let signature = (tag.to_ascii_lowercase(), normalized_name);
+        *signatures.entry(signature).or_insert(0) += 1;
+    }
+
+    signatures
+}
+
+fn semantic_change_delta(
+    pre_tree_xml: &str,
+    post_tree_xml: &str,
+    pre_target: &BrowserSemanticTarget,
+) -> usize {
+    let pre_signatures = semantic_name_signatures(pre_tree_xml, pre_target);
+    let post_signatures = semantic_name_signatures(post_tree_xml, pre_target);
+    let mut delta = 0;
+
+    for (signature, pre_count) in &pre_signatures {
+        let post_count = post_signatures.get(signature).copied().unwrap_or_default();
+        delta += pre_count.abs_diff(post_count);
+    }
+    for (signature, post_count) in &post_signatures {
+        if !pre_signatures.contains_key(signature) {
+            delta += *post_count;
+        }
+    }
+
+    delta
 }
 
 pub(super) fn click_element_postcondition_counts_as_success(
@@ -68,8 +174,12 @@ pub(super) fn click_element_postcondition_counts_as_success(
             target.focused != pre_target.focused
                 || target.selected != pre_target.selected
                 || target.checked != pre_target.checked
+                || target.center_point != pre_target.center_point
+                || target.dom_id != pre_target.dom_id
+                || target.cdp_node_id != pre_target.cdp_node_id
+                || target.backend_dom_node_id != pre_target.backend_dom_node_id
         });
-        if !post_target_strengthened {
+        if !post_target_strengthened && !postcondition.material_semantic_change {
             return false;
         }
     }
@@ -361,6 +471,13 @@ pub(super) fn click_element_postcondition_met(
         && !pre_target.focused
         && post_target.is_some_and(|target| target.focused);
     let tree_changed = pre_tree_xml != post_tree_xml;
+    let semantic_change_delta = if tree_changed {
+        semantic_change_delta(pre_tree_xml, post_tree_xml, pre_target)
+    } else {
+        0
+    };
+    let material_semantic_change =
+        semantic_change_delta >= LINK_STABLE_TARGET_MATERIAL_TREE_CHANGE_MIN_DELTA;
     let url_changed = pre_url
         .map(str::trim)
         .filter(|url| !url.is_empty())
@@ -372,6 +489,8 @@ pub(super) fn click_element_postcondition_met(
         editable_focus_transition,
         tree_changed,
         url_changed,
+        material_semantic_change,
+        semantic_change_delta,
     }
 }
 
@@ -438,7 +557,8 @@ async fn verify_click_dispatch(
     method: &str,
     center_point: Option<(f64, f64)>,
 ) -> (bool, serde_json::Value) {
-    for settle_ms in [0_u64, 180, 360] {
+    for (attempt_idx, settle_ms) in CLICK_DISPATCH_SETTLE_MS.iter().copied().enumerate() {
+        let is_final_attempt = attempt_idx + 1 == CLICK_DISPATCH_SETTLE_MS.len();
         if settle_ms > 0 {
             sleep(Duration::from_millis(settle_ms)).await;
         }
@@ -476,6 +596,8 @@ async fn verify_click_dispatch(
                         "editable_focus_transition": postcondition.editable_focus_transition,
                         "tree_changed": postcondition.tree_changed,
                         "url_changed": postcondition.url_changed,
+                        "material_semantic_change": postcondition.material_semantic_change,
+                        "semantic_change_delta": postcondition.semantic_change_delta,
                     },
                     "pre_url": pre_url_ref,
                     "post_url": post_url_ref,
@@ -493,7 +615,7 @@ async fn verify_click_dispatch(
                 if success {
                     return (true, verify);
                 }
-                if settle_ms == 360 {
+                if is_final_attempt {
                     return (false, verify);
                 }
             }
@@ -522,7 +644,7 @@ async fn verify_click_dispatch(
                 if let Some((x, y)) = center_point {
                     verify["center_point"] = json!([x, y]);
                 }
-                if url_changed || settle_ms == 360 {
+                if url_changed || is_final_attempt {
                     return (url_changed, verify);
                 }
             }
@@ -562,6 +684,11 @@ mod tests {
                 .collect::<HashMap<_, _>>(),
             som_id: None,
         }
+    }
+
+    #[test]
+    fn click_dispatch_settle_schedule_includes_delayed_tail_probe() {
+        assert_eq!(super::CLICK_DISPATCH_SETTLE_MS, [0, 180, 360, 900]);
     }
 
     #[test]

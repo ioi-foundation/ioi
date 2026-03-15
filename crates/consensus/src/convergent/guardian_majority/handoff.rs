@@ -1,12 +1,11 @@
-// Path: crates/consensus/src/admft/handoff.rs
+// Path: crates/consensus/src/convergent/guardian_majority/handoff.rs
 
 use ioi_types::app::{AccountId, Block, ChainTransaction};
 use ioi_types::error::ConsensusError;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-/// The Local View broadcast by a node entering the transition phase.
-/// Matches Definition 3.5 in Protocol Apex.
+/// Legacy local-view structure retained for research reconciliation experiments.
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct LocalView {
     /// The last finalized height observed by this node.
@@ -17,8 +16,8 @@ pub struct LocalView {
     pub signature: Vec<u8>,
 }
 
-/// Executes the reconciliation logic (Algorithm 6).
-/// Returns the block hash that should be considered the "Genesis" for Engine B.
+/// Executes the legacy reconciliation logic retained for witness/audit analysis.
+/// Returns the block hash that should seed further nested-guardian investigation.
 pub fn reconcile_views(
     views: &[LocalView], 
     threshold: usize
@@ -33,10 +32,10 @@ pub fn reconcile_views(
     // 2. Filter candidates at max_height
     let candidates: Vec<&LocalView> = views.iter().filter(|v| v.height == max_height).collect();
 
-    // 3. Check for consensus at tip
-    // If there is only one unique hash at max_height, we adopt it.
-    // If there are multiple (fork at tip), we must defer to A-PMFT's probabilistic resolution.
-    // For Phase 2 implementation, we enforce a simple majority rule for the handoff.
+    // 3. Check for consensus at tip.
+    // If there are multiple candidates at max_height, we fall back to the
+    // witness/audit sampling path rather than a production consensus engine
+    // switch.
     
     let mut counts = std::collections::HashMap::new();
     for c in &candidates {
@@ -49,17 +48,11 @@ pub fn reconcile_views(
         .ok_or(ConsensusError::BlockVerificationFailed("No candidates found".into()))?;
 
     // Safety check: is it a majority of the sample?
-    // Note: candidates.len() represents the subset of nodes at the highest height.
-    // In a partition, this might be small. 
-    // Protocol Apex suggests we trust the max height if signatures are valid, 
-    // but majority provides stronger safety against malicious view injection.
     if count > candidates.len() / 2 {
         Ok(best_hash)
     } else {
-        // Twilight Zone: No clear winner. 
-        // Protocol Apex says: "Resolve via MeshConsensus".
-        // For this step, we return the best candidate but flag it (log warning).
-        // The Engine B startup will re-verify this tip statistically.
+        // No clear winner: return the best candidate and let witness sampling
+        // continue building evidence.
         Ok(best_hash)
     }
 }
