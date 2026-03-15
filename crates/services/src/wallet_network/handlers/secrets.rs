@@ -25,7 +25,7 @@ pub(crate) fn record_secret_injection_request(
 ) -> Result<(), TransactionError> {
     let now_ms = block_timestamp_ms(ctx);
     validate_secret_injection_request(&record.request)?;
-    validate_guardian_attestation(&record.attestation, now_ms)?;
+    validate_guardian_attestation(state, &record.attestation, now_ms)?;
     if record.request.attestation_nonce != record.attestation.nonce {
         return Err(TransactionError::Invalid(
             "secret injection request nonce does not match attestation nonce".to_string(),
@@ -130,7 +130,7 @@ pub(crate) fn grant_secret_injection(
                 "secret injection grant requires guardian attestation".to_string(),
             )
         })?;
-    validate_guardian_attestation(&attestation, now_ms)?;
+    validate_guardian_attestation(state, &attestation, now_ms)?;
     if attestation.nonce != request.attestation_nonce {
         return Err(TransactionError::Invalid(
             "stored attestation nonce mismatch for secret injection request".to_string(),

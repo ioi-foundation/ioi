@@ -6,7 +6,12 @@ use super::system_fail::handle_system_fail_outcome;
 use super::web_followup::apply_web_research_followups;
 use super::*;
 use crate::agentic::desktop::service::step::action::command_contract::WEB_PIPELINE_TERMINAL_RECEIPT;
+use crate::agentic::desktop::service::step::cognition::{
+    build_browser_snapshot_pending_state_context_with_history,
+    build_recent_pending_browser_state_context_with_snapshot, current_browser_observation_snapshot,
+};
 use crate::agentic::desktop::service::step::queue::handle_web_search_result;
+use ioi_types::app::agentic::ChatMessage;
 
 pub(super) struct ToolOutcomeContext<'a, 's> {
     pub service: &'a DesktopAgentService,
@@ -46,6 +51,46 @@ async fn crystallize_successful_session(
         .await;
 }
 
+fn blocked_terminalization_summary_from_history_and_snapshot(
+    history: &[ChatMessage],
+    current_snapshot: Option<&str>,
+) -> Option<String> {
+    let mut pending =
+        build_recent_pending_browser_state_context_with_snapshot(history, current_snapshot);
+    if pending.trim().is_empty() {
+        if let Some(snapshot) = current_snapshot {
+            pending = build_browser_snapshot_pending_state_context_with_history(snapshot, history);
+        }
+    }
+    let pending = pending.trim();
+    if pending.is_empty() {
+        return None;
+    }
+
+    Some(format!(
+        "Completion blocked because unresolved browser work remains. Do not finalize yet while RECENT PENDING BROWSER STATE is present. Use the named browser action first.\n{}",
+        pending
+    ))
+}
+
+fn blocked_terminalization_error(summary: &str) -> String {
+    format!("ERROR_CLASS=NoEffectAfterAction {}", summary)
+}
+
+#[cfg(test)]
+fn blocked_terminalization_summary_from_history(history: &[ChatMessage]) -> Option<String> {
+    blocked_terminalization_summary_from_history_and_snapshot(history, None)
+}
+
+async fn blocked_terminalization_summary(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+) -> Option<String> {
+    let history = service.hydrate_session_history(session_id).ok()?;
+    let current_snapshot = current_browser_observation_snapshot(service).await;
+    blocked_terminalization_summary_from_history_and_snapshot(&history, current_snapshot.as_deref())
+}
+
 pub(super) async fn apply_tool_outcome_and_followups(
     ctx: ToolOutcomeContext<'_, '_>,
 ) -> Result<(), TransactionError> {
@@ -76,6 +121,28 @@ pub(super) async fn apply_tool_outcome_and_followups(
 
     match tool {
         AgentTool::AgentComplete { result } => {
+            if let Some(blocked_summary) =
+                blocked_terminalization_summary(service, session_id).await
+            {
+                let blocked_error = blocked_terminalization_error(&blocked_summary);
+                *success = false;
+                *error_msg = Some(blocked_error.clone());
+                *history_entry = Some(blocked_error.clone());
+                *action_output = Some(blocked_error);
+                agent_state.status = AgentStatus::Running;
+                verification_checks
+                    .push("completion_gate_blocked_on_pending_browser_state=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                emit_completion_gate_status_event(
+                    service,
+                    session_id,
+                    step_index,
+                    resolved_intent_id,
+                    false,
+                    "agent_complete_blocked_on_pending_browser_state",
+                );
+                return Ok(());
+            }
             let missing_contract_markers =
                 missing_execution_contract_markers_with_rules(agent_state, rules);
             if !missing_contract_markers.is_empty() {
@@ -305,6 +372,28 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 verification_checks
                     .push("terminal_chat_reply_deferred_for_active_web_pipeline=true".to_string());
                 verification_checks.push("web_pipeline_active=true".to_string());
+                return Ok(());
+            }
+            if let Some(blocked_summary) =
+                blocked_terminalization_summary(service, session_id).await
+            {
+                let blocked_error = blocked_terminalization_error(&blocked_summary);
+                *success = false;
+                *error_msg = Some(blocked_error.clone());
+                *history_entry = Some(blocked_error.clone());
+                *action_output = Some(blocked_error);
+                agent_state.status = AgentStatus::Running;
+                verification_checks
+                    .push("completion_gate_blocked_on_pending_browser_state=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=false".to_string());
+                emit_completion_gate_status_event(
+                    service,
+                    session_id,
+                    step_index,
+                    resolved_intent_id,
+                    false,
+                    "chat_reply_blocked_on_pending_browser_state",
+                );
                 return Ok(());
             }
             let missing_contract_markers =
@@ -1745,4 +1834,143 @@ fn parse_media_multimodal_bundle(
     raw: &str,
 ) -> Option<ioi_types::app::agentic::MediaMultimodalBundle> {
     serde_json::from_str(raw).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        blocked_terminalization_error, blocked_terminalization_summary_from_history,
+        blocked_terminalization_summary_from_history_and_snapshot,
+    };
+    use ioi_types::app::agentic::ChatMessage;
+
+    fn chat_message(role: &str, content: &str, timestamp: u64) -> ChatMessage {
+        ChatMessage {
+            role: role.to_string(),
+            content: content.to_string(),
+            timestamp,
+            trace_hash: None,
+        }
+    }
+
+    #[test]
+    fn blocked_terminalization_summary_surfaces_pending_browser_state() {
+        let history = vec![
+            chat_message(
+                "user",
+                "Find Deena in the contact book and click on their address.",
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"{"query":"Deena","result":{"count":1,"first_snippet":"Find Deena in the contact book and click on their address.","found":true,"scope":"document","scrolled":true}}"#,
+                2,
+            ),
+            chat_message(
+                "tool",
+                concat!(
+                    "Tool Output (browser__snapshot): ",
+                    "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+                    "<generic id=\"grp_find_deena_in_the_contact_book\" name=\"Find Deena in the contact book and click on their address.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
+                    "<heading id=\"heading_lauraine\" name=\"Lauraine\" tag_name=\"h2\" rect=\"2,64,156,17\" />",
+                    "<link id=\"lnk_5193_buchanan_ave_unit_31\" name=\"5193 Buchanan Ave, Unit 31\" tag_name=\"a\" rect=\"6,135,138,22\" />",
+                    "<link id=\"lnk_443422\" name=\"&gt;\" tag_name=\"a\" rect=\"69,183,9,17\" />",
+                    "</root>",
+                ),
+                3,
+            ),
+        ];
+
+        let blocked = blocked_terminalization_summary_from_history(&history)
+            .expect("pending browser state should block terminalization");
+
+        assert!(
+            blocked.contains("Completion blocked because unresolved browser work remains"),
+            "{blocked}"
+        );
+        assert!(
+            blocked.contains("RECENT PENDING BROWSER STATE:"),
+            "{blocked}"
+        );
+        assert!(blocked.contains("`Deena`"), "{blocked}");
+        assert!(blocked.contains("`lnk_443422`"), "{blocked}");
+    }
+
+    #[test]
+    fn blocked_terminalization_summary_is_empty_without_pending_browser_state() {
+        let history = vec![
+            chat_message("user", "Open the page and inspect it.", 1),
+            chat_message(
+                "tool",
+                concat!(
+                    "Tool Output (browser__snapshot): ",
+                    "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+                    "<generic id=\"grp_done\" name=\"Done\" tag_name=\"div\" rect=\"0,0,80,20\" />",
+                    "</root>",
+                ),
+                2,
+            ),
+        ];
+
+        assert!(
+            blocked_terminalization_summary_from_history(&history).is_none(),
+            "unexpected terminalization blocker for settled browser state"
+        );
+    }
+
+    #[test]
+    fn blocked_terminalization_summary_uses_current_snapshot_when_history_snapshot_is_missing() {
+        let history = vec![
+            chat_message(
+                "user",
+                "Find Deena in the contact book and click on their address.",
+                1,
+            ),
+            chat_message(
+                "tool",
+                r#"{"query":"Deena","result":{"count":1,"first_snippet":"Find Deena in the contact book and click on their address.","found":true,"scope":"document","scrolled":true}}"#,
+                2,
+            ),
+        ];
+        let current_snapshot = concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "<generic id=\"grp_find_deena_in_the_contact_book\" name=\"Find Deena in the contact book and click on their address.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
+            "<heading id=\"heading_lauraine\" name=\"Lauraine\" tag_name=\"h2\" rect=\"2,64,156,17\" />",
+            "<link id=\"lnk_5193_buchanan_ave_unit_31\" name=\"5193 Buchanan Ave, Unit 31\" tag_name=\"a\" rect=\"6,135,138,22\" />",
+            "<link id=\"lnk_443422\" name=\"&gt;\" tag_name=\"a\" rect=\"69,183,9,17\" />",
+            "</root>",
+        );
+
+        let blocked = blocked_terminalization_summary_from_history_and_snapshot(
+            &history,
+            Some(current_snapshot),
+        )
+        .expect("live current browser snapshot should block terminalization");
+
+        assert!(
+            blocked.contains("RECENT PENDING BROWSER STATE:"),
+            "{blocked}"
+        );
+        assert!(blocked.contains("`Deena`"), "{blocked}");
+        assert!(blocked.contains("`lnk_443422`"), "{blocked}");
+    }
+
+    #[test]
+    fn blocked_terminalization_error_uses_no_effect_error_class() {
+        let summary = concat!(
+            "Completion blocked because unresolved browser work remains. ",
+            "Do not finalize yet while RECENT PENDING BROWSER STATE is present. ",
+            "Use the named browser action first.\nRECENT PENDING BROWSER STATE:\n",
+            "`Deena` is not on the current record `Lauraine`.\n",
+        );
+
+        let error = blocked_terminalization_error(summary);
+
+        assert!(
+            error.starts_with("ERROR_CLASS=NoEffectAfterAction "),
+            "{error}"
+        );
+        assert!(error.contains("RECENT PENDING BROWSER STATE:"), "{error}");
+        assert!(error.contains("`Deena`"), "{error}");
+    }
 }

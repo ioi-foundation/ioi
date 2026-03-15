@@ -1,10 +1,10 @@
-// Path: crates/consensus/src/apmft/mod.rs
+// Path: crates/consensus/src/convergent/experimental/mod.rs
 
-//! Engine B: Asymptotic Probabilistic Mesh Fault Tolerance (A-PMFT).
+//! Experimental witness-sampling and observability helpers.
 //!
-//! This engine is activated when the hardware root of trust is shattered.
-//! It relies on randomized gossip sampling and statistical finality rather than
-//! leader-based deterministic voting.
+//! These components are retained only as research support for
+//! `ExperimentalNestedGuardian`, where randomized sampling and confidence
+//! tracking can support witness assignment and degraded-mode observability.
 
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism};
 use async_trait::async_trait;
@@ -28,7 +28,7 @@ use self::confidence::ConfidenceTracker;
 use self::vrf::Sortition;
 
 #[derive(Debug, Clone)]
-pub struct ApmftEngine {
+pub struct ExperimentalSamplingEngine {
     /// Current sampling round.
     pub current_round: u64,
     /// Cryptographic sortition logic.
@@ -41,7 +41,7 @@ pub struct ApmftEngine {
     samples: Vec<[u8; 32]>,
 }
 
-impl Default for ApmftEngine {
+impl Default for ExperimentalSamplingEngine {
     fn default() -> Self {
         Self {
             current_round: 0,
@@ -54,7 +54,7 @@ impl Default for ApmftEngine {
     }
 }
 
-impl ApmftEngine {
+impl ExperimentalSamplingEngine {
     pub fn new() -> Self {
         Self::default()
     }
@@ -100,36 +100,29 @@ impl ApmftEngine {
     }
 }
 
-// [NEW] Implement ConsensusControl for ApmftEngine
-impl ConsensusControl for ApmftEngine {
-    fn switch_to_apmft(&mut self) {
-        // No-op (Already A-PMFT)
-    }
-    fn switch_to_admft(&mut self) {
-        // No-op (Handled by wrapper replacement)
-    }
-    fn get_apmft_tip(&self) -> Option<([u8; 32], u32)> {
-        // Use the internal safe method
+impl ConsensusControl for ExperimentalSamplingEngine {
+    fn experimental_sample_tip(&self) -> Option<([u8; 32], u32)> {
         Some((self.preferred_tip, self.get_confidence()))
     }
-    fn feed_apmft_sample(&mut self, hash: [u8; 32]) {
+
+    fn observe_experimental_sample(&mut self, hash: [u8; 32]) {
         self.handle_sample_response(hash);
     }
 }
 
 #[async_trait]
-impl PenaltyMechanism for ApmftEngine {
+impl PenaltyMechanism for ExperimentalSamplingEngine {
     async fn apply_penalty(
         &self,
         _state: &mut dyn StateAccess,
         _report: &FailureReport,
     ) -> Result<(), TransactionError> {
-        // A-PMFT handles penalties via statistical weight reduction
+        // Research-only observability helpers do not apply penalties directly.
         Ok(())
     }
 }
 
-impl PenaltyEngine for ApmftEngine {
+impl PenaltyEngine for ExperimentalSamplingEngine {
     fn apply(
         &self,
         _sys: &mut dyn SystemState,
@@ -140,7 +133,9 @@ impl PenaltyEngine for ApmftEngine {
 }
 
 #[async_trait]
-impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> for ApmftEngine {
+impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
+    for ExperimentalSamplingEngine
+{
     async fn decide(
         &mut self,
         _our_account_id: &AccountId,
@@ -170,8 +165,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         }
 
         // 2. Start new round
-        // We rely on the Orchestrator loop (run_sync_discoverer or similar)
-        // to poll `get_apmft_tip` and `feed_apmft_sample`.
+        // The guardianized runtime uses this helper as a sidecar to update
+        // witness-observability state from collected samples.
 
         ConsensusDecision::Stall
     }
@@ -185,7 +180,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         CS: CommitmentScheme + Send + Sync,
         ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     {
-        // In A-PMFT, blocks are received via gossip and added to the candidate set
+        // Experimental observability does not gate block admission directly.
         Ok(())
     }
 

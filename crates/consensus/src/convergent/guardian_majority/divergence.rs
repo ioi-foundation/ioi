@@ -1,10 +1,11 @@
-// Path: crates/consensus/src/admft/divergence.rs
+// Path: crates/consensus/src/convergent/guardian_majority/divergence.rs
 
 //! Implements the Proof of Divergence verification logic (Algorithm 2).
 //!
 //! A Proof of Divergence ($\pi_{div}$) is cryptographic evidence that a hardware
 //! validator has equivocated (signed two different payloads for the same slot).
-//! This is the trigger condition for the Protocol Apex Kill Switch.
+//! In the guardianized runtime, validated divergence evidence quarantines the
+//! local node and is re-gossiped for slashing or operator response.
 
 use ioi_api::crypto::{SerializableKey, VerifyingKey};
 use ioi_crypto::sign::dilithium::MldsaPublicKey;
@@ -14,7 +15,7 @@ use ioi_types::error::ConsensusError;
 
 /// Verifies a Proof of Divergence against the Protocol Apex rules.
 ///
-/// Returns `Ok(true)` if the proof is valid and indicates a hardware breach.
+/// Returns `Ok(true)` if the proof is valid and indicates equivocation.
 /// Returns `Ok(false)` if the proof is structurally valid but does not prove divergence (e.g. duplicates).
 /// Returns `Err` if the proof is malformed or signatures are invalid.
 pub fn verify_divergence_proof(proof: &ProofOfDivergence) -> Result<bool, ConsensusError> {

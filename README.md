@@ -2,7 +2,7 @@
 
 ![Status](https://img.shields.io/badge/status-alpha-yellow)
 ![License](https://img.shields.io/badge/license-BBSL-blue)
-![Consensus](https://img.shields.io/badge/consensus-Lazarus_Fault_Tolerance-purple)
+![Consensus](https://img.shields.io/badge/consensus-Convergent_FT-purple)
 ![Cryptography](https://img.shields.io/badge/crypto-Post--Quantum-green)
 
 **The L0 Web4 framework for sovereign agentic L1s.**  
@@ -114,16 +114,18 @@ graph TD
 
 ## Core Technological Breakthroughs
 
-### 1. Lazarus Fault Tolerance
+### 1. Convergent Fault Tolerance
 
-Classical Byzantine fault tolerance assumes deterministic safety only while fewer than one-third of participants are Byzantine. IOI is built around a stronger claim: if equivocation can be made attributable through guardian-anchored monotonicity, deterministic safety can be preserved with a simple majority threshold under the intended operating model.
+Classical Byzantine fault tolerance assumes deterministic safety only while fewer than one-third of participants are Byzantine. IOI's production path is now built around a different operating model: committee-backed non-equivocation evidence, externalized verification state, and explicit composed fault assumptions documented in the consensus crate. We refer to this family as Convergent Fault Tolerance: replicas may be noisy, Byzantine, or offline, but finalized history must converge through certified quorums and shared evidence.
 
-- **A-DMFT:** Adaptive Deterministic Mirror Fault Tolerance for the normal high-assurance path
-- **51 percent safety target:** under guardian-backed non-equivocation assumptions
-- **The Kill Switch:** hardware is treated as a falsifiable hypothesis, not a sacred axiom
-- **A-PMFT fallback:** if proof of divergence or equivalent compromise appears, the network can fall back to a probabilistic survival mode to preserve liveness
+- **Convergent deterministic:** the deterministic production core for the convergent path
+- **GuardianMajority:** the production majority-safety mode under committee-backed non-equivocation assumptions
+- **NestedGuardian:** the witness-augmented convergent mode for committee cross-checking, audit sampling, and stronger composed trust assumptions
+- **Divergence handling:** proof of divergence now quarantines the local node and propagates evidence; it does not switch the network onto a separate production engine
 
-This is the logic behind the README claim that IOI is attempting to shatter the classical 33 percent BFT ceiling.
+Any claim beyond the classical `3f+1` bound is treated as a research problem under layered assumptions, not as an unconditional production theorem.
+
+The canonical protocol specifications live in [`docs/consensus/convergent/specs/guardian_majority.md`](docs/consensus/convergent/specs/guardian_majority.md) and [`docs/consensus/convergent/specs/nested_guardian.md`](docs/consensus/convergent/specs/nested_guardian.md). Formal models live under [`formal/convergent/`](formal/convergent/).
 
 ### 2. The Agency Firewall
 
@@ -266,7 +268,7 @@ The codebase is a Rust workspace with a TS/React application layer on top.
 | Path | Role |
 | :--- | :--- |
 | [`crates/node`](crates/node) | Entry points for runtime binaries such as `ioi-local`, `guardian`, and `workload`. |
-| [`crates/consensus`](crates/consensus) | Lazarus fault tolerance and consensus machinery. |
+| [`crates/consensus`](crates/consensus) | Convergent Fault Tolerance consensus machinery plus witness/audit extensions for nested guardian operation. |
 | [`crates/validator`](crates/validator) | Runtime orchestration, enforcement, reactor loops, and event handling. |
 | [`crates/execution`](crates/execution) | Deterministic execution and state transition handling. |
 | [`crates/state`](crates/state) | Commitment trees and proof-oriented state structures. |
@@ -395,13 +397,13 @@ Focused CLI harness tests:
 
 ```bash
 # Infrastructure E2E: P2P sync and block production
-cargo test -p ioi-cli --test infra_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
+cargo test -p ioi-cli --test infra_e2e --features "consensus-convergent,vm-wasm,state-iavl" -- --nocapture --test-threads=1
 
-# Consensus / Lazarus protocol
-RUST_LOG=info,consensus=info cargo test -p ioi-cli --test admft_e2e --features "consensus-admft,vm-wasm,state-iavl" -- --nocapture
+# Consensus / Convergent Fault Tolerance
+RUST_LOG=info,consensus=info cargo test -p ioi-cli --test convergent_e2e --features "consensus-convergent,vm-wasm,state-iavl" -- --nocapture
 
 # Agentic security: PII scrubbing and policy gates
-cargo test -p ioi-cli --test agent_scrub_e2e --features "consensus-admft,vm-wasm,state-iavl"
+cargo test -p ioi-cli --test agent_scrub_e2e --features "consensus-convergent,vm-wasm,state-iavl"
 ```
 
 ## Cryptography and Trust

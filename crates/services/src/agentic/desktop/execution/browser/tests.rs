@@ -613,6 +613,7 @@ fn link_click_tree_change_without_navigation_does_not_count_as_success() {
     );
     assert!(postcondition.tree_changed);
     assert!(!postcondition.url_changed);
+    assert!(!postcondition.material_semantic_change);
     assert!(postcondition.met());
     assert!(!click_element_postcondition_counts_as_success(
         &pre_target,
@@ -656,6 +657,72 @@ fn link_click_tree_change_with_selected_state_counts_as_success() {
     );
     assert!(postcondition.tree_changed);
     assert!(!postcondition.url_changed);
+    assert!(click_element_postcondition_counts_as_success(
+        &pre_target,
+        Some(&post_target),
+        &postcondition
+    ));
+}
+
+#[test]
+fn link_click_tree_change_with_center_shift_counts_as_success() {
+    let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_next".to_string()),
+        center_point: Some((60.5, 191.5)),
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+    let post_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_next".to_string()),
+        center_point: Some((73.5, 191.5)),
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+
+    let postcondition = click_element_postcondition_met(
+        "<root><link id='lnk_next' x='56'/><heading id='heading_karol'/></root>",
+        &pre_target,
+        Some("file:///tmp/miniwob/phone-book.1.html"),
+        "<root><link id='lnk_next' x='69'/><heading id='heading_deena'/></root>",
+        Some(&post_target),
+        Some("file:///tmp/miniwob/phone-book.1.html"),
+    );
+    assert!(postcondition.tree_changed);
+    assert!(!postcondition.url_changed);
+    assert!(click_element_postcondition_counts_as_success(
+        &pre_target,
+        Some(&post_target),
+        &postcondition
+    ));
+}
+
+#[test]
+fn link_click_tree_change_with_material_semantic_delta_counts_as_success() {
+    let pre_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_443422".to_string()),
+        center_point: Some((73.5, 191.5)),
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+    let post_target = BrowserSemanticTarget {
+        semantic_id: Some("lnk_443422".to_string()),
+        center_point: Some((73.5, 191.5)),
+        tag_name: Some("a".to_string()),
+        ..Default::default()
+    };
+
+    let postcondition = click_element_postcondition_met(
+        "<root><generic id='grp_query' name='Find Deena in the contact book and click on their address.'/><heading id='heading_lauraine' name='Lauraine'/><generic id='grp_phone' name='Phone:'/><link id='lnk_lauraine_phone' name='827-889-0501'/><generic id='grp_email' name='Email:'/><link id='lnk_lauraine_email' name='lauraine5464@myspace.ca'/><generic id='grp_address' name='Address:'/><link id='lnk_lauraine_address' name='5193 Buchanan Ave, Unit 31'/><link id='lnk_443422' name='>'/><generic id='grp_time_left' name='Time left: 5 / 15sec' omitted='true'/></root>",
+        &pre_target,
+        Some("file:///tmp/miniwob/phone-book.1.html"),
+        "<root><generic id='grp_query' name='Find Deena in the contact book and click on their address.'/><heading id='heading_deena' name='Deena'/><generic id='grp_phone' name='Phone:'/><link id='lnk_deena_phone' name='315-479-0478'/><generic id='grp_email' name='Email:'/><link id='lnk_deena_email' name='deena689@live.se'/><generic id='grp_address' name='Address:'/><link id='lnk_deena_address' name='5159 Middleton Crescent, Apt 5'/><link id='lnk_443422' name='>'/><generic id='grp_time_left' name='Time left: 4 / 15sec' omitted='true'/></root>",
+        Some(&post_target),
+        Some("file:///tmp/miniwob/phone-book.1.html"),
+    );
+    assert!(postcondition.tree_changed);
+    assert!(!postcondition.url_changed);
+    assert!(postcondition.material_semantic_change);
+    assert!(postcondition.semantic_change_delta >= 4);
     assert!(click_element_postcondition_counts_as_success(
         &pre_target,
         Some(&post_target),

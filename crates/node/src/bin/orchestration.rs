@@ -15,6 +15,7 @@ use ioi_execution::ExecutionMachine;
 use ioi_networking::libp2p::Libp2pSync;
 use ioi_networking::metrics as network_metrics;
 use ioi_services::governance::GovernanceModule;
+use ioi_services::guardian_registry::GuardianRegistry;
 // --- IBC Service Imports ---
 // [FIX] Feature-gate the gateway import
 #[cfg(feature = "ibc-deps")]
@@ -70,8 +71,10 @@ use ioi_crypto::algorithms::hash::sha256;
 
 // [NEW] Import GuardianSigner types
 use async_trait::async_trait;
-use ioi_types::app::ChainTransaction;
-use ioi_validator::common::{GuardianContainer, GuardianSigner, LocalSigner, RemoteSigner};
+use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+use ioi_validator::common::{
+    GuardianContainer, GuardianGrpcSigner, GuardianSigner, LocalSigner, RemoteSigner,
+};
 use ioi_validator::standard::orchestration::mempool::Mempool;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -111,6 +114,39 @@ struct OrchestrationOpts {
     /// the Oracle for signing block headers instead of the local key file.
     #[clap(long, env = "ORACLE_URL")]
     oracle_url: Option<String>,
+}
+
+fn ensure_guardianized_signing_supported(
+    config: &OrchestrationConfig,
+    uses_local_signer: bool,
+) -> Result<()> {
+    let guardianized_mode = !matches!(
+        config.convergent_safety_mode,
+        ioi_types::config::ConvergentSafetyMode::ClassicBft
+    );
+    let production_mode = matches!(
+        config.guardian_production_mode,
+        ioi_types::app::GuardianProductionMode::Production
+    );
+    if production_mode
+        && matches!(
+            config
+                .key_authority
+                .as_ref()
+                .map(|descriptor| descriptor.kind),
+            Some(ioi_types::app::KeyAuthorityKind::DevMemory)
+        )
+    {
+        return Err(anyhow!(
+            "production guardian profile refuses dev-memory key authority"
+        ));
+    }
+    if uses_local_signer && (guardianized_mode || production_mode) {
+        return Err(anyhow!(
+            "guardianized or production mode requires external guardian signing; LocalSigner is disabled"
+        ));
+    }
+    Ok(())
 }
 
 /// Runtime check to ensure exactly one state tree feature is enabled.
@@ -298,8 +334,28 @@ where
     let consensus_engine = engine_from_config(&config)?;
     let verifier = create_default_verifier(kzg_params);
     let is_quarantined = Arc::new(AtomicBool::new(false));
+    let guardianized_mode = !matches!(
+        config.convergent_safety_mode,
+        ioi_types::config::ConvergentSafetyMode::ClassicBft
+    );
+    ensure_guardianized_signing_supported(
+        &config,
+        !guardianized_mode && opts.oracle_url.is_none(),
+    )?;
 
-    let signer: Arc<dyn GuardianSigner> = if let Some(oracle_url) = &opts.oracle_url {
+    let signer: Arc<dyn GuardianSigner> = if guardianized_mode {
+        let guardian_endpoint = std::env::var("GUARDIAN_GRPC_ADDR")
+            .unwrap_or_else(|_| "http://127.0.0.1:8443".to_string());
+        let public_key = local_key.public().encode_protobuf();
+        let account_id =
+            account_id_from_key_material(SignatureSuite::ED25519, &public_key)?.to_vec();
+        tracing::info!(
+            target: "orchestration",
+            "Using guardian committee signer at {}",
+            guardian_endpoint
+        );
+        Arc::new(GuardianGrpcSigner::connect(guardian_endpoint, public_key, account_id).await?)
+    } else if let Some(oracle_url) = &opts.oracle_url {
         tracing::info!(target: "orchestration", "Using REMOTE Signing Oracle at {}", oracle_url);
 
         let pk_bytes = local_key.public().encode_protobuf();
@@ -404,6 +460,12 @@ where
                     let _registry = ProviderRegistryService::default();
                     initial_services
                         .push(Arc::new(_registry) as Arc<dyn ioi_api::services::UpgradableService>);
+                }
+                InitialServiceConfig::GuardianRegistry(_params) => {
+                    tracing::info!(target: "orchestration", event = "service_init", name = "GuardianRegistry", impl="native", capabilities="");
+                    let registry = GuardianRegistry::new(Default::default());
+                    initial_services
+                        .push(Arc::new(registry) as Arc<dyn ioi_api::services::UpgradableService>);
                 }
                 #[cfg(feature = "ibc-deps")]
                 InitialServiceConfig::Ibc(ibc_config) => {

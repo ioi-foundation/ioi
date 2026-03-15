@@ -75,6 +75,23 @@ struct LocalOpts {
     data_dir: PathBuf,
 }
 
+fn ensure_guardianized_local_signer_allowed(config: &OrchestrationConfig) -> Result<()> {
+    let guardianized_mode = !matches!(
+        config.convergent_safety_mode,
+        ioi_types::config::ConvergentSafetyMode::ClassicBft
+    );
+    let production_mode = matches!(
+        config.guardian_production_mode,
+        ioi_types::app::GuardianProductionMode::Production
+    );
+    if guardianized_mode || production_mode {
+        return Err(anyhow!(
+            "guardianized or production mode requires external guardian signing; LocalSigner is disabled"
+        ));
+    }
+    Ok(())
+}
+
 fn desktop_agent_allowed_system_prefixes() -> Vec<String> {
     vec![
         "upgrade::active::".to_string(),
@@ -261,7 +278,10 @@ async fn main() -> Result<()> {
         chain_id: ioi_types::app::ChainId(0),
         config_schema_version: 1,
         validator_role: ValidatorRole::Consensus,
-        consensus_type: ConsensusType::Admft,
+        consensus_type: ConsensusType::Convergent,
+        convergent_safety_mode: Default::default(),
+        guardian_production_mode: Default::default(),
+        key_authority: None,
         rpc_listen_address: rpc_addr.clone(),
         rpc_hardening: Default::default(),
         initial_sync_timeout_secs: 0,
@@ -378,7 +398,7 @@ async fn main() -> Result<()> {
         runtimes: vec!["wasm".to_string()],
         state_tree: ioi_types::config::StateTreeType::IAVL,
         commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
-        consensus_type: ConsensusType::Admft,
+        consensus_type: ConsensusType::Convergent,
         genesis_file: opts
             .data_dir
             .join("genesis.json")
@@ -397,6 +417,7 @@ async fn main() -> Result<()> {
             }),
             InitialServiceConfig::Governance(Default::default()),
             InitialServiceConfig::Oracle(Default::default()),
+            InitialServiceConfig::GuardianRegistry(Default::default()),
         ],
         service_policies,
         min_finality_depth: 0,
@@ -616,6 +637,7 @@ async fn main() -> Result<()> {
 
     println!("   - Consensus: Solo (Lite Mode)");
     let consensus_engine = ioi_consensus::Consensus::Solo(SoloEngine::new());
+    ensure_guardianized_local_signer_allowed(&config)?;
 
     let sk_bytes = local_key.clone().try_into_ed25519()?.secret();
     let internal_sk = Ed25519PrivateKey::from_bytes(sk_bytes.as_ref())?;

@@ -215,9 +215,11 @@ pub struct BrowserDriver {
     // Hermetic Instance
     browser: Arc<Mutex<Option<Arc<Browser>>>>,
     active_page: Arc<Mutex<Option<Page>>>,
+    active_page_url: Arc<Mutex<Option<String>>>,
     // Background retrieval page used by `web__*` tooling so search/read operations don't
     // steal focus or mutate the interactive browsing tab.
     retrieval_page: Arc<Mutex<Option<Page>>>,
+    retrieval_page_url: Arc<Mutex<Option<String>>>,
 
     // Session-scoped profile directory used by the hermetic browser.
     profile_dir: Arc<Mutex<Option<PathBuf>>>,

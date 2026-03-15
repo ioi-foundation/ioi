@@ -277,12 +277,18 @@ pub(super) fn validate_recovery_tool(
 pub(super) fn build_planner_prompt(
     incident_state: &IncidentState,
     forbidden_tools: &BTreeSet<String>,
+    pending_browser_state: Option<&str>,
 ) -> String {
     let visited = if incident_state.visited_node_fingerprints.is_empty() {
         "none".to_string()
     } else {
         incident_state.visited_node_fingerprints.join(", ")
     };
+    let pending_browser_state = pending_browser_state
+        .map(str::trim)
+        .filter(|state| !state.is_empty())
+        .map(|state| format!("         - Current pending browser state:\n{}\n", state))
+        .unwrap_or_default();
     format!(
         "You are an ontology incident resolver. Choose EXACTLY ONE JSON tool call.\n\
          Rules:\n\
@@ -299,7 +305,7 @@ pub(super) fn build_planner_prompt(
          - Strategy: {} / {}\n\
          - Transitions: {}/{}\n\
          - Visited remedy fingerprints: {}\n\
-         - Last error: {}\n",
+         - Last error: {}\n{}",
         forbidden_tools
             .iter()
             .cloned()
@@ -316,6 +322,7 @@ pub(super) fn build_planner_prompt(
         incident_state.max_transitions,
         visited,
         incident_state.root_error.as_deref().unwrap_or("unknown"),
+        pending_browser_state,
     )
 }
 
@@ -391,8 +398,8 @@ pub(super) fn queue_root_retry(
 #[cfg(test)]
 mod tests {
     use super::{
-        deterministic_recovery_tool, incident_specific_forbidden_tools, tool_fingerprint,
-        tool_to_action_request, IncidentState, QUEUE_TOOL_NAME_KEY,
+        build_planner_prompt, deterministic_recovery_tool, incident_specific_forbidden_tools,
+        tool_fingerprint, tool_to_action_request, IncidentState, QUEUE_TOOL_NAME_KEY,
     };
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget,
@@ -466,6 +473,18 @@ mod tests {
             pending_remedy_tool_jcs: None,
             retry_enqueued: false,
         }
+    }
+
+    #[test]
+    fn planner_prompt_includes_pending_browser_state_when_present() {
+        let incident = test_incident_state("browser__snapshot", "NoEffectAfterAction");
+        let prompt = build_planner_prompt(
+            &incident,
+            &BTreeSet::new(),
+            Some("RECENT PENDING BROWSER STATE:\nUse `browser__click_element` on `lnk_443422`."),
+        );
+        assert!(prompt.contains("Current pending browser state"));
+        assert!(prompt.contains("lnk_443422"));
     }
 
     fn queued_params(tool: AgentTool) -> serde_json::Value {

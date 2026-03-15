@@ -1,6 +1,6 @@
-// Path: crates/cli/tests/admft_e2e.rs
+// Path: crates/cli/tests/convergent_e2e.rs
 #![cfg(all(
-    feature = "consensus-admft",
+    feature = "consensus-convergent",
     feature = "vm-wasm",
     feature = "state-iavl"
 ))]
@@ -19,14 +19,14 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn test_admft_leader_rotation() -> Result<()> {
-    println!("--- Running A-DMFT Leader Rotation E2E Test ---");
+async fn test_convergent_leader_rotation() -> Result<()> {
+    println!("--- Running Convergent deterministic Leader Rotation E2E Test ---");
     build_test_artifacts();
 
     // 1. Setup a 3-node cluster
     let cluster = TestCluster::builder()
         .with_validators(3)
-        .with_consensus_type("Admft")
+        .with_consensus_type("Convergent")
         .with_state_tree("IAVL")
         .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
@@ -167,7 +167,7 @@ async fn test_admft_leader_rotation() -> Result<()> {
             ));
         }
 
-        println!("--- A-DMFT Leader Rotation Test Passed ---");
+        println!("--- Convergent deterministic Leader Rotation Test Passed ---");
         Ok(())
     };
 

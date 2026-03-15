@@ -118,6 +118,10 @@ impl SignatureSuite {
     /// Private range ID for now.
     pub const FALCON_512: Self = Self(-100);
 
+    /// BLS12-381 in the guardian committee aggregate-signature role.
+    /// Private range identifier.
+    pub const BLS12_381: Self = Self(-300);
+
     /// Hybrid Scheme: Ed25519 + ML-DSA-44.
     /// Concatenated Public Keys and Signatures.
     /// Private range ID.

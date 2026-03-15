@@ -13,8 +13,9 @@ use ioi_client::WorkloadClient;
 use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_state::primitives::kzg::KZGParams;
 use ioi_types::config::{
-    CommitmentSchemeType, ConsensusType, InferenceConfig, InitialServiceConfig,
-    OrchestrationConfig, ServicePolicy, StateTreeType, ValidatorRole, VmFuelCosts, WorkloadConfig,
+    CommitmentSchemeType, ConsensusType, ConvergentSafetyMode, InferenceConfig,
+    InitialServiceConfig, OrchestrationConfig, ServicePolicy, StateTreeType, ValidatorRole,
+    VmFuelCosts, WorkloadConfig,
 };
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
@@ -47,7 +48,7 @@ struct BinaryFeatureConfig<'a> {
 impl<'a> BinaryFeatureConfig<'a> {
     fn resolve(&self) -> Result<String> {
         let consensus_feature = match self.consensus_type {
-            "Admft" => "consensus-admft",
+            "Convergent" => "consensus-convergent",
             "ProofOfAuthority" => "consensus-poa",
             "ProofOfStake" => "consensus-pos",
             other => return Err(anyhow!("Unsupported test consensus type: {}", other)),
@@ -228,7 +229,10 @@ impl TestValidator {
         min_finality_depth: Option<u64>,
         service_policies: BTreeMap<String, ServicePolicy>,
         role: ValidatorRole,
+        convergent_safety_mode: ConvergentSafetyMode,
+        guardian_config_toml: Option<String>,
     ) -> Result<ValidatorGuard> {
+        let guardianized_mode = !matches!(convergent_safety_mode, ConvergentSafetyMode::ClassicBft);
         let features = BinaryFeatureConfig {
             consensus_type,
             state_tree_type,
@@ -237,8 +241,14 @@ impl TestValidator {
             extra_features,
         }
         .resolve()?;
+        let build_profile =
+            std::env::var("IOI_TEST_BUILD_PROFILE").unwrap_or_else(|_| "debug".to_string());
+        let build_release = build_profile.eq_ignore_ascii_case("release");
 
-        println!("--- Building node binaries with features: {} ---", features);
+        println!(
+            "--- Building node binaries with profile={} features: {} ---",
+            build_profile, features
+        );
 
         // Use the CARGO env var set by the test runner
         let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
@@ -248,11 +258,13 @@ impl TestValidator {
             "build",
             "-p",
             "ioi-node",
-            "--release",
             "--no-default-features",
             "--features",
             &features,
         ]);
+        if build_release {
+            cmd.arg("--release");
+        }
 
         // Attempt to add ~/.cargo/bin to PATH if not present
         if let Ok(home) = std::env::var("HOME") {
@@ -301,9 +313,10 @@ impl TestValidator {
         let rpc_port = pick_distinct_port(base_port + 1);
         let ipc_port_workload = pick_distinct_port(base_port + 2);
         let guardian_port = pick_distinct_port(base_port + 3);
-        let workload_telemetry_port = pick_distinct_port(base_port + 4);
-        let orchestration_telemetry_port = pick_distinct_port(base_port + 5);
-        let guardian_telemetry_port = pick_distinct_port(base_port + 6);
+        let guardian_grpc_port = pick_distinct_port(base_port + 4);
+        let workload_telemetry_port = pick_distinct_port(base_port + 5);
+        let orchestration_telemetry_port = pick_distinct_port(base_port + 6);
+        let guardian_telemetry_port = pick_distinct_port(base_port + 7);
 
         // Construct the bind address (for listening)
         let bind_addr_str = format!("/ip4/127.0.0.1/tcp/{}", p2p_port);
@@ -357,7 +370,7 @@ impl TestValidator {
         }
 
         let consensus_enum = match consensus_type {
-            "Admft" => ConsensusType::Admft,
+            "Convergent" => ConsensusType::Convergent,
             "ProofOfAuthority" => ConsensusType::ProofOfAuthority,
             "ProofOfStake" => ConsensusType::ProofOfStake,
             _ => return Err(anyhow!("Unsupported consensus type: {}", consensus_type)),
@@ -390,6 +403,9 @@ impl TestValidator {
             config_schema_version: 0,
             validator_role: role,
             consensus_type: consensus_enum,
+            convergent_safety_mode,
+            guardian_production_mode: Default::default(),
+            key_authority: None,
             rpc_listen_address: if use_docker {
                 "0.0.0.0:9999".to_string()
             } else {
@@ -453,11 +469,13 @@ impl TestValidator {
 
         std::fs::write(&workload_config_path, toml::to_string(&workload_config)?)?;
 
-        let guardian_config = r#"
+        let guardian_config = guardian_config_toml.unwrap_or_else(|| {
+            r#"
             signature_policy = "FollowChain"
             enforce_binary_integrity = false
         "#
-        .to_string();
+            .to_string()
+        });
         std::fs::write(config_dir_path.join("guardian.toml"), guardian_config)?;
 
         let (orch_log_tx, _) = broadcast::channel(LOG_CHANNEL_CAPACITY);
@@ -511,6 +529,7 @@ impl TestValidator {
             generate_certificates_if_needed(&certs_dir_path)?;
 
             let guardian_addr = format!("127.0.0.1:{}", guardian_port);
+            let guardian_grpc_addr = format!("127.0.0.1:{}", guardian_grpc_port);
             let initial_workload_ipc_addr = format!("127.0.0.1:{}", ipc_port_workload);
             workload_telemetry_addr = format!("127.0.0.1:{}", workload_telemetry_port);
             orchestration_telemetry_addr = format!("127.0.0.1:{}", orchestration_telemetry_port);
@@ -520,7 +539,8 @@ impl TestValidator {
                 .unwrap()
                 .parent()
                 .unwrap()
-                .join("target/release/");
+                .join("target")
+                .join(&build_profile);
 
             let mut pb = ProcessBackend::new(
                 rpc_addr.clone(),
@@ -535,22 +555,22 @@ impl TestValidator {
             pb.orchestration_telemetry_addr = Some(orchestration_telemetry_addr.clone());
             pb.workload_telemetry_addr = Some(workload_telemetry_addr.clone());
 
-            if let Some(model_path) = agentic_model_path {
+            if guardianized_mode || agentic_model_path.is_some() {
                 let telemetry_addr_guard = format!("127.0.0.1:{}", guardian_telemetry_port);
-                let process = TokioCommand::new(node_binary_path.join("guardian"))
-                    .args([
-                        "--config-dir",
-                        &config_dir_path.to_string_lossy(),
-                        "--agentic-model-path",
-                        model_path,
-                    ])
+                let mut guardian_cmd = TokioCommand::new(node_binary_path.join("guardian"));
+                guardian_cmd
+                    .args(["--config-dir", &config_dir_path.to_string_lossy()])
                     .env("TELEMETRY_ADDR", &telemetry_addr_guard)
                     .env("GUARDIAN_LISTEN_ADDR", &guardian_addr)
+                    .env("GUARDIAN_GRPC_ADDR", &guardian_grpc_addr)
                     .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
                     .env("IOI_GUARDIAN_KEY_PASS", "test-password")
                     .stderr(Stdio::piped())
-                    .kill_on_drop(true)
-                    .spawn()?;
+                    .kill_on_drop(true);
+                if let Some(model_path) = agentic_model_path {
+                    guardian_cmd.args(["--agentic-model-path", model_path]);
+                }
+                let process = guardian_cmd.spawn()?;
                 pb.guardian_process = Some(process);
             }
 
@@ -613,6 +633,12 @@ impl TestValidator {
             if agentic_model_path.is_some() {
                 orch_cmd.env("GUARDIAN_ADDR", &guardian_addr);
             }
+            if guardianized_mode {
+                orch_cmd.env(
+                    "GUARDIAN_GRPC_ADDR",
+                    format!("http://{}", guardian_grpc_addr),
+                );
+            }
             pb.orchestration_process = Some(orch_cmd.spawn()?);
 
             Box::new(pb)
@@ -646,7 +672,7 @@ impl TestValidator {
         let mut orch_sub = orch_log_tx.subscribe();
         let mut workload_sub = workload_log_tx.subscribe();
 
-        if agentic_model_path.is_some() {
+        if guardianized_mode || agentic_model_path.is_some() {
             assert_log_contains(
                 "Guardian",
                 _guardian_sub.as_mut().unwrap(),

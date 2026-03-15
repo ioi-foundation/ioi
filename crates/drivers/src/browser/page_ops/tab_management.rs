@@ -104,6 +104,7 @@ impl BrowserDriver {
             .await
             .map_err(|e| BrowserError::Internal(format!("Failed to query tab URL: {}", e)))?
             .unwrap_or_default();
+        *self.active_page_url.lock().await = Some(url.clone());
 
         Ok(BrowserTabInfo {
             tab_id: target_tab.to_string(),
@@ -174,7 +175,17 @@ impl BrowserDriver {
                 next_page.bring_to_front().await.map_err(|e| {
                     BrowserError::Internal(format!("Failed to focus next tab: {}", e))
                 })?;
+                let next_url = self
+                    .check_connection_error(next_page.url().await)
+                    .await
+                    .map_err(|e| {
+                        BrowserError::Internal(format!("Failed to query next tab URL: {}", e))
+                    })?
+                    .unwrap_or_default();
+                *self.active_page_url.lock().await = Some(next_url);
                 *self.active_page.lock().await = Some(next_page);
+            } else {
+                *self.active_page_url.lock().await = None;
             }
         }
 

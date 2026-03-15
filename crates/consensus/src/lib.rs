@@ -11,13 +11,9 @@
 )]
 //! Consensus module implementations for the IOI Kernel.
 
-#[cfg(feature = "admft")]
-pub mod admft;
-#[cfg(feature = "admft")]
-pub mod apmft;
 pub mod common;
-#[cfg(feature = "admft")]
-pub mod lft;
+#[cfg(feature = "convergent")]
+pub mod convergent;
 #[cfg(feature = "poa")]
 pub mod proof_of_authority;
 #[cfg(feature = "pos")]
@@ -41,8 +37,8 @@ use libp2p::PeerId;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-#[cfg(feature = "admft")]
-use lft::LftEngine;
+#[cfg(feature = "convergent")]
+use convergent::ConvergentEngine;
 #[cfg(feature = "poa")]
 use proof_of_authority::ProofOfAuthorityEngine;
 #[cfg(feature = "pos")]
@@ -63,8 +59,8 @@ pub trait PenaltyEngine: Send + Sync {
 /// An enum that wraps the various consensus engine implementations.
 #[derive(Debug, Clone)]
 pub enum Consensus<T: Clone> {
-    #[cfg(feature = "admft")]
-    Lft(LftEngine),
+    #[cfg(feature = "convergent")]
+    Convergent(ConvergentEngine),
     #[cfg(feature = "poa")]
     ProofOfAuthority(ProofOfAuthorityEngine),
     #[cfg(feature = "pos")]
@@ -77,47 +73,31 @@ pub enum Consensus<T: Clone> {
 impl<T: Clone> Consensus<T> {
     pub fn consensus_type(&self) -> ConsensusType {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(_) => ConsensusType::Admft,
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(_) => ConsensusType::Convergent,
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(_) => ConsensusType::ProofOfAuthority,
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(_) => ConsensusType::ProofOfStake,
-            Consensus::Solo(_) => ConsensusType::Admft,
+            Consensus::Solo(_) => ConsensusType::Convergent,
             Consensus::_Phantom(_) => unreachable!(),
         }
     }
 }
 
 impl<T: Clone + Send + Sync + 'static> ConsensusControl for Consensus<T> {
-    fn switch_to_apmft(&mut self) {
+    fn experimental_sample_tip(&self) -> Option<([u8; 32], u32)> {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => engine.switch_to_apmft(),
-            _ => {}
-        }
-    }
-
-    fn switch_to_admft(&mut self) {
-        match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => engine.switch_to_admft(),
-            _ => {}
-        }
-    }
-
-    fn get_apmft_tip(&self) -> Option<([u8; 32], u32)> {
-        match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => engine.get_apmft_tip(),
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(engine) => engine.experimental_sample_tip(),
             _ => None,
         }
     }
 
-    fn feed_apmft_sample(&mut self, hash: [u8; 32]) {
+    fn observe_experimental_sample(&mut self, hash: [u8; 32]) {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => engine.feed_apmft_sample(hash),
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(engine) => engine.observe_experimental_sample(hash),
             _ => {}
         }
     }
@@ -134,8 +114,8 @@ where
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => engine.apply_penalty(state, report).await,
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(engine) => engine.apply_penalty(state, report).await,
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => engine.apply_penalty(state, report).await,
             #[cfg(feature = "pos")]
@@ -153,8 +133,8 @@ impl<T: Clone + Send + Sync + 'static> PenaltyEngine for Consensus<T> {
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => engine.apply(system, report),
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(engine) => engine.apply(system, report),
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => engine.apply(system, report),
             #[cfg(feature = "pos")]
@@ -179,8 +159,8 @@ where
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => {
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(engine) => {
                 engine
                     .decide(our_account_id, height, view, parent_view, known_peers)
                     .await
@@ -216,8 +196,8 @@ where
         ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => engine.handle_block_proposal(block, chain_view).await,
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(engine) => engine.handle_block_proposal(block, chain_view).await,
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => {
                 engine.handle_block_proposal(block, chain_view).await
@@ -233,9 +213,9 @@ where
 
     async fn handle_vote(&mut self, vote: ConsensusVote) -> Result<(), ConsensusError> {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => {
-                <LftEngine as ConsensusEngine<T>>::handle_vote(engine, vote).await
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(engine) => {
+                <ConvergentEngine as ConsensusEngine<T>>::handle_vote(engine, vote).await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => {
@@ -258,10 +238,14 @@ where
         proof_bytes: &[u8],
     ) -> Result<(), ConsensusError> {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => {
-                <LftEngine as ConsensusEngine<T>>::handle_view_change(engine, from, proof_bytes)
-                    .await
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(engine) => {
+                <ConvergentEngine as ConsensusEngine<T>>::handle_view_change(
+                    engine,
+                    from,
+                    proof_bytes,
+                )
+                .await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => {
@@ -291,8 +275,10 @@ where
 
     fn reset(&mut self, height: u64) {
         match self {
-            #[cfg(feature = "admft")]
-            Consensus::Lft(engine) => <LftEngine as ConsensusEngine<T>>::reset(engine, height),
+            #[cfg(feature = "convergent")]
+            Consensus::Convergent(engine) => {
+                <ConvergentEngine as ConsensusEngine<T>>::reset(engine, height)
+            }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => {
                 <ProofOfAuthorityEngine as ConsensusEngine<T>>::reset(engine, height)

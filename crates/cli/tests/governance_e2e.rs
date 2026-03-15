@@ -83,7 +83,7 @@ async fn test_governance_proposal_lifecycle_with_tallying() -> Result<()> {
     // 2. LAUNCH CLUSTER with a custom genesis state
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Admft")
+        .with_consensus_type("Convergent")
         .with_state_tree("IAVL")
         .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {

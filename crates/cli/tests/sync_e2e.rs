@@ -1,6 +1,6 @@
 // Path: crates/cli/tests/sync_e2e.rs
 #![cfg(all(
-    any(feature = "consensus-admft", feature = "consensus-pos"),
+    any(feature = "consensus-convergent", feature = "consensus-pos"),
     feature = "vm-wasm",
     feature = "state-iavl"
 ))]
@@ -76,7 +76,7 @@ async fn test_multi_batch_sync() -> Result<()> {
     #[cfg(feature = "consensus-pos")]
     let (consensus_type, initial_weight) = ("ProofOfStake", 100_000u128);
     #[cfg(not(feature = "consensus-pos"))]
-    let (consensus_type, initial_weight) = ("Admft", 1u128);
+    let (consensus_type, initial_weight) = ("Convergent", 1u128);
 
     let genesis_modifier = move |builder: &mut GenesisBuilder, keys: &Vec<Keypair>| {
         let mut validators = Vec::new();
@@ -206,7 +206,7 @@ async fn test_sync_with_peer_drop() -> Result<()> {
     #[cfg(feature = "consensus-pos")]
     let (consensus_type, initial_weight) = ("ProofOfStake", 100_000u128);
     #[cfg(not(feature = "consensus-pos"))]
-    let (consensus_type, initial_weight) = ("Admft", 1u128);
+    let (consensus_type, initial_weight) = ("Convergent", 1u128);
 
     let genesis_modifier = move |builder: &mut GenesisBuilder, keys: &Vec<Keypair>| {
         let mut validators = Vec::new();
@@ -345,6 +345,8 @@ async fn test_sync_with_peer_drop() -> Result<()> {
             None, // min_finality_depth
             ioi_types::config::default_service_policies(),
             ValidatorRole::Consensus,
+            ioi_types::config::ConvergentSafetyMode::GuardianMajority,
+            None,
         )
         .await?;
 

@@ -1,9 +1,10 @@
-// Path: crates/consensus/src/admft/aggregator.rs
+// Path: crates/consensus/src/convergent/guardian_majority/aggregator.rs
 
 //! Aggregates individual consensus votes into a compact Quorum Certificate.
 //! This module handles the BLS signature aggregation logic for Phase 2 scalability.
 
 use ioi_types::app::{AccountId, ConsensusVote, QuorumCertificate};
+use ioi_types::config::ConvergentSafetyMode;
 // Use crypto crate for BLS operations (assumed available in Phase 2)
 // For Phase 1 compatibility, we might fallback to vector collection.
 // We'll prepare the structure for both.
@@ -58,10 +59,12 @@ impl VoteAggregator {
     }
 
     /// Checks if the quorum threshold has been met.
-    pub fn is_quorum_reached(&self, total_weight: u128) -> bool {
-        // A-DMFT Quorum: > 1/2 for liveness with Guardian, or > 2/3 for BFT.
-        // We use > 2/3 (67%) for standard BFT safety.
-        let threshold = (total_weight * 2) / 3;
+    pub fn is_quorum_reached(&self, total_weight: u128, mode: ConvergentSafetyMode) -> bool {
+        let threshold = match mode {
+            ConvergentSafetyMode::ClassicBft => (total_weight * 2) / 3,
+            ConvergentSafetyMode::GuardianMajority
+            | ConvergentSafetyMode::ExperimentalNestedGuardian => total_weight / 2,
+        };
         self.accumulated_weight > threshold
     }
 

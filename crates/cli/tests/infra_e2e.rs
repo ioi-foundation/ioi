@@ -1,6 +1,6 @@
 // Path: crates/cli/tests/infra_e2e.rs
 #![cfg(all(
-    any(feature = "consensus-admft", feature = "consensus-pos"),
+    any(feature = "consensus-convergent", feature = "consensus-pos"),
     feature = "vm-wasm",
     feature = "state-iavl"
 ))]
@@ -126,9 +126,9 @@ async fn test_metrics_endpoint() -> Result<()> {
         }));
 
     cfg_if! {
-        if #[cfg(feature = "consensus-admft")] {
+        if #[cfg(feature = "consensus-convergent")] {
             println!("--- Configuring for Proof of Authority ---");
-            builder = builder.with_consensus_type("Admft")
+            builder = builder.with_consensus_type("Convergent")
                 .with_genesis_modifier(|builder: &mut GenesisBuilder, keys| {
                     let keypair = &keys[0];
                     // 1. Identities (and get AccountId)

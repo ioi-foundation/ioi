@@ -162,68 +162,24 @@ where
             .checked_sub(min_block_time)
             .unwrap();
 
-        // Track the epoch we last saw
-        let mut last_seen_epoch = 0;
-
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    // [FIX] Split lock and clone to avoid holding lock across await or creating temporary with bad lifetime
-                    let (is_quarantined, node_state) = {
+                    let is_quarantined = {
                         let ctx = context_arc.lock().await;
-                        let q = ctx.is_quarantined.load(Ordering::SeqCst);
-                        let ns = ctx.node_state.lock().await.clone();
-                        (q, ns)
+                        ctx.is_quarantined.load(Ordering::SeqCst)
                     };
 
                     if is_quarantined { continue; }
 
-                    // [NEW] Lazarus Recovery Check
-                    if node_state == NodeState::SurvivalMode {
-                         // Poll for epoch change
-                         let client = { context_arc.lock().await.view_resolver.workload_client().clone() };
-                         let key = ioi_types::keys::CURRENT_EPOCH_KEY;
+                    last_tick = tokio::time::Instant::now();
 
-                         if let Ok(Some(bytes)) = client.query_raw_state(key).await {
-                             if let Ok(current_epoch) = ioi_types::codec::from_bytes_canonical::<u64>(&bytes) {
-                                 if current_epoch > last_seen_epoch {
-                                     tracing::info!(target: "orchestration", "Lazarus Recovery: Epoch {} detected (was {}). Restoring A-DMFT.", current_epoch, last_seen_epoch);
-                                     last_seen_epoch = current_epoch;
+                    tracing::info!(target: "consensus", "Consensus timer tick triggered.");
 
-                                     let ctx = context_arc.lock().await;
-                                     *ctx.node_state.lock().await = NodeState::Synced;
-
-                                     // Switch Engine back to A-DMFT
-                                     let mut engine = ctx.consensus_engine_ref.lock().await;
-                                     engine.switch_to_admft();
-
-                                     // Resume normal operation
-                                     continue;
-                                 }
-                             }
-                         }
-
-                         // Continue A-PMFT sampling loop while in Survival Mode
-                         let cause = "apmft_tick";
-                         // A-PMFT decide will trigger sampling (Stall with sampling side-effects or a new Decision)
-                         // Currently engine returns Stall, but events loop drives sampling.
-                         // But we should call decide() to allow state machine to update round/preference.
-                         let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
-                         if let Err(e) = result.map_err(|e| anyhow!("A-PMFT tick panicked: {:?}", e)).and_then(|res| res) {
-                            tracing::error!(target: "consensus", "[Orch Tick] A-PMFT tick failed: {:?}.", e);
-                         }
-                    } else {
-                         // Standard A-DMFT
-                        last_tick = tokio::time::Instant::now();
-
-                        // [INSTRUMENTATION] Log tick trigger
-                        tracing::info!(target: "consensus", "Consensus timer tick triggered.");
-
-                        let cause = "timer";
-                        let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
-                        if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
-                            tracing::error!(target: "consensus", "[Orch Tick] Consensus tick failed: {:?}. Continuing loop.", e);
-                        }
+                    let cause = "timer";
+                    let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
+                    if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
+                        tracing::error!(target: "consensus", "[Orch Tick] Consensus tick failed: {:?}. Continuing loop.", e);
                     }
                 }
                 Some(()) = kick_rx.recv() => {
@@ -272,17 +228,41 @@ where
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    let (known_peers, swarm_commander) = {
+                    let (known_peers, swarm_commander, convergent_safety_mode, sample_height) = {
                         let ctx = context_arc.lock().await;
-                        (ctx.known_peers_ref.clone(), ctx.swarm_commander.clone())
+                        (
+                            ctx.known_peers_ref.clone(),
+                            ctx.swarm_commander.clone(),
+                            ctx.config.convergent_safety_mode,
+                            ctx.last_committed_block
+                                .as_ref()
+                                .map(|block| block.header.height + 1)
+                                .unwrap_or(1),
+                        )
                     };
                     let random_peer_opt = {
                         let peers: Vec<_> = known_peers.lock().await.iter().cloned().collect();
                         peers.choose(&mut rand::thread_rng()).cloned()
                     };
                     if let Some(random_peer) = random_peer_opt {
-                        if swarm_commander.send(SwarmCommand::SendStatusRequest(random_peer)).await.is_err() {
+                        if swarm_commander
+                            .send(SwarmCommand::SendStatusRequest(random_peer.clone()))
+                            .await
+                            .is_err()
+                        {
                             log::warn!("Failed to send periodic status request to swarm.");
+                        }
+
+                        if matches!(
+                            convergent_safety_mode,
+                            ioi_types::config::ConvergentSafetyMode::ExperimentalNestedGuardian
+                        ) {
+                            let _ = swarm_commander
+                                .send(SwarmCommand::SendSampleRequest {
+                                    peer: random_peer,
+                                    height: sample_height,
+                                })
+                                .await;
                         }
                     }
                 }

@@ -19,6 +19,12 @@ impl BrowserDriver {
                 })?;
 
             self.reset_pointer_state().await;
+            let current_url = self
+                .check_connection_error(p.url().await)
+                .await
+                .map_err(|e| BrowserError::Internal(format!("Failed to query active URL: {}", e)))?
+                .unwrap_or_else(|| url.to_string());
+            *self.active_page_url.lock().await = Some(current_url);
             let content = self.check_connection_error(p.content().await).await?;
             Ok(content)
         } else {
@@ -45,6 +51,14 @@ impl BrowserDriver {
                     details: e.to_string(),
                 })?;
 
+            let current_url = self
+                .check_connection_error(p.url().await)
+                .await
+                .map_err(|e| {
+                    BrowserError::Internal(format!("Failed to query retrieval URL: {}", e))
+                })?
+                .unwrap_or_else(|| url.to_string());
+            *self.retrieval_page_url.lock().await = Some(current_url);
             let content = self.check_connection_error(p.content().await).await?;
             Ok(content)
         } else {

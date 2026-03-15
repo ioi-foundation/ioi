@@ -1,7 +1,7 @@
 // Path: crates/types/src/config/mod.rs
 
 //! Shared configuration structures for core IOI Kernel components.
-use crate::app::ChainId;
+use crate::app::{ChainId, GuardianProductionMode, KeyAuthorityDescriptor, KeyAuthorityKind};
 use crate::service_configs::{GovernanceParams, MethodPermission, MigrationConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -90,6 +90,62 @@ pub struct OracleParams {
     // Parameters for the oracle can be added here in the future.
 }
 
+/// Configuration for the guardian registry service.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GuardianRegistryParams {
+    /// Whether the guardian registry is enabled.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Minimum validator guardian committee size admitted by the registry.
+    #[serde(default = "default_min_guardian_committee_size")]
+    pub minimum_committee_size: u16,
+    /// Minimum witness committee size admitted by the registry.
+    #[serde(default = "default_min_witness_committee_size")]
+    pub minimum_witness_committee_size: u16,
+    /// Minimum distinct provider labels required for a production committee.
+    #[serde(default = "default_min_provider_diversity")]
+    pub minimum_provider_diversity: u16,
+    /// Minimum distinct region labels required for a production committee.
+    #[serde(default = "default_min_region_diversity")]
+    pub minimum_region_diversity: u16,
+    /// Minimum distinct host class labels required for a production committee.
+    #[serde(default = "default_min_host_class_diversity")]
+    pub minimum_host_class_diversity: u16,
+    /// Minimum distinct key-authority classes required for a production committee.
+    #[serde(default = "default_min_backend_diversity")]
+    pub minimum_backend_diversity: u16,
+    /// Production v1 forbids odd-sized majority committees unless a stronger external proof is added.
+    #[serde(default = "default_true")]
+    pub require_even_committee_sizes: bool,
+    /// Require witness or guardian certificates to carry an anchored checkpoint in production policy.
+    #[serde(default = "default_true")]
+    pub require_checkpoint_anchoring: bool,
+    /// Maximum checkpoint staleness admitted by policy.
+    #[serde(default = "default_max_checkpoint_staleness_ms")]
+    pub max_checkpoint_staleness_ms: u64,
+    /// Maximum number of committee members that may be unavailable before the validator is expected to pause.
+    #[serde(default = "default_max_committee_outage_members")]
+    pub max_committee_outage_members: u16,
+}
+
+impl Default for GuardianRegistryParams {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            minimum_committee_size: default_min_guardian_committee_size(),
+            minimum_witness_committee_size: default_min_witness_committee_size(),
+            minimum_provider_diversity: default_min_provider_diversity(),
+            minimum_region_diversity: default_min_region_diversity(),
+            minimum_host_class_diversity: default_min_host_class_diversity(),
+            minimum_backend_diversity: default_min_backend_diversity(),
+            require_even_committee_sizes: default_true(),
+            require_checkpoint_anchoring: default_true(),
+            max_checkpoint_staleness_ms: default_max_checkpoint_staleness_ms(),
+            max_committee_outage_members: default_max_committee_outage_members(),
+        }
+    }
+}
+
 /// Enum to represent the configuration of an initial service instantiated at genesis.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "name")]
@@ -102,6 +158,153 @@ pub enum InitialServiceConfig {
     Ibc(IbcConfig),
     /// Configuration for the Oracle service.
     Oracle(OracleParams),
+    /// Configuration for the guardian registry service.
+    GuardianRegistry(GuardianRegistryParams),
+}
+
+/// Static committee member configuration for guardianized deployments.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct GuardianCommitteeMemberConfig {
+    /// Stable member identifier.
+    pub member_id: String,
+    /// Optional remote endpoint for the member.
+    #[serde(default)]
+    pub endpoint: Option<String>,
+    /// Public key bytes for this member.
+    #[serde(default)]
+    pub public_key: Vec<u8>,
+    /// Optional local private-key material for development / single-host committee tests.
+    #[serde(default)]
+    pub private_key_path: Option<String>,
+    /// Optional provider label for diversity checks.
+    #[serde(default)]
+    pub provider: Option<String>,
+    /// Optional region label for diversity checks.
+    #[serde(default)]
+    pub region: Option<String>,
+    /// Optional host class label for diversity checks.
+    #[serde(default)]
+    pub host_class: Option<String>,
+    /// Optional root authority class for this member.
+    #[serde(default)]
+    pub key_authority_kind: Option<KeyAuthorityKind>,
+}
+
+/// Threshold guardian committee configuration.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct GuardianCommitteeConfig {
+    /// Threshold required for a committee certificate.
+    #[serde(default)]
+    pub threshold: u16,
+    /// Committee members authorized for this validator.
+    #[serde(default)]
+    pub members: Vec<GuardianCommitteeMemberConfig>,
+    /// Transparency log identifier used by the committee.
+    #[serde(default)]
+    pub transparency_log_id: String,
+}
+
+/// Research-only witness committee configuration hosted by a guardian process.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct GuardianWitnessCommitteeConfig {
+    /// Stable witness committee identifier.
+    #[serde(default)]
+    pub committee_id: String,
+    /// Witness committee epoch.
+    #[serde(default)]
+    pub epoch: u64,
+    /// Threshold required for a witness certificate.
+    #[serde(default)]
+    pub threshold: u16,
+    /// Witness committee members.
+    #[serde(default)]
+    pub members: Vec<GuardianCommitteeMemberConfig>,
+    /// Transparency log identifier used by the witness committee.
+    #[serde(default)]
+    pub transparency_log_id: String,
+    /// Optional policy hash override for the witness committee.
+    #[serde(default)]
+    pub policy_hash: Option<[u8; 32]>,
+}
+
+/// Guardian hardening profile for the runtime worker.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GuardianHardeningConfig {
+    /// Mount the worker root filesystem as read-only.
+    #[serde(default = "default_true")]
+    pub read_only_rootfs: bool,
+    /// Disallow interactive shells inside the worker image.
+    #[serde(default = "default_true")]
+    pub no_shell: bool,
+    /// Disallow runtime dynamic library loading.
+    #[serde(default = "default_true")]
+    pub no_dynamic_loading: bool,
+    /// Use tmpfs for scratch data rather than persistent disks.
+    #[serde(default = "default_true")]
+    pub tmpfs_scratch: bool,
+    /// Require measured boot / runtime measurement on startup.
+    #[serde(default = "default_true")]
+    pub measured_boot_required: bool,
+    /// Attempt to lock sensitive pages in memory.
+    #[serde(default = "default_true")]
+    pub memory_locking: bool,
+    /// Optional seccomp profile path or identifier.
+    #[serde(default)]
+    pub seccomp_profile: Option<String>,
+}
+
+impl Default for GuardianHardeningConfig {
+    fn default() -> Self {
+        Self {
+            read_only_rootfs: default_true(),
+            no_shell: default_true(),
+            no_dynamic_loading: default_true(),
+            tmpfs_scratch: default_true(),
+            measured_boot_required: default_true(),
+            memory_locking: default_true(),
+            seccomp_profile: None,
+        }
+    }
+}
+
+/// Transparency-log configuration for guardianized receipts and checkpoints.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct GuardianTransparencyLogConfig {
+    /// Stable log identifier.
+    #[serde(default)]
+    pub log_id: String,
+    /// Optional endpoint for the witness log.
+    #[serde(default)]
+    pub endpoint: Option<String>,
+    /// Optional protobuf-encoded libp2p Ed25519 keypair used to sign checkpoints.
+    #[serde(default)]
+    pub signing_key_path: Option<String>,
+    /// Whether an anchored checkpoint is mandatory for production effects.
+    #[serde(default)]
+    pub required: bool,
+}
+
+/// Attestation verifier policy.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct GuardianVerifierPolicyConfig {
+    /// Enabled verifier identifiers in priority order.
+    #[serde(default)]
+    pub enabled_verifiers: Vec<String>,
+    /// Whether structural fallback is permitted.
+    #[serde(default = "default_true")]
+    pub allow_structural_fallback: bool,
+    /// Explicitly allowed TLS server names for secure egress when non-empty.
+    #[serde(default)]
+    pub tls_allowed_server_names: Vec<String>,
+    /// Optional custom root CA PEM files to trust for secure egress.
+    #[serde(default)]
+    pub tls_allowed_root_pem_paths: Vec<String>,
+    /// Optional SHA-256 pins for the peer leaf certificate.
+    #[serde(default)]
+    pub tls_pinned_leaf_certificate_sha256: Vec<String>,
+    /// Transcript schema version expected for secure egress receipts.
+    #[serde(default = "default_tls_transcript_version")]
+    pub tls_transcript_version: u32,
 }
 
 /// Defines the security policy for a service.
@@ -618,6 +821,41 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         },
     );
 
+    // Guardian Registry
+    let mut guardian_methods = BTreeMap::new();
+    guardian_methods.insert(
+        "register_guardian_transparency_log@v1".into(),
+        MethodPermission::Governance,
+    );
+    guardian_methods.insert(
+        "register_guardian_committee@v1".into(),
+        MethodPermission::User,
+    );
+    guardian_methods.insert(
+        "publish_measurement_profile@v1".into(),
+        MethodPermission::Governance,
+    );
+    guardian_methods.insert(
+        "anchor_guardian_checkpoint@v1".into(),
+        MethodPermission::User,
+    );
+    guardian_methods.insert(
+        "report_guardian_equivocation@v1".into(),
+        MethodPermission::User,
+    );
+    map.insert(
+        "guardian_registry".to_string(),
+        ServicePolicy {
+            methods: guardian_methods,
+            allowed_system_prefixes: vec![
+                "guardian::committee::".to_string(),
+                "guardian::measurement::".to_string(),
+                "guardian::log::".to_string(),
+                "guardian::checkpoint::".to_string(),
+            ],
+        },
+    );
+
     // IBC
     let mut ibc_methods = BTreeMap::new();
     ibc_methods.insert("verify_header@v1".into(), MethodPermission::User);
@@ -850,6 +1088,15 @@ pub struct OrchestrationConfig {
     pub validator_role: ValidatorRole,
     /// The consensus engine type.
     pub consensus_type: ConsensusType,
+    /// Safety mode for the Convergent Fault Tolerance family.
+    #[serde(default)]
+    pub convergent_safety_mode: ConvergentSafetyMode,
+    /// Guardianized signing / deployment profile.
+    #[serde(default)]
+    pub guardian_production_mode: GuardianProductionMode,
+    /// Authority handle used for guardianized signing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_authority: Option<KeyAuthorityDescriptor>,
     /// The network address for the JSON-RPC server to listen on.
     pub rpc_listen_address: String,
     /// Configuration for RPC hardening and rate limiting.
@@ -903,4 +1150,31 @@ fn default_round_robin_view_timeout_secs() -> u64 {
 }
 fn default_query_gas_limit() -> u64 {
     1_000_000_000
+}
+fn default_tls_transcript_version() -> u32 {
+    1
+}
+fn default_min_guardian_committee_size() -> u16 {
+    4
+}
+fn default_min_witness_committee_size() -> u16 {
+    4
+}
+fn default_min_provider_diversity() -> u16 {
+    2
+}
+fn default_min_region_diversity() -> u16 {
+    2
+}
+fn default_min_host_class_diversity() -> u16 {
+    2
+}
+fn default_min_backend_diversity() -> u16 {
+    2
+}
+fn default_max_checkpoint_staleness_ms() -> u64 {
+    120_000
+}
+fn default_max_committee_outage_members() -> u16 {
+    1
 }

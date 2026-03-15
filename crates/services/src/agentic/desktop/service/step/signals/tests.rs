@@ -179,6 +179,13 @@ fn mailbox_connector_signal_ignores_general_web_queries() {
 }
 
 #[test]
+fn mailbox_connector_signal_respects_explicit_browser_only_constraints() {
+    let goal = "Navigate to the assigned MiniWoB page and complete the on-page task using browser tools only. Do not use web retrieval tools. Task brief: Find the email by Lonna and click the trash icon to delete it.";
+    assert!(!is_mailbox_connector_intent(goal));
+    assert!(!is_live_external_research_goal(goal));
+}
+
+#[test]
 fn live_external_research_detects_time_sensitive_public_fact_lookups() {
     assert!(is_live_external_research_goal(
         "What's the weather right now in Anderson, SC?"

@@ -95,6 +95,6 @@ pub const IDENTITY_PROMOTION_INDEX_PREFIX: &[u8] = b"identity::index::promotion:
 pub const ACCOUNT_ID_TO_PUBKEY_PREFIX: &[u8] = b"identity::pubkey::";
 
 // --- Protocol Apex Keys ---
-/// The state key for the current security epoch (Lazarus Protocol).
-/// Used to coordinate the transition back from A-PMFT to A-DMFT.
+/// The state key for the current security epoch.
+/// Legacy recovery tooling still references this key during governance-driven epoch changes.
 pub const CURRENT_EPOCH_KEY: &[u8] = b"system::epoch";

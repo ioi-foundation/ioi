@@ -1,6 +1,6 @@
 // Path: crates/cli/tests/pii_review_determinism_e2e.rs
 #![cfg(all(
-    feature = "consensus-admft",
+    feature = "consensus-convergent",
     feature = "vm-wasm",
     feature = "state-iavl"
 ))]

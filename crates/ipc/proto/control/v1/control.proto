@@ -21,6 +21,18 @@ service WorkloadControl {
 service GuardianControl {
   // Execute an HTTP call using a secret securely held by the Guardian.
   rpc SecureEgress(SecureEgressRequest) returns (SecureEgressResponse);
+
+  // Request a guardianized certificate for a consensus payload.
+  rpc SignConsensus(SignConsensusRequest) returns (SignConsensusResponse);
+
+  // Request raw committee member signatures over a canonical guardian decision.
+  rpc SignCommitteeDecision(SignCommitteeDecisionRequest) returns (SignCommitteeDecisionResponse);
+
+  // Request raw witness committee member signatures over a canonical witness statement.
+  rpc SignWitnessStatement(SignWitnessStatementRequest) returns (SignWitnessStatementResponse);
+
+  // Persist witness-fault evidence in the guardian witness log.
+  rpc ReportWitnessFault(ReportWitnessFaultRequest) returns (ReportWitnessFaultResponse);
 }
 
 message LoadModelRequest {
@@ -81,4 +93,69 @@ message SecureEgressResponse {
   bytes cert_hash = 2;
   // The Guardian's signature attesting to this network call.
   bytes guardian_signature = 3;
+  // Canonical guardianized receipt envelope, SCALE encoded.
+  bytes receipt = 4;
+}
+
+message SignConsensusRequest {
+  bytes payload_hash = 1;
+  bytes subject = 2;
+  uint64 expected_counter = 3;
+  bytes expected_trace_hash = 4;
+  bytes measurement_root = 5;
+  bytes policy_hash = 6;
+  bytes manifest_hash = 7;
+  uint64 height = 8;
+  uint64 view = 9;
+  bytes witness_manifest_hash = 10;
+  uint32 witness_reassignment_depth = 11;
+}
+
+message SignConsensusResponse {
+  bytes signature = 1;
+  uint64 counter = 2;
+  bytes trace_hash = 3;
+  // Canonical guardian certificate, SCALE encoded when present.
+  bytes guardian_certificate = 4;
+}
+
+message SignCommitteeDecisionRequest {
+  // Canonical SCALE-encoded GuardianDecision payload.
+  bytes decision = 1;
+  bytes manifest_hash = 2;
+  uint64 height = 3;
+  uint64 view = 4;
+}
+
+message GuardianMemberSignature {
+  uint32 member_index = 1;
+  bytes signature = 2;
+}
+
+message SignCommitteeDecisionResponse {
+  bytes manifest_hash = 1;
+  bytes decision_hash = 2;
+  repeated GuardianMemberSignature partial_signatures = 3;
+}
+
+message SignWitnessStatementRequest {
+  // Canonical SCALE-encoded GuardianWitnessStatement payload.
+  bytes statement = 1;
+  bytes manifest_hash = 2;
+}
+
+message SignWitnessStatementResponse {
+  bytes manifest_hash = 1;
+  bytes statement_hash = 2;
+  repeated GuardianMemberSignature partial_signatures = 3;
+}
+
+message ReportWitnessFaultRequest {
+  // Canonical SCALE-encoded GuardianWitnessFaultEvidence payload.
+  bytes evidence = 1;
+}
+
+message ReportWitnessFaultResponse {
+  // Canonical SCALE-encoded GuardianLogCheckpoint payload when persisted.
+  bytes checkpoint = 1;
 }

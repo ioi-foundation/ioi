@@ -388,6 +388,7 @@ where
                         oracle_counter: 0,
                         oracle_trace_hash: [0u8; 32],
                         parent_qc: QuorumCertificate::default(),
+                        guardian_certificate: None,
                     },
                     transactions: vec![],
                 };

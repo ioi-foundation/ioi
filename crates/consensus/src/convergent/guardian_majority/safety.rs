@@ -1,9 +1,9 @@
-// Path: crates/consensus/src/admft/safety.rs
+// Path: crates/consensus/src/convergent/guardian_majority/safety.rs
 
-//! Implements the Safety Rules (Commit Logic) for LFT.
+//! Implements the Safety Rules (Commit Logic) for Convergent Fault Tolerance.
 //!
 //! This module defines the `SafetyGadget`, which enforces the 2-chain commit rule
-//! used in the A-DMFT consensus engine.
+//! used in the Convergent deterministic consensus engine.
 //!
 //! [UPDATED] Implements Corollary 3.2 (Commit Guard).
 //! Finalization is delayed by `guard_duration` to allow a Panic message (Proof of Divergence)

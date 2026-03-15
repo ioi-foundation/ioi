@@ -1,6 +1,6 @@
 // Path: crates/networking/src/libp2p/types.rs
 
-use ioi_consensus::admft::ViewChangeVote;
+use ioi_consensus::convergent::guardian_majority::ViewChangeVote;
 use ioi_types::app::{
     Block, ChainId, ChainTransaction, ConfidenceVote, ConsensusVote, EchoMessage,
     OracleAttestation, PanicMessage,
@@ -24,7 +24,7 @@ pub enum SwarmCommand {
     BroadcastPanic(Vec<u8>),
     BroadcastConfidence(Vec<u8>),
 
-    // A-PMFT Sampling Commands
+    // Research-only witness/audit sampling commands.
     SendSampleRequest {
         peer: PeerId,
         height: u64,

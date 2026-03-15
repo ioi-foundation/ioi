@@ -8,7 +8,7 @@ pub fn engine_from_config(config: &OrchestrationConfig) -> Result<Consensus<Chai
     match config.consensus_type {
         ConsensusType::ProofOfStake => proof_of_stake_engine(),
         ConsensusType::ProofOfAuthority => proof_of_authority_engine(),
-        ConsensusType::Admft => lft_engine(),
+        ConsensusType::Convergent => convergent_engine(config.convergent_safety_mode),
     }
 }
 
@@ -42,17 +42,21 @@ fn proof_of_authority_engine() -> Result<Consensus<ChainTransaction>> {
     ))
 }
 
-#[cfg(feature = "admft")]
-fn lft_engine() -> Result<Consensus<ChainTransaction>> {
-    use crate::lft::LftEngine;
+#[cfg(feature = "convergent")]
+fn convergent_engine(
+    mode: ioi_types::config::ConvergentSafetyMode,
+) -> Result<Consensus<ChainTransaction>> {
+    use crate::convergent::ConvergentEngine;
 
-    log::info!("Using A-DMFT Lazarus consensus engine.");
-    Ok(Consensus::Lft(LftEngine::new()))
+    log::info!("Using Convergent Fault Tolerance consensus engine.");
+    Ok(Consensus::Convergent(ConvergentEngine::new(mode)))
 }
 
-#[cfg(not(feature = "admft"))]
-fn lft_engine() -> Result<Consensus<ChainTransaction>> {
+#[cfg(not(feature = "convergent"))]
+fn convergent_engine(
+    _mode: ioi_types::config::ConvergentSafetyMode,
+) -> Result<Consensus<ChainTransaction>> {
     Err(anyhow::anyhow!(
-        "Node configured for Admft, but not compiled with the 'consensus-admft' feature."
+        "Node configured for Convergent consensus, but not compiled with the 'consensus-convergent' feature."
     ))
 }

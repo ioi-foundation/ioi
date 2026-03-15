@@ -106,7 +106,7 @@ pub async fn run_swarm_loop(
     let timeout_topic = gossipsub::IdentTopic::new("consensus_timeouts");
     let echo_topic = gossipsub::IdentTopic::new("consensus_echoes");
     let panic_topic = gossipsub::IdentTopic::new("consensus_panic");
-    let confidence_topic = gossipsub::IdentTopic::new("apmft_confidence");
+    let confidence_topic = gossipsub::IdentTopic::new("experimental_nested_guardian_confidence");
     let oracle_attestations_topic = gossipsub::IdentTopic::new("oracle-attestations");
     let agentic_vote_topic = gossipsub::IdentTopic::new("agentic-votes");
 

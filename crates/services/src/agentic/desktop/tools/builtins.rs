@@ -42,3 +42,105 @@ pub(super) fn push_builtin_tools(
     include!("builtins/automation_monitor_local_workflow_runtime.rs");
     include!("builtins/meta_tool_explicit_failure_trigger_escalation.rs");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_types::app::agentic::{
+        CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    };
+
+    fn resolved_ui_intent() -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: "ui.interaction".to_string(),
+            scope: IntentScopeProfile::UiInteraction,
+            band: IntentConfidenceBand::High,
+            score: 0.95,
+            top_k: vec![],
+            required_capabilities: vec![
+                CapabilityId::from("ui.interact"),
+                CapabilityId::from("ui.inspect"),
+                CapabilityId::from("conversation.reply"),
+            ],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "intent-matrix-v2".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
+            matrix_source_hash: [1u8; 32],
+            receipt_hash: [2u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
+            constrained: false,
+        }
+    }
+
+    #[test]
+    fn browser_text_and_clipboard_tools_surface_selector_targeting() {
+        let resolved = resolved_ui_intent();
+        let mut tools = Vec::new();
+        push_builtin_tools(
+            &mut tools,
+            ExecutionTier::DomHeadless,
+            true,
+            true,
+            false,
+            false,
+            Some(&resolved),
+        );
+
+        let select_text = tools
+            .iter()
+            .find(|tool| tool.name == "browser__select_text")
+            .expect("browser__select_text should be available");
+        assert!(
+            select_text.description.contains("by `selector`"),
+            "{}",
+            select_text.description
+        );
+
+        let paste_clipboard = tools
+            .iter()
+            .find(|tool| tool.name == "browser__paste_clipboard")
+            .expect("browser__paste_clipboard should be available");
+        assert!(
+            paste_clipboard.description.contains("Pass `selector`"),
+            "{}",
+            paste_clipboard.description
+        );
+    }
+
+    #[test]
+    fn browser_synthetic_click_surfaces_in_dom_headless_tier() {
+        let resolved = resolved_ui_intent();
+        let mut tools = Vec::new();
+        push_builtin_tools(
+            &mut tools,
+            ExecutionTier::DomHeadless,
+            true,
+            true,
+            false,
+            false,
+            Some(&resolved),
+        );
+
+        let synthetic_click = tools
+            .iter()
+            .find(|tool| tool.name == "browser__synthetic_click")
+            .expect("browser__synthetic_click should be available");
+        assert!(
+            synthetic_click
+                .description
+                .contains("canvases, SVG surfaces"),
+            "{}",
+            synthetic_click.description
+        );
+    }
+}

@@ -43,10 +43,9 @@ pub enum ConsensusDecision<T> {
     /// The node is unable to make a decision and should stall, neither producing nor waiting.
     Stall,
 
-    // [NEW] Protocol Apex: Kill Switch Trigger
-    /// The node has detected a hardware compromise via a Proof of Divergence.
-    /// The Orchestrator MUST immediately broadcast a Panic message, halt A-DMFT,
-    /// and initialize the State Handoff to Engine B.
+    /// The node has detected equivocation or guardian divergence locally.
+    /// The orchestrator should broadcast the evidence and quarantine the node
+    /// from further voting until an operator or governance action intervenes.
     Panic(ProofOfDivergence),
 }
 
@@ -75,29 +74,16 @@ impl<T: PenaltyMechanism + ?Sized> PenaltyMechanism for &T {
     }
 }
 
-// [NEW] Protocol Apex: Control Interface
-// This trait allows the Orchestrator to force a mode switch without knowing the concrete engine type.
 pub trait ConsensusControl: Send + Sync {
-    /// Switches the active engine from A-DMFT (Deterministic) to A-PMFT (Probabilistic).
-    fn switch_to_apmft(&mut self);
+    /// Returns the current experimental witness-sampling preference when the
+    /// active safety mode supports research-only audit sampling.
+    fn experimental_sample_tip(&self) -> Option<([u8; 32], u32)>;
 
-    /// Switches the active engine from A-PMFT back to A-DMFT (Deterministic).
-    /// Used after the Lazarus Recovery Protocol is complete.
-    fn switch_to_admft(&mut self);
-
-    // [NEW] A-PMFT Accessors
-    // These allow the Orchestrator to query probabilistic state regardless of the active engine.
-    // If the active engine is A-DMFT, these should return None/No-op.
-
-    /// Returns the current preferred tip and confidence if in A-PMFT mode.
-    fn get_apmft_tip(&self) -> Option<([u8; 32], u32)>;
-
-    /// Feeds a sample response into the A-PMFT engine.
-    fn feed_apmft_sample(&mut self, hash: [u8; 32]);
+    /// Records an experimental witness-sampling observation.
+    fn observe_experimental_sample(&mut self, hash: [u8; 32]);
 }
 
 /// The core trait for a pluggable consensus engine, defining the interface for block production and validation.
-// [MODIFIED] Added ConsensusControl supertrait
 #[async_trait]
 pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     PenaltyMechanism + ConsensusControl + Send + Sync
@@ -119,7 +105,7 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         &mut self,
         block: Block<T>,
         chain_view: &dyn ChainView<CS, ST>,
-        // metadata: ProposalMetadata, // Future extension for full A-DMFT
+        // metadata: ProposalMetadata, // Future extension for full Convergent deterministic
     ) -> Result<(), ConsensusError>
     where
         CS: CommitmentScheme + Send + Sync,

@@ -3,6 +3,7 @@
 
 pub mod agentic;
 pub mod governance;
+pub mod guardian_registry;
 pub mod identity;
 pub mod market;
 pub mod provider_registry; // Replaced 'oracle'

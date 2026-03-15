@@ -1,6 +1,7 @@
 // Path: crates/types/src/app/wallet_network/secret_injection.rs
 
 use crate::app::action::ActionTarget;
+use crate::app::guardianized::GuardianAttestationEvidence;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -15,10 +16,19 @@ pub struct GuardianAttestation {
     pub guardian_ephemeral_public_key: Vec<u8>,
     /// Challenge nonce bound to the secret injection request.
     pub nonce: [u8; 32],
+    /// Registered verifier identifier or family name.
+    #[serde(default)]
+    pub verifier_id: String,
+    /// Optional manifest hash for the committee/runtime that produced the attestation.
+    #[serde(default)]
+    pub manifest_hash: [u8; 32],
     /// Issued timestamp.
     pub issued_at_ms: u64,
     /// Expiration timestamp.
     pub expires_at_ms: u64,
+    /// Rich verifier evidence carried alongside the structural fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<GuardianAttestationEvidence>,
 }
 
 /// Request to release a secret into an attested runtime.

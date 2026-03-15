@@ -30,8 +30,8 @@ pub enum SyncRequest {
     // Changed usize to u32 for deterministic SCALE encoding
     RequestMissingTxs(Vec<u32>),
 
-    // [NEW] Protocol Apex: A-PMFT Sampling
-    /// Request the peer's preferred block hash and confidence for a given height.
+    // Research-only witness/audit sampling for ExperimentalNestedGuardian.
+    /// Request the peer's observed preferred block hash and confidence for a given height.
     SamplePreference(u64),
 }
 
@@ -48,11 +48,11 @@ pub enum SyncResponse {
     // [NEW] Response with missing transactions
     MissingTxs(Vec<ChainTransaction>),
 
-    // [NEW] Protocol Apex: A-PMFT Sampling Response
+    // Research-only witness/audit sampling response.
     SampleResult {
         /// The peer's preferred block hash.
         block_hash: [u8; 32],
-        /// The peer's local confidence score for this block.
+        /// The peer's local observability confidence score for this block.
         confidence: u32,
     },
 }

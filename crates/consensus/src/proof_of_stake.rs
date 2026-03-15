@@ -84,15 +84,11 @@ impl ProofOfStakeEngine {
 }
 
 impl ConsensusControl for ProofOfStakeEngine {
-    fn switch_to_apmft(&mut self) {}
-
-    fn switch_to_admft(&mut self) {}
-
-    fn get_apmft_tip(&self) -> Option<([u8; 32], u32)> {
+    fn experimental_sample_tip(&self) -> Option<([u8; 32], u32)> {
         None
     }
 
-    fn feed_apmft_sample(&mut self, _hash: [u8; 32]) {}
+    fn observe_experimental_sample(&mut self, _hash: [u8; 32]) {}
 }
 
 #[async_trait]

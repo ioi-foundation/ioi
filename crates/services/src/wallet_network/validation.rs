@@ -1,6 +1,8 @@
 // Path: crates/services/src/wallet_network/validation.rs
 
+use crate::guardian_registry::GuardianRegistry;
 use ioi_api::crypto::{SerializableKey, VerifyingKey};
+use ioi_api::state::StateAccess;
 use ioi_crypto::sign::dilithium::{MldsaPublicKey, MldsaSignature};
 use ioi_crypto::sign::eddsa::{Ed25519PublicKey, Ed25519Signature};
 use ioi_types::app::wallet_network::{
@@ -83,6 +85,7 @@ pub(super) fn validate_secret_injection_request(
 }
 
 pub(super) fn validate_guardian_attestation(
+    state: &dyn StateAccess,
     attestation: &GuardianAttestation,
     now_ms: u64,
 ) -> Result<(), TransactionError> {
@@ -110,6 +113,53 @@ pub(super) fn validate_guardian_attestation(
         return Err(TransactionError::Invalid(
             "guardian attestation has expired".to_string(),
         ));
+    }
+    if !attestation.verifier_id.trim().is_empty() && attestation.evidence.is_none() {
+        return Err(TransactionError::Invalid(
+            "guardian attestation verifier_id requires evidence".to_string(),
+        ));
+    }
+    if let Some(evidence) = &attestation.evidence {
+        if evidence.measurement_root != attestation.measurement_hash {
+            return Err(TransactionError::Invalid(
+                "guardian attestation measurement root mismatch".to_string(),
+            ));
+        }
+        match evidence.verifier {
+            ioi_types::app::GuardianAttestationVerifierKind::Structural => {}
+            ioi_types::app::GuardianAttestationVerifierKind::TeeDriver => {
+                if evidence.evidence.is_empty() {
+                    return Err(TransactionError::Invalid(
+                        "tee-driver attestation requires quote evidence".to_string(),
+                    ));
+                }
+            }
+            ioi_types::app::GuardianAttestationVerifierKind::SoftwareGuardian => {
+                let manifest =
+                    GuardianRegistry::load_manifest_by_hash(state, &evidence.manifest_hash)
+                        .map_err(TransactionError::State)?
+                        .ok_or_else(|| {
+                            TransactionError::Invalid(
+                                "software guardian attestation manifest not found".to_string(),
+                            )
+                        })?;
+                if manifest.threshold == 0 || manifest.members.is_empty() {
+                    return Err(TransactionError::Invalid(
+                        "guardian committee manifest is invalid".to_string(),
+                    ));
+                }
+                if !GuardianRegistry::profile_allows_measurement(
+                    state,
+                    &attestation.measurement_hash,
+                )
+                .map_err(TransactionError::State)?
+                {
+                    return Err(TransactionError::Invalid(
+                        "guardian measurement hash is not allowed by policy".to_string(),
+                    ));
+                }
+            }
+        }
     }
     Ok(())
 }

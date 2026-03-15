@@ -7,7 +7,7 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Admft")
+        .with_consensus_type("Convergent")
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_network_user_policy())
         .build()

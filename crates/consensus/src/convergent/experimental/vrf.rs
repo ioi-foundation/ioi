@@ -1,6 +1,6 @@
-// Path: crates/consensus/src/apmft/vrf.rs
+// Path: crates/consensus/src/convergent/experimental/vrf.rs
 
-//! VRF-based sortition for A-PMFT.
+//! VRF-based sortition for experimental witness and audit sampling.
 //!
 //! Implements Forward-Secure VRF sortition to select eligible committees
 //! and peer sampling targets, preventing adaptive adversary attacks.

@@ -46,6 +46,7 @@ fn forge_divergence(
         oracle_counter: 100,
         oracle_trace_hash: [0u8; 32],
         parent_qc: QuorumCertificate::default(),
+        guardian_certificate: None,
     };
 
     // Sign A
@@ -78,6 +79,8 @@ fn forge_divergence(
         offender: account_id,
         evidence_a: header_a,
         evidence_b: header_b,
+        guardian_certificates: Vec::new(),
+        log_checkpoints: Vec::new(),
     }
 }
 
@@ -86,7 +89,7 @@ async fn test_protocol_apex_lifecycle() {
     // 1. Setup Cluster
     let cluster = TestCluster::builder()
         .with_validators(4)
-        .with_consensus_type("Admft")
+        .with_consensus_type("Convergent")
         .build()
         .await
         .expect("Failed to build cluster");
@@ -133,7 +136,7 @@ async fn test_protocol_apex_lifecycle() {
     let proof = forge_divergence(&mal_key, offender_id, target_height, 0);
 
     // 4. Verify Proof Logic (Unit Test the Divergence Detector)
-    use ioi_consensus::admft::divergence::verify_divergence_proof;
+    use ioi_consensus::convergent::guardian_majority::divergence::verify_divergence_proof;
 
     let is_valid = verify_divergence_proof(&proof).expect("Verification failed");
     assert!(is_valid, "Forged divergence proof should be valid");

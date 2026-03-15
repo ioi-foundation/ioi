@@ -1,4 +1,4 @@
-#![cfg(all(feature = "consensus-admft", feature = "vm-wasm"))]
+#![cfg(all(feature = "consensus-convergent", feature = "vm-wasm"))]
 
 use anyhow::Context;
 use std::future::Future;

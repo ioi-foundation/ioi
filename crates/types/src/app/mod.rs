@@ -11,6 +11,8 @@ pub mod agentic;
 pub mod consensus;
 /// Data structures for unified kernel events.
 pub mod events;
+/// Data structures for guardianized signing, receipts, and attestation evidence.
+pub mod guardianized;
 /// Data structures for on-chain identity, including the canonical AccountId.
 pub mod identity;
 /// Data structures for reporting and penalizing misbehavior.
@@ -35,6 +37,7 @@ pub use agentic::{
     SkillRecord, SkillSourceType, SkillStats, StepTrace,
 };
 pub use events::*;
+pub use guardianized::*;
 pub use identity::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, BinaryMeasurement, BootAttestation,
     ChainId, Credential, GuardianReport, SignatureSuite,
@@ -262,6 +265,9 @@ pub struct BlockHeader {
     /// Links this block signature to the previous signature history.
     pub oracle_trace_hash: [u8; 32],
     // ------------------------------------------
+    /// Optional guardianized quorum certificate for majority-safety / experimental modes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guardian_certificate: Option<GuardianQuorumCertificate>,
     /// Proof that the PARENT block was accepted by the network.
     /// This provides the "chaining" of security in Chained BFT.
     /// A valid QC proves that >= 2/3 of validators voted for parent_hash.
@@ -281,6 +287,9 @@ pub struct SignatureBundle {
     pub counter: u64,
     /// The execution trace hash binding this signature to the Oracle's history.
     pub trace_hash: [u8; 32],
+    /// Optional guardianized quorum certificate emitted by a committee.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guardian_certificate: Option<GuardianQuorumCertificate>,
 }
 
 /// A domain tag to prevent hash collisions for different signature purposes.
@@ -295,6 +304,7 @@ impl BlockHeader {
     pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
         let mut temp = self.clone();
         temp.signature = vec![];
+        temp.guardian_certificate = None;
         let serialized = crate::codec::to_bytes_canonical(&temp).map_err(CoreError::Custom)?;
         let digest =
             DcryptSha256::digest(&serialized).map_err(|e| CoreError::Custom(e.to_string()))?;

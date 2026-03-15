@@ -15,7 +15,7 @@ ioi-tx = { path = "../tx" }
 ioi-client = { path = "../client" }
 ioi-state = { path = "../state" }
 ioi-system = { path = "../system" }
-ioi-crypto = { path = "../crypto", optional = true }
+ioi-crypto = { path = "../crypto" }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, optional = true }
@@ -33,7 +33,7 @@ tracing = { workspace = true }
 
 [features]
 default = []
-admft = ["dep:tokio", "dep:ioi-crypto"]
-poa = ["dep:ioi-crypto"]
-pos = ["dep:ioi-crypto"]
+convergent = ["dep:tokio"]
+poa = []
+pos = []
 custom-consensus = []

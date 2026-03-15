@@ -1,0 +1,24 @@
+name: Convergent Formal Checks
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  guardian_majority_formal:
+    name: GuardianMajority Formal
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Run convergent proofs and model checks
+        run: bash .github/scripts/run_convergent_formal_checks.sh

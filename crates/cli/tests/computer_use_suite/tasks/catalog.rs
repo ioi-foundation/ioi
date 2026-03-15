@@ -9,6 +9,7 @@ const SOURCE_ENV_KEYS: &[&str] = &[
     "COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR",
     "MINIWOB_SOURCE_DIR",
 ];
+const DEFAULT_CATALOG_SURVEY_MAX_STEPS: u32 = 8;
 
 pub fn cases(source_dir: Option<&Path>) -> Result<Vec<ComputerUseCase>> {
     let html_root = discover_html_root(source_dir)?;
@@ -91,7 +92,7 @@ fn case_for_env_id(env_id: &str) -> ComputerUseCase {
         env_id: env_id.to_string(),
         seed: survey_seed(env_id),
         task_set: TaskSet::Catalog,
-        max_steps: 4,
+        max_steps: DEFAULT_CATALOG_SURVEY_MAX_STEPS,
         timeout_seconds: 12,
         allowed_tool_profile: AllowedToolProfile::BrowserCore,
         expected_reward_floor: 1.0,
@@ -558,6 +559,10 @@ mod tests {
             html_root.join("miniwob").join("hover-shape.html"),
             b"<html></html>",
         )?;
+        fs::write(
+            html_root.join("miniwob").join("ascending-numbers.html"),
+            b"<html></html>",
+        )?;
 
         let cases = cases(Some(temp.path()))?;
         let by_env = cases
@@ -571,6 +576,11 @@ mod tests {
             RecipeId::ClickCollapsible
         );
         assert_eq!(by_env["hover-shape"].recipe, RecipeId::HoverShape);
+        assert_eq!(by_env["ascending-numbers"].recipe, RecipeId::SurveyOnly);
+        assert_eq!(
+            by_env["ascending-numbers"].max_steps,
+            DEFAULT_CATALOG_SURVEY_MAX_STEPS
+        );
         Ok(())
     }
 }
