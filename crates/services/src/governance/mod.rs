@@ -12,7 +12,7 @@ use ioi_api::crypto::{SerializableKey, VerifyingKey};
 
 use ioi_macros::service_interface;
 use ioi_types::app::{
-    read_validator_sets, write_validator_sets, AccountId, ActiveKeyRecord, ConvergentEpochUpgrade,
+    read_validator_sets, write_validator_sets, AccountId, ActiveKeyRecord, AftEpochUpgrade,
     Proposal, ProposalStatus, ProposalType, StateEntry, TallyResult, ValidatorV1, VoteOption,
 };
 use ioi_types::codec;
@@ -597,12 +597,12 @@ impl GovernanceModule {
         Ok(())
     }
 
-    /// Governance hook for explicit convergent epoch reset or recovery procedures.
+    /// Governance hook for explicit aft epoch reset or recovery procedures.
     #[method]
-    pub fn convergent_epoch_upgrade(
+    pub fn aft_epoch_upgrade(
         &self,
         state: &mut dyn StateAccess,
-        params: ConvergentEpochUpgrade,
+        params: AftEpochUpgrade,
         _ctx: &TxContext,
     ) -> Result<(), TransactionError> {
         // 1. Load Current Epoch

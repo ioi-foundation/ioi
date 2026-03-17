@@ -7,7 +7,10 @@ use crate::commitment::CommitmentScheme;
 use crate::state::{StateAccess, StateManager};
 use async_trait::async_trait;
 // [MODIFIED] Added ProofOfDivergence to imports
-use ioi_types::app::{AccountId, Block, ConsensusVote, ProofOfDivergence, QuorumCertificate};
+use ioi_types::app::{
+    AccountId, Block, BlockHeader, ConsensusVote, ProofOfDivergence, QuorumCertificate,
+    TimeoutCertificate,
+};
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
@@ -23,8 +26,10 @@ pub enum ConsensusDecision<T> {
     ProduceBlock {
         transactions: Vec<T>,
         expected_timestamp_secs: u64,
+        expected_timestamp_ms: u64,
         view: u64,                    // <--- NEW
         parent_qc: QuorumCertificate, // <--- NEW
+        timeout_certificate: Option<TimeoutCertificate>,
     },
     /// The node needs to cast a vote for a valid block proposal.
     /// This signals the orchestrator to sign and broadcast the vote.
@@ -105,7 +110,7 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         &mut self,
         block: Block<T>,
         chain_view: &dyn ChainView<CS, ST>,
-        // metadata: ProposalMetadata, // Future extension for full Convergent deterministic
+        // metadata: ProposalMetadata, // Future extension for full Aft deterministic
     ) -> Result<(), ConsensusError>
     where
         CS: CommitmentScheme + Send + Sync,
@@ -114,6 +119,16 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     /// Handles a vote from a peer.
     /// This is used to aggregate votes towards a Quorum Certificate (QC).
     async fn handle_vote(&mut self, vote: ConsensusVote) -> Result<(), ConsensusError>;
+
+    /// Handles a quorum certificate that was propagated directly by a peer.
+    ///
+    /// Engines that do not need explicit QC propagation can ignore this.
+    async fn handle_quorum_certificate(
+        &mut self,
+        _qc: QuorumCertificate,
+    ) -> Result<(), ConsensusError> {
+        Ok(())
+    }
 
     /// Handles a view change proposal from a peer, which is part of liveness mechanisms
     /// in BFT-style consensus algorithms.
@@ -125,6 +140,21 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         from: PeerId,
         proof_bytes: &[u8],
     ) -> Result<(), ConsensusError>;
+
+    /// Returns newly formed quorum certificates that should be propagated to peers.
+    fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
+        Vec::new()
+    }
+
+    /// Records a locally committed block header so engines can use it as a
+    /// deterministic liveness hint when QC propagation lags behind local commit.
+    fn observe_committed_block(&mut self, _header: &BlockHeader) {}
+
+    /// Returns the locally known parent header that corresponds to a QC, if the
+    /// engine has already verified or committed that branch.
+    fn header_for_quorum_certificate(&self, _qc: &QuorumCertificate) -> Option<BlockHeader> {
+        None
+    }
 
     /// Resets any height-specific internal state of the consensus engine, typically called
     /// after a block has been successfully committed.

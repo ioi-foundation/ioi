@@ -430,6 +430,8 @@ pub(crate) async fn infer_web_retrieval_contract(
         temperature: 0.0,
         json_mode: true,
         max_tokens: 300,
+        required_finality_tier: Default::default(),
+        sealed_finality_proof: None,
     };
     let raw = runtime
         .execute_inference([0u8; 32], prompt.as_bytes(), options)

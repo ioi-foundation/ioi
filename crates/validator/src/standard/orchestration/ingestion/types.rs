@@ -15,9 +15,31 @@ pub struct IngestionConfig {
 impl Default for IngestionConfig {
     fn default() -> Self {
         Self {
-            batch_size: 256,
-            batch_timeout_ms: 10,
+            batch_size: 1024,
+            batch_timeout_ms: 5,
         }
+    }
+}
+
+impl IngestionConfig {
+    pub fn from_runtime_env() -> Self {
+        let mut config = Self::default();
+
+        if let Ok(value) = std::env::var("IOI_INGESTION_BATCH_SIZE") {
+            if let Ok(parsed) = value.parse::<usize>() {
+                if parsed > 0 {
+                    config.batch_size = parsed;
+                }
+            }
+        }
+
+        if let Ok(value) = std::env::var("IOI_INGESTION_BATCH_TIMEOUT_MS") {
+            if let Ok(parsed) = value.parse::<u64>() {
+                config.batch_timeout_ms = parsed;
+            }
+        }
+
+        config
     }
 }
 
@@ -51,9 +73,11 @@ pub(crate) fn parse_hash_hex(input: &str) -> Option<[u8; 32]> {
 pub struct ChainTipInfo {
     pub height: u64,
     pub timestamp: u64,
+    pub timestamp_ms: u64,
     pub gas_used: u64,
     pub state_root: Vec<u8>,
     pub genesis_root: Vec<u8>,
+    pub validator_set: Vec<Vec<u8>>,
 }
 
 /// Helper struct to keep related transaction data aligned during batch processing.

@@ -11,12 +11,32 @@ use ioi_types::app::{
 use ioi_types::codec;
 use std::collections::BTreeSet;
 
+fn normalized_manifest_for_hash(manifest: &GuardianCommitteeManifest) -> GuardianCommitteeManifest {
+    let mut normalized = manifest.clone();
+    for member in &mut normalized.members {
+        member.endpoint = None;
+    }
+    normalized
+}
+
+fn normalized_witness_manifest_for_hash(
+    manifest: &GuardianWitnessCommitteeManifest,
+) -> GuardianWitnessCommitteeManifest {
+    let mut normalized = manifest.clone();
+    for member in &mut normalized.members {
+        member.endpoint = None;
+    }
+    normalized
+}
+
 /// Hashes the canonical guardian committee manifest encoding.
 pub fn canonical_manifest_hash(
     manifest: &GuardianCommitteeManifest,
 ) -> Result<[u8; 32], CryptoError> {
+    // Endpoints are operational routing metadata and must not affect committee identity.
+    let normalized = normalized_manifest_for_hash(manifest);
     let bytes =
-        codec::to_bytes_canonical(manifest).map_err(|e| CryptoError::Custom(e.to_string()))?;
+        codec::to_bytes_canonical(&normalized).map_err(|e| CryptoError::Custom(e.to_string()))?;
     sha256(&bytes)
 }
 
@@ -31,8 +51,9 @@ pub fn canonical_decision_hash(decision: &GuardianDecision) -> Result<[u8; 32], 
 pub fn canonical_witness_manifest_hash(
     manifest: &GuardianWitnessCommitteeManifest,
 ) -> Result<[u8; 32], CryptoError> {
+    let normalized = normalized_witness_manifest_for_hash(manifest);
     let bytes =
-        codec::to_bytes_canonical(manifest).map_err(|e| CryptoError::Custom(e.to_string()))?;
+        codec::to_bytes_canonical(&normalized).map_err(|e| CryptoError::Custom(e.to_string()))?;
     sha256(&bytes)
 }
 
@@ -307,6 +328,7 @@ pub fn sign_witness_statement_with_members(
 
     Ok(GuardianWitnessCertificate {
         manifest_hash: canonical_witness_manifest_hash(manifest)?,
+        stratum_id: manifest.stratum_id.clone(),
         epoch: manifest.epoch,
         statement_hash,
         signers_bitfield,
@@ -366,6 +388,7 @@ mod tests {
     fn test_witness_manifest(member_keys: &[BlsKeyPair]) -> GuardianWitnessCommitteeManifest {
         GuardianWitnessCommitteeManifest {
             committee_id: "witness-a".into(),
+            stratum_id: "stratum-a".into(),
             epoch: 7,
             threshold: 2,
             members: member_keys
@@ -451,6 +474,40 @@ mod tests {
         .unwrap();
 
         verify_witness_certificate(&manifest, &statement, &certificate).unwrap();
+    }
+
+    #[test]
+    fn committee_manifest_hash_ignores_endpoints() {
+        let member_keys = vec![
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+        ];
+        let mut without_endpoints = test_manifest(&member_keys);
+        let mut with_endpoints = without_endpoints.clone();
+        with_endpoints.members[0].endpoint = Some("http://127.0.0.1:23004".into());
+        with_endpoints.members[1].endpoint = Some("http://127.0.0.1:23104".into());
+
+        assert_eq!(
+            canonical_manifest_hash(&without_endpoints).unwrap(),
+            canonical_manifest_hash(&with_endpoints).unwrap()
+        );
+    }
+
+    #[test]
+    fn witness_manifest_hash_ignores_endpoints() {
+        let member_keys = vec![
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+        ];
+        let mut without_endpoints = test_witness_manifest(&member_keys);
+        let mut with_endpoints = without_endpoints.clone();
+        with_endpoints.members[0].endpoint = Some("http://127.0.0.1:33004".into());
+        with_endpoints.members[1].endpoint = Some("http://127.0.0.1:33104".into());
+
+        assert_eq!(
+            canonical_witness_manifest_hash(&without_endpoints).unwrap(),
+            canonical_witness_manifest_hash(&with_endpoints).unwrap()
+        );
     }
 
     fn reference_decode_signers_bitfield(

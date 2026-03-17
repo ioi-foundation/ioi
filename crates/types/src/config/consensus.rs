@@ -16,19 +16,21 @@ pub enum ConsensusType {
     ProofOfStake,
     /// Proof of Authority consensus.
     ProofOfAuthority,
-    /// Convergent Fault Tolerance consensus family.
-    Convergent,
+    /// Aft Fault Tolerance consensus family.
+    Aft,
 }
 
-/// Safety mode for the Convergent Fault Tolerance consensus family.
+/// Safety mode for the Aft Fault Tolerance consensus family.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
-pub enum ConvergentSafetyMode {
+pub enum AftSafetyMode {
     /// Classic BFT assumptions and thresholds.
     #[default]
     ClassicBft,
     /// Majority-safety mode under guardianized non-equivocation assumptions.
     GuardianMajority,
+    /// Majority fast path with asynchronous asymptote sealing for stronger settlement.
+    Asymptote,
     /// Experimental nested-witness mode for research-only deployments.
     /// This mode must be explicitly enabled in config before the node will start.
     ExperimentalNestedGuardian,

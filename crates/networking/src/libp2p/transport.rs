@@ -17,6 +17,32 @@ use libp2p::{
 use std::iter;
 use std::time::Duration;
 
+fn aft_gossip_max_transmit_bytes() -> usize {
+    std::env::var("IOI_AFT_GOSSIP_MAX_TRANSMIT_BYTES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value >= 1024 * 1024)
+        .unwrap_or(16 * 1024 * 1024)
+}
+
+fn aft_request_timeout() -> Duration {
+    Duration::from_secs(
+        std::env::var("IOI_AFT_REQUEST_TIMEOUT_SECS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| *value >= 10)
+            .unwrap_or(60),
+    )
+}
+
+fn yamux_max_num_streams() -> usize {
+    std::env::var("IOI_YAMUX_MAX_STREAMS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value >= 512)
+        .unwrap_or(4_096)
+}
+
 pub fn build_swarm(local_key: identity::Keypair) -> Result<Swarm<SyncBehaviour>> {
     let swarm = SwarmBuilder::with_existing_identity(local_key)
         .with_tokio()
@@ -25,11 +51,13 @@ pub fn build_swarm(local_key: identity::Keypair) -> Result<Swarm<SyncBehaviour>>
 
             // Enable TCP_NODELAY
             let tcp_config = tcp::Config::default().nodelay(true);
+            let mut yamux_config = yamux::Config::default();
+            yamux_config.set_max_num_streams(yamux_max_num_streams());
 
             let transport = tcp::tokio::Transport::new(tcp_config)
                 .upgrade(libp2p::core::upgrade::Version::V1)
                 .authenticate(noise_config)
-                .multiplex(yamux::Config::default())
+                .multiplex(yamux_config)
                 .timeout(Duration::from_secs(20))
                 .boxed();
             Ok(transport)
@@ -39,6 +67,7 @@ pub fn build_swarm(local_key: identity::Keypair) -> Result<Swarm<SyncBehaviour>>
             let gossipsub_config = gossipsub::ConfigBuilder::default()
                 .heartbeat_interval(Duration::from_millis(1000))
                 .validation_mode(gossipsub::ValidationMode::Strict)
+                .max_transmit_size(aft_gossip_max_transmit_bytes())
                 // Lower mesh limits to allow full mesh in small cluster
                 .mesh_n_low(1)
                 .mesh_n(2)
@@ -53,8 +82,7 @@ pub fn build_swarm(local_key: identity::Keypair) -> Result<Swarm<SyncBehaviour>>
                 gossipsub_config,
             )?;
 
-            let cfg =
-                request_response::Config::default().with_request_timeout(Duration::from_secs(30));
+            let cfg = request_response::Config::default().with_request_timeout(aft_request_timeout());
 
             let request_response = request_response::Behaviour::new(
                 iter::once(("/ioi/sync/2", request_response::ProtocolSupport::Full)),

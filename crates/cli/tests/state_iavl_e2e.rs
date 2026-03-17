@@ -23,7 +23,7 @@ async fn test_iavl_tree_e2e() -> Result<()> {
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Convergent")
+        .with_consensus_type("Aft")
         .with_state_tree("IAVL")
         .with_commitment_scheme("Hash")
         // --- UPDATED: Using GenesisBuilder API ---

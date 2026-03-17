@@ -37,6 +37,22 @@ pub trait StateManager: StateAccess + VerifiableState + ProofProvider {
         self.commit_version(height)
     }
 
+    /// Commits the current pending changes, persists the state delta, and durably stores the
+    /// serialized block bytes associated with the height.
+    async fn commit_version_persist_with_block(
+        &mut self,
+        height: u64,
+        store: &dyn NodeStore,
+        block_bytes: &[u8],
+    ) -> Result<RootHash, StateError> {
+        let root = self.commit_version_persist(height, store).await?;
+        store
+            .put_block(height, block_bytes)
+            .await
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+        Ok(root)
+    }
+
     /// Informs the state manager of a pre-existing, valid version from a durable source.
     fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError>;
 
@@ -71,6 +87,17 @@ impl<T: StateManager + ?Sized + Send> StateManager for Box<T> {
         store: &dyn NodeStore,
     ) -> Result<RootHash, StateError> {
         (**self).commit_version_persist(height, store).await
+    }
+
+    async fn commit_version_persist_with_block(
+        &mut self,
+        height: u64,
+        store: &dyn NodeStore,
+        block_bytes: &[u8],
+    ) -> Result<RootHash, StateError> {
+        (**self)
+            .commit_version_persist_with_block(height, store, block_bytes)
+            .await
     }
 
     fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {

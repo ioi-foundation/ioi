@@ -47,6 +47,9 @@ pub trait BlockSync: Send + Sync {
 
     /// Retrieves the set of currently known (and likely connected) peers.
     fn get_known_peers(&self) -> Arc<Mutex<HashSet<PeerId>>>;
+
+    /// Returns the number of bootstrap peers configured at startup.
+    fn bootstrap_peer_count(&self) -> usize;
 }
 
 /// A trait for gossiping transactions to the mempool of other nodes.

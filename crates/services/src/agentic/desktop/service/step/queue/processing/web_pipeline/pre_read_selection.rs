@@ -762,6 +762,8 @@ async fn synthesize_pre_read_selection(
             temperature: 0.0,
             json_mode: true,
             max_tokens: WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_TOKENS,
+            required_finality_tier: Default::default(),
+            sealed_finality_proof: None,
         };
         let airlocked_prompt = match service
             .prepare_cloud_inference_input(

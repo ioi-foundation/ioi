@@ -53,6 +53,9 @@ impl BlockSync for NoOpBlockSync {
     fn get_known_peers(&self) -> Arc<Mutex<HashSet<PeerId>>> {
         self.known_peers.clone()
     }
+    fn bootstrap_peer_count(&self) -> usize {
+        0
+    }
 }
 
 #[async_trait]

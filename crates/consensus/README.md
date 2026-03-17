@@ -2,14 +2,15 @@
 
 This crate implements the consensus algorithms for the IOI Kernel. It defines how validators communicate, agree on block ordering, and achieve finality.
 
-The current production-facing consensus family is documented as **Convergent Fault Tolerance**: finalized history must converge through certified quorums, guardian committee evidence, and shared registry/log state.
+The current production-facing consensus family is documented as **Aft Fault Tolerance**: finalized history must converge through certified quorums, guardian committee evidence, and shared registry/log state.
 
 Primary protocol specs:
 
-*   [`../../docs/consensus/convergent/specs/guardian_majority.md`](../../docs/consensus/convergent/specs/guardian_majority.md)
-*   [`../../docs/consensus/convergent/specs/nested_guardian.md`](../../docs/consensus/convergent/specs/nested_guardian.md)
-*   [`../../formal/convergent/guardian_majority/README.md`](../../formal/convergent/guardian_majority/README.md)
-*   [`../../formal/convergent/nested_guardian/README.md`](../../formal/convergent/nested_guardian/README.md)
+*   [`../../docs/consensus/aft/specs/guardian_majority.md`](../../docs/consensus/aft/specs/guardian_majority.md)
+*   [`../../docs/consensus/aft/specs/asymptote.md`](../../docs/consensus/aft/specs/asymptote.md)
+*   [`../../docs/consensus/aft/specs/nested_guardian.md`](../../docs/consensus/aft/specs/nested_guardian.md)
+*   [`../../formal/aft/guardian_majority/README.md`](../../formal/aft/guardian_majority/README.md)
+*   [`../../formal/aft/nested_guardian/README.md`](../../formal/aft/nested_guardian/README.md)
 
 ## Architecture
 
@@ -18,28 +19,35 @@ The consensus module is designed to be **pluggable**. It implements the `Consens
 ### Core Traits
 
 *   **`ConsensusEngine`**: The main state machine. It accepts network events (Proposal, Vote) and chain context (Parent View) and returns a `ConsensusDecision` (Produce, Wait, ViewChange).
-*   **`PenaltyMechanism`**: Defines slashing and quarantine conditions from conflicting guardian certificates, stale registry participation, and other convergent safety faults.
+*   **`PenaltyMechanism`**: Defines slashing and quarantine conditions from conflicting guardian certificates, stale registry participation, and other aft safety faults.
 
 ## Engines
 
 ### GuardianMajority
 
 The primary engine for the IOI Mainnet.
-*   **Source:** `src/convergent/guardian_majority/mod.rs`
-*   **Model:** Leader-based BFT for the Convergent Fault Tolerance family, with committee-backed non-equivocation evidence.
-*   **Safety:** Relies on guardian committees, receipts, and externalized evidence to constrain equivocation under the configured `ConvergentSafetyMode`.
+*   **Source:** `src/aft/guardian_majority/mod.rs`
+*   **Model:** Leader-based BFT for the Aft Fault Tolerance family, with committee-backed non-equivocation evidence.
+*   **Safety:** Relies on guardian committees, receipts, and externalized evidence to constrain equivocation under the configured `AftSafetyMode`.
 *   **Liveness:** Uses **Mirror Channels** (redundant gossip topics) to detect censorship or network partitions.
+
+### Asymptote
+
+The scalable sealing overlay for Aft.
+*   **Model:** Fast `BaseFinal` block progression with asynchronous stratum-backed `SealedFinal` upgrades.
+*   **Safety:** `SealedFinal` requires deterministic evidence collapse over guardian, witness, registry, and transparency-log state.
+*   **Operational Use:** High-risk external effects should require `SealedFinal`; ordinary block ordering continues on the fast path.
 
 ### Witness/Audit Sampling
 
-*   **Source:** `src/convergent/experimental/`
+*   **Source:** `src/aft/experimental/`
 *   **Role:** Support for NestedGuardian witness assignment, confidence tracking, and observability helpers.
 *   **Scope:** These components inform witness assignment and degraded-mode diagnostics, but they do not replace the core guardian-majority consensus path.
 
 ## Structure
 
-*   **`src/convergent/mod.rs`**: The Convergent Fault Tolerance wrapper used by production `Convergent` nodes.
-*   **`src/convergent/guardian_majority/`**: The Convergent deterministic engine and its subcomponents.
-*   **`src/convergent/experimental/`**: Sampling, sortition, and confidence helpers used by the NestedGuardian witness path.
+*   **`src/aft/mod.rs`**: The Aft Fault Tolerance wrapper used by production `Aft` nodes.
+*   **`src/aft/guardian_majority/`**: The Aft deterministic engine and its subcomponents.
+*   **`src/aft/experimental/`**: Sampling, sortition, and confidence helpers used by the NestedGuardian witness path.
 *   **`src/common/`**: Shared logic for validator set management and penalties.
 *   **`src/service.rs`**: The `PenaltiesService`, a system service exposed to the transaction layer allowing users to submit fraud proofs (`report_misbehavior`).

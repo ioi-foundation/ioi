@@ -84,6 +84,7 @@ struct AsyncCommit {
 #[derive(Debug)]
 enum PersistenceOp {
     CommitState(AsyncCommit, oneshot::Sender<Result<(), String>>),
+    CommitStateAndBlock(AsyncCommit, Vec<u8>, oneshot::Sender<Result<(), String>>),
     WriteBlock(Height, Vec<u8>, oneshot::Sender<Result<(), String>>),
 }
 
@@ -388,6 +389,107 @@ impl RedbEpochStore {
                         // Acknowledge completion
                         let _ = ack_tx.send(result);
                     }
+                    PersistenceOp::CommitStateAndBlock(commit, block_bytes, ack_tx) => {
+                        let mut result = Ok(());
+
+                        let diff = StateDiff {
+                            new_nodes: commit
+                                .new_nodes
+                                .iter()
+                                .map(|(h, b)| (h.0, b.clone()))
+                                .collect(),
+                            touched_nodes: commit.unique_nodes.iter().map(|h| h.0).collect(),
+                        };
+
+                        if let Err(e) = wal_clone.append_block(commit.height, commit.root.0, &diff)
+                        {
+                            eprintln!("[Storage] Async WAL Write Failed: {}", e);
+                            result = Err(e.to_string());
+                        }
+
+                        let epoch = if epoch_size_clone == 0 {
+                            0
+                        } else {
+                            commit.height / epoch_size_clone
+                        };
+
+                        if result.is_ok() {
+                            let write_res = (|| -> Result<(), redb::Error> {
+                                let w = db_clone.begin_write()?;
+                                {
+                                    let mut nodes_tbl = w.open_table(NODES)?;
+                                    let mut refs_tbl = w.open_table(REFS)?;
+
+                                    for (nh, bytes) in &commit.new_nodes {
+                                        let k = k_nodes(epoch, nh);
+                                        if nodes_tbl.get(k.as_slice())?.is_none() {
+                                            nodes_tbl.insert(k.as_slice(), bytes.as_slice())?;
+                                            let rk = k_refs(epoch, nh);
+                                            refs_tbl.insert(rk.as_slice(), &v_u64(1))?;
+                                        }
+                                    }
+
+                                    let mut ch = w.open_table(CHANGES)?;
+                                    for (i, nh) in commit.unique_nodes.iter().enumerate() {
+                                        ch.insert(
+                                            k_changes(epoch, commit.height, i as u32).as_slice(),
+                                            &nh.0,
+                                        )?;
+                                    }
+
+                                    let mut ver = w.open_table(VERSIONS)?;
+                                    ver.insert(
+                                        k_versions(epoch, commit.height).as_slice(),
+                                        &commit.root.0,
+                                    )?;
+
+                                    let mut ri = w.open_table(ROOT_INDEX)?;
+                                    let mut meta = [0u8; 16];
+                                    meta[..8].copy_from_slice(&enc_epoch(epoch));
+                                    meta[8..].copy_from_slice(&enc_height(commit.height));
+                                    ri.insert(&commit.root.0, &meta)?;
+
+                                    let mut t_head = w.open_table(HEAD)?;
+                                    let mut head_buf = [0u8; 16];
+                                    head_buf[..8].copy_from_slice(&enc_height(commit.height));
+                                    head_buf[8..].copy_from_slice(&enc_epoch(epoch));
+                                    t_head.insert(&key_head(), &head_buf)?;
+
+                                    let mut blocks_tbl = w.open_table(BLOCKS)?;
+                                    blocks_tbl.insert(
+                                        &commit.height.to_be_bytes(),
+                                        block_bytes.as_slice(),
+                                    )?;
+                                }
+                                w.commit()?;
+                                Ok(())
+                            })();
+
+                            if let Err(e) = write_res {
+                                eprintln!("[Storage] Async DB Write Failed (State+Block): {}", e);
+                                result = Err(e.to_string());
+                            }
+                        }
+
+                        {
+                            let mut guard = memtable_clone.write().unwrap();
+                            for (nh, _) in &commit.new_nodes {
+                                guard.remove(nh);
+                            }
+                        }
+
+                        {
+                            let mut guard = pending_roots_clone.write().unwrap();
+                            guard.remove(&commit.root);
+                        }
+
+                        {
+                            let mut guard = pending_blocks_clone.write().unwrap();
+                            guard.remove(&commit.height);
+                        }
+
+                        let _ = ack_tx.send(result);
+                    }
                     PersistenceOp::WriteBlock(height, block_bytes, ack_tx) => {
                         let write_res = (|| -> Result<(), redb::Error> {
                             let w = db_clone.begin_write()?;
@@ -651,6 +753,66 @@ impl NodeStore for RedbEpochStore {
             .map_err(|e| StorageError::Backend(format!("Failed to queue async commit: {}", e)))?;
 
         // Wait for durability acknowledgment
+        match ack_rx.await {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(e)) => Err(StorageError::Backend(format!(
+                "Commit failed in background: {}",
+                e
+            ))),
+            Err(e) => Err(StorageError::Backend(format!(
+                "Persistence channel closed: {}",
+                e
+            ))),
+        }
+    }
+
+    async fn commit_block_with_payload(
+        &self,
+        input: CommitInput,
+        block_bytes: &[u8],
+    ) -> Result<(), StorageError> {
+        let bytes_written: u64 = input
+            .new_nodes
+            .iter()
+            .map(|(_, bytes)| bytes.len() as u64)
+            .sum::<u64>()
+            .saturating_add(block_bytes.len() as u64);
+        metrics().inc_bytes_written_total(bytes_written);
+
+        {
+            let mut guard = self.memtable.write().unwrap();
+            for (nh, bytes) in &input.new_nodes {
+                guard.insert(*nh, bytes.clone());
+            }
+        }
+
+        {
+            let mut guard = self.pending_roots.write().unwrap();
+            guard.insert(input.root, input.height);
+        }
+
+        {
+            let mut guard = self.pending_blocks.write().unwrap();
+            guard.insert(input.height, block_bytes.to_vec());
+        }
+
+        let (ack_tx, ack_rx) = oneshot::channel();
+        let commit_task = AsyncCommit {
+            height: input.height,
+            root: input.root,
+            new_nodes: input.new_nodes,
+            unique_nodes: input.unique_nodes_for_height,
+        };
+
+        self.tx_sender
+            .send(PersistenceOp::CommitStateAndBlock(
+                commit_task,
+                block_bytes.to_vec(),
+                ack_tx,
+            ))
+            .await
+            .map_err(|e| StorageError::Backend(format!("Failed to queue async commit: {}", e)))?;
+
         match ack_rx.await {
             Ok(Ok(())) => Ok(()),
             Ok(Err(e)) => Err(StorageError::Backend(format!(

@@ -761,6 +761,8 @@ pub async fn start_or_continue_incident_recovery(
                 json_mode: true,
                 max_tokens: 384,
                 tools: planner_attempt_tools,
+                required_finality_tier: Default::default(),
+                sealed_finality_proof: None,
             };
             let output = service
                 .reasoning_inference

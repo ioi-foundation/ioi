@@ -89,7 +89,7 @@ async fn test_adaptive_block_timing_responds_to_load() -> Result<()> {
     // 2. Configure Cluster
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Convergent")
+        .with_consensus_type("Aft")
         .with_state_tree("IAVL")
         .with_chain_id(1)
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {

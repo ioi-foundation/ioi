@@ -209,6 +209,13 @@ pub async fn run_agent_driver_task_with_handles(
                 crate::standard::orchestration::mempool::AddResult::Rejected(reason) => {
                     tracing::warn!(target: "agent_driver", "Step tx rejected by mempool (Nonce: {}): {}", nonce, reason);
                 }
+                crate::standard::orchestration::mempool::AddResult::Known => {
+                    tracing::debug!(
+                        target: "agent_driver",
+                        "Step tx already present in mempool (nonce={})",
+                        nonce
+                    );
+                }
                 crate::standard::orchestration::mempool::AddResult::Ready => {
                     // Wake consensus
                     let _ = consensus_kick_tx.send(());

@@ -17,14 +17,16 @@ use ioi_api::crypto::SerializableKey;
 use ioi_api::validator::Container;
 use ioi_ipc::control::guardian_control_server::{GuardianControl, GuardianControlServer};
 use ioi_ipc::control::{
-    GuardianMemberSignature, ReportWitnessFaultRequest, ReportWitnessFaultResponse,
-    SecureEgressRequest, SecureEgressResponse, SignCommitteeDecisionRequest,
+    GuardianMemberSignature, ObserveAsymptoteRequest, ObserveAsymptoteResponse,
+    ReportWitnessFaultRequest, ReportWitnessFaultResponse, SealConsensusRequest,
+    SealConsensusResponse, SecureEgressRequest, SecureEgressResponse, SignCommitteeDecisionRequest,
     SignCommitteeDecisionResponse, SignConsensusRequest, SignConsensusResponse,
     SignWitnessStatementRequest, SignWitnessStatementResponse,
 };
 use ioi_types::app::{
-    account_id_from_key_material, GuardianDecision, GuardianDecisionDomain, GuardianReport,
-    GuardianWitnessStatement, SignatureSuite,
+    account_id_from_key_material, AsymptoteObserverStatement, FinalityTier, GuardianDecision,
+    GuardianDecisionDomain, GuardianReport, GuardianWitnessStatement, SealObject,
+    SealedFinalityProof, SignatureSuite,
 };
 use ioi_types::codec;
 use ioi_validator::common::{generate_certificates_if_needed, GuardianContainer};
@@ -79,6 +81,31 @@ impl GuardianControl for GuardianControlImpl {
                 &req.secret_id,
                 &self.keypair,
                 json_patch, // [FIX] Pass the new argument
+                match req.required_finality_tier {
+                    1 => FinalityTier::SealedFinal,
+                    _ => FinalityTier::BaseFinal,
+                },
+                if req.sealed_finality_proof.is_empty() {
+                    None
+                } else {
+                    Some(
+                        codec::from_bytes_canonical::<SealedFinalityProof>(
+                            &req.sealed_finality_proof,
+                        )
+                        .map_err(|e| {
+                            Status::invalid_argument(format!("invalid sealed_finality_proof: {e}"))
+                        })?,
+                    )
+                },
+                if req.seal_object.is_empty() {
+                    None
+                } else {
+                    Some(
+                        codec::from_bytes_canonical::<SealObject>(&req.seal_object).map_err(
+                            |e| Status::invalid_argument(format!("invalid seal_object: {e}")),
+                        )?,
+                    )
+                },
             )
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
@@ -89,6 +116,10 @@ impl GuardianControl for GuardianControlImpl {
             guardian_signature: signature,
             receipt: codec::to_bytes_canonical(&receipt)
                 .map_err(|e| Status::internal(e.to_string()))?,
+            finality_tier: match receipt.finality_tier {
+                FinalityTier::BaseFinal => 0,
+                FinalityTier::SealedFinal => 1,
+            },
         }))
     }
 
@@ -184,6 +215,132 @@ impl GuardianControl for GuardianControlImpl {
                 .transpose()
                 .map_err(|e| Status::internal(e.to_string()))?
                 .unwrap_or_default(),
+        }))
+    }
+
+    async fn seal_consensus(
+        &self,
+        request: Request<SealConsensusRequest>,
+    ) -> Result<Response<SealConsensusResponse>, Status> {
+        let req = request.into_inner();
+        let payload_hash: [u8; 32] = req
+            .payload_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| Status::invalid_argument("payload_hash must be 32 bytes"))?;
+        let expected_trace_hash: [u8; 32] = if req.expected_trace_hash.is_empty() {
+            [0u8; 32]
+        } else {
+            req.expected_trace_hash
+                .as_slice()
+                .try_into()
+                .map_err(|_| Status::invalid_argument("expected_trace_hash must be 32 bytes"))?
+        };
+        let requested_measurement_root = if req.measurement_root.is_empty() {
+            None
+        } else {
+            Some(
+                req.measurement_root
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Status::invalid_argument("measurement_root must be 32 bytes"))?,
+            )
+        };
+        let requested_policy_hash = if req.policy_hash.is_empty() {
+            None
+        } else {
+            Some(
+                req.policy_hash
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Status::invalid_argument("policy_hash must be 32 bytes"))?,
+            )
+        };
+        let requested_manifest_hash = if req.manifest_hash.is_empty() {
+            None
+        } else {
+            Some(
+                req.manifest_hash
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Status::invalid_argument("manifest_hash must be 32 bytes"))?,
+            )
+        };
+        let witness_manifest_hashes =
+            req.witness_manifest_hashes
+                .into_iter()
+                .map(|manifest_hash| {
+                    manifest_hash.as_slice().try_into().map_err(|_| {
+                        Status::invalid_argument("witness manifest hash must be 32 bytes")
+                    })
+                })
+                .collect::<Result<Vec<[u8; 32]>, _>>()?;
+        let observer_plan_entries = req
+            .observer_plan_entries
+            .into_iter()
+            .map(|entry| {
+                codec::from_bytes_canonical(&entry).map_err(|e| {
+                    Status::invalid_argument(format!("invalid observer plan entry: {e}"))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let (counter, trace_hash, guardian_certificate, sealed_finality_proof) = self
+            .container
+            .seal_consensus_with_guardian(
+                payload_hash,
+                req.height,
+                req.view,
+                req.subject,
+                req.expected_counter,
+                expected_trace_hash,
+                requested_measurement_root,
+                requested_policy_hash,
+                requested_manifest_hash,
+                witness_manifest_hashes,
+                observer_plan_entries,
+                u8::try_from(req.witness_reassignment_depth).map_err(|_| {
+                    Status::invalid_argument("witness_reassignment_depth must fit into u8")
+                })?,
+            )
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        Ok(Response::new(SealConsensusResponse {
+            guardian_certificate: codec::to_bytes_canonical(&guardian_certificate)
+                .map_err(|e| Status::internal(e.to_string()))?,
+            sealed_finality_proof: codec::to_bytes_canonical(&sealed_finality_proof)
+                .map_err(|e| Status::internal(e.to_string()))?,
+            counter,
+            trace_hash: trace_hash.to_vec(),
+        }))
+    }
+
+    async fn observe_asymptote(
+        &self,
+        request: Request<ObserveAsymptoteRequest>,
+    ) -> Result<Response<ObserveAsymptoteResponse>, Status> {
+        let req = request.into_inner();
+        let statement: AsymptoteObserverStatement = codec::from_bytes_canonical(&req.statement)
+            .map_err(|e| Status::invalid_argument(format!("invalid observer statement: {e}")))?;
+        let requested_manifest_hash = if req.manifest_hash.is_empty() {
+            None
+        } else {
+            Some(
+                req.manifest_hash
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| Status::invalid_argument("manifest_hash must be 32 bytes"))?,
+            )
+        };
+        let observer_certificate = self
+            .container
+            .observe_asymptote_statement(&statement, requested_manifest_hash)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+        Ok(Response::new(ObserveAsymptoteResponse {
+            observer_certificate: codec::to_bytes_canonical(&observer_certificate)
+                .map_err(|e| Status::internal(e.to_string()))?,
         }))
     }
 

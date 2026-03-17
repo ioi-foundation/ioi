@@ -104,11 +104,11 @@ default = []
 validator-bins = [
     "dep:clap",
     "dep:env_logger",
-    "ioi-consensus/convergent",
+    "ioi-consensus/aft",
     "vm-wasm",  # <--- CHANGED from "dep:ioi-vm-wasm" to "vm-wasm"
 ]
 
-consensus-convergent = ["ioi-consensus/convergent"]
+consensus-aft = ["ioi-consensus/aft"]
 consensus-poa = ["ioi-consensus/poa"]
 consensus-pos = ["ioi-consensus/pos"]
 

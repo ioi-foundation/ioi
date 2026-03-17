@@ -121,8 +121,8 @@ fn ensure_guardianized_signing_supported(
     uses_local_signer: bool,
 ) -> Result<()> {
     let guardianized_mode = !matches!(
-        config.convergent_safety_mode,
-        ioi_types::config::ConvergentSafetyMode::ClassicBft
+        config.aft_safety_mode,
+        ioi_types::config::AftSafetyMode::ClassicBft
     );
     let production_mode = matches!(
         config.guardian_production_mode,
@@ -335,8 +335,8 @@ where
     let verifier = create_default_verifier(kzg_params);
     let is_quarantined = Arc::new(AtomicBool::new(false));
     let guardianized_mode = !matches!(
-        config.convergent_safety_mode,
-        ioi_types::config::ConvergentSafetyMode::ClassicBft
+        config.aft_safety_mode,
+        ioi_types::config::AftSafetyMode::ClassicBft
     );
     ensure_guardianized_signing_supported(
         &config,

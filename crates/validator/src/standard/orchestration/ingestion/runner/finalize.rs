@@ -4,24 +4,81 @@ use crate::standard::orchestration::mempool::{AddResult, Mempool};
 use ioi_api::chain::WorkloadClientApi;
 use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
-use ioi_types::app::ChainTransaction;
-use ioi_types::app::StateAnchor;
+use ioi_types::app::{AccountId, ChainTransaction, StateAnchor};
+use libp2p::PeerId;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
+use tokio::sync::Mutex;
 
 use crate::standard::orchestration::ingestion::types::ProcessedTx;
 use ioi_client::WorkloadClient;
+
+fn relay_fanout() -> usize {
+    std::env::var("IOI_AFT_TX_RELAY_FANOUT")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(2)
+}
+
+fn leader_accounts_for_upcoming_heights(
+    local_height: u64,
+    validator_ids: &[Vec<u8>],
+    fanout: usize,
+) -> Vec<AccountId> {
+    if validator_ids.is_empty() || fanout == 0 {
+        return Vec::new();
+    }
+
+    let mut leaders = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let validator_len = validator_ids.len() as u64;
+    let steps = fanout.min(validator_ids.len());
+    for offset in 1..=steps {
+        let target_height = local_height.saturating_add(offset as u64).max(1);
+        let leader_index = ((target_height - 1) % validator_len) as usize;
+        let Some(leader_bytes) = validator_ids.get(leader_index) else {
+            continue;
+        };
+        let Ok(leader_bytes) = <[u8; 32]>::try_from(leader_bytes.as_slice()) else {
+            continue;
+        };
+        let account = AccountId(leader_bytes);
+        if seen.insert(account) {
+            leaders.push(account);
+        }
+    }
+    leaders
+}
+
+fn dispatch_swarm_command(sender: &mpsc::Sender<SwarmCommand>, command: SwarmCommand) {
+    match sender.try_send(command) {
+        Ok(()) => {}
+        Err(tokio::sync::mpsc::error::TrySendError::Full(command)) => {
+            let sender = sender.clone();
+            tokio::spawn(async move {
+                let _ = sender.send(command).await;
+            });
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+    }
+}
 
 pub(crate) async fn finalize_valid_transactions(
     workload_client: &Arc<WorkloadClient>,
     tx_pool: &Arc<Mempool>,
     swarm_sender: &mpsc::Sender<SwarmCommand>,
+    peer_accounts_ref: &Arc<Mutex<HashMap<PeerId, AccountId>>>,
+    local_account_id: AccountId,
     status_cache: &Arc<tokio::sync::Mutex<lru::LruCache<String, TxStatusEntry>>>,
     receipt_map: &Arc<tokio::sync::Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
     nonce_cache: &mut lru::LruCache<ioi_types::app::AccountId, u64>,
     semantically_valid_indices: &[usize],
     processed_batch: &[ProcessedTx],
     anchor: StateAnchor,
+    current_tip_height: u64,
+    current_validator_set: &[Vec<u8>],
     expected_ts: u64,
 ) -> bool {
     let txs_to_check: Vec<ChainTransaction> = semantically_valid_indices
@@ -43,6 +100,33 @@ pub(crate) async fn finalize_valid_transactions(
     let mut status_guard = status_cache.lock().await;
     let mut receipt_guard = receipt_map.lock().await;
     let mut accepted_count = 0;
+    let (leader_peer_targets, leader_peers) =
+        if current_tip_height == 0 || current_validator_set.is_empty() {
+            // Before the first committed tip exists, keep admission cheap and rely on generic publish
+            // rather than fetching validator set state to derive targeted relays.
+            (0, Vec::new())
+        } else {
+            let leader_accounts = leader_accounts_for_upcoming_heights(
+                current_tip_height,
+                current_validator_set,
+                relay_fanout(),
+            );
+            let leader_peer_targets = leader_accounts
+                .iter()
+                .filter(|account_id| **account_id != local_account_id)
+                .count();
+            let peers = peer_accounts_ref.lock().await;
+            let leader_peers = leader_accounts
+                .into_iter()
+                .filter(|account_id| *account_id != local_account_id)
+                .filter_map(|leader_account_id| {
+                    peers.iter().find_map(|(peer_id, account_id)| {
+                        (*account_id == leader_account_id).then_some(*peer_id)
+                    })
+                })
+                .collect::<Vec<_>>();
+            (leader_peer_targets, leader_peers)
+        };
 
     for (res_idx, result) in check_results.into_iter().enumerate() {
         let original_idx = semantically_valid_indices[res_idx];
@@ -57,20 +141,61 @@ pub(crate) async fn finalize_valid_transactions(
         let validation_ok = result.is_ok() || is_approval_error;
 
         if validation_ok {
+            if receipt_guard.peek(&p_tx.canonical_hash).is_some() {
+                accepted_count += 1;
+                status_guard.put(
+                    p_tx.receipt_hash_hex.clone(),
+                    TxStatusEntry {
+                        status: TxStatus::InMempool,
+                        error: None,
+                        block_height: None,
+                    },
+                );
+                continue;
+            }
+
             let tx_info = p_tx.account_id.map(|acc| (acc, p_tx.nonce.unwrap()));
             let committed_nonce = p_tx
                 .account_id
                 .and_then(|acc| nonce_cache.get(&acc).copied())
                 .unwrap_or(0);
 
-            match tx_pool.add(
+            let add_result = tx_pool.add(
                 p_tx.tx.clone(),
                 p_tx.canonical_hash,
                 tx_info,
                 committed_nonce,
-            ) {
-                AddResult::Ready | AddResult::Future => {
+            );
+
+            match add_result {
+                AddResult::Ready | AddResult::Future | AddResult::Known => {
                     accepted_count += 1;
+                    if !matches!(add_result, AddResult::Known) {
+                        metrics().inc_mempool_transactions_added();
+                        if let Ok(tx_bytes) = ioi_types::codec::to_bytes_canonical(&p_tx.tx) {
+                            dispatch_swarm_command(
+                                swarm_sender,
+                                SwarmCommand::PublishTransaction(tx_bytes.clone()),
+                            );
+                            for peer in &leader_peers {
+                                dispatch_swarm_command(
+                                    swarm_sender,
+                                    SwarmCommand::RelayTransactionToPeer {
+                                        peer: *peer,
+                                        data: tx_bytes.clone(),
+                                    },
+                                );
+                            }
+                            if leader_peers.len() < leader_peer_targets {
+                                tracing::debug!(
+                                    target: "ingestion",
+                                    expected_leader_peers = leader_peer_targets,
+                                    resolved_leader_peers = leader_peers.len(),
+                                    "Leader-aware relay fell back to generic publish for unresolved peers."
+                                );
+                            }
+                        }
+                    }
                     status_guard.put(
                         p_tx.receipt_hash_hex.clone(),
                         TxStatusEntry {
@@ -81,15 +206,11 @@ pub(crate) async fn finalize_valid_transactions(
                     );
                     receipt_guard.put(p_tx.canonical_hash, p_tx.receipt_hash_hex.clone());
 
-                    tracing::info!(
+                    tracing::debug!(
                         target: "ingestion",
                         "Added transaction to mempool: {}",
                         p_tx.receipt_hash_hex
                     );
-
-                    let _ = swarm_sender
-                        .send(SwarmCommand::PublishTransaction(p_tx.raw_bytes.clone()))
-                        .await;
                 }
                 AddResult::Rejected(r) => {
                     tracing::warn!(
@@ -110,6 +231,8 @@ pub(crate) async fn finalize_valid_transactions(
             }
         } else {
             let e = result.unwrap_err();
+            tx_pool.remove_by_hash(&p_tx.canonical_hash);
+            let _ = receipt_guard.pop(&p_tx.canonical_hash);
             tracing::warn!(
                 target: "ingestion",
                 "Validation failed for transaction {}: {}",

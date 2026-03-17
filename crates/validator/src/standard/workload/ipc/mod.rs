@@ -31,6 +31,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tonic::transport::Server;
 
+const WORKLOAD_GRPC_MAX_MESSAGE_BYTES: usize = 64 * 1024 * 1024;
+
 // [FIX] Re-added create_ipc_server_config for Guardian usage
 use std::fs::File;
 use std::io::BufReader;
@@ -203,8 +205,16 @@ where
         let control_svc = WorkloadControlImpl::new(shared_ctx.clone());
 
         Server::builder()
-            .add_service(ChainControlServer::new(chain_svc))
-            .add_service(StateQueryServer::new(state_svc))
+            .add_service(
+                ChainControlServer::new(chain_svc)
+                    .max_decoding_message_size(WORKLOAD_GRPC_MAX_MESSAGE_BYTES)
+                    .max_encoding_message_size(WORKLOAD_GRPC_MAX_MESSAGE_BYTES),
+            )
+            .add_service(
+                StateQueryServer::new(state_svc)
+                    .max_decoding_message_size(WORKLOAD_GRPC_MAX_MESSAGE_BYTES)
+                    .max_encoding_message_size(WORKLOAD_GRPC_MAX_MESSAGE_BYTES),
+            )
             .add_service(ContractControlServer::new(contract_svc))
             .add_service(StakingControlServer::new(staking_svc))
             .add_service(SystemControlServer::new(system_svc))

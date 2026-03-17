@@ -1,5 +1,5 @@
 // Path: crates/cli/tests/policy_synthesis_e2e.rs
-#![cfg(all(feature = "consensus-convergent", feature = "vm-wasm"))]
+#![cfg(all(feature = "consensus-aft", feature = "vm-wasm"))]
 
 use anyhow::Result;
 use ioi_cli::testing::build_test_artifacts;

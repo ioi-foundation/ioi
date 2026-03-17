@@ -6,7 +6,10 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::transaction::TransactionModel;
 use ioi_client::WorkloadClient;
 use ioi_tx::unified::UnifiedTransactionModel;
-use ioi_types::app::{compute_next_timestamp, AccountId, ChainTransaction, StateRoot, TxHash};
+use ioi_types::app::{
+    compute_next_timestamp_ms, timestamp_millis_to_legacy_seconds, AccountId, ChainTransaction,
+    StateRoot, TxHash,
+};
 use ioi_types::codec;
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
 use parity_scale_codec::{Decode, Encode};
@@ -203,14 +206,15 @@ where
     let expected_ts = timing_cache
         .as_ref()
         .and_then(|c| {
-            compute_next_timestamp(
+            compute_next_timestamp_ms(
                 &c.params,
                 &c.runtime,
                 tip.height,
-                tip.timestamp,
+                tip.timestamp_ms,
                 tip.gas_used,
             )
         })
+        .map(timestamp_millis_to_legacy_seconds)
         .unwrap_or(0);
 
     let anchor = root_struct.to_anchor().unwrap_or_default();

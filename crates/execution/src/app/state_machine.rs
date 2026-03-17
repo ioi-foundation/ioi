@@ -26,9 +26,16 @@ use ioi_tx::unified::UnifiedProof;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     account_id_from_key_material,
+    aft_bulletin_commitment_key,
+    build_reference_bulletin_commitment,
+    canonical_transactions_root,
+    compute_next_timestamp_ms,
     read_validator_sets,
+    timestamp_millis_to_legacy_seconds,
     to_root_hash,
     AccountId,
+    BlockTimingParams,
+    BlockTimingRuntime,
     Membership,
     QuorumCertificate, // [FIX] Import QuorumCertificate
     SignatureSuite,
@@ -37,7 +44,10 @@ use ioi_types::app::{
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{BlockError, ChainError, StateError};
-use ioi_types::keys::{STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX, VALIDATOR_SET_KEY};
+use ioi_types::keys::{
+    BLOCK_TIMING_PARAMS_KEY, BLOCK_TIMING_RUNTIME_KEY, STATUS_KEY, UPGRADE_ACTIVE_SERVICE_PREFIX,
+    VALIDATOR_SET_KEY,
+};
 use ioi_types::service_configs::ActiveServiceMeta;
 use libp2p::identity::Keypair;
 use parity_scale_codec::Decode;
@@ -45,8 +55,13 @@ use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 // --- Parallel Executor Context ---
+
+fn benchmark_trace_enabled() -> bool {
+    std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
+}
 
 /// A lightweight, thread-safe context for executing transactions in parallel.
 /// Implements `ChainView` to satisfy TransactionModel requirements.
@@ -149,6 +164,7 @@ where
         state: &mut dyn StateAccess, // ParallelStateAccess
         block_height: u64,
         block_timestamp: u64,
+        skip_stateless_signature: bool,
     ) -> Result<(Vec<u8>, u64), ChainError> {
         // [FIX] Removed wildcard match that caused unreachable pattern warnings
         let signer_account_id = match tx {
@@ -183,7 +199,9 @@ where
 
         // [MIGRATION] Split validation
         // 1a. Stateless: Verify Signatures
-        validation::verify_stateless_signature(tx)?;
+        if !skip_stateless_signature {
+            validation::verify_stateless_signature(tx)?;
+        }
 
         // 1b. Stateful: Verify Authorization (Reads from MVMemory)
         validation::verify_stateful_authorization(state, &self.services, tx, &tx_ctx)?;
@@ -273,6 +291,9 @@ where
         &self,
         block: Block<ChainTransaction>,
     ) -> Result<PreparedBlock, ChainError> {
+        let prepare_started = Instant::now();
+        let benchmark_trace = benchmark_trace_enabled();
+        let skip_stateless_signature = block.header.signature.is_empty();
         let workload = &self.workload_container;
         let expected_height = self.state.status.height + 1;
         if block.header.height != expected_height {
@@ -287,6 +308,7 @@ where
         // 1. Initialize State Snapshot & Pinning
         // We hold the pin guard for the duration of execution to prevent GC of the base state.
         let _pin_guard = PinGuard::new(workload.pins().clone(), self.state.status.height);
+        let snapshot_started = Instant::now();
 
         // Acquire a consistent view of the state (Base View for MVMemory).
         // `read()` gives us a `RwLockReadGuard<ST>`. We clone ST to get an owned snapshot
@@ -296,6 +318,7 @@ where
             let backend_guard = state_tree_arc.read().await;
             backend_guard.clone()
         };
+        let snapshot_elapsed = snapshot_started.elapsed();
 
         // Wrap as Arc<dyn StateAccess> for MVMemory
         let snapshot_arc: Arc<dyn StateAccess> = Arc::new(snapshot_state);
@@ -308,164 +331,266 @@ where
 
         let transactions = block.transactions.clone();
         let block_header_height = block.header.height;
-        let block_header_timestamp = block.header.timestamp;
+        let block_timestamp_ms = if block.header.timestamp_ms > 0 {
+            block.header.timestamp_ms
+        } else if !block.header.state_root.0.is_empty() || !block.header.transactions_root.is_empty()
+        {
+            block.header.timestamp_ms_or_legacy()
+        } else {
+            self.resolve_next_block_timestamp_ms(&*snapshot_arc, block.header.height)?
+        };
+        let block_header_timestamp = block_timestamp_ms / 1_000;
 
-        // 3. Prepare Parallel Executor Context
-        let executor = Arc::new(ParallelExecutor {
-            chain_id: self.state.chain_id,
-            services: self.services.clone(),
-            // Ensure service_meta_cache is accessible (cloning the HashMap into an Arc)
-            service_meta_cache: Arc::new(self.service_meta_cache.clone()),
-            transaction_model: self.state.transaction_model.clone(),
-            workload_container: self.workload_container.clone(),
-            recent_blocks: Arc::new(self.state.recent_blocks.clone()),
-            last_state_root: self.state.last_state_root.clone(),
-            consensus_engine: self.consensus_engine.clone(),
-        });
+        let externally_committed =
+            !block.header.state_root.0.is_empty() || !block.header.transactions_root.is_empty();
+        let force_sequential_replay = std::env::var("IOI_EXEC_FORCE_SEQUENTIAL_REPLAY")
+            .ok()
+            .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+        let replay_sequentially = num_txs <= 1 || externally_committed || force_sequential_replay;
 
-        // 4. Thread Pool Execution
-        // Determine concurrency.
-        let num_threads = std::cmp::min(
-            std::thread::available_parallelism()
-                .map(|n| n.get())
-                .unwrap_or(1),
-            num_txs,
-        )
-        .max(1);
+        let (
+            state_changes,
+            proofs_out,
+            block_gas_used,
+            parallel_exec_elapsed,
+            overlay_elapsed,
+            collect_results_elapsed,
+        ) = if replay_sequentially {
+            let sequential_exec_started = Instant::now();
+            let mut final_overlay = StateOverlay::new(&*snapshot_arc);
+            let mut proofs_out = Vec::with_capacity(num_txs);
+            let mut block_gas_used = 0;
 
-        tracing::debug!(
-            target: "execution",
-            "Starting parallel execution with {} threads for {} txs",
-            num_threads,
-            num_txs
-        );
+            for tx in &block.transactions {
+                block_gas_used += self
+                    .process_transaction(
+                        tx,
+                        &mut final_overlay,
+                        block_header_height,
+                        block_header_timestamp,
+                        &mut proofs_out,
+                    )
+                    .await?;
+            }
 
-        // Clone Arcs BEFORE moving into the spawn_blocking closure
-        let scheduler_clone = scheduler.clone();
-        let mv_memory_clone = mv_memory.clone();
-        let read_sets_clone = read_sets.clone();
-        let results_clone = results.clone();
+            let state_changes = final_overlay.into_ordered_batch();
+            let sequential_exec_elapsed = sequential_exec_started.elapsed();
 
-        // Run the blocking parallel execution loop on a dedicated thread to avoid blocking Tokio.
-        tokio::task::spawn_blocking(move || {
-            crossbeam_utils::thread::scope(|s| {
-                for _ in 0..num_threads {
-                    let scheduler = scheduler_clone.clone();
-                    let mv_memory = mv_memory_clone.clone();
-                    let read_sets = read_sets_clone.clone();
-                    let results = results_clone.clone();
-                    let txs = &transactions;
-                    let executor = executor.clone();
+            tracing::debug!(
+                target: "execution",
+                height = block.header.height,
+                tx_count = num_txs,
+                externally_committed,
+                force_sequential_replay,
+                "Prepared block via sequential replay"
+            );
 
-                    s.spawn(move |_| {
-                        let rt = tokio::runtime::Builder::new_current_thread()
-                            .enable_all()
-                            .build()
-                            .expect("Failed to build Tokio runtime for execution worker");
-                        loop {
-                            match scheduler.next_task() {
-                                Task::Execute(idx) => {
-                                    let tx = &txs[idx];
+            (
+                state_changes,
+                proofs_out,
+                block_gas_used,
+                sequential_exec_elapsed,
+                Duration::ZERO,
+                Duration::ZERO,
+            )
+        } else {
+            // 3. Prepare Parallel Executor Context
+            let executor = Arc::new(ParallelExecutor {
+                chain_id: self.state.chain_id,
+                services: self.services.clone(),
+                // Ensure service_meta_cache is accessible (cloning the HashMap into an Arc)
+                service_meta_cache: Arc::new(self.service_meta_cache.clone()),
+                transaction_model: self.state.transaction_model.clone(),
+                workload_container: self.workload_container.clone(),
+                recent_blocks: Arc::new(self.state.recent_blocks.clone()),
+                last_state_root: self.state.last_state_root.clone(),
+                consensus_engine: self.consensus_engine.clone(),
+            });
 
-                                    // Create ParallelStateAccess hooked to MVMemory
-                                    let mut state_proxy = ParallelStateAccess::new(&mv_memory, idx);
+            // 4. Thread Pool Execution
+            let num_threads = std::cmp::min(
+                std::thread::available_parallelism()
+                    .map(|n| n.get())
+                    .unwrap_or(1),
+                num_txs,
+            )
+            .max(1);
 
-                                    // Run the async execution logic synchronously
-                                    let result =
-                                        rt.block_on(executor.process_transaction_parallel(
-                                            tx,
-                                            &mut state_proxy,
-                                            block_header_height,
-                                            block_header_timestamp,
-                                        ));
+            tracing::debug!(
+                target: "execution",
+                "Starting parallel execution with {} threads for {} txs",
+                num_threads,
+                num_txs
+            );
 
-                                    // Always save read set for validation, even if execution fails.
-                                    let rs = state_proxy.read_set.lock().unwrap().clone();
-                                    read_sets.insert(idx, rs);
+            let scheduler_clone = scheduler.clone();
+            let mv_memory_clone = mv_memory.clone();
+            let read_sets_clone = read_sets.clone();
+            let results_clone = results.clone();
 
-                                    match result {
-                                        Ok((proof, gas)) => {
-                                            results.insert(idx, (proof, gas));
-                                            scheduler.finish_execution(idx);
-                                        }
-                                        Err(e) => {
-                                            tracing::error!(
-                                                target: "execution",
-                                                tx_index = idx,
-                                                error = %e,
-                                                "Transaction failed in parallel execution"
-                                            );
-                                            // Store empty proof/gas to maintain index alignment.
-                                            results.insert(idx, (vec![], 0));
-                                            scheduler.finish_execution(idx);
+            let parallel_exec_started = Instant::now();
+            tokio::task::spawn_blocking(move || {
+                crossbeam_utils::thread::scope(|s| {
+                    for _ in 0..num_threads {
+                        let scheduler = scheduler_clone.clone();
+                        let mv_memory = mv_memory_clone.clone();
+                        let read_sets = read_sets_clone.clone();
+                        let results = results_clone.clone();
+                        let txs = &transactions;
+                        let executor = executor.clone();
+
+                        s.spawn(move |_| {
+                            let rt = tokio::runtime::Builder::new_current_thread()
+                                .enable_all()
+                                .build()
+                                .expect("Failed to build Tokio runtime for execution worker");
+                            loop {
+                                match scheduler.next_task() {
+                                    Task::Execute(idx) => {
+                                        let tx = &txs[idx];
+                                        let mut state_proxy =
+                                            ParallelStateAccess::new(&mv_memory, idx);
+                                        let result =
+                                            rt.block_on(executor.process_transaction_parallel(
+                                                tx,
+                                                &mut state_proxy,
+                                                block_header_height,
+                                                block_header_timestamp,
+                                                skip_stateless_signature,
+                                            ));
+
+                                        let rs = state_proxy.read_set.lock().unwrap().clone();
+                                        read_sets.insert(idx, rs);
+
+                                        match result {
+                                            Ok((proof, gas)) => {
+                                                results.insert(idx, (proof, gas));
+                                                scheduler.finish_execution(idx);
+                                            }
+                                            Err(e) => {
+                                                tracing::error!(
+                                                    target: "execution",
+                                                    tx_index = idx,
+                                                    error = %e,
+                                                    "Transaction failed in parallel execution"
+                                                );
+                                                results.insert(idx, (vec![], 0));
+                                                scheduler.finish_execution(idx);
+                                            }
                                         }
                                     }
-                                }
-                                Task::Validate(idx) => {
-                                    if let Some(rs) = read_sets.get(&idx) {
-                                        match mv_memory.validate_read_set(&rs, idx) {
-                                            Ok(valid) => {
-                                                if !valid {
+                                    Task::Validate(idx) => {
+                                        if let Some(rs) = read_sets.get(&idx) {
+                                            match mv_memory.validate_read_set(&rs, idx) {
+                                                Ok(valid) => {
+                                                    if !valid {
+                                                        scheduler.abort_tx(idx);
+                                                    } else {
+                                                        scheduler.finish_validation(idx);
+                                                    }
+                                                }
+                                                Err(_) => {
                                                     scheduler.abort_tx(idx);
-                                                } else {
-                                                    // [FIX] Mark validation as finished to allow termination
-                                                    scheduler.finish_validation(idx);
                                                 }
                                             }
-                                            Err(_) => {
-                                                scheduler.abort_tx(idx);
-                                            }
+                                        } else {
+                                            tracing::warn!(
+                                                target: "execution",
+                                                tx_index = idx,
+                                                "Validation ran before a read set was recorded; rewinding transaction"
+                                            );
+                                            scheduler.abort_tx(idx);
                                         }
-                                    } else {
-                                        // No read set (e.g., tx failed execution); effectively validated as empty
-                                        scheduler.finish_validation(idx);
                                     }
+                                    Task::Done => break,
+                                    Task::RetryLater => std::thread::yield_now(),
                                 }
-                                Task::Done => break,
-                                Task::RetryLater => std::thread::yield_now(),
                             }
-                        }
-                    });
-                }
+                        });
+                    }
+                })
+                .unwrap();
             })
-            .unwrap(); // Unwrap thread scope panic
-        })
-        .await
-        .map_err(|e| ChainError::Transaction(format!("Parallel execution panicked: {}", e)))?;
+            .await
+            .map_err(|e| ChainError::Transaction(format!("Parallel execution panicked: {}", e)))?;
+            let parallel_exec_elapsed = parallel_exec_started.elapsed();
 
-        // 5. Finalize State Changes
-        // Apply the committed MVMemory state to a linear StateOverlay to generate the deterministic batch.
-        let mut final_overlay = StateOverlay::new(&*snapshot_arc);
-        mv_memory
-            .apply_to_overlay(&mut final_overlay)
-            .map_err(ChainError::State)?;
+            let overlay_started = Instant::now();
+            let mut final_overlay = StateOverlay::new(&*snapshot_arc);
+            mv_memory
+                .apply_to_overlay(&mut final_overlay)
+                .map_err(ChainError::State)?;
+            let state_changes = final_overlay.into_ordered_batch();
+            let overlay_elapsed = overlay_started.elapsed();
 
-        let state_changes = final_overlay.into_ordered_batch();
+            let collect_results_started = Instant::now();
+            let mut proofs_out = Vec::with_capacity(num_txs);
+            let mut block_gas_used = 0;
 
-        // 6. Collect Results
-        let mut proofs_out = Vec::with_capacity(num_txs);
-        let mut block_gas_used = 0;
-
-        for i in 0..num_txs {
-            // Retrieve results. If missing (shouldn't happen if scheduler works), use default.
-            if let Some((_, (p, gas))) = results.remove(&i) {
-                proofs_out.push(p);
-                block_gas_used += gas;
-            } else {
-                tracing::warn!(target: "execution", tx_index=i, "Missing execution result, using empty.");
-                proofs_out.push(vec![]);
+            for i in 0..num_txs {
+                if let Some((_, (p, gas))) = results.remove(&i) {
+                    proofs_out.push(p);
+                    block_gas_used += gas;
+                } else {
+                    tracing::warn!(
+                        target: "execution",
+                        tx_index = i,
+                        "Missing execution result, using empty."
+                    );
+                    proofs_out.push(vec![]);
+                }
             }
-        }
+            let collect_results_elapsed = collect_results_started.elapsed();
+
+            (
+                state_changes,
+                proofs_out,
+                block_gas_used,
+                parallel_exec_elapsed,
+                overlay_elapsed,
+                collect_results_elapsed,
+            )
+        };
 
         // 7. Compute Roots
-        let transactions_root = ioi_types::codec::to_bytes_canonical(&block.transactions)
-            .map_err(ChainError::Transaction)?;
+        let roots_started = Instant::now();
+        let transactions_root =
+            canonical_transactions_root(&block.transactions).map_err(ChainError::Transaction)?;
         let vs_bytes = self.get_validator_set_for(block.header.height).await?;
         let validator_set_hash = ioi_crypto::algorithms::hash::sha256(vs_bytes.concat())
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
+        let roots_elapsed = roots_started.elapsed();
+
+        if benchmark_trace {
+            eprintln!(
+                "[BENCH-EXEC] prepare_block height={} tx_count={} snapshot_ms={} parallel_exec_ms={} overlay_ms={} collect_results_ms={} roots_ms={} total_ms={}",
+                block.header.height,
+                num_txs,
+                snapshot_elapsed.as_millis(),
+                parallel_exec_elapsed.as_millis(),
+                overlay_elapsed.as_millis(),
+                collect_results_elapsed.as_millis(),
+                roots_elapsed.as_millis(),
+                prepare_started.elapsed().as_millis(),
+            );
+            tracing::info!(
+                target: "execution_bench",
+                height = block.header.height,
+                tx_count = num_txs,
+                snapshot_ms = snapshot_elapsed.as_millis(),
+                parallel_exec_ms = parallel_exec_elapsed.as_millis(),
+                overlay_ms = overlay_elapsed.as_millis(),
+                collect_results_ms = collect_results_elapsed.as_millis(),
+                roots_ms = roots_elapsed.as_millis(),
+                total_ms = prepare_started.elapsed().as_millis(),
+                "prepare_block timing"
+            );
+        }
 
         Ok(PreparedBlock {
             block,
+            block_timestamp_ms,
             state_changes: Arc::new(state_changes),
             parent_state_root: self.state.last_state_root.clone(),
             transactions_root,
@@ -479,10 +604,17 @@ where
         &mut self,
         prepared: PreparedBlock,
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+        let commit_started = Instant::now();
+        let benchmark_trace = benchmark_trace_enabled();
         let workload = &self.workload_container;
         let mut block = prepared.block;
+        let block_timestamp_ms = prepared.block_timestamp_ms;
         let state_changes = prepared.state_changes;
         let (inserts, deletes) = state_changes.as_ref();
+        let mut proof_verify_elapsed = Duration::ZERO;
+        let mut apply_elapsed = Duration::ZERO;
+        let mut end_block_elapsed = Duration::ZERO;
+        let mut persist_elapsed = Duration::ZERO;
 
         if block.header.height != self.state.status.height + 1 {
             return Err(ChainError::Transaction(
@@ -506,6 +638,7 @@ where
             .commitment_from_bytes(&prepared.parent_state_root)
             .map_err(ChainError::State)?;
 
+        let proof_verify_started = Instant::now();
         for (i, _tx) in block.transactions.iter().enumerate() {
             let proof_bytes = prepared.tx_proofs.get(i).ok_or_else(|| {
                 ChainError::Transaction("Missing proof for transaction".to_string())
@@ -529,16 +662,68 @@ where
                 _ => { /* Verification for other proof types would go here */ }
             }
         }
+        proof_verify_elapsed = proof_verify_started.elapsed();
 
         drop(backend); // Release read lock before acquiring write lock
+
+        let publish_aft_ordering = self.consensus_engine.consensus_type() == ConsensusType::Aft;
+        let current_bulletin = if publish_aft_ordering {
+            Some(
+                build_reference_bulletin_commitment(
+                    block.header.height,
+                    block_timestamp_ms,
+                    &block.transactions,
+                )
+                .map_err(ChainError::Transaction)?,
+            )
+        } else {
+            None
+        };
+        let mut next_status = self.state.status.clone();
+        let mut committed_block_bytes: Option<Vec<u8>> = None;
+        let supplied_timestamp_ms = block.header.timestamp_ms;
+        let supplied_legacy_timestamp = block.header.timestamp;
+        let supplied_state_root = block.header.state_root.clone();
+        let supplied_transactions_root = block.header.transactions_root.clone();
+        let supplied_gas_used = block.header.gas_used;
+        let header_carries_external_finality = !block.header.signature.is_empty()
+            || block.header.guardian_certificate.is_some()
+            || block.header.sealed_finality_proof.is_some()
+            || block.header.canonical_order_certificate.is_some()
+            || block.header.oracle_counter != 0
+            || block.header.oracle_trace_hash != [0u8; 32];
+        let header_carries_materialized_execution = supplied_timestamp_ms > 0
+            || !supplied_state_root.0.is_empty()
+            || !supplied_transactions_root.is_empty()
+            || supplied_gas_used > 0;
+        let externally_finalized_header =
+            header_carries_external_finality && header_carries_materialized_execution;
+
+        let authoritative_gas_used = if externally_finalized_header && supplied_gas_used > 0 {
+            supplied_gas_used
+        } else {
+            prepared.gas_used
+        };
 
         let final_state_root_bytes = {
             let state_tree_arc = workload.state_tree();
             let mut state = state_tree_arc.write().await;
 
+            let apply_started = Instant::now();
             state.begin_block_writes(block.header.height);
             state.batch_apply(inserts, deletes)?;
+            apply_elapsed = apply_started.elapsed();
+            if apply_elapsed.as_millis() >= 250 {
+                tracing::warn!(
+                    target: "execution",
+                    height = block.header.height,
+                    tx_count = block.transactions.len(),
+                    elapsed_ms = apply_elapsed.as_millis(),
+                    "state.batch_apply() is slow"
+                );
+            }
 
+            let end_block_started = Instant::now();
             let upgrade_count = end_block::handle_service_upgrades(
                 &mut self.service_manager,
                 block.header.height,
@@ -563,8 +748,8 @@ where
             }
 
             // [FIX] Update timestamp handling
-            let ts_ns: u64 = (block.header.timestamp as u128)
-                .saturating_mul(1_000_000_000)
+            let ts_ns: u64 = (block_timestamp_ms as u128)
+                .saturating_mul(1_000_000)
                 .try_into()
                 .map_err(|_| ChainError::Transaction("Timestamp overflow".to_string()))?;
 
@@ -586,20 +771,107 @@ where
             )
             .await?;
             end_block::handle_validator_set_promotion(&mut *state, block.header.height)?;
-            end_block::handle_timing_update(&mut *state, block.header.height, prepared.gas_used)?;
+            end_block::handle_timing_update(
+                &mut *state,
+                block.header.height,
+                authoritative_gas_used,
+            )?;
+            end_block_elapsed = end_block_started.elapsed();
+            if end_block_elapsed.as_millis() >= 250 {
+                tracing::warn!(
+                    target: "execution",
+                    height = block.header.height,
+                    tx_count = block.transactions.len(),
+                    elapsed_ms = end_block_elapsed.as_millis(),
+                    "end-block hooks or timing update are slow"
+                );
+            }
 
-            self.state.status.height = block.header.height;
-            self.state.status.latest_timestamp = block.header.timestamp;
-            self.state.status.total_transactions += block.transactions.len() as u64;
+            if let Some(bulletin) = current_bulletin.as_ref() {
+                state.insert(
+                    &aft_bulletin_commitment_key(bulletin.height),
+                    &codec::to_bytes_canonical(bulletin).map_err(ChainError::Transaction)?,
+                )?;
+            }
+
+            next_status.height = block.header.height;
+            next_status.set_latest_timestamp_ms(block_timestamp_ms);
+            next_status.total_transactions = next_status
+                .total_transactions
+                .saturating_add(block.transactions.len() as u64);
 
             let status_bytes =
-                codec::to_bytes_canonical(&self.state.status).map_err(ChainError::Transaction)?;
+                codec::to_bytes_canonical(&next_status).map_err(ChainError::Transaction)?;
             state.insert(STATUS_KEY, &status_bytes)?;
 
-            state
-                .commit_version_persist(block.header.height, &*workload.store)
-                .await?;
             let final_root_bytes = state.root_commitment().as_ref().to_vec();
+            if externally_finalized_header {
+                if supplied_timestamp_ms > 0 && supplied_timestamp_ms != block_timestamp_ms {
+                    return Err(ChainError::Transaction(format!(
+                        "Committed block timestamp_ms mismatch: header={}, computed={}",
+                        supplied_timestamp_ms, block_timestamp_ms
+                    )));
+                }
+                if supplied_legacy_timestamp != 0
+                    && supplied_legacy_timestamp
+                        != timestamp_millis_to_legacy_seconds(block_timestamp_ms)
+                {
+                    return Err(ChainError::Transaction(format!(
+                        "Committed block timestamp mismatch: header={}, computed={}",
+                        supplied_legacy_timestamp,
+                        timestamp_millis_to_legacy_seconds(block_timestamp_ms)
+                    )));
+                }
+                if !supplied_state_root.0.is_empty() && supplied_state_root.0 != final_root_bytes {
+                    return Err(ChainError::Transaction(
+                        "Committed block state_root mismatch".to_string(),
+                    ));
+                }
+                if !supplied_transactions_root.is_empty()
+                    && supplied_transactions_root != prepared.transactions_root
+                {
+                    return Err(ChainError::Transaction(
+                        "Committed block transactions_root mismatch".to_string(),
+                    ));
+                }
+                if supplied_gas_used > 0 && supplied_gas_used != prepared.gas_used {
+                    tracing::warn!(
+                        target: "execution",
+                        height = block.header.height,
+                        tx_count = block.transactions.len(),
+                        header_gas_used = supplied_gas_used,
+                        computed_gas_used = prepared.gas_used,
+                        "Committed block gas_used diverged from local replay; using authoritative header gas_used"
+                    );
+                }
+            }
+
+            block.header.timestamp = timestamp_millis_to_legacy_seconds(block_timestamp_ms);
+            block.header.timestamp_ms = block_timestamp_ms;
+            block.header.state_root = StateRoot(final_root_bytes.clone());
+            block.header.transactions_root = prepared.transactions_root;
+            block.header.gas_used = authoritative_gas_used;
+            let block_bytes = codec::to_bytes_canonical(&block).map_err(ChainError::Transaction)?;
+
+            let persist_started = Instant::now();
+            state
+                .commit_version_persist_with_block(
+                    block.header.height,
+                    &*workload.store,
+                    &block_bytes,
+                )
+                .await?;
+            persist_elapsed = persist_started.elapsed();
+            if persist_elapsed.as_millis() >= 250 {
+                tracing::warn!(
+                    target: "execution",
+                    height = block.header.height,
+                    tx_count = block.transactions.len(),
+                    elapsed_ms = persist_elapsed.as_millis(),
+                    "commit_version_persist() is slow"
+                );
+            }
+            committed_block_bytes = Some(block_bytes);
 
             {
                 let final_commitment = state.commitment_from_bytes(&final_root_bytes)?;
@@ -622,9 +894,6 @@ where
             }
             final_root_bytes
         };
-
-        block.header.state_root = StateRoot(final_state_root_bytes.clone());
-        block.header.gas_used = prepared.gas_used;
         self.state.last_state_root = final_state_root_bytes;
 
         let anchor = StateRoot(block.header.state_root.0.clone())
@@ -632,12 +901,39 @@ where
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
         tracing::info!(target: "execution", event = "commit", height = block.header.height, state_root = hex::encode(&block.header.state_root.0), anchor = hex::encode(anchor.as_ref()));
 
-        let block_bytes = codec::to_bytes_canonical(&block).map_err(ChainError::Transaction)?;
-        workload
-            .store
-            .put_block(block.header.height, &block_bytes)
-            .await // Add await
-            .map_err(|e| ChainError::State(StateError::Backend(e.to_string())))?;
+        let _block_bytes = committed_block_bytes
+            .take()
+            .ok_or_else(|| ChainError::Transaction("Committed block bytes missing".to_string()))?;
+        let store_elapsed = Duration::ZERO;
+
+        // Expose the new tip only after the committed block is queryable from storage.
+        self.state.status = next_status;
+
+        if benchmark_trace {
+            eprintln!(
+                "[BENCH-EXEC] commit_block height={} tx_count={} proof_verify_ms={} apply_ms={} end_block_ms={} persist_ms={} put_block_ms={} total_ms={}",
+                block.header.height,
+                block.transactions.len(),
+                proof_verify_elapsed.as_millis(),
+                apply_elapsed.as_millis(),
+                end_block_elapsed.as_millis(),
+                persist_elapsed.as_millis(),
+                store_elapsed.as_millis(),
+                commit_started.elapsed().as_millis(),
+            );
+            tracing::info!(
+                target: "execution_bench",
+                height = block.header.height,
+                tx_count = block.transactions.len(),
+                proof_verify_ms = proof_verify_elapsed.as_millis(),
+                apply_ms = apply_elapsed.as_millis(),
+                end_block_ms = end_block_elapsed.as_millis(),
+                persist_ms = persist_elapsed.as_millis(),
+                put_block_ms = store_elapsed.as_millis(),
+                total_ms = commit_started.elapsed().as_millis(),
+                "commit_block timing"
+            );
+        }
 
         if self.state.recent_blocks.len() >= self.state.max_recent_blocks {
             self.state.recent_blocks.remove(0);
@@ -695,6 +991,7 @@ where
             state_root: StateRoot(vec![]),
             transactions_root: vec![],
             timestamp,
+            timestamp_ms: timestamp.saturating_mul(1000),
             gas_used: 0,
             validator_set: current_validator_set.to_vec(),
             producer_account_id,
@@ -708,6 +1005,9 @@ where
             oracle_trace_hash: [0u8; 32],
             parent_qc: QuorumCertificate::default(), // [FIX] Added field
             guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
         };
 
         let preimage = header
@@ -784,5 +1084,58 @@ where
             .iter()
             .map(|v| (v.account_id, v.weight as u64))
             .collect())
+    }
+}
+
+impl<CS, ST> ExecutionMachine<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + ProofProvider
+        + Send
+        + Sync
+        + 'static
+        + Clone,
+    <CS as CommitmentScheme>::Value: From<Vec<u8>> + AsRef<[u8]> + Send + Sync + std::fmt::Debug,
+    <CS as CommitmentScheme>::Proof: AsRef<[u8]>
+        + Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
+{
+    fn resolve_next_block_timestamp_ms(
+        &self,
+        state: &dyn StateAccess,
+        block_height: u64,
+    ) -> Result<u64, ChainError> {
+        let params_bytes = state
+            .get(BLOCK_TIMING_PARAMS_KEY)?
+            .ok_or_else(|| ChainError::Transaction("Missing BlockTimingParams".into()))?;
+        let runtime_bytes = state
+            .get(BLOCK_TIMING_RUNTIME_KEY)?
+            .ok_or_else(|| ChainError::Transaction("Missing BlockTimingRuntime".into()))?;
+        let params: BlockTimingParams =
+            codec::from_bytes_canonical(&params_bytes).map_err(ChainError::Transaction)?;
+        let runtime: BlockTimingRuntime =
+            codec::from_bytes_canonical(&runtime_bytes).map_err(ChainError::Transaction)?;
+        let parent_gas_used = self
+            .state
+            .recent_blocks
+            .last()
+            .map(|block| block.header.gas_used)
+            .unwrap_or(0);
+
+        compute_next_timestamp_ms(
+            &params,
+            &runtime,
+            block_height.saturating_sub(1),
+            self.state.status.latest_timestamp_ms_or_legacy(),
+            parent_gas_used,
+        )
+        .ok_or_else(|| ChainError::Transaction("Timestamp overflow".into()))
     }
 }

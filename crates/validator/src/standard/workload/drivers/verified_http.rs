@@ -6,7 +6,7 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::control::guardian_control_client::GuardianControlClient;
 use ioi_ipc::control::SecureEgressRequest;
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::EgressReceipt;
+use ioi_types::app::{verify_seal_object, EgressReceipt, FinalityTier};
 use ioi_types::codec;
 use ioi_types::error::VmError;
 use serde_json::json;
@@ -20,6 +20,13 @@ use crate::common::guardian::{
 };
 
 const DEFAULT_RECEIPT_REPLAY_CACHE_SIZE: usize = 1024;
+
+fn encode_finality_tier(tier: FinalityTier) -> u32 {
+    match tier {
+        FinalityTier::BaseFinal => 0,
+        FinalityTier::SealedFinal => 1,
+    }
+}
 
 #[derive(Debug)]
 struct ReceiptReplayGuard {
@@ -69,6 +76,7 @@ fn validate_guardian_receipt(
     path: &str,
     request_body: &[u8],
     response_body: &[u8],
+    expected_finality_tier: FinalityTier,
     receipt: &EgressReceipt,
     replay_guard: &ReceiptReplayGuard,
 ) -> Result<(), VmError> {
@@ -119,6 +127,57 @@ fn validate_guardian_receipt(
         return Err(VmError::HostError(
             "Guardian receipt transcript root mismatch".into(),
         ));
+    }
+
+    if receipt.finality_tier != expected_finality_tier {
+        return Err(VmError::HostError(
+            "Guardian receipt finality tier mismatch".into(),
+        ));
+    }
+    if matches!(expected_finality_tier, FinalityTier::SealedFinal) {
+        let Some(seal_object) = receipt.seal_object.as_ref() else {
+            return Err(VmError::HostError(
+                "Guardian receipt is missing a proof-carrying seal object".into(),
+            ));
+        };
+        verify_seal_object(seal_object)
+            .map_err(|e| VmError::HostError(format!("Guardian seal object is invalid: {e}")))?;
+        if seal_object.intent.request_hash != receipt.request_hash {
+            return Err(VmError::HostError(
+                "Guardian seal object request hash mismatch".into(),
+            ));
+        }
+        if seal_object.intent.target != target_domain
+            || seal_object.intent.action != method
+            || seal_object.intent.path != path
+        {
+            return Err(VmError::HostError(
+                "Guardian seal object target/action/path mismatch".into(),
+            ));
+        }
+        if seal_object.intent.policy_hash != receipt.policy_hash {
+            return Err(VmError::HostError(
+                "Guardian seal object policy hash mismatch".into(),
+            ));
+        }
+        if let Some(sealed_finality_proof) = receipt.sealed_finality_proof.as_ref() {
+            if seal_object.epoch != sealed_finality_proof.epoch
+                || seal_object.intent.guardian_manifest_hash
+                    != sealed_finality_proof.guardian_manifest_hash
+                || seal_object.intent.guardian_decision_hash
+                    != sealed_finality_proof.guardian_decision_hash
+                || seal_object.public_inputs.guardian_counter
+                    != sealed_finality_proof.guardian_counter
+                || seal_object.public_inputs.guardian_trace_hash
+                    != sealed_finality_proof.guardian_trace_hash
+                || seal_object.public_inputs.guardian_measurement_root
+                    != sealed_finality_proof.guardian_measurement_root
+            {
+                return Err(VmError::HostError(
+                    "Guardian seal object does not match the sealed finality proof".into(),
+                ));
+            }
+        }
     }
 
     replay_guard.observe(receipt_replay_id(receipt)?)?;
@@ -263,8 +322,17 @@ impl InferenceRuntime for VerifiedHttpRuntime {
 
         // 2. Delegate to Guardian via IPC Secure Egress
         let mut client = self.guardian_client.clone();
+        let required_finality_tier = options.required_finality_tier;
+        let sealed_finality_proof = options
+            .sealed_finality_proof
+            .as_ref()
+            .map(codec::to_bytes_canonical)
+            .transpose()
+            .map_err(|e| {
+                VmError::HostError(format!("Failed to encode sealed finality proof: {e}"))
+            })?
+            .unwrap_or_default();
 
-        // [FIX] Initialize new field json_patch_path
         let req = SecureEgressRequest {
             domain: self.get_provider_domain(),
             path: self.get_provider_path(),
@@ -272,6 +340,9 @@ impl InferenceRuntime for VerifiedHttpRuntime {
             body: request_body.clone(),
             secret_id: self.key_ref.clone(),
             json_patch_path: String::new(),
+            required_finality_tier: encode_finality_tier(required_finality_tier),
+            sealed_finality_proof,
+            seal_object: Vec::new(),
         };
 
         let resp = client
@@ -281,6 +352,11 @@ impl InferenceRuntime for VerifiedHttpRuntime {
 
         // 3. Unpack Response
         let inner = resp.into_inner();
+        if inner.finality_tier != encode_finality_tier(required_finality_tier) {
+            return Err(VmError::HostError(
+                "Guardian returned an unexpected finality tier".into(),
+            ));
+        }
         let data = inner.body;
         let receipt: EgressReceipt = codec::from_bytes_canonical(&inner.receipt)
             .map_err(|e| VmError::HostError(format!("Invalid guardian receipt: {}", e)))?;
@@ -290,6 +366,7 @@ impl InferenceRuntime for VerifiedHttpRuntime {
             &self.get_provider_path(),
             &request_body,
             &data,
+            required_finality_tier,
             &receipt,
             &self.receipt_replay_guard,
         )?;
@@ -311,6 +388,7 @@ impl InferenceRuntime for VerifiedHttpRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_types::app::{build_http_egress_seal_object, CollapseState, SealedFinalityProof};
 
     fn sample_receipt() -> EgressReceipt {
         let request_hash = [1u8; 32];
@@ -339,7 +417,10 @@ mod tests {
             peer_leaf_certificate_hash: [7u8; 32],
             response_hash,
             policy_hash: [8u8; 32],
+            finality_tier: FinalityTier::BaseFinal,
             guardian_certificate: None,
+            sealed_finality_proof: None,
+            seal_object: None,
             log_checkpoint: None,
         }
     }
@@ -374,6 +455,7 @@ mod tests {
             "/v1/chat/completions",
             &request_body,
             &response_body,
+            FinalityTier::BaseFinal,
             &receipt,
             &guard,
         )
@@ -411,6 +493,7 @@ mod tests {
             "/v1/chat/completions",
             &request_body,
             &response_body,
+            FinalityTier::BaseFinal,
             &receipt,
             &guard,
         )
@@ -421,10 +504,140 @@ mod tests {
             "/v1/chat/completions",
             &request_body,
             &response_body,
+            FinalityTier::BaseFinal,
             &receipt,
             &guard,
         )
         .unwrap_err();
         assert!(err.to_string().contains("replay"));
+    }
+
+    #[test]
+    fn guardian_receipt_accepts_valid_sealed_effect_seal_object() {
+        let guard = ReceiptReplayGuard::new(8);
+        let request_body = b"{}".to_vec();
+        let response_body = b"ok".to_vec();
+        let request_hash = compute_secure_egress_request_hash(
+            "POST",
+            "localhost",
+            "/v1/chat/completions",
+            &request_body,
+        )
+        .unwrap();
+        let sealed_finality_proof = SealedFinalityProof {
+            epoch: 9,
+            finality_tier: FinalityTier::SealedFinal,
+            collapse_state: CollapseState::SealedFinal,
+            guardian_manifest_hash: [9u8; 32],
+            guardian_decision_hash: [10u8; 32],
+            guardian_counter: 11,
+            guardian_trace_hash: [12u8; 32],
+            guardian_measurement_root: [13u8; 32],
+            policy_hash: [8u8; 32],
+            ..Default::default()
+        };
+        let mut receipt = sample_receipt();
+        receipt.request_hash = request_hash;
+        receipt.response_hash = ioi_crypto::algorithms::hash::sha256(&response_body).unwrap();
+        receipt.transcript_root = compute_secure_egress_transcript_root(
+            receipt.request_hash,
+            receipt.handshake_transcript_hash,
+            receipt.request_transcript_hash,
+            receipt.response_transcript_hash,
+            receipt.peer_certificate_chain_hash,
+            receipt.response_hash,
+        )
+        .unwrap();
+        receipt.finality_tier = FinalityTier::SealedFinal;
+        receipt.policy_hash = [8u8; 32];
+        receipt.sealed_finality_proof = Some(sealed_finality_proof.clone());
+        receipt.seal_object = Some(
+            build_http_egress_seal_object(
+                request_hash,
+                "localhost",
+                "POST",
+                "/v1/chat/completions",
+                receipt.policy_hash,
+                &sealed_finality_proof,
+            )
+            .unwrap(),
+        );
+
+        validate_guardian_receipt(
+            "POST",
+            "localhost",
+            "/v1/chat/completions",
+            &request_body,
+            &response_body,
+            FinalityTier::SealedFinal,
+            &receipt,
+            &guard,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn guardian_receipt_rejects_invalid_sealed_effect_seal_object() {
+        let guard = ReceiptReplayGuard::new(8);
+        let request_body = b"{}".to_vec();
+        let response_body = b"ok".to_vec();
+        let request_hash = compute_secure_egress_request_hash(
+            "POST",
+            "localhost",
+            "/v1/chat/completions",
+            &request_body,
+        )
+        .unwrap();
+        let sealed_finality_proof = SealedFinalityProof {
+            epoch: 10,
+            finality_tier: FinalityTier::SealedFinal,
+            collapse_state: CollapseState::SealedFinal,
+            guardian_manifest_hash: [1u8; 32],
+            guardian_decision_hash: [2u8; 32],
+            guardian_counter: 3,
+            guardian_trace_hash: [4u8; 32],
+            guardian_measurement_root: [5u8; 32],
+            policy_hash: [8u8; 32],
+            ..Default::default()
+        };
+        let mut receipt = sample_receipt();
+        receipt.request_hash = request_hash;
+        receipt.response_hash = ioi_crypto::algorithms::hash::sha256(&response_body).unwrap();
+        receipt.transcript_root = compute_secure_egress_transcript_root(
+            receipt.request_hash,
+            receipt.handshake_transcript_hash,
+            receipt.request_transcript_hash,
+            receipt.response_transcript_hash,
+            receipt.peer_certificate_chain_hash,
+            receipt.response_hash,
+        )
+        .unwrap();
+        receipt.finality_tier = FinalityTier::SealedFinal;
+        receipt.policy_hash = [8u8; 32];
+        receipt.sealed_finality_proof = Some(sealed_finality_proof.clone());
+        let mut seal_object = build_http_egress_seal_object(
+            request_hash,
+            "localhost",
+            "POST",
+            "/v1/chat/completions",
+            receipt.policy_hash,
+            &sealed_finality_proof,
+        )
+        .unwrap();
+        seal_object.proof.proof_bytes[0] ^= 0x42;
+        receipt.seal_object = Some(seal_object);
+
+        let err = validate_guardian_receipt(
+            "POST",
+            "localhost",
+            "/v1/chat/completions",
+            &request_body,
+            &response_body,
+            FinalityTier::SealedFinal,
+            &receipt,
+            &guard,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("seal object is invalid"));
     }
 }

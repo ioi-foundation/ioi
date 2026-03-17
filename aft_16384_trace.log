@@ -1,0 +1,342 @@
+
+running 1 test
+--- Building Test Artifacts (one-time setup) ---
+Building component for mock-verifier in "/home/heathledger/Documents/ioi/repos/ioi/crates/cli/tests/fixtures/mock-verifier"
+WARN: `cargo-component` not found. Skipping build of 'mock-verifier'. Tests relying on this artifact may fail.
+--- Test Artifacts built successfully ---
+--- Running AFT paper benchmark scenario: guardian_majority_4v (GuardianMajority, 4 validators, 16384 accounts x 1 tx/account, gas/block 1000000000, block_time_ms 1000, state Jellyfish) ---
+--- Benchmark startup barrier: genesis_ts=1773755501 genesis_ts_ms=1773755501415 startup_buffer_secs=20 bootstrap_grace_secs=22 ---
+--- Encrypting New Secure Key ---
+--- Encrypting New Secure Key ---
+--- Encrypting New Secure Key ---
+--- Encrypting New Secure Key ---
+[LOGS-Guardian] {"timestamp":"2026-03-17T13:51:23.333029553Z","level":"WARN","fields":{"message":"SECURITY WARNING: Binary integrity enforcement is DISABLED. This node is vulnerable to runtime binary swapping attacks."},"target":"ioi_validator::common::guardian"}
+[LOGS-Guardian] GUARDIAN_IPC_LISTENING_ON_127.0.0.1:21003
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:23.307526527Z","level":"INFO","fields":{"event":"startup","config":"\"/tmp/.tmpZvhc1y/workload.toml\""},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:23.307733529Z","level":"INFO","fields":{"message":"listening","target":"telemetry","addr":"127.0.0.1:21005"},"target":"ioi_telemetry::http"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:23.307916368Z","level":"INFO","fields":{"message":"Instantiating state backend: JellyfishMerkleTree<HashCommitmentScheme>"},"target":"workload"}
+[LOGS-Workload] [Storage] Replaying WAL from height > 0
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:23.329399954Z","level":"INFO","fields":{"message":"No existing state DB found. Initializing from genesis /tmp/.tmpZvhc1y/genesis.json.","event":"state_init","path":"/tmp/.tmpZvhc1y/workload_state.db"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:23.329416799Z","level":"INFO","fields":{"message":"No state file found. Initializing from genesis '/tmp/.tmpZvhc1y/genesis.json'...","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":18},"target":"ioi_execution::util"}
+[LOGS-Workload] [Storage] Background persistence thread started
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:23.370635116Z","level":"INFO","fields":{"message":"Writing 81945 key-value pairs to genesis state...","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":69},"target":"ioi_execution::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.741895983Z","level":"INFO","fields":{"message":"Genesis state successfully loaded into state tree.","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":75},"target":"ioi_execution::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.748750094Z","level":"INFO","fields":{"message":"Initializing Mock Inference Runtime"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761128942Z","level":"INFO","fields":{"message":"Using Aft Fault Tolerance consensus engine.","log.target":"ioi_consensus::util","log.module_path":"ioi_consensus::util","log.file":"crates/consensus/src/util.rs","log.line":62},"target":"ioi_consensus::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761143876Z","level":"INFO","fields":{"event":"service_init","name":"WalletNetwork","impl":"native","capabilities":"policy_sessions_audit"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.76114694Z","level":"INFO","fields":{"event":"service_init","name":"GuardianRegistry","impl":"native","capabilities":"attestation_registry_witness"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761149405Z","level":"INFO","fields":{"event":"service_init","name":"Optimizer","impl":"native","capabilities":"RSI_Engine"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761561552Z","level":"INFO","fields":{"message":"Registering service: penalties","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761572773Z","level":"INFO","fields":{"message":"Registering service: wallet_network","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.76157505Z","level":"INFO","fields":{"message":"Registering service: guardian_registry","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761576557Z","level":"INFO","fields":{"message":"Registering service: optimizer","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761579296Z","level":"INFO","fields":{"message":"Registering WasmRuntime for service upgrades."},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761583213Z","level":"INFO","fields":{"message":"No existing chain status found. Initializing and saving genesis status.","event":"status_init"},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761584901Z","level":"INFO","fields":{"message":"Initializing genesis status with configured timestamp","genesis_timestamp":1773755501,"genesis_timestamp_ms":1773755501415,"wall_clock":1773755486},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761626406Z","level":"INFO","fields":{"message":"Registered initial service 'guardian_registry' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761658119Z","level":"INFO","fields":{"message":"Registered initial service 'optimizer' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761685237Z","level":"INFO","fields":{"message":"Registered initial service 'penalties' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761717069Z","level":"INFO","fields":{"message":"Registered initial service 'wallet_network' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.761718927Z","level":"INFO","fields":{"message":"Found existing BlockTimingParams in genesis."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.785454111Z","level":"INFO","fields":{"event":"genesis_ready","root":"77ea600eb4e69564976b541b55b65c2b61f5557ba0cc77b479b1ac9a7256dfaa"},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.785500643Z","level":"INFO","fields":{"message":"Created new Data Plane region: ioi_shmem_21000 (134217728 bytes)"},"target":"ioi_validator::standard::workload::ipc"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.785506521Z","level":"INFO","fields":{"message":"Standard Workload initialized. Running Hybrid IPC server."},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:26.785509153Z","level":"INFO","fields":{"message":"Workload: gRPC Server listening on 127.0.0.1:21002","log.target":"ioi_validator::standard::workload::ipc","log.module_path":"ioi_validator::standard::workload::ipc","log.file":"crates/validator/src/standard/workload/ipc/mod.rs","log.line":185},"target":"ioi_validator::standard::workload::ipc"}
+[LOGS-Workload] WORKLOAD_IPC_LISTENING_ON_127.0.0.1:21002
+[LOGS-Guardian] {"timestamp":"2026-03-17T13:51:24.563851776Z","level":"WARN","fields":{"message":"SECURITY WARNING: Binary integrity enforcement is DISABLED. This node is vulnerable to runtime binary swapping attacks."},"target":"ioi_validator::common::guardian"}
+[LOGS-Guardian] GUARDIAN_IPC_LISTENING_ON_127.0.0.1:21103
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:24.539905211Z","level":"INFO","fields":{"event":"startup","config":"\"/tmp/.tmpvcAwMr/workload.toml\""},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:24.540021836Z","level":"INFO","fields":{"message":"listening","target":"telemetry","addr":"127.0.0.1:21105"},"target":"ioi_telemetry::http"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:24.540129294Z","level":"INFO","fields":{"message":"Instantiating state backend: JellyfishMerkleTree<HashCommitmentScheme>"},"target":"workload"}
+[LOGS-Workload] [Storage] Replaying WAL from height > 0
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:24.559272892Z","level":"INFO","fields":{"message":"No existing state DB found. Initializing from genesis /tmp/.tmpvcAwMr/genesis.json.","event":"state_init","path":"/tmp/.tmpvcAwMr/workload_state.db"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:24.559291269Z","level":"INFO","fields":{"message":"No state file found. Initializing from genesis '/tmp/.tmpvcAwMr/genesis.json'...","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":18},"target":"ioi_execution::util"}
+[LOGS-Workload] [Storage] Background persistence thread started
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:24.599510825Z","level":"INFO","fields":{"message":"Writing 81945 key-value pairs to genesis state...","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":69},"target":"ioi_execution::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:27.99767465Z","level":"INFO","fields":{"message":"Genesis state successfully loaded into state tree.","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":75},"target":"ioi_execution::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.004431531Z","level":"INFO","fields":{"message":"Initializing Mock Inference Runtime"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.016678731Z","level":"INFO","fields":{"message":"Using Aft Fault Tolerance consensus engine.","log.target":"ioi_consensus::util","log.module_path":"ioi_consensus::util","log.file":"crates/consensus/src/util.rs","log.line":62},"target":"ioi_consensus::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.016693161Z","level":"INFO","fields":{"event":"service_init","name":"WalletNetwork","impl":"native","capabilities":"policy_sessions_audit"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.016696524Z","level":"INFO","fields":{"event":"service_init","name":"GuardianRegistry","impl":"native","capabilities":"attestation_registry_witness"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.016698644Z","level":"INFO","fields":{"event":"service_init","name":"Optimizer","impl":"native","capabilities":"RSI_Engine"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017485807Z","level":"INFO","fields":{"message":"Registering service: penalties","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.01749818Z","level":"INFO","fields":{"message":"Registering service: wallet_network","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017500536Z","level":"INFO","fields":{"message":"Registering service: guardian_registry","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017502018Z","level":"INFO","fields":{"message":"Registering service: optimizer","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017504283Z","level":"INFO","fields":{"message":"Registering WasmRuntime for service upgrades."},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017508574Z","level":"INFO","fields":{"message":"No existing chain status found. Initializing and saving genesis status.","event":"status_init"},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017510461Z","level":"INFO","fields":{"message":"Initializing genesis status with configured timestamp","genesis_timestamp":1773755501,"genesis_timestamp_ms":1773755501415,"wall_clock":1773755488},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017547165Z","level":"INFO","fields":{"message":"Registered initial service 'guardian_registry' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017576217Z","level":"INFO","fields":{"message":"Registered initial service 'optimizer' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017604008Z","level":"INFO","fields":{"message":"Registered initial service 'penalties' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.017642307Z","level":"INFO","fields":{"message":"Registered initial service 'wallet_network' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.01764418Z","level":"INFO","fields":{"message":"Found existing BlockTimingParams in genesis."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.039144648Z","level":"INFO","fields":{"event":"genesis_ready","root":"77ea600eb4e69564976b541b55b65c2b61f5557ba0cc77b479b1ac9a7256dfaa"},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.039238776Z","level":"INFO","fields":{"message":"Created new Data Plane region: ioi_shmem_21100 (134217728 bytes)"},"target":"ioi_validator::standard::workload::ipc"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.039248908Z","level":"INFO","fields":{"message":"Standard Workload initialized. Running Hybrid IPC server."},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:28.039255635Z","level":"INFO","fields":{"message":"Workload: gRPC Server listening on 127.0.0.1:21102","log.target":"ioi_validator::standard::workload::ipc","log.module_path":"ioi_validator::standard::workload::ipc","log.file":"crates/validator/src/standard/workload/ipc/mod.rs","log.line":185},"target":"ioi_validator::standard::workload::ipc"}
+[LOGS-Workload] WORKLOAD_IPC_LISTENING_ON_127.0.0.1:21102
+[LOGS-Guardian] {"timestamp":"2026-03-17T13:51:25.798001982Z","level":"WARN","fields":{"message":"SECURITY WARNING: Binary integrity enforcement is DISABLED. This node is vulnerable to runtime binary swapping attacks."},"target":"ioi_validator::common::guardian"}
+[LOGS-Guardian] GUARDIAN_IPC_LISTENING_ON_127.0.0.1:21203
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:25.77271087Z","level":"INFO","fields":{"event":"startup","config":"\"/tmp/.tmpfOMjwW/workload.toml\""},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:25.772747476Z","level":"INFO","fields":{"message":"listening","target":"telemetry","addr":"127.0.0.1:21205"},"target":"ioi_telemetry::http"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:25.772928458Z","level":"INFO","fields":{"message":"Instantiating state backend: JellyfishMerkleTree<HashCommitmentScheme>"},"target":"workload"}
+[LOGS-Workload] [Storage] Replaying WAL from height > 0
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:25.791523522Z","level":"INFO","fields":{"message":"No existing state DB found. Initializing from genesis /tmp/.tmpfOMjwW/genesis.json.","event":"state_init","path":"/tmp/.tmpfOMjwW/workload_state.db"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:25.791543326Z","level":"INFO","fields":{"message":"No state file found. Initializing from genesis '/tmp/.tmpfOMjwW/genesis.json'...","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":18},"target":"ioi_execution::util"}
+[LOGS-Workload] [Storage] Background persistence thread started
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:25.832942285Z","level":"INFO","fields":{"message":"Writing 81945 key-value pairs to genesis state...","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":69},"target":"ioi_execution::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.20652271Z","level":"INFO","fields":{"message":"Genesis state successfully loaded into state tree.","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":75},"target":"ioi_execution::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.213374274Z","level":"INFO","fields":{"message":"Initializing Mock Inference Runtime"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.224383405Z","level":"INFO","fields":{"message":"Using Aft Fault Tolerance consensus engine.","log.target":"ioi_consensus::util","log.module_path":"ioi_consensus::util","log.file":"crates/consensus/src/util.rs","log.line":62},"target":"ioi_consensus::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.224397708Z","level":"INFO","fields":{"event":"service_init","name":"WalletNetwork","impl":"native","capabilities":"policy_sessions_audit"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.224400766Z","level":"INFO","fields":{"event":"service_init","name":"GuardianRegistry","impl":"native","capabilities":"attestation_registry_witness"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.224402757Z","level":"INFO","fields":{"event":"service_init","name":"Optimizer","impl":"native","capabilities":"RSI_Engine"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225258423Z","level":"INFO","fields":{"message":"Registering service: penalties","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225268329Z","level":"INFO","fields":{"message":"Registering service: wallet_network","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225270491Z","level":"INFO","fields":{"message":"Registering service: guardian_registry","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225271994Z","level":"INFO","fields":{"message":"Registering service: optimizer","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225274245Z","level":"INFO","fields":{"message":"Registering WasmRuntime for service upgrades."},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225278986Z","level":"INFO","fields":{"message":"No existing chain status found. Initializing and saving genesis status.","event":"status_init"},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225280642Z","level":"INFO","fields":{"message":"Initializing genesis status with configured timestamp","genesis_timestamp":1773755501,"genesis_timestamp_ms":1773755501415,"wall_clock":1773755489},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225320386Z","level":"INFO","fields":{"message":"Registered initial service 'guardian_registry' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225349823Z","level":"INFO","fields":{"message":"Registered initial service 'optimizer' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225377635Z","level":"INFO","fields":{"message":"Registered initial service 'penalties' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225410931Z","level":"INFO","fields":{"message":"Registered initial service 'wallet_network' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.225412623Z","level":"INFO","fields":{"message":"Found existing BlockTimingParams in genesis."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.249166087Z","level":"INFO","fields":{"event":"genesis_ready","root":"77ea600eb4e69564976b541b55b65c2b61f5557ba0cc77b479b1ac9a7256dfaa"},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.249241879Z","level":"INFO","fields":{"message":"Created new Data Plane region: ioi_shmem_21200 (134217728 bytes)"},"target":"ioi_validator::standard::workload::ipc"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.249245431Z","level":"INFO","fields":{"message":"Standard Workload initialized. Running Hybrid IPC server."},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:29.249247919Z","level":"INFO","fields":{"message":"Workload: gRPC Server listening on 127.0.0.1:21202","log.target":"ioi_validator::standard::workload::ipc","log.module_path":"ioi_validator::standard::workload::ipc","log.file":"crates/validator/src/standard/workload/ipc/mod.rs","log.line":185},"target":"ioi_validator::standard::workload::ipc"}
+[LOGS-Workload] WORKLOAD_IPC_LISTENING_ON_127.0.0.1:21202
+[LOGS-Guardian] {"timestamp":"2026-03-17T13:51:27.033015797Z","level":"WARN","fields":{"message":"SECURITY WARNING: Binary integrity enforcement is DISABLED. This node is vulnerable to runtime binary swapping attacks."},"target":"ioi_validator::common::guardian"}
+[LOGS-Guardian] GUARDIAN_IPC_LISTENING_ON_127.0.0.1:21303
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:27.008174612Z","level":"INFO","fields":{"event":"startup","config":"\"/tmp/.tmp0OMYfw/workload.toml\""},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:27.008208675Z","level":"INFO","fields":{"message":"listening","target":"telemetry","addr":"127.0.0.1:21305"},"target":"ioi_telemetry::http"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:27.008385807Z","level":"INFO","fields":{"message":"Instantiating state backend: JellyfishMerkleTree<HashCommitmentScheme>"},"target":"workload"}
+[LOGS-Workload] [Storage] Replaying WAL from height > 0
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:27.027453786Z","level":"INFO","fields":{"message":"No existing state DB found. Initializing from genesis /tmp/.tmp0OMYfw/genesis.json.","event":"state_init","path":"/tmp/.tmp0OMYfw/workload_state.db"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:27.027469212Z","level":"INFO","fields":{"message":"No state file found. Initializing from genesis '/tmp/.tmp0OMYfw/genesis.json'...","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":18},"target":"ioi_execution::util"}
+[LOGS-Workload] [Storage] Background persistence thread started
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:27.06882849Z","level":"INFO","fields":{"message":"Writing 81945 key-value pairs to genesis state...","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":69},"target":"ioi_execution::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.441358481Z","level":"INFO","fields":{"message":"Genesis state successfully loaded into state tree.","log.target":"ioi_execution::util","log.module_path":"ioi_execution::util","log.file":"crates/execution/src/util.rs","log.line":75},"target":"ioi_execution::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.446728383Z","level":"INFO","fields":{"message":"Initializing Mock Inference Runtime"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458091294Z","level":"INFO","fields":{"message":"Using Aft Fault Tolerance consensus engine.","log.target":"ioi_consensus::util","log.module_path":"ioi_consensus::util","log.file":"crates/consensus/src/util.rs","log.line":62},"target":"ioi_consensus::util"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458108312Z","level":"INFO","fields":{"event":"service_init","name":"WalletNetwork","impl":"native","capabilities":"policy_sessions_audit"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458111698Z","level":"INFO","fields":{"event":"service_init","name":"GuardianRegistry","impl":"native","capabilities":"attestation_registry_witness"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.45811378Z","level":"INFO","fields":{"event":"service_init","name":"Optimizer","impl":"native","capabilities":"RSI_Engine"},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458944068Z","level":"INFO","fields":{"message":"Registering service: penalties","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458955966Z","level":"INFO","fields":{"message":"Registering service: wallet_network","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458958285Z","level":"INFO","fields":{"message":"Registering service: guardian_registry","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458959704Z","level":"INFO","fields":{"message":"Registering service: optimizer","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458962037Z","level":"INFO","fields":{"message":"Registering WasmRuntime for service upgrades."},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458966392Z","level":"INFO","fields":{"message":"No existing chain status found. Initializing and saving genesis status.","event":"status_init"},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.458968254Z","level":"INFO","fields":{"message":"Initializing genesis status with configured timestamp","genesis_timestamp":1773755501,"genesis_timestamp_ms":1773755501415,"wall_clock":1773755490},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.45900876Z","level":"INFO","fields":{"message":"Registered initial service 'guardian_registry' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.45903816Z","level":"INFO","fields":{"message":"Registered initial service 'optimizer' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.459064487Z","level":"INFO","fields":{"message":"Registered initial service 'penalties' as active in genesis state."},"target":"execution"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:23.305254235Z","level":"INFO","fields":{"event":"startup","config":"\"/tmp/.tmpZvhc1y/orchestration.toml\""},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:23.305367551Z","level":"INFO","fields":{"message":"listening","target":"telemetry","addr":"127.0.0.1:21006"},"target":"ioi_telemetry::http"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:23.369861087Z","level":"INFO","fields":{"message":"Persisted new chain identity: (ChainId(10004), [52, 146, 10, 12, 217, 136, 144, 81, 38, 46, 1, 17, 51, 189, 238, 95, 115, 111, 18, 83, 52, 208, 63, 174, 27, 161, 52, 255, 172, 162, 225, 213])"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.792007596Z","level":"INFO","fields":{"message":"WorkloadClient connected to Data Plane 'ioi_shmem_21000'.","log.target":"ioi_client::workload_client","log.module_path":"ioi_client::workload_client","log.file":"crates/client/src/workload_client/mod.rs","log.line":155},"target":"ioi_client::workload_client"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.792841117Z","level":"INFO","fields":{"message":"Workload IPC reachable."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.792975145Z","level":"INFO","fields":{"local_peer_id":"12D3KooWMVeznqfk61S2LDgGKJ72i4UXM84bJtCbvfBkwvx3UiPg"},"target":"libp2p_swarm"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793042712Z","level":"INFO","fields":{"message":"Loaded Dilithium PQC key from /tmp/.tmpZvhc1y/pqc_key.json"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793049459Z","level":"INFO","fields":{"message":"Using Aft Fault Tolerance consensus engine.","log.target":"ioi_consensus::util","log.module_path":"ioi_consensus::util","log.file":"crates/consensus/src/util.rs","log.line":62},"target":"ioi_consensus::util"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793064239Z","level":"INFO","fields":{"message":"Using guardian committee signer at http://127.0.0.1:21004"},"target":"orchestration"}
+[LOGS-Orchestration] [Network] Swarm loop started.
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793302298Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/21000"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793417992Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWA1bKTMEPkvWHuXcrspKnz5NDVbWwKkVVPFTe3Uioui9A\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21100/p2p/12D3KooWA1bKTMEPkvWHuXcrspKnz5NDVbWwKkVVPFTe3Uioui9A, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793475115Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21300/p2p/12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793486999Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21200/p2p/12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793511956Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWA1bKTMEPkvWHuXcrspKnz5NDVbWwKkVVPFTe3Uioui9A\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21100/p2p/12D3KooWA1bKTMEPkvWHuXcrspKnz5NDVbWwKkVVPFTe3Uioui9A, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793612854Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21300/p2p/12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.793622551Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21200/p2p/12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.794930772Z","level":"INFO","fields":{"event":"service_init","name":"GuardianRegistry","impl":"native","capabilities":""},"target":"orchestration"}
+[LOGS-Orchestration] [Storage] Replaying WAL from height > 0
+[LOGS-Orchestration] [Storage] Background persistence thread started
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.812204842Z","level":"INFO","fields":{"message":"Registering service: penalties","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.812217411Z","level":"INFO","fields":{"message":"Registering service: guardian_registry","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.812223012Z","level":"INFO","fields":{"message":"Registering WasmRuntime for tx pre-checks."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.812233727Z","level":"INFO","fields":{"message":"Orchestrator starting..."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.812237274Z","level":"INFO","fields":{"message":"[Sync] Libp2pSync network service started.","log.target":"ioi_networking::libp2p::sync","log.module_path":"ioi_networking::libp2p::sync","log.file":"crates/networking/src/libp2p/sync.rs","log.line":198},"target":"ioi_networking::libp2p::sync"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.812903879Z","level":"INFO","fields":{"message":"Public gRPC API listening on 127.0.0.1:21001"},"target":"rpc"}
+[LOGS-Orchestration] ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:21001
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:26.813272539Z","level":"INFO","fields":{"message":"Transaction Ingestion Worker started (Batch Size: 16384, Timeout: 5ms)"},"target":"ioi_validator::standard::orchestration::ingestion::worker::runner"}
+[LOGS-Orchestration] ORCHESTRATION_STARTUP_COMPLETE
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:24.539033237Z","level":"INFO","fields":{"event":"startup","config":"\"/tmp/.tmpvcAwMr/orchestration.toml\""},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:24.539049732Z","level":"INFO","fields":{"message":"listening","target":"telemetry","addr":"127.0.0.1:21106"},"target":"ioi_telemetry::http"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:24.600805535Z","level":"INFO","fields":{"message":"Persisted new chain identity: (ChainId(10004), [52, 146, 10, 12, 217, 136, 144, 81, 38, 46, 1, 17, 51, 189, 238, 95, 115, 111, 18, 83, 52, 208, 63, 174, 27, 161, 52, 255, 172, 162, 225, 213])"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.043676886Z","level":"INFO","fields":{"message":"WorkloadClient connected to Data Plane 'ioi_shmem_21100'.","log.target":"ioi_client::workload_client","log.module_path":"ioi_client::workload_client","log.file":"crates/client/src/workload_client/mod.rs","log.line":155},"target":"ioi_client::workload_client"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.04433355Z","level":"INFO","fields":{"message":"Workload IPC reachable."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.044644591Z","level":"INFO","fields":{"local_peer_id":"12D3KooWA1bKTMEPkvWHuXcrspKnz5NDVbWwKkVVPFTe3Uioui9A"},"target":"libp2p_swarm"}
+[LOGS-Orchestration] [Network] Swarm loop started.
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.044770367Z","level":"INFO","fields":{"message":"Loaded Dilithium PQC key from /tmp/.tmpvcAwMr/pqc_key.json"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.044781739Z","level":"INFO","fields":{"message":"Using Aft Fault Tolerance consensus engine.","log.target":"ioi_consensus::util","log.module_path":"ioi_consensus::util","log.file":"crates/consensus/src/util.rs","log.line":62},"target":"ioi_consensus::util"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.044813877Z","level":"INFO","fields":{"message":"Using guardian committee signer at http://127.0.0.1:21104"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.044811459Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/21100"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.044924715Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21300/p2p/12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.044972135Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21200/p2p/12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.045939669Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21200/p2p/12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.045981541Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21300/p2p/12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.046807645Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWMVeznqfk61S2LDgGKJ72i4UXM84bJtCbvfBkwvx3UiPg"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.046958594Z","level":"INFO","fields":{"event":"service_init","name":"GuardianRegistry","impl":"native","capabilities":""},"target":"orchestration"}
+[LOGS-Orchestration] [Storage] Replaying WAL from height > 0
+[LOGS-Orchestration] [Storage] Background persistence thread started
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.063836347Z","level":"INFO","fields":{"message":"Registering service: penalties","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.063844316Z","level":"INFO","fields":{"message":"Registering service: guardian_registry","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.063848061Z","level":"INFO","fields":{"message":"Registering WasmRuntime for tx pre-checks."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.063855651Z","level":"INFO","fields":{"message":"Orchestrator starting..."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.063858408Z","level":"INFO","fields":{"message":"[Sync] Libp2pSync network service started.","log.target":"ioi_networking::libp2p::sync","log.module_path":"ioi_networking::libp2p::sync","log.file":"crates/networking/src/libp2p/sync.rs","log.line":198},"target":"ioi_networking::libp2p::sync"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.064434903Z","level":"INFO","fields":{"message":"Public gRPC API listening on 127.0.0.1:21101"},"target":"rpc"}
+[LOGS-Orchestration] ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:21101
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:28.064804265Z","level":"INFO","fields":{"message":"Transaction Ingestion Worker started (Batch Size: 16384, Timeout: 5ms)"},"target":"ioi_validator::standard::orchestration::ingestion::worker::runner"}
+[LOGS-Orchestration] ORCHESTRATION_STARTUP_COMPLETE
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.459096649Z","level":"INFO","fields":{"message":"Registered initial service 'wallet_network' as active in genesis state."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.459098748Z","level":"INFO","fields":{"message":"Found existing BlockTimingParams in genesis."},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.482103479Z","level":"INFO","fields":{"event":"genesis_ready","root":"77ea600eb4e69564976b541b55b65c2b61f5557ba0cc77b479b1ac9a7256dfaa"},"target":"execution"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.482191811Z","level":"INFO","fields":{"message":"Created new Data Plane region: ioi_shmem_21300 (134217728 bytes)"},"target":"ioi_validator::standard::workload::ipc"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.482198623Z","level":"INFO","fields":{"message":"Standard Workload initialized. Running Hybrid IPC server."},"target":"workload"}
+[LOGS-Workload] {"timestamp":"2026-03-17T13:51:30.482203105Z","level":"INFO","fields":{"message":"Workload: gRPC Server listening on 127.0.0.1:21302","log.target":"ioi_validator::standard::workload::ipc","log.module_path":"ioi_validator::standard::workload::ipc","log.file":"crates/validator/src/standard/workload/ipc/mod.rs","log.line":185},"target":"ioi_validator::standard::workload::ipc"}
+[LOGS-Workload] WORKLOAD_IPC_LISTENING_ON_127.0.0.1:21302
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:25.771183811Z","level":"INFO","fields":{"message":"listening","target":"telemetry","addr":"127.0.0.1:21206"},"target":"ioi_telemetry::http"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:25.771206364Z","level":"INFO","fields":{"event":"startup","config":"\"/tmp/.tmpfOMjwW/orchestration.toml\""},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:25.833109054Z","level":"INFO","fields":{"message":"Persisted new chain identity: (ChainId(10004), [52, 146, 10, 12, 217, 136, 144, 81, 38, 46, 1, 17, 51, 189, 238, 95, 115, 111, 18, 83, 52, 208, 63, 174, 27, 161, 52, 255, 172, 162, 225, 213])"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.256992507Z","level":"INFO","fields":{"message":"WorkloadClient connected to Data Plane 'ioi_shmem_21200'.","log.target":"ioi_client::workload_client","log.module_path":"ioi_client::workload_client","log.file":"crates/client/src/workload_client/mod.rs","log.line":155},"target":"ioi_client::workload_client"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.257618091Z","level":"INFO","fields":{"message":"Workload IPC reachable."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.257815001Z","level":"INFO","fields":{"local_peer_id":"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf"},"target":"libp2p_swarm"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.25789219Z","level":"INFO","fields":{"message":"Loaded Dilithium PQC key from /tmp/.tmpfOMjwW/pqc_key.json"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.257898889Z","level":"INFO","fields":{"message":"Using Aft Fault Tolerance consensus engine.","log.target":"ioi_consensus::util","log.module_path":"ioi_consensus::util","log.file":"crates/consensus/src/util.rs","log.line":62},"target":"ioi_consensus::util"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.257916773Z","level":"INFO","fields":{"message":"Using guardian committee signer at http://127.0.0.1:21204"},"target":"orchestration"}
+[LOGS-Orchestration] [Network] Swarm loop started.
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.258027942Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/21200"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.258143171Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21300/p2p/12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.259110775Z","level":"WARN","fields":{"event":"outgoing_conn_error","peer_id":"Some(PeerId(\"12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ\"))","error":"Transport([(/ip4/127.0.0.1/tcp/21300/p2p/12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ, Other(Custom { kind: Other, error: Other(Right(Custom { kind: Other, error: Other(Left(Left(Os { code: 111, kind: ConnectionRefused, message: \"Connection refused\" }))) })) }))])"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.259533946Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWMVeznqfk61S2LDgGKJ72i4UXM84bJtCbvfBkwvx3UiPg"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.260008252Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWA1bKTMEPkvWHuXcrspKnz5NDVbWwKkVVPFTe3Uioui9A"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.260591743Z","level":"INFO","fields":{"event":"service_init","name":"GuardianRegistry","impl":"native","capabilities":""},"target":"orchestration"}
+[LOGS-Orchestration] [Storage] Replaying WAL from height > 0
+[LOGS-Orchestration] [Storage] Background persistence thread started
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.278449429Z","level":"INFO","fields":{"message":"Registering service: penalties","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.278458172Z","level":"INFO","fields":{"message":"Registering service: guardian_registry","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.278461832Z","level":"INFO","fields":{"message":"Registering WasmRuntime for tx pre-checks."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.278471052Z","level":"INFO","fields":{"message":"Orchestrator starting..."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.278473401Z","level":"INFO","fields":{"message":"[Sync] Libp2pSync network service started.","log.target":"ioi_networking::libp2p::sync","log.module_path":"ioi_networking::libp2p::sync","log.file":"crates/networking/src/libp2p/sync.rs","log.line":198},"target":"ioi_networking::libp2p::sync"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.278902134Z","level":"INFO","fields":{"message":"Public gRPC API listening on 127.0.0.1:21201"},"target":"rpc"}
+[LOGS-Orchestration] ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:21201
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:29.27922639Z","level":"INFO","fields":{"message":"Transaction Ingestion Worker started (Batch Size: 16384, Timeout: 5ms)"},"target":"ioi_validator::standard::orchestration::ingestion::worker::runner"}
+[LOGS-Orchestration] ORCHESTRATION_STARTUP_COMPLETE
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:27.007264048Z","level":"INFO","fields":{"event":"startup","config":"\"/tmp/.tmp0OMYfw/orchestration.toml\""},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:27.007469251Z","level":"INFO","fields":{"message":"listening","target":"telemetry","addr":"127.0.0.1:21306"},"target":"ioi_telemetry::http"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:27.07026889Z","level":"INFO","fields":{"message":"Persisted new chain identity: (ChainId(10004), [52, 146, 10, 12, 217, 136, 144, 81, 38, 46, 1, 17, 51, 189, 238, 95, 115, 111, 18, 83, 52, 208, 63, 174, 27, 161, 52, 255, 172, 162, 225, 213])"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.49187112Z","level":"INFO","fields":{"message":"WorkloadClient connected to Data Plane 'ioi_shmem_21300'.","log.target":"ioi_client::workload_client","log.module_path":"ioi_client::workload_client","log.file":"crates/client/src/workload_client/mod.rs","log.line":155},"target":"ioi_client::workload_client"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.492823526Z","level":"INFO","fields":{"message":"Workload IPC reachable."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.493008908Z","level":"INFO","fields":{"local_peer_id":"12D3KooWExtJ7x2RFBeq1Z88ugBetVVJJr92CYESoazVUCmmQTyZ"},"target":"libp2p_swarm"}
+[LOGS-Orchestration] [Network] Swarm loop started.
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.493099183Z","level":"INFO","fields":{"message":"Loaded Dilithium PQC key from /tmp/.tmp0OMYfw/pqc_key.json"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.493107068Z","level":"INFO","fields":{"message":"Using Aft Fault Tolerance consensus engine.","log.target":"ioi_consensus::util","log.module_path":"ioi_consensus::util","log.file":"crates/consensus/src/util.rs","log.line":62},"target":"ioi_consensus::util"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.493122608Z","level":"INFO","fields":{"message":"Using guardian committee signer at http://127.0.0.1:21304"},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.493187864Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/21300"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.494426925Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.494465102Z","level":"INFO","fields":{"event":"disconnected","peer_id":"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.494477866Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf","error":"ConnectionClosed"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.494487889Z","level":"WARN","fields":{"event":"outbound_failure","peer":"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf","error":"ConnectionClosed"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.494517231Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWMVeznqfk61S2LDgGKJ72i4UXM84bJtCbvfBkwvx3UiPg"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.495090258Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWNVBJRVAvkeXQoUkPVeP3ZiLiys9xyokxCtopnmBrCxWf"},"target":"network"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.49579559Z","level":"INFO","fields":{"event":"service_init","name":"GuardianRegistry","impl":"native","capabilities":""},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.496279596Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWA1bKTMEPkvWHuXcrspKnz5NDVbWwKkVVPFTe3Uioui9A"},"target":"network"}
+[LOGS-Orchestration] [Storage] Replaying WAL from height > 0
+[LOGS-Orchestration] [Storage] Background persistence thread started
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.514557425Z","level":"INFO","fields":{"message":"Registering service: penalties","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.514575833Z","level":"INFO","fields":{"message":"Registering service: guardian_registry","log.target":"ioi_execution::upgrade_manager","log.module_path":"ioi_execution::upgrade_manager","log.file":"crates/execution/src/upgrade_manager/mod.rs","log.line":172},"target":"ioi_execution::upgrade_manager"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.514583544Z","level":"INFO","fields":{"message":"Registering WasmRuntime for tx pre-checks."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.514596154Z","level":"INFO","fields":{"message":"Orchestrator starting..."},"target":"orchestration"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.514600907Z","level":"INFO","fields":{"message":"[Sync] Libp2pSync network service started.","log.target":"ioi_networking::libp2p::sync","log.module_path":"ioi_networking::libp2p::sync","log.file":"crates/networking/src/libp2p/sync.rs","log.line":198},"target":"ioi_networking::libp2p::sync"}
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.515339263Z","level":"INFO","fields":{"message":"Public gRPC API listening on 127.0.0.1:21301"},"target":"rpc"}
+[LOGS-Orchestration] ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:21301
+[LOGS-Orchestration] {"timestamp":"2026-03-17T13:51:30.515808728Z","level":"INFO","fields":{"message":"Transaction Ingestion Worker started (Batch Size: 16384, Timeout: 5ms)"},"target":"ioi_validator::standard::orchestration::ingestion::worker::runner"}
+[LOGS-Orchestration] ORCHESTRATION_STARTUP_COMPLETE
+--- Waiting for cluster to converge on a shared tip ---
+--- All nodes synced. Cluster is ready. ---
+--- Leader-targeted ingress RPCs: 127.0.0.1:21201, 127.0.0.1:21301, 127.0.0.1:21001, 127.0.0.1:21101 ---
+submission progress: accepted_accounts=512/16384 accepted_so_far=512
+submission progress: accepted_accounts=1024/16384 accepted_so_far=1024
+submission progress: accepted_accounts=1536/16384 accepted_so_far=1536
+submission progress: accepted_accounts=2048/16384 accepted_so_far=2048
+submission progress: accepted_accounts=2560/16384 accepted_so_far=2560
+submission progress: accepted_accounts=3072/16384 accepted_so_far=3072
+submission progress: accepted_accounts=3584/16384 accepted_so_far=3584
+submission progress: accepted_accounts=4096/16384 accepted_so_far=4096
+submission progress: accepted_accounts=4608/16384 accepted_so_far=4608
+submission progress: accepted_accounts=5120/16384 accepted_so_far=5120
+submission progress: accepted_accounts=5632/16384 accepted_so_far=5632
+submission progress: accepted_accounts=6144/16384 accepted_so_far=6144
+submission progress: accepted_accounts=6656/16384 accepted_so_far=6656
+submission progress: accepted_accounts=7168/16384 accepted_so_far=7168
+submission progress: accepted_accounts=7680/16384 accepted_so_far=7680
+submission progress: accepted_accounts=8192/16384 accepted_so_far=8192
+submission progress: accepted_accounts=8704/16384 accepted_so_far=8704
+submission progress: accepted_accounts=9216/16384 accepted_so_far=9216
+submission progress: accepted_accounts=9728/16384 accepted_so_far=9728
+submission progress: accepted_accounts=10240/16384 accepted_so_far=10240
+submission progress: accepted_accounts=10752/16384 accepted_so_far=10752
+submission progress: accepted_accounts=11264/16384 accepted_so_far=11264
+submission progress: accepted_accounts=11776/16384 accepted_so_far=11776
+submission progress: accepted_accounts=12288/16384 accepted_so_far=12288
+submission progress: accepted_accounts=12800/16384 accepted_so_far=12800
+submission progress: accepted_accounts=13312/16384 accepted_so_far=13312
+submission progress: accepted_accounts=13824/16384 accepted_so_far=13824
+submission progress: accepted_accounts=14336/16384 accepted_so_far=14336
+submission progress: accepted_accounts=14848/16384 accepted_so_far=14848
+submission progress: accepted_accounts=15360/16384 accepted_so_far=15360
+submission progress: accepted_accounts=15872/16384 accepted_so_far=15872
+submission progress: accepted_accounts=16384/16384 accepted_so_far=16384
+chain commit progress: tip=26 committed=0/16384 scanned_blocks=0
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+test benchmark_throughput::aft::test_aft_paper_benchmark_matrix has been running for over 60 seconds
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+chain commit progress: tip=27 committed=12012/16384 scanned_blocks=1
+scenario guardian_majority_4v observed 30 sampled commit timeout/rejection(s) out of 128 latency-sampled submissions
+chain scan progress: tip=27 committed=12012/16384 scanned_blocks=1
+Error: timeout waiting for 16384 committed transaction hashes; observed 12012 before deadline (tip=27 scanned_tip=27); cluster_view: 127.0.0.1:21001 => height=27 total_transactions=12012 | 127.0.0.1:21101 => height=27 total_transactions=12012 | 127.0.0.1:21201 => height=27 total_transactions=12012 | 127.0.0.1:21301 => height=27 total_transactions=12012; metrics_view: 127.0.0.1:21001 => peers=3 mempool=6067 blocks_produced=7 | 127.0.0.1:21101 => peers=3 mempool=16384 blocks_produced=7 | 127.0.0.1:21201 => peers=3 mempool=4372 blocks_produced=7 | 127.0.0.1:21301 => peers=3 mempool=4372 blocks_produced=6; final_status_scan: committed=12012 heights={27} status_buckets={"committed": 12012, "in_mempool": 4372}; chain_scan: committed=12012 tip=27 heights={27}; block_tx_summary: scanned_blocks=1 non_zero_blocks=1 max_block_match=12012 avg_non_zero_block_match=12012.00 recent=[27:12012]
+benchmark_throughput::aft::test_aft_paper_benchmark_matrix --- FAILED
+
+failures:
+
+failures:
+    benchmark_throughput::aft::test_aft_paper_benchmark_matrix
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 300.76s
+
+error: test failed, to rerun pass `-p ioi-cli --test benchmark_throughput`

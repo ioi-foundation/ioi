@@ -325,7 +325,9 @@ mod tests {
             if anchor.log_id != checkpoint.log_id {
                 return false;
             }
-            if checkpoint.tree_size < anchor.tree_size || checkpoint.timestamp_ms < anchor.timestamp_ms {
+            if checkpoint.tree_size < anchor.tree_size
+                || checkpoint.timestamp_ms < anchor.timestamp_ms
+            {
                 return false;
             }
             if base_tree_size == 0 {
@@ -333,8 +335,9 @@ mod tests {
                 if proof.extension_leaf_hashes.len() < anchored_prefix_len {
                     return false;
                 }
-                if reference_root_from_leaf_hashes(&proof.extension_leaf_hashes[..anchored_prefix_len])
-                    != anchor.root_hash
+                if reference_root_from_leaf_hashes(
+                    &proof.extension_leaf_hashes[..anchored_prefix_len],
+                ) != anchor.root_hash
                 {
                     return false;
                 }

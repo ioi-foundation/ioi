@@ -15,7 +15,7 @@ graph TD
 
 ### 1. Orchestrator (Control Plane)
 *   **Role:** The "Brain" of the node.
-*   **Responsibility:** Manages networking (libp2p), the transaction mempool, consensus logic (Convergent deterministic), and the Agency Firewall.
+*   **Responsibility:** Manages networking (libp2p), the transaction mempool, consensus logic (Aft deterministic), and the Agency Firewall.
 *   **Isolation:** It decides *what* to do, but cannot access the raw state database or the private signing keys.
 
 ### 2. Workload (Execution Plane)

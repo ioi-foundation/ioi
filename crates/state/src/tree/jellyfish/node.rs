@@ -39,7 +39,7 @@ impl Node {
     pub fn hash<CS: CommitmentStructure>(&self, _scheme: &CS) -> NodeHash {
         match self {
             Node::Internal(n) => {
-                let encoded = n.encode();
+                let encoded = Node::Internal(n.clone()).encode();
                 // Internal nodes in JMT are specific structure; currently using SHA256 default
                 // as generic CommitmentStructure is binary-tree oriented.
                 // For Phase 3.1 we stick to SHA256 for internal structure to avoid re-arch.

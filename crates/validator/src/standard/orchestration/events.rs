@@ -9,7 +9,8 @@ use ioi_api::{
     state::{StateManager, Verifier},
 };
 
-use ioi_networking::libp2p::{NetworkEvent, SwarmCommand}; // [FIX] Added SwarmCommand import
+use ioi_ipc::public::TxStatus;
+use ioi_networking::libp2p::{NetworkEvent, SwarmCommand};
 use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
 use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
@@ -18,9 +19,11 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::metrics::rpc_metrics as metrics;
+use crate::standard::orchestration::context::TxStatusEntry;
 use crate::standard::orchestration::transition::execute_divergence_response;
-use ioi_consensus::convergent::guardian_majority::divergence::verify_divergence_proof;
-use ioi_types::config::ConvergentSafetyMode;
+use ioi_consensus::aft::guardian_majority::divergence::verify_divergence_proof;
+use ioi_types::config::AftSafetyMode;
 
 pub async fn handle_network_event<CS, ST, CE, V>(
     event: NetworkEvent,
@@ -61,9 +64,21 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                 }
             };
 
-            let (tx_pool_ref, kick_tx) = {
+            let (
+                tx_pool_ref,
+                consensus_kick_tx,
+                receipt_map,
+                tx_status_cache,
+                consensus_kick_scheduled,
+            ) = {
                 let ctx = context_arc.lock().await;
-                (ctx.tx_pool_ref.clone(), ctx.consensus_kick_tx.clone())
+                (
+                    ctx.tx_pool_ref.clone(),
+                    ctx.consensus_kick_tx.clone(),
+                    ctx.receipt_map.clone(),
+                    ctx.tx_status_cache.clone(),
+                    ctx.consensus_kick_scheduled.clone(),
+                )
             };
 
             let tx_info = match tx.as_ref() {
@@ -79,35 +94,67 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                 },
                 _ => None,
             };
+            let add_result = tx_pool_ref.add(*tx, tx_hash, tx_info, 0);
 
-            {
-                tx_pool_ref.add(*tx, tx_hash, tx_info, 0);
-                log::debug!("[Orchestrator] Mempool size is now {}", tx_pool_ref.len());
-                let _ = kick_tx.send(());
+            if !matches!(
+                add_result,
+                crate::standard::orchestration::mempool::AddResult::Rejected(_)
+            ) {
+                if !matches!(
+                    add_result,
+                    crate::standard::orchestration::mempool::AddResult::Known
+                ) {
+                    metrics().inc_mempool_transactions_added();
+                }
+                metrics().set_mempool_size(tx_pool_ref.len() as f64);
+                let tx_hash_hex = hex::encode(tx_hash);
+                {
+                    let mut receipts = receipt_map.lock().await;
+                    receipts.put(tx_hash, tx_hash_hex.clone());
+                }
+                {
+                    let mut cache = tx_status_cache.lock().await;
+                    cache.put(
+                        tx_hash_hex,
+                        TxStatusEntry {
+                            status: TxStatus::InMempool,
+                            error: None,
+                            block_height: None,
+                        },
+                    );
+                }
+            }
+
+            if !matches!(
+                add_result,
+                crate::standard::orchestration::mempool::AddResult::Rejected(_)
+            ) {
+                if !matches!(
+                    add_result,
+                    crate::standard::orchestration::mempool::AddResult::Known
+                ) {
+                    // This transaction already arrived through the network. Admit it locally and
+                    // wake consensus, but do not re-publish it into the same gossip mesh or we
+                    // create an amplification loop under burst load.
+                    crate::standard::orchestration::schedule_consensus_kick(
+                        &consensus_kick_tx,
+                        &consensus_kick_scheduled,
+                    );
+                }
             }
         }
-        NetworkEvent::GossipBlock { block, mirror_id } => {
-            let (is_quarantined, node_state) = {
+        NetworkEvent::GossipBlock {
+            block,
+            mirror_id,
+            from,
+        } => {
+            let is_quarantined = {
                 let ctx = context_arc.lock().await;
-                let state = (
-                    ctx.is_quarantined.load(std::sync::atomic::Ordering::SeqCst),
-                    ctx.node_state.lock().await.clone(),
-                );
-                state
+                ctx.is_quarantined.load(std::sync::atomic::Ordering::SeqCst)
             };
 
             if is_quarantined {
                 tracing::debug!(target: "gossip", "Block ignored: node is quarantined.");
-                return;
-            }
-
-            if matches!(node_state, ioi_networking::traits::NodeState::Syncing) {
-                tracing::debug!(
-                    target: "gossip",
-                    event = "block_ignored",
-                    height = block.header.height,
-                    reason = "Node is currently syncing"
-                );
                 return;
             }
 
@@ -143,10 +190,66 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             }
 
             let mut ctx = context_arc.lock().await;
-            gossip::handle_gossip_block(&mut ctx, block, mirror_id).await
+            gossip::handle_gossip_block(&mut ctx, block, mirror_id, from).await
         }
 
         NetworkEvent::ConsensusVoteReceived { vote, from } => {
+            let is_quarantined = context_arc
+                .lock()
+                .await
+                .is_quarantined
+                .load(std::sync::atomic::Ordering::SeqCst);
+            if is_quarantined {
+                return;
+            }
+
+            let (engine_ref, kick_tx, swarm_sender) = {
+                let ctx = context_arc.lock().await;
+                (
+                    ctx.consensus_engine_ref.clone(),
+                    ctx.consensus_kick_tx.clone(),
+                    ctx.swarm_commander.clone(),
+                )
+            };
+
+            let mut engine = engine_ref.lock().await;
+
+            tracing::debug!(target: "consensus",
+                event = "vote_received",
+                %from,
+                height = vote.height,
+                view = vote.view,
+                block = hex::encode(&vote.block_hash[..4])
+            );
+
+            if let Err(e) = engine.handle_vote(vote).await {
+                tracing::warn!(target: "consensus", "Failed to handle incoming vote from {}: {}", from, e);
+            } else {
+                let pending_qcs = engine.take_pending_quorum_certificates();
+                drop(engine);
+                for qc in pending_qcs {
+                    match codec::to_bytes_canonical(&qc) {
+                        Ok(qc_blob) => {
+                            let _ = swarm_sender
+                                .send(SwarmCommand::BroadcastQuorumCertificate(qc_blob))
+                                .await;
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                target: "consensus",
+                                height = qc.height,
+                                view = qc.view,
+                                "Failed to serialize QC for broadcast: {}",
+                                e
+                            );
+                        }
+                    }
+                }
+                let _ = kick_tx.send(());
+            }
+        }
+
+        NetworkEvent::QuorumCertificateReceived { qc, from } => {
             let is_quarantined = context_arc
                 .lock()
                 .await
@@ -165,17 +268,21 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             };
 
             let mut engine = engine_ref.lock().await;
-
-            tracing::debug!(target: "consensus",
-                event = "vote_received",
+            tracing::debug!(
+                target: "consensus",
+                event = "qc_received",
                 %from,
-                height = vote.height,
-                view = vote.view,
-                block = hex::encode(&vote.block_hash[..4])
+                height = qc.height,
+                view = qc.view,
+                block = hex::encode(&qc.block_hash[..4])
             );
-
-            if let Err(e) = engine.handle_vote(vote).await {
-                tracing::warn!(target: "consensus", "Failed to handle incoming vote from {}: {}", from, e);
+            if let Err(e) = engine.handle_quorum_certificate(qc).await {
+                tracing::warn!(
+                    target: "consensus",
+                    "Failed to handle incoming quorum certificate from {}: {}",
+                    from,
+                    e
+                );
             } else {
                 let _ = kick_tx.send(());
             }
@@ -327,8 +434,8 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             let is_experimental = {
                 let ctx = context_arc.lock().await;
                 matches!(
-                    ctx.config.convergent_safety_mode,
-                    ConvergentSafetyMode::ExperimentalNestedGuardian
+                    ctx.config.aft_safety_mode,
+                    AftSafetyMode::ExperimentalNestedGuardian
                 )
             };
 
@@ -373,6 +480,7 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             head_hash,
             chain_id,
             genesis_root,
+            validator_account_id,
         } => {
             let mut ctx = context_arc.lock().await;
             sync_handlers::handle_status_response(
@@ -382,6 +490,7 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                 head_hash,
                 chain_id,
                 genesis_root,
+                validator_account_id,
             )
             .await
         }

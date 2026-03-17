@@ -1,8 +1,4 @@
-#![cfg(all(
-    feature = "consensus-convergent",
-    feature = "vm-wasm",
-    feature = "state-iavl"
-))]
+#![cfg(all(feature = "consensus-aft", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::{anyhow, Result};
 use dcrypt::algorithms::hash::{HashFunction, Sha256};

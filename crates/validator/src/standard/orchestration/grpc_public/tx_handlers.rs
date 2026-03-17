@@ -1,5 +1,7 @@
 use super::*;
 use ioi_ipc::public::{SubmissionStatus, TxStatus};
+use ioi_networking::libp2p::SwarmCommand;
+use std::collections::HashSet;
 use std::time::Instant;
 
 fn tx_account_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
@@ -15,6 +17,64 @@ fn tx_account_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
         },
         _ => None,
     }
+}
+
+fn relay_fanout() -> usize {
+    std::env::var("IOI_AFT_TX_RELAY_FANOUT")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(1)
+}
+
+fn leader_accounts_for_upcoming_heights(
+    local_height: u64,
+    validator_ids: &[Vec<u8>],
+    fanout: usize,
+) -> Vec<AccountId> {
+    if validator_ids.is_empty() || fanout == 0 {
+        return Vec::new();
+    }
+
+    let mut leaders = Vec::new();
+    let mut seen = HashSet::new();
+    let validator_len = validator_ids.len() as u64;
+    let steps = fanout.min(validator_ids.len());
+    for offset in 1..=steps {
+        let target_height = local_height.saturating_add(offset as u64).max(1);
+        let leader_index = ((target_height - 1) % validator_len) as usize;
+        let Some(leader_bytes) = validator_ids.get(leader_index) else {
+            continue;
+        };
+        let Ok(leader_bytes) = <[u8; 32]>::try_from(leader_bytes.as_slice()) else {
+            continue;
+        };
+        let account = AccountId(leader_bytes);
+        if seen.insert(account) {
+            leaders.push(account);
+        }
+    }
+    leaders
+}
+
+fn dispatch_swarm_command(sender: &tokio::sync::mpsc::Sender<SwarmCommand>, command: SwarmCommand) {
+    match sender.try_send(command) {
+        Ok(()) => {}
+        Err(tokio::sync::mpsc::error::TrySendError::Full(command)) => {
+            let sender = sender.clone();
+            tokio::spawn(async move {
+                let _ = sender.send(command).await;
+            });
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+    }
+}
+
+fn fast_admit_mempool_limit() -> usize {
+    std::env::var("IOI_RPC_FAST_ADMIT_MAX_MEMPOOL")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(512)
 }
 
 impl<CS, ST, CE, V> PublicApiImpl<CS, ST, CE, V>
@@ -51,6 +111,7 @@ where
         let start = Instant::now();
         let req = request.into_inner();
         let tx_bytes = req.transaction_bytes;
+        let ctx_arc = self.get_context().await?;
 
         let tx_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tx_bytes)
             .map_err(|e| Status::invalid_argument(format!("Hashing failed: {}", e)))?;
@@ -59,7 +120,6 @@ where
         if let Ok(tx) = codec::from_bytes_canonical::<ChainTransaction>(&tx_bytes) {
             if let Some((account_id, nonce)) = tx_account_nonce(&tx) {
                 let next_nonce = nonce.saturating_add(1);
-                let ctx_arc = self.get_context().await?;
                 let nonce_manager = {
                     let ctx = ctx_arc.lock().await;
                     ctx.nonce_manager.clone()
@@ -73,7 +133,6 @@ where
         }
 
         {
-            let ctx_arc = self.get_context().await?;
             let ctx = ctx_arc.lock().await;
             let mut cache = ctx.tx_status_cache.lock().await;
             cache.put(
@@ -86,13 +145,162 @@ where
             );
         }
 
+        if let Ok(tx) = codec::from_bytes_canonical::<ChainTransaction>(&tx_bytes) {
+            let tx_info = tx_account_nonce(&tx);
+            let tx_hash = tx.hash().unwrap_or(tx_hash_bytes);
+
+            let (
+                tx_pool_ref,
+                swarm_commander,
+                consensus_kick_tx,
+                receipt_map,
+                local_keypair,
+                last_committed_block,
+                peer_accounts_ref,
+                consensus_kick_scheduled,
+            ) = {
+                let ctx = ctx_arc.lock().await;
+                (
+                    ctx.tx_pool_ref.clone(),
+                    ctx.swarm_commander.clone(),
+                    ctx.consensus_kick_tx.clone(),
+                    ctx.receipt_map.clone(),
+                    ctx.local_keypair.clone(),
+                    ctx.last_committed_block.clone(),
+                    ctx.peer_accounts_ref.clone(),
+                    ctx.consensus_kick_scheduled.clone(),
+                )
+            };
+
+            let local_account_id = AccountId(
+                account_id_from_key_material(
+                    SignatureSuite::ED25519,
+                    &local_keypair.public().encode_protobuf(),
+                )
+                .unwrap_or_default(),
+            );
+
+            let leader_peers = if let Some(block) = last_committed_block.as_ref() {
+                    let leader_accounts = leader_accounts_for_upcoming_heights(
+                        block.header.height,
+                        &block.header.validator_set,
+                        relay_fanout(),
+                    );
+                    let peers = peer_accounts_ref.lock().await;
+                    leader_accounts
+                        .into_iter()
+                        .filter(|leader_account_id| *leader_account_id != local_account_id)
+                        .filter_map(|leader_account_id| {
+                            peers.iter().find_map(|(peer_id, account_id)| {
+                                (*account_id == leader_account_id).then_some(*peer_id)
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                } else {
+                    // Clean-start admission runs before we have a committed tip. Avoid a workload
+                    // state lookup per transaction on that path; generic publish is sufficient until
+                    // the first committed block gives us a concrete leader schedule to target.
+                    Vec::new()
+                };
+
+            let should_fast_admit = {
+                let limit = fast_admit_mempool_limit();
+                limit > 0 && tx_pool_ref.len() < limit
+            };
+
+            let fast_admit = if should_fast_admit {
+                Some(tx_pool_ref.add(tx, tx_hash, tx_info, 0))
+            } else {
+                None
+            };
+
+            if let Some(result) = fast_admit.as_ref() {
+                if matches!(
+                    result,
+                    crate::standard::orchestration::mempool::AddResult::Rejected(_)
+                ) {
+                    // Fall through to the ingestion worker.
+                } else {
+                    if !matches!(
+                        result,
+                        crate::standard::orchestration::mempool::AddResult::Known
+                    ) {
+                        metrics().inc_mempool_transactions_added();
+                    }
+                    metrics().set_mempool_size(tx_pool_ref.len() as f64);
+                    {
+                        let mut receipts = receipt_map.lock().await;
+                        receipts.put(tx_hash, tx_hash_hex.clone());
+                    }
+
+                    {
+                        let ctx = ctx_arc.lock().await;
+                        let mut cache = ctx.tx_status_cache.lock().await;
+                        cache.put(
+                            tx_hash_hex.clone(),
+                            TxStatusEntry {
+                                status: TxStatus::InMempool,
+                                error: None,
+                                block_height: None,
+                            },
+                        );
+                    }
+
+                    if !matches!(
+                        result,
+                        crate::standard::orchestration::mempool::AddResult::Known
+                    ) {
+                        // RPC ingress may land on a non-leader in a sparse topology. Always
+                        // publish the transaction so connected peers can forward it, then
+                        // opportunistically relay directly to upcoming leaders for lower latency
+                        // when those links exist.
+                        dispatch_swarm_command(
+                            &swarm_commander,
+                            SwarmCommand::PublishTransaction(tx_bytes.clone()),
+                        );
+                        for peer in leader_peers {
+                            dispatch_swarm_command(
+                                &swarm_commander,
+                                SwarmCommand::RelayTransactionToPeer {
+                                    peer,
+                                    data: tx_bytes.clone(),
+                                },
+                            );
+                        }
+                        crate::standard::orchestration::schedule_consensus_kick(
+                            &consensus_kick_tx,
+                            &consensus_kick_scheduled,
+                        );
+                    }
+
+                    metrics().inc_requests_total("submit_transaction", 200);
+                    metrics().observe_request_duration(
+                        "submit_transaction",
+                        start.elapsed().as_secs_f64(),
+                    );
+
+                    tracing::debug!(
+                        target: "rpc",
+                        "Received transaction via gRPC. Hash: {}",
+                        tx_hash_hex
+                    );
+
+                    return Ok(Response::new(SubmitTransactionResponse {
+                        tx_hash: tx_hash_hex,
+                        status: SubmissionStatus::Accepted as i32,
+                        approval_reason: String::new(),
+                    }));
+                }
+            }
+        }
+
         match self.tx_ingest_tx.try_send((tx_hash_bytes, tx_bytes)) {
             Ok(_) => {
                 metrics().inc_requests_total("submit_transaction", 200);
                 metrics()
                     .observe_request_duration("submit_transaction", start.elapsed().as_secs_f64());
 
-                tracing::info!(
+                tracing::debug!(
                     target: "rpc",
                     "Received transaction via gRPC. Hash: {}",
                     tx_hash_hex

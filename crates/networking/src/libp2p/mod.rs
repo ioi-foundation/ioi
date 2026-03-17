@@ -24,13 +24,18 @@ use tokio::{
     time::Duration,
 };
 
+const SWARM_COMMAND_CHANNEL_CAPACITY: usize = 16_384;
+const INTERNAL_EVENT_CHANNEL_CAPACITY: usize = 16_384;
+const NETWORK_EVENT_CHANNEL_CAPACITY: usize = 16_384;
+
 // Re-export specific types
 pub use self::behaviour::{SyncBehaviour, SyncBehaviourEvent};
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
 pub use self::types::{NetworkEvent, SwarmCommand, SwarmInternalEvent};
 
 // Import ViewChangeVote for use in forwarder
-use ioi_consensus::convergent::guardian_majority::ViewChangeVote;
+use ioi_types::app::QuorumCertificate;
+use ioi_types::app::ViewChangeVote;
 
 /// The main networking struct.
 pub struct Libp2pSync {
@@ -40,6 +45,7 @@ pub struct Libp2pSync {
     node_state: Arc<Mutex<NodeState>>,
     known_peers: Arc<Mutex<HashSet<PeerId>>>,
     local_peer_id: PeerId,
+    bootstrap_peer_count: usize,
 }
 
 impl Libp2pSync {
@@ -53,13 +59,17 @@ impl Libp2pSync {
         mpsc::Receiver<NetworkEvent>,
     )> {
         let (shutdown_sender, _) = watch::channel(false);
-        let (swarm_command_sender, swarm_command_receiver) = mpsc::channel(100);
-        let (internal_event_sender, mut internal_event_receiver) = mpsc::channel(100);
-        let (network_event_sender, network_event_receiver) = mpsc::channel(100);
+        let (swarm_command_sender, swarm_command_receiver) =
+            mpsc::channel(SWARM_COMMAND_CHANNEL_CAPACITY);
+        let (internal_event_sender, mut internal_event_receiver) =
+            mpsc::channel(INTERNAL_EVENT_CHANNEL_CAPACITY);
+        let (network_event_sender, network_event_receiver) =
+            mpsc::channel(NETWORK_EVENT_CHANNEL_CAPACITY);
 
         let local_peer_id = local_key.public().to_peer_id();
         let node_state = Arc::new(Mutex::new(NodeState::Initializing));
         let known_peers = Arc::new(Mutex::new(HashSet::new()));
+        let bootstrap_peer_count = dial_addrs.map(|addrs| addrs.len()).unwrap_or(0);
 
         let swarm = self::transport::build_swarm(local_key.clone())?;
 
@@ -149,21 +159,27 @@ impl Libp2pSync {
                         head_hash,
                         chain_id,
                         genesis_root,
+                        validator_account_id,
                     } => Some(NetworkEvent::StatusResponse {
                         peer,
                         height,
                         head_hash,
                         chain_id,
                         genesis_root,
+                        validator_account_id,
                     }),
                     SwarmInternalEvent::BlocksResponse(p, b) => {
                         Some(NetworkEvent::BlocksResponse(p, b))
                     }
 
-                    SwarmInternalEvent::GossipBlock(data, _source, mirror_id) => {
-                        codec::from_bytes_canonical(&data)
-                            .ok()
-                            .map(|block| NetworkEvent::GossipBlock { block, mirror_id })
+                    SwarmInternalEvent::GossipBlock(data, source, mirror_id) => {
+                        codec::from_bytes_canonical(&data).ok().map(|block| {
+                            NetworkEvent::GossipBlock {
+                                block,
+                                mirror_id,
+                                from: source,
+                            }
+                        })
                     }
                     SwarmInternalEvent::GossipTransaction(data, _source) => {
                         let dummy = UnifiedTransactionModel::new(
@@ -178,6 +194,11 @@ impl Libp2pSync {
                         codec::from_bytes_canonical::<ConsensusVote>(&data)
                             .ok()
                             .map(|vote| NetworkEvent::ConsensusVoteReceived { vote, from: source })
+                    }
+                    SwarmInternalEvent::QuorumCertificateReceived(data, source) => {
+                        codec::from_bytes_canonical::<QuorumCertificate>(&data)
+                            .ok()
+                            .map(|qc| NetworkEvent::QuorumCertificateReceived { qc, from: source })
                     }
                     SwarmInternalEvent::ViewChangeVoteReceived(data, source) => {
                         codec::from_bytes_canonical::<ViewChangeVote>(&data)
@@ -252,11 +273,46 @@ impl Libp2pSync {
                     .send(SwarmCommand::Listen(listen_addr_clone))
                     .await;
                 if let Some(addrs) = dial_addrs_owned {
-                    for _ in 0..100 {
+                    // Retry a handful of times while peers are still booting, then stop
+                    // to avoid redial churn destabilizing already-established connections.
+                    for _ in 0..5 {
                         for addr in &addrs {
                             let _ = cmd_sender.send(SwarmCommand::Dial(addr.clone())).await;
                         }
                         tokio::time::sleep(Duration::from_secs(2)).await;
+                    }
+                }
+            }
+        });
+
+        let bootstrap_redial_task = tokio::spawn({
+            let cmd_sender = swarm_command_sender.clone();
+            let dial_addrs_owned = dial_addrs.map(|s| s.to_vec());
+            let mut shutdown_rx = shutdown_sender.subscribe();
+            async move {
+                let Some(addrs) = dial_addrs_owned else {
+                    return;
+                };
+
+                let mut interval = tokio::time::interval(Duration::from_secs(3));
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+                loop {
+                    tokio::select! {
+                        _ = interval.tick() => {
+                            // Keep bootstrap addresses warm even after the first successful
+                            // connect. In test clusters we have observed peers silently falling
+                            // out of the mesh long after startup; periodic redial lets libp2p
+                            // re-establish those links without depending on a specific close event.
+                            for addr in &addrs {
+                                let _ = cmd_sender.send(SwarmCommand::Dial(addr.clone())).await;
+                            }
+                        }
+                        _ = shutdown_rx.changed() => {
+                            if *shutdown_rx.borrow() {
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -269,12 +325,18 @@ impl Libp2pSync {
                 swarm_task,
                 event_forwarder_task,
                 initial_cmds_task,
+                bootstrap_redial_task,
             ])),
             node_state,
             known_peers,
             local_peer_id,
+            bootstrap_peer_count,
         });
 
         Ok((sync_service, swarm_command_sender, network_event_receiver))
+    }
+
+    pub fn bootstrap_peer_count(&self) -> usize {
+        self.bootstrap_peer_count
     }
 }
