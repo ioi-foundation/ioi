@@ -77,8 +77,8 @@ struct LocalOpts {
 
 fn ensure_guardianized_local_signer_allowed(config: &OrchestrationConfig) -> Result<()> {
     let guardianized_mode = !matches!(
-        config.convergent_safety_mode,
-        ioi_types::config::ConvergentSafetyMode::ClassicBft
+        config.aft_safety_mode,
+        ioi_types::config::AftSafetyMode::ClassicBft
     );
     let production_mode = matches!(
         config.guardian_production_mode,
@@ -278,15 +278,15 @@ async fn main() -> Result<()> {
         chain_id: ioi_types::app::ChainId(0),
         config_schema_version: 1,
         validator_role: ValidatorRole::Consensus,
-        consensus_type: ConsensusType::Convergent,
-        convergent_safety_mode: Default::default(),
+        consensus_type: ConsensusType::Aft,
+        aft_safety_mode: Default::default(),
         guardian_production_mode: Default::default(),
         key_authority: None,
         rpc_listen_address: rpc_addr.clone(),
         rpc_hardening: Default::default(),
         initial_sync_timeout_secs: 0,
         block_production_interval_secs: 1,
-        round_robin_view_timeout_secs: 10,
+        round_robin_view_timeout_secs: 2,
         default_query_gas_limit: u64::MAX,
         ibc_gateway_listen_address: None,
         safety_model_path: None,
@@ -398,7 +398,7 @@ async fn main() -> Result<()> {
         runtimes: vec!["wasm".to_string()],
         state_tree: ioi_types::config::StateTreeType::IAVL,
         commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
-        consensus_type: ConsensusType::Convergent,
+        consensus_type: ConsensusType::Aft,
         genesis_file: opts
             .data_dir
             .join("genesis.json")

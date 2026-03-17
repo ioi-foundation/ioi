@@ -1,12 +1,8 @@
-#![cfg(all(
-    feature = "consensus-convergent",
-    feature = "vm-wasm",
-    feature = "state-iavl"
-))]
+#![cfg(all(feature = "consensus-aft", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::Result;
 use ioi_cli::testing::{build_test_artifacts, rpc, wait_for_height, TestCluster};
-use ioi_types::config::ConvergentSafetyMode;
+use ioi_types::config::AftSafetyMode;
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -15,10 +11,10 @@ async fn test_experimental_nested_guardian_live_cluster_emits_witness_certificat
 
     let cluster = TestCluster::builder()
         .with_validators(3)
-        .with_consensus_type("Convergent")
+        .with_consensus_type("Aft")
         .with_state_tree("IAVL")
         .with_chain_id(17)
-        .with_convergent_safety_mode(ConvergentSafetyMode::ExperimentalNestedGuardian)
+        .with_aft_safety_mode(AftSafetyMode::ExperimentalNestedGuardian)
         .build()
         .await?;
 

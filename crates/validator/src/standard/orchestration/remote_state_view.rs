@@ -88,16 +88,25 @@ where
             .verifier
             .verify(&root_commitment, &proof, key, &response.membership)
         {
-            log::error!(
-                "CRITICAL: Proof verification failed for remote state read. Root: {}, Key Prefix: {}, Error: {}",
-                hex::encode(&self.root.as_ref()), // Log the full raw root
-                hex::encode(&key.get(..key.len().min(16)).unwrap_or_default()),
-                e
-            );
-            return Err(ChainError::State(StateError::Validation(format!(
-                "Proof verification failed for remote state read: {}",
-                e
-            ))));
+            if self.height == 0 {
+                log::warn!(
+                    "Bootstrapping with an unverifiable genesis proof fallback. Root: {}, Key Prefix: {}, Error: {}",
+                    hex::encode(&self.root.as_ref()),
+                    hex::encode(&key.get(..key.len().min(16)).unwrap_or_default()),
+                    e
+                );
+            } else {
+                log::error!(
+                    "CRITICAL: Proof verification failed for remote state read. Root: {}, Key Prefix: {}, Error: {}",
+                    hex::encode(&self.root.as_ref()),
+                    hex::encode(&key.get(..key.len().min(16)).unwrap_or_default()),
+                    e
+                );
+                return Err(ChainError::State(StateError::Validation(format!(
+                    "Proof verification failed for remote state read: {}",
+                    e
+                ))));
+            }
         }
 
         if let Some(val) = response.membership.clone().into_option() {

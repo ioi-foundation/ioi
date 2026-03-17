@@ -50,6 +50,8 @@ pub struct SyncProgress {
     pub inflight: bool,
     /// Unique ID for the current request to match responses.
     pub req_id: u64,
+    /// When the current or most recent sync request was issued.
+    pub requested_at: std::time::Instant,
 }
 
 /// Stores the current status of a transaction for RPC queries.
@@ -112,14 +114,26 @@ where
     pub pqc_signer: Option<MldsaKeyPair>,
     /// Set of currently connected and known peers.
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
+    /// Mapping from connected peer IDs to validator account IDs learned during status handshakes.
+    pub peer_accounts_ref: Arc<Mutex<HashMap<PeerId, AccountId>>>,
+    /// Number of bootstrap peers configured at startup.
+    pub configured_bootstrap_peers: usize,
     /// Flag indicating if the node is quarantined.
     pub is_quarantined: Arc<AtomicBool>,
     /// pending attestations for Oracle requests.
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
     /// The last block committed to the local chain.
     pub last_committed_block: Option<Block<ChainTransaction>>,
+    /// The most recent tip vote replayed from workload state into the live consensus engine,
+    /// along with the replay timestamp for rate limiting.
+    pub last_tip_vote_replay: Option<(u64, u64, [u8; 32], std::time::Instant)>,
+    /// The most recent local production attempt for a specific (height, view, parent QC),
+    /// rate-limited to avoid re-building the same proposal repeatedly under bursty wakeups.
+    pub last_production_attempt: Option<(u64, u64, [u8; 32], std::time::Instant)>,
     /// Channel to wake up the consensus loop.
     pub consensus_kick_tx: mpsc::UnboundedSender<()>,
+    /// Shared debounce flag for consensus wakeups triggered outside the ingestion worker.
+    pub consensus_kick_scheduled: Arc<AtomicBool>,
     /// Current synchronization progress state.
     pub sync_progress: Option<SyncProgress>,
     /// Manager for tracking account nonces.

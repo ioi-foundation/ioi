@@ -484,6 +484,8 @@ Payload:\n{}",
         temperature: 0.0,
         json_mode: true,
         max_tokens: WEB_PIPELINE_HYBRID_MAX_TOKENS,
+        required_finality_tier: Default::default(),
+        sealed_finality_proof: None,
     };
     let airlocked_prompt = service
         .prepare_cloud_inference_input(

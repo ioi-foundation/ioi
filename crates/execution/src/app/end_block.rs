@@ -8,7 +8,8 @@ use ioi_api::services::access::ServiceDirectory;
 use ioi_api::state::{service_namespace_prefix, NamespacedStateAccess, StateAccess};
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::{
-    read_validator_sets, write_validator_sets, BlockTimingParams, BlockTimingRuntime,
+    interval_millis_to_legacy_seconds, read_validator_sets, write_validator_sets,
+    BlockTimingParams, BlockTimingRuntime,
 };
 use ioi_types::codec;
 use ioi_types::error::{ChainError, StateError};
@@ -148,20 +149,34 @@ pub(super) fn handle_timing_update(
             parent_height,
             gas_used_this_block,
         );
+        let next_interval_ms = ioi_types::app::compute_interval_from_parent_state_ms(
+            &params,
+            &old_runtime,
+            parent_height,
+            gas_used_this_block,
+        );
         new_runtime.effective_interval_secs = next_interval;
+        new_runtime.effective_interval_ms = next_interval_ms;
         tracing::info!(
             target: "chain",
             event = "timing_retarget",
             height = current_height,
             old_interval = old_runtime.effective_interval_secs,
             new_interval = next_interval,
+            old_interval_ms = old_runtime.effective_interval_ms_or_legacy(),
+            new_interval_ms = next_interval_ms,
             ema_gas = new_runtime.ema_gas_used
         );
     }
 
     if new_runtime.ema_gas_used != old_runtime.ema_gas_used
         || new_runtime.effective_interval_secs != old_runtime.effective_interval_secs
+        || new_runtime.effective_interval_ms != old_runtime.effective_interval_ms
     {
+        if new_runtime.effective_interval_secs == 0 {
+            new_runtime.effective_interval_secs =
+                interval_millis_to_legacy_seconds(new_runtime.effective_interval_ms_or_legacy());
+        }
         state.insert(
             BLOCK_TIMING_RUNTIME_KEY,
             &codec::to_bytes_canonical(&new_runtime).map_err(ChainError::Transaction)?,

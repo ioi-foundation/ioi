@@ -21,7 +21,7 @@ async fn test_verkle_tree_e2e() -> Result<()> {
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Convergent")
+        .with_consensus_type("Aft")
         .with_state_tree("Verkle")
         .with_commitment_scheme("KZG")
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {

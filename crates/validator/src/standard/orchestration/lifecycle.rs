@@ -136,28 +136,41 @@ where
         mut kick_rx: mpsc::UnboundedReceiver<()>,
         mut shutdown_rx: watch::Receiver<bool>,
     ) {
-        // [INSTRUMENTATION] Log ticker start
-        tracing::info!(target: "consensus", "DEBUG: Consensus ticker thread spawned.");
-
-        let interval_secs = {
+        let interval = {
             let ctx = context_arc.lock().await;
-            std::env::var("ORCH_BLOCK_INTERVAL_SECS")
+            if let Some(interval_ms) = std::env::var("ORCH_BLOCK_INTERVAL_MS")
                 .ok()
                 .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or_else(|| ctx.config.block_production_interval_secs)
+                .filter(|value| *value > 0)
+            {
+                Duration::from_millis(interval_ms)
+            } else {
+                Duration::from_secs(
+                    std::env::var("ORCH_BLOCK_INTERVAL_SECS")
+                        .ok()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .unwrap_or_else(|| ctx.config.block_production_interval_secs),
+                )
+            }
         };
-        tracing::info!(target: "consensus", "DEBUG: Consensus Ticker interval: {}s", interval_secs);
 
-        if interval_secs == 0 {
+        if interval.is_zero() {
             tracing::info!(target: "consensus", "Consensus ticker disabled (interval=0).");
             let _ = shutdown_rx.changed().await;
             return;
         }
 
-        let mut ticker = time::interval(Duration::from_secs(interval_secs));
+        let mut ticker = time::interval(interval);
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-        let min_block_time = Duration::from_millis(50);
+        // Keep kick-driven consensus responsive for vote/QC propagation and post-commit replay.
+        // Actual block cadence is enforced at the ProduceBlock edge using the block timestamp.
+        let min_block_time = Duration::from_millis(
+            std::env::var("ORCH_CONSENSUS_MIN_TICK_MS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(50),
+        );
         let mut last_tick = tokio::time::Instant::now()
             .checked_sub(min_block_time)
             .unwrap();
@@ -174,8 +187,6 @@ where
 
                     last_tick = tokio::time::Instant::now();
 
-                    tracing::info!(target: "consensus", "Consensus timer tick triggered.");
-
                     let cause = "timer";
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                     if let Err(e) = result.map_err(|e| anyhow!("Consensus tick panicked: {:?}", e)).and_then(|res| res) {
@@ -186,14 +197,29 @@ where
                     let mut _count = 1;
                     while let Ok(_) = kick_rx.try_recv() { _count += 1; }
                     let cause = "kick";
-                    let is_quarantined = context_arc.lock().await.is_quarantined.load(Ordering::SeqCst);
-                    if is_quarantined || last_tick.elapsed() < min_block_time {
-                         continue;
+                    let (is_quarantined, kick_tx, kick_scheduled) = {
+                        let ctx = context_arc.lock().await;
+                        (
+                            ctx.is_quarantined.load(Ordering::SeqCst),
+                            ctx.consensus_kick_tx.clone(),
+                            ctx.consensus_kick_scheduled.clone(),
+                        )
+                    };
+                    let remaining = min_block_time.saturating_sub(last_tick.elapsed());
+                    if is_quarantined {
+                        continue;
+                    }
+                    if !remaining.is_zero() {
+                        if !kick_scheduled.swap(true, Ordering::SeqCst) {
+                            tokio::spawn(async move {
+                                time::sleep(remaining).await;
+                                let _ = kick_tx.send(());
+                                kick_scheduled.store(false, Ordering::SeqCst);
+                            });
+                        }
+                        continue;
                     }
                     last_tick = tokio::time::Instant::now();
-
-                    // [INSTRUMENTATION] Log kick trigger
-                    tracing::debug!(target: "consensus", "Consensus kicked.");
 
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
@@ -228,34 +254,86 @@ where
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    let (known_peers, swarm_commander, convergent_safety_mode, sample_height) = {
+                    let (known_peers, swarm_commander, aft_safety_mode, sample_height, sync_timeout_ms, local_height) = {
                         let ctx = context_arc.lock().await;
                         (
                             ctx.known_peers_ref.clone(),
                             ctx.swarm_commander.clone(),
-                            ctx.config.convergent_safety_mode,
+                            ctx.config.aft_safety_mode,
                             ctx.last_committed_block
                                 .as_ref()
                                 .map(|block| block.header.height + 1)
                                 .unwrap_or(1),
+                            std::env::var("IOI_AFT_SYNC_REQUEST_TIMEOUT_MS")
+                                .ok()
+                                .and_then(|value| value.parse::<u64>().ok())
+                                .filter(|value| *value > 0)
+                                .unwrap_or(2_000),
+                            ctx.last_committed_block
+                                .as_ref()
+                                .map(|block| block.header.height)
+                                .unwrap_or(0),
                         )
                     };
-                    let random_peer_opt = {
-                        let peers: Vec<_> = known_peers.lock().await.iter().cloned().collect();
-                        peers.choose(&mut rand::thread_rng()).cloned()
-                    };
-                    if let Some(random_peer) = random_peer_opt {
+                    let peers: Vec<_> = known_peers.lock().await.iter().cloned().collect();
+                    for peer in &peers {
                         if swarm_commander
-                            .send(SwarmCommand::SendStatusRequest(random_peer.clone()))
+                            .send(SwarmCommand::SendStatusRequest(*peer))
                             .await
                             .is_err()
                         {
                             log::warn!("Failed to send periodic status request to swarm.");
                         }
+                    }
 
+                    // Near-tip pull keeps connected but lagging nodes from waiting on a
+                    // perfectly timed status round-trip before self-healing.
+                    if let Some(random_peer) = {
+                        let mut rng = rand::thread_rng();
+                        peers.choose(&mut rng).copied()
+                    } {
+                        let _ = swarm_commander
+                            .send(SwarmCommand::SendBlocksRequest {
+                                peer: random_peer,
+                                since: local_height,
+                                max_blocks: super::sync::sync_batch_max_blocks(),
+                                max_bytes: super::sync::sync_batch_max_bytes(),
+                            })
+                            .await;
+                    }
+
+                    {
+                        let mut ctx = context_arc.lock().await;
+                        if let Some(progress) = ctx.sync_progress.as_mut() {
+                            if progress.inflight
+                                && progress.requested_at.elapsed()
+                                    >= Duration::from_millis(sync_timeout_ms)
+                            {
+                                tracing::warn!(
+                                    target: "sync",
+                                    target = ?progress.target,
+                                    next = progress.next,
+                                    tip = progress.tip,
+                                    timeout_ms = sync_timeout_ms,
+                                    "Timed out waiting for a sync batch; retrying."
+                                );
+                                progress.inflight = false;
+                                if progress.target.is_none() {
+                                    progress.target = peers.first().copied();
+                                }
+                                super::sync::request_next_batch(&mut ctx).await;
+                            }
+                        }
+                    }
+
+                    let random_peer = {
+                        let mut rng = rand::thread_rng();
+                        peers.choose(&mut rng).cloned()
+                    };
+                    if let Some(random_peer) = random_peer {
                         if matches!(
-                            convergent_safety_mode,
-                            ioi_types::config::ConvergentSafetyMode::ExperimentalNestedGuardian
+                            aft_safety_mode,
+                            ioi_types::config::AftSafetyMode::ExperimentalNestedGuardian
                         ) {
                             let _ = swarm_commander
                                 .send(SwarmCommand::SendSampleRequest {
@@ -331,7 +409,9 @@ where
                     }
                 }, if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
                     let context = context_arc.lock().await;
-                    if context.known_peers_ref.lock().await.is_empty() {
+                    let has_known_peers = !context.known_peers_ref.lock().await.is_empty();
+                    let bootstrap_expected = context.configured_bootstrap_peers > 0;
+                    if !has_known_peers && !bootstrap_expected {
                         let mut node_state = context.node_state.lock().await;
                         if *node_state == NodeState::Syncing {
                             *node_state = NodeState::Synced;
@@ -406,21 +486,26 @@ where
             ChainTipInfo {
                 height: b.header.height,
                 timestamp: b.header.timestamp,
+                timestamp_ms: b.header.timestamp_ms_or_legacy(),
                 gas_used: b.header.gas_used,
                 state_root: b.header.state_root.0.clone(),
                 genesis_root: self.genesis_hash.to_vec(),
+                validator_set: b.header.validator_set.clone(),
             }
         } else {
             ChainTipInfo {
                 height: 0,
                 timestamp: 0,
+                timestamp_ms: 0,
                 gas_used: 0,
                 state_root: vec![],
                 genesis_root: self.genesis_hash.to_vec(),
+                validator_set: Vec::new(),
             }
         };
 
         let (tip_tx, tip_rx) = watch::channel(initial_tip);
+        let peer_accounts_ref = Arc::new(Mutex::new(std::collections::HashMap::new()));
         let tx_status_cache = Arc::new(Mutex::new(LruCache::new(
             std::num::NonZeroUsize::new(100_000).unwrap(),
         )));
@@ -471,6 +556,14 @@ where
             workload_client.clone(),
             self.tx_pool.clone(),
             self.swarm_command_sender.clone(),
+            peer_accounts_ref.clone(),
+            AccountId(
+                account_id_from_key_material(
+                    SignatureSuite::ED25519,
+                    &self.local_keypair.public().encode_protobuf(),
+                )
+                .unwrap_or_default(),
+            ),
             self.consensus_kick_tx.clone(),
             tx_model.clone(),
             tip_rx,
@@ -478,7 +571,7 @@ where
             receipt_map.clone(),
             self.safety_model.clone(),
             self.os_driver.clone(),
-            IngestionConfig::default(),
+            IngestionConfig::from_runtime_env(),
             event_tx.clone(),
         ));
         handles.push(ingestion_handle);
@@ -555,13 +648,18 @@ where
             local_keypair: self.local_keypair.clone(),
             pqc_signer: self.pqc_signer.clone(),
             known_peers_ref: self.syncer.get_known_peers(),
+            peer_accounts_ref,
+            configured_bootstrap_peers: self.syncer.bootstrap_peer_count(),
             config: self.config.clone(),
             chain_id: self.config.chain_id,
             genesis_hash: self.genesis_hash,
             is_quarantined: self.is_quarantined.clone(),
             pending_attestations: std::collections::HashMap::new(),
             last_committed_block: initial_block,
+            last_tip_vote_replay: None,
+            last_production_attempt: None,
             consensus_kick_tx: self.consensus_kick_tx.clone(),
+            consensus_kick_scheduled: Arc::new(AtomicBool::new(false)),
             sync_progress: None,
             nonce_manager: self.nonce_manager.clone(),
             signer: self.signer.clone(),

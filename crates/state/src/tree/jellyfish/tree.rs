@@ -3,17 +3,20 @@
 //! Parallelized Jellyfish Merkle Tree implementation.
 
 use super::nibble::NibblePath;
-use super::node::{InternalNode, Node, NodeHash};
+use super::node::{InternalNode, LeafNode, Node, NodeHash};
+use super::verifier::JellyfishMerkleProof;
 use crate::primitives::hash::HashProof;
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::commitment::Selector;
 use ioi_api::state::{
-    ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState,
+    ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState, Verifier,
 };
 use ioi_api::storage::NodeStore;
-use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_storage::adapter::{commit_and_persist, commit_and_persist_with_block, DeltaAccumulator};
 use ioi_types::app::{Membership, RootHash};
 use ioi_types::error::StateError;
+use parity_scale_codec::Encode;
 use rayon::prelude::*;
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
@@ -26,6 +29,115 @@ use async_trait::async_trait;
 type Key = [u8; 32];
 type Value = Vec<u8>;
 
+#[derive(Clone, Debug)]
+struct ProofTrieNode {
+    children: BTreeMap<u8, ProofTrieNode>,
+    leaf: Option<LeafNode>,
+    node_hash: NodeHash,
+}
+
+impl ProofTrieNode {
+    fn refresh_hash<CS: CommitmentScheme>(&mut self, scheme: &CS) {
+        self.node_hash = if let Some(leaf) = &self.leaf {
+            Node::Leaf(leaf.clone()).hash(scheme)
+        } else if self.children.is_empty() {
+            [0u8; 32]
+        } else {
+            let mut encoded_children = Vec::with_capacity(self.children.len());
+            for (nibble, child) in &self.children {
+                encoded_children.push((*nibble, child.node_hash));
+            }
+
+            Node::Internal(InternalNode {
+                children: encoded_children,
+            })
+            .hash(scheme)
+        };
+    }
+
+    fn upsert<CS: CommitmentScheme>(
+        &mut self,
+        path: &NibblePath,
+        depth: usize,
+        leaf: LeafNode,
+        scheme: &CS,
+    ) {
+        if depth >= 64 {
+            self.leaf = Some(leaf);
+            self.children.clear();
+            self.refresh_hash(scheme);
+            return;
+        }
+        let nibble = path.get_nibble(depth);
+        self.children
+            .entry(nibble)
+            .or_default()
+            .upsert(path, depth + 1, leaf, scheme);
+        self.refresh_hash(scheme);
+    }
+
+    fn remove<CS: CommitmentScheme>(
+        &mut self,
+        path: &NibblePath,
+        depth: usize,
+        scheme: &CS,
+    ) -> bool {
+        if depth >= 64 {
+            self.leaf = None;
+            self.refresh_hash(scheme);
+            return self.children.is_empty();
+        }
+
+        let nibble = path.get_nibble(depth);
+        if let Some(child) = self.children.get_mut(&nibble) {
+            if child.remove(path, depth + 1, scheme) {
+                self.children.remove(&nibble);
+            }
+        }
+
+        self.refresh_hash(scheme);
+        self.leaf.is_none() && self.children.is_empty()
+    }
+
+    fn build_proof(
+        &self,
+        path: &NibblePath,
+        depth: usize,
+        siblings: &mut Vec<Vec<(u8, NodeHash)>>,
+    ) -> Option<LeafNode> {
+        if let Some(leaf) = &self.leaf {
+            return Some(leaf.clone());
+        }
+        if self.children.is_empty() || depth >= 64 {
+            return None;
+        }
+
+        let target_nibble = path.get_nibble(depth);
+        let mut level_siblings = Vec::with_capacity(self.children.len().saturating_sub(1));
+        for (nibble, child) in &self.children {
+            if *nibble != target_nibble {
+                level_siblings.push((*nibble, child.node_hash));
+            }
+        }
+        siblings.push(level_siblings);
+
+        match self.children.get(&target_nibble) {
+            Some(child) => child.build_proof(path, depth + 1, siblings),
+            None => None,
+        }
+    }
+}
+
+impl Default for ProofTrieNode {
+    fn default() -> Self {
+        Self {
+            children: BTreeMap::new(),
+            leaf: None,
+            node_hash: [0u8; 32],
+        }
+    }
+}
+
 /// A Jellyfish Merkle Tree capable of parallel batch updates.
 #[derive(Clone)]
 pub struct JellyfishMerkleTree<CS: CommitmentScheme> {
@@ -35,6 +147,8 @@ pub struct JellyfishMerkleTree<CS: CommitmentScheme> {
     nodes: Arc<RwLock<HashMap<NodeHash, Node>>>,
     /// KV Cache for StateAccess.
     kv_cache: Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
+    /// Incrementally maintained proof trie for fast root updates and proof generation.
+    proof_trie: Arc<RwLock<ProofTrieNode>>,
     /// Underlying commitment scheme (usually Hash).
     scheme: CS,
     current_height: u64,
@@ -63,6 +177,7 @@ where
             root_hash: [0u8; 32],
             nodes: Arc::new(RwLock::new(HashMap::new())),
             kv_cache: Arc::new(RwLock::new(HashMap::new())),
+            proof_trie: Arc::new(RwLock::new(ProofTrieNode::default())),
             scheme,
             current_height: 0,
             delta: Arc::new(RwLock::new(DeltaAccumulator::default())),
@@ -192,6 +307,28 @@ where
         }
         Ok(Node::Null)
     }
+
+    fn trie_leaf_for_entry(
+        &self,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<([u8; 32], LeafNode), StateError> {
+        let key_hash = sha256(key).map_err(|e| StateError::Backend(e.to_string()))?;
+        let value_hash = sha256(value).map_err(|e| StateError::Backend(e.to_string()))?;
+
+        let mut account_key = [0u8; 32];
+        account_key.copy_from_slice(&key_hash);
+        let mut value_hash_arr = [0u8; 32];
+        value_hash_arr.copy_from_slice(&value_hash);
+
+        Ok((
+            account_key,
+            LeafNode {
+                account_key,
+                value_hash: value_hash_arr,
+            },
+        ))
+    }
 }
 
 // Implement StateAccess using the KV cache
@@ -210,19 +347,33 @@ where
             .write()
             .unwrap()
             .insert(key.to_vec(), value.to_vec());
+        let (account_key, leaf) = self.trie_leaf_for_entry(key, value)?;
+        let mut trie = self.proof_trie.write().unwrap();
+        trie.upsert(&NibblePath::new(&account_key), 0, leaf, &self.scheme);
+        self.root_hash = trie.node_hash;
         Ok(())
     }
 
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
         self.kv_cache.write().unwrap().remove(key);
+        let key_hash = sha256(key).map_err(|e| StateError::Backend(e.to_string()))?;
+        let mut account_key = [0u8; 32];
+        account_key.copy_from_slice(&key_hash);
+        let mut trie = self.proof_trie.write().unwrap();
+        trie.remove(&NibblePath::new(&account_key), 0, &self.scheme);
+        self.root_hash = trie.node_hash;
         Ok(())
     }
 
     fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
         let mut cache = self.kv_cache.write().unwrap();
+        let mut trie = self.proof_trie.write().unwrap();
         for (k, v) in updates {
             cache.insert(k.clone(), v.clone());
+            let (account_key, leaf) = self.trie_leaf_for_entry(k, v)?;
+            trie.upsert(&NibblePath::new(&account_key), 0, leaf, &self.scheme);
         }
+        self.root_hash = trie.node_hash;
         Ok(())
     }
 
@@ -241,12 +392,20 @@ where
         deletes: &[Vec<u8>],
     ) -> Result<(), StateError> {
         let mut cache = self.kv_cache.write().unwrap();
+        let mut trie = self.proof_trie.write().unwrap();
         for k in deletes {
             cache.remove(k);
+            let key_hash = sha256(k).map_err(|e| StateError::Backend(e.to_string()))?;
+            let mut account_key = [0u8; 32];
+            account_key.copy_from_slice(&key_hash);
+            trie.remove(&NibblePath::new(&account_key), 0, &self.scheme);
         }
         for (k, v) in inserts {
             cache.insert(k.clone(), v.clone());
+            let (account_key, leaf) = self.trie_leaf_for_entry(k, v)?;
+            trie.upsert(&NibblePath::new(&account_key), 0, leaf, &self.scheme);
         }
+        self.root_hash = trie.node_hash;
         Ok(())
     }
 
@@ -290,10 +449,16 @@ where
     CS::Proof: From<HashProof>,
 {
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        // Stub: Return a dummy HashProof
-        let val = self.get(key).ok().flatten().unwrap_or_default();
+        let key_hash = sha256(key).ok()?;
+        let mut key_hash_arr = [0u8; 32];
+        key_hash_arr.copy_from_slice(&key_hash);
+        let nibble_path = NibblePath::new(&key_hash_arr);
+        let mut siblings = Vec::new();
+        let trie = self.proof_trie.read().ok()?;
+        let leaf = trie.build_proof(&nibble_path, 0, &mut siblings);
+        let proof_bytes = JellyfishMerkleProof { leaf, siblings }.encode();
         let proof = HashProof {
-            value: val,
+            value: proof_bytes,
             selector: Selector::Key(key.to_vec()),
             additional_data: vec![],
         };
@@ -302,13 +467,20 @@ where
 
     fn verify_proof(
         &self,
-        _c: &Self::Commitment,
-        _p: &Self::Proof,
-        _k: &[u8],
-        _v: &[u8],
+        c: &Self::Commitment,
+        p: &Self::Proof,
+        k: &[u8],
+        v: &[u8],
     ) -> Result<(), StateError> {
-        // Stub: Always accept
-        Ok(())
+        let verifier = super::verifier::JellyfishVerifier;
+        let proof = crate::primitives::hash::HashProof::from(p.as_ref().to_vec());
+        let membership = Membership::Present(v.to_vec());
+        let commitment = verifier.commitment_from_bytes(c.as_ref())?;
+        verifier
+            .verify(&commitment, &proof, k, &membership)
+            .map_err(|e| {
+                StateError::Validation(format!("Jellyfish proof verification failed: {e}"))
+            })
     }
 
     fn get_with_proof_at(
@@ -364,12 +536,6 @@ where
     }
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
         self.current_height = height;
-
-        // Simulate root change hash
-        let h_bytes = height.to_le_bytes();
-        let new_root = ioi_crypto::algorithms::hash::sha256(&h_bytes).unwrap();
-        self.root_hash = new_root;
-
         Ok(self.root_hash)
     }
 
@@ -404,6 +570,28 @@ where
         Ok(root_hash)
     }
 
+    async fn commit_version_persist_with_block(
+        &mut self,
+        height: u64,
+        store: &dyn NodeStore,
+        block_bytes: &[u8],
+    ) -> Result<RootHash, StateError> {
+        let root_hash = self.commit_version(height)?;
+
+        let delta_snapshot = {
+            let mut delta = self.delta.write().unwrap();
+            let snapshot = delta.clone();
+            delta.clear();
+            snapshot
+        };
+
+        commit_and_persist_with_block(store, height, root_hash, &delta_snapshot, block_bytes)
+            .await
+            .map_err(|e| StateError::Backend(e.to_string()))?;
+
+        Ok(root_hash)
+    }
+
     fn adopt_known_root(&mut self, root: &[u8], ver: u64) -> Result<(), StateError> {
         if root.len() == 32 {
             let mut h = [0u8; 32];
@@ -416,5 +604,42 @@ where
 
     fn attach_store(&mut self, store: Arc<dyn NodeStore>) {
         self.store = Some(store);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::primitives::hash::{HashCommitmentScheme, HashProof};
+    use crate::tree::jellyfish::verifier::JellyfishVerifier;
+    use ioi_api::state::{ProofProvider, StateAccess, Verifier};
+    use ioi_types::app::Membership;
+
+    #[test]
+    fn jellyfish_roundtrip_proof_verifies_for_present_and_absent_keys() {
+        let scheme = HashCommitmentScheme::new();
+        let mut tree = JellyfishMerkleTree::new(scheme);
+        tree.insert(b"validator_set", b"vset").unwrap();
+        tree.insert(b"epoch", b"1").unwrap();
+        let root = tree.commit_version(1).unwrap();
+        let commitment = crate::primitives::hash::HashCommitment::from(root.to_vec());
+        let verifier = JellyfishVerifier;
+
+        let present = tree.create_proof(b"validator_set").unwrap();
+        let present = HashProof::from(present.as_ref().to_vec());
+        verifier
+            .verify(
+                &commitment,
+                &present,
+                b"validator_set",
+                &Membership::Present(b"vset".to_vec()),
+            )
+            .unwrap();
+
+        let absent = tree.create_proof(b"missing").unwrap();
+        let absent = HashProof::from(absent.as_ref().to_vec());
+        verifier
+            .verify(&commitment, &absent, b"missing", &Membership::Absent)
+            .unwrap();
     }
 }

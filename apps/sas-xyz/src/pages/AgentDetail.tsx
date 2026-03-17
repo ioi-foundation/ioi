@@ -176,7 +176,7 @@ export default function AgentDetail() {
                 <p><span className="text-cyan-accent">model_snapshot_id:</span> bafybeigdyr...</p>
                 <p><span className="text-cyan-accent">provider_sig:</span> ed25519:5Xp9...</p>
                 <div className="mt-4 pt-4 border-t border-gray-800 flex justify-between items-center">
-                  <span className="text-gray-500">Committed to Convergent Fault Tolerance</span>
+                  <span className="text-gray-500">Committed to Aft Fault Tolerance</span>
                   <button className="text-cyan-accent hover:underline">Verify Integrity</button>
                 </div>
               </div>

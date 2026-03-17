@@ -16,6 +16,8 @@ pub enum AddResult {
     Ready,
     /// Added to the Future queue (waiting for a nonce gap to be filled).
     Future,
+    /// Transaction was already present in the pool and was not reinserted.
+    Known,
     /// Rejected (nonce too low, duplicate, or other error).
     Rejected(String),
 }
@@ -106,10 +108,10 @@ impl AccountQueue {
         }
 
         if self.ready.contains_key(&nonce) {
-            return AddResult::Ready;
+            return AddResult::Known;
         }
         if self.future.contains_key(&nonce) {
-            return AddResult::Future;
+            return AddResult::Known;
         }
 
         let next_needed = self.pending_nonce + self.ready.len() as u64;
@@ -201,9 +203,12 @@ impl Mempool {
             let removed = queue.update_base_nonce(committed_nonce_state);
             self.total_count.fetch_sub(removed, Ordering::Relaxed);
 
+            let before_len = queue.ready.len() + queue.future.len();
             let res = queue.add(tx, hash, tx_nonce);
-            if matches!(res, AddResult::Ready | AddResult::Future) {
-                self.total_count.fetch_add(1, Ordering::Relaxed);
+            let after_len = queue.ready.len() + queue.future.len();
+            if after_len > before_len {
+                self.total_count
+                    .fetch_add(after_len - before_len, Ordering::Relaxed);
             }
             res
         } else {

@@ -187,6 +187,8 @@ where
 pub struct PreparedBlock {
     /// The full block, including header and transactions.
     pub block: Block<ChainTransaction>,
+    /// The authoritative millisecond timestamp for the block on the live timing path.
+    pub block_timestamp_ms: u64,
     /// The complete set of state modifications derived from executing the block's transactions.
     pub state_changes: Arc<StateChanges>,
     /// The raw state root of the parent block, for validation during commit.

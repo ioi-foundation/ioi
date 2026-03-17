@@ -131,6 +131,7 @@ pub async fn run(args: NodeArgs) -> Result<()> {
             };
             let timing_runtime = BlockTimingRuntime {
                 effective_interval_secs: args.block_time,
+                effective_interval_ms: args.block_time.saturating_mul(1_000),
                 ema_gas_used: 0,
             };
             builder.set_block_timing(&timing_params, &timing_runtime);

@@ -8,7 +8,8 @@ use ioi_api::consensus::ConsensusControl; // [NEW] Import trait
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_system::SystemState;
 use ioi_types::app::{
-    AccountId, Block, ChainStatus, ConsensusVote, FailureReport, QuorumCertificate,
+    seconds_to_millis, AccountId, Block, ChainStatus, ConsensusVote, FailureReport,
+    QuorumCertificate,
 };
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, TransactionError};
@@ -91,8 +92,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
         ConsensusDecision::ProduceBlock {
             transactions: vec![], // Transactions are injected by the Orchestrator mempool logic
             expected_timestamp_secs,
+            expected_timestamp_ms: seconds_to_millis(expected_timestamp_secs),
             view,
             parent_qc: QuorumCertificate::default(), // <--- Populate default
+            timeout_certificate: None,
         }
     }
 

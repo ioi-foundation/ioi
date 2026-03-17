@@ -200,6 +200,7 @@ async fn submit_wallet_interception_record(
             "wallet_network interception tx rejected: {}",
             reason
         )),
+        crate::standard::orchestration::mempool::AddResult::Known => Ok(()),
         _ => {
             let _ = consensus_kick_tx.send(());
             Ok(())

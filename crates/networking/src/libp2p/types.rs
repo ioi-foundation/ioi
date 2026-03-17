@@ -1,9 +1,9 @@
 // Path: crates/networking/src/libp2p/types.rs
 
-use ioi_consensus::convergent::guardian_majority::ViewChangeVote;
+use ioi_types::app::ViewChangeVote;
 use ioi_types::app::{
-    Block, ChainId, ChainTransaction, ConfidenceVote, ConsensusVote, EchoMessage,
-    OracleAttestation, PanicMessage,
+    AccountId, Block, ChainId, ChainTransaction, ConfidenceVote, ConsensusVote, EchoMessage,
+    OracleAttestation, PanicMessage, QuorumCertificate,
 };
 // [FIX] Removed unused codec import
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
@@ -16,7 +16,12 @@ pub enum SwarmCommand {
     Dial(Multiaddr),
     PublishBlock(Vec<u8>),
     PublishTransaction(Vec<u8>),
+    RelayTransactionToPeer {
+        peer: PeerId,
+        data: Vec<u8>,
+    },
     BroadcastVote(Vec<u8>),
+    BroadcastQuorumCertificate(Vec<u8>),
     BroadcastViewChange(Vec<u8>),
 
     // Protocol Apex Commands
@@ -48,6 +53,7 @@ pub enum SwarmCommand {
         head_hash: [u8; 32],
         chain_id: ChainId,
         genesis_root: Vec<u8>,
+        validator_account_id: Option<AccountId>,
     },
     SendBlocksResponse(ResponseChannel<SyncResponse>, Vec<Block<ChainTransaction>>),
     BroadcastToCommittee(Vec<PeerId>, String),
@@ -68,10 +74,15 @@ pub enum NetworkEvent {
     GossipBlock {
         block: Block<ChainTransaction>,
         mirror_id: u8,
+        from: PeerId,
     },
     GossipTransaction(Box<ChainTransaction>),
     ConsensusVoteReceived {
         vote: ConsensusVote,
+        from: PeerId,
+    },
+    QuorumCertificateReceived {
+        qc: QuorumCertificate,
         from: PeerId,
     },
     ViewChangeVoteReceived {
@@ -114,6 +125,7 @@ pub enum NetworkEvent {
         head_hash: [u8; 32],
         chain_id: ChainId,
         genesis_root: Vec<u8>,
+        validator_account_id: Option<AccountId>,
     },
     BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
     AgenticPrompt {
@@ -145,6 +157,7 @@ pub enum SwarmInternalEvent {
     GossipBlock(Vec<u8>, PeerId, u8),
     GossipTransaction(Vec<u8>, PeerId),
     ConsensusVoteReceived(Vec<u8>, PeerId),
+    QuorumCertificateReceived(Vec<u8>, PeerId),
     ViewChangeVoteReceived(Vec<u8>, PeerId),
 
     EchoReceived(Vec<u8>, PeerId),
@@ -168,6 +181,7 @@ pub enum SwarmInternalEvent {
         head_hash: [u8; 32],
         chain_id: ChainId,
         genesis_root: Vec<u8>,
+        validator_account_id: Option<AccountId>,
     },
     BlocksResponse(PeerId, Vec<Block<ChainTransaction>>),
     AgenticPrompt {

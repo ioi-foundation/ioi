@@ -1,7 +1,9 @@
 // Path: crates/types/src/config/mod.rs
 
 //! Shared configuration structures for core IOI Kernel components.
-use crate::app::{ChainId, GuardianProductionMode, KeyAuthorityDescriptor, KeyAuthorityKind};
+use crate::app::{
+    ChainId, FinalityTier, GuardianProductionMode, KeyAuthorityDescriptor, KeyAuthorityKind,
+};
 use crate::service_configs::{GovernanceParams, MethodPermission, MigrationConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -126,6 +128,15 @@ pub struct GuardianRegistryParams {
     /// Maximum number of committee members that may be unavailable before the validator is expected to pause.
     #[serde(default = "default_max_committee_outage_members")]
     pub max_committee_outage_members: u16,
+    /// Certification strata required for asymptote sealed finality.
+    #[serde(default = "default_required_witness_strata")]
+    pub asymptote_required_witness_strata: Vec<String>,
+    /// Certification strata required after a divergence escalation.
+    #[serde(default = "default_escalation_witness_strata")]
+    pub asymptote_escalation_witness_strata: Vec<String>,
+    /// Finality tier required for high-risk irreversible effects.
+    #[serde(default = "default_high_risk_effect_tier")]
+    pub asymptote_high_risk_effect_tier: FinalityTier,
 }
 
 impl Default for GuardianRegistryParams {
@@ -142,6 +153,9 @@ impl Default for GuardianRegistryParams {
             require_checkpoint_anchoring: default_true(),
             max_checkpoint_staleness_ms: default_max_checkpoint_staleness_ms(),
             max_committee_outage_members: default_max_committee_outage_members(),
+            asymptote_required_witness_strata: default_required_witness_strata(),
+            asymptote_escalation_witness_strata: default_escalation_witness_strata(),
+            asymptote_high_risk_effect_tier: default_high_risk_effect_tier(),
         }
     }
 }
@@ -210,6 +224,9 @@ pub struct GuardianWitnessCommitteeConfig {
     /// Stable witness committee identifier.
     #[serde(default)]
     pub committee_id: String,
+    /// Stable certification stratum represented by this witness committee.
+    #[serde(default)]
+    pub stratum_id: String,
     /// Witness committee epoch.
     #[serde(default)]
     pub epoch: u64,
@@ -1088,9 +1105,9 @@ pub struct OrchestrationConfig {
     pub validator_role: ValidatorRole,
     /// The consensus engine type.
     pub consensus_type: ConsensusType,
-    /// Safety mode for the Convergent Fault Tolerance family.
+    /// Safety mode for the Aft Fault Tolerance family.
     #[serde(default)]
-    pub convergent_safety_mode: ConvergentSafetyMode,
+    pub aft_safety_mode: AftSafetyMode,
     /// Guardianized signing / deployment profile.
     #[serde(default)]
     pub guardian_production_mode: GuardianProductionMode,
@@ -1146,7 +1163,7 @@ fn default_block_production_interval_secs() -> u64 {
     5
 }
 fn default_round_robin_view_timeout_secs() -> u64 {
-    20
+    2
 }
 fn default_query_gas_limit() -> u64 {
     1_000_000_000
@@ -1177,4 +1194,17 @@ fn default_max_checkpoint_staleness_ms() -> u64 {
 }
 fn default_max_committee_outage_members() -> u16 {
     1
+}
+fn default_required_witness_strata() -> Vec<String> {
+    vec!["stratum-a".to_string(), "stratum-b".to_string()]
+}
+fn default_escalation_witness_strata() -> Vec<String> {
+    vec![
+        "stratum-a".to_string(),
+        "stratum-b".to_string(),
+        "stratum-c".to_string(),
+    ]
+}
+fn default_high_risk_effect_tier() -> FinalityTier {
+    FinalityTier::SealedFinal
 }

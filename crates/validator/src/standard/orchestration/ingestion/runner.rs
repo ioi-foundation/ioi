@@ -9,9 +9,12 @@ use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_client::WorkloadClient;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_tx::unified::UnifiedTransactionModel;
+use libp2p::PeerId;
 use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
-use std::{fmt::Debug, sync::Arc};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::{fmt::Debug, sync::Arc, time::Duration};
 use tokio::sync::{mpsc, watch, Mutex};
 use tracing::info;
 
@@ -31,6 +34,8 @@ pub async fn run_ingestion_worker<CS>(
     workload_client: Arc<WorkloadClient>,
     tx_pool: Arc<Mempool>,
     swarm_sender: mpsc::Sender<SwarmCommand>,
+    peer_accounts_ref: Arc<Mutex<HashMap<PeerId, ioi_types::app::AccountId>>>,
+    local_account_id: ioi_types::app::AccountId,
     consensus_kick_tx: mpsc::UnboundedSender<()>,
     tx_model: Arc<UnifiedTransactionModel<CS>>,
     tip_watcher: watch::Receiver<ChainTipInfo>,
@@ -57,6 +62,11 @@ pub async fn run_ingestion_worker<CS>(
         "Transaction Ingestion Worker started (Batch Size: {}, Timeout: {}ms)",
         config.batch_size, config.batch_timeout_ms
     );
+    let consensus_kick_debounce_ms = std::env::var("IOI_INGESTION_CONSENSUS_KICK_DEBOUNCE_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0);
+    let kick_scheduled = Arc::new(AtomicBool::new(false));
 
     let mut nonce_cache: lru::LruCache<ioi_types::app::AccountId, u64> =
         lru::LruCache::new(std::num::NonZeroUsize::new(10000).unwrap());
@@ -107,21 +117,38 @@ pub async fn run_ingestion_worker<CS>(
             continue;
         }
 
+        let current_tip = tip_watcher.borrow().clone();
+        let current_tip_height = current_tip.height;
+
         if finalize_valid_transactions(
             &workload_client,
             &tx_pool,
             &swarm_sender,
+            &peer_accounts_ref,
+            local_account_id,
             &status_cache,
             &receipt_map,
             &mut nonce_cache,
             &semantically_valid_indices,
             &processed_batch,
             anchor,
+            current_tip_height,
+            &current_tip.validator_set,
             expected_ts,
         )
         .await
         {
-            let _ = consensus_kick_tx.send(());
+            if consensus_kick_debounce_ms == 0 {
+                let _ = consensus_kick_tx.send(());
+            } else if !kick_scheduled.swap(true, Ordering::SeqCst) {
+                let consensus_kick_tx = consensus_kick_tx.clone();
+                let kick_scheduled = kick_scheduled.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(consensus_kick_debounce_ms)).await;
+                    let _ = consensus_kick_tx.send(());
+                    kick_scheduled.store(false, Ordering::SeqCst);
+                });
+            }
         }
     }
 }

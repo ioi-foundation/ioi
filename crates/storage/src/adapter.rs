@@ -66,3 +66,20 @@ pub async fn commit_and_persist<S: NodeStore + ?Sized>(
     };
     store.commit_block(input).await
 }
+
+pub async fn commit_and_persist_with_block<S: NodeStore + ?Sized>(
+    store: &S,
+    height: u64,
+    root_hash32: [u8; 32],
+    delta: &DeltaAccumulator,
+    block_bytes: &[u8],
+) -> Result<(), StorageError> {
+    let (unique, newv) = delta.build();
+    let input = CommitInput {
+        height,
+        root: StoreRootHash(root_hash32),
+        unique_nodes_for_height: unique,
+        new_nodes: newv,
+    };
+    store.commit_block_with_payload(input, block_bytes).await
+}

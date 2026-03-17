@@ -1,9 +1,5 @@
 // Path: crates/cli/tests/agent_trace_e2e.rs
-#![cfg(all(
-    feature = "consensus-convergent",
-    feature = "vm-wasm",
-    feature = "state-iavl"
-))]
+#![cfg(all(feature = "consensus-aft", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::Result;
 use async_trait::async_trait;

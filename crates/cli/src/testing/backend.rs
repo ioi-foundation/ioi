@@ -182,13 +182,16 @@ impl TestBackend for ProcessBackend {
 
     async fn cleanup(&mut self) -> Result<()> {
         if let Some(mut child) = self.orchestration_process.take() {
-            child.kill().await?;
+            child.start_kill()?;
+            let _ = child.wait().await;
         }
         if let Some(mut child) = self.workload_process.take() {
-            child.kill().await?;
+            child.start_kill()?;
+            let _ = child.wait().await;
         }
         if let Some(mut child) = self.guardian_process.take() {
-            child.kill().await?;
+            child.start_kill()?;
+            let _ = child.wait().await;
         }
         Ok(())
     }

@@ -5,7 +5,7 @@
 use crate::traits::{BlockSync, NodeState, SyncError};
 use async_trait::async_trait;
 use futures::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use ioi_types::app::{Block, ChainId, ChainTransaction};
+use ioi_types::app::{AccountId, Block, ChainId, ChainTransaction};
 use ioi_types::codec;
 use libp2p::{request_response::Codec, PeerId};
 use parity_scale_codec::{Decode, Encode};
@@ -17,6 +17,22 @@ use super::{Libp2pSync, SwarmCommand};
 
 // --- Block Sync Protocol Definitions ---
 
+fn max_sync_request_bytes() -> usize {
+    std::env::var("IOI_AFT_MAX_SYNC_REQUEST_BYTES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value >= 4 * 1024 * 1024)
+        .unwrap_or(64 * 1024 * 1024)
+}
+
+fn max_sync_response_bytes() -> usize {
+    std::env::var("IOI_AFT_MAX_SYNC_RESPONSE_BYTES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value >= 4 * 1024 * 1024)
+        .unwrap_or(64 * 1024 * 1024)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub enum SyncRequest {
     GetStatus,
@@ -25,6 +41,11 @@ pub enum SyncRequest {
         max_blocks: u32,
         max_bytes: u32,
     },
+    RelayBlock(Vec<u8>),
+    RelayTransaction(Vec<u8>),
+    RelayConsensusVote(Vec<u8>),
+    RelayQuorumCertificate(Vec<u8>),
+    RelayViewChange(Vec<u8>),
     AgenticPrompt(String),
     // [NEW] Request missing transactions for compact block reconstruction
     // Changed usize to u32 for deterministic SCALE encoding
@@ -42,8 +63,12 @@ pub enum SyncResponse {
         head_hash: [u8; 32],
         chain_id: ChainId,
         genesis_root: Vec<u8>,
+        validator_account_id: Option<AccountId>,
     },
     Blocks(Vec<Block<ChainTransaction>>),
+    RelayBlockAck,
+    RelayTransactionAck,
+    RelayConsensusAck,
     AgenticAck,
     // [NEW] Response with missing transactions
     MissingTxs(Vec<ChainTransaction>),
@@ -143,7 +168,7 @@ impl Codec for SyncCodec {
         _: &Self::Protocol,
         io: &mut T,
     ) -> std::io::Result<Self::Request> {
-        let vec = read_length_prefixed(io, 1_000_000).await?;
+        let vec = read_length_prefixed(io, max_sync_request_bytes()).await?;
         codec::from_bytes_canonical(&vec)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
@@ -152,7 +177,7 @@ impl Codec for SyncCodec {
         _: &Self::Protocol,
         io: &mut T,
     ) -> std::io::Result<Self::Response> {
-        let vec = read_length_prefixed(io, 10_000_000).await?;
+        let vec = read_length_prefixed(io, max_sync_response_bytes()).await?;
         codec::from_bytes_canonical(&vec)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
@@ -218,5 +243,9 @@ impl BlockSync for Libp2pSync {
 
     fn get_known_peers(&self) -> Arc<Mutex<HashSet<PeerId>>> {
         self.known_peers.clone()
+    }
+
+    fn bootstrap_peer_count(&self) -> usize {
+        self.bootstrap_peer_count
     }
 }

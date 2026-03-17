@@ -30,16 +30,19 @@ use ioi_crypto::transport::hybrid_kem_tls::{
 };
 use ioi_ipc::control::{
     guardian_control_client::GuardianControlClient, GuardianMemberSignature,
-    ReportWitnessFaultRequest, SignCommitteeDecisionRequest, SignConsensusRequest,
-    SignWitnessStatementRequest,
+    ObserveAsymptoteRequest, ReportWitnessFaultRequest, SealConsensusRequest,
+    SignCommitteeDecisionRequest, SignConsensusRequest, SignWitnessStatementRequest,
 };
 use ioi_ipc::IpcClientType;
 use ioi_types::app::{
-    account_id_from_key_material, AccountId, BinaryMeasurement, BootAttestation, EgressReceipt,
+    account_id_from_key_material, build_http_egress_seal_object,
+    canonical_asymptote_observer_assignments_hash, verify_seal_object, AccountId,
+    AsymptoteObserverCertificate, AsymptoteObserverCloseCertificate, AsymptoteObserverPlanEntry,
+    AsymptoteObserverStatement, BinaryMeasurement, BootAttestation, EgressReceipt, FinalityTier,
     GuardianCommitteeManifest, GuardianCommitteeMember, GuardianDecision, GuardianDecisionDomain,
     GuardianLogCheckpoint, GuardianProductionMode, GuardianQuorumCertificate,
     GuardianWitnessCertificate, GuardianWitnessCommitteeManifest, GuardianWitnessFaultEvidence,
-    GuardianWitnessStatement, SignatureBundle, SignatureSuite,
+    GuardianWitnessStatement, SealObject, SealedFinalityProof, SignatureBundle, SignatureSuite,
 };
 use ioi_types::codec;
 use ioi_types::config::GuardianVerifierPolicyConfig;
@@ -86,6 +89,18 @@ pub trait GuardianSigner: Send + Sync {
         experimental_witness_manifest: Option<([u8; 32], u8)>,
     ) -> Result<SignatureBundle>;
 
+    /// Requests stronger witness-backed sealed finality for an already certified slot.
+    async fn seal_consensus_payload(
+        &self,
+        _payload_hash: [u8; 32],
+        _height: u64,
+        _view: u64,
+        _witness_manifest_hashes: Vec<[u8; 32]>,
+        _observer_plan: Vec<AsymptoteObserverPlanEntry>,
+    ) -> Result<SealedFinalityProof> {
+        Err(anyhow!("sealed finality is not supported by this signer"))
+    }
+
     /// Persists experimental witness-fault evidence when the runtime detects witness omission or
     /// reassignment conditions.
     async fn report_witness_fault(&self, _evidence: &GuardianWitnessFaultEvidence) -> Result<()> {
@@ -101,7 +116,7 @@ pub trait GuardianSigner: Send + Sync {
 pub struct LocalSigner {
     /// [FIX] Made public to allow direct access by ProviderController for non-consensus signing.
     pub keypair: ioi_crypto::sign::eddsa::Ed25519KeyPair,
-    // [FIX] Added monotonic counter to satisfy Convergent deterministic invariants in tests
+    // [FIX] Added monotonic counter to satisfy Aft deterministic invariants in tests
     counter: std::sync::atomic::AtomicU64,
 }
 
@@ -142,6 +157,7 @@ impl GuardianSigner for LocalSigner {
             counter,
             trace_hash: [0u8; 32],
             guardian_certificate: None,
+            sealed_finality_proof: None,
         })
     }
 
@@ -213,6 +229,7 @@ impl GuardianSigner for RemoteSigner {
             counter,
             trace_hash,
             guardian_certificate: None,
+            sealed_finality_proof: None,
         })
     }
 
@@ -240,6 +257,7 @@ struct GuardianCommitteeClient {
 #[derive(Debug, Clone)]
 struct RemoteCommitteeMember {
     endpoint: String,
+    channel: Channel,
 }
 
 #[derive(Clone)]
@@ -251,6 +269,15 @@ struct GuardianWitnessCommitteeClient {
 }
 
 impl GuardianCommitteeClient {
+    fn remote_rpc_timeout() -> Duration {
+        std::env::var("IOI_GUARDIAN_REMOTE_RPC_TIMEOUT_MS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| *value > 0)
+            .map(Duration::from_millis)
+            .unwrap_or_else(|| Duration::from_millis(750))
+    }
+
     fn from_config(
         config: &GuardianConfig,
         validator_account_id: AccountId,
@@ -366,8 +393,10 @@ impl GuardianCommitteeClient {
                 let signing_key = load_bls_private_key(Path::new(path))?;
                 signer_keys.push((index, signing_key));
             } else if let Some(endpoint) = &member.endpoint {
+                let endpoint = normalize_guardian_endpoint(endpoint);
                 remote_members.push(RemoteCommitteeMember {
-                    endpoint: normalize_guardian_endpoint(endpoint),
+                    channel: Channel::from_shared(endpoint.clone())?.connect_lazy(),
+                    endpoint,
                 });
             }
         }
@@ -421,16 +450,25 @@ impl GuardianCommitteeClient {
             member_signatures.insert(*member_index, signature);
         }
 
-        if member_signatures.len() < usize::from(self.manifest.threshold) {
+        let threshold = usize::from(self.manifest.threshold);
+        if member_signatures.len() < threshold {
             let remote_signatures = self
-                .collect_remote_signatures(decision, decision_hash, slot)
+                .collect_remote_signatures(
+                    decision,
+                    decision_hash,
+                    slot,
+                    threshold.saturating_sub(member_signatures.len()),
+                )
                 .await?;
             for (member_index, signature) in remote_signatures {
                 member_signatures.entry(member_index).or_insert(signature);
+                if member_signatures.len() >= threshold {
+                    break;
+                }
             }
         }
 
-        if member_signatures.len() < usize::from(self.manifest.threshold) {
+        if member_signatures.len() < threshold {
             return Err(anyhow!(
                 "guardian committee collected {} signatures but threshold is {}",
                 member_signatures.len(),
@@ -462,27 +500,53 @@ impl GuardianCommitteeClient {
         decision: &GuardianDecision,
         decision_hash: [u8; 32],
         slot: Option<(u64, u64)>,
+        needed_signatures: usize,
     ) -> Result<Vec<(usize, BlsSignature)>> {
+        if needed_signatures == 0 {
+            return Ok(Vec::new());
+        }
+
         let decision_bytes =
             codec::to_bytes_canonical(decision).map_err(|e| anyhow!(e.to_string()))?;
+        let rpc_timeout = Self::remote_rpc_timeout();
         let mut inflight = FuturesUnordered::new();
         for remote_member in &self.remote_members {
             let endpoint = remote_member.endpoint.clone();
+            let channel = remote_member.channel.clone();
             let manifest_hash = self.manifest_hash;
             let decision_bytes = decision_bytes.clone();
             inflight.push(async move {
-                let channel = Channel::from_shared(endpoint.clone())?.connect().await?;
-                let mut client = GuardianControlClient::new(channel);
-                let response = client
-                    .sign_committee_decision(SignCommitteeDecisionRequest {
-                        decision: decision_bytes,
-                        manifest_hash: manifest_hash.to_vec(),
-                        height: slot.map(|(height, _)| height).unwrap_or_default(),
-                        view: slot.map(|(_, view)| view).unwrap_or_default(),
-                    })
-                    .await?
-                    .into_inner();
-                Ok::<_, anyhow::Error>(response)
+                let request = SignCommitteeDecisionRequest {
+                    decision: decision_bytes,
+                    manifest_hash: manifest_hash.to_vec(),
+                    height: slot.map(|(height, _)| height).unwrap_or_default(),
+                    view: slot.map(|(_, view)| view).unwrap_or_default(),
+                };
+                let mut last_error = None;
+                for attempt in 0..4 {
+                    let mut client = GuardianControlClient::new(channel.clone());
+                    match tokio::time::timeout(
+                        rpc_timeout,
+                        client.sign_committee_decision(request.clone()),
+                    )
+                    .await
+                    {
+                        Ok(Ok(response)) => return Ok::<_, anyhow::Error>(response.into_inner()),
+                        Ok(Err(error)) => {
+                            last_error = Some(anyhow!("{endpoint}: {error}"));
+                        }
+                        Err(_) => {
+                            last_error = Some(anyhow!(
+                                "{endpoint}: committee RPC timed out after {} ms",
+                                rpc_timeout.as_millis()
+                            ));
+                        }
+                    }
+                    if attempt < 3 {
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                    }
+                }
+                Err(last_error.unwrap_or_else(|| anyhow!("{endpoint}: committee RPC failed")))
             });
         }
 
@@ -514,8 +578,18 @@ impl GuardianCommitteeClient {
                 return Err(anyhow!("remote committee response decision hash mismatch"));
             }
             for partial_signature in response.partial_signatures {
-                collected
-                    .push(self.verify_remote_partial_signature(decision_hash, partial_signature)?);
+                let verified =
+                    self.verify_remote_partial_signature(decision_hash, partial_signature)?;
+                if collected
+                    .iter()
+                    .any(|(member_index, _)| *member_index == verified.0)
+                {
+                    continue;
+                }
+                collected.push(verified);
+                if collected.len() >= needed_signatures {
+                    return Ok(collected);
+                }
             }
         }
 
@@ -596,6 +670,7 @@ impl GuardianWitnessCommitteeClient {
             )?);
             let manifest = GuardianWitnessCommitteeManifest {
                 committee_id: witness_config.committee_id.clone(),
+                stratum_id: witness_config.stratum_id.clone(),
                 epoch: witness_config.epoch,
                 threshold: witness_config.threshold,
                 members: witness_config
@@ -622,8 +697,10 @@ impl GuardianWitnessCommitteeClient {
                 if let Some(path) = &member.private_key_path {
                     signer_keys.push((index, load_bls_private_key(Path::new(path))?));
                 } else if let Some(endpoint) = &member.endpoint {
+                    let endpoint = normalize_guardian_endpoint(endpoint);
                     remote_members.push(RemoteCommitteeMember {
-                        endpoint: normalize_guardian_endpoint(endpoint),
+                        channel: Channel::from_shared(endpoint.clone())?.connect_lazy(),
+                        endpoint,
                     });
                 }
             }
@@ -668,16 +745,24 @@ impl GuardianWitnessCommitteeClient {
             member_signatures.insert(*member_index, signature);
         }
 
-        if member_signatures.len() < usize::from(self.manifest.threshold) {
+        let threshold = usize::from(self.manifest.threshold);
+        if member_signatures.len() < threshold {
             let remote_signatures = self
-                .collect_remote_signatures(statement, statement_hash)
+                .collect_remote_signatures(
+                    statement,
+                    statement_hash,
+                    threshold.saturating_sub(member_signatures.len()),
+                )
                 .await?;
             for (member_index, signature) in remote_signatures {
                 member_signatures.entry(member_index).or_insert(signature);
+                if member_signatures.len() >= threshold {
+                    break;
+                }
             }
         }
 
-        if member_signatures.len() < usize::from(self.manifest.threshold) {
+        if member_signatures.len() < threshold {
             return Err(anyhow!(
                 "experimental witness committee '{}' collected {} signatures but threshold is {}",
                 self.manifest.committee_id,
@@ -693,6 +778,7 @@ impl GuardianWitnessCommitteeClient {
 
         Ok(GuardianWitnessCertificate {
             manifest_hash: self.manifest_hash,
+            stratum_id: self.manifest.stratum_id.clone(),
             epoch: self.manifest.epoch,
             statement_hash,
             signers_bitfield,
@@ -706,25 +792,51 @@ impl GuardianWitnessCommitteeClient {
         &self,
         statement: &GuardianWitnessStatement,
         statement_hash: [u8; 32],
+        needed_signatures: usize,
     ) -> Result<Vec<(usize, BlsSignature)>> {
+        if needed_signatures == 0 {
+            return Ok(Vec::new());
+        }
+
         let statement_bytes =
             codec::to_bytes_canonical(statement).map_err(|e| anyhow!(e.to_string()))?;
+        let rpc_timeout = GuardianCommitteeClient::remote_rpc_timeout();
         let mut inflight = FuturesUnordered::new();
         for remote_member in &self.remote_members {
             let endpoint = remote_member.endpoint.clone();
+            let channel = remote_member.channel.clone();
             let manifest_hash = self.manifest_hash;
             let statement_bytes = statement_bytes.clone();
             inflight.push(async move {
-                let channel = Channel::from_shared(endpoint.clone())?.connect().await?;
-                let mut client = GuardianControlClient::new(channel);
-                let response = client
-                    .sign_witness_statement(SignWitnessStatementRequest {
-                        statement: statement_bytes,
-                        manifest_hash: manifest_hash.to_vec(),
-                    })
-                    .await?
-                    .into_inner();
-                Ok::<_, anyhow::Error>(response)
+                let request = SignWitnessStatementRequest {
+                    statement: statement_bytes,
+                    manifest_hash: manifest_hash.to_vec(),
+                };
+                let mut last_error = None;
+                for attempt in 0..4 {
+                    let mut client = GuardianControlClient::new(channel.clone());
+                    match tokio::time::timeout(
+                        rpc_timeout,
+                        client.sign_witness_statement(request.clone()),
+                    )
+                    .await
+                    {
+                        Ok(Ok(response)) => return Ok::<_, anyhow::Error>(response.into_inner()),
+                        Ok(Err(error)) => {
+                            last_error = Some(anyhow!("{endpoint}: {error}"));
+                        }
+                        Err(_) => {
+                            last_error = Some(anyhow!(
+                                "{endpoint}: witness RPC timed out after {} ms",
+                                rpc_timeout.as_millis()
+                            ));
+                        }
+                    }
+                    if attempt < 3 {
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                    }
+                }
+                Err(last_error.unwrap_or_else(|| anyhow!("{endpoint}: witness RPC failed")))
             });
         }
 
@@ -756,8 +868,18 @@ impl GuardianWitnessCommitteeClient {
                 return Err(anyhow!("remote witness response statement hash mismatch"));
             }
             for partial_signature in response.partial_signatures {
-                collected
-                    .push(self.verify_remote_partial_signature(statement_hash, partial_signature)?);
+                let verified =
+                    self.verify_remote_partial_signature(statement_hash, partial_signature)?;
+                if collected
+                    .iter()
+                    .any(|(member_index, _)| *member_index == verified.0)
+                {
+                    continue;
+                }
+                collected.push(verified);
+                if collected.len() >= needed_signatures {
+                    return Ok(collected);
+                }
             }
         }
 
@@ -910,7 +1032,56 @@ impl GuardianSigner for GuardianGrpcSigner {
             counter: response.counter,
             trace_hash,
             guardian_certificate,
+            sealed_finality_proof: None,
         })
+    }
+
+    async fn seal_consensus_payload(
+        &self,
+        payload_hash: [u8; 32],
+        height: u64,
+        view: u64,
+        witness_manifest_hashes: Vec<[u8; 32]>,
+        observer_plan: Vec<AsymptoteObserverPlanEntry>,
+    ) -> Result<SealedFinalityProof> {
+        let checkpoint = self.checkpoint.lock().await.clone();
+        let request = SealConsensusRequest {
+            payload_hash: payload_hash.to_vec(),
+            subject: self.subject.clone(),
+            expected_counter: checkpoint.counter,
+            expected_trace_hash: checkpoint.trace_hash.to_vec(),
+            measurement_root: self.measurement_root.to_vec(),
+            policy_hash: self.policy_hash.to_vec(),
+            manifest_hash: self.manifest_hash.to_vec(),
+            height,
+            view,
+            witness_manifest_hashes: witness_manifest_hashes
+                .into_iter()
+                .map(|manifest_hash| manifest_hash.to_vec())
+                .collect(),
+            witness_reassignment_depth: 0,
+            observer_plan_entries: observer_plan
+                .into_iter()
+                .map(|entry| codec::to_bytes_canonical(&entry).map_err(|e| anyhow!(e.to_string())))
+                .collect::<Result<Vec<_>>>()?,
+        };
+
+        let mut client = GuardianControlClient::new(self.channel.clone());
+        let response = client.seal_consensus(request).await?.into_inner();
+        let trace_hash: [u8; 32] = response
+            .trace_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("guardian returned invalid trace hash length"))?;
+        *self.checkpoint.lock().await = GuardianDecisionState {
+            counter: response.counter,
+            trace_hash,
+            slot_locks: HashMap::new(),
+            slot_certificates: HashMap::new(),
+        };
+
+        codec::from_bytes_canonical(&response.sealed_finality_proof)
+            .map_err(|e| anyhow!(e.to_string()))
     }
 
     async fn report_witness_fault(&self, evidence: &GuardianWitnessFaultEvidence) -> Result<()> {
@@ -977,6 +1148,10 @@ pub struct GuardianContainer {
     witness_committee_clients: HashMap<[u8; 32], GuardianWitnessCommitteeClient>,
     /// Monotonic decision stream shared across consensus and egress certificates.
     decision_state: Arc<TokioMutex<GuardianDecisionState>>,
+    /// Replay-safe nullifiers for proof-carrying sealed effects emitted by this guardian.
+    sealed_effect_nullifiers: Arc<TokioMutex<BTreeSet<[u8; 32]>>>,
+    /// Reused gRPC channels for remote equal-authority observer collection.
+    observer_rpc_channels: Arc<TokioMutex<HashMap<String, Channel>>>,
 }
 
 fn digest_to_array(digest: impl AsRef<[u8]>) -> Result<[u8; 32]> {
@@ -1467,6 +1642,8 @@ impl GuardianContainer {
             committee_client,
             witness_committee_clients,
             decision_state: Arc::new(TokioMutex::new(GuardianDecisionState::default())),
+            sealed_effect_nullifiers: Arc::new(TokioMutex::new(BTreeSet::new())),
+            observer_rpc_channels: Arc::new(TokioMutex::new(HashMap::new())),
         })
     }
 
@@ -1505,50 +1682,59 @@ impl GuardianContainer {
             }
         }
 
-        let mut decision_state = self.decision_state.lock().await;
-        if let Some(slot) = slot {
-            if let Some(locked_payload_hash) = decision_state.slot_locks.get(&slot) {
-                if locked_payload_hash != &payload_hash {
-                    return Err(anyhow!(
-                        "guardian slot already certified for a different payload at height {} view {}",
-                        slot.0,
-                        slot.1
-                    ));
-                }
-                if let Some(existing_certificate) =
-                    decision_state.slot_certificates.get(&slot).cloned()
-                {
-                    return Ok(Some((
-                        existing_certificate.counter,
-                        existing_certificate.trace_hash,
-                        existing_certificate,
-                    )));
+        let (prior_counter, prior_trace_hash, counter, trace_hash) = {
+            let decision_state = self.decision_state.lock().await;
+            if let Some(slot) = slot {
+                if let Some(locked_payload_hash) = decision_state.slot_locks.get(&slot) {
+                    if locked_payload_hash != &payload_hash {
+                        return Err(anyhow!(
+                            "guardian slot already certified for a different payload at height {} view {}",
+                            slot.0,
+                            slot.1
+                        ));
+                    }
+                    if let Some(existing_certificate) =
+                        decision_state.slot_certificates.get(&slot).cloned()
+                    {
+                        return Ok(Some((
+                            existing_certificate.counter,
+                            existing_certificate.trace_hash,
+                            existing_certificate,
+                        )));
+                    }
                 }
             }
-        }
-        if expected_counter != 0 && expected_counter != decision_state.counter {
-            return Err(anyhow!(
-                "guardian counter checkpoint mismatch: expected {}, current {}",
-                expected_counter,
-                decision_state.counter
-            ));
-        }
-        if expected_trace_hash != [0u8; 32] && expected_trace_hash != decision_state.trace_hash {
-            return Err(anyhow!("guardian trace checkpoint mismatch"));
-        }
-        let counter = decision_state.counter.saturating_add(1);
-        let trace_hash = digest_to_array(
-            Sha256::digest(
-                &[
-                    decision_state.trace_hash.as_ref(),
-                    payload_hash.as_ref(),
-                    counter.to_be_bytes().as_ref(),
-                    committee_client.manifest_hash().as_ref(),
-                ]
-                .concat(),
+            if expected_counter != 0 && expected_counter != decision_state.counter {
+                return Err(anyhow!(
+                    "guardian counter checkpoint mismatch: expected {}, current {}",
+                    expected_counter,
+                    decision_state.counter
+                ));
+            }
+            if expected_trace_hash != [0u8; 32] && expected_trace_hash != decision_state.trace_hash
+            {
+                return Err(anyhow!("guardian trace checkpoint mismatch"));
+            }
+            let counter = decision_state.counter.saturating_add(1);
+            let trace_hash = digest_to_array(
+                Sha256::digest(
+                    &[
+                        decision_state.trace_hash.as_ref(),
+                        payload_hash.as_ref(),
+                        counter.to_be_bytes().as_ref(),
+                        committee_client.manifest_hash().as_ref(),
+                    ]
+                    .concat(),
+                )
+                .map_err(|e| anyhow!(e))?,
+            )?;
+            (
+                decision_state.counter,
+                decision_state.trace_hash,
+                counter,
+                trace_hash,
             )
-            .map_err(|e| anyhow!(e))?,
-        )?;
+        };
         let decision = GuardianDecision {
             domain: domain as u8,
             subject: if subject.is_empty() {
@@ -1582,6 +1768,27 @@ impl GuardianContainer {
         let checkpoint_payload = codec::to_bytes_canonical(&(&decision, &certificate))
             .map_err(|e| anyhow!(e.to_string()))?;
         certificate.log_checkpoint = Some(transparency_log.append(&checkpoint_payload).await?);
+
+        let mut decision_state = self.decision_state.lock().await;
+        if decision_state.counter != prior_counter || decision_state.trace_hash != prior_trace_hash
+        {
+            if let Some(slot) = slot {
+                if decision_state.slot_locks.get(&slot) == Some(&payload_hash) {
+                    if let Some(existing_certificate) =
+                        decision_state.slot_certificates.get(&slot).cloned()
+                    {
+                        return Ok(Some((
+                            existing_certificate.counter,
+                            existing_certificate.trace_hash,
+                            existing_certificate,
+                        )));
+                    }
+                }
+            }
+            return Err(anyhow!(
+                "guardian decision state advanced while signing consensus payload; retry"
+            ));
+        }
 
         decision_state.counter = counter;
         decision_state.trace_hash = trace_hash;
@@ -1644,6 +1851,344 @@ impl GuardianContainer {
         witness_certificate.log_checkpoint =
             Some(transparency_log.append(&checkpoint_payload).await?);
         Ok(witness_certificate)
+    }
+
+    fn build_asymptote_observer_statement(
+        guardian_certificate: &GuardianQuorumCertificate,
+        assignment: &ioi_types::app::AsymptoteObserverAssignment,
+        block_hash: [u8; 32],
+    ) -> AsymptoteObserverStatement {
+        AsymptoteObserverStatement {
+            epoch: guardian_certificate.epoch,
+            assignment: assignment.clone(),
+            block_hash,
+            guardian_manifest_hash: guardian_certificate.manifest_hash,
+            guardian_decision_hash: guardian_certificate.decision_hash,
+            guardian_counter: guardian_certificate.counter,
+            guardian_trace_hash: guardian_certificate.trace_hash,
+            guardian_measurement_root: guardian_certificate.measurement_root,
+            guardian_checkpoint_root: guardian_certificate
+                .log_checkpoint
+                .as_ref()
+                .map(|checkpoint| checkpoint.root_hash)
+                .unwrap_or([0u8; 32]),
+            verdict: ioi_types::app::AsymptoteObserverVerdict::Ok,
+            veto_kind: None,
+            evidence_hash: [0u8; 32],
+        }
+    }
+
+    /// Issues an equal-authority asymptote observer certificate for the local validator when the
+    /// deterministic observer assignment targets this guardian's registered committee.
+    pub async fn observe_asymptote_statement(
+        &self,
+        statement: &AsymptoteObserverStatement,
+        requested_manifest_hash: Option<[u8; 32]>,
+    ) -> Result<AsymptoteObserverCertificate> {
+        let Some(committee_client) = &self.committee_client else {
+            return Err(anyhow!("guardian committee signing is not configured"));
+        };
+        if statement.assignment.observer_account_id
+            != committee_client.manifest.validator_account_id
+        {
+            return Err(anyhow!(
+                "observer statement is assigned to a different validator account"
+            ));
+        }
+        if statement.epoch != committee_client.manifest.epoch {
+            return Err(anyhow!(
+                "observer statement epoch does not match local committee epoch"
+            ));
+        }
+        let payload_hash = digest_to_array(
+            Sha256::digest(
+                &codec::to_bytes_canonical(statement).map_err(|e| anyhow!(e.to_string()))?,
+            )
+            .map_err(|e| anyhow!(e.to_string()))?,
+        )?;
+        if let Some(manifest_hash) = requested_manifest_hash.filter(|hash| *hash != [0u8; 32]) {
+            if manifest_hash != committee_client.manifest_hash() {
+                return Err(anyhow!(
+                    "requested guardian manifest hash does not match local committee"
+                ));
+            }
+        }
+        let trace_hash = digest_to_array(
+            Sha256::digest(
+                &[
+                    payload_hash.as_ref(),
+                    committee_client.manifest_hash().as_ref(),
+                    statement.assignment.epoch.to_be_bytes().as_ref(),
+                    statement.assignment.height.to_be_bytes().as_ref(),
+                    statement.assignment.view.to_be_bytes().as_ref(),
+                    statement.assignment.round.to_be_bytes().as_ref(),
+                ]
+                .concat(),
+            )
+            .map_err(|e| anyhow!(e.to_string()))?,
+        )?;
+        let counter = u64::from_be_bytes(
+            payload_hash[..8]
+                .try_into()
+                .map_err(|_| anyhow!("observer payload hash must be 32 bytes"))?,
+        )
+        .saturating_add(1);
+        let decision = GuardianDecision {
+            domain: GuardianDecisionDomain::AsymptoteObserve as u8,
+            subject: statement.assignment.observer_account_id.0.to_vec(),
+            payload_hash,
+            counter,
+            trace_hash,
+            measurement_root: committee_client.default_measurement_root(),
+            policy_hash: committee_client.default_policy_hash(),
+        };
+        let transparency_log_id = if committee_client
+            .manifest
+            .transparency_log_id
+            .trim()
+            .is_empty()
+        {
+            self.default_transparency_log_id.clone()
+        } else {
+            committee_client.manifest.transparency_log_id.clone()
+        };
+        let transparency_log = self.transparency_log_for(&transparency_log_id)?;
+        let mut guardian_certificate = committee_client.sign_decision(&decision, None).await?;
+        let checkpoint_payload = codec::to_bytes_canonical(&(&decision, &guardian_certificate))
+            .map_err(|e| anyhow!(e.to_string()))?;
+        guardian_certificate.log_checkpoint =
+            Some(transparency_log.append(&checkpoint_payload).await?);
+        Ok(AsymptoteObserverCertificate {
+            assignment: statement.assignment.clone(),
+            verdict: statement.verdict,
+            veto_kind: statement.veto_kind,
+            evidence_hash: statement.evidence_hash,
+            guardian_certificate,
+        })
+    }
+
+    async fn request_remote_asymptote_observer_certificate(
+        &self,
+        statement: &AsymptoteObserverStatement,
+        manifest: &GuardianCommitteeManifest,
+    ) -> Result<AsymptoteObserverCertificate> {
+        let local_manifest_hash = self
+            .committee_client
+            .as_ref()
+            .map(|committee| committee.manifest_hash());
+        let manifest_hash =
+            canonical_manifest_hash(manifest).map_err(|e| anyhow!(e.to_string()))?;
+        if local_manifest_hash == Some(manifest_hash) {
+            return self
+                .observe_asymptote_statement(statement, Some(manifest_hash))
+                .await;
+        }
+
+        let request = ObserveAsymptoteRequest {
+            statement: codec::to_bytes_canonical(statement).map_err(|e| anyhow!(e.to_string()))?,
+            manifest_hash: manifest_hash.to_vec(),
+        };
+        let endpoints = manifest
+            .members
+            .iter()
+            .filter_map(|member| member.endpoint.as_ref())
+            .map(|endpoint| normalize_guardian_endpoint(endpoint))
+            .collect::<BTreeSet<_>>();
+        if endpoints.is_empty() {
+            return Err(anyhow!(
+                "observer manifest for {} does not expose any guardian endpoints",
+                hex::encode(manifest_hash)
+            ));
+        }
+
+        let mut last_error = None;
+        for endpoint in endpoints {
+            let channel = {
+                let mut channels = self.observer_rpc_channels.lock().await;
+                channels
+                    .entry(endpoint.clone())
+                    .or_insert_with(|| {
+                        Channel::from_shared(endpoint.clone())
+                            .expect("normalized guardian endpoint should be valid")
+                            .connect_lazy()
+                    })
+                    .clone()
+            };
+            let mut endpoint_error = None;
+            for attempt in 0..8 {
+                match async {
+                    let mut client = GuardianControlClient::new(channel.clone());
+                    let response = client
+                        .observe_asymptote(request.clone())
+                        .await?
+                        .into_inner();
+                    codec::from_bytes_canonical(&response.observer_certificate)
+                        .map_err(|e| anyhow!(e.to_string()))
+                }
+                .await
+                {
+                    Ok(observer_certificate) => return Ok(observer_certificate),
+                    Err(error) => {
+                        endpoint_error = Some(anyhow!("{endpoint}: {error}"));
+                        if attempt < 7 {
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                        }
+                    }
+                }
+            }
+            last_error = endpoint_error;
+        }
+
+        Err(last_error.unwrap_or_else(|| anyhow!("observer certificate request failed")))
+    }
+
+    /// Issues a stronger witness-backed proof for a consensus slot without changing the base block
+    /// identity. The guardian certificate is reused from the slot lock when already present.
+    pub async fn seal_consensus_with_guardian(
+        &self,
+        payload_hash: [u8; 32],
+        height: u64,
+        view: u64,
+        subject: Vec<u8>,
+        expected_counter: u64,
+        expected_trace_hash: [u8; 32],
+        requested_measurement_root: Option<[u8; 32]>,
+        requested_policy_hash: Option<[u8; 32]>,
+        requested_manifest_hash: Option<[u8; 32]>,
+        witness_manifest_hashes: Vec<[u8; 32]>,
+        observer_plan: Vec<AsymptoteObserverPlanEntry>,
+        witness_reassignment_depth: u8,
+    ) -> Result<(
+        u64,
+        [u8; 32],
+        GuardianQuorumCertificate,
+        SealedFinalityProof,
+    )> {
+        if witness_manifest_hashes.is_empty() && observer_plan.is_empty() {
+            return Err(anyhow!(
+                "asymptote sealing requires witness manifests or equal-authority observer plans"
+            ));
+        }
+        if !witness_manifest_hashes.is_empty() && !observer_plan.is_empty() {
+            return Err(anyhow!(
+                "asymptote sealing does not allow witness and observer plans in the same proof"
+            ));
+        }
+        let producer_account_id = subject
+            .as_slice()
+            .try_into()
+            .map(AccountId)
+            .map_err(|_| anyhow!("consensus subject must be a 32-byte account id"))?;
+        let committee_client = self
+            .committee_client
+            .as_ref()
+            .ok_or_else(|| anyhow!("guardian committee signing is not configured"))?;
+        let (_, _, guardian_certificate) = self
+            .issue_guardian_quorum_certificate(
+                GuardianDecisionDomain::ConsensusSlot,
+                Some((height, view)),
+                subject,
+                payload_hash,
+                expected_counter,
+                expected_trace_hash,
+                requested_measurement_root,
+                requested_policy_hash,
+                requested_manifest_hash,
+            )
+            .await?
+            .ok_or_else(|| anyhow!("guardian committee signing is not configured"))?;
+
+        let mut witness_certificates = Vec::new();
+        let mut observer_certificates = Vec::new();
+        let observer_close_certificate = if !observer_plan.is_empty() {
+            Some(AsymptoteObserverCloseCertificate {
+                epoch: guardian_certificate.epoch,
+                height,
+                view,
+                assignments_hash: canonical_asymptote_observer_assignments_hash(
+                    &observer_plan
+                        .iter()
+                        .map(|entry| entry.assignment.clone())
+                        .collect::<Vec<_>>(),
+                )
+                .map_err(|e| anyhow!(e))?,
+                expected_assignments: u16::try_from(observer_plan.len())
+                    .map_err(|_| anyhow!("observer plan length exceeds u16"))?,
+                ok_count: u16::try_from(observer_plan.len())
+                    .map_err(|_| anyhow!("observer plan length exceeds u16"))?,
+                veto_count: 0,
+            })
+        } else {
+            None
+        };
+        if !observer_plan.is_empty() {
+            for observer in observer_plan {
+                let statement = Self::build_asymptote_observer_statement(
+                    &guardian_certificate,
+                    &observer.assignment,
+                    payload_hash,
+                );
+                let observer_certificate = self
+                    .request_remote_asymptote_observer_certificate(&statement, &observer.manifest)
+                    .await?;
+                if observer_certificate.assignment != observer.assignment {
+                    return Err(anyhow!(
+                        "observer certificate assignment mismatch for observer {}",
+                        hex::encode(observer.assignment.observer_account_id)
+                    ));
+                }
+                observer_certificates.push(observer_certificate);
+            }
+        } else {
+            let mut unique_witness_manifests = Vec::new();
+            let mut seen = BTreeSet::new();
+            for manifest_hash in witness_manifest_hashes {
+                if manifest_hash == [0u8; 32] || !seen.insert(manifest_hash) {
+                    continue;
+                }
+                unique_witness_manifests.push(manifest_hash);
+            }
+            witness_certificates = Vec::with_capacity(unique_witness_manifests.len());
+            for witness_manifest_hash in unique_witness_manifests {
+                witness_certificates.push(
+                    self.issue_experimental_witness_certificate(
+                        &guardian_certificate,
+                        witness_manifest_hash,
+                        witness_reassignment_depth,
+                        producer_account_id,
+                        height,
+                        view,
+                    )
+                    .await?,
+                );
+            }
+        }
+
+        let sealed_proof = SealedFinalityProof {
+            epoch: guardian_certificate.epoch,
+            finality_tier: FinalityTier::SealedFinal,
+            collapse_state: ioi_types::app::CollapseState::SealedFinal,
+            guardian_manifest_hash: guardian_certificate.manifest_hash,
+            guardian_decision_hash: guardian_certificate.decision_hash,
+            guardian_counter: guardian_certificate.counter,
+            guardian_trace_hash: guardian_certificate.trace_hash,
+            guardian_measurement_root: guardian_certificate.measurement_root,
+            policy_hash: requested_policy_hash
+                .filter(|hash| *hash != [0u8; 32])
+                .unwrap_or_else(|| committee_client.default_policy_hash()),
+            witness_certificates,
+            observer_certificates,
+            observer_close_certificate,
+            veto_proofs: Vec::new(),
+            divergence_signals: Vec::new(),
+        };
+
+        Ok((
+            guardian_certificate.counter,
+            guardian_certificate.trace_hash,
+            guardian_certificate.clone(),
+            sealed_proof,
+        ))
     }
 
     /// Appends witness-fault evidence to the guardian transparency log and returns the resulting
@@ -1725,6 +2270,7 @@ impl GuardianContainer {
             counter,
             trace_hash,
             guardian_certificate: Some(guardian_certificate),
+            sealed_finality_proof: None,
         })
     }
 
@@ -2189,7 +2735,36 @@ impl GuardianContainer {
         secret_id: &str,
         signer: &libp2p::identity::Keypair,
         json_patch_path: Option<&str>, // [NEW] Added parameter
+        required_finality_tier: FinalityTier,
+        sealed_finality_proof: Option<SealedFinalityProof>,
+        seal_object: Option<SealObject>,
     ) -> Result<(Vec<u8>, [u8; 32], Vec<u8>, EgressReceipt)> {
+        if matches!(required_finality_tier, FinalityTier::BaseFinal) && seal_object.is_some() {
+            return Err(anyhow!(
+                "proof-carrying seal objects may only be supplied for SealedFinal egress"
+            ));
+        }
+        if matches!(required_finality_tier, FinalityTier::SealedFinal)
+            && sealed_finality_proof.is_none()
+            && seal_object.is_none()
+        {
+            return Err(anyhow!(
+                "sealed finality was requested for secure egress but no proof or seal object was supplied"
+            ));
+        }
+        if let Some(proof) = sealed_finality_proof.as_ref() {
+            if !matches!(proof.finality_tier, FinalityTier::SealedFinal)
+                || !matches!(
+                    proof.collapse_state,
+                    ioi_types::app::CollapseState::SealedFinal
+                )
+            {
+                return Err(anyhow!(
+                    "sealed finality proof is not in the SealedFinal collapse state"
+                ));
+            }
+        }
+
         // 1. Resolve the secret through the configured authority.
         let key_path = self.config_dir.join(format!("{}.key", secret_id));
         let pass = if matches!(self.production_mode, GuardianProductionMode::Development) {
@@ -2204,6 +2779,67 @@ impl GuardianContainer {
 
         // 2. Prepare the canonical request hash before secrets are injected.
         let request_hash = compute_secure_egress_request_hash(method, target_domain, path, &body)?;
+        let policy_hash = digest_to_array(
+            Sha256::digest(
+                format!("{}|{}", secret_id, json_patch_path.unwrap_or("header")).as_bytes(),
+            )
+            .map_err(|e| anyhow!(e))?,
+        )?;
+        let seal_object = match (
+            required_finality_tier,
+            seal_object,
+            sealed_finality_proof.as_ref(),
+        ) {
+            (FinalityTier::SealedFinal, Some(seal_object), proof) => {
+                verify_seal_object(&seal_object).map_err(|e| anyhow!(e))?;
+                if seal_object.intent.request_hash != request_hash {
+                    return Err(anyhow!(
+                        "sealed effect intent request hash does not match the canonical request"
+                    ));
+                }
+                if seal_object.intent.target != target_domain
+                    || seal_object.intent.action != method
+                    || seal_object.intent.path != path
+                {
+                    return Err(anyhow!(
+                        "sealed effect intent target/action/path do not match the requested egress"
+                    ));
+                }
+                if seal_object.intent.policy_hash != policy_hash {
+                    return Err(anyhow!(
+                        "sealed effect policy hash does not match the requested egress policy"
+                    ));
+                }
+                if let Some(proof) = proof {
+                    if seal_object.epoch != proof.epoch
+                        || seal_object.intent.guardian_manifest_hash != proof.guardian_manifest_hash
+                        || seal_object.intent.guardian_decision_hash != proof.guardian_decision_hash
+                        || seal_object.public_inputs.guardian_counter != proof.guardian_counter
+                        || seal_object.public_inputs.guardian_trace_hash
+                            != proof.guardian_trace_hash
+                        || seal_object.public_inputs.guardian_measurement_root
+                            != proof.guardian_measurement_root
+                    {
+                        return Err(anyhow!(
+                            "sealed effect seal object does not match the supplied sealed finality proof"
+                        ));
+                    }
+                }
+                Some(seal_object)
+            }
+            (FinalityTier::SealedFinal, None, Some(proof)) => Some(
+                build_http_egress_seal_object(
+                    request_hash,
+                    target_domain,
+                    method,
+                    path,
+                    policy_hash,
+                    proof,
+                )
+                .map_err(|e| anyhow!(e))?,
+            ),
+            _ => None,
+        };
         let mut extra_headers = Vec::new();
 
         // 3. Inject Secret (Header vs. Body)
@@ -2291,12 +2927,6 @@ impl GuardianContainer {
             cert_hash,
             response_hash,
         )?;
-        let policy_hash = digest_to_array(
-            Sha256::digest(
-                format!("{}|{}", secret_id, json_patch_path.unwrap_or("header")).as_bytes(),
-            )
-            .map_err(|e| anyhow!(e))?,
-        )?;
 
         let guardian_certificate = self
             .issue_guardian_quorum_certificate(
@@ -2317,6 +2947,14 @@ impl GuardianContainer {
         let signature =
             self.sign_egress_attestation(signer, target_domain, &cert_hash, &response_bytes)?;
         let checkpoint = self.default_transparency_log()?.append(&signature).await?;
+        if let Some(sealed_effect) = seal_object.as_ref() {
+            let mut nullifiers = self.sealed_effect_nullifiers.lock().await;
+            if !nullifiers.insert(sealed_effect.public_inputs.nullifier) {
+                return Err(anyhow!(
+                    "sealed effect nullifier has already been consumed for a prior egress"
+                ));
+            }
+        }
         let receipt = EgressReceipt {
             request_hash,
             server_name,
@@ -2329,7 +2967,10 @@ impl GuardianContainer {
             peer_leaf_certificate_hash: leaf_cert_hash,
             response_hash,
             policy_hash,
+            finality_tier: required_finality_tier,
             guardian_certificate,
+            sealed_finality_proof,
+            seal_object,
             log_checkpoint: Some(checkpoint),
         };
 
@@ -2471,10 +3112,11 @@ mod tests {
     };
     use ioi_ipc::control::guardian_control_server::{GuardianControl, GuardianControlServer};
     use ioi_ipc::control::{
-        ReportWitnessFaultRequest, ReportWitnessFaultResponse, SecureEgressRequest,
-        SecureEgressResponse, SignCommitteeDecisionRequest, SignCommitteeDecisionResponse,
-        SignConsensusRequest, SignConsensusResponse, SignWitnessStatementRequest,
-        SignWitnessStatementResponse,
+        ObserveAsymptoteRequest, ObserveAsymptoteResponse, ReportWitnessFaultRequest,
+        ReportWitnessFaultResponse, SealConsensusRequest, SealConsensusResponse,
+        SecureEgressRequest, SecureEgressResponse, SignCommitteeDecisionRequest,
+        SignCommitteeDecisionResponse, SignConsensusRequest, SignConsensusResponse,
+        SignWitnessStatementRequest, SignWitnessStatementResponse,
     };
     use ioi_types::app::{GuardianProductionMode, KeyAuthorityDescriptor, KeyAuthorityKind};
     use ioi_types::config::{
@@ -2508,6 +3150,20 @@ mod tests {
             &self,
             _request: Request<SignConsensusRequest>,
         ) -> Result<Response<SignConsensusResponse>, Status> {
+            Err(Status::unimplemented("unused in remote committee tests"))
+        }
+
+        async fn seal_consensus(
+            &self,
+            _request: Request<SealConsensusRequest>,
+        ) -> Result<Response<SealConsensusResponse>, Status> {
+            Err(Status::unimplemented("unused in remote committee tests"))
+        }
+
+        async fn observe_asymptote(
+            &self,
+            _request: Request<ObserveAsymptoteRequest>,
+        ) -> Result<Response<ObserveAsymptoteResponse>, Status> {
             Err(Status::unimplemented("unused in remote committee tests"))
         }
 
@@ -2959,6 +3615,7 @@ mod tests {
             },
             experimental_witness_committees: vec![GuardianWitnessCommitteeConfig {
                 committee_id: "witness-a".into(),
+                stratum_id: "stratum-a".into(),
                 epoch: 7,
                 threshold: 2,
                 members: witness_members,

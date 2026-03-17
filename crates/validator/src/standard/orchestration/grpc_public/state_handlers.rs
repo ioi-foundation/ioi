@@ -112,13 +112,11 @@ where
         let start = Instant::now();
         let req = request.into_inner();
 
-        let client: &dyn WorkloadClientApi = &*self.workload_client;
-        let blocks = client
-            .get_blocks_range(req.height, 1, 10 * 1024 * 1024)
+        let block = self
+            .workload_client
+            .get_block_by_height(req.height)
             .await
-            .map_err(|e: ioi_types::error::ChainError| Status::internal(e.to_string()))?;
-
-        let block = blocks.into_iter().find(|b| b.header.height == req.height);
+            .map_err(|e| Status::internal(e.to_string()))?;
         let block_bytes = if let Some(block) = block {
             codec::to_bytes_canonical(&block).map_err(Status::internal)?
         } else {

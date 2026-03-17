@@ -1,9 +1,5 @@
 // Path: crates/cli/tests/scrubber_e2e.rs
-#![cfg(all(
-    feature = "consensus-convergent",
-    feature = "vm-wasm",
-    feature = "state-iavl"
-))]
+#![cfg(all(feature = "consensus-aft", feature = "vm-wasm", feature = "state-iavl"))]
 
 use anyhow::Result;
 use ioi_cli::testing::{build_test_artifacts, submit_transaction, wait_for_height, TestCluster};
@@ -27,7 +23,7 @@ async fn test_pii_firewall_blocks_raw_egress_and_allows_clean_payload() -> Resul
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Convergent")
+        .with_consensus_type("Aft")
         .with_role(0, ValidatorRole::Consensus) // Scrubber runs on Consensus/Orchestrator
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,

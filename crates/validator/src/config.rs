@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 // to avoid circular dependencies and establish a single source of truth.
 use ioi_types::app::{GuardianProductionMode, KeyAuthorityDescriptor};
 pub use ioi_types::config::{
-    ConsensusType, ConvergentSafetyMode, GuardianCommitteeConfig, GuardianHardeningConfig,
+    AftSafetyMode, ConsensusType, GuardianCommitteeConfig, GuardianHardeningConfig,
     GuardianTransparencyLogConfig, GuardianVerifierPolicyConfig, GuardianWitnessCommitteeConfig,
     OrchestrationConfig, WorkloadConfig,
 };

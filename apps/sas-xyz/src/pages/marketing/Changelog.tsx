@@ -45,7 +45,7 @@ export default function Changelog() {
                 <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Kernel Update</span>
                 <span className="text-xs text-gray-500 font-mono flex items-center"><Calendar className="w-3 h-3 mr-1"/> Oct 15, 2026</span>
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Convergent Fault Tolerance v2</h3>
+              <h3 className="text-xl font-bold text-white mb-2">Aft Fault Tolerance v2</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
                 Improved hardware attestation speeds by 40%. Agents now boot significantly faster in AWS Nitro enclaves.
               </p>

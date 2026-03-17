@@ -13,16 +13,15 @@ use ioi_client::WorkloadClient;
 use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_state::primitives::kzg::KZGParams;
 use ioi_types::config::{
-    CommitmentSchemeType, ConsensusType, ConvergentSafetyMode, InferenceConfig,
-    InitialServiceConfig, OrchestrationConfig, ServicePolicy, StateTreeType, ValidatorRole,
-    VmFuelCosts, WorkloadConfig,
+    AftSafetyMode, CommitmentSchemeType, ConsensusType, InferenceConfig, InitialServiceConfig,
+    OrchestrationConfig, ServicePolicy, StateTreeType, ValidatorRole, VmFuelCosts, WorkloadConfig,
 };
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use tempfile::TempDir;
 use tokio::process::Command as TokioCommand;
 use tokio::sync::{broadcast, Mutex};
@@ -36,6 +35,11 @@ use tokio::time::Duration;
 
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(120);
 
+fn built_node_profiles() -> &'static StdMutex<HashSet<String>> {
+    static BUILT_NODE_PROFILES: OnceLock<StdMutex<HashSet<String>>> = OnceLock::new();
+    BUILT_NODE_PROFILES.get_or_init(|| StdMutex::new(HashSet::new()))
+}
+
 // BinaryFeatureConfig helps resolve the feature string for building the node binary.
 struct BinaryFeatureConfig<'a> {
     consensus_type: &'a str,
@@ -48,7 +52,7 @@ struct BinaryFeatureConfig<'a> {
 impl<'a> BinaryFeatureConfig<'a> {
     fn resolve(&self) -> Result<String> {
         let consensus_feature = match self.consensus_type {
-            "Convergent" => "consensus-convergent",
+            "Aft" => "consensus-aft",
             "ProofOfAuthority" => "consensus-poa",
             "ProofOfStake" => "consensus-pos",
             other => return Err(anyhow!("Unsupported test consensus type: {}", other)),
@@ -229,10 +233,10 @@ impl TestValidator {
         min_finality_depth: Option<u64>,
         service_policies: BTreeMap<String, ServicePolicy>,
         role: ValidatorRole,
-        convergent_safety_mode: ConvergentSafetyMode,
+        aft_safety_mode: AftSafetyMode,
         guardian_config_toml: Option<String>,
     ) -> Result<ValidatorGuard> {
-        let guardianized_mode = !matches!(convergent_safety_mode, ConvergentSafetyMode::ClassicBft);
+        let guardianized_mode = !matches!(aft_safety_mode, AftSafetyMode::ClassicBft);
         let features = BinaryFeatureConfig {
             consensus_type,
             state_tree_type,
@@ -244,44 +248,63 @@ impl TestValidator {
         let build_profile =
             std::env::var("IOI_TEST_BUILD_PROFILE").unwrap_or_else(|_| "debug".to_string());
         let build_release = build_profile.eq_ignore_ascii_case("release");
+        let node_binary_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("target")
+            .join(&build_profile);
+        let binaries_present = ["orchestration", "workload", "guardian"]
+            .iter()
+            .all(|bin| node_binary_dir.join(bin).exists());
 
-        println!(
-            "--- Building node binaries with profile={} features: {} ---",
-            build_profile, features
-        );
+        let build_cache_key = format!("{build_profile}|{features}");
+        let needs_build = {
+            let mut built = built_node_profiles()
+                .lock()
+                .expect("build profile cache poisoned");
+            built.insert(build_cache_key) && !binaries_present
+        };
+        if needs_build {
+            println!(
+                "--- Building node binaries with profile={} features: {} ---",
+                build_profile, features
+            );
 
-        // Use the CARGO env var set by the test runner
-        let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+            // Use the CARGO env var set by the test runner
+            let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
 
-        let mut cmd = Command::new(cargo_bin);
-        cmd.args([
-            "build",
-            "-p",
-            "ioi-node",
-            "--no-default-features",
-            "--features",
-            &features,
-        ]);
-        if build_release {
-            cmd.arg("--release");
-        }
-
-        // Attempt to add ~/.cargo/bin to PATH if not present
-        if let Ok(home) = std::env::var("HOME") {
-            let cargo_bin_dir = std::path::Path::new(&home).join(".cargo/bin");
-            if cargo_bin_dir.exists() {
-                let current_path = std::env::var("PATH").unwrap_or_default();
-                let new_path = format!("{}:{}", cargo_bin_dir.display(), current_path);
-                cmd.env("PATH", new_path);
+            let mut cmd = Command::new(cargo_bin);
+            cmd.args([
+                "build",
+                "-p",
+                "ioi-node",
+                "--no-default-features",
+                "--features",
+                &features,
+            ]);
+            if build_release {
+                cmd.arg("--release");
             }
-        }
 
-        let status_node = cmd
-            .status()
-            .expect("Failed to execute cargo build for node");
+            // Attempt to add ~/.cargo/bin to PATH if not present
+            if let Ok(home) = std::env::var("HOME") {
+                let cargo_bin_dir = std::path::Path::new(&home).join(".cargo/bin");
+                if cargo_bin_dir.exists() {
+                    let current_path = std::env::var("PATH").unwrap_or_default();
+                    let new_path = format!("{}:{}", cargo_bin_dir.display(), current_path);
+                    cmd.env("PATH", new_path);
+                }
+            }
 
-        if !status_node.success() {
-            panic!("Node binary build failed for features: {}", features);
+            let status_node = cmd
+                .status()
+                .expect("Failed to execute cargo build for node");
+
+            if !status_node.success() {
+                panic!("Node binary build failed for features: {}", features);
+            }
         }
 
         let peer_id = keypair.public().to_peer_id();
@@ -370,7 +393,7 @@ impl TestValidator {
         }
 
         let consensus_enum = match consensus_type {
-            "Convergent" => ConsensusType::Convergent,
+            "Aft" => ConsensusType::Aft,
             "ProofOfAuthority" => ConsensusType::ProofOfAuthority,
             "ProofOfStake" => ConsensusType::ProofOfStake,
             _ => return Err(anyhow!("Unsupported consensus type: {}", consensus_type)),
@@ -398,12 +421,18 @@ impl TestValidator {
         };
 
         let orch_config_path = config_dir_path.join("orchestration.toml");
+        let round_robin_view_timeout_secs = std::env::var("IOI_TEST_ROUND_ROBIN_VIEW_TIMEOUT_SECS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .map(|secs| secs.max(1))
+            .unwrap_or(2);
+
         let orchestration_config = OrchestrationConfig {
             chain_id,
             config_schema_version: 0,
             validator_role: role,
             consensus_type: consensus_enum,
-            convergent_safety_mode,
+            aft_safety_mode,
             guardian_production_mode: Default::default(),
             key_authority: None,
             rpc_listen_address: if use_docker {
@@ -414,7 +443,9 @@ impl TestValidator {
             rpc_hardening: Default::default(),
             initial_sync_timeout_secs: 5,
             block_production_interval_secs: 1,
-            round_robin_view_timeout_secs: 20,
+            // Keep the pacemaker close to the benchmark block cadence so local clusters
+            // do not spend tens of seconds idling on avoidable view changes.
+            round_robin_view_timeout_secs,
             default_query_gas_limit: 1_000_000_000,
             ibc_gateway_listen_address: ibc_gateway_addr.map(String::from),
             safety_model_path: None,
@@ -588,6 +619,13 @@ impl TestValidator {
                 .env("IOI_SHMEM_ID", &shmem_id) // <--- INJECT UNIQUE ID
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
+            if let Some(value) = std::env::var_os("IOI_AFT_BENCH_TRACE") {
+                workload_cmd.env("IOI_AFT_BENCH_TRACE", value);
+                workload_cmd.env(
+                    "RUST_LOG",
+                    "info,execution=info,execution_bench=info,workload=info",
+                );
+            }
             if agentic_model_path.is_some() {
                 workload_cmd.env("GUARDIAN_ADDR", &guardian_addr);
             }
@@ -630,6 +668,13 @@ impl TestValidator {
                 .env("IOI_SHMEM_ID", &shmem_id) // <--- INJECT UNIQUE ID
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
+            if let Some(value) = std::env::var_os("IOI_AFT_BENCH_TRACE") {
+                orch_cmd.env("IOI_AFT_BENCH_TRACE", value);
+                orch_cmd.env(
+                    "RUST_LOG",
+                    "info,rpc=debug,consensus=debug,consensus_bench=info,orchestration=info",
+                );
+            }
             if agentic_model_path.is_some() {
                 orch_cmd.env("GUARDIAN_ADDR", &guardian_addr);
             }

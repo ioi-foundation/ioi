@@ -564,6 +564,9 @@ fn software_guardian_attestation_accepts_registered_manifest_and_measurement() {
             require_checkpoint_anchoring: true,
             max_checkpoint_staleness_ms: 120_000,
             max_committee_outage_members: 0,
+            asymptote_required_witness_strata: vec!["stratum-a".into()],
+            asymptote_escalation_witness_strata: vec!["stratum-a".into()],
+            asymptote_high_risk_effect_tier: ioi_types::app::FinalityTier::SealedFinal,
         },
     );
     let manifest = ioi_types::app::GuardianCommitteeManifest {

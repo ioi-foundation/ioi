@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 use tempfile::TempDir;
 
-/// Manages the lifecycle of a local `ioi-signer` process (the Convergent deterministic Signing Oracle) for testing.
+/// Manages the lifecycle of a local `ioi-signer` process (the Aft deterministic Signing Oracle) for testing.
 pub struct SigningOracleGuard {
     process: std::process::Child,
     pub url: String,
@@ -127,5 +127,6 @@ impl SigningOracleGuard {
 impl Drop for SigningOracleGuard {
     fn drop(&mut self) {
         let _ = self.process.kill();
+        let _ = self.process.wait();
     }
 }

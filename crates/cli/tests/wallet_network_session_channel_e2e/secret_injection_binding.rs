@@ -7,7 +7,7 @@ async fn wallet_network_secret_injection_requires_attested_request_binding() -> 
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Convergent")
+        .with_consensus_type("Aft")
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_network_user_policy())
         .build()

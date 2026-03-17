@@ -118,6 +118,19 @@ pub trait NodeStore: Send + Sync {
     /// This is async to allow for backpressure handling from the persistence layer.
     async fn commit_block(&self, input: CommitInput) -> Result<(), StorageError>;
 
+    /// Atomically commits all state changes for a single block and persists the full block bytes.
+    ///
+    /// Backends can override this to persist both artifacts in one durable operation. The default
+    /// implementation preserves existing semantics by performing the operations sequentially.
+    async fn commit_block_with_payload(
+        &self,
+        input: CommitInput,
+        block_bytes: &[u8],
+    ) -> Result<(), StorageError> {
+        self.commit_block(input.clone()).await?;
+        self.put_block(input.height, block_bytes).await
+    }
+
     /// Prunes a limited number of historical state versions according to a `PrunePlan`.
     fn prune_batch(
         &self,

@@ -8,9 +8,10 @@ use ioi_api::state::{StateAccess, StateManager};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_system::SystemState;
 use ioi_types::app::{
-    account_id_from_key_material, effective_set_for_height, read_validator_sets,
-    write_validator_sets, AccountId, Block, BlockTimingParams, BlockTimingRuntime, ChainStatus,
-    ConsensusVote, FailureReport, QuorumCertificate, ValidatorSetV1, ValidatorSetsV1,
+    account_id_from_key_material, compute_next_timestamp_ms, effective_set_for_height,
+    read_validator_sets, timestamp_millis_to_legacy_seconds, write_validator_sets, AccountId,
+    Block, BlockTimingParams, BlockTimingRuntime, ChainStatus, ConsensusVote, FailureReport,
+    QuorumCertificate, ValidatorSetV1, ValidatorSetsV1,
 };
 use ioi_types::codec;
 use ioi_types::error::{ConsensusError, StateError, TransactionError};
@@ -269,7 +270,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             }
         };
 
-        let expected_timestamp_secs = {
+        let (expected_timestamp_secs, expected_timestamp_ms) = {
             let timing_params_bytes = match parent_view.get(BLOCK_TIMING_PARAMS_KEY).await {
                 Ok(Some(bytes)) => bytes,
                 _ => return ConsensusDecision::Stall,
@@ -301,14 +302,17 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 Err(_) => return ConsensusDecision::Stall,
             };
 
-            match ioi_types::app::compute_next_timestamp(
+            match compute_next_timestamp_ms(
                 &timing_params,
                 &timing_runtime,
                 height.saturating_sub(1),
-                parent_status.latest_timestamp,
+                parent_status.latest_timestamp_ms_or_legacy(),
                 parent_gas_used,
             ) {
-                Some(timestamp) => timestamp,
+                Some(timestamp_ms) => (
+                    timestamp_millis_to_legacy_seconds(timestamp_ms),
+                    timestamp_ms,
+                ),
                 None => return ConsensusDecision::Stall,
             }
         };
@@ -317,8 +321,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             ConsensusDecision::ProduceBlock {
                 transactions: vec![],
                 expected_timestamp_secs,
+                expected_timestamp_ms,
                 view: 0,
                 parent_qc: QuorumCertificate::default(),
+                timeout_certificate: None,
             }
         } else {
             ConsensusDecision::WaitForBlock

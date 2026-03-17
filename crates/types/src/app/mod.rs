@@ -49,7 +49,7 @@ pub use wallet_network::*;
 pub use workload::*;
 
 // [NEW] Moved ContextSlice here from drivers
-use parity_scale_codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode, Input};
 use serde::{Deserialize, Serialize};
 
 /// The atomic unit of data within the Sovereign Context Substrate (SCS).
@@ -121,7 +121,7 @@ pub struct StateEntry {
 }
 
 /// Represents the current status of the blockchain.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Default)]
 pub struct ChainStatus {
     /// The current block height.
     pub height: u64,
@@ -131,6 +131,48 @@ pub struct ChainStatus {
     pub total_transactions: u64,
     /// A flag indicating if the chain is actively running.
     pub is_running: bool,
+    /// The millisecond timestamp of the latest block.
+    #[serde(default)]
+    pub latest_timestamp_ms: u64,
+}
+
+impl ChainStatus {
+    /// Returns the authoritative latest block timestamp in milliseconds, falling back to legacy seconds.
+    pub fn latest_timestamp_ms_or_legacy(&self) -> u64 {
+        if self.latest_timestamp_ms > 0 {
+            self.latest_timestamp_ms
+        } else {
+            seconds_to_millis(self.latest_timestamp)
+        }
+    }
+
+    /// Updates both the millisecond timestamp and its mirrored legacy second field.
+    pub fn set_latest_timestamp_ms(&mut self, timestamp_ms: u64) {
+        self.latest_timestamp_ms = timestamp_ms;
+        self.latest_timestamp = timestamp_millis_to_legacy_seconds(timestamp_ms);
+    }
+}
+
+impl Decode for ChainStatus {
+    fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+        let height = u64::decode(input)?;
+        let latest_timestamp = u64::decode(input)?;
+        let total_transactions = u64::decode(input)?;
+        let is_running = bool::decode(input)?;
+        let latest_timestamp_ms = u64::decode(input)
+            .ok()
+            .unwrap_or_else(|| seconds_to_millis(latest_timestamp));
+
+        while input.read_byte().is_ok() {}
+
+        Ok(Self {
+            height,
+            latest_timestamp,
+            total_transactions,
+            is_running,
+            latest_timestamp_ms,
+        })
+    }
 }
 
 /// A block in the blockchain, generic over the transaction type.
@@ -243,6 +285,9 @@ pub struct BlockHeader {
     pub transactions_root: Vec<u8>,
     /// The UNIX timestamp (in seconds) when the block was created.
     pub timestamp: u64,
+    /// The canonical UNIX timestamp (in milliseconds) used for execution and ordering.
+    #[serde(default)]
+    pub timestamp_ms: u64,
     /// The total gas consumed by transactions in this block.
     pub gas_used: u64,
     /// The full, sorted list of PeerIds (in bytes) that constituted the validator
@@ -268,6 +313,15 @@ pub struct BlockHeader {
     /// Optional guardianized quorum certificate for majority-safety / experimental modes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub guardian_certificate: Option<GuardianQuorumCertificate>,
+    /// Optional sealed-finality proof emitted by the asymptote sealing plane.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sealed_finality_proof: Option<SealedFinalityProof>,
+    /// Optional proof-carrying canonical-order certificate for the slot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_order_certificate: Option<CanonicalOrderCertificate>,
+    /// Optional timeout certificate authorizing this proposal to execute in a non-zero view.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_certificate: Option<TimeoutCertificate>,
     /// Proof that the PARENT block was accepted by the network.
     /// This provides the "chaining" of security in Chained BFT.
     /// A valid QC proves that >= 2/3 of validators voted for parent_hash.
@@ -290,6 +344,9 @@ pub struct SignatureBundle {
     /// Optional guardianized quorum certificate emitted by a committee.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub guardian_certificate: Option<GuardianQuorumCertificate>,
+    /// Optional asymptote sealed finality proof for the certified slot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sealed_finality_proof: Option<SealedFinalityProof>,
 }
 
 /// A domain tag to prevent hash collisions for different signature purposes.
@@ -300,14 +357,22 @@ pub enum SigDomain {
 }
 
 impl BlockHeader {
+    /// Returns the canonical millisecond timestamp, falling back to the legacy seconds field.
+    pub fn timestamp_ms_or_legacy(&self) -> u64 {
+        if self.timestamp_ms > 0 {
+            self.timestamp_ms
+        } else {
+            seconds_to_millis(self.timestamp)
+        }
+    }
+
     /// Creates a hash of the header's core fields for signing.
     pub fn hash(&self) -> Result<Vec<u8>, CoreError> {
-        let mut temp = self.clone();
-        temp.signature = vec![];
-        temp.guardian_certificate = None;
-        let serialized = crate::codec::to_bytes_canonical(&temp).map_err(CoreError::Custom)?;
+        // Consensus identity must remain stable before and after post-processing steps
+        // like oracle signing, guardian certification, and sealing enrichment.
+        let preimage = self.to_preimage_for_signing()?;
         let digest =
-            DcryptSha256::digest(&serialized).map_err(|e| CoreError::Custom(e.to_string()))?;
+            DcryptSha256::digest(&preimage).map_err(|e| CoreError::Custom(e.to_string()))?;
         Ok(digest.to_bytes())
     }
 
@@ -322,12 +387,14 @@ impl BlockHeader {
             &self.state_root.0,
             &self.transactions_root,
             self.timestamp,
+            self.timestamp_ms_or_legacy(),
             self.gas_used,
             &self.validator_set,
             &self.producer_account_id,
             &self.producer_key_suite,
             &self.producer_pubkey_hash,
             &self.producer_pubkey,
+            &self.timeout_certificate,
             &self.parent_qc, // Include QC in signature preimage
         ))
         .map_err(CoreError::Custom)
@@ -809,4 +876,48 @@ pub struct DebugTriggerGcResponse {
     pub heights_pruned: usize,
     /// The number of state tree nodes deleted from storage.
     pub nodes_deleted: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_header() -> BlockHeader {
+        BlockHeader {
+            height: 7,
+            view: 3,
+            parent_hash: [1u8; 32],
+            parent_state_root: StateRoot(vec![2u8; 32]),
+            state_root: StateRoot(vec![3u8; 32]),
+            transactions_root: vec![4u8; 32],
+            timestamp: 123_456,
+            gas_used: 789,
+            validator_set: vec![vec![5u8; 32], vec![6u8; 32]],
+            producer_account_id: AccountId([7u8; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [8u8; 32],
+            producer_pubkey: vec![9u8; 32],
+            oracle_counter: 0,
+            oracle_trace_hash: [0u8; 32],
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+            parent_qc: QuorumCertificate::default(),
+            signature: vec![],
+        }
+    }
+
+    #[test]
+    fn block_header_hash_is_stable_across_post_finalize_enrichment() {
+        let mut header = sample_header();
+        let before = header.hash().expect("hash before enrichment");
+
+        header.signature = vec![1, 2, 3];
+        header.oracle_counter = 42;
+        header.oracle_trace_hash = [11u8; 32];
+
+        let after = header.hash().expect("hash after enrichment");
+        assert_eq!(before, after);
+    }
 }

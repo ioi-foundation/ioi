@@ -93,6 +93,34 @@ mod lifecycle;
 /// Transition logic
 pub mod transition;
 
+pub(crate) fn consensus_kick_debounce_ms() -> u64 {
+    std::env::var("IOI_INGESTION_CONSENSUS_KICK_DEBOUNCE_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0)
+}
+
+pub(crate) fn schedule_consensus_kick(
+    sender: &mpsc::UnboundedSender<()>,
+    scheduled: &Arc<AtomicBool>,
+) {
+    let debounce_ms = consensus_kick_debounce_ms();
+    if debounce_ms == 0 {
+        let _ = sender.send(());
+        return;
+    }
+
+    if !scheduled.swap(true, Ordering::SeqCst) {
+        let sender = sender.clone();
+        let scheduled = Arc::clone(scheduled);
+        tokio::spawn(async move {
+            time::sleep(Duration::from_millis(debounce_ms)).await;
+            let _ = sender.send(());
+            scheduled.store(false, Ordering::SeqCst);
+        });
+    }
+}
+
 use crate::config::OrchestrationConfig;
 use consensus::drive_consensus_tick;
 use context::{ChainFor, MainLoopContext};

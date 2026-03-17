@@ -70,4 +70,5 @@ pub async fn handle_connection_closed<CS, ST, CE, V>(
 {
     tracing::info!(target: "network", event = "peer_disconnected", %peer_id);
     context.known_peers_ref.lock().await.remove(&peer_id);
+    context.peer_accounts_ref.lock().await.remove(&peer_id);
 }

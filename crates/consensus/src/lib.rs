@@ -11,9 +11,9 @@
 )]
 //! Consensus module implementations for the IOI Kernel.
 
+#[cfg(feature = "aft")]
+pub mod aft;
 pub mod common;
-#[cfg(feature = "convergent")]
-pub mod convergent;
 #[cfg(feature = "poa")]
 pub mod proof_of_authority;
 #[cfg(feature = "pos")]
@@ -30,15 +30,17 @@ use ioi_api::{
     state::{StateAccess, StateManager},
 };
 use ioi_system::SystemState;
-use ioi_types::app::{AccountId, Block, ConsensusVote, FailureReport};
+use ioi_types::app::{
+    AccountId, Block, BlockHeader, ConsensusVote, FailureReport, QuorumCertificate,
+};
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-#[cfg(feature = "convergent")]
-use convergent::ConvergentEngine;
+#[cfg(feature = "aft")]
+use aft::AftEngine;
 #[cfg(feature = "poa")]
 use proof_of_authority::ProofOfAuthorityEngine;
 #[cfg(feature = "pos")]
@@ -59,8 +61,8 @@ pub trait PenaltyEngine: Send + Sync {
 /// An enum that wraps the various consensus engine implementations.
 #[derive(Debug, Clone)]
 pub enum Consensus<T: Clone> {
-    #[cfg(feature = "convergent")]
-    Convergent(ConvergentEngine),
+    #[cfg(feature = "aft")]
+    Aft(AftEngine),
     #[cfg(feature = "poa")]
     ProofOfAuthority(ProofOfAuthorityEngine),
     #[cfg(feature = "pos")]
@@ -73,13 +75,13 @@ pub enum Consensus<T: Clone> {
 impl<T: Clone> Consensus<T> {
     pub fn consensus_type(&self) -> ConsensusType {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(_) => ConsensusType::Convergent,
+            #[cfg(feature = "aft")]
+            Consensus::Aft(_) => ConsensusType::Aft,
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(_) => ConsensusType::ProofOfAuthority,
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(_) => ConsensusType::ProofOfStake,
-            Consensus::Solo(_) => ConsensusType::Convergent,
+            Consensus::Solo(_) => ConsensusType::Aft,
             Consensus::_Phantom(_) => unreachable!(),
         }
     }
@@ -88,16 +90,16 @@ impl<T: Clone> Consensus<T> {
 impl<T: Clone + Send + Sync + 'static> ConsensusControl for Consensus<T> {
     fn experimental_sample_tip(&self) -> Option<([u8; 32], u32)> {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(engine) => engine.experimental_sample_tip(),
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => engine.experimental_sample_tip(),
             _ => None,
         }
     }
 
     fn observe_experimental_sample(&mut self, hash: [u8; 32]) {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(engine) => engine.observe_experimental_sample(hash),
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => engine.observe_experimental_sample(hash),
             _ => {}
         }
     }
@@ -114,8 +116,8 @@ where
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(engine) => engine.apply_penalty(state, report).await,
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => engine.apply_penalty(state, report).await,
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => engine.apply_penalty(state, report).await,
             #[cfg(feature = "pos")]
@@ -133,8 +135,8 @@ impl<T: Clone + Send + Sync + 'static> PenaltyEngine for Consensus<T> {
         report: &FailureReport,
     ) -> Result<(), TransactionError> {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(engine) => engine.apply(system, report),
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => engine.apply(system, report),
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => engine.apply(system, report),
             #[cfg(feature = "pos")]
@@ -159,8 +161,8 @@ where
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(engine) => {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
                 engine
                     .decide(our_account_id, height, view, parent_view, known_peers)
                     .await
@@ -196,8 +198,8 @@ where
         ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(engine) => engine.handle_block_proposal(block, chain_view).await,
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => engine.handle_block_proposal(block, chain_view).await,
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => {
                 engine.handle_block_proposal(block, chain_view).await
@@ -213,9 +215,9 @@ where
 
     async fn handle_vote(&mut self, vote: ConsensusVote) -> Result<(), ConsensusError> {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(engine) => {
-                <ConvergentEngine as ConsensusEngine<T>>::handle_vote(engine, vote).await
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::handle_vote(engine, vote).await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => {
@@ -232,20 +234,44 @@ where
         }
     }
 
+    async fn handle_quorum_certificate(
+        &mut self,
+        qc: QuorumCertificate,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::handle_quorum_certificate(engine, qc).await
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::handle_quorum_certificate(
+                    engine, qc,
+                )
+                .await
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::handle_quorum_certificate(engine, qc)
+                    .await
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::handle_quorum_certificate(engine, qc).await
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
     async fn handle_view_change(
         &mut self,
         from: PeerId,
         proof_bytes: &[u8],
     ) -> Result<(), ConsensusError> {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(engine) => {
-                <ConvergentEngine as ConsensusEngine<T>>::handle_view_change(
-                    engine,
-                    from,
-                    proof_bytes,
-                )
-                .await
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::handle_view_change(engine, from, proof_bytes)
+                    .await
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => {
@@ -275,10 +301,8 @@ where
 
     fn reset(&mut self, height: u64) {
         match self {
-            #[cfg(feature = "convergent")]
-            Consensus::Convergent(engine) => {
-                <ConvergentEngine as ConsensusEngine<T>>::reset(engine, height)
-            }
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => <AftEngine as ConsensusEngine<T>>::reset(engine, height),
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => {
                 <ProofOfAuthorityEngine as ConsensusEngine<T>>::reset(engine, height)
@@ -288,6 +312,79 @@ where
                 <ProofOfStakeEngine as ConsensusEngine<T>>::reset(engine, height)
             }
             Consensus::Solo(engine) => <SoloEngine as ConsensusEngine<T>>::reset(engine, height),
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn observe_committed_block(&mut self, header: &BlockHeader) {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::observe_committed_block(engine, header)
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::observe_committed_block(
+                    engine, header,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::observe_committed_block(
+                    engine, header,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::observe_committed_block(engine, header)
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn header_for_quorum_certificate(&self, qc: &QuorumCertificate) -> Option<BlockHeader> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::header_for_quorum_certificate(engine, qc)
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::header_for_quorum_certificate(
+                    engine, qc,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::header_for_quorum_certificate(
+                    engine, qc,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::header_for_quorum_certificate(engine, qc)
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::take_pending_quorum_certificates(engine)
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::take_pending_quorum_certificates(
+                    engine,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::take_pending_quorum_certificates(engine)
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::take_pending_quorum_certificates(engine)
+            }
             Consensus::_Phantom(_) => unreachable!(),
         }
     }

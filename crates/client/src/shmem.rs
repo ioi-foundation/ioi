@@ -55,6 +55,46 @@ impl fmt::Debug for DataPlane {
 type DefaultSerializer = rkyv::ser::serializers::AllocSerializer<4096>;
 
 impl DataPlane {
+    const DEFAULT_BASE_OFFSET: usize = 1024;
+
+    fn reserve_offset(&self, len: usize, preferred_offset: Option<usize>) -> Result<usize> {
+        if let Some(offset) = preferred_offset {
+            if offset + len > self.size {
+                return Err(anyhow!(
+                    "Shared memory overflow: Need {} bytes at offset {}, capacity is {}",
+                    len,
+                    offset,
+                    self.size
+                ));
+            }
+            return Ok(offset);
+        }
+
+        let base = Self::DEFAULT_BASE_OFFSET.min(self.size);
+        let capacity = self.size.saturating_sub(base);
+        if len > capacity {
+            return Err(anyhow!(
+                "Shared memory overflow: Need {} bytes, writable capacity is {}",
+                len,
+                capacity
+            ));
+        }
+
+        let cursor = self.write_cursor.load(Ordering::Relaxed) as usize;
+        let mut offset = base + cursor;
+        if offset + len > self.size {
+            offset = base;
+        }
+
+        let next = if offset + len >= self.size {
+            0
+        } else {
+            (offset + len).saturating_sub(base)
+        };
+        self.write_cursor.store(next as u64, Ordering::Relaxed);
+        Ok(offset)
+    }
+
     /// Connect to an existing shared memory region (Client Side / Reader).
     pub fn connect(os_id: &str) -> Result<Self> {
         let shmem = ShmemConf::new()
@@ -105,16 +145,7 @@ impl DataPlane {
         let bytes = rkyv::to_bytes::<_, 4096>(data)
             .map_err(|e| anyhow!("Rkyv serialization failed: {}", e))?;
         let len = bytes.len();
-        let offset = preferred_offset.unwrap_or(1024);
-
-        if offset + len > self.size {
-            return Err(anyhow!(
-                "Shared memory overflow: Need {} bytes at offset {}, capacity is {}",
-                len,
-                offset,
-                self.size
-            ));
-        }
+        let offset = self.reserve_offset(len, preferred_offset)?;
 
         unsafe {
             let ptr = self.shmem.0.as_ptr().add(offset);
@@ -139,16 +170,7 @@ impl DataPlane {
         };
 
         let len = bytes.len();
-        let offset = preferred_offset.unwrap_or(1024);
-
-        if offset + len > self.size {
-            return Err(anyhow!(
-                "Shared memory overflow: Need {} bytes at offset {}, capacity is {}",
-                len,
-                offset,
-                self.size
-            ));
-        }
+        let offset = self.reserve_offset(len, preferred_offset)?;
 
         unsafe {
             let ptr = self.shmem.0.as_ptr().add(offset);

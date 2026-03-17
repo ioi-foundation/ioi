@@ -3,7 +3,7 @@
 
 //! The IOI Validator Node (Type A).
 //!
-//! Responsible for block ordering, ledger security, and signature verification via Convergent deterministic.
+//! Responsible for block ordering, ledger security, and signature verification via Aft deterministic.
 //! This node joins the P2P mesh and maintains the global state.
 
 use anyhow::{anyhow, Result};
@@ -72,8 +72,8 @@ struct ValidatorOpts {
 
 fn ensure_guardianized_local_signer_allowed(config: &OrchestrationConfig) -> Result<()> {
     let guardianized_mode = !matches!(
-        config.convergent_safety_mode,
-        ioi_types::config::ConvergentSafetyMode::ClassicBft
+        config.aft_safety_mode,
+        ioi_types::config::AftSafetyMode::ClassicBft
     );
     let production_mode = matches!(
         config.guardian_production_mode,
@@ -136,15 +136,15 @@ async fn main() -> Result<()> {
         chain_id: ioi_types::app::ChainId(1), // Mainnet ID
         config_schema_version: 1,
         validator_role: ValidatorRole::Consensus,
-        consensus_type: ConsensusType::Convergent,
-        convergent_safety_mode: Default::default(),
+        consensus_type: ConsensusType::Aft,
+        aft_safety_mode: Default::default(),
         guardian_production_mode: Default::default(),
         key_authority: None,
         rpc_listen_address: "0.0.0.0:8545".to_string(), // Public RPC
         rpc_hardening: Default::default(),
         initial_sync_timeout_secs: 5,
         block_production_interval_secs: 2,
-        round_robin_view_timeout_secs: 20,
+        round_robin_view_timeout_secs: 2,
         default_query_gas_limit: 10_000_000,
         ibc_gateway_listen_address: Some("0.0.0.0:9876".to_string()),
         safety_model_path: None,
@@ -170,7 +170,7 @@ async fn main() -> Result<()> {
         runtimes: vec!["wasm".to_string()],
         state_tree: ioi_types::config::StateTreeType::IAVL,
         commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
-        consensus_type: ConsensusType::Convergent,
+        consensus_type: ConsensusType::Aft,
         genesis_file: opts
             .data_dir
             .join("genesis.json")
@@ -259,7 +259,7 @@ async fn main() -> Result<()> {
     let (syncer, swarm_commander, network_events) =
         Libp2pSync::new(local_key.clone(), opts.listen_address, Some(&opts.bootnode))?;
 
-    // Convergent deterministic Consensus
+    // Aft deterministic Consensus
     let consensus_engine = engine_from_config(&config)?;
     let verifier = create_default_verifier(None);
     ensure_guardianized_local_signer_allowed(&config)?;
@@ -292,7 +292,7 @@ async fn main() -> Result<()> {
     orchestrator.set_chain_and_workload_client(machine.clone(), workload_client);
 
     println!("\n✅ IOI Validator Node (Type A) Started.");
-    println!("   - Consensus: Convergent deterministic (Active)");
+    println!("   - Consensus: Aft deterministic (Active)");
     println!("   - P2P: Listening on {}", config.rpc_listen_address);
 
     Container::start(&*orchestrator, &config.rpc_listen_address).await?;

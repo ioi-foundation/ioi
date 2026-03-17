@@ -14,17 +14,19 @@ use ioi_crypto::sign::guardian_committee::{
 };
 use ioi_types::config::ValidatorRole;
 use ioi_types::config::{
-    ConvergentSafetyMode, GuardianCommitteeConfig, GuardianCommitteeMemberConfig,
+    AftSafetyMode, GuardianCommitteeConfig, GuardianCommitteeMemberConfig,
     GuardianWitnessCommitteeConfig, InitialServiceConfig, ServicePolicy,
 };
 // [FIX] Add imports for default genesis setup
 use ioi_types::app::{
-    account_id_from_key_material, guardian_registry_committee_key, guardian_registry_log_key,
-    guardian_registry_witness_key, guardian_registry_witness_seed_key,
-    guardian_registry_witness_set_key, AccountId, ActiveKeyRecord, BlockTimingParams,
-    BlockTimingRuntime, GuardianCommitteeManifest, GuardianCommitteeMember,
-    GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed,
-    GuardianWitnessSet, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    account_id_from_key_material, guardian_registry_asymptote_policy_key,
+    guardian_registry_committee_account_key, guardian_registry_committee_key,
+    guardian_registry_log_key, guardian_registry_witness_key, guardian_registry_witness_seed_key,
+    guardian_registry_witness_set_key, AccountId, ActiveKeyRecord, AsymptotePolicy,
+    BlockTimingParams, BlockTimingRuntime, FinalityTier, GuardianCommitteeManifest,
+    GuardianCommitteeMember, GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest,
+    GuardianWitnessEpochSeed, GuardianWitnessSet, SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
+    ValidatorV1,
 };
 use ioi_types::keys::CURRENT_EPOCH_KEY;
 use ioi_validator::config::{AttestationSignaturePolicy, GuardianConfig};
@@ -48,12 +50,37 @@ struct ValidatorPortAllocation {
     lock_path: PathBuf,
 }
 
+fn process_is_alive(pid: u32) -> bool {
+    std::path::Path::new("/proc").join(pid.to_string()).exists()
+}
+
+fn reclaim_stale_port_block_lock(lock_path: &PathBuf) {
+    let Ok(contents) = fs::read_to_string(lock_path) else {
+        return;
+    };
+    let Some(pid) = contents
+        .trim()
+        .strip_prefix("pid=")
+        .and_then(|value| value.parse::<u32>().ok())
+    else {
+        let _ = fs::remove_file(lock_path);
+        return;
+    };
+
+    if !process_is_alive(pid) {
+        let _ = fs::remove_file(lock_path);
+    }
+}
+
 fn allocate_validator_port_bases(num_validators: usize) -> Result<ValidatorPortAllocation> {
     let lock_dir = std::env::temp_dir().join("ioi-test-port-blocks");
     fs::create_dir_all(&lock_dir)?;
 
     for block_start in (20_000u16..55_000u16).step_by(1_000) {
         let lock_path = lock_dir.join(format!("{block_start}.lock"));
+        if lock_path.exists() {
+            reclaim_stale_port_block_lock(&lock_path);
+        }
         let mut lock_file = match OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -179,7 +206,7 @@ pub struct TestClusterBuilder {
     min_finality_depth: Option<u64>,
     service_policies_override: BTreeMap<String, ServicePolicy>,
     roles: BTreeMap<usize, ValidatorRole>,
-    convergent_safety_mode: ConvergentSafetyMode,
+    aft_safety_mode: AftSafetyMode,
     guardian_config_toml: Option<String>,
 }
 
@@ -190,7 +217,7 @@ impl Default for TestClusterBuilder {
             keypairs: None,
             chain_id: ioi_types::app::ChainId(1),
             genesis_modifiers: Vec::new(),
-            consensus_type: "Convergent".to_string(),
+            consensus_type: "Aft".to_string(),
             agentic_model_path: None,
             use_docker: false,
             state_tree: "IAVL".to_string(),
@@ -206,7 +233,7 @@ impl Default for TestClusterBuilder {
             min_finality_depth: None,
             service_policies_override: BTreeMap::new(),
             roles: BTreeMap::new(),
-            convergent_safety_mode: ConvergentSafetyMode::GuardianMajority,
+            aft_safety_mode: AftSafetyMode::GuardianMajority,
             guardian_config_toml: None,
         }
     }
@@ -231,6 +258,7 @@ struct AutoGuardianHarness {
     witness_manifests: Vec<(Vec<u8>, Vec<u8>)>,
     witness_seed: Option<(Vec<u8>, Vec<u8>)>,
     witness_set: Option<(Vec<u8>, Vec<u8>)>,
+    asymptote_policy: Option<(Vec<u8>, Vec<u8>)>,
 }
 
 fn digest_to_array(digest: impl AsRef<[u8]>) -> Result<[u8; 32]> {
@@ -284,11 +312,11 @@ fn derive_witness_policy_hash(
 
 fn build_auto_guardian_harness(
     validator_keys: &[identity::Keypair],
-    safety_mode: ConvergentSafetyMode,
+    validator_base_ports: &[u16],
+    safety_mode: AftSafetyMode,
 ) -> Result<AutoGuardianHarness> {
     let temp_dir = Arc::new(tempfile::tempdir()?);
     let committee_keys = [BlsKeyPair::generate()?, BlsKeyPair::generate()?];
-    let witness_keys = [BlsKeyPair::generate()?, BlsKeyPair::generate()?];
     let transparency_log_key = identity::Keypair::generate_ed25519();
     let transparency_log_key_path = temp_dir.path().join("guardian-log.key");
     std::fs::write(
@@ -344,70 +372,80 @@ fn build_auto_guardian_harness(
 
     if matches!(
         safety_mode,
-        ConvergentSafetyMode::ExperimentalNestedGuardian
+        AftSafetyMode::ExperimentalNestedGuardian | AftSafetyMode::Asymptote
     ) {
-        let witness_members = witness_keys
-            .iter()
-            .enumerate()
-            .map(|(index, keypair)| {
-                let private_key_path = temp_dir.path().join(format!("witness-member-{index}.bls"));
-                std::fs::write(
-                    &private_key_path,
-                    hex::encode(SigningKeyPair::private_key(keypair).to_bytes()),
-                )?;
-                Ok::<_, anyhow::Error>(GuardianCommitteeMemberConfig {
-                    member_id: format!("witness-member-{index}"),
-                    endpoint: None,
-                    public_key: SigningKeyPair::public_key(keypair).to_bytes(),
-                    private_key_path: Some(private_key_path.to_string_lossy().to_string()),
-                    provider: Some(format!("witness-provider-{index}")),
-                    region: Some(format!("witness-region-{index}")),
-                    host_class: Some(format!("witness-host-class-{index}")),
-                    key_authority_kind: Some(ioi_types::app::KeyAuthorityKind::DevMemory),
+        let witness_committee_count = if matches!(safety_mode, AftSafetyMode::Asymptote) {
+            4
+        } else {
+            1
+        };
+        for committee_index in 0..witness_committee_count {
+            let witness_members = (0..2)
+                .map(|member_index| {
+                    let keypair = BlsKeyPair::generate()?;
+                    let global_index = (committee_index * 2) + member_index;
+                    let private_key_path = temp_dir
+                        .path()
+                        .join(format!("witness-member-{global_index}.bls"));
+                    std::fs::write(
+                        &private_key_path,
+                        hex::encode(SigningKeyPair::private_key(&keypair).to_bytes()),
+                    )?;
+                    Ok::<_, anyhow::Error>(GuardianCommitteeMemberConfig {
+                        member_id: format!("witness-member-{global_index}"),
+                        endpoint: None,
+                        public_key: SigningKeyPair::public_key(&keypair).to_bytes(),
+                        private_key_path: Some(private_key_path.to_string_lossy().to_string()),
+                        provider: Some(format!("witness-provider-{}", global_index % 4)),
+                        region: Some(format!("witness-region-{}", global_index % 4)),
+                        host_class: Some(format!("witness-host-class-{}", global_index % 4)),
+                        key_authority_kind: Some(ioi_types::app::KeyAuthorityKind::DevMemory),
+                    })
                 })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        guardian_config
-            .experimental_witness_committees
-            .push(GuardianWitnessCommitteeConfig {
-                committee_id: "witness-alpha".to_string(),
-                epoch: 1,
-                threshold: 2,
-                members: witness_members,
-                transparency_log_id: "witness-test-log".to_string(),
-                policy_hash: None,
-            });
+                .collect::<Result<Vec<_>>>()?;
+            guardian_config
+                .experimental_witness_committees
+                .push(GuardianWitnessCommitteeConfig {
+                    committee_id: format!("witness-{}", (b'a' + committee_index as u8) as char),
+                    stratum_id: format!("stratum-{}", (b'a' + committee_index as u8) as char),
+                    epoch: 1,
+                    threshold: 2,
+                    members: witness_members,
+                    transparency_log_id: format!("witness-test-log-{committee_index}"),
+                    policy_hash: None,
+                });
+        }
     }
 
     let measurement_profile_root = derive_guardian_measurement_root(&guardian_config)?;
     let guardian_policy_hash = derive_guardian_policy_hash(&guardian_config)?;
-    let manifest_members = guardian_config
-        .committee
-        .members
-        .iter()
-        .map(|member| GuardianCommitteeMember {
-            member_id: member.member_id.clone(),
-            signature_suite: SignatureSuite::BLS12_381,
-            public_key: member.public_key.clone(),
-            endpoint: member.endpoint.clone(),
-            provider: member.provider.clone(),
-            region: member.region.clone(),
-            host_class: member.host_class.clone(),
-            key_authority_kind: member.key_authority_kind,
-        })
-        .collect::<Vec<_>>();
-
     let mut committee_manifests = Vec::new();
-    for key in validator_keys {
+    for (index, key) in validator_keys.iter().enumerate() {
         let validator_account_id = AccountId(account_id_from_key_material(
             SignatureSuite::ED25519,
             &key.public().encode_protobuf(),
         )?);
+        let guardian_endpoint = format!("http://127.0.0.1:{}", validator_base_ports[index] + 4);
+        let manifest_members = guardian_config
+            .committee
+            .members
+            .iter()
+            .map(|member| GuardianCommitteeMember {
+                member_id: member.member_id.clone(),
+                signature_suite: SignatureSuite::BLS12_381,
+                public_key: member.public_key.clone(),
+                endpoint: Some(guardian_endpoint.clone()),
+                provider: member.provider.clone(),
+                region: member.region.clone(),
+                host_class: member.host_class.clone(),
+                key_authority_kind: member.key_authority_kind,
+            })
+            .collect::<Vec<_>>();
         let manifest = GuardianCommitteeManifest {
             validator_account_id,
             epoch: 1,
             threshold: guardian_config.committee.threshold,
-            members: manifest_members.clone(),
+            members: manifest_members,
             measurement_profile_root,
             policy_hash: guardian_policy_hash,
             transparency_log_id: guardian_config.committee.transparency_log_id.clone(),
@@ -418,40 +456,50 @@ fn build_auto_guardian_harness(
             guardian_registry_committee_key(&manifest_hash),
             ioi_types::codec::to_bytes_canonical(&manifest).map_err(|e| anyhow!(e.to_string()))?,
         ));
+        committee_manifests.push((
+            guardian_registry_committee_account_key(&validator_account_id),
+            manifest_hash.to_vec(),
+        ));
     }
 
     let mut witness_manifests = Vec::new();
     let mut witness_seed = None;
     let mut witness_set = None;
-    if let Some(witness_config) = guardian_config.experimental_witness_committees.first() {
-        let witness_manifest = GuardianWitnessCommitteeManifest {
-            committee_id: witness_config.committee_id.clone(),
-            epoch: witness_config.epoch,
-            threshold: witness_config.threshold,
-            members: witness_config
-                .members
-                .iter()
-                .map(|member| GuardianCommitteeMember {
-                    member_id: member.member_id.clone(),
-                    signature_suite: SignatureSuite::BLS12_381,
-                    public_key: member.public_key.clone(),
-                    endpoint: member.endpoint.clone(),
-                    provider: member.provider.clone(),
-                    region: member.region.clone(),
-                    host_class: member.host_class.clone(),
-                    key_authority_kind: member.key_authority_kind,
-                })
-                .collect(),
-            policy_hash: derive_witness_policy_hash(&guardian_config, witness_config)?,
-            transparency_log_id: witness_config.transparency_log_id.clone(),
-        };
-        let witness_manifest_hash = canonical_witness_manifest_hash(&witness_manifest)
-            .map_err(|e| anyhow!(e.to_string()))?;
-        witness_manifests.push((
-            guardian_registry_witness_key(&witness_manifest_hash),
-            ioi_types::codec::to_bytes_canonical(&witness_manifest)
-                .map_err(|e| anyhow!(e.to_string()))?,
-        ));
+    let mut asymptote_policy = None;
+    if !guardian_config.experimental_witness_committees.is_empty() {
+        let mut witness_manifest_hashes = Vec::new();
+        for witness_config in &guardian_config.experimental_witness_committees {
+            let witness_manifest = GuardianWitnessCommitteeManifest {
+                committee_id: witness_config.committee_id.clone(),
+                stratum_id: witness_config.stratum_id.clone(),
+                epoch: witness_config.epoch,
+                threshold: witness_config.threshold,
+                members: witness_config
+                    .members
+                    .iter()
+                    .map(|member| GuardianCommitteeMember {
+                        member_id: member.member_id.clone(),
+                        signature_suite: SignatureSuite::BLS12_381,
+                        public_key: member.public_key.clone(),
+                        endpoint: member.endpoint.clone(),
+                        provider: member.provider.clone(),
+                        region: member.region.clone(),
+                        host_class: member.host_class.clone(),
+                        key_authority_kind: member.key_authority_kind,
+                    })
+                    .collect(),
+                policy_hash: derive_witness_policy_hash(&guardian_config, witness_config)?,
+                transparency_log_id: witness_config.transparency_log_id.clone(),
+            };
+            let witness_manifest_hash = canonical_witness_manifest_hash(&witness_manifest)
+                .map_err(|e| anyhow!(e.to_string()))?;
+            witness_manifest_hashes.push(witness_manifest_hash);
+            witness_manifests.push((
+                guardian_registry_witness_key(&witness_manifest_hash),
+                ioi_types::codec::to_bytes_canonical(&witness_manifest)
+                    .map_err(|e| anyhow!(e.to_string()))?,
+            ));
+        }
         let seed = GuardianWitnessEpochSeed {
             epoch: 1,
             seed: [7u8; 32],
@@ -460,7 +508,7 @@ fn build_auto_guardian_harness(
         };
         let set = GuardianWitnessSet {
             epoch: 1,
-            manifest_hashes: vec![witness_manifest_hash],
+            manifest_hashes: witness_manifest_hashes,
             checkpoint_interval_blocks: 1,
         };
         witness_seed = Some((
@@ -471,6 +519,26 @@ fn build_auto_guardian_harness(
             guardian_registry_witness_set_key(1),
             ioi_types::codec::to_bytes_canonical(&set).map_err(|e| anyhow!(e.to_string()))?,
         ));
+        if matches!(safety_mode, AftSafetyMode::Asymptote) {
+            let observer_committee_size =
+                usize::min(2, validator_keys.len().saturating_sub(1)) as u16;
+            let policy = AsymptotePolicy {
+                epoch: 1,
+                high_risk_effect_tier: FinalityTier::SealedFinal,
+                required_witness_strata: Vec::new(),
+                escalation_witness_strata: Vec::new(),
+                observer_rounds: if observer_committee_size > 0 { 1 } else { 0 },
+                observer_committee_size,
+                observer_correlation_budget: Default::default(),
+                max_reassignment_depth: 0,
+                max_checkpoint_staleness_ms: 120_000,
+            };
+            asymptote_policy = Some((
+                guardian_registry_asymptote_policy_key(1),
+                ioi_types::codec::to_bytes_canonical(&policy)
+                    .map_err(|e| anyhow!(e.to_string()))?,
+            ));
+        }
     }
 
     let mut transparency_log_descriptors = vec![(
@@ -482,7 +550,7 @@ fn build_auto_guardian_harness(
         })
         .map_err(|e| anyhow!(e.to_string()))?,
     )];
-    if let Some(witness_config) = guardian_config.experimental_witness_committees.first() {
+    for witness_config in &guardian_config.experimental_witness_committees {
         if witness_config.transparency_log_id != guardian_config.committee.transparency_log_id {
             transparency_log_descriptors.push((
                 guardian_registry_log_key(&witness_config.transparency_log_id),
@@ -504,6 +572,7 @@ fn build_auto_guardian_harness(
         witness_manifests,
         witness_seed,
         witness_set,
+        asymptote_policy,
     })
 }
 
@@ -633,8 +702,8 @@ impl TestClusterBuilder {
         self
     }
 
-    pub fn with_convergent_safety_mode(mut self, mode: ConvergentSafetyMode) -> Self {
-        self.convergent_safety_mode = mode;
+    pub fn with_aft_safety_mode(mut self, mode: AftSafetyMode) -> Self {
+        self.aft_safety_mode = mode;
         self
     }
 
@@ -644,10 +713,7 @@ impl TestClusterBuilder {
     }
 
     pub async fn build(mut self) -> Result<TestCluster> {
-        let guardianized_mode = !matches!(
-            self.convergent_safety_mode,
-            ConvergentSafetyMode::ClassicBft
-        );
+        let guardianized_mode = !matches!(self.aft_safety_mode, AftSafetyMode::ClassicBft);
         let mut validator_keys = self.keypairs.take().unwrap_or_else(|| {
             (0..self.num_validators)
                 .map(|_| identity::Keypair::generate_ed25519())
@@ -672,9 +738,21 @@ impl TestClusterBuilder {
             id_a.cmp(&id_b)
         });
 
+        let ValidatorPortAllocation {
+            bases: validator_base_ports,
+            lock_path: validator_port_lock_path,
+        } = allocate_validator_port_bases(validator_keys.len())?;
+
         let shared_guardian_harness = if guardianized_mode && self.guardian_config_toml.is_none() {
-            let harness =
-                build_auto_guardian_harness(&validator_keys, self.convergent_safety_mode)?;
+            let harness = build_auto_guardian_harness(
+                &validator_keys,
+                &validator_base_ports,
+                self.aft_safety_mode,
+            )
+            .map_err(|error| {
+                let _ = fs::remove_file(&validator_port_lock_path);
+                error
+            })?;
             self.guardian_config_toml = Some(harness.guardian_config_toml.clone());
             if !self
                 .initial_services
@@ -689,6 +767,7 @@ impl TestClusterBuilder {
             let witness_manifests = harness.witness_manifests.clone();
             let witness_seed = harness.witness_seed.clone();
             let witness_set = harness.witness_set.clone();
+            let asymptote_policy = harness.asymptote_policy.clone();
             self.genesis_modifiers.push(Box::new(move |builder, _keys| {
                 builder.insert_typed(CURRENT_EPOCH_KEY, &1u64);
                 for (key, value) in &transparency_log_descriptors {
@@ -704,6 +783,9 @@ impl TestClusterBuilder {
                     builder.insert_raw(key, value);
                 }
                 if let Some((key, value)) = &witness_set {
+                    builder.insert_raw(key, value);
+                }
+                if let Some((key, value)) = &asymptote_policy {
                     builder.insert_raw(key, value);
                 }
             }));
@@ -755,6 +837,7 @@ impl TestClusterBuilder {
                     };
                     let timing_runtime = BlockTimingRuntime {
                         effective_interval_secs: 1,
+                        effective_interval_ms: 1_000,
                         ema_gas_used: 0,
                     };
                     builder.set_block_timing(&timing_params, &timing_runtime);
@@ -778,56 +861,134 @@ impl TestClusterBuilder {
 
         let mut validators: Vec<ValidatorGuard> = Vec::new();
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
-        let ValidatorPortAllocation {
-            bases: validator_base_ports,
-            lock_path: validator_port_lock_path,
-        } = allocate_validator_port_bases(validator_keys.len())?;
 
-        if let Some(boot_key) = validator_keys.first() {
-            let role = self
-                .roles
-                .get(&0)
-                .cloned()
-                .unwrap_or(ValidatorRole::Consensus);
+        let full_mesh_bootnodes = std::env::var("IOI_TEST_FULL_MESH_BOOTNODES")
+            .ok()
+            .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
+            .unwrap_or(false);
 
-            let bootnode_guard = TestValidator::launch(
-                boot_key.clone(),
-                genesis_content.clone(),
-                validator_base_ports[0],
-                self.chain_id,
-                None,
-                &self.consensus_type,
-                &self.state_tree,
-                &self.commitment_scheme,
-                self.ibc_gateway_addr.as_deref(),
-                self.agentic_model_path.as_deref(),
-                self.use_docker,
-                self.initial_services.clone(),
-                self.use_malicious_workload,
-                false,
-                &self.extra_features,
-                self.epoch_size,
-                self.keep_recent_heights,
-                self.gc_interval_secs,
-                self.min_finality_depth,
-                service_policies.clone(),
-                role,
-                self.convergent_safety_mode,
-                self.guardian_config_toml.clone(),
-            )
-            .await
-            .map_err(|error| {
-                let _ = fs::remove_file(&validator_port_lock_path);
-                error
-            })?;
-
-            bootnode_addrs.push(bootnode_guard.validator().p2p_addr.clone());
-            validators.push(bootnode_guard);
+        if !full_mesh_bootnodes && !validator_keys.is_empty() {
+            let boot_peer_id = validator_keys[0].public().to_peer_id();
+            let boot_listen_addr: Multiaddr =
+                format!("/ip4/127.0.0.1/tcp/{}", validator_base_ports[0])
+                    .parse()
+                    .expect("validator p2p multiaddr should parse");
+            bootnode_addrs
+                .push(boot_listen_addr.with(libp2p::multiaddr::Protocol::P2p(boot_peer_id.into())));
         }
 
-        if validator_keys.len() > 1 {
+        let full_mesh_bootnode_addrs = if full_mesh_bootnodes {
+            Some(
+                validator_keys
+                    .iter()
+                    .enumerate()
+                    .map(|(index, key)| {
+                        let peer_id = key.public().to_peer_id();
+                        let listen_addr: Multiaddr =
+                            format!("/ip4/127.0.0.1/tcp/{}", validator_base_ports[index])
+                                .parse()
+                                .expect("validator p2p multiaddr should parse");
+                        listen_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id.into()))
+                    })
+                    .collect::<Vec<_>>(),
+            )
+        } else {
+            None
+        };
+
+        if validator_keys.len() > 1 && full_mesh_bootnodes {
+            let launch_with_bootnodes = |index: usize| {
+                full_mesh_bootnode_addrs
+                    .as_ref()
+                    .map(|all_addrs| {
+                        all_addrs
+                            .iter()
+                            .enumerate()
+                            .filter(|(peer_index, _)| *peer_index != index)
+                            .map(|(_, addr)| addr.clone())
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default()
+            };
+
             let mut launch_futures = FuturesUnordered::new();
-            for (i, key) in validator_keys.iter().enumerate().skip(1) {
+            for (i, key) in validator_keys.iter().enumerate() {
+                let key_clone = key.clone();
+                let captured_genesis = genesis_content.clone();
+                let captured_consensus = self.consensus_type.clone();
+                let captured_state_tree = self.state_tree.clone();
+                let captured_commitment = self.commitment_scheme.clone();
+                let captured_ibc_gateway = self.ibc_gateway_addr.clone();
+                let captured_agentic_path = self.agentic_model_path.clone();
+                let captured_use_docker = self.use_docker;
+                let captured_services = self.initial_services.clone();
+                let captured_malicious = self.use_malicious_workload;
+                let captured_extra_features = self.extra_features.clone();
+                let captured_epoch_size = self.epoch_size;
+                let captured_keep_recent = self.keep_recent_heights;
+                let captured_gc_interval = self.gc_interval_secs;
+                let captured_min_finality = self.min_finality_depth;
+                let captured_policies = service_policies.clone();
+                let captured_safety_mode = self.aft_safety_mode;
+                let captured_guardian_config = self.guardian_config_toml.clone();
+                let captured_chain_id = self.chain_id;
+                let base_port = validator_base_ports[i];
+                let node_bootnodes = launch_with_bootnodes(i);
+                let role = self
+                    .roles
+                    .get(&i)
+                    .cloned()
+                    .unwrap_or(ValidatorRole::Consensus);
+
+                let fut = async move {
+                    TestValidator::launch(
+                        key_clone,
+                        captured_genesis,
+                        base_port,
+                        captured_chain_id,
+                        Some(&node_bootnodes),
+                        &captured_consensus,
+                        &captured_state_tree,
+                        &captured_commitment,
+                        captured_ibc_gateway.as_deref(),
+                        captured_agentic_path.as_deref(),
+                        captured_use_docker,
+                        captured_services,
+                        captured_malicious,
+                        false,
+                        &captured_extra_features,
+                        captured_epoch_size,
+                        captured_keep_recent,
+                        captured_gc_interval,
+                        captured_min_finality,
+                        captured_policies,
+                        role,
+                        captured_safety_mode,
+                        captured_guardian_config,
+                    )
+                    .await
+                };
+                launch_futures.push(fut);
+            }
+
+            while let Some(result) = launch_futures.next().await {
+                match result {
+                    Ok(guard) => {
+                        bootnode_addrs.push(guard.validator().p2p_addr.clone());
+                        validators.push(guard);
+                    }
+                    Err(error) => {
+                        for guard in validators {
+                            let _ = guard.shutdown().await;
+                        }
+                        let _ = fs::remove_file(&validator_port_lock_path);
+                        return Err(error);
+                    }
+                }
+            }
+        } else if validator_keys.len() > 1 {
+            let mut launch_futures = FuturesUnordered::new();
+            for (i, key) in validator_keys.iter().enumerate() {
                 let base_port = validator_base_ports[i];
                 let captured_bootnodes = bootnode_addrs.clone();
                 let captured_chain_id = self.chain_id;
@@ -846,7 +1007,7 @@ impl TestClusterBuilder {
                 let captured_gc_interval = self.gc_interval_secs;
                 let captured_min_finality = self.min_finality_depth;
                 let captured_policies = service_policies.clone();
-                let captured_safety_mode = self.convergent_safety_mode;
+                let captured_safety_mode = self.aft_safety_mode;
                 let captured_guardian_config = self.guardian_config_toml.clone();
                 let key_clone = key.clone();
 
@@ -862,7 +1023,11 @@ impl TestClusterBuilder {
                         captured_genesis,
                         base_port,
                         captured_chain_id,
-                        Some(&captured_bootnodes),
+                        if i == 0 {
+                            None
+                        } else {
+                            Some(&captured_bootnodes)
+                        },
                         &captured_consensus,
                         &captured_state_tree,
                         &captured_commitment,
@@ -913,9 +1078,11 @@ impl TestClusterBuilder {
         });
 
         if validators.len() > 1 {
-            // [FIX] Relax sync requirement to Height 1 to pass in potentially partitioned test environments.
-            // Height 1 confirms genesis loading and bootnode sync.
-            println!("--- Waiting for cluster to sync to height 1 ---");
+            println!("--- Waiting for cluster to converge on a shared tip ---");
+            let allow_zero_height_ready = std::env::var("IOI_TEST_ALLOW_ZERO_HEIGHT_READY")
+                .ok()
+                .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
+                .unwrap_or(false);
 
             // [DEBUG] Parallel wait with status logging
             let timeout = Duration::from_secs(180); // Increased for 4-node
@@ -930,8 +1097,15 @@ impl TestClusterBuilder {
                     break;
                 }
 
+                let now_secs = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|duration| duration.as_secs())
+                    .unwrap_or_default();
                 let mut all_reached = true;
                 let mut status_lines = Vec::new();
+                let mut observed_heights = Vec::new();
+                let mut observed_timestamps = Vec::new();
+                let mut observed_peer_counts = Vec::new();
 
                 for (i, v_guard) in validators.iter().enumerate() {
                     let rpc_addr = &v_guard.validator().rpc_addr;
@@ -942,12 +1116,15 @@ impl TestClusterBuilder {
                     // Use the existing rpc helper
                     match crate::testing::rpc::get_status(rpc_addr).await {
                         Ok(status) => {
+                            let peer_count = peers.parse::<usize>().unwrap_or_default();
+                            observed_heights.push(status.height);
+                            observed_timestamps.push(status.latest_timestamp);
+                            observed_peer_counts.push(peer_count);
                             status_lines.push(format!(
                                 "Node {}: Height={} Peers={} Ts={}",
                                 i, status.height, peers, status.latest_timestamp
                             ));
-                            // [FIX] Check for Height 1 instead of 2
-                            if status.height < 1 {
+                            if status.height < 1 && !allow_zero_height_ready {
                                 all_reached = false;
                             }
                         }
@@ -955,6 +1132,109 @@ impl TestClusterBuilder {
                             status_lines
                                 .push(format!("Node {}: RPC Error {} (Peers={})", i, e, peers));
                             all_reached = false;
+                        }
+                    }
+                }
+
+                if all_reached {
+                    if full_mesh_bootnodes && validators.len() > 1 {
+                        let expected_peer_count = validators.len().saturating_sub(1);
+                        let min_peers = observed_peer_counts.iter().copied().min().unwrap_or(0);
+                        if min_peers < expected_peer_count {
+                            all_reached = false;
+                            status_lines.push(format!(
+                                "Mesh not converged yet: min_peers={} expected={}",
+                                min_peers, expected_peer_count
+                            ));
+                        }
+                    }
+                }
+
+                if all_reached {
+                    let min_height = observed_heights.iter().copied().min().unwrap_or(0);
+                    let max_height = observed_heights.iter().copied().max().unwrap_or(0);
+                    let height_lag = max_height.saturating_sub(min_height);
+                    if height_lag > 1 {
+                        all_reached = false;
+                        status_lines.push(format!(
+                            "Heights diverged beyond readiness lag: min={} max={} lag={}",
+                            min_height, max_height, height_lag
+                        ));
+                    } else if max_height == 0
+                        && (allow_zero_height_ready
+                            || observed_timestamps
+                                .iter()
+                                .copied()
+                                .min()
+                                .map(|timestamp| timestamp > now_secs)
+                                .unwrap_or(false))
+                    {
+                        status_lines.push(
+                            "Canonical shared floor at height 0 => future-genesis benchmark cluster is synchronized"
+                                .to_string(),
+                        );
+                    } else {
+                        let shared_height = min_height;
+                        let mut shared_tip_hash: Option<Vec<u8>> = None;
+                        for (i, v_guard) in validators.iter().enumerate() {
+                            let rpc_addr = &v_guard.validator().rpc_addr;
+                            match crate::testing::rpc::get_block_by_height_resilient(
+                                rpc_addr,
+                                shared_height,
+                            )
+                            .await
+                            {
+                                Ok(Some(block)) => {
+                                    let Ok(hash) = block.header.hash() else {
+                                        all_reached = false;
+                                        status_lines.push(format!(
+                                            "Node {}: failed to hash block {}",
+                                            i, shared_height
+                                        ));
+                                        continue;
+                                    };
+                                    match &shared_tip_hash {
+                                        Some(expected) if expected != &hash => {
+                                            all_reached = false;
+                                            status_lines.push(format!(
+                                                "Node {}: block hash mismatch at height {} | got={} expected={} producer=0x{} view={}",
+                                                i,
+                                                shared_height,
+                                                hex::encode(&hash[..4]),
+                                                hex::encode(&expected[..4]),
+                                                hex::encode(&block.header.producer_account_id.0[..4]),
+                                                block.header.view
+                                            ));
+                                        }
+                                        None => {
+                                            status_lines.push(format!(
+                                                "Canonical shared floor at height {} => hash={} producer=0x{} view={} lag={}",
+                                                shared_height,
+                                                hex::encode(&hash[..4]),
+                                                hex::encode(&block.header.producer_account_id.0[..4]),
+                                                block.header.view,
+                                                height_lag
+                                            ));
+                                            shared_tip_hash = Some(hash);
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Ok(None) => {
+                                    all_reached = false;
+                                    status_lines.push(format!(
+                                        "Node {}: missing block {} during convergence check",
+                                        i, shared_height
+                                    ));
+                                }
+                                Err(error) => {
+                                    all_reached = false;
+                                    status_lines.push(format!(
+                                        "Node {}: failed to fetch block {} during convergence check: {}",
+                                        i, shared_height, error
+                                    ));
+                                }
+                            }
                         }
                     }
                 }

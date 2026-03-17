@@ -26,8 +26,8 @@ use ioi_consensus::Consensus;
 use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
-    AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport, QuorumCertificate,
-    StateRoot,
+    seconds_to_millis, AccountId, BlockTimingParams, BlockTimingRuntime, ChainId, FailureReport,
+    QuorumCertificate, StateRoot,
 };
 use ioi_types::codec;
 use ioi_types::config::ServicePolicy;
@@ -39,6 +39,7 @@ use ioi_types::service_configs::ActiveServiceMeta;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 // [FIX] Import OsDriver trait
 use ioi_api::vm::drivers::os::OsDriver;
@@ -140,6 +141,20 @@ where
         serde::Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     <CS as CommitmentScheme>::Commitment: std::fmt::Debug + Send + Sync,
 {
+    fn configured_genesis_timestamp_secs() -> u64 {
+        std::env::var("IOI_GENESIS_TIMESTAMP_SECS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(0)
+    }
+
+    fn configured_genesis_timestamp_ms() -> u64 {
+        std::env::var("IOI_GENESIS_TIMESTAMP_MS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or_else(|| seconds_to_millis(Self::configured_genesis_timestamp_secs()))
+    }
+
     pub fn new(
         commitment_scheme: CS,
         transaction_model: UnifiedTransactionModel<CS>,
@@ -151,11 +166,13 @@ where
         os_driver: Arc<dyn OsDriver>,
     ) -> Result<Self, CoreError> {
         // [FIX] Initialize as running=true so the API reports correct status immediately
+        let genesis_timestamp_ms = Self::configured_genesis_timestamp_ms();
         let status = ChainStatus {
             height: 0,
-            latest_timestamp: 0,
+            latest_timestamp: genesis_timestamp_ms / 1000,
             total_transactions: 0,
             is_running: true,
+            latest_timestamp_ms: genesis_timestamp_ms,
         };
 
         let services_for_dir: Vec<Arc<dyn BlockchainService>> = initial_services
@@ -206,6 +223,9 @@ where
 
                 // [FIX] Ensure we report running after a restart/recovery
                 status.is_running = true;
+                if status.latest_timestamp_ms == 0 {
+                    status.latest_timestamp_ms = seconds_to_millis(status.latest_timestamp);
+                }
 
                 tracing::info!(target: "execution", event = "status_loaded", height = status.height, "Successfully loaded existing chain status from state manager.");
                 self.state.status = status;
@@ -276,6 +296,25 @@ where
             Ok(None) => {
                 tracing::info!(target: "execution", event = "status_init", "No existing chain status found. Initializing and saving genesis status.");
 
+                if self.state.status.latest_timestamp_ms_or_legacy() == 0 {
+                    tracing::warn!(
+                        target: "execution",
+                        "Genesis timestamp defaulted to zero; set IOI_GENESIS_TIMESTAMP_MS or IOI_GENESIS_TIMESTAMP_SECS for deterministic block-timing tests"
+                    );
+                } else {
+                    let now_secs = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|duration| duration.as_secs())
+                        .unwrap_or_default();
+                    tracing::info!(
+                        target: "execution",
+                        genesis_timestamp = self.state.status.latest_timestamp,
+                        genesis_timestamp_ms = self.state.status.latest_timestamp_ms_or_legacy(),
+                        wall_clock = now_secs,
+                        "Initializing genesis status with configured timestamp"
+                    );
+                }
+
                 for service in self.service_manager.all_services() {
                     let service_id = service.id();
                     let key = ioi_types::keys::active_service_key(service_id);
@@ -322,6 +361,9 @@ where
                         ema_alpha_milli: 200,
                         interval_step_bps: 500,
                         retarget_every_blocks: 0,
+                        base_interval_ms: 5_000,
+                        min_interval_ms: 2_000,
+                        max_interval_ms: 10_000,
                     };
                     state
                         .insert(
@@ -345,6 +387,7 @@ where
                     let timing_runtime = BlockTimingRuntime {
                         ema_gas_used: 0,
                         effective_interval_secs: params.base_interval_secs,
+                        effective_interval_ms: params.base_interval_ms_or_legacy(),
                     };
                     state
                         .insert(
@@ -378,6 +421,7 @@ where
                         state_root: StateRoot(final_root.clone()),
                         transactions_root: vec![],
                         timestamp: self.state.status.latest_timestamp,
+                        timestamp_ms: self.state.status.latest_timestamp_ms_or_legacy(),
                         gas_used: 0,
                         validator_set: vec![],
                         producer_account_id: AccountId::default(),
@@ -389,6 +433,9 @@ where
                         oracle_trace_hash: [0u8; 32],
                         parent_qc: QuorumCertificate::default(),
                         guardian_certificate: None,
+                        sealed_finality_proof: None,
+                        canonical_order_certificate: None,
+                        timeout_certificate: None,
                     },
                     transactions: vec![],
                 };

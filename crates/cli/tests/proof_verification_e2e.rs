@@ -84,7 +84,7 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         7000,
         1.into(),
         None,
-        "Convergent",
+        "Aft",
         "IAVL",
         "Hash",
         None,
@@ -108,7 +108,7 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         ioi_types::config::default_service_policies(),
         // [FIX] Pass default Consensus role
         ValidatorRole::Consensus,
-        ioi_types::config::ConvergentSafetyMode::GuardianMajority,
+        ioi_types::config::AftSafetyMode::GuardianMajority,
         None,
     )
     .await?;

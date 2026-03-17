@@ -7,7 +7,7 @@ async fn wallet_network_bridge_records_firewall_interceptions_from_ingestion() -
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Convergent")
+        .with_consensus_type("Aft")
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_network_user_policy())
         .with_service_policy("desktop_agent", desktop_agent_user_policy())

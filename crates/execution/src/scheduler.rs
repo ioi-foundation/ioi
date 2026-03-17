@@ -53,28 +53,76 @@ impl Scheduler {
                 return Task::Done;
             }
 
-            // 2. Prioritize Validation
-            if val_idx < exec_idx {
-                if self
-                    .validation_idx
-                    .compare_exchange(val_idx, val_idx + 1, Ordering::SeqCst, Ordering::Relaxed)
-                    .is_ok()
-                {
-                    return Task::Validate(val_idx);
+            // 2. Prioritize validation only after execution has actually finished.
+            if val_idx < self.num_txs {
+                let validation_ready = {
+                    let status = self.status.lock().expect("Scheduler status lock poisoned");
+                    status.get(val_idx).copied()
+                };
+
+                match validation_ready {
+                    Some(TxStatus::Executed) => {
+                        if self
+                            .validation_idx
+                            .compare_exchange(
+                                val_idx,
+                                val_idx + 1,
+                                Ordering::SeqCst,
+                                Ordering::Relaxed,
+                            )
+                            .is_ok()
+                        {
+                            return Task::Validate(val_idx);
+                        }
+                        continue;
+                    }
+                    Some(TxStatus::Validated) => {
+                        let _ = self.validation_idx.compare_exchange(
+                            val_idx,
+                            val_idx + 1,
+                            Ordering::SeqCst,
+                            Ordering::Relaxed,
+                        );
+                        continue;
+                    }
+                    _ => {}
                 }
-                continue; // CAS failed, retry loop
             }
 
-            // 3. Pick Execution
+            // 3. Pick execution for the next transaction that is still Ready.
             if exec_idx < self.num_txs {
-                if self
-                    .execution_idx
-                    .compare_exchange(exec_idx, exec_idx + 1, Ordering::SeqCst, Ordering::Relaxed)
-                    .is_ok()
-                {
-                    return Task::Execute(exec_idx);
+                let exec_status = {
+                    let status = self.status.lock().expect("Scheduler status lock poisoned");
+                    status.get(exec_idx).copied()
+                };
+
+                match exec_status {
+                    Some(TxStatus::Ready) => {
+                        if self
+                            .execution_idx
+                            .compare_exchange(
+                                exec_idx,
+                                exec_idx + 1,
+                                Ordering::SeqCst,
+                                Ordering::Relaxed,
+                            )
+                            .is_ok()
+                        {
+                            return Task::Execute(exec_idx);
+                        }
+                        continue;
+                    }
+                    Some(TxStatus::Executed | TxStatus::Validated) => {
+                        let _ = self.execution_idx.compare_exchange(
+                            exec_idx,
+                            exec_idx + 1,
+                            Ordering::SeqCst,
+                            Ordering::Relaxed,
+                        );
+                        continue;
+                    }
+                    None => {}
                 }
-                continue; // CAS failed, retry loop
             }
 
             // 4. No tasks currently available, spin/yield.
@@ -90,27 +138,47 @@ impl Scheduler {
 
     /// Mark a transaction as validated. This is the condition for block completion.
     pub fn finish_validation(&self, tx_idx: TxIndex) {
+        let mut newly_validated = false;
         {
             let mut status = self.status.lock().expect("Scheduler status lock poisoned");
-            status[tx_idx] = TxStatus::Validated;
+            if status[tx_idx] != TxStatus::Validated {
+                status[tx_idx] = TxStatus::Validated;
+                newly_validated = true;
+            }
         }
-        self.completed_validations.fetch_add(1, Ordering::SeqCst);
+        if newly_validated {
+            self.completed_validations.fetch_add(1, Ordering::SeqCst);
+        }
     }
 
     /// Mark a transaction as aborted (failed validation).
     /// This resets the execution index to ensure it gets picked up again.
     pub fn abort_tx(&self, tx_idx: TxIndex) {
         let mut status = self.status.lock().expect("Scheduler status lock poisoned");
-        status[tx_idx] = TxStatus::Ready;
+        let mut revoked_validations = 0usize;
+        for entry in status.iter_mut().skip(tx_idx) {
+            if *entry == TxStatus::Validated {
+                revoked_validations += 1;
+            }
+            *entry = TxStatus::Ready;
+        }
+
+        if revoked_validations > 0 {
+            self.completed_validations
+                .fetch_sub(revoked_validations, Ordering::SeqCst);
+        }
+
+        drop(status);
 
         let mut incarnations = self
             .incarnations
             .lock()
             .expect("Scheduler incarnations lock poisoned");
-        incarnations[tx_idx] += 1;
+        for entry in incarnations.iter_mut().skip(tx_idx) {
+            *entry += 1;
+        }
 
-        // CRITICAL: Reset indices to force re-execution of this and potentially subsequent txs.
-        // This effectively "rewinds" the scheduler.
+        // CRITICAL: Reset indices to force re-execution and re-validation from the aborted point.
         self.execution_idx.fetch_min(tx_idx, Ordering::SeqCst);
         self.validation_idx.fetch_min(tx_idx, Ordering::SeqCst);
     }

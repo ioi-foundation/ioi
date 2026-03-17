@@ -25,6 +25,12 @@ service GuardianControl {
   // Request a guardianized certificate for a consensus payload.
   rpc SignConsensus(SignConsensusRequest) returns (SignConsensusResponse);
 
+  // Request witness-backed sealed finality proof material for a consensus payload.
+  rpc SealConsensus(SealConsensusRequest) returns (SealConsensusResponse);
+
+  // Request an equal-authority asymptote observer certificate for a sampled slot.
+  rpc ObserveAsymptote(ObserveAsymptoteRequest) returns (ObserveAsymptoteResponse);
+
   // Request raw committee member signatures over a canonical guardian decision.
   rpc SignCommitteeDecision(SignCommitteeDecisionRequest) returns (SignCommitteeDecisionResponse);
 
@@ -85,6 +91,12 @@ message SecureEgressRequest {
   // If present, the Guardian parses the body as JSON and injects the secret here
   // instead of (or in addition to) the Authorization header.
   string json_patch_path = 6;
+  // Required finality tier for this egress.
+  uint32 required_finality_tier = 7;
+  // Canonical SCALE-encoded SealedFinalityProof when sealed finality is required.
+  bytes sealed_finality_proof = 8;
+  // Canonical SCALE-encoded SealObject when proof-carrying sealed effects are used.
+  bytes seal_object = 9;
 }
 
 message SecureEgressResponse {
@@ -95,6 +107,8 @@ message SecureEgressResponse {
   bytes guardian_signature = 3;
   // Canonical guardianized receipt envelope, SCALE encoded.
   bytes receipt = 4;
+  // Finality tier actually satisfied by the Guardian for this effect.
+  uint32 finality_tier = 5;
 }
 
 message SignConsensusRequest {
@@ -117,6 +131,41 @@ message SignConsensusResponse {
   bytes trace_hash = 3;
   // Canonical guardian certificate, SCALE encoded when present.
   bytes guardian_certificate = 4;
+}
+
+message SealConsensusRequest {
+  bytes payload_hash = 1;
+  bytes subject = 2;
+  uint64 expected_counter = 3;
+  bytes expected_trace_hash = 4;
+  bytes measurement_root = 5;
+  bytes policy_hash = 6;
+  bytes manifest_hash = 7;
+  uint64 height = 8;
+  uint64 view = 9;
+  repeated bytes witness_manifest_hashes = 10;
+  uint32 witness_reassignment_depth = 11;
+  repeated bytes observer_plan_entries = 12;
+}
+
+message SealConsensusResponse {
+  // Canonical guardian certificate, SCALE encoded when present.
+  bytes guardian_certificate = 1;
+  // Canonical sealed finality proof, SCALE encoded when present.
+  bytes sealed_finality_proof = 2;
+  uint64 counter = 3;
+  bytes trace_hash = 4;
+}
+
+message ObserveAsymptoteRequest {
+  // Canonical SCALE-encoded AsymptoteObserverStatement payload.
+  bytes statement = 1;
+  bytes manifest_hash = 2;
+}
+
+message ObserveAsymptoteResponse {
+  // Canonical SCALE-encoded AsymptoteObserverCertificate payload.
+  bytes observer_certificate = 1;
 }
 
 message SignCommitteeDecisionRequest {

@@ -8,7 +8,9 @@ pub fn engine_from_config(config: &OrchestrationConfig) -> Result<Consensus<Chai
     match config.consensus_type {
         ConsensusType::ProofOfStake => proof_of_stake_engine(),
         ConsensusType::ProofOfAuthority => proof_of_authority_engine(),
-        ConsensusType::Convergent => convergent_engine(config.convergent_safety_mode),
+        ConsensusType::Aft => {
+            aft_engine(config.aft_safety_mode, config.round_robin_view_timeout_secs)
+        }
     }
 }
 
@@ -42,21 +44,34 @@ fn proof_of_authority_engine() -> Result<Consensus<ChainTransaction>> {
     ))
 }
 
-#[cfg(feature = "convergent")]
-fn convergent_engine(
-    mode: ioi_types::config::ConvergentSafetyMode,
+#[cfg(feature = "aft")]
+fn aft_engine(
+    mode: ioi_types::config::AftSafetyMode,
+    view_timeout_secs: u64,
 ) -> Result<Consensus<ChainTransaction>> {
-    use crate::convergent::ConvergentEngine;
+    use crate::aft::AftEngine;
+    use std::time::Duration;
 
-    log::info!("Using Convergent Fault Tolerance consensus engine.");
-    Ok(Consensus::Convergent(ConvergentEngine::new(mode)))
+    let view_timeout = std::env::var("IOI_TEST_ROUND_ROBIN_VIEW_TIMEOUT_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .map(Duration::from_millis)
+        .unwrap_or_else(|| Duration::from_secs(view_timeout_secs.max(1)));
+
+    log::info!("Using Aft Fault Tolerance consensus engine.");
+    Ok(Consensus::Aft(AftEngine::with_view_timeout(
+        mode,
+        view_timeout,
+    )))
 }
 
-#[cfg(not(feature = "convergent"))]
-fn convergent_engine(
-    _mode: ioi_types::config::ConvergentSafetyMode,
+#[cfg(not(feature = "aft"))]
+fn aft_engine(
+    _mode: ioi_types::config::AftSafetyMode,
+    _view_timeout_secs: u64,
 ) -> Result<Consensus<ChainTransaction>> {
     Err(anyhow::anyhow!(
-        "Node configured for Convergent consensus, but not compiled with the 'consensus-convergent' feature."
+        "Node configured for Aft consensus, but not compiled with the 'consensus-aft' feature."
     ))
 }

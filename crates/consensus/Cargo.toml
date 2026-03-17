@@ -33,7 +33,7 @@ tracing = { workspace = true }
 
 [features]
 default = []
-convergent = ["dep:tokio"]
+aft = ["dep:tokio"]
 poa = []
 pos = []
 custom-consensus = []

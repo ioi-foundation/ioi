@@ -12,6 +12,8 @@ use ioi_types::{
 };
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 use tokio::sync::Mutex;
 use tonic::transport::Channel;
 
@@ -35,6 +37,8 @@ use ioi_ipc::blockchain::{
 
 // Threshold (64KB) for switching to shared memory transfer
 const BLOCK_SHMEM_THRESHOLD: usize = 64 * 1024;
+const WORKLOAD_GRPC_MAX_MESSAGE_BYTES: usize = 64 * 1024 * 1024;
+const SINGLE_BLOCK_FETCH_MAX_BYTES: u32 = 64 * 1024 * 1024;
 
 /// Helper to distinguish logic errors (from the remote) vs transport errors (from tonic)
 fn map_grpc_error(status: tonic::Status) -> ChainError {
@@ -60,7 +64,8 @@ pub struct WorkloadClient {
     system: Mutex<SystemControlClient<Channel>>,
 
     // Data Plane (Shared Memory)
-    data_plane: Option<Arc<DataPlane>>,
+    data_plane: Mutex<Option<Arc<DataPlane>>>,
+    shmem_id: String,
 
     // Stored address for logging/debugging
     addr: String,
@@ -71,12 +76,53 @@ impl std::fmt::Debug for WorkloadClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WorkloadClient")
             .field("addr", &self.addr)
-            .field("data_plane", &self.data_plane)
+            .field("shmem_id", &self.shmem_id)
             .finish_non_exhaustive()
     }
 }
 
 impl WorkloadClient {
+    fn try_connect_data_plane(
+        shmem_id: &str,
+        connect_retries: u32,
+        connect_backoff_ms: u64,
+    ) -> Option<Arc<DataPlane>> {
+        for attempt in 0..=connect_retries {
+            match DataPlane::connect(shmem_id) {
+                Ok(plane) => return Some(Arc::new(plane)),
+                Err(_) if attempt < connect_retries => {
+                    thread::sleep(Duration::from_millis(connect_backoff_ms));
+                }
+                Err(_) => {}
+            }
+        }
+        None
+    }
+
+    async fn ensure_data_plane(&self) -> Option<Arc<DataPlane>> {
+        {
+            let guard = self.data_plane.lock().await;
+            if let Some(existing) = guard.as_ref() {
+                return Some(existing.clone());
+            }
+        }
+
+        let connected = Self::try_connect_data_plane(&self.shmem_id, 0, 0);
+        if let Some(plane) = connected {
+            let mut guard = self.data_plane.lock().await;
+            if guard.is_none() {
+                log::info!(
+                    "WorkloadClient attached to Data Plane '{}' after lazy retry.",
+                    self.shmem_id
+                );
+                *guard = Some(plane.clone());
+            }
+            return guard.as_ref().cloned();
+        }
+
+        None
+    }
+
     /// Establishes a connection to the Workload container.
     pub async fn new(addr: &str, _ca: &str, _cert: &str, _key: &str) -> Result<Self> {
         let endpoint = if addr.starts_with("http") {
@@ -93,7 +139,16 @@ impl WorkloadClient {
 
         let shmem_id =
             std::env::var("IOI_SHMEM_ID").unwrap_or_else(|_| "ioi_workload_shm_default".into());
-        let data_plane = DataPlane::connect(&shmem_id).ok().map(Arc::new);
+        let connect_retries = std::env::var("IOI_SHMEM_CONNECT_RETRIES")
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or(500);
+        let connect_backoff_ms = std::env::var("IOI_SHMEM_CONNECT_BACKOFF_MS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(20);
+        let data_plane =
+            Self::try_connect_data_plane(&shmem_id, connect_retries, connect_backoff_ms);
 
         if data_plane.is_none() {
             log::warn!(
@@ -105,12 +160,21 @@ impl WorkloadClient {
         }
 
         Ok(Self {
-            chain: Mutex::new(ChainControlClient::new(channel.clone())),
-            state: Mutex::new(StateQueryClient::new(channel.clone())),
+            chain: Mutex::new(
+                ChainControlClient::new(channel.clone())
+                    .max_decoding_message_size(WORKLOAD_GRPC_MAX_MESSAGE_BYTES)
+                    .max_encoding_message_size(WORKLOAD_GRPC_MAX_MESSAGE_BYTES),
+            ),
+            state: Mutex::new(
+                StateQueryClient::new(channel.clone())
+                    .max_decoding_message_size(WORKLOAD_GRPC_MAX_MESSAGE_BYTES)
+                    .max_encoding_message_size(WORKLOAD_GRPC_MAX_MESSAGE_BYTES),
+            ),
             contract: Mutex::new(ContractControlClient::new(channel.clone())),
             staking: Mutex::new(StakingControlClient::new(channel.clone())),
             system: Mutex::new(SystemControlClient::new(channel)),
-            data_plane,
+            data_plane: Mutex::new(data_plane),
+            shmem_id,
             addr: addr.to_string(),
         })
     }
@@ -132,6 +196,7 @@ impl WorkloadClient {
             latest_timestamp: resp.latest_timestamp,
             total_transactions: resp.total_transactions,
             is_running: resp.is_running,
+            latest_timestamp_ms: resp.latest_timestamp.saturating_mul(1000),
         })
     }
 
@@ -312,7 +377,7 @@ impl WorkloadClient {
         let req = GetBlocksRangeRequest {
             since: height,
             max_blocks: 1,
-            max_bytes: 10 * 1024 * 1024,
+            max_bytes: SINGLE_BLOCK_FETCH_MAX_BYTES,
         };
 
         let mut client = self.chain.lock().await;
@@ -326,7 +391,7 @@ impl WorkloadClient {
         let raw_blocks = match response.data {
             Some(BlocksData::Inline(list)) => list.blocks,
             Some(BlocksData::Shmem(handle)) => {
-                if let Some(dp) = &self.data_plane {
+                if let Some(dp) = self.ensure_data_plane().await {
                     if handle.region_id != dp.id() {
                         return Err(anyhow!("Shmem region ID mismatch"));
                     }
@@ -361,13 +426,17 @@ impl WorkloadClientApi for WorkloadClient {
         &self,
         block: Block<ChainTransaction>,
     ) -> ioi_types::Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+        // Serialize the shmem write with the outbound RPC so a concurrent process_block()
+        // call cannot overwrite the fixed shmem slot before the workload reads it.
+        let mut client = self.chain.lock().await;
+
         // [FIX] Map codec string error to ChainError
         let block_bytes = codec::to_bytes_canonical(&block)
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
 
         // Hybrid Data Plane Logic
         let payload = if block_bytes.len() > BLOCK_SHMEM_THRESHOLD {
-            if let Some(dp) = &self.data_plane {
+            if let Some(dp) = self.ensure_data_plane().await {
                 // Write raw bytes to shared memory (Zero-Copy transfer)
                 match dp.write_raw(&block_bytes, None) {
                     Ok(handle) => {
@@ -398,7 +467,6 @@ impl WorkloadClientApi for WorkloadClient {
         let req = ProcessBlockRequest {
             payload: Some(payload),
         };
-        let mut client = self.chain.lock().await;
         let resp = client
             .process_block(req)
             .await
@@ -434,7 +502,7 @@ impl WorkloadClientApi for WorkloadClient {
         let raw_blocks = match response.data {
             Some(BlocksData::Inline(list)) => list.blocks,
             Some(BlocksData::Shmem(handle)) => {
-                if let Some(dp) = &self.data_plane {
+                if let Some(dp) = self.ensure_data_plane().await {
                     if handle.region_id != dp.id() {
                         return Err(ChainError::Transaction("Shmem region ID mismatch".into()));
                     }
@@ -473,7 +541,9 @@ impl WorkloadClientApi for WorkloadClient {
         &self,
         height: u64,
     ) -> ioi_types::Result<Option<Block<ChainTransaction>>, ChainError> {
-        let mut blocks = self.get_blocks_range(height, 1, 10 * 1024 * 1024).await?;
+        let mut blocks = self
+            .get_blocks_range(height, 1, SINGLE_BLOCK_FETCH_MAX_BYTES)
+            .await?;
         Ok(blocks.pop())
     }
 

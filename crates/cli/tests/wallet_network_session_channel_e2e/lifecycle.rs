@@ -1224,7 +1224,7 @@ async fn wallet_network_session_channel_lifecycle_via_real_callservice_txs() -> 
 
     let cluster = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Convergent")
+        .with_consensus_type("Aft")
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_network_user_policy())
         .build()
