@@ -1,8 +1,12 @@
 // Path: crates/validator/src/standard/orchestration/finalize.rs
 
+use super::aft_collapse::{
+    derive_expected_aft_canonical_collapse_for_block,
+    require_persisted_aft_canonical_collapse_if_needed,
+};
 use anyhow::{anyhow, Result};
 use ioi_api::{
-    chain::StateRef,
+    chain::{StateRef, WorkloadClientApi},
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
     state::{StateManager, Verifier},
@@ -13,20 +17,40 @@ use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{
-        account_id_from_key_material, build_committed_surface_canonical_order_certificate,
+        account_id_from_key_material,
+        build_committed_surface_canonical_order_certificate,
+        canonical_asymptote_observer_assignments_hash,
+        canonical_asymptote_observer_canonical_close_hash,
+        canonical_asymptote_observer_challenges_hash,
+        canonical_asymptote_observer_transcripts_hash,
+        canonical_sealed_finality_proof_signing_bytes,
         derive_asymptote_observer_plan_entries, derive_guardian_witness_assignment,
-        derive_guardian_witness_assignments_for_strata, effective_set_for_height,
+        derive_canonical_order_execution_object,
+        derive_guardian_witness_assignments_for_strata,
+        effective_set_for_height,
         guardian_registry_asymptote_policy_key, guardian_registry_committee_account_key,
         guardian_registry_committee_key, guardian_registry_witness_key,
         guardian_registry_witness_seed_key, guardian_registry_witness_set_key, read_validator_sets,
-        to_root_hash, AccountId, AsymptotePolicy, Block, ChainTransaction, ConsensusVote,
-        GuardianCommitteeManifest, GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed,
-        GuardianWitnessFaultEvidence, GuardianWitnessFaultKind, GuardianWitnessSet,
-        SignatureBundle, SignatureSuite,
+        to_root_hash, AccountId,
+        AsymptoteObserverCanonicalAbort,
+        AsymptoteObserverCanonicalClose,
+        AsymptoteObserverChallenge, AsymptoteObserverChallengeCommitment,
+        AsymptoteObserverChallengeKind,
+        AsymptoteObserverSealingMode, AsymptoteObserverStatement,
+        AsymptoteObserverTranscript, AsymptoteObserverTranscriptCommitment, AsymptotePolicy, Block,
+        BlockHeader,
+        CanonicalCollapseObject, CanonicalOrderAbort, CanonicalOrderExecutionObject,
+        CanonicalOrderPublicationBundle,
+        ChainTransaction,
+        ConsensusVote, GuardianCommitteeManifest, GuardianLogCheckpoint,
+        GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed, GuardianWitnessFaultEvidence,
+        GuardianWitnessFaultKind, GuardianWitnessSet, SealedFinalityProof, SignHeader,
+        SignatureBundle, SignatureProof, SignatureSuite, StateEntry, SystemPayload,
+        SystemTransaction,
     },
     codec,
     config::AftSafetyMode,
-    keys::{CURRENT_EPOCH_KEY, VALIDATOR_SET_KEY},
+    keys::{ACCOUNT_NONCE_PREFIX, CURRENT_EPOCH_KEY, VALIDATOR_SET_KEY},
 };
 use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
@@ -40,7 +64,7 @@ use tokio::sync::{mpsc, Mutex};
 use crate::common::GuardianSigner;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::ingestion::ChainTipInfo;
-use crate::standard::orchestration::mempool::Mempool;
+use crate::standard::orchestration::mempool::{AddResult, Mempool};
 
 fn relay_fanout() -> usize {
     std::env::var("IOI_AFT_TX_RELAY_FANOUT")
@@ -98,6 +122,712 @@ fn post_commit_vote_replay_delays_ms() -> Vec<u64> {
         })
         .filter(|delays| !delays.is_empty())
         .unwrap_or_else(|| vec![150, 500, 1200])
+}
+
+#[derive(Debug, Clone)]
+struct CanonicalObserverPublicationArtifacts {
+    transcripts: Vec<AsymptoteObserverTranscript>,
+    challenges: Vec<AsymptoteObserverChallenge>,
+    transcript_commitment: AsymptoteObserverTranscriptCommitment,
+    challenge_commitment: AsymptoteObserverChallengeCommitment,
+    canonical_close: Option<AsymptoteObserverCanonicalClose>,
+    canonical_abort: Option<AsymptoteObserverCanonicalAbort>,
+}
+
+#[derive(Debug, Clone)]
+struct CanonicalOrderPublicationArtifacts {
+    bundle: Option<CanonicalOrderPublicationBundle>,
+    canonical_abort: Option<CanonicalOrderAbort>,
+}
+
+#[derive(Clone)]
+struct GuardianRegistryPublisher {
+    workload_client: Arc<dyn WorkloadClientApi>,
+    tx_pool: Arc<Mempool>,
+    consensus_kick_tx: mpsc::UnboundedSender<()>,
+    nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
+    local_keypair: libp2p::identity::Keypair,
+    chain_id: ioi_types::app::ChainId,
+}
+
+fn local_account_id_from_keypair(local_keypair: &libp2p::identity::Keypair) -> Result<AccountId> {
+    Ok(AccountId(account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &local_keypair.public().encode_protobuf(),
+    )?))
+}
+
+fn build_invalid_canonical_close_challenge(
+    header: &BlockHeader,
+    proof: &SealedFinalityProof,
+    challenger_account_id: AccountId,
+    assignment: Option<ioi_types::app::AsymptoteObserverAssignment>,
+    canonical_close: &AsymptoteObserverCanonicalClose,
+    details: impl Into<String>,
+) -> Result<AsymptoteObserverChallenge> {
+    let mut challenge = AsymptoteObserverChallenge {
+        challenge_id: [0u8; 32],
+        epoch: proof.epoch,
+        height: header.height,
+        view: header.view,
+        kind: AsymptoteObserverChallengeKind::InvalidCanonicalClose,
+        challenger_account_id,
+        assignment,
+        observation_request: None,
+        transcript: None,
+        canonical_close: Some(canonical_close.clone()),
+        evidence_hash: canonical_asymptote_observer_canonical_close_hash(canonical_close)
+            .map_err(anyhow::Error::msg)?,
+        details: details.into(),
+    };
+    challenge.challenge_id = ioi_crypto::algorithms::hash::sha256(
+        &codec::to_bytes_canonical(&challenge).map_err(|e| anyhow!(e))?,
+    )?;
+    Ok(challenge)
+}
+
+fn invalid_canonical_close_details(
+    header: &BlockHeader,
+    proof: &SealedFinalityProof,
+    assignments_hash: [u8; 32],
+    transcript_commitment: &AsymptoteObserverTranscriptCommitment,
+    challenge_commitment: &AsymptoteObserverChallengeCommitment,
+    canonical_close: &AsymptoteObserverCanonicalClose,
+    transcripts_root: [u8; 32],
+    challenges_root: [u8; 32],
+    transcript_count: u16,
+    challenge_count: u16,
+) -> Option<String> {
+    if proof.finality_tier != ioi_types::app::FinalityTier::SealedFinal
+        || proof.collapse_state != ioi_types::app::CollapseState::SealedFinal
+    {
+        return Some(
+            "canonical observer close was carried on a non-SealedFinal proof path".into(),
+        );
+    }
+    if transcript_commitment.epoch != proof.epoch
+        || transcript_commitment.height != header.height
+        || transcript_commitment.view != header.view
+    {
+        return Some("observer transcript commitment does not bind the sealed slot".into());
+    }
+    if transcript_commitment.assignments_hash != assignments_hash {
+        return Some(
+            "observer transcript commitment assignments hash does not match the deterministic observer surface"
+                .into(),
+        );
+    }
+    if transcript_commitment.transcripts_root != transcripts_root {
+        return Some(
+            "observer transcript commitment does not match the canonical transcript surface".into(),
+        );
+    }
+    if transcript_commitment.transcript_count != transcript_count {
+        return Some(
+            "observer transcript commitment count does not match the canonical transcript surface"
+                .into(),
+        );
+    }
+    if challenge_commitment.epoch != proof.epoch
+        || challenge_commitment.height != header.height
+        || challenge_commitment.view != header.view
+    {
+        return Some("observer challenge commitment does not bind the sealed slot".into());
+    }
+    if challenge_commitment.challenges_root != challenges_root {
+        return Some(
+            "observer challenge commitment does not match the canonical challenge surface".into(),
+        );
+    }
+    if challenge_commitment.challenge_count != challenge_count {
+        return Some(
+            "observer challenge commitment count does not match the canonical challenge surface"
+                .into(),
+        );
+    }
+    if canonical_close.epoch != proof.epoch
+        || canonical_close.height != header.height
+        || canonical_close.view != header.view
+    {
+        return Some("canonical observer close does not bind the sealed slot".into());
+    }
+    if canonical_close.assignments_hash != assignments_hash {
+        return Some(
+            "canonical observer close assignments hash does not match the deterministic observer surface"
+                .into(),
+        );
+    }
+    if canonical_close.transcripts_root != transcripts_root {
+        return Some(
+            "canonical observer close does not match the canonical transcript surface".into(),
+        );
+    }
+    if canonical_close.challenges_root != challenges_root {
+        return Some(
+            "canonical observer close does not match the canonical challenge surface".into(),
+        );
+    }
+    if canonical_close.transcript_count != transcript_count {
+        return Some(
+            "canonical observer close transcript count does not match the canonical transcript surface"
+                .into(),
+        );
+    }
+    if canonical_close.challenge_count != challenge_count {
+        return Some(
+            "canonical observer close challenge count does not match the canonical challenge surface"
+                .into(),
+        );
+    }
+    if !proof.observer_challenges.is_empty() || challenge_count != 0 {
+        return Some(
+            "canonical observer close is challenge-dominated by a non-empty challenge surface"
+                .into(),
+        );
+    }
+    if canonical_close.challenge_cutoff_timestamp_ms == 0 {
+        return Some("canonical observer close must carry a non-zero challenge cutoff".into());
+    }
+    None
+}
+
+fn decode_state_value<T: parity_scale_codec::Decode>(bytes: &[u8]) -> Result<T> {
+    if let Ok(value) = codec::from_bytes_canonical::<T>(bytes) {
+        return Ok(value);
+    }
+    let entry: StateEntry = codec::from_bytes_canonical(bytes)
+        .map_err(|e| anyhow!("failed to decode StateEntry wrapper: {e}"))?;
+    codec::from_bytes_canonical(&entry.value)
+        .map_err(|e| anyhow!("failed to decode wrapped state value: {e}"))
+}
+
+fn decode_account_nonce(bytes: &[u8]) -> u64 {
+    if let Ok(value) = decode_state_value::<u64>(bytes) {
+        return value;
+    }
+    if bytes.len() == 8 {
+        let mut raw = [0u8; 8];
+        raw.copy_from_slice(bytes);
+        return u64::from_le_bytes(raw);
+    }
+    0
+}
+
+async fn reserve_nonce_for_account(
+    workload_client: &Arc<dyn WorkloadClientApi>,
+    nonce_manager: &Arc<Mutex<BTreeMap<AccountId, u64>>>,
+    account_id: AccountId,
+) -> u64 {
+    let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
+    let state_nonce = match workload_client.query_raw_state(&nonce_key).await {
+        Ok(Some(bytes)) => decode_account_nonce(&bytes),
+        _ => 0,
+    };
+
+    let mut guard = nonce_manager.lock().await;
+    let entry = guard.entry(account_id).or_insert(state_nonce);
+    if *entry < state_nonce {
+        *entry = state_nonce;
+    }
+    let nonce = *entry;
+    *entry = entry.saturating_add(1);
+    nonce
+}
+
+impl GuardianRegistryPublisher {
+    async fn from_context<CS, ST, CE, V>(
+        context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    ) -> Self
+    where
+        CS: CommitmentScheme + Clone + Send + Sync + 'static,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+            + Send
+            + Sync
+            + 'static
+            + Debug
+            + Clone,
+        CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+        V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+            + Clone
+            + Send
+            + Sync
+            + 'static
+            + Debug,
+        <CS as CommitmentScheme>::Proof: Serialize
+            + for<'de> serde::Deserialize<'de>
+            + Clone
+            + Send
+            + Sync
+            + 'static
+            + Debug
+            + Encode
+            + Decode,
+        <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    {
+        let ctx = context_arc.lock().await;
+        Self {
+            workload_client: ctx.view_resolver.workload_client().clone(),
+            tx_pool: ctx.tx_pool_ref.clone(),
+            consensus_kick_tx: ctx.consensus_kick_tx.clone(),
+            nonce_manager: ctx.nonce_manager.clone(),
+            local_keypair: ctx.local_keypair.clone(),
+            chain_id: ctx.chain_id,
+        }
+    }
+
+    async fn enqueue_call(&self, method: &str, params: Vec<u8>) -> Result<()> {
+        let public_key = self.local_keypair.public().encode_protobuf();
+        let account_id = AccountId(account_id_from_key_material(
+            SignatureSuite::ED25519,
+            &public_key,
+        )?);
+        let nonce = reserve_nonce_for_account(&self.workload_client, &self.nonce_manager, account_id)
+            .await;
+        let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
+        let committed_nonce = match self.workload_client.query_raw_state(&nonce_key).await {
+            Ok(Some(bytes)) => decode_account_nonce(&bytes),
+            _ => 0,
+        };
+
+        let payload = SystemPayload::CallService {
+            service_id: "guardian_registry".to_string(),
+            method: method.to_string(),
+            params,
+        };
+        let mut sys_tx = SystemTransaction {
+            header: SignHeader {
+                account_id,
+                nonce,
+                chain_id: self.chain_id,
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload,
+            signature_proof: SignatureProof::default(),
+        };
+        let sign_bytes = sys_tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
+        let signature = self.local_keypair.sign(&sign_bytes)?;
+        sys_tx.signature_proof = SignatureProof {
+            suite: SignatureSuite::ED25519,
+            public_key,
+            signature,
+        };
+        let tx = ChainTransaction::System(Box::new(sys_tx));
+        let tx_hash = tx.hash()?;
+        match self
+            .tx_pool
+            .add(tx, tx_hash, Some((account_id, nonce)), committed_nonce)
+        {
+            AddResult::Rejected(reason) => Err(anyhow!(
+                "guardian_registry publication tx rejected for {method}: {reason}"
+            )),
+            AddResult::Known => Ok(()),
+            AddResult::Ready | AddResult::Future => {
+                let _ = self.consensus_kick_tx.send(());
+                Ok(())
+            }
+        }
+    }
+}
+
+fn build_canonical_observer_statement(
+    proof: &SealedFinalityProof,
+    guardian_checkpoint: Option<&GuardianLogCheckpoint>,
+    assignment: &ioi_types::app::AsymptoteObserverAssignment,
+    observer_certificate: &ioi_types::app::AsymptoteObserverCertificate,
+    block_hash: [u8; 32],
+) -> AsymptoteObserverStatement {
+    AsymptoteObserverStatement {
+        epoch: proof.epoch,
+        assignment: assignment.clone(),
+        block_hash,
+        guardian_manifest_hash: proof.guardian_manifest_hash,
+        guardian_decision_hash: proof.guardian_decision_hash,
+        guardian_counter: proof.guardian_counter,
+        guardian_trace_hash: proof.guardian_trace_hash,
+        guardian_measurement_root: proof.guardian_measurement_root,
+        guardian_checkpoint_root: guardian_checkpoint
+            .map(|checkpoint| checkpoint.root_hash)
+            .unwrap_or([0u8; 32]),
+        verdict: observer_certificate.verdict,
+        veto_kind: observer_certificate.veto_kind,
+        evidence_hash: observer_certificate.evidence_hash,
+    }
+}
+
+fn canonicalize_observer_sealed_finality_proof(
+    header: &ioi_types::app::BlockHeader,
+    policy: &AsymptotePolicy,
+    block_hash: [u8; 32],
+    proof: &mut SealedFinalityProof,
+) -> Result<Option<CanonicalObserverPublicationArtifacts>> {
+    if policy.observer_sealing_mode != AsymptoteObserverSealingMode::CanonicalChallengeV1 {
+        return Ok(None);
+    }
+    if policy.observer_challenge_window_ms == 0 {
+        return Err(anyhow!(
+            "canonical observer sealing requires a non-zero challenge window"
+        ));
+    }
+    if proof.observer_transcript_commitment.is_some()
+        || proof.observer_challenge_commitment.is_some()
+        || proof.observer_canonical_close.is_some()
+        || proof.observer_canonical_abort.is_some()
+    {
+        if proof.observer_transcript_commitment.is_none()
+            || proof.observer_challenge_commitment.is_none()
+        {
+            return Err(anyhow!(
+                "canonical observer sealing proof is missing one of its observer commitments"
+            ));
+        }
+        if proof.observer_canonical_close.is_some() == proof.observer_canonical_abort.is_some() {
+            return Err(anyhow!(
+                "canonical observer sealing proof must carry exactly one of canonical close or canonical abort"
+            ));
+        }
+        if let Some(canonical_close) = proof.observer_canonical_close.clone() {
+            let transcripts_root =
+                canonical_asymptote_observer_transcripts_hash(&proof.observer_transcripts)
+                    .map_err(|e| anyhow!(e))?;
+            let transcript_count = u16::try_from(proof.observer_transcripts.len())
+                .map_err(|_| anyhow!("observer transcript count exceeds u16"))?;
+            let challenges_root =
+                canonical_asymptote_observer_challenges_hash(&proof.observer_challenges)
+                    .map_err(|e| anyhow!(e))?;
+            let challenge_count = u16::try_from(proof.observer_challenges.len())
+                .map_err(|_| anyhow!("observer challenge count exceeds u16"))?;
+            let assignments_hash = proof
+                .observer_transcript_commitment
+                .as_ref()
+                .expect("checked above")
+                .assignments_hash;
+            let transcript_commitment = proof
+                .observer_transcript_commitment
+                .as_ref()
+                .expect("checked above");
+            let challenge_commitment = proof
+                .observer_challenge_commitment
+                .as_ref()
+                .expect("checked above");
+            if let Some(details) = invalid_canonical_close_details(
+                header,
+                proof,
+                assignments_hash,
+                transcript_commitment,
+                challenge_commitment,
+                &canonical_close,
+                transcripts_root,
+                challenges_root,
+                transcript_count,
+                challenge_count,
+            ) {
+                let invalid_close_challenge =
+                    build_invalid_canonical_close_challenge(
+                        header,
+                        proof,
+                        header.producer_account_id,
+                        None,
+                        &canonical_close,
+                        details,
+                    )?;
+                if !proof.observer_challenges.iter().any(|existing| {
+                    existing.kind == AsymptoteObserverChallengeKind::InvalidCanonicalClose
+                        && existing.evidence_hash == invalid_close_challenge.evidence_hash
+                }) {
+                    proof.observer_challenges.push(invalid_close_challenge);
+                }
+                let challenges_root =
+                    canonical_asymptote_observer_challenges_hash(&proof.observer_challenges)
+                        .map_err(|e| anyhow!(e))?;
+                let challenge_count = u16::try_from(proof.observer_challenges.len())
+                    .map_err(|_| anyhow!("observer challenge count exceeds u16"))?;
+                let transcript_commitment = AsymptoteObserverTranscriptCommitment {
+                    epoch: proof.epoch,
+                    height: header.height,
+                    view: header.view,
+                    assignments_hash,
+                    transcripts_root,
+                    transcript_count,
+                };
+                let challenge_commitment = AsymptoteObserverChallengeCommitment {
+                    epoch: proof.epoch,
+                    height: header.height,
+                    view: header.view,
+                    challenges_root,
+                    challenge_count,
+                };
+                let canonical_abort = AsymptoteObserverCanonicalAbort {
+                    epoch: proof.epoch,
+                    height: header.height,
+                    view: header.view,
+                    assignments_hash,
+                    transcripts_root,
+                    challenges_root,
+                    transcript_count,
+                    challenge_count,
+                    challenge_cutoff_timestamp_ms: header
+                        .timestamp_ms_or_legacy()
+                        .saturating_add(policy.observer_challenge_window_ms),
+                };
+                proof.finality_tier = ioi_types::app::FinalityTier::BaseFinal;
+                proof.collapse_state = ioi_types::app::CollapseState::Abort;
+                proof.observer_transcript_commitment = Some(transcript_commitment.clone());
+                proof.observer_challenge_commitment = Some(challenge_commitment.clone());
+                proof.observer_canonical_close = None;
+                proof.observer_canonical_abort = Some(canonical_abort.clone());
+                return Ok(Some(CanonicalObserverPublicationArtifacts {
+                    transcripts: proof.observer_transcripts.clone(),
+                    challenges: proof.observer_challenges.clone(),
+                    transcript_commitment,
+                    challenge_commitment,
+                    canonical_close: None,
+                    canonical_abort: Some(canonical_abort),
+                }));
+            }
+        }
+        return Ok(Some(CanonicalObserverPublicationArtifacts {
+            transcripts: proof.observer_transcripts.clone(),
+            challenges: proof.observer_challenges.clone(),
+            transcript_commitment: proof
+                .observer_transcript_commitment
+                .clone()
+                .expect("checked above"),
+            challenge_commitment: proof
+                .observer_challenge_commitment
+                .clone()
+                .expect("checked above"),
+            canonical_close: proof.observer_canonical_close.clone(),
+            canonical_abort: proof.observer_canonical_abort.clone(),
+        }));
+    }
+    if proof.observer_certificates.is_empty() {
+        return Ok(None);
+    }
+    if !proof.veto_proofs.is_empty() {
+        return Err(anyhow!(
+            "canonical observer sealing cannot convert veto proofs into SealedFinal transcripts"
+        ));
+    }
+
+    let assignments = proof
+        .observer_certificates
+        .iter()
+        .map(|certificate| certificate.assignment.clone())
+        .collect::<Vec<_>>();
+    let assignments_hash =
+        canonical_asymptote_observer_assignments_hash(&assignments).map_err(|e| anyhow!(e))?;
+    if let Some(observer_close_certificate) = proof.observer_close_certificate.as_ref() {
+        if observer_close_certificate.assignments_hash != assignments_hash {
+            return Err(anyhow!(
+                "observer close certificate assignments hash does not match observer certificates"
+            ));
+        }
+    }
+
+    let guardian_checkpoint = header
+        .guardian_certificate
+        .as_ref()
+        .and_then(|certificate| certificate.log_checkpoint.as_ref());
+    let transcripts = proof
+        .observer_certificates
+        .iter()
+        .map(|observer_certificate| AsymptoteObserverTranscript {
+            statement: build_canonical_observer_statement(
+                proof,
+                guardian_checkpoint,
+                &observer_certificate.assignment,
+                observer_certificate,
+                block_hash,
+            ),
+            guardian_certificate: observer_certificate.guardian_certificate.clone(),
+        })
+        .collect::<Vec<_>>();
+    let challenges = Vec::new();
+    let transcripts_root =
+        canonical_asymptote_observer_transcripts_hash(&transcripts).map_err(|e| anyhow!(e))?;
+    let challenges_root =
+        canonical_asymptote_observer_challenges_hash(&challenges).map_err(|e| anyhow!(e))?;
+    let transcript_count =
+        u16::try_from(transcripts.len()).map_err(|_| anyhow!("observer transcript count exceeds u16"))?;
+    let challenge_count =
+        u16::try_from(challenges.len()).map_err(|_| anyhow!("observer challenge count exceeds u16"))?;
+    let challenge_cutoff_timestamp_ms = header
+        .timestamp_ms_or_legacy()
+        .saturating_add(policy.observer_challenge_window_ms);
+
+    let artifacts = CanonicalObserverPublicationArtifacts {
+        transcripts: transcripts.clone(),
+        challenges: challenges.clone(),
+        transcript_commitment: AsymptoteObserverTranscriptCommitment {
+            epoch: proof.epoch,
+            height: header.height,
+            view: header.view,
+            assignments_hash,
+            transcripts_root,
+            transcript_count,
+        },
+        challenge_commitment: AsymptoteObserverChallengeCommitment {
+            epoch: proof.epoch,
+            height: header.height,
+            view: header.view,
+            challenges_root,
+            challenge_count,
+        },
+        canonical_close: Some(AsymptoteObserverCanonicalClose {
+            epoch: proof.epoch,
+            height: header.height,
+            view: header.view,
+            assignments_hash,
+            transcripts_root,
+            challenges_root,
+            transcript_count,
+            challenge_count,
+            challenge_cutoff_timestamp_ms,
+        }),
+        canonical_abort: None,
+    };
+
+    proof.observer_transcripts = artifacts.transcripts.clone();
+    proof.observer_challenges = artifacts.challenges.clone();
+    proof.observer_transcript_commitment = Some(artifacts.transcript_commitment.clone());
+    proof.observer_challenge_commitment = Some(artifacts.challenge_commitment.clone());
+    proof.observer_canonical_close = artifacts.canonical_close.clone();
+    proof.observer_canonical_abort = None;
+    proof.observer_certificates.clear();
+    proof.observer_close_certificate = None;
+
+    Ok(Some(artifacts))
+}
+
+fn sign_sealed_finality_proof(
+    proof: &mut SealedFinalityProof,
+    local_keypair: &libp2p::identity::Keypair,
+) -> Result<()> {
+    proof.proof_signature = SignatureProof::default();
+    let sign_bytes = canonical_sealed_finality_proof_signing_bytes(proof).map_err(anyhow::Error::msg)?;
+    proof.proof_signature = SignatureProof {
+        suite: SignatureSuite::ED25519,
+        public_key: local_keypair.public().encode_protobuf(),
+        signature: local_keypair.sign(&sign_bytes)?,
+    };
+    Ok(())
+}
+
+async fn publish_canonical_observer_artifacts(
+    publisher: &GuardianRegistryPublisher,
+    artifacts: &CanonicalObserverPublicationArtifacts,
+) -> Result<()> {
+    for transcript in &artifacts.transcripts {
+        publisher
+            .enqueue_call(
+                "publish_asymptote_observer_transcript@v1",
+                codec::to_bytes_canonical(transcript).map_err(|e| anyhow!(e))?,
+            )
+            .await?;
+    }
+    publisher
+        .enqueue_call(
+            "publish_asymptote_observer_transcript_commitment@v1",
+            codec::to_bytes_canonical(&artifacts.transcript_commitment).map_err(|e| anyhow!(e))?,
+        )
+        .await?;
+    for challenge in &artifacts.challenges {
+        publisher
+            .enqueue_call(
+                "report_asymptote_observer_challenge@v1",
+                codec::to_bytes_canonical(challenge).map_err(|e| anyhow!(e))?,
+            )
+            .await?;
+    }
+    publisher
+        .enqueue_call(
+            "publish_asymptote_observer_challenge_commitment@v1",
+            codec::to_bytes_canonical(&artifacts.challenge_commitment)
+                .map_err(|e| anyhow!(e))?,
+        )
+        .await?;
+    if let Some(canonical_close) = artifacts.canonical_close.as_ref() {
+        publisher
+            .enqueue_call(
+                "publish_asymptote_observer_canonical_close@v1",
+                codec::to_bytes_canonical(canonical_close).map_err(|e| anyhow!(e))?,
+            )
+            .await?;
+    }
+    if let Some(canonical_abort) = artifacts.canonical_abort.as_ref() {
+        publisher
+            .enqueue_call(
+                "publish_asymptote_observer_canonical_abort@v1",
+                codec::to_bytes_canonical(canonical_abort).map_err(|e| anyhow!(e))?,
+            )
+            .await?;
+    }
+    Ok(())
+}
+
+fn build_canonical_order_publication_bundle(
+    execution_object: &CanonicalOrderExecutionObject,
+) -> CanonicalOrderPublicationBundle {
+    CanonicalOrderPublicationBundle {
+        bulletin_commitment: execution_object.bulletin_commitment.clone(),
+        bulletin_entries: execution_object.bulletin_entries.clone(),
+        bulletin_availability_certificate: execution_object
+            .bulletin_availability_certificate
+            .clone(),
+        canonical_order_certificate: execution_object.canonical_order_certificate.clone(),
+    }
+}
+
+fn build_canonical_order_publication_artifacts(
+    header: &ioi_types::app::BlockHeader,
+    transactions: &[ChainTransaction],
+) -> Result<CanonicalOrderPublicationArtifacts> {
+    match derive_canonical_order_execution_object(header, transactions) {
+        Ok(execution_object) => Ok(CanonicalOrderPublicationArtifacts {
+            bundle: Some(build_canonical_order_publication_bundle(&execution_object)),
+            canonical_abort: None,
+        }),
+        Err(canonical_abort) => Ok(CanonicalOrderPublicationArtifacts {
+            bundle: None,
+            canonical_abort: Some(canonical_abort),
+        }),
+    }
+}
+
+async fn publish_canonical_order_artifacts(
+    publisher: &GuardianRegistryPublisher,
+    artifacts: &CanonicalOrderPublicationArtifacts,
+) -> Result<()> {
+    if let Some(bundle) = artifacts.bundle.as_ref() {
+        publisher
+            .enqueue_call(
+                "publish_aft_canonical_order_artifact_bundle@v1",
+                codec::to_bytes_canonical(bundle).map_err(|e| anyhow!(e))?,
+            )
+            .await?;
+    }
+    if let Some(canonical_abort) = artifacts.canonical_abort.as_ref() {
+        publisher
+            .enqueue_call(
+                "publish_aft_canonical_order_abort@v1",
+                codec::to_bytes_canonical(canonical_abort).map_err(|e| anyhow!(e))?,
+            )
+            .await?;
+    }
+    Ok(())
+}
+
+async fn publish_canonical_collapse_object(
+    publisher: &GuardianRegistryPublisher,
+    collapse: &CanonicalCollapseObject,
+) -> Result<()> {
+    publisher
+        .enqueue_call(
+            "publish_aft_canonical_collapse_object@v1",
+            codec::to_bytes_canonical(collapse).map_err(|e| anyhow!(e))?,
+        )
+        .await
 }
 
 async fn replay_committed_block_vote_once<CE>(
@@ -366,22 +1096,34 @@ where
     final_block.header.oracle_trace_hash = bundle.trace_hash;
     final_block.header.guardian_certificate = bundle.guardian_certificate;
     final_block.header.sealed_finality_proof = bundle.sealed_finality_proof;
-    let aft_mode = {
+    let (aft_mode, consensus_type) = {
         let ctx = context_arc.lock().await;
-        ctx.config.aft_safety_mode
+        (ctx.config.aft_safety_mode, ctx.config.consensus_type)
     };
-    final_block.header.canonical_order_certificate = if matches!(aft_mode, AftSafetyMode::Asymptote)
-    {
-        Some(
-            build_committed_surface_canonical_order_certificate(
-                &final_block.header,
-                &final_block.transactions,
-            )
-            .map_err(|e| anyhow!(e))?,
-        )
-    } else {
-        None
-    };
+    if matches!(aft_mode, AftSafetyMode::Asymptote) {
+        match build_committed_surface_canonical_order_certificate(
+            &final_block.header,
+            &final_block.transactions,
+        ) {
+            Ok(certificate) => {
+                final_block.header.canonical_order_certificate = Some(certificate);
+            }
+            Err(error) => {
+                tracing::warn!(
+                    target: "consensus",
+                    height = final_block.header.height,
+                    view = final_block.header.view,
+                    error = %error,
+                    "Failed to derive proof-carried canonical-order certificate; publishing canonical abort instead"
+                );
+                final_block.header.canonical_order_certificate = None;
+            }
+        }
+        let publisher = GuardianRegistryPublisher::from_context(context_arc).await;
+        let artifacts =
+            build_canonical_order_publication_artifacts(&final_block.header, &final_block.transactions)?;
+        publish_canonical_order_artifacts(&publisher, &artifacts).await?;
+    }
 
     {
         let ctx = context_arc.lock().await;
@@ -411,6 +1153,32 @@ where
             }
         }
     }
+
+    let workload_client = {
+        let ctx = context_arc.lock().await;
+        ctx.view_resolver.workload_client().clone()
+    };
+    let update_header_started = Instant::now();
+    workload_client
+        .update_block_header(final_block.clone())
+        .await
+        .map_err(|error| anyhow!("failed to persist finalized block header update: {error}"))?;
+    let update_header_elapsed = update_header_started.elapsed();
+    if update_header_elapsed.as_millis() >= 250 {
+        tracing::warn!(
+            target: "consensus",
+            height = final_block.header.height,
+            tx_count = final_block.transactions.len(),
+            elapsed_ms = update_header_elapsed.as_millis(),
+            "update_block_header() is slow"
+        );
+    }
+    let committed_collapse = require_persisted_aft_canonical_collapse_if_needed(
+        consensus_type,
+        workload_client.as_ref(),
+        &final_block,
+    )
+    .await?;
 
     {
         let mut ctx = context_arc.lock().await;
@@ -469,7 +1237,14 @@ where
 
     {
         let mut engine = consensus_engine_ref.lock().await;
-        engine.observe_committed_block(&final_block.header);
+        let accepted = engine.observe_committed_block(&final_block.header, committed_collapse.as_ref());
+        if !accepted {
+            tracing::warn!(
+                target: "consensus",
+                height = final_block.header.height,
+                "Consensus engine ignored the committed block hint because it was not collapse-backed."
+            );
+        }
         engine.reset(block_height);
     }
 
@@ -584,41 +1359,6 @@ where
         };
         let _ = kick_tx.send(());
         schedule_post_commit_rekicks(Arc::clone(tx_pool), kick_tx, kick_scheduled);
-    }
-
-    {
-        let workload_client = {
-            let ctx = context_arc.lock().await;
-            ctx.view_resolver.workload_client().clone()
-        };
-        let header_update_block = final_block.clone();
-        tokio::spawn(async move {
-            let update_header_started = Instant::now();
-            if let Err(error) = workload_client
-                .update_block_header(header_update_block.clone())
-                .await
-            {
-                tracing::warn!(
-                    target: "consensus",
-                    height = header_update_block.header.height,
-                    tx_count = header_update_block.transactions.len(),
-                    error = %error,
-                    "Failed to persist finalized block header update"
-                );
-                return;
-            }
-
-            let update_header_elapsed = update_header_started.elapsed();
-            if update_header_elapsed.as_millis() >= 250 {
-                tracing::warn!(
-                    target: "consensus",
-                    height = header_update_block.header.height,
-                    tx_count = header_update_block.transactions.len(),
-                    elapsed_ms = update_header_elapsed.as_millis(),
-                    "update_block_header() is slow"
-                );
-            }
-        });
     }
 
     Ok(())
@@ -1051,21 +1791,41 @@ where
     };
     let preimage_hash =
         ioi_crypto::algorithms::hash::sha256(&sealed_block.header.to_preimage_for_signing()?)?;
-    let sealed_finality_proof = signer
+    let mut sealed_finality_proof = signer
         .seal_consensus_payload(
             preimage_hash,
             sealed_block.header.height,
             sealed_block.header.view,
             witness_manifest_hashes,
             observer_plan,
+            policy.clone(),
         )
         .await?;
+    let canonical_observer_artifacts = canonicalize_observer_sealed_finality_proof(
+        &sealed_block.header,
+        &policy,
+        preimage_hash,
+        &mut sealed_finality_proof,
+    )?;
+    let publisher = GuardianRegistryPublisher::from_context(context_arc).await;
+    if let Some(artifacts) = canonical_observer_artifacts.as_ref() {
+        publish_canonical_observer_artifacts(&publisher, artifacts).await?;
+    }
+    let local_keypair = { context_arc.lock().await.local_keypair.clone() };
+    sign_sealed_finality_proof(&mut sealed_finality_proof, &local_keypair)?;
 
     sealed_block.header.sealed_finality_proof = Some(sealed_finality_proof);
     view_resolver
         .workload_client()
         .update_block_header(sealed_block.clone())
         .await?;
+    let canonical_collapse_object = derive_expected_aft_canonical_collapse_for_block(
+        view_resolver.workload_client().as_ref(),
+        &sealed_block,
+    )
+    .await?
+    .ok_or_else(|| anyhow!("failed to derive canonical collapse object for sealed block publication"))?;
+    publish_canonical_collapse_object(&publisher, &canonical_collapse_object).await?;
     let data = codec::to_bytes_canonical(&sealed_block).map_err(|e| anyhow!(e))?;
     let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
     let rebroadcast_block = sealed_block.clone();
@@ -1146,4 +1906,715 @@ where
         state_root: genesis_root.clone(),
         block_hash: to_root_hash(&genesis_root)?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+    use ioi_api::app::ChainStatus;
+    use ioi_api::chain::QueryStateResponse;
+    use ioi_types::app::{
+        ChainId, GuardianQuorumCertificate, QuorumCertificate, StateAnchor, StateRoot,
+    };
+    use ioi_types::error::ChainError;
+    use std::any::Any;
+
+    #[derive(Debug, Default)]
+    struct TestWorkloadClient;
+
+    #[async_trait]
+    impl WorkloadClientApi for TestWorkloadClient {
+        async fn process_block(
+            &self,
+            _block: Block<ChainTransaction>,
+        ) -> std::result::Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn get_blocks_range(
+            &self,
+            _since: u64,
+            _max_blocks: u32,
+            _max_bytes: u32,
+        ) -> std::result::Result<Vec<Block<ChainTransaction>>, ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn get_block_by_height(
+            &self,
+            _height: u64,
+        ) -> std::result::Result<Option<Block<ChainTransaction>>, ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn check_transactions_at(
+            &self,
+            _anchor: StateAnchor,
+            _expected_timestamp_secs: u64,
+            _txs: Vec<ChainTransaction>,
+        ) -> std::result::Result<Vec<std::result::Result<(), String>>, ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn query_state_at(
+            &self,
+            _root: StateRoot,
+            _key: &[u8],
+        ) -> std::result::Result<QueryStateResponse, ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn query_raw_state(
+            &self,
+            _key: &[u8],
+        ) -> std::result::Result<Option<Vec<u8>>, ChainError> {
+            Ok(None)
+        }
+
+        async fn prefix_scan(
+            &self,
+            _prefix: &[u8],
+        ) -> std::result::Result<Vec<(Vec<u8>, Vec<u8>)>, ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn get_staked_validators(
+            &self,
+        ) -> std::result::Result<BTreeMap<AccountId, u64>, ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn get_genesis_status(&self) -> std::result::Result<bool, ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn update_block_header(
+            &self,
+            _block: Block<ChainTransaction>,
+        ) -> std::result::Result<(), ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn get_state_root(&self) -> std::result::Result<StateRoot, ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        async fn get_status(&self) -> std::result::Result<ChainStatus, ChainError> {
+            Err(ChainError::ExecutionClient(
+                "unused in finalize unit tests".to_string(),
+            ))
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    fn sample_block_header() -> ioi_types::app::BlockHeader {
+        ioi_types::app::BlockHeader {
+            height: 11,
+            view: 4,
+            parent_hash: [1u8; 32],
+            parent_state_root: StateRoot(vec![2u8; 32]),
+            state_root: StateRoot(vec![3u8; 32]),
+            transactions_root: vec![4u8; 32],
+            timestamp: 1_700_000_000,
+            timestamp_ms: 1_700_000_000_000,
+            gas_used: 0,
+            validator_set: vec![vec![5u8; 32]],
+            producer_account_id: AccountId([6u8; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [7u8; 32],
+            producer_pubkey: vec![8u8; 32],
+            oracle_counter: 9,
+            oracle_trace_hash: [10u8; 32],
+            guardian_certificate: Some(GuardianQuorumCertificate {
+                manifest_hash: [11u8; 32],
+                epoch: 9,
+                decision_hash: [12u8; 32],
+                counter: 13,
+                trace_hash: [14u8; 32],
+                measurement_root: [15u8; 32],
+                signers_bitfield: vec![1],
+                aggregated_signature: vec![2],
+                log_checkpoint: Some(GuardianLogCheckpoint {
+                    log_id: "guardian-log".to_string(),
+                    tree_size: 7,
+                    root_hash: [16u8; 32],
+                    timestamp_ms: 1_700_000_000_000,
+                    signature: vec![3],
+                    proof: None,
+                }),
+                experimental_witness_certificate: None,
+            }),
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+            parent_qc: QuorumCertificate {
+                height: 10,
+                view: 3,
+                block_hash: [17u8; 32],
+                signatures: Vec::new(),
+                aggregated_signature: vec![4],
+                signers_bitfield: vec![1],
+            },
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
+            signature: vec![5],
+        }
+    }
+
+    #[test]
+    fn canonicalize_observer_sealed_finality_proof_rewrites_invalid_close_into_abort() {
+        let header = sample_block_header();
+        let policy = AsymptotePolicy {
+            epoch: 9,
+            observer_sealing_mode: AsymptoteObserverSealingMode::CanonicalChallengeV1,
+            observer_challenge_window_ms: 500,
+            ..Default::default()
+        };
+        let assignment = ioi_types::app::AsymptoteObserverAssignment {
+            epoch: 9,
+            producer_account_id: header.producer_account_id,
+            height: header.height,
+            view: header.view,
+            round: 0,
+            observer_account_id: AccountId([42u8; 32]),
+        };
+        let transcripts = vec![AsymptoteObserverTranscript {
+            statement: AsymptoteObserverStatement {
+                epoch: 9,
+                assignment: assignment.clone(),
+                block_hash: [50u8; 32],
+                guardian_manifest_hash: [51u8; 32],
+                guardian_decision_hash: [52u8; 32],
+                guardian_counter: 53,
+                guardian_trace_hash: [54u8; 32],
+                guardian_measurement_root: [55u8; 32],
+                guardian_checkpoint_root: [56u8; 32],
+                verdict: ioi_types::app::AsymptoteObserverVerdict::Ok,
+                veto_kind: None,
+                evidence_hash: [57u8; 32],
+            },
+            guardian_certificate: header
+                .guardian_certificate
+                .clone()
+                .expect("sample header must carry guardian certificate"),
+        }];
+        let assignments_hash =
+            canonical_asymptote_observer_assignments_hash(&[assignment]).expect("assignment hash");
+        let transcripts_root =
+            canonical_asymptote_observer_transcripts_hash(&transcripts).expect("transcript root");
+        let empty_challenges: Vec<AsymptoteObserverChallenge> = Vec::new();
+        let empty_challenges_root = canonical_asymptote_observer_challenges_hash(&empty_challenges)
+            .expect("empty challenge root");
+        let invalid_close = AsymptoteObserverCanonicalClose {
+            epoch: 9,
+            height: header.height,
+            view: header.view,
+            assignments_hash,
+            transcripts_root,
+            challenges_root: empty_challenges_root,
+            transcript_count: 1,
+            challenge_count: 1,
+            challenge_cutoff_timestamp_ms: header.timestamp_ms_or_legacy().saturating_add(500),
+        };
+        let mut proof = SealedFinalityProof {
+            epoch: 9,
+            finality_tier: ioi_types::app::FinalityTier::SealedFinal,
+            collapse_state: ioi_types::app::CollapseState::SealedFinal,
+            guardian_manifest_hash: [58u8; 32],
+            guardian_decision_hash: [59u8; 32],
+            guardian_counter: 60,
+            guardian_trace_hash: [61u8; 32],
+            guardian_measurement_root: [62u8; 32],
+            policy_hash: [63u8; 32],
+            witness_certificates: Vec::new(),
+            observer_certificates: Vec::new(),
+            observer_close_certificate: None,
+            observer_transcripts: transcripts.clone(),
+            observer_challenges: Vec::new(),
+            observer_transcript_commitment: Some(AsymptoteObserverTranscriptCommitment {
+                epoch: 9,
+                height: header.height,
+                view: header.view,
+                assignments_hash,
+                transcripts_root,
+                transcript_count: 1,
+            }),
+            observer_challenge_commitment: Some(AsymptoteObserverChallengeCommitment {
+                epoch: 9,
+                height: header.height,
+                view: header.view,
+                challenges_root: empty_challenges_root,
+                challenge_count: 0,
+            }),
+            observer_canonical_close: Some(invalid_close.clone()),
+            observer_canonical_abort: None,
+            veto_proofs: Vec::new(),
+            divergence_signals: Vec::new(),
+            proof_signature: SignatureProof::default(),
+        };
+
+        let artifacts = canonicalize_observer_sealed_finality_proof(
+            &header,
+            &policy,
+            [64u8; 32],
+            &mut proof,
+        )
+        .expect("canonicalization should succeed")
+        .expect("invalid close should still yield canonical artifacts");
+
+        assert_eq!(proof.finality_tier, ioi_types::app::FinalityTier::BaseFinal);
+        assert_eq!(proof.collapse_state, ioi_types::app::CollapseState::Abort);
+        assert!(proof.observer_canonical_close.is_none());
+        assert!(proof.observer_canonical_abort.is_some());
+        let invalid_close_challenge = proof
+            .observer_challenges
+            .iter()
+            .find(|challenge| {
+                challenge.kind == AsymptoteObserverChallengeKind::InvalidCanonicalClose
+            })
+            .expect("invalid close challenge inserted");
+        assert_eq!(
+            invalid_close_challenge.canonical_close.as_ref(),
+            Some(&invalid_close)
+        );
+        assert_eq!(artifacts.canonical_close, None);
+        assert!(artifacts.canonical_abort.is_some());
+    }
+
+    #[tokio::test]
+    async fn publish_canonical_observer_abort_artifacts_enqueues_transcript_challenge_and_abort() {
+        let assignment = ioi_types::app::AsymptoteObserverAssignment {
+            epoch: 9,
+            producer_account_id: AccountId([21u8; 32]),
+            height: 11,
+            view: 4,
+            round: 0,
+            observer_account_id: AccountId([22u8; 32]),
+        };
+        let observation_request = ioi_types::app::AsymptoteObserverObservationRequest {
+            epoch: 9,
+            assignment: assignment.clone(),
+            block_hash: [23u8; 32],
+            guardian_manifest_hash: [24u8; 32],
+            guardian_decision_hash: [25u8; 32],
+            guardian_counter: 26,
+            guardian_trace_hash: [27u8; 32],
+            guardian_measurement_root: [28u8; 32],
+            guardian_checkpoint_root: [29u8; 32],
+        };
+        let transcript = AsymptoteObserverTranscript {
+            statement: AsymptoteObserverStatement {
+                epoch: 9,
+                assignment: assignment.clone(),
+                block_hash: [23u8; 32],
+                guardian_manifest_hash: [24u8; 32],
+                guardian_decision_hash: [25u8; 32],
+                guardian_counter: 26,
+                guardian_trace_hash: [27u8; 32],
+                guardian_measurement_root: [28u8; 32],
+                guardian_checkpoint_root: [29u8; 32],
+                verdict: ioi_types::app::AsymptoteObserverVerdict::Ok,
+                veto_kind: None,
+                evidence_hash: [30u8; 32],
+            },
+            guardian_certificate: sample_block_header()
+                .guardian_certificate
+                .expect("sample header must carry guardian certificate"),
+        };
+        let challenge = AsymptoteObserverChallenge {
+            challenge_id: [31u8; 32],
+            epoch: 9,
+            height: 11,
+            view: 4,
+            kind: ioi_types::app::AsymptoteObserverChallengeKind::TranscriptMismatch,
+            challenger_account_id: AccountId([32u8; 32]),
+            assignment: Some(assignment.clone()),
+            observation_request: Some(observation_request),
+            transcript: Some(transcript.clone()),
+            canonical_close: None,
+            evidence_hash: [33u8; 32],
+            details: "observer recovered a malformed request".to_string(),
+        };
+        let assignments_hash =
+            canonical_asymptote_observer_assignments_hash(&[assignment]).expect("assignment hash");
+        let transcripts_root = canonical_asymptote_observer_transcripts_hash(&[transcript.clone()])
+            .expect("transcript root");
+        let challenges_root =
+            canonical_asymptote_observer_challenges_hash(&[challenge.clone()]).expect("challenge root");
+        let artifacts = CanonicalObserverPublicationArtifacts {
+            transcripts: vec![transcript],
+            challenges: vec![challenge],
+            transcript_commitment: AsymptoteObserverTranscriptCommitment {
+                epoch: 9,
+                height: 11,
+                view: 4,
+                assignments_hash,
+                transcripts_root,
+                transcript_count: 1,
+            },
+            challenge_commitment: AsymptoteObserverChallengeCommitment {
+                epoch: 9,
+                height: 11,
+                view: 4,
+                challenges_root,
+                challenge_count: 1,
+            },
+            canonical_close: None,
+            canonical_abort: Some(AsymptoteObserverCanonicalAbort {
+                epoch: 9,
+                height: 11,
+                view: 4,
+                assignments_hash,
+                transcripts_root,
+                challenges_root,
+                transcript_count: 1,
+                challenge_count: 1,
+                challenge_cutoff_timestamp_ms: 1_700_000_000_500,
+            }),
+        };
+        let (consensus_kick_tx, mut consensus_kick_rx) = mpsc::unbounded_channel();
+        let publisher = GuardianRegistryPublisher {
+            workload_client: Arc::new(TestWorkloadClient),
+            tx_pool: Arc::new(Mempool::new()),
+            consensus_kick_tx,
+            nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
+            local_keypair: libp2p::identity::Keypair::generate_ed25519(),
+            chain_id: ChainId(1),
+        };
+
+        publish_canonical_observer_artifacts(&publisher, &artifacts)
+            .await
+            .expect("artifact publication should succeed");
+
+        let selected = publisher.tx_pool.select_transactions(8);
+        assert_eq!(selected.len(), 5);
+
+        let methods = selected
+            .into_iter()
+            .map(|tx| match tx {
+                ChainTransaction::System(system_tx) => match system_tx.payload {
+                    SystemPayload::CallService {
+                        service_id,
+                        method,
+                        ..
+                    } => {
+                        assert_eq!(service_id, "guardian_registry");
+                        method
+                    }
+                },
+                other => panic!("unexpected non-system publication tx: {other:?}"),
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            methods,
+            vec![
+                "publish_asymptote_observer_transcript@v1".to_string(),
+                "publish_asymptote_observer_transcript_commitment@v1".to_string(),
+                "report_asymptote_observer_challenge@v1".to_string(),
+                "publish_asymptote_observer_challenge_commitment@v1".to_string(),
+                "publish_asymptote_observer_canonical_abort@v1".to_string(),
+            ]
+        );
+
+        for _ in 0..5 {
+            consensus_kick_rx
+                .try_recv()
+                .expect("publication should kick consensus for each enqueued tx");
+        }
+        assert!(
+            consensus_kick_rx.try_recv().is_err(),
+            "expected exactly one kick per published artifact tx"
+        );
+    }
+
+    #[tokio::test]
+    async fn publish_canonical_order_artifacts_enqueues_bulletin_surface_and_certificate() {
+        let base_header = sample_block_header();
+        let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([41u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_bulletin_commitment@v1".into(),
+                params: vec![1],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let tx_two = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([42u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_canonical_order_artifact_bundle@v1".into(),
+                params: vec![2],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let ordered_transactions = ioi_types::app::canonicalize_transactions_for_header(
+            &base_header,
+            &[tx_one, tx_two],
+        )
+        .expect("canonicalized transactions");
+        let tx_hashes: Vec<[u8; 32]> = ordered_transactions
+            .iter()
+            .map(|tx| tx.hash().expect("tx hash"))
+            .collect();
+
+        let mut header = base_header;
+        header.transactions_root = ioi_types::app::canonical_transaction_root_from_hashes(
+            &tx_hashes,
+        )
+        .expect("transactions root");
+        header.canonical_order_certificate = Some(
+            build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+                .expect("build committed-surface certificate"),
+        );
+
+        let artifacts = build_canonical_order_publication_artifacts(&header, &ordered_transactions)
+            .expect("build publication artifacts");
+        let (consensus_kick_tx, mut consensus_kick_rx) = mpsc::unbounded_channel();
+        let publisher = GuardianRegistryPublisher {
+            workload_client: Arc::new(TestWorkloadClient),
+            tx_pool: Arc::new(Mempool::new()),
+            consensus_kick_tx,
+            nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
+            local_keypair: libp2p::identity::Keypair::generate_ed25519(),
+            chain_id: ChainId(1),
+        };
+
+        publish_canonical_order_artifacts(&publisher, &artifacts)
+            .await
+            .expect("artifact publication should succeed");
+
+        let selected = publisher.tx_pool.select_transactions(8);
+        assert_eq!(selected.len(), 1);
+
+        let methods = selected
+            .into_iter()
+            .map(|tx| match tx {
+                ChainTransaction::System(system_tx) => match system_tx.payload {
+                    SystemPayload::CallService {
+                        service_id,
+                        method,
+                        ..
+                    } => {
+                        assert_eq!(service_id, "guardian_registry");
+                        method
+                    }
+                },
+                other => panic!("unexpected non-system publication tx: {other:?}"),
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            methods,
+            vec!["publish_aft_canonical_order_artifact_bundle@v1".to_string()]
+        );
+
+        for _ in 0..1 {
+            consensus_kick_rx
+                .try_recv()
+                .expect("publication should kick consensus for each enqueued tx");
+        }
+        assert!(
+            consensus_kick_rx.try_recv().is_err(),
+            "expected exactly one kick per published artifact tx"
+        );
+    }
+
+    #[tokio::test]
+    async fn publish_canonical_order_abort_enqueues_abort_tx() {
+        let header = sample_block_header();
+        let artifacts = build_canonical_order_publication_artifacts(&header, &[])
+            .expect("build publication artifacts");
+        assert!(artifacts.bundle.is_none());
+        let abort = artifacts
+            .canonical_abort
+            .as_ref()
+            .expect("missing certificate must derive ordering abort");
+        assert_eq!(abort.height, header.height);
+
+        let (consensus_kick_tx, mut consensus_kick_rx) = mpsc::unbounded_channel();
+        let publisher = GuardianRegistryPublisher {
+            workload_client: Arc::new(TestWorkloadClient),
+            tx_pool: Arc::new(Mempool::new()),
+            consensus_kick_tx,
+            nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
+            local_keypair: libp2p::identity::Keypair::generate_ed25519(),
+            chain_id: ChainId(1),
+        };
+
+        publish_canonical_order_artifacts(&publisher, &artifacts)
+            .await
+            .expect("abort publication should succeed");
+
+        let selected = publisher.tx_pool.select_transactions(8);
+        assert_eq!(selected.len(), 1);
+
+        let methods = selected
+            .into_iter()
+            .map(|tx| match tx {
+                ChainTransaction::System(system_tx) => match system_tx.payload {
+                    SystemPayload::CallService {
+                        service_id,
+                        method,
+                        ..
+                    } => {
+                        assert_eq!(service_id, "guardian_registry");
+                        method
+                    }
+                },
+                other => panic!("unexpected non-system publication tx: {other:?}"),
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            methods,
+            vec!["publish_aft_canonical_order_abort@v1".to_string()]
+        );
+        consensus_kick_rx
+            .try_recv()
+            .expect("abort publication should kick consensus");
+        assert!(
+            consensus_kick_rx.try_recv().is_err(),
+            "expected exactly one kick for the ordering abort publication"
+        );
+    }
+
+    #[tokio::test]
+    async fn publish_canonical_collapse_object_enqueues_collapse_tx() {
+        let base_header = sample_block_header();
+        let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([51u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_bulletin_commitment@v1".into(),
+                params: vec![1],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let tx_two = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([52u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_canonical_order_artifact_bundle@v1".into(),
+                params: vec![2],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let ordered_transactions = ioi_types::app::canonicalize_transactions_for_header(
+            &base_header,
+            &[tx_one, tx_two],
+        )
+        .expect("canonicalized transactions");
+        let tx_hashes: Vec<[u8; 32]> = ordered_transactions
+            .iter()
+            .map(|tx| tx.hash().expect("tx hash"))
+            .collect();
+
+        let mut header = base_header;
+        header.transactions_root = ioi_types::app::canonical_transaction_root_from_hashes(
+            &tx_hashes,
+        )
+        .expect("transactions root");
+        header.canonical_order_certificate = Some(
+            build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+                .expect("build committed-surface certificate"),
+        );
+        let collapse = ioi_types::app::derive_canonical_collapse_object(&header, &ordered_transactions)
+            .expect("derive canonical collapse object");
+
+        let (consensus_kick_tx, mut consensus_kick_rx) = mpsc::unbounded_channel();
+        let publisher = GuardianRegistryPublisher {
+            workload_client: Arc::new(TestWorkloadClient),
+            tx_pool: Arc::new(Mempool::new()),
+            consensus_kick_tx,
+            nonce_manager: Arc::new(Mutex::new(BTreeMap::new())),
+            local_keypair: libp2p::identity::Keypair::generate_ed25519(),
+            chain_id: ChainId(1),
+        };
+
+        publish_canonical_collapse_object(&publisher, &collapse)
+            .await
+            .expect("collapse publication should succeed");
+
+        let selected = publisher.tx_pool.select_transactions(8);
+        assert_eq!(selected.len(), 1);
+
+        let methods = selected
+            .into_iter()
+            .map(|tx| match tx {
+                ChainTransaction::System(system_tx) => match system_tx.payload {
+                    SystemPayload::CallService {
+                        service_id,
+                        method,
+                        ..
+                    } => {
+                        assert_eq!(service_id, "guardian_registry");
+                        method
+                    }
+                },
+                other => panic!("unexpected non-system publication tx: {other:?}"),
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            methods,
+            vec!["publish_aft_canonical_collapse_object@v1".to_string()]
+        );
+        consensus_kick_rx
+            .try_recv()
+            .expect("collapse publication should kick consensus");
+        assert!(
+            consensus_kick_rx.try_recv().is_err(),
+            "expected exactly one kick for the collapse publication"
+        );
+    }
 }

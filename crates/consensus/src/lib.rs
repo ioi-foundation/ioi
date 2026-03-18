@@ -316,26 +316,30 @@ where
         }
     }
 
-    fn observe_committed_block(&mut self, header: &BlockHeader) {
+    fn observe_committed_block(
+        &mut self,
+        header: &BlockHeader,
+        collapse: Option<&ioi_types::app::CanonicalCollapseObject>,
+    ) -> bool {
         match self {
             #[cfg(feature = "aft")]
             Consensus::Aft(engine) => {
-                <AftEngine as ConsensusEngine<T>>::observe_committed_block(engine, header)
+                <AftEngine as ConsensusEngine<T>>::observe_committed_block(engine, header, collapse)
             }
             #[cfg(feature = "poa")]
             Consensus::ProofOfAuthority(engine) => {
                 <ProofOfAuthorityEngine as ConsensusEngine<T>>::observe_committed_block(
-                    engine, header,
+                    engine, header, collapse,
                 )
             }
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(engine) => {
                 <ProofOfStakeEngine as ConsensusEngine<T>>::observe_committed_block(
-                    engine, header,
+                    engine, header, collapse,
                 )
             }
             Consensus::Solo(engine) => {
-                <SoloEngine as ConsensusEngine<T>>::observe_committed_block(engine, header)
+                <SoloEngine as ConsensusEngine<T>>::observe_committed_block(engine, header, collapse)
             }
             Consensus::_Phantom(_) => unreachable!(),
         }

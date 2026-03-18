@@ -2,7 +2,7 @@
 
 use crate::app::action::ApprovalToken;
 use crate::app::ActionRequest;
-use crate::app::{FinalityTier, SealedFinalityProof};
+use crate::app::{CanonicalCollapseObject, FinalityTier, SealedFinalityProof};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -355,6 +355,10 @@ pub struct InferenceOptions {
     /// Optional sealed finality proof authorizing stronger egress.
     #[serde(default)]
     pub sealed_finality_proof: Option<SealedFinalityProof>,
+
+    /// Optional protocol-wide canonical collapse object bound to a sealed effect.
+    #[serde(default)]
+    pub canonical_collapse_object: Option<CanonicalCollapseObject>,
 }
 
 /// Legacy human-facing skill content following the agentskills.io-style schema.

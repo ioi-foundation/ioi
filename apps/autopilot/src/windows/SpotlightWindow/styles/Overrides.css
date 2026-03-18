@@ -50,7 +50,7 @@
    SIDEBAR OVERRIDES
    ============================================ */
 .history-sidebar.history-sidebar.history-sidebar {
-  background: rgba(6, 6, 8, 0.7) !important;
+  background: var(--spot-bg-secondary) !important;
 }
 
 .sidebar-header.sidebar-header.sidebar-header {
@@ -58,19 +58,23 @@
 }
 
 .sidebar-new-btn.sidebar-new-btn.sidebar-new-btn {
-  background: var(--spot-accent) !important;
+  background: transparent !important;
+  border-color: var(--spot-border-subtle) !important;
+  color: var(--spot-text-secondary) !important;
 }
 
 .sidebar-new-btn.sidebar-new-btn.sidebar-new-btn:hover {
-  background: var(--spot-accent-hover) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--spot-border) !important;
+  color: var(--spot-text-primary) !important;
 }
 
 .sidebar-toggle-btn.sidebar-toggle-btn.sidebar-toggle-btn {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: transparent !important;
 }
 
 .sidebar-toggle-btn.sidebar-toggle-btn.sidebar-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 
 /* ============================================
@@ -186,11 +190,13 @@
 }
 
 .search-box.search-box.search-box {
-  background: rgba(0, 0, 0, 0.25) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: var(--spot-border-subtle) !important;
 }
 
 .search-box.search-box.search-box:focus-within {
-  background: rgba(0, 0, 0, 0.35) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: var(--spot-border-focus) !important;
 }
 
 /* ============================================

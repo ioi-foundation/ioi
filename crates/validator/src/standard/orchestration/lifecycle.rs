@@ -1,4 +1,5 @@
 use super::*;
+use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
 where
@@ -457,6 +458,18 @@ where
                     tracing::info!(target: "orchestration", "Recovering chain state from height {}", status.height);
                     match workload_client.get_block_by_height(status.height).await {
                         Ok(Some(block)) => {
+                            require_persisted_aft_canonical_collapse_if_needed(
+                                self.config.consensus_type,
+                                workload_client.as_ref(),
+                                &block,
+                            )
+                            .await
+                            .map_err(|error| {
+                                ValidatorError::Other(format!(
+                                    "Refusing to hydrate AFT durable tip at height {} without a matching canonical collapse object: {error}",
+                                    block.header.height
+                                ))
+                            })?;
                             initial_block = Some(block);
                             tracing::info!(target: "orchestration", "Hydrated last_committed_block (Height {})", status.height);
                         }

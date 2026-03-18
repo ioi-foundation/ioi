@@ -84,7 +84,7 @@ tower = { workspace = true }
 tower-http = { workspace = true, features = ["limit", "trace", "catch-panic"] }
 ipnetwork = "0.20"
 
-zk-driver-succinct = { path = "../plugins/zk-driver-succinct", optional = true }
+zk-driver-succinct = { path = "../plugins/zk-driver-succinct" }
 
 # [NEW] Dependencies for secure key loading
 rpassword = "7.0"
@@ -125,4 +125,4 @@ commitment-kzg = ["ioi-state/commitment-kzg"]
 
 # IBC plugin feature forwarding
 ibc-deps = ["dep:ioi-plugin-ibc-service"]
-ethereum-zk = ["ioi-plugin-ibc-service/ethereum-zk", "dep:zk-driver-succinct"]
+ethereum-zk = ["ioi-plugin-ibc-service/ethereum-zk"]

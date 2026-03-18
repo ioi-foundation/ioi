@@ -11,10 +11,17 @@
 
 .console-tabs {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-2); 
   padding: 0 4px; 
   flex-shrink: 0;
+}
+
+.console-tab-strip {
+  display: flex;
+  align-items: center;
 }
 
 .console-tab {
@@ -46,6 +53,20 @@
   color: var(--accent-blue);
   border-bottom-color: var(--accent-blue);
   background: var(--surface-1);
+}
+
+.console-collapse-btn {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.console-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
 }
 
 .console-content {

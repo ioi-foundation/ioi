@@ -12,7 +12,11 @@ Imagine a republic where every city council loves issuing decrees and at least s
 
 Now a dishonest council tries the classic trick: publish two conflicting decrees for the same hour and hope different neighbors obey different papers. In this republic, that fails unless enough seal-keepers also misbehave to certify both versions, or the gazette and registry can be subverted badly enough that everyone reads a different official history.
 
-That is the intuition behind Aft Fault Tolerance. We do not assume participants stop lying. We assume durable agreement emerges because every finalized statement must pass through overlapping certification thresholds and shared evidence that later verifiers can re-check.
+That is the intuition behind Aft Fault Tolerance. We do not assume participants
+stop lying. We assume tentative progress is constrained by guardian-backed
+admissibility, while durable agreement emerges only once the slot's canonical
+collapse object is fixed and later verifiers can re-check the same shared
+evidence.
 
 ## Scope
 
@@ -23,9 +27,19 @@ That is the intuition behind Aft Fault Tolerance. We do not assume participants 
 - a proposal is valid only if it carries a registered guardian committee certificate
 - committee certificates use majority thresholds and non-equivocation assumptions at the guardian layer
 
-The production claim is therefore:
+The production claim for `GuardianMajority` itself is therefore deliberately
+limited:
 
-> No two conflicting blocks can both finalize for the same `(height, view)` if registered guardian committees satisfy their threshold and non-equivocation assumptions, the registry state used for verification is current, and validators only finalize blocks carrying valid guardian certificates.
+> No two conflicting guardian-admissible transport candidates can both survive
+> verification for the same `(height, view)` if registered guardian committees
+> satisfy their threshold and non-equivocation assumptions, the registry state
+> used for verification is current, and validators only accept blocks carrying
+> valid guardian certificates.
+
+Durable AFT state is stronger than that transport claim. In the live runtime,
+durability is no longer sourced from majority QC movement alone: it is sourced
+from the slot's canonical collapse object, and `GuardianMajority` serves as the
+tentative transport / proposal engine beneath that PSC-gated durability layer.
 
 ## Actors
 
@@ -73,6 +87,9 @@ The production claim is therefore:
 - Enough validators remain network-reachable to form consensus quorums.
 - Enough guardian committee members remain reachable to satisfy the committee threshold.
 - The registry state and witness-log checkpoints are eventually available to validators.
+- The canonical collapse surface for committed slots is eventually derivable and
+  published; otherwise the engine should stall or time out rather than treating
+  tentative transport state as durable.
 
 ## What The Current Executable Model Checks
 
@@ -99,5 +116,8 @@ That means the production safety core is no longer only a bounded executable mod
 ## Explicit Non-Claims
 
 - This mode does not claim to "break `3f+1`" in the classical Byzantine model.
+- This mode is not itself the repository's `99% Byzantine Tolerance` theorem
+  surface; that broader claim is over the combined PSC substrate, deterministic
+  close-or-abort extraction, and collapse-gated durability.
 - This mode does not claim confidentiality of arbitrary computation against a hostile kernel or hypervisor.
 - This mode does not yet prove unbounded liveness under registry rollback, transparency-log outage, or cross-provider common-mode bugs.

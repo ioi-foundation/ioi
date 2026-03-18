@@ -7,30 +7,20 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
-import { 
-    AgentEditor, 
-    AgentsDashboard, 
-    BuilderView, 
-    FleetView, 
-    MarketplaceView,
-    ConnectorsView
-} from "@ioi/agent-ide";
+import { ConnectorsView } from "@ioi/agent-ide";
 import type { AgentSummary } from "@ioi/agent-ide";
 import { TauriRuntime } from "../../services/TauriRuntime";
 
 // Shell Components
-import { StudioCopilotView } from "./components/StudioCopilot";
 import { AgentInstallModal } from "../../components/AgentInstallModal";
 import { CommandPalette } from "../../components/CommandPalette";
 import { StatusBar } from "../../components/StatusBar";
-import { VisionHUD } from "../../components/VisionHUD";
-import { AssistantWorkbenchView } from "./components/AssistantWorkbenchView";
 import { LocalActivityBar } from "./components/LocalActivityBar";
-import { ContextAtlasView } from "./components/ContextAtlasView";
+import { MissionControlChatView } from "./components/MissionControlChatView";
+import { MissionControlWorkflowsView } from "./components/MissionControlWorkflowsView";
+import { MissionControlRunsView } from "./components/MissionControlRunsView";
+import { MissionControlControlView } from "./components/MissionControlControlView";
 import { NotificationsView } from "./components/NotificationsView";
-import { SettingsView } from "./components/SettingsView";
-import { StudioTopBar } from "./components/StudioTopBar";
-import { ShieldPolicyView } from "./components/ShieldPolicyView";
 import { listenForAutopilotDataReset } from "../../services/autopilotReset";
 import {
   buildConnectorPolicySummary,
@@ -42,7 +32,7 @@ import {
 import type {
   AssistantWorkbenchSession,
   AssistantNotificationRecord,
-  ContextAtlasFocusRequest,
+  AssistantUserProfile,
   InterventionRecord,
 } from "../../types";
 
@@ -54,6 +44,19 @@ import "./StudioWindow.css";
 const runtime = new TauriRuntime();
 
 type ToastCandidate = Pick<InterventionRecord, "title" | "summary" | "reason" | "privacy">;
+type PrimaryView = "chat" | "workflows" | "runs" | "inbox" | "connections" | "control";
+
+const DEFAULT_PROFILE: AssistantUserProfile = {
+  version: 1,
+  displayName: "Operator",
+  preferredName: null,
+  roleLabel: "Private Operator",
+  timezone: "UTC",
+  locale: "en-US",
+  primaryEmail: null,
+  avatarSeed: "OP",
+  groundingAllowed: false,
+};
 
 async function sendNativeAutopilotNotification(candidate: ToastCandidate): Promise<void> {
   try {
@@ -80,16 +83,26 @@ async function sendNativeAutopilotNotification(candidate: ToastCandidate): Promi
 
 export function StudioWindow() {
   // --- Layout State ---
-  const [activeView, setActiveView] = useState("compose");
+  const [activeView, setActiveView] = useState<PrimaryView>("chat");
+  const [chatSurface, setChatSurface] = useState<"chat" | "reply-composer" | "meeting-prep">(
+    "chat",
+  );
+  const [workflowSurface, setWorkflowSurface] = useState<"canvas" | "agents" | "catalog">(
+    "canvas",
+  );
+  const [controlSurface, setControlSurface] = useState<"policy" | "system">("policy");
   const [interfaceMode, setInterfaceMode] = useState<"GHOST" | "COMPOSE">("COMPOSE");
   const [focusedPolicyConnectorId, setFocusedPolicyConnectorId] = useState<string | null>(null);
-  const [atlasRequest, setAtlasRequest] = useState<ContextAtlasFocusRequest | null>(null);
   const [assistantWorkbench, setAssistantWorkbench] = useState<AssistantWorkbenchSession | null>(null);
   const [autopilotSeedIntent, setAutopilotSeedIntent] = useState<string | null>(null);
   const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
   const [shieldPolicy, setShieldPolicy] = useState<ShieldPolicyState>(() =>
     loadShieldPolicyState(),
   );
+  const [profile, setProfile] = useState<AssistantUserProfile>(DEFAULT_PROFILE);
+  const [profileDraft, setProfileDraft] = useState<AssistantUserProfile>(DEFAULT_PROFILE);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [shieldPolicyHydrated, setShieldPolicyHydrated] = useState(false);
   const lastPersistedShieldPolicyRef = useRef<string>(JSON.stringify(loadShieldPolicyState()));
   
@@ -101,22 +114,90 @@ export function StudioWindow() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [installModalOpen, setInstallModalOpen] = useState(false);
 
+  const openLegacyView = (view: string) => {
+    switch (view) {
+      case "copilot":
+      case "autopilot":
+        setChatSurface("chat");
+        setActiveView("chat");
+        return;
+      case "reply-composer":
+        setChatSurface("reply-composer");
+        setActiveView("chat");
+        return;
+      case "meeting-prep":
+        setChatSurface("meeting-prep");
+        setActiveView("chat");
+        return;
+      case "compose":
+        setWorkflowSurface("canvas");
+        setActiveView("workflows");
+        return;
+      case "agents":
+        setWorkflowSurface("agents");
+        setActiveView("workflows");
+        return;
+      case "marketplace":
+        setWorkflowSurface("catalog");
+        setActiveView("workflows");
+        return;
+      case "fleet":
+      case "atlas":
+        setActiveView("runs");
+        return;
+      case "notifications":
+        setActiveView("inbox");
+        return;
+      case "integrations":
+        setActiveView("connections");
+        return;
+      case "shield":
+        setControlSurface("policy");
+        setActiveView("control");
+        return;
+      case "settings":
+        setControlSurface("system");
+        setActiveView("control");
+        return;
+      default:
+        setChatSurface("chat");
+        setActiveView("chat");
+    }
+  };
+
   // --- Listeners ---
   useEffect(() => {
     // Allow other windows (Spotlight) to request a view change via backend event
     const unlistenPromise = listen<string>("request-studio-view", (event) => {
-      setActiveView(event.payload === "copilot" ? "autopilot" : event.payload);
+      openLegacyView(event.payload);
     });
-    const atlasFocusUnlistenPromise = listen<ContextAtlasFocusRequest>(
-      "request-context-atlas-focus",
-      (event) => {
-        setAtlasRequest(event.payload);
-        setActiveView("atlas");
-      },
-    );
     return () => {
       unlistenPromise.then((unlisten) => unlisten());
-      atlasFocusUnlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void invoke<AssistantUserProfile>("assistant_user_profile_get")
+      .then((loadedProfile) => {
+        if (cancelled) return;
+        setProfile(loadedProfile);
+        setProfileDraft(loadedProfile);
+      })
+      .catch(() => {
+        // Best-effort bootstrap only.
+      });
+
+    const unlistenPromise = listen<AssistantUserProfile>("assistant-user-profile-updated", (event) => {
+      if (cancelled) return;
+      setProfile(event.payload);
+      setProfileDraft(event.payload);
+    });
+
+    return () => {
+      cancelled = true;
+      void unlistenPromise.then((unlisten) => unlisten());
     };
   }, []);
 
@@ -216,183 +297,187 @@ export function StudioWindow() {
 
   const openPolicyCenter = (connectorId?: string | null) => {
     setFocusedPolicyConnectorId(connectorId ?? null);
-    setActiveView("shield");
+    setControlSurface("policy");
+    setActiveView("control");
   };
 
-  const handleViewChange = (view: string) => {
+  const handleViewChange = (view: PrimaryView) => {
     setActiveView(view);
-    if (view !== "agents") setEditingAgent(null);
-    if (view !== "shield") setFocusedPolicyConnectorId(null);
   };
 
   const openReplyComposer = (
     session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
   ) => {
     setAssistantWorkbench(session);
-    setActiveView("reply-composer");
+    setChatSurface("reply-composer");
+    setActiveView("chat");
   };
 
   const openMeetingPrep = (
     session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>,
   ) => {
     setAssistantWorkbench(session);
-    setActiveView("meeting-prep");
+    setChatSurface("meeting-prep");
+    setActiveView("chat");
   };
 
   const openAutopilotWithIntent = (intent: string) => {
     setAutopilotSeedIntent(intent);
-    setActiveView("autopilot");
+    setChatSurface("chat");
+    setActiveView("chat");
   };
+
+  const updateProfileDraft = <K extends keyof AssistantUserProfile>(
+    key: K,
+    value: AssistantUserProfile[K],
+  ) => {
+    setProfileDraft((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const resetProfileDraft = () => {
+    setProfileDraft(profile);
+    setProfileError(null);
+  };
+
+  const saveProfileDraft = async () => {
+    setProfileSaving(true);
+    setProfileError(null);
+
+    try {
+      const savedProfile = await invoke<AssistantUserProfile>("assistant_user_profile_set", {
+        profile: {
+          ...profileDraft,
+          groundingAllowed: false,
+        },
+      });
+      setProfile(savedProfile);
+      setProfileDraft(savedProfile);
+    } catch (nextError) {
+      setProfileError(String(nextError));
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const showStatusBar =
+    interfaceMode === "GHOST" ||
+    activeView === "workflows" ||
+    activeView === "runs" ||
+    activeView === "control";
 
   return (
     <div className="studio-window">
       <LocalActivityBar
-        activeView={activeView} 
+        activeView={activeView}
         onViewChange={handleViewChange}
+        notificationCount={notificationBadgeCount}
         ghostMode={interfaceMode === "GHOST"}
-        onToggleGhost={() => setInterfaceMode(prev => prev === "GHOST" ? "COMPOSE" : "GHOST")}
+        onToggleGhost={() => setInterfaceMode((prev) => (prev === "GHOST" ? "COMPOSE" : "GHOST"))}
       />
-      
+
       <div className="studio-main">
-        <StudioTopBar
-          activeView={activeView}
-          notificationCount={notificationBadgeCount}
-          onOpenNotifications={() => handleViewChange("notifications")}
-          onOpenSettings={() => handleViewChange("settings")}
-        />
         <div className="studio-content">
-          
-          {/* VIEW: COMPOSE (The Graph Editor) */}
-          {activeView === "compose" && (
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              {/* Ghost Mode Overlay (Shell Feature) */}
-              {interfaceMode === "GHOST" && (
-                <>
-                  <div className="ghost-overlay">
-                    <div className="ghost-badge">
-                        <span className="ghost-dot" />
-                        <span>Ghost Mode Recording</span>
-                    </div>
-                  </div>
-                  {/* VisionHUD floats on the left/top via CSS */}
-                  <VisionHUD /> 
-                </>
-              )}
-              
-              {/* The Shared Package */}
-              <AgentEditor runtime={runtime} />
-            </div>
-          )}
-
-          {/* VIEW: FLEET */}
-          {activeView === "fleet" && (
-              <FleetView runtime={runtime} />
-          )}
-
-          {/* VIEW: AUTOPILOT */}
-          {activeView === "autopilot" && (
-            <StudioCopilotView
-              seedIntent={autopilotSeedIntent}
-              onConsumeSeedIntent={() => setAutopilotSeedIntent(null)}
-            />
-          )}
-
-          {activeView === "notifications" && (
-            <NotificationsView
-              onOpenAutopilot={() => handleViewChange("autopilot")}
-              onOpenIntegrations={() => handleViewChange("integrations")}
-              onOpenShield={(connectorId) => openPolicyCenter(connectorId)}
-              onOpenSettings={() => handleViewChange("settings")}
-              onOpenReplyComposer={openReplyComposer}
-              onOpenMeetingPrep={openMeetingPrep}
-            />
-          )}
-
-          {(activeView === "reply-composer" || activeView === "meeting-prep") && (
-            <AssistantWorkbenchView
-              session={assistantWorkbench}
-              runtime={runtime}
-              onBack={() => handleViewChange("notifications")}
-              onOpenNotifications={() => handleViewChange("notifications")}
-              onOpenAutopilot={openAutopilotWithIntent}
-            />
-          )}
-
-          {activeView === "atlas" && (
-            <ContextAtlasView
-              runtime={runtime}
-              request={atlasRequest}
-            />
-          )}
-
-          {/* VIEW: MARKETPLACE */}
-          {activeView === "marketplace" && (
-            <MarketplaceView 
+          <div className="studio-content-main">
+            {activeView === "chat" ? (
+              <MissionControlChatView
+                surface={chatSurface}
+                session={assistantWorkbench}
                 runtime={runtime}
-                onInstall={(agent) => { 
-                    setSelectedAgent(agent); 
-                    setInstallModalOpen(true); 
-                }} 
-            />
-          )}
+                seedIntent={autopilotSeedIntent}
+                onConsumeSeedIntent={() => setAutopilotSeedIntent(null)}
+                onBackToInbox={() => {
+                  setChatSurface("chat");
+                  handleViewChange("inbox");
+                }}
+                onOpenInbox={() => handleViewChange("inbox")}
+                onOpenAutopilot={openAutopilotWithIntent}
+              />
+            ) : null}
 
-          {/* VIEW: INTEGRATIONS */}
-          {activeView === "integrations" && (
-            <ConnectorsView
-              runtime={runtime}
-              getConnectorPolicySummary={(connector) =>
-                buildConnectorPolicySummary(shieldPolicy, connector.id)
-              }
-              onOpenPolicyCenter={(connector) => openPolicyCenter(connector.id)}
-            />
-          )}
+            {activeView === "workflows" ? (
+              <MissionControlWorkflowsView
+                runtime={runtime}
+                interfaceMode={interfaceMode}
+                surface={workflowSurface}
+                editingAgent={editingAgent}
+                onSurfaceChange={setWorkflowSurface}
+                onOpenAgent={handleOpenAgent}
+                onCloseAgent={() => setEditingAgent(null)}
+                onInstallAgent={(agent) => {
+                  setSelectedAgent(agent);
+                  setInstallModalOpen(true);
+                }}
+                onAddBuilderConfigToCanvas={(config) => {
+                  void runtime.loadBuilderConfigToCompose(config).catch((error) => {
+                    console.error("Builder->Compose handoff unavailable:", error);
+                  });
+                }}
+              />
+            ) : null}
 
-          {activeView === "shield" && (
-            <ShieldPolicyView
-              runtime={runtime}
-              policyState={shieldPolicy}
-              onChange={setShieldPolicy}
-              focusedConnectorId={focusedPolicyConnectorId}
-              onFocusConnector={setFocusedPolicyConnectorId}
-              onOpenIntegrations={() => setActiveView("integrations")}
-            />
-          )}
+            {activeView === "runs" ? (
+              <MissionControlRunsView runtime={runtime} />
+            ) : null}
 
-          {activeView === "settings" && <SettingsView runtime={runtime} />}
+            {activeView === "inbox" ? (
+              <NotificationsView
+                onOpenAutopilot={() => {
+                  setChatSurface("chat");
+                  handleViewChange("chat");
+                }}
+                onOpenIntegrations={() => handleViewChange("connections")}
+                onOpenShield={(connectorId) => openPolicyCenter(connectorId)}
+                onOpenSettings={() => {
+                  setControlSurface("system");
+                  handleViewChange("control");
+                }}
+                onOpenReplyComposer={openReplyComposer}
+                onOpenMeetingPrep={openMeetingPrep}
+              />
+            ) : null}
 
-          {/* VIEW: AGENTS (Dashboard + Builder) */}
-          {activeView === "agents" && (
-            <div className="studio-center-area">
-                {!editingAgent ? (
-                    <AgentsDashboard 
-                        runtime={runtime}
-                        onSelectAgent={handleOpenAgent} 
-                    />
-                ) : (
-                    <BuilderView 
-                        runtime={runtime}
-                        onBack={() => setEditingAgent(null)}
-                        onAddToGraph={(config) => {
-                            // 1. Switch to Compose View
-                            setActiveView('compose');
-                            setEditingAgent(null);
-                            void runtime.loadBuilderConfigToCompose(config).catch((error) => {
-                                console.error("Builder->Compose handoff unavailable:", error);
-                            });
-                        }} 
-                    />
-                )}
-            </div>
-          )}
+            {activeView === "connections" ? (
+              <ConnectorsView
+                runtime={runtime}
+                getConnectorPolicySummary={(connector) =>
+                  buildConnectorPolicySummary(shieldPolicy, connector.id)
+                }
+                onOpenPolicyCenter={(connector) => openPolicyCenter(connector.id)}
+              />
+            ) : null}
 
+            {activeView === "control" ? (
+              <MissionControlControlView
+                runtime={runtime}
+                surface={controlSurface}
+                policyState={shieldPolicy}
+                profile={profile}
+                profileDraft={profileDraft}
+                profileSaving={profileSaving}
+                profileError={profileError}
+                focusedConnectorId={focusedPolicyConnectorId}
+                onSurfaceChange={setControlSurface}
+                onPolicyChange={setShieldPolicy}
+                onProfileDraftChange={updateProfileDraft}
+                onResetProfileDraft={resetProfileDraft}
+                onSaveProfile={saveProfileDraft}
+                onFocusConnector={setFocusedPolicyConnectorId}
+                onOpenConnections={() => handleViewChange("connections")}
+              />
+            ) : null}
+          </div>
         </div>
-        
-        {/* Global OS Status Bar */}
-        <StatusBar 
-            metrics={{ cost: 0.00, privacy: 0.0, risk: 0.0 }} 
-            status={interfaceMode === "GHOST" ? "Recording..." : "Ready"} 
+
+        {showStatusBar ? (
+          <StatusBar
+            metrics={{ cost: 0.0, privacy: 0.0, risk: 0.0 }}
+            status={interfaceMode === "GHOST" ? "Recording" : "Ready"}
             onOpenShield={() => openPolicyCenter(focusedPolicyConnectorId)}
-        />
+          />
+        ) : null}
       </div>
 
       {/* --- Global Modals --- */}

@@ -36,13 +36,26 @@ use ioi_ipc::control::{
 use ioi_ipc::IpcClientType;
 use ioi_types::app::{
     account_id_from_key_material, build_http_egress_seal_object,
-    canonical_asymptote_observer_assignments_hash, verify_seal_object, AccountId,
-    AsymptoteObserverCertificate, AsymptoteObserverCloseCertificate, AsymptoteObserverPlanEntry,
-    AsymptoteObserverStatement, BinaryMeasurement, BootAttestation, EgressReceipt, FinalityTier,
-    GuardianCommitteeManifest, GuardianCommitteeMember, GuardianDecision, GuardianDecisionDomain,
-    GuardianLogCheckpoint, GuardianProductionMode, GuardianQuorumCertificate,
-    GuardianWitnessCertificate, GuardianWitnessCommitteeManifest, GuardianWitnessFaultEvidence,
-    GuardianWitnessStatement, SealObject, SealedFinalityProof, SignatureBundle, SignatureSuite,
+    canonical_collapse_hash_for_sealed_effect,
+    canonical_asymptote_observer_assignment_hash,
+    canonical_asymptote_observer_assignments_hash,
+    canonical_asymptote_observer_challenges_hash,
+    canonical_asymptote_observer_observation_request_hash,
+    canonical_asymptote_observer_transcript_hash,
+    canonical_asymptote_observer_transcripts_hash, sealed_finality_proof_observer_binding,
+    verify_seal_object, AccountId,
+    AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose,
+    AsymptoteObserverCertificate, AsymptoteObserverChallenge,
+    AsymptoteObserverChallengeCommitment, AsymptoteObserverChallengeKind,
+    AsymptoteObserverCloseCertificate, AsymptoteObserverObservation,
+    AsymptoteObserverObservationRequest, AsymptoteObserverPlanEntry,
+    AsymptoteObserverSealingMode, AsymptoteObserverStatement, AsymptoteObserverTranscript,
+    AsymptoteObserverTranscriptCommitment, AsymptotePolicy, BinaryMeasurement, BootAttestation,
+    CanonicalCollapseObject, CollapseState, EgressReceipt, FinalityTier, GuardianCommitteeManifest,
+    GuardianCommitteeMember, GuardianDecision, GuardianDecisionDomain, GuardianLogCheckpoint,
+    GuardianProductionMode, GuardianQuorumCertificate, GuardianWitnessCertificate,
+    GuardianWitnessCommitteeManifest, GuardianWitnessFaultEvidence, GuardianWitnessStatement,
+    SealObject, SealedFinalityProof, SignatureBundle, SignatureProof, SignatureSuite,
 };
 use ioi_types::codec;
 use ioi_types::config::GuardianVerifierPolicyConfig;
@@ -97,6 +110,7 @@ pub trait GuardianSigner: Send + Sync {
         _view: u64,
         _witness_manifest_hashes: Vec<[u8; 32]>,
         _observer_plan: Vec<AsymptoteObserverPlanEntry>,
+        _policy: AsymptotePolicy,
     ) -> Result<SealedFinalityProof> {
         Err(anyhow!("sealed finality is not supported by this signer"))
     }
@@ -1043,6 +1057,7 @@ impl GuardianSigner for GuardianGrpcSigner {
         view: u64,
         witness_manifest_hashes: Vec<[u8; 32]>,
         observer_plan: Vec<AsymptoteObserverPlanEntry>,
+        policy: AsymptotePolicy,
     ) -> Result<SealedFinalityProof> {
         let checkpoint = self.checkpoint.lock().await.clone();
         let request = SealConsensusRequest {
@@ -1064,6 +1079,8 @@ impl GuardianSigner for GuardianGrpcSigner {
                 .into_iter()
                 .map(|entry| codec::to_bytes_canonical(&entry).map_err(|e| anyhow!(e.to_string())))
                 .collect::<Result<Vec<_>>>()?,
+            asymptote_policy: codec::to_bytes_canonical(&policy)
+                .map_err(|e| anyhow!(e.to_string()))?,
         };
 
         let mut client = GuardianControlClient::new(self.channel.clone());
@@ -1853,12 +1870,12 @@ impl GuardianContainer {
         Ok(witness_certificate)
     }
 
-    fn build_asymptote_observer_statement(
+    fn build_asymptote_observer_observation_request(
         guardian_certificate: &GuardianQuorumCertificate,
         assignment: &ioi_types::app::AsymptoteObserverAssignment,
         block_hash: [u8; 32],
-    ) -> AsymptoteObserverStatement {
-        AsymptoteObserverStatement {
+    ) -> AsymptoteObserverObservationRequest {
+        AsymptoteObserverObservationRequest {
             epoch: guardian_certificate.epoch,
             assignment: assignment.clone(),
             block_hash,
@@ -1872,15 +1889,84 @@ impl GuardianContainer {
                 .as_ref()
                 .map(|checkpoint| checkpoint.root_hash)
                 .unwrap_or([0u8; 32]),
+        }
+    }
+
+    fn observation_request_statement(
+        request: &AsymptoteObserverObservationRequest,
+    ) -> AsymptoteObserverStatement {
+        AsymptoteObserverStatement {
+            epoch: request.epoch,
+            assignment: request.assignment.clone(),
+            block_hash: request.block_hash,
+            guardian_manifest_hash: request.guardian_manifest_hash,
+            guardian_decision_hash: request.guardian_decision_hash,
+            guardian_counter: request.guardian_counter,
+            guardian_trace_hash: request.guardian_trace_hash,
+            guardian_measurement_root: request.guardian_measurement_root,
+            guardian_checkpoint_root: request.guardian_checkpoint_root,
             verdict: ioi_types::app::AsymptoteObserverVerdict::Ok,
             veto_kind: None,
             evidence_hash: [0u8; 32],
         }
     }
 
-    /// Issues an equal-authority asymptote observer certificate for the local validator when the
-    /// deterministic observer assignment targets this guardian's registered committee.
-    pub async fn observe_asymptote_statement(
+    fn hash_guardianized_value<T: parity_scale_codec::Encode>(value: &T) -> Result<[u8; 32]> {
+        digest_to_array(
+            Sha256::digest(&value.encode()).map_err(|e| anyhow!(e.to_string()))?,
+        )
+    }
+
+    fn build_observer_challenge(
+        kind: AsymptoteObserverChallengeKind,
+        challenger_account_id: AccountId,
+        assignment: Option<ioi_types::app::AsymptoteObserverAssignment>,
+        observation_request: Option<AsymptoteObserverObservationRequest>,
+        transcript: Option<AsymptoteObserverTranscript>,
+        canonical_close: Option<AsymptoteObserverCanonicalClose>,
+        evidence_hash: [u8; 32],
+        details: impl Into<String>,
+    ) -> Result<AsymptoteObserverChallenge> {
+        let details = details.into();
+        let mut challenge = AsymptoteObserverChallenge {
+            challenge_id: [0u8; 32],
+            epoch: assignment
+                .as_ref()
+                .map(|assignment| assignment.epoch)
+                .or_else(|| observation_request.as_ref().map(|request| request.epoch))
+                .unwrap_or_default(),
+            height: assignment
+                .as_ref()
+                .map(|assignment| assignment.height)
+                .or_else(|| {
+                    observation_request
+                        .as_ref()
+                        .map(|request| request.assignment.height)
+                })
+                .unwrap_or_default(),
+            view: assignment
+                .as_ref()
+                .map(|assignment| assignment.view)
+                .or_else(|| {
+                    observation_request
+                        .as_ref()
+                        .map(|request| request.assignment.view)
+                })
+                .unwrap_or_default(),
+            kind,
+            challenger_account_id,
+            assignment,
+            observation_request,
+            transcript,
+            canonical_close,
+            evidence_hash,
+            details,
+        };
+        challenge.challenge_id = Self::hash_guardianized_value(&challenge)?;
+        Ok(challenge)
+    }
+
+    async fn issue_asymptote_observer_certificate(
         &self,
         statement: &AsymptoteObserverStatement,
         requested_manifest_hash: Option<[u8; 32]>,
@@ -1967,11 +2053,100 @@ impl GuardianContainer {
         })
     }
 
+    /// Issues an equal-authority asymptote observer certificate for the local validator when the
+    /// deterministic observer assignment targets this guardian's registered committee.
+    pub async fn observe_asymptote_statement(
+        &self,
+        statement: &AsymptoteObserverStatement,
+        requested_manifest_hash: Option<[u8; 32]>,
+    ) -> Result<AsymptoteObserverCertificate> {
+        self.issue_asymptote_observer_certificate(statement, requested_manifest_hash)
+            .await
+    }
+
+    /// Derives the deterministic observer result locally instead of signing a coordinator-authored
+    /// verdict.
+    pub async fn observe_asymptote_request(
+        &self,
+        request: &AsymptoteObserverObservationRequest,
+        requested_manifest_hash: Option<[u8; 32]>,
+    ) -> Result<AsymptoteObserverObservation> {
+        let Some(committee_client) = &self.committee_client else {
+            return Err(anyhow!("guardian committee signing is not configured"));
+        };
+        if let Some(manifest_hash) = requested_manifest_hash.filter(|hash| *hash != [0u8; 32]) {
+            if manifest_hash != committee_client.manifest_hash() {
+                return Err(anyhow!(
+                    "requested guardian manifest hash does not match local committee"
+                ));
+            }
+        }
+        let local_account_id = committee_client.manifest.validator_account_id;
+        let local_epoch = committee_client.manifest.epoch;
+        if request.assignment.observer_account_id != local_account_id {
+            return Err(anyhow!(
+                "observation request targeted observer {} but local committee belongs to {}",
+                hex::encode(request.assignment.observer_account_id),
+                hex::encode(local_account_id)
+            ));
+        }
+        if request.epoch != local_epoch || request.assignment.epoch != local_epoch {
+            return Err(anyhow!(
+                "observation request epoch {} does not match local committee epoch {}",
+                request.epoch,
+                local_epoch
+            ));
+        }
+        if request.block_hash == [0u8; 32]
+            || request.guardian_manifest_hash == [0u8; 32]
+            || request.guardian_decision_hash == [0u8; 32]
+            || request.guardian_trace_hash == [0u8; 32]
+            || request.guardian_counter == 0
+        {
+            return Ok(AsymptoteObserverObservation {
+                transcript: None,
+                challenge: Some(Self::build_observer_challenge(
+                    AsymptoteObserverChallengeKind::TranscriptMismatch,
+                    local_account_id,
+                    Some(request.assignment.clone()),
+                    Some(request.clone()),
+                    None,
+                    None,
+                    canonical_asymptote_observer_observation_request_hash(request)
+                        .map_err(|e| anyhow!(e))?,
+                    "observation request is missing canonical slot-binding fields",
+                )?),
+            });
+        }
+        let statement = Self::observation_request_statement(request);
+        let observer_certificate = self
+            .issue_asymptote_observer_certificate(&statement, requested_manifest_hash)
+            .await?;
+        Ok(AsymptoteObserverObservation {
+            transcript: Some(AsymptoteObserverTranscript {
+                statement,
+                guardian_certificate: observer_certificate.guardian_certificate,
+            }),
+            challenge: None,
+        })
+    }
+
     async fn request_remote_asymptote_observer_certificate(
         &self,
         statement: &AsymptoteObserverStatement,
         manifest: &GuardianCommitteeManifest,
     ) -> Result<AsymptoteObserverCertificate> {
+        let observation_request = AsymptoteObserverObservationRequest {
+            epoch: statement.epoch,
+            assignment: statement.assignment.clone(),
+            block_hash: statement.block_hash,
+            guardian_manifest_hash: statement.guardian_manifest_hash,
+            guardian_decision_hash: statement.guardian_decision_hash,
+            guardian_counter: statement.guardian_counter,
+            guardian_trace_hash: statement.guardian_trace_hash,
+            guardian_measurement_root: statement.guardian_measurement_root,
+            guardian_checkpoint_root: statement.guardian_checkpoint_root,
+        };
         let local_manifest_hash = self
             .committee_client
             .as_ref()
@@ -1979,13 +2154,29 @@ impl GuardianContainer {
         let manifest_hash =
             canonical_manifest_hash(manifest).map_err(|e| anyhow!(e.to_string()))?;
         if local_manifest_hash == Some(manifest_hash) {
-            return self
-                .observe_asymptote_statement(statement, Some(manifest_hash))
-                .await;
+            let observation = self
+                .observe_asymptote_request(&observation_request, Some(manifest_hash))
+                .await?;
+            if observation.challenge.is_some() {
+                return Err(anyhow!(
+                    "observer returned a challenge while legacy sampled-close mode expected an ok certificate"
+                ));
+            }
+            let transcript = observation
+                .transcript
+                .ok_or_else(|| anyhow!("observer did not return a transcript"))?;
+            return Ok(AsymptoteObserverCertificate {
+                assignment: transcript.statement.assignment.clone(),
+                verdict: transcript.statement.verdict,
+                veto_kind: transcript.statement.veto_kind,
+                evidence_hash: transcript.statement.evidence_hash,
+                guardian_certificate: transcript.guardian_certificate,
+            });
         }
 
         let request = ObserveAsymptoteRequest {
-            statement: codec::to_bytes_canonical(statement).map_err(|e| anyhow!(e.to_string()))?,
+            observation_request: codec::to_bytes_canonical(&observation_request)
+                .map_err(|e| anyhow!(e.to_string()))?,
             manifest_hash: manifest_hash.to_vec(),
         };
         let endpoints = manifest
@@ -2022,8 +2213,24 @@ impl GuardianContainer {
                         .observe_asymptote(request.clone())
                         .await?
                         .into_inner();
-                    codec::from_bytes_canonical(&response.observer_certificate)
-                        .map_err(|e| anyhow!(e.to_string()))
+                    let observation: AsymptoteObserverObservation =
+                        codec::from_bytes_canonical(&response.observation)
+                            .map_err(|e| anyhow!(e.to_string()))?;
+                    if observation.challenge.is_some() {
+                        return Err(anyhow!(
+                            "observer returned a challenge while legacy sampled-close mode expected an ok certificate"
+                        ));
+                    }
+                    let transcript = observation
+                        .transcript
+                        .ok_or_else(|| anyhow!("observer did not return a transcript"))?;
+                    Ok(AsymptoteObserverCertificate {
+                        assignment: transcript.statement.assignment.clone(),
+                        verdict: transcript.statement.verdict,
+                        veto_kind: transcript.statement.veto_kind,
+                        evidence_hash: transcript.statement.evidence_hash,
+                        guardian_certificate: transcript.guardian_certificate,
+                    })
                 }
                 .await
                 {
@@ -2042,6 +2249,82 @@ impl GuardianContainer {
         Err(last_error.unwrap_or_else(|| anyhow!("observer certificate request failed")))
     }
 
+    async fn request_remote_asymptote_observer_observation(
+        &self,
+        request: &AsymptoteObserverObservationRequest,
+        manifest: &GuardianCommitteeManifest,
+    ) -> Result<AsymptoteObserverObservation> {
+        let local_manifest_hash = self
+            .committee_client
+            .as_ref()
+            .map(|committee| committee.manifest_hash());
+        let manifest_hash =
+            canonical_manifest_hash(manifest).map_err(|e| anyhow!(e.to_string()))?;
+        if local_manifest_hash == Some(manifest_hash) {
+            return self
+                .observe_asymptote_request(request, Some(manifest_hash))
+                .await;
+        }
+
+        let rpc_request = ObserveAsymptoteRequest {
+            observation_request: codec::to_bytes_canonical(request)
+                .map_err(|e| anyhow!(e.to_string()))?,
+            manifest_hash: manifest_hash.to_vec(),
+        };
+        let endpoints = manifest
+            .members
+            .iter()
+            .filter_map(|member| member.endpoint.as_ref())
+            .map(|endpoint| normalize_guardian_endpoint(endpoint))
+            .collect::<BTreeSet<_>>();
+        if endpoints.is_empty() {
+            return Err(anyhow!(
+                "observer manifest for {} does not expose any guardian endpoints",
+                hex::encode(manifest_hash)
+            ));
+        }
+
+        let mut last_error = None;
+        for endpoint in endpoints {
+            let channel = {
+                let mut channels = self.observer_rpc_channels.lock().await;
+                channels
+                    .entry(endpoint.clone())
+                    .or_insert_with(|| {
+                        Channel::from_shared(endpoint.clone())
+                            .expect("normalized guardian endpoint should be valid")
+                            .connect_lazy()
+                    })
+                    .clone()
+            };
+            let mut endpoint_error = None;
+            for attempt in 0..8 {
+                match async {
+                    let mut client = GuardianControlClient::new(channel.clone());
+                    let response = client
+                        .observe_asymptote(rpc_request.clone())
+                        .await?
+                        .into_inner();
+                    codec::from_bytes_canonical(&response.observation)
+                        .map_err(|e| anyhow!(e.to_string()))
+                }
+                .await
+                {
+                    Ok(observation) => return Ok(observation),
+                    Err(error) => {
+                        endpoint_error = Some(anyhow!("{endpoint}: {error}"));
+                        if attempt < 7 {
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                        }
+                    }
+                }
+            }
+            last_error = endpoint_error;
+        }
+
+        Err(last_error.unwrap_or_else(|| anyhow!("observer observation request failed")))
+    }
+
     /// Issues a stronger witness-backed proof for a consensus slot without changing the base block
     /// identity. The guardian certificate is reused from the slot lock when already present.
     pub async fn seal_consensus_with_guardian(
@@ -2057,6 +2340,7 @@ impl GuardianContainer {
         requested_manifest_hash: Option<[u8; 32]>,
         witness_manifest_hashes: Vec<[u8; 32]>,
         observer_plan: Vec<AsymptoteObserverPlanEntry>,
+        policy: AsymptotePolicy,
         witness_reassignment_depth: u8,
     ) -> Result<(
         u64,
@@ -2100,44 +2384,238 @@ impl GuardianContainer {
 
         let mut witness_certificates = Vec::new();
         let mut observer_certificates = Vec::new();
-        let observer_close_certificate = if !observer_plan.is_empty() {
-            Some(AsymptoteObserverCloseCertificate {
-                epoch: guardian_certificate.epoch,
-                height,
-                view,
-                assignments_hash: canonical_asymptote_observer_assignments_hash(
-                    &observer_plan
-                        .iter()
-                        .map(|entry| entry.assignment.clone())
-                        .collect::<Vec<_>>(),
-                )
-                .map_err(|e| anyhow!(e))?,
-                expected_assignments: u16::try_from(observer_plan.len())
-                    .map_err(|_| anyhow!("observer plan length exceeds u16"))?,
-                ok_count: u16::try_from(observer_plan.len())
-                    .map_err(|_| anyhow!("observer plan length exceeds u16"))?,
-                veto_count: 0,
-            })
-        } else {
-            None
-        };
+        let mut observer_transcripts = Vec::new();
+        let mut observer_challenges = Vec::new();
+        let mut observer_close_certificate = None;
+        let mut observer_transcript_commitment = None;
+        let mut observer_challenge_commitment = None;
+        let mut observer_canonical_close = None;
+        let mut observer_canonical_abort = None;
+        let mut finality_tier = FinalityTier::SealedFinal;
+        let mut collapse_state = CollapseState::SealedFinal;
         if !observer_plan.is_empty() {
-            for observer in observer_plan {
-                let statement = Self::build_asymptote_observer_statement(
-                    &guardian_certificate,
-                    &observer.assignment,
-                    payload_hash,
-                );
-                let observer_certificate = self
-                    .request_remote_asymptote_observer_certificate(&statement, &observer.manifest)
-                    .await?;
-                if observer_certificate.assignment != observer.assignment {
+            if policy.observer_sealing_mode == AsymptoteObserverSealingMode::CanonicalChallengeV1 {
+                if policy.observer_challenge_window_ms == 0 {
                     return Err(anyhow!(
-                        "observer certificate assignment mismatch for observer {}",
-                        hex::encode(observer.assignment.observer_account_id)
+                        "canonical observer sealing requires a non-zero challenge window"
                     ));
                 }
-                observer_certificates.push(observer_certificate);
+                let assignments = observer_plan
+                    .iter()
+                    .map(|entry| entry.assignment.clone())
+                    .collect::<Vec<_>>();
+                let assignments_hash = canonical_asymptote_observer_assignments_hash(&assignments)
+                    .map_err(|e| anyhow!(e))?;
+                let transcript_conflict = |
+                    kind: AsymptoteObserverChallengeKind,
+                    assignment: &ioi_types::app::AsymptoteObserverAssignment,
+                    transcript: &AsymptoteObserverTranscript,
+                    details: String,
+                | -> Result<AsymptoteObserverChallenge> {
+                    Self::build_observer_challenge(
+                        kind,
+                        producer_account_id,
+                        Some(assignment.clone()),
+                        None,
+                        Some(transcript.clone()),
+                        None,
+                        canonical_asymptote_observer_transcript_hash(transcript)
+                            .map_err(|e| anyhow!(e))?,
+                        details,
+                    )
+                };
+                for observer in &observer_plan {
+                    let observation_request = Self::build_asymptote_observer_observation_request(
+                        &guardian_certificate,
+                        &observer.assignment,
+                        payload_hash,
+                    );
+                    match self
+                        .request_remote_asymptote_observer_observation(
+                            &observation_request,
+                            &observer.manifest,
+                        )
+                        .await
+                    {
+                        Ok(observation) => {
+                            let AsymptoteObserverObservation {
+                                transcript,
+                                challenge,
+                            } = observation;
+                            let mut saw_observation = false;
+                            if let Some(transcript) = transcript {
+                                saw_observation = true;
+                                if transcript.statement.assignment != observer.assignment {
+                                    observer_challenges.push(transcript_conflict(
+                                        AsymptoteObserverChallengeKind::ConflictingTranscript,
+                                        &observer.assignment,
+                                        &transcript,
+                                        format!(
+                                            "observer transcript assignment mismatch for {}",
+                                            hex::encode(observer.assignment.observer_account_id)
+                                        ),
+                                    )?);
+                                } else if transcript.statement.verdict
+                                    != ioi_types::app::AsymptoteObserverVerdict::Ok
+                                    || transcript.statement.veto_kind.is_some()
+                                {
+                                    observer_challenges.push(transcript_conflict(
+                                        AsymptoteObserverChallengeKind::VetoTranscriptPresent,
+                                        &observer.assignment,
+                                        &transcript,
+                                        format!(
+                                            "observer transcript returned a non-ok verdict for {}",
+                                            hex::encode(observer.assignment.observer_account_id)
+                                        ),
+                                    )?);
+                                } else {
+                                    observer_transcripts.push(transcript);
+                                }
+                            }
+                            if let Some(challenge) = challenge {
+                                saw_observation = true;
+                                observer_challenges.push(challenge);
+                            }
+                            if !saw_observation {
+                                observer_challenges.push(Self::build_observer_challenge(
+                                    AsymptoteObserverChallengeKind::MissingTranscript,
+                                    producer_account_id,
+                                    Some(observer.assignment.clone()),
+                                    None,
+                                    None,
+                                    None,
+                                    canonical_asymptote_observer_assignment_hash(
+                                        &observer.assignment,
+                                    )
+                                    .map_err(anyhow::Error::msg)?,
+                                    format!(
+                                        "observer {} returned neither transcript nor challenge",
+                                        hex::encode(observer.assignment.observer_account_id)
+                                    ),
+                                )?);
+                            }
+                        }
+                        Err(error) => {
+                            observer_challenges.push(Self::build_observer_challenge(
+                                AsymptoteObserverChallengeKind::MissingTranscript,
+                                producer_account_id,
+                                Some(observer.assignment.clone()),
+                                None,
+                                None,
+                                None,
+                                canonical_asymptote_observer_assignment_hash(
+                                    &observer.assignment,
+                                )
+                                .map_err(anyhow::Error::msg)?,
+                                format!(
+                                    "observer {} did not publish a transcript: {error}",
+                                    hex::encode(observer.assignment.observer_account_id)
+                                ),
+                            )?);
+                        }
+                    }
+                }
+                let transcript_count = u16::try_from(observer_transcripts.len())
+                    .map_err(|_| anyhow!("observer transcript count exceeds u16"))?;
+                let challenge_count = u16::try_from(observer_challenges.len())
+                    .map_err(|_| anyhow!("observer challenge count exceeds u16"))?;
+                let transcripts_root =
+                    canonical_asymptote_observer_transcripts_hash(&observer_transcripts)
+                        .map_err(|e| anyhow!(e))?;
+                let challenges_root =
+                    canonical_asymptote_observer_challenges_hash(&observer_challenges)
+                        .map_err(|e| anyhow!(e))?;
+                observer_transcript_commitment = Some(AsymptoteObserverTranscriptCommitment {
+                    epoch: guardian_certificate.epoch,
+                    height,
+                    view,
+                    assignments_hash,
+                    transcripts_root,
+                    transcript_count,
+                });
+                observer_challenge_commitment = Some(AsymptoteObserverChallengeCommitment {
+                    epoch: guardian_certificate.epoch,
+                    height,
+                    view,
+                    challenges_root,
+                    challenge_count,
+                });
+                let challenge_cutoff_timestamp_ms: u64 = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)?
+                    .as_millis()
+                    .try_into()
+                    .map_err(|_| anyhow!("challenge cutoff timestamp overflow"))?;
+                if observer_challenges.is_empty()
+                    && observer_transcripts.len() == observer_plan.len()
+                {
+                    observer_canonical_close = Some(AsymptoteObserverCanonicalClose {
+                        epoch: guardian_certificate.epoch,
+                        height,
+                        view,
+                        assignments_hash,
+                        transcripts_root,
+                        challenges_root,
+                        transcript_count,
+                        challenge_count,
+                        challenge_cutoff_timestamp_ms: challenge_cutoff_timestamp_ms
+                            .saturating_add(policy.observer_challenge_window_ms),
+                    });
+                } else {
+                    finality_tier = FinalityTier::BaseFinal;
+                    collapse_state = CollapseState::Abort;
+                    observer_canonical_abort = Some(AsymptoteObserverCanonicalAbort {
+                        epoch: guardian_certificate.epoch,
+                        height,
+                        view,
+                        assignments_hash,
+                        transcripts_root,
+                        challenges_root,
+                        transcript_count,
+                        challenge_count,
+                        challenge_cutoff_timestamp_ms: challenge_cutoff_timestamp_ms
+                            .saturating_add(policy.observer_challenge_window_ms),
+                    });
+                }
+            } else {
+                observer_close_certificate = Some(AsymptoteObserverCloseCertificate {
+                    epoch: guardian_certificate.epoch,
+                    height,
+                    view,
+                    assignments_hash: canonical_asymptote_observer_assignments_hash(
+                        &observer_plan
+                            .iter()
+                            .map(|entry| entry.assignment.clone())
+                            .collect::<Vec<_>>(),
+                    )
+                    .map_err(|e| anyhow!(e))?,
+                    expected_assignments: u16::try_from(observer_plan.len())
+                        .map_err(|_| anyhow!("observer plan length exceeds u16"))?,
+                    ok_count: u16::try_from(observer_plan.len())
+                        .map_err(|_| anyhow!("observer plan length exceeds u16"))?,
+                    veto_count: 0,
+                });
+                for observer in observer_plan {
+                    let statement = Self::observation_request_statement(
+                        &Self::build_asymptote_observer_observation_request(
+                            &guardian_certificate,
+                            &observer.assignment,
+                            payload_hash,
+                        ),
+                    );
+                    let observer_certificate = self
+                        .request_remote_asymptote_observer_certificate(
+                            &statement,
+                            &observer.manifest,
+                        )
+                        .await?;
+                    if observer_certificate.assignment != observer.assignment {
+                        return Err(anyhow!(
+                            "observer certificate assignment mismatch for observer {}",
+                            hex::encode(observer.assignment.observer_account_id)
+                        ));
+                    }
+                    observer_certificates.push(observer_certificate);
+                }
             }
         } else {
             let mut unique_witness_manifests = Vec::new();
@@ -2166,8 +2644,8 @@ impl GuardianContainer {
 
         let sealed_proof = SealedFinalityProof {
             epoch: guardian_certificate.epoch,
-            finality_tier: FinalityTier::SealedFinal,
-            collapse_state: ioi_types::app::CollapseState::SealedFinal,
+            finality_tier,
+            collapse_state,
             guardian_manifest_hash: guardian_certificate.manifest_hash,
             guardian_decision_hash: guardian_certificate.decision_hash,
             guardian_counter: guardian_certificate.counter,
@@ -2179,8 +2657,15 @@ impl GuardianContainer {
             witness_certificates,
             observer_certificates,
             observer_close_certificate,
+            observer_transcripts,
+            observer_challenges,
+            observer_transcript_commitment,
+            observer_challenge_commitment,
+            observer_canonical_close,
+            observer_canonical_abort,
             veto_proofs: Vec::new(),
             divergence_signals: Vec::new(),
+            proof_signature: SignatureProof::default(),
         };
 
         Ok((
@@ -2737,19 +3222,21 @@ impl GuardianContainer {
         json_patch_path: Option<&str>, // [NEW] Added parameter
         required_finality_tier: FinalityTier,
         sealed_finality_proof: Option<SealedFinalityProof>,
+        canonical_collapse_object: Option<CanonicalCollapseObject>,
         seal_object: Option<SealObject>,
     ) -> Result<(Vec<u8>, [u8; 32], Vec<u8>, EgressReceipt)> {
-        if matches!(required_finality_tier, FinalityTier::BaseFinal) && seal_object.is_some() {
+        if matches!(required_finality_tier, FinalityTier::BaseFinal)
+            && (seal_object.is_some() || canonical_collapse_object.is_some())
+        {
             return Err(anyhow!(
-                "proof-carrying seal objects may only be supplied for SealedFinal egress"
+                "proof-carrying seal objects and canonical collapse objects may only be supplied for SealedFinal egress"
             ));
         }
         if matches!(required_finality_tier, FinalityTier::SealedFinal)
-            && sealed_finality_proof.is_none()
-            && seal_object.is_none()
+            && (sealed_finality_proof.is_none() || canonical_collapse_object.is_none())
         {
             return Err(anyhow!(
-                "sealed finality was requested for secure egress but no proof or seal object was supplied"
+                "sealed finality was requested for secure egress but the sealed proof or canonical collapse object was missing"
             ));
         }
         if let Some(proof) = sealed_finality_proof.as_ref() {
@@ -2789,8 +3276,9 @@ impl GuardianContainer {
             required_finality_tier,
             seal_object,
             sealed_finality_proof.as_ref(),
+            canonical_collapse_object.as_ref(),
         ) {
-            (FinalityTier::SealedFinal, Some(seal_object), proof) => {
+            (FinalityTier::SealedFinal, Some(seal_object), Some(proof), Some(collapse)) => {
                 verify_seal_object(&seal_object).map_err(|e| anyhow!(e))?;
                 if seal_object.intent.request_hash != request_hash {
                     return Err(anyhow!(
@@ -2810,24 +3298,38 @@ impl GuardianContainer {
                         "sealed effect policy hash does not match the requested egress policy"
                     ));
                 }
-                if let Some(proof) = proof {
-                    if seal_object.epoch != proof.epoch
-                        || seal_object.intent.guardian_manifest_hash != proof.guardian_manifest_hash
-                        || seal_object.intent.guardian_decision_hash != proof.guardian_decision_hash
-                        || seal_object.public_inputs.guardian_counter != proof.guardian_counter
-                        || seal_object.public_inputs.guardian_trace_hash
-                            != proof.guardian_trace_hash
-                        || seal_object.public_inputs.guardian_measurement_root
-                            != proof.guardian_measurement_root
-                    {
-                        return Err(anyhow!(
-                            "sealed effect seal object does not match the supplied sealed finality proof"
-                        ));
-                    }
+                let observer_binding =
+                    sealed_finality_proof_observer_binding(proof).map_err(|e| anyhow!(e))?;
+                if seal_object.epoch != proof.epoch
+                    || seal_object.intent.guardian_manifest_hash != proof.guardian_manifest_hash
+                    || seal_object.intent.guardian_decision_hash != proof.guardian_decision_hash
+                    || seal_object.public_inputs.guardian_counter != proof.guardian_counter
+                    || seal_object.public_inputs.guardian_trace_hash
+                        != proof.guardian_trace_hash
+                    || seal_object.public_inputs.guardian_measurement_root
+                        != proof.guardian_measurement_root
+                    || seal_object.public_inputs.observer_transcripts_root
+                        != observer_binding.transcripts_root
+                    || seal_object.public_inputs.observer_challenges_root
+                        != observer_binding.challenges_root
+                    || seal_object.public_inputs.observer_resolution_hash
+                        != observer_binding.resolution_hash
+                {
+                    return Err(anyhow!(
+                        "sealed effect seal object does not match the supplied sealed finality proof"
+                    ));
+                }
+                let expected_collapse_hash =
+                    canonical_collapse_hash_for_sealed_effect(collapse, proof)
+                        .map_err(|e| anyhow!(e))?;
+                if seal_object.public_inputs.canonical_collapse_hash != expected_collapse_hash {
+                    return Err(anyhow!(
+                        "sealed effect seal object does not match the supplied canonical collapse object"
+                    ));
                 }
                 Some(seal_object)
             }
-            (FinalityTier::SealedFinal, None, Some(proof)) => Some(
+            (FinalityTier::SealedFinal, None, Some(proof), Some(collapse)) => Some(
                 build_http_egress_seal_object(
                     request_hash,
                     target_domain,
@@ -2835,9 +3337,15 @@ impl GuardianContainer {
                     path,
                     policy_hash,
                     proof,
+                    collapse,
                 )
                 .map_err(|e| anyhow!(e))?,
             ),
+            (FinalityTier::SealedFinal, _, _, _) => {
+                return Err(anyhow!(
+                    "sealed final egress requires both a sealed finality proof and canonical collapse object"
+                ));
+            }
             _ => None,
         };
         let mut extra_headers = Vec::new();
@@ -2971,6 +3479,7 @@ impl GuardianContainer {
             guardian_certificate,
             sealed_finality_proof,
             seal_object,
+            canonical_collapse_object,
             log_checkpoint: Some(checkpoint),
         };
 
@@ -3438,6 +3947,170 @@ mod tests {
             .await
             .unwrap_err();
         assert!(err.to_string().contains("slot already certified"));
+    }
+
+    fn build_test_guardian_container(
+        dir: &tempfile::TempDir,
+        validator_account_id: AccountId,
+        epoch: u64,
+    ) -> GuardianContainer {
+        let mut members = Vec::new();
+        for index in 0..3 {
+            let keypair = BlsKeyPair::generate().unwrap();
+            let private_key_path = dir.path().join(format!("member-{index}.bls"));
+            std::fs::write(
+                &private_key_path,
+                hex::encode(keypair.private_key().to_bytes()),
+            )
+            .unwrap();
+            members.push(GuardianCommitteeMemberConfig {
+                member_id: format!("member-{index}"),
+                endpoint: None,
+                public_key: keypair.public_key().to_bytes(),
+                private_key_path: Some(private_key_path.display().to_string()),
+                provider: Some(format!("provider-{index}")),
+                region: Some(format!("region-{index}")),
+                host_class: Some(format!("host-{index}")),
+                key_authority_kind: Some(KeyAuthorityKind::CloudKms),
+            });
+        }
+
+        let config = GuardianConfig {
+            signature_policy: AttestationSignaturePolicy::Fixed,
+            production_mode: GuardianProductionMode::Development,
+            key_authority: Some(KeyAuthorityDescriptor {
+                kind: KeyAuthorityKind::DevMemory,
+                ..Default::default()
+            }),
+            committee: GuardianCommitteeConfig {
+                threshold: 2,
+                members,
+                transparency_log_id: "guardian-test".into(),
+            },
+            experimental_witness_committees: Vec::new(),
+            hardening: Default::default(),
+            transparency_log: GuardianTransparencyLogConfig {
+                log_id: "guardian-test".into(),
+                endpoint: None,
+                signing_key_path: None,
+                required: false,
+            },
+            verifier_policy: Default::default(),
+            enforce_binary_integrity: false,
+            approved_orchestrator_hash: None,
+            approved_workload_hash: None,
+            binary_dir_override: None,
+        };
+        let container =
+            GuardianContainer::new(dir.path().to_path_buf(), config, validator_account_id).unwrap();
+        assert_eq!(
+            container
+                .committee_client
+                .as_ref()
+                .expect("guardian committee should be configured")
+                .manifest
+                .epoch,
+            epoch
+        );
+        container
+    }
+
+    #[tokio::test]
+    async fn observe_asymptote_request_returns_transcript_for_valid_request() {
+        let dir = tempfile::tempdir().unwrap();
+        let validator_account_id = AccountId([0x31u8; 32]);
+        let epoch = 1;
+        let container = build_test_guardian_container(&dir, validator_account_id, epoch);
+        let manifest_hash = container
+            .committee_client
+            .as_ref()
+            .unwrap()
+            .manifest_hash();
+        let request = AsymptoteObserverObservationRequest {
+            epoch,
+            assignment: ioi_types::app::AsymptoteObserverAssignment {
+                epoch,
+                producer_account_id: AccountId([0x21u8; 32]),
+                height: 17,
+                view: 3,
+                round: 1,
+                observer_account_id: validator_account_id,
+            },
+            block_hash: [0x11u8; 32],
+            guardian_manifest_hash: [0x22u8; 32],
+            guardian_decision_hash: [0x33u8; 32],
+            guardian_counter: 9,
+            guardian_trace_hash: [0x44u8; 32],
+            guardian_measurement_root: [0x55u8; 32],
+            guardian_checkpoint_root: [0x66u8; 32],
+        };
+
+        let observation = container
+            .observe_asymptote_request(&request, Some(manifest_hash))
+            .await
+            .unwrap();
+        assert!(observation.challenge.is_none());
+        let transcript = observation
+            .transcript
+            .expect("valid request should produce a transcript");
+        assert_eq!(
+            transcript.statement,
+            GuardianContainer::observation_request_statement(&request)
+        );
+        assert_eq!(transcript.statement.assignment, request.assignment);
+        assert!(transcript.guardian_certificate.log_checkpoint.is_some());
+    }
+
+    #[tokio::test]
+    async fn observe_asymptote_request_returns_transcript_mismatch_challenge_for_malformed_request()
+    {
+        let dir = tempfile::tempdir().unwrap();
+        let validator_account_id = AccountId([0x41u8; 32]);
+        let epoch = 1;
+        let container = build_test_guardian_container(&dir, validator_account_id, epoch);
+        let manifest_hash = container
+            .committee_client
+            .as_ref()
+            .unwrap()
+            .manifest_hash();
+        let request = AsymptoteObserverObservationRequest {
+            epoch,
+            assignment: ioi_types::app::AsymptoteObserverAssignment {
+                epoch,
+                producer_account_id: AccountId([0x22u8; 32]),
+                height: 19,
+                view: 5,
+                round: 0,
+                observer_account_id: validator_account_id,
+            },
+            block_hash: [0u8; 32],
+            guardian_manifest_hash: [0x52u8; 32],
+            guardian_decision_hash: [0x53u8; 32],
+            guardian_counter: 12,
+            guardian_trace_hash: [0x54u8; 32],
+            guardian_measurement_root: [0x55u8; 32],
+            guardian_checkpoint_root: [0x56u8; 32],
+        };
+
+        let observation = container
+            .observe_asymptote_request(&request, Some(manifest_hash))
+            .await
+            .unwrap();
+        assert!(observation.transcript.is_none());
+        let challenge = observation
+            .challenge
+            .expect("malformed request should produce a transcript-mismatch challenge");
+        assert_eq!(
+            challenge.kind,
+            AsymptoteObserverChallengeKind::TranscriptMismatch
+        );
+        assert_eq!(challenge.assignment, Some(request.assignment.clone()));
+        assert_eq!(challenge.observation_request, Some(request.clone()));
+        assert!(challenge.transcript.is_none());
+        assert_eq!(
+            challenge.evidence_hash,
+            canonical_asymptote_observer_observation_request_hash(&request).unwrap()
+        );
     }
 
     #[tokio::test]

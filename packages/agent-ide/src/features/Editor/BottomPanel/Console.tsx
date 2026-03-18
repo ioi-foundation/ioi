@@ -6,9 +6,10 @@ interface ConsoleProps {
   logs: any[];
   height: number;
   selectedArtifact?: any; 
+  onCollapse?: () => void;
 }
 
-export function Console({ logs, height, selectedArtifact }: ConsoleProps) {
+export function Console({ logs, height, selectedArtifact, onCollapse }: ConsoleProps) {
   const [activeTab, setActiveTab] = useState<'logs' | 'trace' | 'receipts'>('logs');
 
   // Convert logs to mock traces for visualization
@@ -19,25 +20,32 @@ export function Console({ logs, height, selectedArtifact }: ConsoleProps) {
   return (
     <div className="console-panel" style={{ height }}>
       <div className="console-tabs">
-        <button 
-            className={`console-tab ${activeTab === 'logs' ? 'active' : ''}`}
-            onClick={() => setActiveTab('logs')}
-        >
-            LOGS
-        </button>
-        <button 
-            className={`console-tab ${activeTab === 'trace' ? 'active' : ''}`}
-            onClick={() => setActiveTab('trace')}
-        >
-            TRACE
-        </button>
-        <button 
-            className={`console-tab ${activeTab === 'receipts' ? 'active' : ''}`}
-            onClick={() => setActiveTab('receipts')}
-        >
-            RECEIPTS
-            {selectedArtifact && <span style={{background: 'var(--surface-4)', padding: '1px 4px', borderRadius: 4, fontSize: 9}}>1</span>}
-        </button>
+        <div className="console-tab-strip">
+          <button 
+              className={`console-tab ${activeTab === 'logs' ? 'active' : ''}`}
+              onClick={() => setActiveTab('logs')}
+          >
+              LOGS
+          </button>
+          <button 
+              className={`console-tab ${activeTab === 'trace' ? 'active' : ''}`}
+              onClick={() => setActiveTab('trace')}
+          >
+              TRACE
+          </button>
+          <button 
+              className={`console-tab ${activeTab === 'receipts' ? 'active' : ''}`}
+              onClick={() => setActiveTab('receipts')}
+          >
+              RECEIPTS
+              {selectedArtifact && <span style={{background: 'var(--surface-4)', padding: '1px 4px', borderRadius: 4, fontSize: 9}}>1</span>}
+          </button>
+        </div>
+        {onCollapse ? (
+          <button className="console-collapse-btn" onClick={onCollapse} type="button">
+            Hide
+          </button>
+        ) : null}
       </div>
 
       <div className="console-content">

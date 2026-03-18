@@ -28,9 +28,9 @@ export function ActivityRail({
       { label: "Search", value: summary.searchCount },
       { label: "Read", value: summary.readCount },
       { label: "Receipts", value: summary.receiptCount },
-      { label: "Reasoning", value: summary.reasoningCount },
-      { label: "System", value: summary.systemCount },
-      { label: "Artifacts", value: summary.artifactCount },
+      { label: "Worklog", value: summary.reasoningCount },
+      { label: "Actions", value: summary.systemCount },
+      { label: "Outputs", value: summary.artifactCount },
     ],
     [summary],
   );
@@ -58,7 +58,7 @@ export function ActivityRail({
             onClick={onOpenArtifacts}
             type="button"
           >
-            Artifacts
+            Evidence
           </button>
         )}
       </div>

@@ -2,14 +2,16 @@
 
 //! Defines the core `ConsensusEngine` trait for pluggable consensus algorithms.
 
+use crate::error::CoreError;
 use crate::chain::{AnchoredStateView, ChainView};
 use crate::commitment::CommitmentScheme;
 use crate::state::{StateAccess, StateManager};
 use async_trait::async_trait;
 // [MODIFIED] Added ProofOfDivergence to imports
 use ioi_types::app::{
-    AccountId, Block, BlockHeader, ConsensusVote, ProofOfDivergence, QuorumCertificate,
-    TimeoutCertificate,
+    AccountId, Block, BlockHeader, CanonicalCollapseExtensionCertificate,
+    CanonicalCollapseContinuityProofSystem, CanonicalCollapseContinuityPublicInputs,
+    CanonicalCollapseObject, ConsensusVote, ProofOfDivergence, QuorumCertificate, TimeoutCertificate,
 };
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
@@ -29,6 +31,8 @@ pub enum ConsensusDecision<T> {
         expected_timestamp_ms: u64,
         view: u64,                    // <--- NEW
         parent_qc: QuorumCertificate, // <--- NEW
+        previous_canonical_collapse_commitment_hash: [u8; 32],
+        canonical_collapse_extension_certificate: Option<CanonicalCollapseExtensionCertificate>,
         timeout_certificate: Option<TimeoutCertificate>,
     },
     /// The node needs to cast a vote for a valid block proposal.
@@ -86,6 +90,17 @@ pub trait ConsensusControl: Send + Sync {
 
     /// Records an experimental witness-sampling observation.
     fn observe_experimental_sample(&mut self, hash: [u8; 32]);
+}
+
+/// Verifies proof-carrying recursive continuity for canonical-collapse objects.
+pub trait CanonicalCollapseContinuityVerifier: Send + Sync {
+    /// Verifies a continuity proof against its public inputs under the declared proof system.
+    fn verify_canonical_collapse_continuity(
+        &self,
+        proof_system: CanonicalCollapseContinuityProofSystem,
+        proof: &[u8],
+        public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    ) -> Result<(), CoreError>;
 }
 
 /// The core trait for a pluggable consensus engine, defining the interface for block production and validation.
@@ -148,7 +163,17 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
 
     /// Records a locally committed block header so engines can use it as a
     /// deterministic liveness hint when QC propagation lags behind local commit.
-    fn observe_committed_block(&mut self, _header: &BlockHeader) {}
+    ///
+    /// Engines that treat committed-header ingestion as theorem-critical can
+    /// require the caller to pass a verified `CanonicalCollapseObject` alongside
+    /// the header and ignore hints that are not collapse-backed.
+    fn observe_committed_block(
+        &mut self,
+        _header: &BlockHeader,
+        _collapse: Option<&CanonicalCollapseObject>,
+    ) -> bool {
+        true
+    }
 
     /// Returns the locally known parent header that corresponds to a QC, if the
     /// engine has already verified or committed that branch.

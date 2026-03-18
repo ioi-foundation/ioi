@@ -9,11 +9,18 @@ use anyhow::Result;
 use async_trait::async_trait;
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::{
+    consensus::CanonicalCollapseContinuityVerifier,
     error::CoreError,
     ibc::{AgentZkVerifier, IbcZkVerifier},
     zk::ZkProofSystem,
 };
-use ioi_types::ibc::StateProofScheme;
+use ioi_types::{
+    app::{
+        canonical_collapse_succinct_mock_proof_bytes,
+        CanonicalCollapseContinuityProofSystem, CanonicalCollapseContinuityPublicInputs,
+    },
+    ibc::StateProofScheme,
+};
 use std::sync::Arc; // [FIX] Added async_trait import
 
 // Re-export canonical types from the shared crate
@@ -37,6 +44,17 @@ impl ZkProofSystem for SimulatedGroth16 {
 
         // Try to interpret inputs as BeaconPublicInputs
         let target_root: [u8; 32] = if let Ok(inputs) =
+            bincode::deserialize::<CanonicalCollapseContinuityPublicInputs>(public_inputs)
+        {
+            let expected_proof = canonical_collapse_succinct_mock_proof_bytes(&inputs).map_err(
+                |e| ioi_api::error::CryptoError::InvalidInput(format!(
+                    "canonical collapse continuity public inputs invalid: {}",
+                    e
+                )),
+            )?;
+            return Ok(proof == expected_proof.as_slice());
+        }
+        else if let Ok(inputs) =
             bincode::deserialize::<BeaconPublicInputs>(public_inputs)
         {
             inputs.new_state_root
@@ -86,6 +104,53 @@ impl SuccinctDriver {
 impl Default for SuccinctDriver {
     fn default() -> Self {
         Self::new_mock()
+    }
+}
+
+impl CanonicalCollapseContinuityVerifier for SuccinctDriver {
+    fn verify_canonical_collapse_continuity(
+        &self,
+        proof_system: CanonicalCollapseContinuityProofSystem,
+        proof: &[u8],
+        public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    ) -> Result<(), CoreError> {
+        match proof_system {
+            CanonicalCollapseContinuityProofSystem::HashPcdV1 => Err(CoreError::Custom(
+                "HashPcdV1 continuity proofs are verified by the reference runtime, not the succinct driver".into(),
+            )),
+            CanonicalCollapseContinuityProofSystem::SuccinctSp1V1 => {
+                let public_inputs_bytes = bincode::serialize(public_inputs)
+                    .map_err(|e| CoreError::Custom(format!("Serialization failed: {}", e)))?;
+                #[cfg(feature = "native")]
+                {
+                    use crate::sp1_backend::Sp1ProofSystem;
+                    let valid = Sp1ProofSystem::verify(
+                        &self._config.canonical_collapse_continuity_vkey_bytes,
+                        &proof.to_vec(),
+                        &public_inputs_bytes,
+                    )
+                    .map_err(|e| CoreError::Crypto(e.to_string()))?;
+                    if !valid {
+                        return Err(CoreError::Custom(
+                            "SP1 canonical collapse continuity verification failed".into(),
+                        ));
+                    }
+                    Ok(())
+                }
+
+                #[cfg(not(feature = "native"))]
+                {
+                    let valid = SimulatedGroth16::verify(&(), &proof.to_vec(), &public_inputs_bytes)
+                        .map_err(|e| CoreError::Crypto(e.to_string()))?;
+                    if !valid {
+                        return Err(CoreError::Custom(
+                            "mock canonical collapse continuity verification failed".into(),
+                        ));
+                    }
+                    Ok(())
+                }
+            }
+        }
     }
 }
 

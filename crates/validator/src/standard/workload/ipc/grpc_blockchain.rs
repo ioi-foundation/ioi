@@ -1,7 +1,11 @@
 // Path: crates/validator/src/standard/workload/ipc/grpc_blockchain.rs
 
 use crate::standard::workload::ipc::RpcContext;
-use ioi_api::{chain::ChainStateMachine, commitment::CommitmentScheme, state::StateManager};
+use ioi_api::{
+    chain::{ChainStateMachine, ChainView},
+    commitment::CommitmentScheme,
+    state::StateManager,
+};
 use ioi_ipc::blockchain::{
     chain_control_server::ChainControl, contract_control_server::ContractControl,
     process_block_request::Payload as ProcessPayload, staking_control_server::StakingControl,
@@ -18,8 +22,11 @@ use ioi_ipc::blockchain::{
     QueryStateAtRequest, QueryStateAtResponse, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
 };
 use ioi_types::{
-    app::{Block, ChainTransaction, StateRoot},
+    app::{
+        aft_canonical_collapse_object_key, Block, ChainTransaction, StateRoot,
+    },
     codec,
+    config::ConsensusType,
 };
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
@@ -149,6 +156,22 @@ where
             .await // Add await
             .map_err(|e| Status::internal(e.to_string()))?;
 
+        if let Some(canonical_collapse_object) =
+            crate::standard::orchestration::aft_collapse::maybe_derive_persisted_canonical_collapse_object(&block)
+                .map_err(|e| Status::internal(e.to_string()))?
+        {
+            let state_tree = self.ctx.workload.state_tree();
+            state_tree
+                .write()
+                .await
+                .insert(
+                    &aft_canonical_collapse_object_key(canonical_collapse_object.height),
+                    &codec::to_bytes_canonical(&canonical_collapse_object)
+                        .map_err(Status::internal)?,
+                )
+                .map_err(|e| Status::internal(e.to_string()))?;
+        }
+
         let mut machine = self.ctx.machine.lock().await;
         if let Some(last) = machine.state.recent_blocks.last_mut() {
             if last.header.height == block.header.height {
@@ -184,13 +207,43 @@ where
         &self,
         _request: Request<GetStatusRequest>,
     ) -> Result<Response<GetStatusResponse>, Status> {
-        let machine = self.ctx.machine.lock().await;
-        let s = machine.status();
+        let (status, consensus_type) = {
+            let machine = self.ctx.machine.lock().await;
+            (machine.status().clone(), machine.consensus_type())
+        };
+        let durable_status = if matches!(consensus_type, ConsensusType::Aft) {
+            let mut candidates = Vec::new();
+            for height in (1..=status.height).rev() {
+                let Some(block) = self
+                    .ctx
+                    .workload
+                    .store
+                    .get_block_by_height(height)
+                    .map_err(|e| Status::internal(e.to_string()))?
+                else {
+                    continue;
+                };
+                let is_durable =
+                    crate::standard::orchestration::aft_collapse::maybe_derive_persisted_canonical_collapse_object(&block)
+                        .map_err(|e| Status::internal(e.to_string()))?
+                        .is_some();
+                candidates.push(block);
+                if is_durable {
+                    break;
+                }
+            }
+            crate::standard::orchestration::aft_collapse::collapse_backed_aft_status(
+                &status,
+                candidates.iter(),
+            )
+        } else {
+            status
+        };
         Ok(Response::new(GetStatusResponse {
-            height: s.height,
-            latest_timestamp: s.latest_timestamp,
-            total_transactions: s.total_transactions,
-            is_running: s.is_running,
+            height: durable_status.height,
+            latest_timestamp: durable_status.latest_timestamp,
+            total_transactions: durable_status.total_transactions,
+            is_running: durable_status.is_running,
         }))
     }
 }

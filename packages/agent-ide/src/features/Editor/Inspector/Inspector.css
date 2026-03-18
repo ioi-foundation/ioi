@@ -1,6 +1,7 @@
 /* packages/agent-ide/src/features/Editor/Inspector/Inspector.css */
 
 .inspector-panel {
+  width: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg-panel);

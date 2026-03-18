@@ -22,9 +22,10 @@ use ioi_types::app::{
     account_id_from_key_material, guardian_registry_asymptote_policy_key,
     guardian_registry_committee_account_key, guardian_registry_committee_key,
     guardian_registry_log_key, guardian_registry_witness_key, guardian_registry_witness_seed_key,
-    guardian_registry_witness_set_key, AccountId, ActiveKeyRecord, AsymptotePolicy,
-    BlockTimingParams, BlockTimingRuntime, FinalityTier, GuardianCommitteeManifest,
-    GuardianCommitteeMember, GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest,
+    guardian_registry_witness_set_key, AccountId, ActiveKeyRecord,
+    AsymptoteObserverSealingMode, AsymptotePolicy, BlockTimingParams, BlockTimingRuntime,
+    FinalityTier, GuardianCommitteeManifest, GuardianCommitteeMember,
+    GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest,
     GuardianWitnessEpochSeed, GuardianWitnessSet, SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
     ValidatorV1,
 };
@@ -530,6 +531,8 @@ fn build_auto_guardian_harness(
                 observer_rounds: if observer_committee_size > 0 { 1 } else { 0 },
                 observer_committee_size,
                 observer_correlation_budget: Default::default(),
+                observer_sealing_mode: AsymptoteObserverSealingMode::SampledCloseV1,
+                observer_challenge_window_ms: 0,
                 max_reassignment_depth: 0,
                 max_checkpoint_staleness_ms: 120_000,
             };

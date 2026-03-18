@@ -275,6 +275,7 @@ async fn synthesize_grounded_entity_targets(
             max_tokens: WEB_PIPELINE_LOCAL_BUSINESS_EXPANSION_MAX_TOKENS,
             required_finality_tier: Default::default(),
             sealed_finality_proof: None,
+            canonical_collapse_object: None,
         };
         let airlocked_prompt = match service
             .prepare_cloud_inference_input(

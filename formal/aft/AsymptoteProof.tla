@@ -1,70 +1,131 @@
 ---- MODULE AsymptoteProof ----
 EXTENDS Naturals, FiniteSets, TLAPS
 
-CONSTANT Blocks, Slots, Epochs
+CONSTANT Blocks, Slots, Epochs, TranscriptRoots, ChallengeRoots, EmptyChallengeRoot
 
-VARIABLES baseCerts, closeCerts, abortSlots, sealedCerts
+ASSUME EmptyChallengeRoot \in ChallengeRoots
 
-vars == <<baseCerts, closeCerts, abortSlots, sealedCerts>>
+VARIABLES baseCerts, transcriptSurfaces, challengeSurfaces,
+          canonicalCloses, canonicalAborts, sealedCerts
+
+vars ==
+  <<baseCerts, transcriptSurfaces, challengeSurfaces,
+    canonicalCloses, canonicalAborts, sealedCerts>>
 
 BaseCertDomain == Slots \X Blocks \X Epochs
-CloseCertDomain == Slots \X Blocks \X Epochs
-AbortDomain == Slots
+TranscriptSurfaceDomain == Slots \X Blocks \X Epochs \X TranscriptRoots
+ChallengeSurfaceDomain == Slots \X Blocks \X Epochs \X ChallengeRoots
+CanonicalCloseDomain == Slots \X Blocks \X Epochs \X TranscriptRoots
+CanonicalAbortDomain ==
+  Slots \X Blocks \X Epochs \X TranscriptRoots \X (ChallengeRoots \ {EmptyChallengeRoot})
 SealedCertDomain == Slots \X Blocks \X Epochs
 
 BaseCertEvent(s, b, e) == <<s, b, e>>
-CloseCertEvent(s, b, e) == <<s, b, e>>
+TranscriptSurfaceEvent(s, b, e, t) == <<s, b, e, t>>
+ChallengeSurfaceEvent(s, b, e, c) == <<s, b, e, c>>
+CanonicalCloseEvent(s, b, e, t) == <<s, b, e, t>>
+CanonicalAbortEvent(s, b, e, t, c) == <<s, b, e, t, c>>
 SealEvent(s, b, e) == <<s, b, e>>
 
 Init ==
   /\ baseCerts = {}
-  /\ closeCerts = {}
-  /\ abortSlots = {}
+  /\ transcriptSurfaces = {}
+  /\ challengeSurfaces = {}
+  /\ canonicalCloses = {}
+  /\ canonicalAborts = {}
   /\ sealedCerts = {}
 
 HasBaseCert(s) ==
   \E b \in Blocks, e \in Epochs : BaseCertEvent(s, b, e) \in baseCerts
 
-HasSealedCert(s) ==
-  \E b \in Blocks, e \in Epochs : SealEvent(s, b, e) \in sealedCerts
+HasTranscriptSurface(s) ==
+  \E b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+
+HasChallengeSurface(s) ==
+  \E b \in Blocks, e \in Epochs, c \in ChallengeRoots :
+    ChallengeSurfaceEvent(s, b, e, c) \in challengeSurfaces
+
+HasCanonicalOutcome(s) ==
+  \/ \E b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+       CanonicalCloseEvent(s, b, e, t) \in canonicalCloses
+  \/ \E b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+        c \in ChallengeRoots \ {EmptyChallengeRoot} :
+       CanonicalAbortEvent(s, b, e, t, c) \in canonicalAborts
+
+HasCanonicalAbort(s) ==
+  \E b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+    c \in ChallengeRoots \ {EmptyChallengeRoot} :
+    CanonicalAbortEvent(s, b, e, t, c) \in canonicalAborts
 
 BaseCertifyStep ==
   \E s \in Slots, b \in Blocks, e \in Epochs :
     /\ ~HasBaseCert(s)
     /\ baseCerts' = baseCerts \cup {BaseCertEvent(s, b, e)}
-    /\ UNCHANGED <<closeCerts, abortSlots, sealedCerts>>
+    /\ UNCHANGED <<transcriptSurfaces, challengeSurfaces,
+                  canonicalCloses, canonicalAborts, sealedCerts>>
 
-CloseStep ==
-  \E s \in Slots, b \in Blocks, e \in Epochs :
+TranscriptSurfaceStep ==
+  \E s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots :
     /\ BaseCertEvent(s, b, e) \in baseCerts
-    /\ closeCerts' = closeCerts \cup {CloseCertEvent(s, b, e)}
-    /\ UNCHANGED <<baseCerts, abortSlots, sealedCerts>>
+    /\ ~HasTranscriptSurface(s)
+    /\ transcriptSurfaces' =
+         transcriptSurfaces \cup {TranscriptSurfaceEvent(s, b, e, t)}
+    /\ UNCHANGED <<baseCerts, challengeSurfaces, canonicalCloses,
+                  canonicalAborts, sealedCerts>>
 
-AbortStep ==
-  \E s \in Slots :
-    /\ HasBaseCert(s)
-    /\ ~HasSealedCert(s)
-    /\ abortSlots' = abortSlots \cup {s}
-    /\ UNCHANGED <<baseCerts, closeCerts, sealedCerts>>
+ChallengeSurfaceStep ==
+  \E s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+     c \in ChallengeRoots :
+    /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+    /\ ~HasChallengeSurface(s)
+    /\ challengeSurfaces' =
+         challengeSurfaces \cup {ChallengeSurfaceEvent(s, b, e, c)}
+    /\ UNCHANGED <<baseCerts, transcriptSurfaces, canonicalCloses,
+                  canonicalAborts, sealedCerts>>
+
+CanonicalCloseStep ==
+  \E s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+    /\ ChallengeSurfaceEvent(s, b, e, EmptyChallengeRoot) \in challengeSurfaces
+    /\ ~HasCanonicalOutcome(s)
+    /\ canonicalCloses' = canonicalCloses \cup {CanonicalCloseEvent(s, b, e, t)}
+    /\ UNCHANGED <<baseCerts, transcriptSurfaces, challengeSurfaces,
+                  canonicalAborts, sealedCerts>>
+
+CanonicalAbortStep ==
+  \E s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+     c \in ChallengeRoots \ {EmptyChallengeRoot} :
+    /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+    /\ ChallengeSurfaceEvent(s, b, e, c) \in challengeSurfaces
+    /\ ~HasCanonicalOutcome(s)
+    /\ canonicalAborts' =
+         canonicalAborts \cup {CanonicalAbortEvent(s, b, e, t, c)}
+    /\ UNCHANGED <<baseCerts, transcriptSurfaces, challengeSurfaces,
+                  canonicalCloses, sealedCerts>>
 
 SealStep ==
-  \E s \in Slots, b \in Blocks, e \in Epochs :
-    /\ BaseCertEvent(s, b, e) \in baseCerts
-    /\ CloseCertEvent(s, b, e) \in closeCerts
-    /\ s \notin abortSlots
+  \E s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    /\ CanonicalCloseEvent(s, b, e, t) \in canonicalCloses
+    /\ ~HasCanonicalAbort(s)
     /\ sealedCerts' = sealedCerts \cup {SealEvent(s, b, e)}
-    /\ UNCHANGED <<baseCerts, closeCerts, abortSlots>>
+    /\ UNCHANGED <<baseCerts, transcriptSurfaces, challengeSurfaces,
+                  canonicalCloses, canonicalAborts>>
 
 Next ==
   \/ BaseCertifyStep
-  \/ CloseStep
-  \/ AbortStep
+  \/ TranscriptSurfaceStep
+  \/ ChallengeSurfaceStep
+  \/ CanonicalCloseStep
+  \/ CanonicalAbortStep
   \/ SealStep
 
 TypeInvariant ==
   /\ baseCerts \subseteq BaseCertDomain
-  /\ closeCerts \subseteq CloseCertDomain
-  /\ abortSlots \subseteq AbortDomain
+  /\ transcriptSurfaces \subseteq TranscriptSurfaceDomain
+  /\ challengeSurfaces \subseteq ChallengeSurfaceDomain
+  /\ canonicalCloses \subseteq CanonicalCloseDomain
+  /\ canonicalAborts \subseteq CanonicalAbortDomain
   /\ sealedCerts \subseteq SealedCertDomain
 
 NoDualBaseCerts ==
@@ -74,22 +135,95 @@ NoDualBaseCerts ==
     => /\ b1 = b2
        /\ e1 = e2
 
-CloseAnchored ==
-  \A s \in Slots, b \in Blocks, e \in Epochs :
-    CloseCertEvent(s, b, e) \in closeCerts
+NoDualTranscriptSurfaces ==
+  \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs,
+     t1 \in TranscriptRoots, t2 \in TranscriptRoots :
+    /\ TranscriptSurfaceEvent(s, b1, e1, t1) \in transcriptSurfaces
+    /\ TranscriptSurfaceEvent(s, b2, e2, t2) \in transcriptSurfaces
+    => /\ b1 = b2
+       /\ e1 = e2
+       /\ t1 = t2
+
+NoDualChallengeSurfaces ==
+  \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs,
+     c1 \in ChallengeRoots, c2 \in ChallengeRoots :
+    /\ ChallengeSurfaceEvent(s, b1, e1, c1) \in challengeSurfaces
+    /\ ChallengeSurfaceEvent(s, b2, e2, c2) \in challengeSurfaces
+    => /\ b1 = b2
+       /\ e1 = e2
+       /\ c1 = c2
+
+NoDualCanonicalCloses ==
+  \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs,
+     t1 \in TranscriptRoots, t2 \in TranscriptRoots :
+    /\ CanonicalCloseEvent(s, b1, e1, t1) \in canonicalCloses
+    /\ CanonicalCloseEvent(s, b2, e2, t2) \in canonicalCloses
+    => /\ b1 = b2
+       /\ e1 = e2
+       /\ t1 = t2
+
+NoDualCanonicalAborts ==
+  \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs,
+     t1 \in TranscriptRoots, t2 \in TranscriptRoots,
+     c1 \in ChallengeRoots \ {EmptyChallengeRoot},
+     c2 \in ChallengeRoots \ {EmptyChallengeRoot} :
+    /\ CanonicalAbortEvent(s, b1, e1, t1, c1) \in canonicalAborts
+    /\ CanonicalAbortEvent(s, b2, e2, t2, c2) \in canonicalAborts
+    => /\ b1 = b2
+       /\ e1 = e2
+       /\ t1 = t2
+       /\ c1 = c2
+
+TranscriptAnchored ==
+  \A s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
     => BaseCertEvent(s, b, e) \in baseCerts
+
+ChallengeAnchored ==
+  \A s \in Slots, b \in Blocks, e \in Epochs, c \in ChallengeRoots :
+    ChallengeSurfaceEvent(s, b, e, c) \in challengeSurfaces
+    => \E t \in TranscriptRoots :
+         TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+
+CanonicalCloseAnchored ==
+  \A s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    CanonicalCloseEvent(s, b, e, t) \in canonicalCloses
+    => /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+       /\ ChallengeSurfaceEvent(s, b, e, EmptyChallengeRoot) \in challengeSurfaces
+
+CanonicalAbortAnchored ==
+  \A s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+     c \in ChallengeRoots \ {EmptyChallengeRoot} :
+    CanonicalAbortEvent(s, b, e, t, c) \in canonicalAborts
+    => /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+       /\ ChallengeSurfaceEvent(s, b, e, c) \in challengeSurfaces
 
 SealedAnchored ==
   \A s \in Slots, b \in Blocks, e \in Epochs :
     SealEvent(s, b, e) \in sealedCerts
-    => /\ BaseCertEvent(s, b, e) \in baseCerts
-       /\ CloseCertEvent(s, b, e) \in closeCerts
-       /\ s \notin abortSlots
+    => /\ \E t \in TranscriptRoots : CanonicalCloseEvent(s, b, e, t) \in canonicalCloses
+       /\ ~HasCanonicalAbort(s)
+
+CloseAbortExclusive ==
+  \A s \in Slots, b1 \in Blocks, e1 \in Epochs, t1 \in TranscriptRoots,
+     b2 \in Blocks, e2 \in Epochs, t2 \in TranscriptRoots,
+     c \in ChallengeRoots \ {EmptyChallengeRoot} :
+    /\ CanonicalCloseEvent(s, b1, e1, t1) \in canonicalCloses
+    /\ CanonicalAbortEvent(s, b2, e2, t2, c) \in canonicalAborts
+    => FALSE
 
 Invariant ==
   /\ TypeInvariant
   /\ NoDualBaseCerts
-  /\ CloseAnchored
+  /\ NoDualTranscriptSurfaces
+  /\ NoDualChallengeSurfaces
+  /\ NoDualCanonicalCloses
+  /\ NoDualCanonicalAborts
+  /\ TranscriptAnchored
+  /\ ChallengeAnchored
+  /\ CanonicalCloseAnchored
+  /\ CanonicalAbortAnchored
+  /\ CloseAbortExclusive
   /\ SealedAnchored
 
 BaseSafety ==
@@ -98,6 +232,15 @@ BaseSafety ==
     /\ BaseCertEvent(s, b2, e2) \in baseCerts
     => /\ b1 = b2
        /\ e1 = e2
+
+CanonicalCloseSafety ==
+  \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs,
+     t1 \in TranscriptRoots, t2 \in TranscriptRoots :
+    /\ CanonicalCloseEvent(s, b1, e1, t1) \in canonicalCloses
+    /\ CanonicalCloseEvent(s, b2, e2, t2) \in canonicalCloses
+    => /\ b1 = b2
+       /\ e1 = e2
+       /\ t1 = t2
 
 SealedSafety ==
   \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs :
@@ -108,7 +251,7 @@ SealedSafety ==
 
 AbortDominatesSealed ==
   \A s \in Slots, b \in Blocks, e \in Epochs :
-    s \in abortSlots => SealEvent(s, b, e) \notin sealedCerts
+    HasCanonicalAbort(s) => SealEvent(s, b, e) \notin sealedCerts
 
 Spec == Init /\ [][Next]_vars
 
@@ -116,9 +259,17 @@ THEOREM InvariantImpliesBaseSafety == Invariant => BaseSafety
   BY SMTT(50)
      DEF Invariant, BaseSafety, NoDualBaseCerts
 
+THEOREM InvariantImpliesCanonicalCloseSafety == Invariant => CanonicalCloseSafety
+  BY SMTT(60)
+     DEF Invariant, CanonicalCloseSafety, NoDualCanonicalCloses
+
+THEOREM InvariantImpliesCloseAbortExclusive == Invariant => CloseAbortExclusive
+  BY SMTT(20)
+     DEF Invariant, CloseAbortExclusive
+
 THEOREM InvariantImpliesSealedSafety == Invariant => SealedSafety
-  BY SMTT(60), InvariantImpliesBaseSafety
-     DEF Invariant, SealedSafety, SealedAnchored, BaseSafety
+  BY SMTT(60), InvariantImpliesCanonicalCloseSafety
+     DEF Invariant, SealedSafety, SealedAnchored, CanonicalCloseSafety
 
 THEOREM InvariantImpliesAbortDominatesSealed == Invariant => AbortDominatesSealed
   BY SMTT(60)

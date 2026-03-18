@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { emit } from "@tauri-apps/api/event";
 import { useAgentStore } from "../../store/agentStore";
 import { listenForAutopilotDataReset } from "../../services/autopilotReset";
 import {
@@ -10,7 +9,6 @@ import {
   Artifact,
   ArtifactHubViewKey,
   ChatMessage,
-  ContextAtlasFocusRequest,
   RunPresentation,
   SourceSummary,
 } from "../../types";
@@ -350,8 +348,8 @@ export function SpotlightWindow({
   );
 
   const openArtifactHub = useCallback(
-    (preferredView: ArtifactHubViewKey = "active_context", preferredTurnId?: string | null) => {
-      setArtifactHubView(preferredView);
+    (preferredView?: ArtifactHubViewKey, preferredTurnId?: string | null) => {
+      setArtifactHubView(preferredView || null);
       setArtifactHubTurnId(preferredTurnId || null);
       setSelectedArtifactId(null);
       void toggleArtifactPanel(true);
@@ -371,15 +369,6 @@ export function SpotlightWindow({
     setArtifactHubTurnId(null);
     void toggleArtifactPanel(false);
   }, [setArtifactHubTurnId, setArtifactHubView, toggleArtifactPanel]);
-
-  const openAtlasFocus = useCallback(
-    (request: ContextAtlasFocusRequest) => {
-      void emit("request-context-atlas-focus", request)
-        .then(() => openStudio("atlas"))
-        .catch(console.error);
-    },
-    [openStudio],
-  );
 
   const handleDownloadContext = useCallback(async () => {
     if (!activeSessionId) {
@@ -542,7 +531,6 @@ export function SpotlightWindow({
 
           <SpotlightArtifactPanel
             visible={layout.artifactPanelVisible}
-            threadId={activeSessionId}
             artifactHubView={artifactHubView}
             artifactHubTurnId={artifactHubTurnId}
             events={activeEvents}
@@ -551,7 +539,6 @@ export function SpotlightWindow({
             sourceSummary={runPresentation.sourceSummary}
             thoughtSummary={runPresentation.thoughtSummary}
             onOpenArtifact={openArtifactById}
-            onOpenAtlasFocus={openAtlasFocus}
             onClose={closeRightPanel}
           />
         </div>

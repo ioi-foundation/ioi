@@ -24,9 +24,9 @@ use ioi_ipc::control::{
     SignWitnessStatementRequest, SignWitnessStatementResponse,
 };
 use ioi_types::app::{
-    account_id_from_key_material, AsymptoteObserverStatement, FinalityTier, GuardianDecision,
-    GuardianDecisionDomain, GuardianReport, GuardianWitnessStatement, SealObject,
-    SealedFinalityProof, SignatureSuite,
+    account_id_from_key_material, AsymptoteObserverObservationRequest, AsymptotePolicy,
+    CanonicalCollapseObject, FinalityTier, GuardianDecision, GuardianDecisionDomain, GuardianReport,
+    GuardianWitnessStatement, SealObject, SealedFinalityProof, SignatureSuite,
 };
 use ioi_types::codec;
 use ioi_validator::common::{generate_certificates_if_needed, GuardianContainer};
@@ -94,6 +94,20 @@ impl GuardianControl for GuardianControlImpl {
                         )
                         .map_err(|e| {
                             Status::invalid_argument(format!("invalid sealed_finality_proof: {e}"))
+                        })?,
+                    )
+                },
+                if req.canonical_collapse_object.is_empty() {
+                    None
+                } else {
+                    Some(
+                        codec::from_bytes_canonical::<CanonicalCollapseObject>(
+                            &req.canonical_collapse_object,
+                        )
+                        .map_err(|e| {
+                            Status::invalid_argument(format!(
+                                "invalid canonical_collapse_object: {e}"
+                            ))
                         })?,
                     )
                 },
@@ -284,6 +298,8 @@ impl GuardianControl for GuardianControlImpl {
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let policy: AsymptotePolicy = codec::from_bytes_canonical(&req.asymptote_policy)
+            .map_err(|e| Status::invalid_argument(format!("invalid asymptote policy: {e}")))?;
 
         let (counter, trace_hash, guardian_certificate, sealed_finality_proof) = self
             .container
@@ -299,6 +315,7 @@ impl GuardianControl for GuardianControlImpl {
                 requested_manifest_hash,
                 witness_manifest_hashes,
                 observer_plan_entries,
+                policy,
                 u8::try_from(req.witness_reassignment_depth).map_err(|_| {
                     Status::invalid_argument("witness_reassignment_depth must fit into u8")
                 })?,
@@ -321,8 +338,10 @@ impl GuardianControl for GuardianControlImpl {
         request: Request<ObserveAsymptoteRequest>,
     ) -> Result<Response<ObserveAsymptoteResponse>, Status> {
         let req = request.into_inner();
-        let statement: AsymptoteObserverStatement = codec::from_bytes_canonical(&req.statement)
-            .map_err(|e| Status::invalid_argument(format!("invalid observer statement: {e}")))?;
+        let observation_request: AsymptoteObserverObservationRequest =
+            codec::from_bytes_canonical(&req.observation_request).map_err(|e| {
+                Status::invalid_argument(format!("invalid observer observation request: {e}"))
+            })?;
         let requested_manifest_hash = if req.manifest_hash.is_empty() {
             None
         } else {
@@ -335,11 +354,11 @@ impl GuardianControl for GuardianControlImpl {
         };
         let observer_certificate = self
             .container
-            .observe_asymptote_statement(&statement, requested_manifest_hash)
+            .observe_asymptote_request(&observation_request, requested_manifest_hash)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(ObserveAsymptoteResponse {
-            observer_certificate: codec::to_bytes_canonical(&observer_certificate)
+            observation: codec::to_bytes_canonical(&observer_certificate)
                 .map_err(|e| Status::internal(e.to_string()))?,
         }))
     }

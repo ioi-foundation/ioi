@@ -65,7 +65,10 @@ impl SafetyGadget {
     /// Updates the safety state based on a newly verified QC.
     ///
     /// Instead of returning the committed height immediately, this method queues
-    /// the commit if the rule is met. Finality is extracted via `drain_ready_commits`.
+    /// the commit if the rule is met. Finality is extracted by polling
+    /// `next_ready_commit` and then explicitly consuming it with
+    /// `accept_next_ready_commit` once any external gating conditions have
+    /// passed.
     ///
     /// Returns `true` if a new block was queued for commit.
     pub fn update(&mut self, qc_high: &QuorumCertificate, qc_parent: &QuorumCertificate) -> bool {
@@ -102,31 +105,33 @@ impl SafetyGadget {
         false
     }
 
-    /// Checks if any pending commits have passed the guard duration.
+    /// Returns the next ready commit without consuming it.
     ///
-    /// This should be called by the consensus loop on every tick.
-    /// If a Panic occurs, the engine should stop calling this method,
-    /// effectively orphaning the pending commits (Safety Condition).
-    pub fn drain_ready_commits(&mut self) -> Option<u64> {
+    /// The caller can use this to gate finalization on additional protocol
+    /// conditions, such as the presence of a canonical collapse object.
+    pub fn next_ready_commit(&self) -> Option<QuorumCertificate> {
         let now = Instant::now();
-        let mut highest_ready: Option<QuorumCertificate> = None;
+        self.pending_commits.front().and_then(|pending| {
+            (now >= pending.can_commit_at).then(|| pending.qc.clone())
+        })
+    }
 
-        // Drain all commits where T_now >= T_queued + Delta_guard
-        while let Some(pending) = self.pending_commits.front() {
-            if now >= pending.can_commit_at {
-                let p = self.pending_commits.pop_front().unwrap();
-                highest_ready = Some(p.qc);
-            } else {
-                break;
-            }
+    /// Consumes the next ready commit and records it as committed.
+    ///
+    /// Callers should only invoke this after any external gating conditions have
+    /// passed for the ready commit returned by `next_ready_commit`.
+    pub fn accept_next_ready_commit(&mut self) -> Option<QuorumCertificate> {
+        let now = Instant::now();
+        let Some(pending) = self.pending_commits.front() else {
+            return None;
+        };
+        if now < pending.can_commit_at {
+            return None;
         }
 
-        if let Some(new_commit) = highest_ready {
-            self.committed_qc = Some(new_commit.clone());
-            return Some(new_commit.height);
-        }
-
-        None
+        let committed = self.pending_commits.pop_front()?.qc;
+        self.committed_qc = Some(committed.clone());
+        Some(committed)
     }
 
     /// Checks if it is safe to vote for a proposal.

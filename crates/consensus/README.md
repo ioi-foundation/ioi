@@ -2,7 +2,10 @@
 
 This crate implements the consensus algorithms for the IOI Kernel. It defines how validators communicate, agree on block ordering, and achieve finality.
 
-The current production-facing consensus family is documented as **Aft Fault Tolerance**: finalized history must converge through certified quorums, guardian committee evidence, and shared registry/log state.
+The current production-facing consensus family is documented as **Aft Fault
+Tolerance**: durable history converges through canonical public-state collapse
+objects, while guardian-backed quorums and shared registry/log state provide
+transport, tentative progress, and admissibility evidence.
 
 Primary protocol specs:
 
@@ -27,15 +30,15 @@ The consensus module is designed to be **pluggable**. It implements the `Consens
 
 The primary engine for the IOI Mainnet.
 *   **Source:** `src/aft/guardian_majority/mod.rs`
-*   **Model:** Leader-based BFT for the Aft Fault Tolerance family, with committee-backed non-equivocation evidence.
-*   **Safety:** Relies on guardian committees, receipts, and externalized evidence to constrain equivocation under the configured `AftSafetyMode`.
+*   **Model:** Leader-based transport and tentative-progress engine for the Aft Fault Tolerance family, with committee-backed non-equivocation evidence.
+*   **Safety:** Constrains admissible proposals and tentative `BaseFinal` progression under the configured `AftSafetyMode`; durable AFT state is still gated by canonical collapse.
 *   **Liveness:** Uses **Mirror Channels** (redundant gossip topics) to detect censorship or network partitions.
 
 ### Asymptote
 
 The scalable sealing overlay for Aft.
 *   **Model:** Fast `BaseFinal` block progression with asynchronous stratum-backed `SealedFinal` upgrades.
-*   **Safety:** `SealedFinal` requires deterministic evidence collapse over guardian, witness, registry, and transparency-log state.
+*   **Safety:** Durable ordering and `SealedFinal` release require deterministic close-or-abort collapse over guardian, witness / observer, registry, and transparency-log state.
 *   **Operational Use:** High-risk external effects should require `SealedFinal`; ordinary block ordering continues on the fast path.
 
 ### Witness/Audit Sampling

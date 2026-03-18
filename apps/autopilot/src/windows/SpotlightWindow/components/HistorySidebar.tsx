@@ -27,34 +27,41 @@ export function HistorySidebar({
 
   return (
     <aside className="history-sidebar">
-      {/* Header with New Chat + Toggle */}
       <div className="sidebar-header">
-        <button className="sidebar-new-btn" onClick={onNewChat}>
-          {icons.plus}
-          <span>New Chat</span>
-        </button>
-        <button 
-          className="sidebar-toggle-btn" 
-          onClick={onToggleSidebar}
-          title="Hide sidebar (⌘K)"
-        >
-          {icons.sidebar}
-        </button>
+        <div className="sidebar-header-copy">
+          <span className="sidebar-title">Chats</span>
+          <span className="sidebar-title-meta">
+            {filtered.length === sessions.length
+              ? `${sessions.length} total`
+              : `${filtered.length} of ${sessions.length}`}
+          </span>
+        </div>
+        <div className="sidebar-header-actions">
+          <button className="sidebar-new-btn" onClick={onNewChat} title="Start a new chat">
+            {icons.plus}
+            <span>New</span>
+          </button>
+          <button 
+            className="sidebar-toggle-btn" 
+            onClick={onToggleSidebar}
+            title="Hide sidebar (⌘K)"
+          >
+            {icons.sidebar}
+          </button>
+        </div>
       </div>
 
-      {/* Search */}
       <div className="sidebar-search">
         <div className="search-box">
           {icons.search}
           <input
-            placeholder="Search chats..."
+            placeholder="Search conversations"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
       </div>
 
-      {/* History List */}
       <div className="sidebar-history">
         {grouped.map((group) => (
           <div key={group.label} className="history-group">

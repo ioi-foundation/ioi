@@ -567,6 +567,7 @@ fn software_guardian_attestation_accepts_registered_manifest_and_measurement() {
             asymptote_required_witness_strata: vec!["stratum-a".into()],
             asymptote_escalation_witness_strata: vec!["stratum-a".into()],
             asymptote_high_risk_effect_tier: ioi_types::app::FinalityTier::SealedFinal,
+            apply_accountable_membership_updates: true,
         },
     );
     let manifest = ioi_types::app::GuardianCommitteeManifest {

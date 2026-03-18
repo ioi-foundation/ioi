@@ -13,10 +13,10 @@ body.spotlight-shell-host,
 /* CSS Custom Properties - Design Tokens */
 .spot-window {
   /* Core Colors - Darker, more opaque */
-  --spot-bg-primary: rgba(8, 8, 10, 0.96);
-  --spot-bg-secondary: rgba(16, 16, 20, 0.95);
-  --spot-bg-tertiary: rgba(28, 28, 34, 0.9);
-  --spot-bg-elevated: rgba(32, 32, 40, 0.95);
+  --spot-bg-primary: rgba(10, 10, 14, 0.97);
+  --spot-bg-secondary: rgba(18, 18, 24, 0.95);
+  --spot-bg-tertiary: rgba(22, 22, 28, 0.93);
+  --spot-bg-elevated: rgba(24, 24, 30, 0.95);
   --spot-bg-surface: rgba(20, 20, 26, 0.98);
 
   /* Borders - Slightly more visible */
@@ -32,11 +32,11 @@ body.spotlight-shell-host,
   --spot-text-dim: #505058;
 
   /* Accent - Slightly more saturated */
-  --spot-accent: #5b8aff;
-  --spot-accent-hover: #4a7aff;
-  --spot-accent-muted: #4a6fcc;
-  --spot-accent-glow: rgba(91, 138, 255, 0.3);
-  --spot-accent-subtle: rgba(91, 138, 255, 0.1);
+  --spot-accent: #6b8abf;
+  --spot-accent-hover: #5d7cab;
+  --spot-accent-muted: #6077a8;
+  --spot-accent-glow: rgba(107, 138, 191, 0);
+  --spot-accent-subtle: rgba(107, 138, 191, 0.1);
 
   /* Status Colors */
   --spot-success: #34d399;
@@ -248,8 +248,6 @@ body.spotlight-shell-host,
   cursor: pointer;
   transition: all var(--spot-transition-fast);
   box-shadow: var(--spot-shadow-sm);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 .spot-sidebar-toggle:hover {
@@ -499,13 +497,13 @@ body.spotlight-shell-host,
   color: white;
   cursor: pointer;
   transition: all var(--spot-transition);
-  box-shadow: 0 2px 8px var(--spot-accent-glow);
+  box-shadow: none;
 }
 
 .spot-send-btn:hover:not(:disabled) {
   background: var(--spot-accent-hover);
   transform: translateY(-1px);
-  box-shadow: var(--spot-shadow-glow);
+  box-shadow: none;
 }
 
 .spot-send-btn:active:not(:disabled) {

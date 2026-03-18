@@ -75,6 +75,7 @@ export function ConversationTimeline({
           (turnContext?.kernelEventCount || 0) > 0 ||
           thoughtCount > 0 ||
           visualReceiptCount > 0;
+        const worklogLabel = showLiveThinking ? "Working..." : "Worklog";
 
         return (
           <React.Fragment key={turn.key}>
@@ -100,7 +101,7 @@ export function ConversationTimeline({
                 title="Open thinking artifacts"
               >
                 <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
-                <span className="spot-thinking-pill-text">Thinking...</span>
+                <span className="spot-thinking-pill-text">{worklogLabel}</span>
                 <span className="spot-thinking-pill-detail">
                   {showLiveThinking
                     ? currentStep || "Reasoning across tools"
@@ -209,7 +210,7 @@ export function ConversationTimeline({
           title="Open thinking artifacts"
         >
           <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
-          <span className="spot-thinking-pill-text">Thinking...</span>
+          <span className="spot-thinking-pill-text">Working...</span>
           <span className="spot-thinking-pill-detail">{currentStep || "Initializing..."}</span>
         </button>
       )}

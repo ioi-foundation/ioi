@@ -326,6 +326,12 @@ pub struct BlockHeader {
     /// This provides the "chaining" of security in Chained BFT.
     /// A valid QC proves that >= 2/3 of validators voted for parent_hash.
     pub parent_qc: QuorumCertificate,
+    /// Recursive-continuity link to the previous slot's canonical collapse object.
+    #[serde(default)]
+    pub previous_canonical_collapse_commitment_hash: [u8; 32],
+    /// Proof-carrying recursive-continuity certificate for the previous slot's collapse extension.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_collapse_extension_certificate: Option<CanonicalCollapseExtensionCertificate>,
 
     /// The signature of the block header's canonical preimage.
     /// Signed payload is: Preimage || oracle_counter || oracle_trace_hash
@@ -379,23 +385,29 @@ impl BlockHeader {
     /// Creates the canonical, domain-separated byte string that is hashed for signing.
     pub fn to_preimage_for_signing(&self) -> Result<Vec<u8>, CoreError> {
         crate::codec::to_bytes_canonical(&(
-            SigDomain::BlockHeaderV1 as u8,
-            self.height,
-            self.view,
-            self.parent_hash,
-            &self.parent_state_root.0,
-            &self.state_root.0,
-            &self.transactions_root,
-            self.timestamp,
-            self.timestamp_ms_or_legacy(),
-            self.gas_used,
-            &self.validator_set,
-            &self.producer_account_id,
-            &self.producer_key_suite,
-            &self.producer_pubkey_hash,
-            &self.producer_pubkey,
-            &self.timeout_certificate,
-            &self.parent_qc, // Include QC in signature preimage
+            (
+                SigDomain::BlockHeaderV1 as u8,
+                self.height,
+                self.view,
+                self.parent_hash,
+                &self.parent_state_root.0,
+                &self.state_root.0,
+                &self.transactions_root,
+                self.timestamp,
+                self.timestamp_ms_or_legacy(),
+                self.gas_used,
+            ),
+            (
+                &self.validator_set,
+                &self.producer_account_id,
+                &self.producer_key_suite,
+                &self.producer_pubkey_hash,
+                &self.producer_pubkey,
+                &self.timeout_certificate,
+                &self.parent_qc, // Include QC in signature preimage
+                self.previous_canonical_collapse_commitment_hash,
+                &self.canonical_collapse_extension_certificate,
+            ),
         ))
         .map_err(CoreError::Custom)
     }
@@ -891,6 +903,7 @@ mod tests {
             state_root: StateRoot(vec![3u8; 32]),
             transactions_root: vec![4u8; 32],
             timestamp: 123_456,
+            timestamp_ms: 123_456_000,
             gas_used: 789,
             validator_set: vec![vec![5u8; 32], vec![6u8; 32]],
             producer_account_id: AccountId([7u8; 32]),
@@ -904,6 +917,8 @@ mod tests {
             canonical_order_certificate: None,
             timeout_certificate: None,
             parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
             signature: vec![],
         }
     }

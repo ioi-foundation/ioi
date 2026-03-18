@@ -1,4 +1,7 @@
-use crate::app::{AccountId, SignatureSuite, ValidatorSetV1};
+use crate::app::consensus::{
+    canonical_collapse_object_hash, CanonicalCollapseKind, CanonicalCollapseObject,
+};
+use crate::app::{AccountId, SignatureProof, SignatureSuite, ValidatorSetV1};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -32,6 +35,22 @@ pub const GUARDIAN_REGISTRY_SEALED_EFFECT_PREFIX: &[u8] = b"guardian::sealed_eff
 pub const GUARDIAN_REGISTRY_WITNESS_FAULT_PREFIX: &[u8] = b"guardian::witness_fault::";
 /// State key prefix mapping validator accounts to their registered guardian committee manifest.
 pub const GUARDIAN_REGISTRY_COMMITTEE_ACCOUNT_PREFIX: &[u8] = b"guardian::committee_account::";
+/// State key prefix for public asymptote observer transcript commitments.
+pub const GUARDIAN_REGISTRY_OBSERVER_TRANSCRIPT_COMMITMENT_PREFIX: &[u8] =
+    b"guardian::observer_transcript_commitment::";
+/// State key prefix for public asymptote observer transcripts.
+pub const GUARDIAN_REGISTRY_OBSERVER_TRANSCRIPT_PREFIX: &[u8] = b"guardian::observer_transcript::";
+/// State key prefix for public asymptote observer challenge commitments.
+pub const GUARDIAN_REGISTRY_OBSERVER_CHALLENGE_COMMITMENT_PREFIX: &[u8] =
+    b"guardian::observer_challenge_commitment::";
+/// State key prefix for public asymptote observer challenges.
+pub const GUARDIAN_REGISTRY_OBSERVER_CHALLENGE_PREFIX: &[u8] = b"guardian::observer_challenge::";
+/// State key prefix for canonical observer close objects.
+pub const GUARDIAN_REGISTRY_OBSERVER_CANONICAL_CLOSE_PREFIX: &[u8] =
+    b"guardian::observer_canonical_close::";
+/// State key prefix for canonical observer abort objects.
+pub const GUARDIAN_REGISTRY_OBSERVER_CANONICAL_ABORT_PREFIX: &[u8] =
+    b"guardian::observer_canonical_abort::";
 
 /// Builds the canonical state key for a guardian committee manifest hash.
 pub fn guardian_registry_committee_key(manifest_hash: &[u8; 32]) -> Vec<u8> {
@@ -107,6 +126,102 @@ pub fn guardian_registry_checkpoint_key(log_id: &str) -> Vec<u8> {
 /// Builds the canonical state key for a registered transparency-log descriptor.
 pub fn guardian_registry_log_key(log_id: &str) -> Vec<u8> {
     [GUARDIAN_REGISTRY_LOG_PREFIX, log_id.as_bytes()].concat()
+}
+
+/// Builds the canonical state key for a public observer transcript commitment.
+pub fn guardian_registry_observer_transcript_commitment_key(
+    epoch: u64,
+    height: u64,
+    view: u64,
+) -> Vec<u8> {
+    [
+        GUARDIAN_REGISTRY_OBSERVER_TRANSCRIPT_COMMITMENT_PREFIX,
+        &epoch.to_be_bytes(),
+        &height.to_be_bytes(),
+        &view.to_be_bytes(),
+    ]
+    .concat()
+}
+
+/// Builds the canonical state key for one public observer transcript.
+pub fn guardian_registry_observer_transcript_key(
+    epoch: u64,
+    height: u64,
+    view: u64,
+    round: u16,
+    observer_account_id: &AccountId,
+) -> Vec<u8> {
+    [
+        GUARDIAN_REGISTRY_OBSERVER_TRANSCRIPT_PREFIX,
+        &epoch.to_be_bytes(),
+        &height.to_be_bytes(),
+        &view.to_be_bytes(),
+        &round.to_be_bytes(),
+        observer_account_id.as_ref(),
+    ]
+    .concat()
+}
+
+/// Builds the canonical state key for a public observer challenge commitment.
+pub fn guardian_registry_observer_challenge_commitment_key(
+    epoch: u64,
+    height: u64,
+    view: u64,
+) -> Vec<u8> {
+    [
+        GUARDIAN_REGISTRY_OBSERVER_CHALLENGE_COMMITMENT_PREFIX,
+        &epoch.to_be_bytes(),
+        &height.to_be_bytes(),
+        &view.to_be_bytes(),
+    ]
+    .concat()
+}
+
+/// Builds the canonical state key for one public observer challenge.
+pub fn guardian_registry_observer_challenge_key(
+    epoch: u64,
+    height: u64,
+    view: u64,
+    challenge_id: &[u8; 32],
+) -> Vec<u8> {
+    [
+        GUARDIAN_REGISTRY_OBSERVER_CHALLENGE_PREFIX,
+        &epoch.to_be_bytes(),
+        &height.to_be_bytes(),
+        &view.to_be_bytes(),
+        challenge_id.as_ref(),
+    ]
+    .concat()
+}
+
+/// Builds the canonical state key for a canonical observer close object.
+pub fn guardian_registry_observer_canonical_close_key(
+    epoch: u64,
+    height: u64,
+    view: u64,
+) -> Vec<u8> {
+    [
+        GUARDIAN_REGISTRY_OBSERVER_CANONICAL_CLOSE_PREFIX,
+        &epoch.to_be_bytes(),
+        &height.to_be_bytes(),
+        &view.to_be_bytes(),
+    ]
+    .concat()
+}
+
+/// Builds the canonical state key for a canonical observer abort object.
+pub fn guardian_registry_observer_canonical_abort_key(
+    epoch: u64,
+    height: u64,
+    view: u64,
+) -> Vec<u8> {
+    [
+        GUARDIAN_REGISTRY_OBSERVER_CANONICAL_ABORT_PREFIX,
+        &epoch.to_be_bytes(),
+        &height.to_be_bytes(),
+        &view.to_be_bytes(),
+    ]
+    .concat()
 }
 
 /// Deterministically derives the assigned witness committee for a slot.
@@ -624,6 +739,17 @@ pub fn canonical_asymptote_observer_assignments_hash(
     Ok(hash)
 }
 
+/// Canonical hash of one deterministic equal-authority observer assignment.
+pub fn canonical_asymptote_observer_assignment_hash(
+    assignment: &AsymptoteObserverAssignment,
+) -> Result<[u8; 32], String> {
+    let bytes = parity_scale_codec::Encode::encode(assignment);
+    let digest = DcryptSha256::digest(&bytes).map_err(|e| e.to_string())?;
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(&digest);
+    Ok(hash)
+}
+
 /// Deployment profile for guardianized signing and egress.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 #[serde(rename_all = "snake_case")]
@@ -918,6 +1044,197 @@ pub struct AsymptoteObserverCloseCertificate {
     pub veto_count: u16,
 }
 
+/// Observer sealing mode for the asymptote equal-authority lane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AsymptoteObserverSealingMode {
+    /// Current sampled close-and-veto flow.
+    #[default]
+    SampledCloseV1,
+    /// Target deterministic flow over public transcripts, public challenges, and a canonical close.
+    CanonicalChallengeV1,
+}
+
+/// Canonical observer observation request sent to an assigned validator in the deterministic lane.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct AsymptoteObserverObservationRequest {
+    /// Observation epoch.
+    pub epoch: u64,
+    /// Deterministic observer assignment for this request.
+    pub assignment: AsymptoteObserverAssignment,
+    /// Block hash of the observed slot.
+    pub block_hash: [u8; 32],
+    /// Guardian committee manifest hash of the observed producer slot certificate.
+    pub guardian_manifest_hash: [u8; 32],
+    /// Guardian decision hash of the observed slot certificate.
+    pub guardian_decision_hash: [u8; 32],
+    /// Guardian counter bound into the observed slot certificate.
+    pub guardian_counter: u64,
+    /// Guardian trace root bound into the observed slot certificate.
+    pub guardian_trace_hash: [u8; 32],
+    /// Guardian measurement root bound into the observed slot certificate.
+    pub guardian_measurement_root: [u8; 32],
+    /// Guardian checkpoint root anchoring the observed slot certificate.
+    pub guardian_checkpoint_root: [u8; 32],
+}
+
+/// Public transcript published for one observer assignment in the deterministic observer lane.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct AsymptoteObserverTranscript {
+    /// Canonical observer statement for the assignment.
+    pub statement: AsymptoteObserverStatement,
+    /// Guardian-backed certificate authenticating the statement.
+    pub guardian_certificate: GuardianQuorumCertificate,
+}
+
+/// Commitment over the public observer transcript surface for one slot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct AsymptoteObserverTranscriptCommitment {
+    /// Observation epoch.
+    pub epoch: u64,
+    /// Block height of the observed slot.
+    pub height: u64,
+    /// Consensus view of the observed slot.
+    pub view: u64,
+    /// Canonical hash of the deterministic observer assignment set.
+    pub assignments_hash: [u8; 32],
+    /// Canonical root of the published observer transcripts.
+    pub transcripts_root: [u8; 32],
+    /// Number of published observer transcripts.
+    #[serde(default)]
+    pub transcript_count: u16,
+}
+
+/// Challenge kind for deterministic observer sealing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AsymptoteObserverChallengeKind {
+    /// A required observer transcript was not published by close time.
+    #[default]
+    MissingTranscript,
+    /// A published transcript conflicts with the deterministic assignment or slot binding.
+    TranscriptMismatch,
+    /// A published transcript contains an admissible veto.
+    VetoTranscriptPresent,
+    /// Conflicting published observer transcripts exist for one assignment.
+    ConflictingTranscript,
+    /// The canonical close object binds the wrong slot surface.
+    InvalidCanonicalClose,
+}
+
+/// Public challenge object for deterministic observer sealing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct AsymptoteObserverChallenge {
+    /// Stable challenge identifier.
+    pub challenge_id: [u8; 32],
+    /// Observation epoch.
+    pub epoch: u64,
+    /// Block height of the observed slot.
+    pub height: u64,
+    /// Consensus view of the observed slot.
+    pub view: u64,
+    /// Kind of challenge being raised.
+    #[serde(default)]
+    pub kind: AsymptoteObserverChallengeKind,
+    /// Challenger account that published the object.
+    pub challenger_account_id: AccountId,
+    /// Assignment implicated by the challenge, when the challenge is assignment-scoped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assignment: Option<AsymptoteObserverAssignment>,
+    /// Offending observation request when the challenge is proving a transcript mismatch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observation_request: Option<AsymptoteObserverObservationRequest>,
+    /// Offending published transcript when the challenge is proving a conflicting or vetoed response.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript: Option<AsymptoteObserverTranscript>,
+    /// Offending canonical close object when the challenge is proving an invalid close path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_close: Option<AsymptoteObserverCanonicalClose>,
+    /// Stable digest of the supporting evidence bundle.
+    #[serde(default)]
+    pub evidence_hash: [u8; 32],
+    /// Human-readable operator detail for audit and telemetry.
+    #[serde(default)]
+    pub details: String,
+}
+
+/// Native observer response for the deterministic observer lane.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct AsymptoteObserverObservation {
+    /// Published transcript when the request is admissible and the observer signs it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript: Option<AsymptoteObserverTranscript>,
+    /// Dominant public challenge when the observer rejects the request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub challenge: Option<AsymptoteObserverChallenge>,
+}
+
+/// Commitment over the public observer challenge surface for one slot.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct AsymptoteObserverChallengeCommitment {
+    /// Observation epoch.
+    pub epoch: u64,
+    /// Block height of the observed slot.
+    pub height: u64,
+    /// Consensus view of the observed slot.
+    pub view: u64,
+    /// Canonical root of the published observer challenges.
+    pub challenges_root: [u8; 32],
+    /// Number of published observer challenges.
+    #[serde(default)]
+    pub challenge_count: u16,
+}
+
+/// Canonical close object for deterministic observer sealing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct AsymptoteObserverCanonicalClose {
+    /// Observation epoch.
+    pub epoch: u64,
+    /// Block height of the observed slot.
+    pub height: u64,
+    /// Consensus view of the observed slot.
+    pub view: u64,
+    /// Canonical hash of the deterministic observer assignment set.
+    pub assignments_hash: [u8; 32],
+    /// Canonical root of the observer transcript surface.
+    pub transcripts_root: [u8; 32],
+    /// Canonical root of the observer challenge surface.
+    pub challenges_root: [u8; 32],
+    /// Number of transcripts bound into the close.
+    #[serde(default)]
+    pub transcript_count: u16,
+    /// Number of challenges bound into the close.
+    #[serde(default)]
+    pub challenge_count: u16,
+    /// Public close cutoff for challenges against this slot.
+    pub challenge_cutoff_timestamp_ms: u64,
+}
+
+/// Canonical abort object for deterministic observer sealing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct AsymptoteObserverCanonicalAbort {
+    /// Observation epoch.
+    pub epoch: u64,
+    /// Block height of the observed slot.
+    pub height: u64,
+    /// Consensus view of the observed slot.
+    pub view: u64,
+    /// Canonical hash of the deterministic observer assignment set.
+    pub assignments_hash: [u8; 32],
+    /// Canonical root of the observer transcript surface.
+    pub transcripts_root: [u8; 32],
+    /// Canonical root of the observer challenge surface.
+    pub challenges_root: [u8; 32],
+    /// Number of transcripts bound into the abort object.
+    #[serde(default)]
+    pub transcript_count: u16,
+    /// Number of challenges bound into the abort object.
+    #[serde(default)]
+    pub challenge_count: u16,
+    /// Public cutoff used to decide the abort surface.
+    pub challenge_cutoff_timestamp_ms: u64,
+}
+
 /// Finality tier requested or returned by aft consensus and effect receipts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 #[serde(rename_all = "snake_case")]
@@ -1008,6 +1325,12 @@ pub struct AsymptotePolicy {
     /// Correlation budget constraining equal-authority observer selection.
     #[serde(default)]
     pub observer_correlation_budget: AsymptoteObserverCorrelationBudget,
+    /// Observer-lane sealing mode.
+    #[serde(default)]
+    pub observer_sealing_mode: AsymptoteObserverSealingMode,
+    /// Public challenge window for canonical observer close, in milliseconds.
+    #[serde(default)]
+    pub observer_challenge_window_ms: u64,
     /// Maximum witness reassignment depth permitted by the sealing plane.
     #[serde(default)]
     pub max_reassignment_depth: u8,
@@ -1235,12 +1558,33 @@ pub struct SealedFinalityProof {
     /// Canonical close certificate summarizing the expected observer sample and verdict counts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub observer_close_certificate: Option<AsymptoteObserverCloseCertificate>,
+    /// Full deterministic observer transcript surface carried by the proof.
+    #[serde(default)]
+    pub observer_transcripts: Vec<AsymptoteObserverTranscript>,
+    /// Full deterministic observer challenge surface carried by the proof.
+    #[serde(default)]
+    pub observer_challenges: Vec<AsymptoteObserverChallenge>,
+    /// Public transcript commitment for deterministic observer sealing, when that mode is used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observer_transcript_commitment: Option<AsymptoteObserverTranscriptCommitment>,
+    /// Public challenge commitment for deterministic observer sealing, when that mode is used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observer_challenge_commitment: Option<AsymptoteObserverChallengeCommitment>,
+    /// Canonical close object for deterministic observer sealing, when that mode is used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observer_canonical_close: Option<AsymptoteObserverCanonicalClose>,
+    /// Canonical abort object for deterministic observer sealing, when the observer lane aborts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observer_canonical_abort: Option<AsymptoteObserverCanonicalAbort>,
     /// Objective veto proofs that deterministically collapse the slot to `Abort` if admitted.
     #[serde(default)]
     pub veto_proofs: Vec<AsymptoteVetoProof>,
     /// Optional divergence signals observed while collecting the proof.
     #[serde(default)]
     pub divergence_signals: Vec<DivergenceSignal>,
+    /// Producer signature authenticating the exact sealing-evidence surface.
+    #[serde(default)]
+    pub proof_signature: SignatureProof,
 }
 
 /// Class of irreversible effect to be sealed by the proof-carrying asymptote lane.
@@ -1332,9 +1676,35 @@ pub struct EffectPublicInputs {
     /// Guardian measurement root bound into the slot that committed the intent.
     #[serde(default)]
     pub guardian_measurement_root: [u8; 32],
+    /// Canonical root of the observer transcript surface bound into the sealing proof.
+    #[serde(default)]
+    pub observer_transcripts_root: [u8; 32],
+    /// Canonical root of the observer challenge surface bound into the sealing proof.
+    #[serde(default)]
+    pub observer_challenges_root: [u8; 32],
+    /// Canonical hash of the observer close object authorizing sealed release.
+    #[serde(default)]
+    pub observer_resolution_hash: [u8; 32],
+    /// Canonical hash of the protocol-wide collapse object authorizing irreversible release.
+    #[serde(default)]
+    pub canonical_collapse_hash: [u8; 32],
     /// One-time nullifier preventing replay of the external effect.
     #[serde(default)]
     pub nullifier: [u8; 32],
+}
+
+/// Canonical observer-surface binding carried into proof-carrying sealed effects.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct ObserverSurfaceBinding {
+    /// Canonical root of the observer transcript surface.
+    #[serde(default)]
+    pub transcripts_root: [u8; 32],
+    /// Canonical root of the observer challenge surface.
+    #[serde(default)]
+    pub challenges_root: [u8; 32],
+    /// Canonical hash of the authoritative close object.
+    #[serde(default)]
+    pub resolution_hash: [u8; 32],
 }
 
 /// Compact proof envelope for a sealed effect.
@@ -1422,6 +1792,15 @@ pub fn canonical_effect_public_inputs_hash(
     hash_guardianized_bytes(public_inputs)
 }
 
+/// Returns the canonical message bytes signed over the sealing-evidence surface.
+pub fn canonical_sealed_finality_proof_signing_bytes(
+    proof: &SealedFinalityProof,
+) -> Result<Vec<u8>, String> {
+    let mut normalized = proof.clone();
+    normalized.proof_signature = SignatureProof::default();
+    Ok(normalized.encode())
+}
+
 /// Returns the canonical hash of a sealed-effect envelope.
 pub fn canonical_seal_object_hash(seal_object: &SealObject) -> Result<[u8; 32], String> {
     hash_guardianized_bytes(seal_object)
@@ -1442,6 +1821,62 @@ pub fn derive_effect_nullifier(
         .as_ref()
         .try_into()
         .map_err(|_| "invalid sha256 digest length".into())
+}
+
+/// Returns the canonical collapse-object hash required to authorize a sealed effect release.
+pub fn canonical_collapse_hash_for_sealed_effect(
+    canonical_collapse_object: &CanonicalCollapseObject,
+    sealed_finality_proof: &SealedFinalityProof,
+) -> Result<[u8; 32], String> {
+    if sealed_finality_proof.finality_tier != FinalityTier::SealedFinal
+        || sealed_finality_proof.collapse_state != CollapseState::SealedFinal
+    {
+        return Err("sealed effects require a SealedFinal proof-bound collapse state".into());
+    }
+    if canonical_collapse_object.height == 0 {
+        return Err("sealed-effect canonical collapse object height must be non-zero".into());
+    }
+    if canonical_collapse_object.transactions_root_hash == [0u8; 32]
+        || canonical_collapse_object.resulting_state_root_hash == [0u8; 32]
+    {
+        return Err(
+            "sealed-effect canonical collapse object must bind committed transaction and state roots"
+                .into(),
+        );
+    }
+    let sealing = canonical_collapse_object
+        .sealing
+        .as_ref()
+        .ok_or_else(|| "sealed-effect canonical collapse object is missing the sealing branch".to_string())?;
+    if sealing.kind != CanonicalCollapseKind::Close
+        || sealing.finality_tier != FinalityTier::SealedFinal
+        || sealing.collapse_state != CollapseState::SealedFinal
+    {
+        return Err(
+            "sealed-effect canonical collapse object does not authorize the SealedFinal close path"
+                .into(),
+        );
+    }
+    if sealing.height != canonical_collapse_object.height {
+        return Err(
+            "sealed-effect canonical collapse object height does not match the sealing branch"
+                .into(),
+        );
+    }
+    if sealing.epoch != sealed_finality_proof.epoch {
+        return Err("sealed-effect canonical collapse epoch does not match the sealed proof".into());
+    }
+    let observer_binding = sealed_finality_proof_observer_binding(sealed_finality_proof)?;
+    if sealing.transcripts_root != observer_binding.transcripts_root
+        || sealing.challenges_root != observer_binding.challenges_root
+        || sealing.resolution_hash != observer_binding.resolution_hash
+    {
+        return Err(
+            "sealed-effect canonical collapse object does not match the proof-bound observer surface"
+                .into(),
+        );
+    }
+    canonical_collapse_object_hash(canonical_collapse_object)
 }
 
 /// Builds the reference proof bytes for the `HashBindingV1` proof family.
@@ -1487,8 +1922,17 @@ pub fn build_http_egress_seal_object(
     path: &str,
     policy_hash: [u8; 32],
     sealed_finality_proof: &SealedFinalityProof,
+    canonical_collapse_object: &CanonicalCollapseObject,
 ) -> Result<SealObject, String> {
+    if sealed_finality_proof.finality_tier != FinalityTier::SealedFinal
+        || sealed_finality_proof.collapse_state != CollapseState::SealedFinal
+    {
+        return Err("sealed-effect seal objects require a SealedFinal collapse state".into());
+    }
     let verifier = default_http_egress_effect_verifier()?;
+    let observer_binding = sealed_finality_proof_observer_binding(sealed_finality_proof)?;
+    let canonical_collapse_hash =
+        canonical_collapse_hash_for_sealed_effect(canonical_collapse_object, sealed_finality_proof)?;
     let intent = EffectIntent {
         epoch: sealed_finality_proof.epoch,
         effect_class: SealedEffectClass::HttpEgress,
@@ -1507,6 +1951,10 @@ pub fn build_http_egress_seal_object(
         guardian_counter: sealed_finality_proof.guardian_counter,
         guardian_trace_hash: sealed_finality_proof.guardian_trace_hash,
         guardian_measurement_root: sealed_finality_proof.guardian_measurement_root,
+        observer_transcripts_root: observer_binding.transcripts_root,
+        observer_challenges_root: observer_binding.challenges_root,
+        observer_resolution_hash: observer_binding.resolution_hash,
+        canonical_collapse_hash,
         nullifier: derive_effect_nullifier(
             request_hash,
             sealed_finality_proof.guardian_decision_hash,
@@ -1558,6 +2006,15 @@ pub fn verify_seal_object(seal_object: &SealObject) -> Result<(), String> {
     if seal_object.public_inputs.nullifier == [0u8; 32] {
         return Err("sealed-effect nullifier must be non-zero".into());
     }
+    if seal_object.public_inputs.canonical_collapse_hash == [0u8; 32] {
+        return Err("sealed-effect canonical collapse hash must be non-zero".into());
+    }
+    if seal_object.public_inputs.observer_resolution_hash == [0u8; 32]
+        && (seal_object.public_inputs.observer_transcripts_root != [0u8; 32]
+            || seal_object.public_inputs.observer_challenges_root != [0u8; 32])
+    {
+        return Err("sealed-effect observer surface is missing its canonical close binding".into());
+    }
     let public_inputs_hash = canonical_effect_public_inputs_hash(&seal_object.public_inputs)?;
     if seal_object.proof.public_inputs_hash != public_inputs_hash {
         return Err("sealed-effect proof does not match the canonical public inputs".into());
@@ -1586,6 +2043,146 @@ pub fn verify_seal_object(seal_object: &SealObject) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// Returns the canonical observer binding carried by a `SealedFinalityProof`.
+pub fn sealed_finality_proof_observer_binding(
+    proof: &SealedFinalityProof,
+) -> Result<ObserverSurfaceBinding, String> {
+    let has_observer_surface = !proof.observer_transcripts.is_empty()
+        || !proof.observer_challenges.is_empty()
+        || proof.observer_transcript_commitment.is_some()
+        || proof.observer_challenge_commitment.is_some()
+        || proof.observer_canonical_close.is_some()
+        || proof.observer_canonical_abort.is_some();
+    if !has_observer_surface {
+        return Ok(ObserverSurfaceBinding::default());
+    }
+    if proof.collapse_state != CollapseState::SealedFinal || proof.finality_tier != FinalityTier::SealedFinal {
+        return Err("sealed-effect observer binding requires a SealedFinal proof".into());
+    }
+    let transcript_commitment = proof
+        .observer_transcript_commitment
+        .as_ref()
+        .ok_or_else(|| "sealed final proof is missing an observer transcript commitment".to_string())?;
+    let challenge_commitment = proof
+        .observer_challenge_commitment
+        .as_ref()
+        .ok_or_else(|| "sealed final proof is missing an observer challenge commitment".to_string())?;
+    let canonical_close = proof
+        .observer_canonical_close
+        .as_ref()
+        .ok_or_else(|| "sealed final proof is missing a canonical observer close".to_string())?;
+    if proof.observer_canonical_abort.is_some() {
+        return Err("sealed final proof may not carry a canonical observer abort object".into());
+    }
+    let transcripts_root = canonical_asymptote_observer_transcripts_hash(&proof.observer_transcripts)?;
+    let challenges_root = canonical_asymptote_observer_challenges_hash(&proof.observer_challenges)?;
+    if transcript_commitment.transcripts_root != transcripts_root
+        || canonical_close.transcripts_root != transcripts_root
+    {
+        return Err("sealed final proof transcript surface does not match its commitments".into());
+    }
+    if challenge_commitment.challenges_root != challenges_root
+        || canonical_close.challenges_root != challenges_root
+    {
+        return Err("sealed final proof challenge surface does not match its commitments".into());
+    }
+    if challenge_commitment.challenge_count != 0
+        || canonical_close.challenge_count != 0
+        || !proof.observer_challenges.is_empty()
+    {
+        return Err("sealed final proof observer surface is challenge-dominated".into());
+    }
+    Ok(ObserverSurfaceBinding {
+        transcripts_root,
+        challenges_root,
+        resolution_hash: canonical_asymptote_observer_canonical_close_hash(canonical_close)?,
+    })
+}
+
+/// Canonical hash of the published observer transcript surface for one slot.
+pub fn canonical_asymptote_observer_transcripts_hash(
+    transcripts: &[AsymptoteObserverTranscript],
+) -> Result<[u8; 32], String> {
+    let mut normalized = transcripts
+        .iter()
+        .map(|transcript| {
+            (
+                (
+                    transcript.statement.assignment.epoch,
+                    transcript.statement.assignment.height,
+                    transcript.statement.assignment.view,
+                    transcript.statement.assignment.round,
+                    transcript.statement.assignment.observer_account_id,
+                ),
+                transcript.encode(),
+            )
+        })
+        .collect::<Vec<_>>();
+    normalized.sort_unstable_by(|left, right| left.0.cmp(&right.0).then(left.1.cmp(&right.1)));
+    for window in normalized.windows(2) {
+        if window[0].0 == window[1].0 {
+            return Err(
+                "canonical observer transcript surface must not contain duplicate assignments".into(),
+            );
+        }
+    }
+    let digest = DcryptSha256::digest(&normalized.encode()).map_err(|e| e.to_string())?;
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(&digest);
+    Ok(hash)
+}
+
+/// Canonical hash of one observer observation request.
+pub fn canonical_asymptote_observer_observation_request_hash(
+    request: &AsymptoteObserverObservationRequest,
+) -> Result<[u8; 32], String> {
+    hash_guardianized_bytes(request)
+}
+
+/// Canonical hash of one observer transcript.
+pub fn canonical_asymptote_observer_transcript_hash(
+    transcript: &AsymptoteObserverTranscript,
+) -> Result<[u8; 32], String> {
+    hash_guardianized_bytes(transcript)
+}
+
+/// Canonical hash of the published observer challenge surface for one slot.
+pub fn canonical_asymptote_observer_challenges_hash(
+    challenges: &[AsymptoteObserverChallenge],
+) -> Result<[u8; 32], String> {
+    let mut normalized = challenges
+        .iter()
+        .map(|challenge| (challenge.challenge_id, challenge.encode()))
+        .collect::<Vec<_>>();
+    normalized.sort_unstable_by(|left, right| left.0.cmp(&right.0).then(left.1.cmp(&right.1)));
+    for window in normalized.windows(2) {
+        if window[0].0 == window[1].0 {
+            return Err(
+                "canonical observer challenge surface must not contain duplicate challenge ids"
+                    .into(),
+            );
+        }
+    }
+    let digest = DcryptSha256::digest(&normalized.encode()).map_err(|e| e.to_string())?;
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(&digest);
+    Ok(hash)
+}
+
+/// Canonical hash of a canonical observer close object.
+pub fn canonical_asymptote_observer_canonical_close_hash(
+    close: &AsymptoteObserverCanonicalClose,
+) -> Result<[u8; 32], String> {
+    hash_guardianized_bytes(close)
+}
+
+/// Canonical hash of a canonical observer abort object.
+pub fn canonical_asymptote_observer_canonical_abort_hash(
+    abort: &AsymptoteObserverCanonicalAbort,
+) -> Result<[u8; 32], String> {
+    hash_guardianized_bytes(abort)
 }
 
 /// Aggregated committee certificate for a guardian decision.
@@ -1740,6 +2337,9 @@ pub struct EgressReceipt {
     /// Optional proof-carrying seal object authorizing the irreversible effect itself.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_object: Option<SealObject>,
+    /// Optional protocol-wide canonical collapse object bound to a sealed effect.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_collapse_object: Option<CanonicalCollapseObject>,
     /// Optional witness-log checkpoint anchoring the receipt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_checkpoint: Option<GuardianLogCheckpoint>,
@@ -1748,7 +2348,10 @@ pub struct EgressReceipt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::{ActiveKeyRecord, SignatureSuite, ValidatorV1};
+    use crate::app::{
+        ActiveKeyRecord, CanonicalOrderingCollapse, CanonicalSealingCollapse, SignatureSuite,
+        ValidatorV1,
+    };
 
     fn build_validator_set(ids: &[[u8; 32]]) -> ValidatorSetV1 {
         ValidatorSetV1 {
@@ -1918,6 +2521,33 @@ mod tests {
 
     #[test]
     fn http_egress_seal_object_verifies() {
+        let canonical_collapse_object = CanonicalCollapseObject {
+            height: 41,
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            continuity_accumulator_hash: [0u8; 32],
+            continuity_recursive_proof: Default::default(),
+            ordering: CanonicalOrderingCollapse {
+                height: 41,
+                kind: CanonicalCollapseKind::Close,
+                bulletin_commitment_hash: [21u8; 32],
+                bulletin_availability_certificate_hash: [22u8; 32],
+                bulletin_close_hash: [23u8; 32],
+                canonical_order_certificate_hash: [24u8; 32],
+            },
+            sealing: Some(CanonicalSealingCollapse {
+                epoch: 7,
+                height: 41,
+                view: 2,
+                kind: CanonicalCollapseKind::Close,
+                finality_tier: FinalityTier::SealedFinal,
+                collapse_state: CollapseState::SealedFinal,
+                transcripts_root: [0u8; 32],
+                challenges_root: [0u8; 32],
+                resolution_hash: [0u8; 32],
+            }),
+            transactions_root_hash: [31u8; 32],
+            resulting_state_root_hash: [32u8; 32],
+        };
         let sealed_finality_proof = SealedFinalityProof {
             epoch: 7,
             finality_tier: FinalityTier::SealedFinal,
@@ -1937,6 +2567,7 @@ mod tests {
             "/v1/commit",
             [7u8; 32],
             &sealed_finality_proof,
+            &canonical_collapse_object,
         )
         .unwrap();
         verify_seal_object(&seal_object).unwrap();
@@ -1946,6 +2577,33 @@ mod tests {
 
     #[test]
     fn seal_object_rejects_mutated_proof_bytes() {
+        let canonical_collapse_object = CanonicalCollapseObject {
+            height: 52,
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            continuity_accumulator_hash: [0u8; 32],
+            continuity_recursive_proof: Default::default(),
+            ordering: CanonicalOrderingCollapse {
+                height: 52,
+                kind: CanonicalCollapseKind::Close,
+                bulletin_commitment_hash: [33u8; 32],
+                bulletin_availability_certificate_hash: [34u8; 32],
+                bulletin_close_hash: [35u8; 32],
+                canonical_order_certificate_hash: [36u8; 32],
+            },
+            sealing: Some(CanonicalSealingCollapse {
+                epoch: 11,
+                height: 52,
+                view: 3,
+                kind: CanonicalCollapseKind::Close,
+                finality_tier: FinalityTier::SealedFinal,
+                collapse_state: CollapseState::SealedFinal,
+                transcripts_root: [0u8; 32],
+                challenges_root: [0u8; 32],
+                resolution_hash: [0u8; 32],
+            }),
+            transactions_root_hash: [41u8; 32],
+            resulting_state_root_hash: [42u8; 32],
+        };
         let sealed_finality_proof = SealedFinalityProof {
             epoch: 11,
             finality_tier: FinalityTier::SealedFinal,
@@ -1965,6 +2623,7 @@ mod tests {
             "/v1/commit",
             [14u8; 32],
             &sealed_finality_proof,
+            &canonical_collapse_object,
         )
         .unwrap();
         seal_object.proof.proof_bytes[0] ^= 0x55;

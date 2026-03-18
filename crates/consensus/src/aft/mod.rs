@@ -167,11 +167,16 @@ where
         );
     }
 
-    fn observe_committed_block(&mut self, header: &BlockHeader) {
+    fn observe_committed_block(
+        &mut self,
+        header: &BlockHeader,
+        collapse: Option<&ioi_types::app::CanonicalCollapseObject>,
+    ) -> bool {
         <GuardianMajorityEngine as ConsensusEngine<T>>::observe_committed_block(
             &mut self.core,
             header,
-        );
+            collapse,
+        )
     }
 
     fn header_for_quorum_certificate(&self, qc: &QuorumCertificate) -> Option<BlockHeader> {

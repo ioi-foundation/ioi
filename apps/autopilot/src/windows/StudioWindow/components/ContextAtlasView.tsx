@@ -122,7 +122,7 @@ export function ContextAtlasView({
   const [substrate, setSubstrate] = useState<SubstrateProofView | null>(null);
   const [neighborhood, setNeighborhood] = useState<AtlasNeighborhood>({
     lens: "skills",
-    title: "Context Atlas",
+    title: "Evidence Atlas",
     summary: "",
     nodes: [],
     edges: [],
@@ -164,7 +164,7 @@ export function ContextAtlasView({
               setNeighborhood({
                 lens: "context",
                 title: "Active Context",
-                summary: "Select a session to inspect turn-local memory and skills.",
+                summary: "Select a run or session to inspect turn-local memory, skills, and evidence.",
                 nodes: [],
                 edges: [],
               });
@@ -460,7 +460,7 @@ export function ContextAtlasView({
     <div className="context-atlas-shell">
       <aside className="context-atlas-sidebar">
         <div className="context-atlas-sidebar-head">
-          <span className="context-atlas-kicker">Memory Atlas</span>
+          <span className="context-atlas-kicker">Evidence Atlas</span>
           <h2>Context Atlas</h2>
           <p>
             Explore the active context, durable skill catalog, and substrate proof layer through a
