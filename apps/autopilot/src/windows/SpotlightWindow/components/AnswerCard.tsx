@@ -155,10 +155,10 @@ export function AnswerCard({
             onClick={handleOpenArtifacts}
             type="button"
             disabled={!onOpenArtifacts}
-            title="Open artifacts hub"
+            title="Open evidence drawer"
           >
             {icons.externalLink}
-            <span>Artifacts</span>
+            <span>Evidence</span>
           </button>
         </div>
       </div>
@@ -247,7 +247,7 @@ export function AnswerCard({
                 type="button"
                 onClick={handleOpenArtifacts}
               >
-                View detailed artifact
+                View supporting output
               </button>
             )}
           </div>

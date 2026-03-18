@@ -13,6 +13,7 @@ import { Explorer } from "./features/Editor/Explorer/Explorer";
 import { Console } from "./features/Editor/BottomPanel/Console"; 
 import { IDEHeader } from "./features/Editor/Header/IDEHeader";
 
+import "./AgentEditor.css";
 import "./styles/theme.css";
 
 export interface AgentEditorProps {
@@ -26,6 +27,8 @@ const DEFAULT_GLOBAL_CONFIG: GraphGlobalConfig = {
   contract: { developerBond: 0, adjudicationRubric: "" },
   meta: { name: "Untitled Agent", description: "" }
 };
+
+const CONSOLE_HEIGHT = 220;
 
 function AgentEditorContent({ runtime, initialFile }: AgentEditorProps) {
   const { 
@@ -54,8 +57,7 @@ function AgentEditorContent({ runtime, initialFile }: AgentEditorProps) {
   const [globalConfig, setGlobalConfig] = useState<GraphGlobalConfig>(DEFAULT_GLOBAL_CONFIG);
 
   // Layout State
-  const [consoleHeight] = useState(200); 
-  const [showConsole, setShowConsole] = useState(true);
+  const [showConsole, setShowConsole] = useState(false);
 
   const loadProjectIntoEditor = useCallback((project: ProjectFile) => {
     replaceGraph(project);
@@ -71,9 +73,7 @@ function AgentEditorContent({ runtime, initialFile }: AgentEditorProps) {
   }, [initialFile, loadProjectIntoEditor]);
 
   return (
-    <div className="agent-ide-root" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: 'var(--bg-dark)', color: 'var(--text-primary)' }}>
-      
-      {/* HEADER */}
+    <div className="agent-ide-root">
       <IDEHeader 
         projectName={globalConfig.meta.name}
         onRun={() => execution.runGraph(globalConfig)}
@@ -84,66 +84,73 @@ function AgentEditorContent({ runtime, initialFile }: AgentEditorProps) {
         onOpen={() => console.log("Open triggered")}
       />
 
-      {/* MAIN WORKSPACE */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        
-        {/* LEFT: EXPLORER */}
-        <Explorer 
-            runtime={runtime} 
-            onLoadProject={loadProjectIntoEditor}
-            onDragStart={(e, type) => {
-                e.dataTransfer.setData("nodeType", type);
-            }} 
-        />
-
-        {/* CENTER: CANVAS + CONSOLE */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-            
-            {/* Canvas Area */}
-            <div style={{ flex: 1, position: 'relative' }}>
-                <Canvas 
-                    nodes={nodes} edges={edges}
-                    onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
-                    onNodeSelect={handleNodeSelect}
-                    onDrop={handleCanvasDrop}
-                />
-                
-                {/* Canvas Overlay Controls */}
-                <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, display: 'flex', gap: 8 }}>
-                    <button 
-                        onClick={() => setShowConsole(!showConsole)}
-                        style={{ background: 'var(--surface-3)', padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border-default)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '12px' }}
-                    >
-                        {showConsole ? 'Hide Logs' : 'Show Logs'}
-                    </button>
-                </div>
-            </div>
-
-            {/* Bottom Console */}
-            {showConsole && (
-                <div style={{ height: consoleHeight, borderTop: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-                    <Console 
-                        logs={execution.logs} 
-                        height={consoleHeight} 
-                        selectedArtifact={selectedArtifact}
-                    />
-                </div>
-            )}
+      <div className="agent-ide-workspace">
+        <div className="agent-ide-sidebar">
+          <Explorer 
+              runtime={runtime} 
+              onLoadProject={loadProjectIntoEditor}
+              onDragStart={(e, type) => {
+                  e.dataTransfer.setData("nodeType", type);
+              }} 
+          />
         </div>
 
-        {/* RIGHT: INSPECTOR */}
-        <Inspector 
-            // @ts-ignore
-            selectedNode={selectedNode} 
-            selectedEdge={null} 
-            globalConfig={globalConfig}
-            runtime={runtime}
-            // @ts-ignore
-            onUpdateNode={(id, cfg) => handleNodeUpdate(id, 'logic', cfg.logic)}
-            onUpdateGlobal={(updates) => setGlobalConfig(prev => ({ ...prev, ...updates }))}
-            // [NEW] Pass context to inspector
-            upstreamContext={upstreamContext}
-        />
+        <div className="agent-ide-editor-pane">
+          <div className="agent-ide-canvas-shell">
+            <Canvas 
+                nodes={nodes} edges={edges}
+                onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
+                onNodeSelect={handleNodeSelect}
+                onDrop={handleCanvasDrop}
+            />
+
+            <div className="agent-ide-canvas-actions">
+              <button
+                type="button"
+                className="agent-ide-canvas-action"
+                onClick={() => setShowConsole((value) => !value)}
+              >
+                {showConsole ? "Hide drawer" : "Open drawer"}
+              </button>
+            </div>
+          </div>
+
+          {showConsole ? (
+            <div className="agent-ide-console-slot">
+              <Console 
+                  logs={execution.logs} 
+                  height={CONSOLE_HEIGHT} 
+                  selectedArtifact={selectedArtifact}
+                  onCollapse={() => setShowConsole(false)}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="agent-ide-console-collapsed"
+              onClick={() => setShowConsole(true)}
+            >
+              <span>Logs</span>
+              <span>Trace</span>
+              <span>Receipts</span>
+            </button>
+          )}
+        </div>
+
+        <div className="agent-ide-inspector">
+          <Inspector 
+              // @ts-ignore
+              selectedNode={selectedNode} 
+              selectedEdge={null} 
+              globalConfig={globalConfig}
+              runtime={runtime}
+              // @ts-ignore
+              onUpdateNode={(id, cfg) => handleNodeUpdate(id, 'logic', cfg.logic)}
+              onUpdateGlobal={(updates) => setGlobalConfig(prev => ({ ...prev, ...updates }))}
+              // [NEW] Pass context to inspector
+              upstreamContext={upstreamContext}
+          />
+        </div>
       </div>
     </div>
   );

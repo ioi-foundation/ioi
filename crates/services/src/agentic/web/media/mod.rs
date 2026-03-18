@@ -2970,6 +2970,7 @@ async fn analyze_visual_frame_samples(
             max_tokens: 700,
             required_finality_tier: Default::default(),
             sealed_finality_proof: None,
+            canonical_collapse_object: None,
         };
         let raw = timeout(
             Duration::from_secs(VISION_PROBE_TIMEOUT_SECS),
@@ -3131,6 +3132,7 @@ async fn probe_vision_runtime(inference: Arc<dyn InferenceRuntime>) -> Result<bo
         max_tokens: 60,
         required_finality_tier: Default::default(),
         sealed_finality_proof: None,
+        canonical_collapse_object: None,
     };
     let raw = timeout(
         Duration::from_secs(VISION_PROBE_TIMEOUT_SECS),

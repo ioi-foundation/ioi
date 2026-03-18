@@ -27,9 +27,11 @@ use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     account_id_from_key_material,
     aft_bulletin_commitment_key,
+    aft_canonical_collapse_object_key,
     build_reference_bulletin_commitment,
     canonical_transactions_root,
     compute_next_timestamp_ms,
+    derive_canonical_collapse_object_with_previous,
     read_validator_sets,
     timestamp_millis_to_legacy_seconds,
     to_root_hash,
@@ -846,6 +848,56 @@ where
                 }
             }
 
+            let canonical_collapse_object = if self.consensus_engine.consensus_type()
+                == ConsensusType::Aft
+                && externally_finalized_header
+            {
+                    let previous_canonical_collapse = if block.header.height <= 1 {
+                        None
+                    } else {
+                        let key = aft_canonical_collapse_object_key(block.header.height - 1);
+                        let Some(raw) = state.get(&key)? else {
+                            return Err(ChainError::Transaction(format!(
+                                "Externally finalized AFT block at height {} is missing the previous canonical collapse object at height {}",
+                                block.header.height,
+                                block.header.height - 1
+                            )));
+                        };
+                        Some(
+                            codec::from_bytes_canonical(&raw).map_err(ChainError::Transaction)?,
+                        )
+                    };
+                    let mut collapse_header = block.header.clone();
+                    collapse_header.timestamp =
+                        timestamp_millis_to_legacy_seconds(block_timestamp_ms);
+                    collapse_header.timestamp_ms = block_timestamp_ms;
+                    collapse_header.state_root = StateRoot(final_root_bytes.clone());
+                    collapse_header.transactions_root = prepared.transactions_root.clone();
+                    collapse_header.gas_used = authoritative_gas_used;
+                    Some(
+                        derive_canonical_collapse_object_with_previous(
+                            &collapse_header,
+                            &block.transactions,
+                            previous_canonical_collapse.as_ref(),
+                        )
+                        .map_err(|error| {
+                            ChainError::Transaction(format!(
+                                "Externally finalized AFT block is missing a decisive canonical collapse object: {error}"
+                            ))
+                        })?,
+                    )
+                } else {
+                    None
+                };
+
+            if let Some(canonical_collapse_object) = canonical_collapse_object.as_ref() {
+                state.insert(
+                    &aft_canonical_collapse_object_key(canonical_collapse_object.height),
+                    &codec::to_bytes_canonical(canonical_collapse_object)
+                        .map_err(ChainError::Transaction)?,
+                )?;
+            }
+
             block.header.timestamp = timestamp_millis_to_legacy_seconds(block_timestamp_ms);
             block.header.timestamp_ms = block_timestamp_ms;
             block.header.state_root = StateRoot(final_root_bytes.clone());
@@ -1004,6 +1056,8 @@ where
             oracle_counter: 0,
             oracle_trace_hash: [0u8; 32],
             parent_qc: QuorumCertificate::default(), // [FIX] Added field
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
             guardian_certificate: None,
             sealed_finality_proof: None,
             canonical_order_certificate: None,

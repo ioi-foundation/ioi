@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type {
-  ActiveContextSnapshot,
   AgentEvent,
   Artifact,
   ArtifactHubViewKey,
-  ContextAtlasFocusRequest,
   SourceSummary,
   ThoughtSummary,
 } from "../../../types";
-import { TauriRuntime } from "../../../services/TauriRuntime";
 import { icons } from "./Icons";
 import {
   ArtifactHubDetailView,
@@ -33,7 +30,6 @@ import {
 } from "../utils/turnWindows";
 
 interface ArtifactHubSidebarProps {
-  threadId?: string | null;
   initialView?: ArtifactHubViewKey;
   initialTurnId?: string | null;
   events: AgentEvent[];
@@ -41,7 +37,6 @@ interface ArtifactHubSidebarProps {
   sourceSummary: SourceSummary | null;
   thoughtSummary: ThoughtSummary | null;
   onOpenArtifact?: (artifactId: string) => void;
-  onOpenAtlasFocus?: (request: ContextAtlasFocusRequest) => void;
   onClose: () => void;
 }
 
@@ -65,7 +60,6 @@ const TURN_FILTER_VIEWS = new Set<ArtifactHubViewKey>([
   "revisions",
   "screenshots",
 ]);
-const runtime = new TauriRuntime();
 
 function clipText(value: string, maxChars: number = MAX_SUMMARY_CHARS): string {
   const compact = value.replace(/\s+/g, " ").trim();
@@ -135,34 +129,33 @@ function extractArtifactUrl(artifact: Artifact): string | null {
 function sectionLabel(key: ArtifactHubViewKey): string {
   switch (key) {
     case "active_context":
-      return "Active Context";
+      return "Relevant";
     case "thoughts":
-      return "Thoughts";
+      return "Worklog";
     case "substrate":
-      return "Substrate";
+      return "Runtime";
     case "sources":
-      return "Sources";
+      return "Evidence";
     case "kernel_logs":
-      return "Kernel Logs";
+      return "Activity";
     case "security_policy":
-      return "Security Policy";
+      return "Governance";
     case "files":
-      return "Files";
+      return "Outputs";
     case "revisions":
-      return "Revisions";
+      return "Bundles";
     case "screenshots":
-      return "Screenshots";
+      return "Visuals";
     default:
-      return "Artifacts";
+      return "Evidence";
   }
 }
 
 function defaultViewForSections(sections: HubSection[]): ArtifactHubViewKey {
-  return sections.find((section) => section.count > 0)?.key || "kernel_logs";
+  return sections.find((section) => section.count > 0)?.key || "sources";
 }
 
 export function ArtifactHubSidebar({
-  threadId,
   initialView,
   initialTurnId,
   events,
@@ -170,11 +163,8 @@ export function ArtifactHubSidebar({
   sourceSummary,
   thoughtSummary,
   onOpenArtifact,
-  onOpenAtlasFocus,
   onClose,
 }: ArtifactHubSidebarProps) {
-  const [activeContext, setActiveContext] = useState<ActiveContextSnapshot | null>(null);
-  const [activeContextLoading, setActiveContextLoading] = useState(false);
   const turnWindows = useMemo(() => buildEventTurnWindows(events), [events]);
   const latestTurn = turnWindows.length > 0 ? turnWindows[turnWindows.length - 1] : null;
   const [turnSelection, setTurnSelection] = useState<TurnSelection>("all");
@@ -201,38 +191,6 @@ export function ArtifactHubSidebar({
       return latestTurn?.id || "all";
     });
   }, [initialTurnId, latestTurn?.id, turnWindows]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!threadId) {
-      setActiveContext(null);
-      setActiveContextLoading(false);
-      return;
-    }
-
-    setActiveContextLoading(true);
-    runtime
-      .getActiveContext(threadId)
-      .then((snapshot) => {
-        if (!cancelled) {
-          setActiveContext(snapshot);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setActiveContext(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setActiveContextLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [threadId]);
 
   const selectedTurn = useMemo(() => {
     if (turnSelection === "all") return null;
@@ -412,29 +370,16 @@ export function ArtifactHubSidebar({
 
   const sections = useMemo<HubSection[]>(
     () => [
-      {
-        key: "active_context",
-        label: sectionLabel("active_context"),
-        count:
-          (activeContext?.skills.length || 0) +
-          (activeContext?.tools.length || 0) +
-          (activeContext?.evidence.length || 0) +
-          (activeContext?.constraints.length || 0),
-      },
       { key: "thoughts", label: sectionLabel("thoughts"), count: thoughtAgents.length },
-      { key: "substrate", label: sectionLabel("substrate"), count: substrateReceipts.length },
       { key: "sources", label: sectionLabel("sources"), count: visibleSourceCount },
-      { key: "kernel_logs", label: sectionLabel("kernel_logs"), count: kernelLogs.length },
-      { key: "security_policy", label: sectionLabel("security_policy"), count: securityRows.length },
       { key: "files", label: sectionLabel("files"), count: fileArtifacts.length },
-      { key: "revisions", label: sectionLabel("revisions"), count: revisionArtifacts.length },
+      { key: "security_policy", label: sectionLabel("security_policy"), count: securityRows.length },
+      { key: "kernel_logs", label: sectionLabel("kernel_logs"), count: kernelLogs.length },
       { key: "screenshots", label: sectionLabel("screenshots"), count: screenshotReceipts.length },
+      { key: "revisions", label: sectionLabel("revisions"), count: revisionArtifacts.length },
+      { key: "substrate", label: sectionLabel("substrate"), count: substrateReceipts.length },
     ],
     [
-      activeContext?.constraints.length,
-      activeContext?.evidence.length,
-      activeContext?.skills.length,
-      activeContext?.tools.length,
       fileArtifacts.length,
       kernelLogs.length,
       revisionArtifacts.length,
@@ -466,8 +411,6 @@ export function ArtifactHubSidebar({
   const detailView = (
     <ArtifactHubDetailView
       activeView={activeView}
-      activeContext={activeContext}
-      activeContextLoading={activeContextLoading}
       searches={searches}
       browses={browses}
       thoughtAgents={thoughtAgents}
@@ -479,7 +422,6 @@ export function ArtifactHubSidebar({
       screenshotReceipts={screenshotReceipts}
       substrateReceipts={substrateReceipts}
       onOpenArtifact={onOpenArtifact}
-      onOpenAtlasFocus={onOpenAtlasFocus}
       openExternalUrl={openExternalUrl}
       extractArtifactUrl={extractArtifactUrl}
       formatTimestamp={formatTimestamp}
@@ -495,18 +437,18 @@ export function ArtifactHubSidebar({
       <div className="artifact-header">
         <div className="artifact-meta">
           <div className="artifact-icon">{icons.sidebar}</div>
-          <span className="artifact-filename">Artifacts</span>
-          <span className="artifact-tag">HUB</span>
+          <span className="artifact-filename artifact-filename--drawer">Evidence drawer</span>
+          <span className="artifact-tag">{sectionLabel(activeView)}</span>
         </div>
         <div className="artifact-actions">
-          <button className="artifact-action-btn close" onClick={onClose} title="Close panel">
+          <button className="artifact-action-btn close" onClick={onClose} title="Close drawer">
             {icons.close}
           </button>
         </div>
       </div>
 
       <div className="artifact-content artifact-hub-layout">
-        <aside className="artifact-hub-nav" aria-label="Artifact sections">
+        <aside className="artifact-hub-nav" aria-label="Evidence sections">
           {sections.map((section) => (
             <button
               key={section.key}

@@ -289,10 +289,10 @@ export function AssistantWorkbenchView({
         <div className="assistant-workbench-card">
           <span className="notifications-card-eyebrow">Assistant Workbench</span>
           <h2>No active handoff</h2>
-          <p>Open a Gmail or Calendar notification target to continue from a dedicated assistant surface.</p>
+          <p>Open a Gmail or Calendar inbox target to continue from a dedicated assistant surface.</p>
           <div className="assistant-workbench-actions">
             <button type="button" className="notifications-primary-button" onClick={onOpenNotifications}>
-              Open notifications
+              Open inbox
             </button>
           </div>
         </div>
@@ -323,7 +323,7 @@ export function AssistantWorkbenchView({
             className="notifications-quiet-button"
             onClick={onOpenNotifications}
           >
-            Notifications
+            Inbox
           </button>
         </div>
       </header>

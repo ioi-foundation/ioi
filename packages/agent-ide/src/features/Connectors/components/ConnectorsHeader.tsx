@@ -18,10 +18,10 @@ export function ConnectorsHeader({
   return (
     <header className="connectors-header">
       <div className="connectors-title-wrap">
-        <h1>Integrations</h1>
+        <h1>Connections</h1>
         <p>
-          Connector-first surface for external apps. Secrets stay in Vault; agents receive bounded
-          execution rights.
+          Reachable external services for the control plane. Secrets stay in Vault; workers receive
+          bounded execution rights.
         </p>
       </div>
       <div className="connectors-filters">

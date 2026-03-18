@@ -1,14 +1,14 @@
 # Equal-Authority Canonical Ordering
 
-This document defines the final-mile design target for pushing AFT beyond
-`Asymptote` sealed effects and toward an honest `99%` equal-authority ordering
-story without sacrificing throughput.
+This document defines the architectural meaning of AFT's `99%`
+equal-authority ordering consensus claim.
 
 The normative protocol details now live in
 [`canonical_ordering.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/canonical_ordering.md).
-This note remains the architectural motivation and escape-route framing.
+This note explains why that claim is honest, what object is being agreed on,
+and how the live repository surface separates revelation from dense voting.
 
-The target is not "make ordinary BFT thresholds disappear." The target is:
+The claim is not "make ordinary BFT thresholds disappear." The claim is:
 
 - keep every validator equally eligible to reveal the canonical order
 - stop using dense positive voting as the source of ordering truth
@@ -17,7 +17,7 @@ The target is not "make ordinary BFT thresholds disappear." The target is:
 
 ## Core Claim
 
-The escape route is to move from:
+AFT moves from:
 
 - "which order did the validator quorum choose?"
 
@@ -179,16 +179,17 @@ This design preserves equal-authority in the sense that:
 Authority no longer comes from privileged committee membership or stake weight.
 Authority comes from revealing a valid canonical proof first.
 
-## 99% Story
+## 99% Equal-Authority Ordering Consensus
 
-The intended `99%` story is:
+AFT's `99%` equal-authority ordering consensus claim is:
 
 - if `99%` of validators are arbitrary but at least one honest validator can
   reconstruct the bulletin-board view, derive the canonical order, and publish
   the valid order certificate, then all honest verifiers adopt the same order
-  because the order certificate is objectively checkable
+  and reject conflicting candidates because the order certificate and omission
+  counterevidence are objectively checkable
 
-That is a different object than classical dense-vote BFT. It is:
+That consensus object is not a dense yes-vote tally. It is:
 
 - equal-authority canonical-order revelation
 - proof-carrying total-order certification
@@ -199,7 +200,7 @@ The relevant safety unit is no longer "how many validators voted yes?" It is
 
 ## Dependency Assumptions
 
-This route depends on the following assumptions being explicit and enforced:
+This claim depends on the following assumptions being explicit and enforced:
 
 1. `B_h` is objectively committed and admits inclusion proofs.
 2. Slot cutoff `τ_h` is objective and not locally malleable.
@@ -209,9 +210,14 @@ This route depends on the following assumptions being explicit and enforced:
 6. Data availability is strong enough that at least one honest revealer can
    reconstruct the eligible set.
 7. Omission proofs are cheap enough to verify and dominate invalid certificates.
+8. `OmissionProof` names the accountable offender for the dominated positive
+   object.
+9. Valid omission evidence is penalty-bearing, replay-deduplicated, and stages
+   next-epoch eviction through `guardian_registry`.
 
 Without these assumptions, the protocol falls back to high-confidence or
-accountable survivability rather than deterministic `99%`-class ordering.
+accountable survivability rather than deterministic `99%` equal-authority
+ordering consensus.
 
 ## Relation To Existing AFT Modes
 
@@ -219,40 +225,44 @@ accountable survivability rather than deterministic `99%`-class ordering.
   today.
 - `Asymptote` already provides deterministic sealed effects through
   observer- or witness-backed collapse.
-- `Equal-Authority Canonical Ordering` is the next layer: it moves the same
-  proof-carrying / collapse idea into ordering itself.
+- `Equal-Authority Canonical Ordering` is the layer that gives AFT its `99%`
+  equal-authority ordering consensus claim by moving the same proof-carrying /
+  collapse idea into ordering itself.
 
 In other words:
 
 - `Asymptote` proves effects from committed order
 - this design proves the committed order itself
 
-## Minimal New Protocol Objects
+## Live Protocol Objects
 
-The repo should grow the following objects if this route is pursued:
+The repository now carries the core protocol objects needed for this ordering
+claim:
 
 - `BulletinCommitment`
-- `SlotCutoffCertificate`
-- `OrderIntentSetCommitment`
 - `CanonicalOrderCertificate`
 - `CanonicalOrderProof`
 - `OmissionProof`
-- `OrderNullifier` or equivalent replay key for externalized order-derived effects
+- `CanonicalOrderPublicInputs`
+- `CommittedSurfaceCanonicalOrderProof`
 
-## Recommended Execution Strategy
+`OmissionProof` is now also an accountable object:
 
-1. Keep current AFT hot-path ordering intact.
-2. Add a public bulletin-board commitment surface for batches/transactions.
-3. Define one deterministic `CanonicalOrder` function for a slot.
-4. Add a reference order-proof system, even if initially a hash-binding or
-   accumulator-based scaffold rather than a full zk backend.
-5. Add omission proofs and make them dominate candidate order certificates.
-6. Only after that, move from "proof-carrying effects" to "proof-carrying
-   ordering."
+- it carries `offender_account_id`
+- `guardian_registry` persists it under `report_aft_omission@v1`
+- the same evidence is replay-deduplicated and automatically drives
+  best-effort quarantine plus next-set eviction
+
+## Live Repository Surface
+
+- `CommittedSurfaceV1` is the live proof family for canonical-order
+  certificates.
+- bulletin commitments and canonical-order certificates are persisted into
+  chain state during normal block production.
+- validators verify canonical-order certificates against the published bulletin
+  commitment and reject certificates dominated by omission proofs.
 
 ## Non-Claim
-
-This document is the escape route, not a claim that the repo already proves it.
 
 It should not be summarized as:
 
@@ -260,7 +270,12 @@ It should not be summarized as:
 
 It should be summarized as:
 
-- a design for equal-authority, proof-carrying canonical ordering where the
-  first valid revealed order certificate wins, omission is objectively
-  slashable, and throughput is preserved by separating dissemination from
-  verification
+- `99%` equal-authority ordering consensus via proof-carrying canonical
+  ordering, where the first valid revealed order certificate wins, omission is
+  objectively provable, and throughput is preserved by separating
+  dissemination from verification
+
+Under the accountable-adversary variant, the same ordering surface also carries
+`99%` accountable Byzantine agreement for ordering safety: objective omission
+evidence is no longer merely informative, but penalty-bearing and
+epoch-removing.

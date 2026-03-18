@@ -530,6 +530,7 @@ where
                             beacon_vkey_bytes: beacon_bytes,
                             state_inclusion_vkey_hash: zk_cfg.state_inclusion_vkey.clone(),
                             state_inclusion_vkey_bytes: state_bytes,
+                            ..SuccinctDriverConfig::default()
                         };
                         let eth_verifier =
                             EthereumZkLightClient::new("eth-mainnet".to_string(), driver_config);

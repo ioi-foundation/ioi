@@ -6,13 +6,15 @@ import type {
   AssistantNotificationRecord,
   CalendarEventDetail,
   GmailThreadDetail,
+  InterventionRecord,
   NotificationTarget,
   WalletConnectorAuthGetResult,
 } from "../../../types";
 
 interface NotificationDetailPanelProps {
-  item: AssistantNotificationRecord | null;
+  item: AssistantNotificationRecord | InterventionRecord | null;
   onClose: () => void;
+  onOpenAutopilot: () => void;
   onOpenReplyComposer: (session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>) => void;
   onOpenMeetingPrep: (session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>) => void;
   onOpenIntegrations: (connectorId?: string | null) => void;
@@ -35,6 +37,10 @@ function booleanValue(value: unknown): boolean | undefined {
 
 function arrayValue(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function humanize(value: string): string {
+  return value.replace(/_/g, " ");
 }
 
 function timestampCopy(raw?: string): string {
@@ -119,9 +125,16 @@ function parseCalendarEvent(result: ConnectorActionResult): CalendarEventDetail 
   };
 }
 
+function isInterventionRecord(
+  item: AssistantNotificationRecord | InterventionRecord,
+): item is InterventionRecord {
+  return "interventionType" in item;
+}
+
 export function NotificationDetailPanel({
   item,
   onClose,
+  onOpenAutopilot,
   onOpenReplyComposer,
   onOpenMeetingPrep,
   onOpenIntegrations,
@@ -238,24 +251,113 @@ export function NotificationDetailPanel({
       <aside className="notifications-detail-pane notifications-detail-pane-empty">
         <div>
           <span className="notifications-card-eyebrow">Detail</span>
-          <h2>Select a notification</h2>
-          <p>Open a targeted prompt to inspect the exact Gmail thread, calendar event, or connector record.</p>
+          <h2>Select an inbox item</h2>
+          <p>Select an inbox item to inspect context, risk, and the underlying record without leaving the queue.</p>
         </div>
       </aside>
     );
   }
 
+  const detailType = isInterventionRecord(item)
+    ? humanize(item.interventionType)
+    : humanize(item.notificationClass);
+
   return (
     <aside className="notifications-detail-pane">
       <div className="notifications-detail-head">
         <div>
-          <span className="notifications-card-eyebrow">Target Detail</span>
+          <span className="notifications-card-eyebrow">{detailType}</span>
           <h2>{item.title}</h2>
           <p>{item.summary}</p>
         </div>
         <button type="button" className="notifications-quiet-button" onClick={onClose}>
           Close
         </button>
+      </div>
+
+      <div className="notifications-detail-meta">
+        <span>{humanize(item.status)}</span>
+        <span>{humanize(item.severity)}</span>
+        <span>{item.source.serviceName}</span>
+        {item.dueAtMs ? (
+          <span>Due {timestampCopy(new Date(item.dueAtMs).toISOString())}</span>
+        ) : null}
+        <span>Updated {timestampCopy(new Date(item.updatedAtMs).toISOString())}</span>
+      </div>
+
+      <div className="notifications-detail-section">
+        <article className="notifications-detail-card">
+          <div className="notifications-detail-card-head">
+            <strong>Why this surfaced</strong>
+          </div>
+          {item.reason ? <p>{item.reason}</p> : <p>{item.summary}</p>}
+          {item.recommendedAction ? <p>Next: {item.recommendedAction}</p> : null}
+          {item.consequenceIfIgnored ? <p>If ignored: {item.consequenceIfIgnored}</p> : null}
+        </article>
+
+        <article className="notifications-detail-card">
+          <div className="notifications-detail-card-head">
+            <strong>Context</strong>
+          </div>
+          <div className="notifications-detail-tags">
+            {item.workflowId ? <span>Workflow {item.workflowId}</span> : null}
+            {item.runId ? <span>Run {item.runId}</span> : null}
+            {item.sessionId ? <span>Session {item.sessionId.slice(0, 8)}</span> : null}
+            {item.threadId ? <span>Thread {item.threadId.slice(0, 8)}</span> : null}
+            {item.artifactRefs.length > 0 ? <span>{item.artifactRefs.length} artifacts</span> : null}
+          </div>
+          {isInterventionRecord(item) ? (
+            <>
+              <div className="notifications-detail-tags">
+                {item.blocking ? <span>Blocking</span> : null}
+                {item.approvalScope ? <span>{humanize(item.approvalScope)}</span> : null}
+                {item.sensitiveActionType ? <span>{humanize(item.sensitiveActionType)}</span> : null}
+                {item.blockedStage ? <span>{humanize(item.blockedStage)}</span> : null}
+                {item.retryAvailable ? <span>Retry available</span> : null}
+              </div>
+              {item.recoveryHint ? <p>{item.recoveryHint}</p> : null}
+            </>
+          ) : (
+            <>
+              <div className="notifications-detail-tags">
+                <span>Priority {(item.priorityScore * 100).toFixed(0)}%</span>
+                <span>Confidence {(item.confidenceScore * 100).toFixed(0)}%</span>
+                {item.rankingReason.slice(0, 3).map((reason) => (
+                  <span key={reason}>{humanize(reason)}</span>
+                ))}
+              </div>
+              <p>Observation tier: {humanize(item.privacy.observationTier)}</p>
+            </>
+          )}
+        </article>
+
+        <div className="notifications-detail-actions">
+          <button
+            type="button"
+            className="notifications-primary-button"
+            onClick={onOpenAutopilot}
+          >
+            Open chat
+          </button>
+          {item.target?.connectorId ? (
+            <button
+              type="button"
+              className="notifications-secondary-button"
+              onClick={() => onOpenIntegrations(item.target?.connectorId)}
+            >
+              Open Connections
+            </button>
+          ) : null}
+          {item.target?.connectorId ? (
+            <button
+              type="button"
+              className="notifications-quiet-button"
+              onClick={() => onOpenShield(item.target?.connectorId)}
+            >
+              Open Control
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {loading ? <div className="notifications-empty-card">Loading target detail…</div> : null}
@@ -310,7 +412,7 @@ export function NotificationDetailPanel({
               className="notifications-secondary-button"
               onClick={() => onOpenIntegrations(item.target?.connectorId)}
             >
-              Open Integrations
+              Open Connections
             </button>
           </div>
         </div>
@@ -402,14 +504,14 @@ export function NotificationDetailPanel({
               className="notifications-primary-button"
               onClick={() => onOpenIntegrations(item.target?.connectorId)}
             >
-              Open Integrations
+              Open Connections
             </button>
             <button
               type="button"
               className="notifications-secondary-button"
               onClick={() => onOpenShield(item.target?.connectorId)}
             >
-              Open Shield
+              Open Control
             </button>
           </div>
         </div>
@@ -489,7 +591,7 @@ export function NotificationDetailPanel({
               className="notifications-quiet-button"
               onClick={() => onOpenIntegrations(item.target?.connectorId)}
             >
-              Open Integrations
+              Open Connections
             </button>
           </div>
         </div>

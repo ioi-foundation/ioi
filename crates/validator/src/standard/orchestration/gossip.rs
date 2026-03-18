@@ -1,6 +1,7 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 
 use super::context::MainLoopContext;
+use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
 use super::finalize::schedule_committed_block_vote_replays;
 use super::sync as sync_handlers;
 use crate::standard::orchestration::mempool::Mempool;
@@ -521,8 +522,35 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 
             {
                 let mut engine = engine_ref.lock().await;
-                engine.observe_committed_block(&processed_block.header);
-                engine.reset(processed_block.header.height);
+                let committed_collapse = match require_persisted_aft_canonical_collapse_if_needed(
+                    context.config.consensus_type,
+                    context.view_resolver.workload_client().as_ref(),
+                    &processed_block,
+                )
+                .await
+                {
+                    Ok(collapse) => collapse,
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "gossip",
+                            height = processed_block.header.height,
+                            error = %error,
+                            "Skipping committed-block ingestion because the canonical collapse object is missing or mismatched."
+                        );
+                        None
+                    }
+                };
+                let accepted =
+                    engine.observe_committed_block(&processed_block.header, committed_collapse.as_ref());
+                if !accepted {
+                    tracing::warn!(
+                        target: "gossip",
+                        height = processed_block.header.height,
+                        "Consensus engine ignored the processed committed-block hint because it was not collapse-backed."
+                    );
+                } else {
+                    engine.reset(processed_block.header.height);
+                }
             }
 
             {

@@ -324,6 +324,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 expected_timestamp_ms,
                 view: 0,
                 parent_qc: QuorumCertificate::default(),
+                previous_canonical_collapse_commitment_hash: [0u8; 32],
+                canonical_collapse_extension_certificate: None,
                 timeout_certificate: None,
             }
         } else {

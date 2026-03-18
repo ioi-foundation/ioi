@@ -1,27 +1,67 @@
 # Asymptote
 
-`Asymptote` is the scalable two-tier finality mode in the Aft Fault
-Tolerance family.
+`Asymptote` is the scalable two-tier finality mode in the Aft Fault Tolerance
+family.
+
+It keeps block transport and tentative `BaseFinal` progression on the
+`GuardianMajority` hot path, then upgrades selected slots to a stronger
+irreversible-effect settlement state through a second deterministic sealing
+plane.
 
 ## Core Idea
 
-`GuardianMajority` remains the hot path for ordering and base block commitment.
-`Asymptote` adds a second sealing plane that upgrades a slot from `BaseFinal` to
-`SealedFinal` without changing the underlying block identity.
+`Asymptote` separates:
+
+- chain progression
+- sealing evidence collection
+- irreversible-effect release
 
 The model is:
 
-- `BaseFinal`: validator majority QC plus guardian committee certificate.
-- `SealedFinal`: `BaseFinal` plus either:
-  - stratum-scoped witness certificates, registry state, and transparency-log proofs, or
-  - equal-authority observer certificates sampled from the validator set plus veto-collapse
-    semantics and transparency-log proofs.
-- irreversible effects can additionally carry a proof-carrying `SealObject`
-  that binds the committed intent, guardian slot metadata, policy hash, and a
-  replay-safe nullifier into a compact verifier-friendly envelope.
+- `BaseFinal`: validator majority QC plus guardian committee certificate
+- `SealedFinal`: `BaseFinal` plus either
+  - witness-backed certification across the required strata, or
+  - deterministic equal-authority observer close with an empty canonical
+    challenge surface
+- `Abort`: the sealing plane found objective evidence that blocks sealed
+  release for the slot
 
-This keeps chain progression fast while reserving stronger settlement guarantees
-for irreversible effects.
+Irreversible effects can additionally carry a proof-carrying `SealObject` that
+binds the committed intent, guardian slot metadata, policy hash, replay
+nullifier, and observer/witness sealing surface into a compact verifier-friendly
+object.
+
+This keeps chain progression fast while making irreversible release fail-closed.
+
+## Public State Continuity Instance
+
+`Asymptote` is the sealing-specific instance of AFT's broader `public state
+continuity with extractable obstructions` target.
+
+For the closed sealing boundary
+
+```text
+∂_h^seal = (
+  root_{h-1},
+  base_certificate_h,
+  transcript_commitment_h,
+  challenge_commitment_h,
+  policy_h
+)
+```
+
+the relevant theorem is not merely that one close proof may verify. It is that
+the slot admits at most one canonical collapse object:
+
+```text
+Collapse(∂_h^seal) ∈ { Close(X_h), Abort(Ω_h) }
+```
+
+where `Ω_h` is the canonical observer challenge surface.
+
+In `Asymptote`, the positive witness is the canonical close proof over the
+transcript and challenge commitments, and the negative witness is the objective
+observer challenge surface that forces `Abort`.
 
 ## Slot States
 
@@ -37,34 +77,26 @@ All honest nodes must derive the same state from the same admissible evidence.
 
 ## Evidence Collapse
 
-The slot-local collapse function is implemented as deterministic verification of
-the canonical evidence set:
+The slot-local collapse function is deterministic verification of the canonical
+evidence set:
 
 - guardian quorum certificate
 - validator QC
-- witness certificates or equal-authority observer certificates
+- witness certificates, or canonical observer transcripts/challenges
 - registry policy and epoch seed
 - transparency-log checkpoints and append-only proofs
-- optional divergence or veto signals
+- optional divergence signals
 
 The runtime accepts `BaseFinal` blocks immediately for throughput. It then
 collects sealing evidence asynchronously and republishes the same block with a
 `sealed_finality_proof` once either:
 
-- the required certification strata have each contributed a valid witness certificate, or
-- every sampled equal-authority observer assignment has contributed a valid `ok` certificate and
-  no valid veto proof exists.
+- the required witness strata have each contributed a valid assigned witness
+  certificate, or
+- the canonical observer surface resolves to a valid canonical close or a valid
+  canonical abort
 
-For the equal-authority observer path, the collapse rule is intentionally
-veto-dominant:
-
-- `SealedFinal` if `BaseFinal` holds, the deterministic observation round is complete,
-  every sampled observer assignment returned a valid `ok` certificate, and no valid
-  veto proof exists.
-- `Abort` if any valid veto proof exists for the slot.
-- `Pending` otherwise.
-
-This keeps slot effects deterministic: ambiguity collapses to `Abort`, not to
+This keeps settlement deterministic: ambiguity collapses to `Abort`, not to
 heuristic retry or partial settlement.
 
 ## Witness Assignment
@@ -80,10 +112,14 @@ stratum from the active witness set by combining:
 - witness manifest hash
 
 Assignments are unique and ordered. `Asymptote` requires one committee per
-configured certification stratum on the sealing path.
+configured certification stratum on the witness-backed sealing path.
 
-Equal-authority observer assignments are selected deterministically from the
-active validator set by combining:
+## Deterministic Observer Sealing
+
+The normative equal-authority observer lane is `CanonicalChallengeV1`.
+
+Observer assignments are selected deterministically from the active validator
+set by combining:
 
 - epoch seed
 - producer account id
@@ -91,57 +127,115 @@ active validator set by combining:
 - observer round
 - observer account id
 
-The producer is excluded from its own observer pool. Observer assignments are
-globally unique within the slot.
+The producer is excluded from its own observer pool. The runtime may further
+filter assignments through the configured correlation budget.
 
-## Equal-Authority Veto-Collapse
+Each assigned observer derives its local result from the canonical
+`AsymptoteObserverObservationRequest` and publishes exactly one of:
 
-The equal-authority path uses sampled validators as ephemeral observers. Each
-sampled observer emits one guardian-backed verdict:
+- a guardian-backed `AsymptoteObserverTranscript`
+- an objective `AsymptoteObserverChallenge`
 
-- `ok`
-- `veto`
+The public observer surface is carried by:
 
-A `veto` is only admissible when it includes objective, locally verifiable
-evidence such as conflicting guardian certificates or invalid log / checkpoint
-bindings.
+- `AsymptoteObserverTranscript`
+- `AsymptoteObserverTranscriptCommitment`
+- `AsymptoteObserverChallenge`
+- `AsymptoteObserverChallengeCommitment`
+- `AsymptoteObserverCanonicalClose`
+- `AsymptoteObserverCanonicalAbort`
 
-The implementation and proof surface treat the observer path as a deterministic
-close-and-veto protocol:
+The current admissible challenge basis is:
 
-- every sampled assignment must be accounted for in the `observer_close_certificate`
-- an observer verdict is slot-scoped and assignment-scoped
-- a valid veto proof dominates any candidate sealed effect for that slot
-- a sealed effect is admissible only if the close certificate is complete and
-  the admitted observer verdict set contains no veto
+- `MissingTranscript`
+- `TranscriptMismatch`
+- `VetoTranscriptPresent`
+- `ConflictingTranscript`
+- `InvalidCanonicalClose`
 
-This keeps effects deterministic even when non-equivocation becomes messy:
-ambiguity collapses to `Abort`, not to heuristic retry.
+Each admissible observer challenge is public-evidence-only:
 
-## Equal-Authority Theorem Shape
+- assignment-scoped challenges carry the offending assignment
+- request-mismatch challenges carry the offending observation request
+- transcript-based challenges carry the offending guardian-backed transcript
+- `InvalidCanonicalClose` carries the offending canonical close object
+- `InvalidCanonicalClose`
 
-The machine-checked AFT formal model proves the deterministic part of the
-equal-authority observer rule:
+The observer acceptance rule is:
+
+```text
+AcceptObserverSealedFinal(slot) iff
+  BaseFinal(slot)
+  and VerifyTranscriptCommitment(slot)
+  and VerifyChallengeCommitment(slot)
+  and VerifyCanonicalClose(slot)
+  and ChallengeSurface(slot) = ∅
+  and TranscriptSurface(slot) covers every deterministic assignment
+```
+
+The observer abort rule is:
+
+```text
+AcceptObserverAbort(slot) iff
+  BaseFinal(slot)
+  and VerifyTranscriptCommitment(slot)
+  and VerifyChallengeCommitment(slot)
+  and VerifyCanonicalAbort(slot)
+  and ChallengeSurface(slot) ≠ ∅
+```
+
+This is challenge-dominant by construction:
+
+- `SealedFinal` is impossible when the canonical challenge surface is non-empty
+- `CanonicalClose` and `CanonicalAbort` may not coexist
+- every honest validator that observes the same transcript and challenge
+  surface derives the same negative object locally
+
+The implementation correspondence for this lane is:
+
+- shared types and hashes in
+  [`guardianized.rs`](/home/heathledger/Documents/ioi/repos/ioi/crates/types/src/app/guardianized.rs)
+- observer derivation and challenge origination in
+  [`guardian.rs`](/home/heathledger/Documents/ioi/repos/ioi/crates/validator/src/common/guardian.rs)
+- canonical publication in
+  [`finalize.rs`](/home/heathledger/Documents/ioi/repos/ioi/crates/validator/src/standard/orchestration/finalize.rs)
+- registry persistence in
+  [`mod.rs`](/home/heathledger/Documents/ioi/repos/ioi/crates/services/src/guardian_registry/mod.rs)
+- consensus verification in
+  [`mod.rs`](/home/heathledger/Documents/ioi/repos/ioi/crates/consensus/src/aft/guardian_majority/mod.rs)
+
+The registry path is now accountable rather than archival-only:
+
+- deterministic observer challenges are replay-deduplicated as canonical
+  evidence
+- `MissingTranscript` and `ConflictingTranscript` penalize the assigned
+  observer
+- `TranscriptMismatch`, `VetoTranscriptPresent`, and
+  `InvalidCanonicalClose` penalize the producer / positive close path
+- those membership updates are policy-controlled aftermath only:
+  best-effort quarantine and next-epoch eviction may be enabled, delayed, or
+  disabled without changing the slot-local close-or-abort result
+
+## Observer Theorem
+
+The machine-checked `Asymptote` formal model now proves the deterministic
+observer kernel:
 
 - base certificates are unique per slot
-- sealed certificates are unique per slot
-- a complete observer close certificate cannot coexist with an admissible veto
-  for the same slot
-- therefore no irreversible effect is released from a slot that contains a
-  valid observer veto
+- canonical observer close objects are unique per slot
+- canonical observer close and canonical observer abort cannot coexist
+- a challenge-dominated slot cannot release a sealed irreversible effect
 
-The `99%`-style story is an analytical bound layered on top of that
-deterministic kernel. Let:
+This is the observer-lane analogue of canonical ordering:
 
-- `h` be the honest fraction of equal-authority validators
-- `A_s^j` be the sampled observer committee for slot `s` and round `j`
-- `k_j = |A_s^j|`
-- `p_beacon_bias` be the probability the slot-sampling beacon is biased enough
-  to miss the intended observer distribution
-- `p_veto_suppression` be the probability a valid veto proof is fully suppressed
-  once an honest observer has it
+- public evidence
+- canonical commitments
+- negative-authority dominance
+- deterministic local close-or-abort derivation from the same public surface
 
-Then the unsafe sealed-finality probability for slot `s` is bounded by:
+## Legacy Sampled Comparison
+
+The old sampled affirmative observer lane had the analytical tail bound:
 
 ```text
 P_unsafe(s) <= p_beacon_bias * p_veto_suppression * Π_j (1 - h)^(k_j)
@@ -153,15 +247,22 @@ For equal committee size `k` repeated across `r` independent rounds:
 P_unsafe(s) <= p_beacon_bias * p_veto_suppression * (1 - h)^(k r)
 ```
 
-The formal TLA+/TLAPS model proves the deterministic collapse and
-abort-dominance rules. The probability bound above is the external sampling
-argument that turns that deterministic kernel into a configurable `99%+`
-compromise-resistance statement for sealed effects.
+That formula remains historically accurate for the superseded sampled
+affirmative lane. It is not the normative sealed-release theorem for
+`CanonicalChallengeV1`.
+
+Under `CanonicalChallengeV1`, sampling determines duties, not safety. Safety
+comes from the canonical public transcript surface, the canonical public
+challenge surface, and the close-or-abort split implied by those surfaces.
+
+Under the accountable-adversary variant, the same challenge surface also
+supplies penalty-bearing evidence, so the observer theorem is no longer merely
+about rejecting unsafe release; it is also about making unsafe release attempts
+accountable and epoch-removing.
 
 ## Sealed Effects
 
-The secure-egress control plane can now require a `FinalityTier` for each
-effect:
+The secure-egress control plane can require a `FinalityTier` for each effect:
 
 - `BaseFinal`: fast path
 - `SealedFinal`: requires a valid `SealedFinalityProof`
@@ -172,16 +273,29 @@ inside the canonical receipt. The current reference implementation uses a
 
 - `EffectIntent` commits the external effect before execution
 - `EffectPublicInputs` bind the committed guardian counter, trace, measurement,
-  and replay nullifier
+  replay nullifier, and `canonical_collapse_hash`
 - `EffectProofEnvelope` is a compact verifier-specific proof blob
 - `SealObject` packages verifier metadata, canonical intent, public inputs, and
   proof bytes
 
-This keeps the ordering lane sparse while allowing every validator or gateway
-to verify the same small effect seal locally.
+Under the live runtime, a `SealedFinal` secure-egress request now carries both
+the `SealedFinalityProof` and the slot's `CanonicalCollapseObject`. The
+guardian-side effect builder and downstream receipt verifier both recompute the
+same `canonical_collapse_hash` from that collapse object and the proof-carried
+observer surface, so a challenge-dominated or otherwise mismatched slot cannot
+authorize irreversible release.
 
-High-risk effects are expected to require `SealedFinal` under the configured
-epoch policy.
+The release rule is deterministic over the sealing surface. In particular, the
+observer path binds:
+
+- the canonical transcript root
+- the canonical challenge root
+- the canonical close-or-abort outcome
+- the protocol-wide canonical collapse object hash
+
+The runtime helper `sealed_finality_proof_observer_binding` is consumed by the
+guardian-side effect builder and by effect verifiers so that a
+challenge-dominated slot cannot authorize irreversible release.
 
 ## Policy
 
@@ -191,6 +305,8 @@ The on-chain `AsymptotePolicy` controls:
 - escalation witness strata
 - equal-authority observer rounds
 - equal-authority observer committee size
+- observer sealing mode
+- observer challenge window
 - max reassignment depth
 - checkpoint freshness
 - finality tier for high-risk effects
@@ -199,14 +315,14 @@ The on-chain `AsymptotePolicy` controls:
 
 `Asymptote` should be described as:
 
-- deterministic evidence collapse over layered cryptographic witnesses
-- high-confidence resistance to undetected conflicting finalization
+- a deterministic guardian-backed base-finality protocol
+- a deterministic witness- or observer-backed sealed-release protocol under
+  explicit public-evidence assumptions
+- a fail-closed settlement discipline for irreversible effects
 
 It should not be described as a classical unconditional “99% Byzantine fault
 tolerance” theorem.
 
-It is instead:
-
-- a deterministic equal-authority observation-and-collapse protocol for sealed effects, plus
-- an explicit probabilistic bound that depends on honest observer sampling,
-  veto availability, and veto deliverability.
+The old sampling formula remains only as historical analytical context for the
+superseded affirmative sampled-observer lane. The normative observer claim is
+the deterministic `CanonicalChallengeV1` close-or-abort theorem.

@@ -34,6 +34,8 @@ fn load_beacon_driver_config() -> SuccinctDriverConfig {
         // For this test we do not exercise state inclusion; fill with dummies
         state_inclusion_vkey_hash: "00".repeat(32),
         state_inclusion_vkey_bytes: Vec::new(),
+        canonical_collapse_continuity_vkey_hash: "00".repeat(32),
+        canonical_collapse_continuity_vkey_bytes: Vec::new(),
     }
 }
 
@@ -50,6 +52,8 @@ fn load_state_driver_config() -> SuccinctDriverConfig {
         beacon_vkey_bytes: Vec::new(),
         state_inclusion_vkey_hash: vk_hash,
         state_inclusion_vkey_bytes: vk_bytes,
+        canonical_collapse_continuity_vkey_hash: "00".repeat(32),
+        canonical_collapse_continuity_vkey_bytes: Vec::new(),
     }
 }
 

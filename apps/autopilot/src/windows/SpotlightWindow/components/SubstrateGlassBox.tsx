@@ -260,7 +260,7 @@ export function SubstrateGlassBox({
   return (
     <div className="artifact-hub-substrate-card">
       <div className="artifact-hub-substrate-head">
-        <span className="artifact-hub-substrate-title">Substrate Glass Box (3D)</span>
+        <span className="artifact-hub-substrate-title">Runtime graph</span>
         <span className="artifact-hub-substrate-badge">
           {graphData.nodes.length} nodes · {graphData.links.length} edges
         </span>

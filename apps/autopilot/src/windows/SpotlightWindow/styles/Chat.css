@@ -81,11 +81,12 @@
 .spot-message.user {
   justify-self: end;
   align-self: flex-end;
-  background: linear-gradient(135deg, var(--spot-accent) 0%, #4A7AFF 100%);
-  color: white;
+  background: var(--spot-bg-elevated);
+  color: var(--spot-text-primary);
+  border: 1px solid var(--spot-border-subtle);
   padding: 10px 14px;
-  border-radius: 16px 16px 4px 16px;
-  box-shadow: 0 2px 12px var(--spot-accent-glow);
+  border-radius: 10px;
+  box-shadow: none;
 }
 
 /* Agent Message - Minimal */

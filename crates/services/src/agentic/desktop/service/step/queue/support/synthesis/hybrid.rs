@@ -486,6 +486,7 @@ Payload:\n{}",
         max_tokens: WEB_PIPELINE_HYBRID_MAX_TOKENS,
         required_finality_tier: Default::default(),
         sealed_finality_proof: None,
+        canonical_collapse_object: None,
     };
     let airlocked_prompt = service
         .prepare_cloud_inference_input(

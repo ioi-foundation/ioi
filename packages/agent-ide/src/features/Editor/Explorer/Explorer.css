@@ -1,6 +1,7 @@
 /* packages/agent-ide/src/features/Editor/Explorer/Explorer.css */
 
 .explorer-panel {
+  width: 100%;
   background: var(--surface-1);
   border-right: 1px solid var(--border-subtle);
   display: flex;

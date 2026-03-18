@@ -1,13 +1,10 @@
 import type {
-  ActiveContextSnapshot,
   Artifact,
   ArtifactHubViewKey,
-  ContextAtlasFocusRequest,
   SourceBrowseRow,
   SourceSearchRow,
   ThoughtAgentSummary,
 } from "../../../types";
-import { ContextAtlasGraph3D } from "../../../components/ContextAtlasGraph3D";
 import { icons } from "./Icons";
 import { SubstrateGlassBox } from "./SubstrateGlassBox";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
@@ -64,8 +61,6 @@ function clipText(value: string, maxChars: number): string {
 
 interface ArtifactHubDetailViewProps {
   activeView: ArtifactHubViewKey;
-  activeContext: ActiveContextSnapshot | null;
-  activeContextLoading: boolean;
   searches: SourceSearchRow[];
   browses: SourceBrowseRow[];
   thoughtAgents: ThoughtAgentSummary[];
@@ -77,7 +72,6 @@ interface ArtifactHubDetailViewProps {
   screenshotReceipts: ScreenshotReceiptEvidence[];
   substrateReceipts: SubstrateReceiptRow[];
   onOpenArtifact?: (artifactId: string) => void;
-  onOpenAtlasFocus?: (request: ContextAtlasFocusRequest) => void;
   openExternalUrl: (url: string) => Promise<void>;
   extractArtifactUrl: (artifact: Artifact) => string | null;
   formatTimestamp: (value: string) => string;
@@ -96,7 +90,7 @@ function ThoughtsView({
 }) {
   const hasContent = searches.length > 0 || browses.length > 0 || thoughtAgents.length > 0;
   if (!hasContent) {
-    return <p className="artifact-hub-empty">No structured thought activity was captured.</p>;
+    return <p className="artifact-hub-empty">No worklog entries were captured for this turn.</p>;
   }
 
   return (
@@ -105,15 +99,15 @@ function ThoughtsView({
         <section className="thoughts-section">
           <div className="thoughts-agent-header">
             <span className="thoughts-agent-dot" />
-            <span className="thoughts-agent-name">Agent</span>
-            <span className="thoughts-agent-role">Leader</span>
+            <span className="thoughts-agent-name">Autopilot</span>
+            <span className="thoughts-agent-role">Retrieval</span>
           </div>
           <div className="thoughts-items thoughts-items-linked">
             {searches.map((entry, index) => (
               <div className="thoughts-item thoughts-item-search" key={`thought-search-${index}`}>
                 <span className="thoughts-item-icon">{icons.search}</span>
                 <div className="thoughts-item-main">
-                  <span className="thoughts-item-kind">Searched web</span>
+                  <span className="thoughts-item-kind">Search</span>
                   <span className="thoughts-item-query">{entry.query}</span>
                 </div>
                 <span className="thoughts-item-count">{entry.resultCount}</span>
@@ -127,15 +121,15 @@ function ThoughtsView({
         <section className="thoughts-section">
           <div className="thoughts-agent-header">
             <span className="thoughts-agent-dot" />
-            <span className="thoughts-agent-name">Agent</span>
-            <span className="thoughts-agent-role">Leader</span>
+            <span className="thoughts-agent-name">Autopilot</span>
+            <span className="thoughts-agent-role">Research</span>
           </div>
           <div className="thoughts-items thoughts-items-linked">
             {browses.map((entry, index) => (
               <div className="thoughts-item" key={`thought-browse-${index}`}>
                 <span className="thoughts-item-icon">{icons.globe}</span>
                 <div className="thoughts-item-main">
-                  <span className="thoughts-item-kind">Browsed</span>
+                  <span className="thoughts-item-kind">Opened source</span>
                   <button
                     className="thoughts-item-link"
                     onClick={() => void openExternalUrl(entry.url)}
@@ -182,13 +176,13 @@ function SourcesView({
   openExternalUrl: (url: string) => Promise<void>;
 }) {
   if (searches.length === 0 && browses.length === 0) {
-    return <p className="artifact-hub-empty">No web sources captured for this run.</p>;
+    return <p className="artifact-hub-empty">No evidence was captured for this run.</p>;
   }
 
   return (
     <div className="source-artifact-content">
       <div className="source-agent-header">
-        <span className="source-agent-title">Sources</span>
+        <span className="source-agent-title">Evidence</span>
         <span className="source-agent-count">{visibleSourceCount}</span>
       </div>
 
@@ -196,7 +190,7 @@ function SourcesView({
         <div className="source-row" key={`source-search-${index}`}>
           <span className="source-row-icon">{icons.search}</span>
           <div className="source-row-content">
-            <span className="source-row-kind">Searched web</span>
+            <span className="source-row-kind">Search</span>
             <span className="source-row-primary source-row-query">{entry.query}</span>
           </div>
           <span className="source-row-badge">{entry.resultCount}</span>
@@ -207,7 +201,7 @@ function SourcesView({
         <div className="source-row" key={`source-browse-${index}`}>
           <span className="source-row-icon">{icons.globe}</span>
           <div className="source-row-content">
-            <span className="source-row-kind">Browsed</span>
+            <span className="source-row-kind">Opened source</span>
             <button
               className="source-row-link"
               onClick={() => void openExternalUrl(entry.url)}
@@ -223,141 +217,9 @@ function SourcesView({
   );
 }
 
-function ActiveContextView({
-  activeContext,
-  activeContextLoading,
-  onOpenAtlasFocus,
-}: {
-  activeContext: ActiveContextSnapshot | null;
-  activeContextLoading: boolean;
-  onOpenAtlasFocus?: (request: ContextAtlasFocusRequest) => void;
-}) {
-  if (activeContextLoading) {
-    return <p className="artifact-hub-empty">Loading active context…</p>;
-  }
-
-  if (!activeContext) {
-    return <p className="artifact-hub-empty">No active context snapshot is available for this session.</p>;
-  }
-
-  return (
-    <div className="artifact-hub-active-context">
-      <div className="artifact-hub-active-head">
-        <div>
-          <div className="artifact-hub-active-kicker">Turn-local memory</div>
-          <h3>{activeContext.goal || "Active Context"}</h3>
-          <p>{activeContext.status} · {activeContext.mode} · {activeContext.current_tier}</p>
-        </div>
-        <button
-          className="artifact-hub-open-btn"
-          onClick={() =>
-            onOpenAtlasFocus?.({
-              sessionId: activeContext.session_id,
-              focusId: activeContext.active_skill_id || activeContext.focus_id,
-              lens: "Context",
-              mode: "Split",
-            })
-          }
-          type="button"
-        >
-          Open in Atlas
-        </button>
-      </div>
-
-      <ContextAtlasGraph3D
-        neighborhood={activeContext.neighborhood}
-        maxNodes={18}
-        title="Active Context Neighborhood"
-        className="artifact-hub-active-graph"
-      />
-
-      <div className="artifact-hub-active-grid">
-        <section className="artifact-hub-active-section">
-          <div className="artifact-hub-active-section-head">
-            <span>Skills</span>
-            <span>{activeContext.skills.length}</span>
-          </div>
-          <div className="artifact-hub-active-list">
-            {activeContext.skills.map((item) => (
-              <button
-                className="artifact-hub-active-item"
-                key={item.id}
-                onClick={() =>
-                  onOpenAtlasFocus?.({
-                    sessionId: activeContext.session_id,
-                    focusId: item.focus_id || item.id,
-                    lens: "Skills",
-                    mode: "Split",
-                  })
-                }
-                type="button"
-              >
-                <div className="artifact-hub-active-item-head">
-                  <strong>{item.title}</strong>
-                  <span>{[item.badge, item.secondary_badge].filter(Boolean).join(" · ")}</span>
-                </div>
-                <p>{item.summary}</p>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="artifact-hub-active-section">
-          <div className="artifact-hub-active-section-head">
-            <span>Evidence</span>
-            <span>{activeContext.evidence.length}</span>
-          </div>
-          <div className="artifact-hub-active-list">
-            {activeContext.evidence.map((item) => (
-              <button
-                className="artifact-hub-active-item"
-                key={item.id}
-                onClick={() =>
-                  onOpenAtlasFocus?.({
-                    sessionId: activeContext.session_id,
-                    focusId: item.focus_id || item.id,
-                    lens: item.kind === "published_doc" ? "Skills" : "Context",
-                    mode: "Split",
-                  })
-                }
-                type="button"
-              >
-                <div className="artifact-hub-active-item-head">
-                  <strong>{item.title}</strong>
-                  <span>{[item.badge, item.secondary_badge].filter(Boolean).join(" · ")}</span>
-                </div>
-                <p>{item.summary}</p>
-              </button>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      {(activeContext.constraints.length > 0 || activeContext.tools.length > 0) && (
-        <div className="artifact-hub-active-footer">
-          <div className="artifact-hub-active-meta">
-            {activeContext.constraints.map((constraint) => (
-              <span className="artifact-hub-active-pill" key={constraint.id}>
-                {constraint.label}: {constraint.value}
-              </span>
-            ))}
-          </div>
-          <div className="artifact-hub-active-meta">
-            {activeContext.tools.map((item) => (
-              <span className="artifact-hub-active-pill" key={item.id}>
-                {item.title}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function KernelView({ kernelLogs }: { kernelLogs: KernelLogRow[] }) {
   if (kernelLogs.length === 0) {
-    return <p className="artifact-hub-empty">No kernel events available.</p>;
+    return <p className="artifact-hub-empty">No activity events were captured for this scope.</p>;
   }
 
   return (
@@ -385,7 +247,7 @@ function SecurityView({
   onOpenArtifact?: (artifactId: string) => void;
 }) {
   if (securityRows.length === 0) {
-    return <p className="artifact-hub-empty">No security policy receipts were captured.</p>;
+    return <p className="artifact-hub-empty">No governance events were captured for this scope.</p>;
   }
 
   return (
@@ -485,7 +347,7 @@ function ScreenshotsView({
   formatTimestamp: (value: string) => string;
 }) {
   if (screenshotReceipts.length === 0) {
-    return <p className="artifact-hub-empty">No screenshots captured for this run.</p>;
+    return <p className="artifact-hub-empty">No visual evidence was captured for this run.</p>;
   }
 
   return (
@@ -506,7 +368,7 @@ function ScreenshotsView({
             hash={receipt.hash}
             timestamp={receipt.timestamp}
             stepIndex={receipt.stepIndex}
-            title={receipt.hasBlob ? "Screenshot receipt" : "Screenshot receipt (metadata-only)"}
+            title={receipt.hasBlob ? "Visual evidence" : "Visual evidence (metadata-only)"}
             compact={true}
           />
           {!!receipt.summary && (
@@ -526,7 +388,7 @@ function SubstrateView({
   if (substrateReceipts.length === 0) {
     return (
       <p className="artifact-hub-empty">
-        No substrate introspection receipts captured for this scope.
+        No runtime introspection receipts were captured for this scope.
       </p>
     );
   }
@@ -574,8 +436,6 @@ function SubstrateView({
 
 export function ArtifactHubDetailView({
   activeView,
-  activeContext,
-  activeContextLoading,
   searches,
   browses,
   thoughtAgents,
@@ -587,20 +447,11 @@ export function ArtifactHubDetailView({
   screenshotReceipts,
   substrateReceipts,
   onOpenArtifact,
-  onOpenAtlasFocus,
   openExternalUrl,
   extractArtifactUrl,
   formatTimestamp,
 }: ArtifactHubDetailViewProps) {
   switch (activeView) {
-    case "active_context":
-      return (
-        <ActiveContextView
-          activeContext={activeContext}
-          activeContextLoading={activeContextLoading}
-          onOpenAtlasFocus={onOpenAtlasFocus}
-        />
-      );
     case "thoughts":
       return (
         <ThoughtsView
@@ -629,7 +480,7 @@ export function ArtifactHubDetailView({
       return (
         <ArtifactListView
           items={fileArtifacts}
-          label="Files"
+          label="Outputs"
           onOpenArtifact={onOpenArtifact}
           openExternalUrl={openExternalUrl}
           extractArtifactUrl={extractArtifactUrl}
@@ -640,7 +491,7 @@ export function ArtifactHubDetailView({
       return (
         <ArtifactListView
           items={revisionArtifacts}
-          label="Revisions"
+          label="Bundles"
           onOpenArtifact={onOpenArtifact}
           openExternalUrl={openExternalUrl}
           extractArtifactUrl={extractArtifactUrl}

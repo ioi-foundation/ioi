@@ -6,7 +6,10 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::control::guardian_control_client::GuardianControlClient;
 use ioi_ipc::control::SecureEgressRequest;
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::{verify_seal_object, EgressReceipt, FinalityTier};
+use ioi_types::app::{
+    canonical_collapse_hash_for_sealed_effect, sealed_finality_proof_observer_binding,
+    verify_seal_object, EgressReceipt, FinalityTier,
+};
 use ioi_types::codec;
 use ioi_types::error::VmError;
 use serde_json::json;
@@ -140,6 +143,16 @@ fn validate_guardian_receipt(
                 "Guardian receipt is missing a proof-carrying seal object".into(),
             ));
         };
+        let Some(sealed_finality_proof) = receipt.sealed_finality_proof.as_ref() else {
+            return Err(VmError::HostError(
+                "Guardian receipt is missing a sealed finality proof".into(),
+            ));
+        };
+        let Some(canonical_collapse_object) = receipt.canonical_collapse_object.as_ref() else {
+            return Err(VmError::HostError(
+                "Guardian receipt is missing a canonical collapse object".into(),
+            ));
+        };
         verify_seal_object(seal_object)
             .map_err(|e| VmError::HostError(format!("Guardian seal object is invalid: {e}")))?;
         if seal_object.intent.request_hash != receipt.request_hash {
@@ -160,23 +173,43 @@ fn validate_guardian_receipt(
                 "Guardian seal object policy hash mismatch".into(),
             ));
         }
-        if let Some(sealed_finality_proof) = receipt.sealed_finality_proof.as_ref() {
-            if seal_object.epoch != sealed_finality_proof.epoch
-                || seal_object.intent.guardian_manifest_hash
-                    != sealed_finality_proof.guardian_manifest_hash
-                || seal_object.intent.guardian_decision_hash
-                    != sealed_finality_proof.guardian_decision_hash
-                || seal_object.public_inputs.guardian_counter
-                    != sealed_finality_proof.guardian_counter
-                || seal_object.public_inputs.guardian_trace_hash
-                    != sealed_finality_proof.guardian_trace_hash
-                || seal_object.public_inputs.guardian_measurement_root
-                    != sealed_finality_proof.guardian_measurement_root
-            {
-                return Err(VmError::HostError(
-                    "Guardian seal object does not match the sealed finality proof".into(),
-                ));
-            }
+        let observer_binding = sealed_finality_proof_observer_binding(sealed_finality_proof)
+            .map_err(|e| VmError::HostError(format!(
+                "Guardian sealed finality proof observer binding is invalid: {e}"
+            )))?;
+        if seal_object.epoch != sealed_finality_proof.epoch
+            || seal_object.intent.guardian_manifest_hash
+                != sealed_finality_proof.guardian_manifest_hash
+            || seal_object.intent.guardian_decision_hash
+                != sealed_finality_proof.guardian_decision_hash
+            || seal_object.public_inputs.guardian_counter
+                != sealed_finality_proof.guardian_counter
+            || seal_object.public_inputs.guardian_trace_hash
+                != sealed_finality_proof.guardian_trace_hash
+            || seal_object.public_inputs.guardian_measurement_root
+                != sealed_finality_proof.guardian_measurement_root
+            || seal_object.public_inputs.observer_transcripts_root
+                != observer_binding.transcripts_root
+            || seal_object.public_inputs.observer_challenges_root
+                != observer_binding.challenges_root
+            || seal_object.public_inputs.observer_resolution_hash
+                != observer_binding.resolution_hash
+        {
+            return Err(VmError::HostError(
+                "Guardian seal object does not match the sealed finality proof".into(),
+            ));
+        }
+        let expected_collapse_hash =
+            canonical_collapse_hash_for_sealed_effect(canonical_collapse_object, sealed_finality_proof)
+                .map_err(|e| {
+                    VmError::HostError(format!(
+                        "Guardian canonical collapse object is invalid: {e}"
+                    ))
+                })?;
+        if seal_object.public_inputs.canonical_collapse_hash != expected_collapse_hash {
+            return Err(VmError::HostError(
+                "Guardian seal object does not match the canonical collapse object".into(),
+            ));
         }
     }
 
@@ -332,6 +365,22 @@ impl InferenceRuntime for VerifiedHttpRuntime {
                 VmError::HostError(format!("Failed to encode sealed finality proof: {e}"))
             })?
             .unwrap_or_default();
+        let canonical_collapse_object = options
+            .canonical_collapse_object
+            .as_ref()
+            .map(codec::to_bytes_canonical)
+            .transpose()
+            .map_err(|e| {
+                VmError::HostError(format!("Failed to encode canonical collapse object: {e}"))
+            })?
+            .unwrap_or_default();
+        if matches!(required_finality_tier, FinalityTier::SealedFinal)
+            && (sealed_finality_proof.is_empty() || canonical_collapse_object.is_empty())
+        {
+            return Err(VmError::HostError(
+                "SealedFinal egress requires both a sealed finality proof and canonical collapse object".into(),
+            ));
+        }
 
         let req = SecureEgressRequest {
             domain: self.get_provider_domain(),
@@ -343,6 +392,7 @@ impl InferenceRuntime for VerifiedHttpRuntime {
             required_finality_tier: encode_finality_tier(required_finality_tier),
             sealed_finality_proof,
             seal_object: Vec::new(),
+            canonical_collapse_object,
         };
 
         let resp = client
@@ -388,7 +438,40 @@ impl InferenceRuntime for VerifiedHttpRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ioi_types::app::{build_http_egress_seal_object, CollapseState, SealedFinalityProof};
+    use ioi_types::app::{
+        build_http_egress_seal_object, CanonicalCollapseKind, CanonicalCollapseObject,
+        CanonicalOrderingCollapse, CanonicalSealingCollapse, CollapseState, SealedFinalityProof,
+    };
+
+    fn sample_canonical_collapse_object(height: u64, epoch: u64) -> CanonicalCollapseObject {
+        CanonicalCollapseObject {
+            height,
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            continuity_accumulator_hash: [0u8; 32],
+            continuity_recursive_proof: Default::default(),
+            ordering: CanonicalOrderingCollapse {
+                height,
+                kind: CanonicalCollapseKind::Close,
+                bulletin_commitment_hash: [21u8; 32],
+                bulletin_availability_certificate_hash: [22u8; 32],
+                bulletin_close_hash: [23u8; 32],
+                canonical_order_certificate_hash: [24u8; 32],
+            },
+            sealing: Some(CanonicalSealingCollapse {
+                epoch,
+                height,
+                view: 1,
+                kind: CanonicalCollapseKind::Close,
+                finality_tier: FinalityTier::SealedFinal,
+                collapse_state: CollapseState::SealedFinal,
+                transcripts_root: [0u8; 32],
+                challenges_root: [0u8; 32],
+                resolution_hash: [0u8; 32],
+            }),
+            transactions_root_hash: [31u8; 32],
+            resulting_state_root_hash: [32u8; 32],
+        }
+    }
 
     fn sample_receipt() -> EgressReceipt {
         let request_hash = [1u8; 32];
@@ -421,6 +504,7 @@ mod tests {
             guardian_certificate: None,
             sealed_finality_proof: None,
             seal_object: None,
+            canonical_collapse_object: None,
             log_checkpoint: None,
         }
     }
@@ -536,6 +620,7 @@ mod tests {
             policy_hash: [8u8; 32],
             ..Default::default()
         };
+        let canonical_collapse_object = sample_canonical_collapse_object(41, 9);
         let mut receipt = sample_receipt();
         receipt.request_hash = request_hash;
         receipt.response_hash = ioi_crypto::algorithms::hash::sha256(&response_body).unwrap();
@@ -551,6 +636,7 @@ mod tests {
         receipt.finality_tier = FinalityTier::SealedFinal;
         receipt.policy_hash = [8u8; 32];
         receipt.sealed_finality_proof = Some(sealed_finality_proof.clone());
+        receipt.canonical_collapse_object = Some(canonical_collapse_object.clone());
         receipt.seal_object = Some(
             build_http_egress_seal_object(
                 request_hash,
@@ -559,6 +645,7 @@ mod tests {
                 "/v1/chat/completions",
                 receipt.policy_hash,
                 &sealed_finality_proof,
+                &canonical_collapse_object,
             )
             .unwrap(),
         );
@@ -600,6 +687,7 @@ mod tests {
             policy_hash: [8u8; 32],
             ..Default::default()
         };
+        let canonical_collapse_object = sample_canonical_collapse_object(52, 10);
         let mut receipt = sample_receipt();
         receipt.request_hash = request_hash;
         receipt.response_hash = ioi_crypto::algorithms::hash::sha256(&response_body).unwrap();
@@ -615,6 +703,7 @@ mod tests {
         receipt.finality_tier = FinalityTier::SealedFinal;
         receipt.policy_hash = [8u8; 32];
         receipt.sealed_finality_proof = Some(sealed_finality_proof.clone());
+        receipt.canonical_collapse_object = Some(canonical_collapse_object.clone());
         let mut seal_object = build_http_egress_seal_object(
             request_hash,
             "localhost",
@@ -622,6 +711,7 @@ mod tests {
             "/v1/chat/completions",
             receipt.policy_hash,
             &sealed_finality_proof,
+            &canonical_collapse_object,
         )
         .unwrap();
         seal_object.proof.proof_bytes[0] ^= 0x42;
@@ -639,5 +729,77 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("seal object is invalid"));
+    }
+
+    #[test]
+    fn guardian_receipt_rejects_mismatched_canonical_collapse_object() {
+        let guard = ReceiptReplayGuard::new(8);
+        let request_body = b"{}".to_vec();
+        let response_body = b"ok".to_vec();
+        let request_hash = compute_secure_egress_request_hash(
+            "POST",
+            "localhost",
+            "/v1/chat/completions",
+            &request_body,
+        )
+        .unwrap();
+        let sealed_finality_proof = SealedFinalityProof {
+            epoch: 12,
+            finality_tier: FinalityTier::SealedFinal,
+            collapse_state: CollapseState::SealedFinal,
+            guardian_manifest_hash: [1u8; 32],
+            guardian_decision_hash: [2u8; 32],
+            guardian_counter: 3,
+            guardian_trace_hash: [4u8; 32],
+            guardian_measurement_root: [5u8; 32],
+            policy_hash: [8u8; 32],
+            ..Default::default()
+        };
+        let canonical_collapse_object = sample_canonical_collapse_object(61, 12);
+        let mut mismatched_collapse_object = canonical_collapse_object.clone();
+        mismatched_collapse_object.resulting_state_root_hash[0] ^= 0x77;
+        let mut receipt = sample_receipt();
+        receipt.request_hash = request_hash;
+        receipt.response_hash = ioi_crypto::algorithms::hash::sha256(&response_body).unwrap();
+        receipt.transcript_root = compute_secure_egress_transcript_root(
+            receipt.request_hash,
+            receipt.handshake_transcript_hash,
+            receipt.request_transcript_hash,
+            receipt.response_transcript_hash,
+            receipt.peer_certificate_chain_hash,
+            receipt.response_hash,
+        )
+        .unwrap();
+        receipt.finality_tier = FinalityTier::SealedFinal;
+        receipt.policy_hash = [8u8; 32];
+        receipt.sealed_finality_proof = Some(sealed_finality_proof.clone());
+        receipt.canonical_collapse_object = Some(mismatched_collapse_object);
+        receipt.seal_object = Some(
+            build_http_egress_seal_object(
+                request_hash,
+                "localhost",
+                "POST",
+                "/v1/chat/completions",
+                receipt.policy_hash,
+                &sealed_finality_proof,
+                &canonical_collapse_object,
+            )
+            .unwrap(),
+        );
+
+        let err = validate_guardian_receipt(
+            "POST",
+            "localhost",
+            "/v1/chat/completions",
+            &request_body,
+            &response_body,
+            FinalityTier::SealedFinal,
+            &receipt,
+            &guard,
+        )
+        .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("canonical collapse object"));
     }
 }

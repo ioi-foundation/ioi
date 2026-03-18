@@ -67,6 +67,7 @@ use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_scs::SovereignContextStore;
 
 // --- Submodule Declarations ---
+pub(crate) mod aft_collapse;
 mod consensus;
 
 /// Context structures for the orchestration main loop.

@@ -1,4 +1,5 @@
 // Path: crates/validator/src/standard/orchestration/consensus.rs
+use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
 use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::ingestion::ChainTipInfo;
@@ -367,6 +368,20 @@ where
                 .get_block_by_height(status.height)
                 .await
             {
+                if let Err(error) = require_persisted_aft_canonical_collapse_if_needed(
+                    cons_ty,
+                    view_resolver.workload_client().as_ref(),
+                    &workload_tip,
+                )
+                .await
+                {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = workload_tip.header.height,
+                        error = %error,
+                        "Skipping workload-tip hydration because the persisted canonical collapse object is missing or mismatched."
+                    );
+                } else {
                 {
                     let mut ctx = context_arc.lock().await;
                     let ctx_tip_height = ctx
@@ -385,6 +400,7 @@ where
                     }
                 }
                 last_committed_block_opt = Some(workload_tip);
+                }
             }
         }
     }
@@ -598,6 +614,8 @@ where
             expected_timestamp_ms,
             view,
             parent_qc,
+            previous_canonical_collapse_commitment_hash,
+            canonical_collapse_extension_certificate,
             timeout_certificate,
             ..
         } => {
@@ -736,6 +754,15 @@ where
                             .update_block_header(reconciled_block.clone())
                             .await
                             .map_err(|e| anyhow!("failed to reconcile local tip to QC branch: {e}"))?;
+                        let reconciled_collapse = require_persisted_aft_canonical_collapse_if_needed(
+                            cons_ty,
+                            view_resolver.workload_client().as_ref(),
+                            &reconciled_block,
+                        )
+                        .await
+                        .map_err(|e| anyhow!(
+                            "reconciled local tip does not have a matching persisted canonical collapse object: {e}"
+                        ))?;
 
                         {
                             let mut ctx = context_arc.lock().await;
@@ -761,7 +788,17 @@ where
 
                         {
                             let mut engine = consensus_engine_ref.lock().await;
-                            engine.observe_committed_block(&reconciled_block.header);
+                            let accepted = engine.observe_committed_block(
+                                &reconciled_block.header,
+                                reconciled_collapse.as_ref(),
+                            );
+                            if !accepted {
+                                tracing::warn!(
+                                    target: "consensus",
+                                    height = reconciled_block.header.height,
+                                    "Consensus engine ignored the reconciled committed-block hint because it was not collapse-backed."
+                                );
+                            }
                         }
 
                         tracing::info!(
@@ -998,6 +1035,8 @@ where
                 oracle_counter: 0,
                 oracle_trace_hash: [0u8; 32],
                 parent_qc,
+                previous_canonical_collapse_commitment_hash,
+                canonical_collapse_extension_certificate,
                 guardian_certificate: None,
                 sealed_finality_proof: None,
                 canonical_order_certificate: None,

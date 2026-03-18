@@ -3,12 +3,12 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useMemo, useState } from "react";
 import { NotificationDetailPanel } from "./NotificationDetailPanel";
 import type {
-  AssistantAttentionPolicy,
   AssistantNotificationRecord,
   AssistantNotificationStatus,
   AssistantWorkbenchSession,
   InterventionRecord,
   InterventionStatus,
+  NotificationAction,
   NotificationSeverity,
 } from "../../../types";
 
@@ -21,6 +21,33 @@ interface NotificationsViewProps {
   onOpenMeetingPrep: (session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>) => void;
 }
 
+type InboxLane =
+  | "all"
+  | "needs_action"
+  | "ready_for_review"
+  | "monitor"
+  | "digests"
+  | "resolved";
+
+type QueueItemType =
+  | "Approval"
+  | "Clarification"
+  | "Result"
+  | "Anomaly"
+  | "Digest"
+  | "Escalation";
+
+interface InboxQueueItem {
+  key: string;
+  lane: Exclude<InboxLane, "all">;
+  kind: "assistant" | "intervention";
+  typeLabel: QueueItemType;
+  record: AssistantNotificationRecord | InterventionRecord;
+  sourceLabel: string;
+  statusLabel: string;
+  meta: string[];
+}
+
 const SEVERITY_ORDER: Record<NotificationSeverity, number> = {
   critical: 4,
   high: 3,
@@ -28,6 +55,23 @@ const SEVERITY_ORDER: Record<NotificationSeverity, number> = {
   low: 1,
   informational: 0,
 };
+
+const INBOX_LANES: Array<{
+  id: InboxLane;
+  label: string;
+  description: string;
+}> = [
+  { id: "all", label: "All", description: "Everything in the queue" },
+  { id: "needs_action", label: "Needs action", description: "Blocked on you" },
+  { id: "ready_for_review", label: "Ready for review", description: "Completed or prepared" },
+  { id: "monitor", label: "Monitor", description: "Risk, drift, or anomalies" },
+  { id: "digests", label: "Digests", description: "Summaries and batched updates" },
+  { id: "resolved", label: "Resolved", description: "Handled or archived" },
+];
+
+function humanize(value: string): string {
+  return value.replace(/_/g, " ");
+}
 
 function isResolvedIntervention(status: InterventionStatus): boolean {
   return status === "resolved" || status === "expired" || status === "cancelled";
@@ -98,8 +142,122 @@ function dueCopy(dueAtMs?: number | null): string | null {
   return `${formatRelativeTime(dueAtMs)} (${formatAbsoluteTime(dueAtMs)})`;
 }
 
-function observationLabel(value: string): string {
-  return value.replace(/_/g, " ");
+function interventionTypeLabel(item: InterventionRecord): QueueItemType {
+  switch (item.interventionType) {
+    case "approval_gate":
+    case "pii_review_gate":
+      return "Approval";
+    case "clarification_gate":
+    case "credential_gate":
+    case "decision_gate":
+      return "Clarification";
+    case "intervention_outcome":
+      return "Result";
+    case "reauth_gate":
+      return "Escalation";
+    default:
+      return "Escalation";
+  }
+}
+
+function interventionLane(item: InterventionRecord): Exclude<InboxLane, "all"> {
+  if (isResolvedIntervention(item.status)) return "resolved";
+
+  switch (item.interventionType) {
+    case "intervention_outcome":
+      return item.blocking ? "needs_action" : "ready_for_review";
+    default:
+      return "needs_action";
+  }
+}
+
+function assistantTypeLabel(item: AssistantNotificationRecord): QueueItemType {
+  switch (item.notificationClass) {
+    case "digest":
+      return "Digest";
+    case "valuable_completion":
+    case "meeting_prep":
+    case "automation_opportunity":
+      return "Result";
+    case "auth_attention":
+    case "stalled_workflow":
+      return "Escalation";
+    case "deadline_risk":
+    case "follow_up_risk":
+    case "habitual_friction":
+    default:
+      return "Anomaly";
+  }
+}
+
+function assistantLane(item: AssistantNotificationRecord): Exclude<InboxLane, "all"> {
+  if (isResolvedAssistant(item.status)) return "resolved";
+
+  switch (item.notificationClass) {
+    case "digest":
+      return "digests";
+    case "valuable_completion":
+    case "meeting_prep":
+    case "automation_opportunity":
+      return "ready_for_review";
+    case "auth_attention":
+    case "stalled_workflow":
+      return "needs_action";
+    case "deadline_risk":
+    case "follow_up_risk":
+    case "habitual_friction":
+    default:
+      return "monitor";
+  }
+}
+
+function buildInterventionQueueItem(item: InterventionRecord): InboxQueueItem {
+  const meta: string[] = [];
+
+  if (item.blocking) meta.push("Blocking");
+  if (item.approvalScope) meta.push(humanize(item.approvalScope));
+  if (item.workflowId) meta.push(`Workflow ${item.workflowId}`);
+  if (item.runId) meta.push(`Run ${item.runId}`);
+
+  return {
+    key: `intervention:${item.itemId}`,
+    kind: "intervention",
+    lane: interventionLane(item),
+    typeLabel: interventionTypeLabel(item),
+    record: item,
+    sourceLabel: item.source.serviceName,
+    statusLabel: humanize(item.status),
+    meta,
+  };
+}
+
+function buildAssistantQueueItem(item: AssistantNotificationRecord): InboxQueueItem {
+  const meta: string[] = [];
+
+  meta.push(`Priority ${(item.priorityScore * 100).toFixed(0)}%`);
+  meta.push(`Confidence ${(item.confidenceScore * 100).toFixed(0)}%`);
+  if (item.workflowId) meta.push(`Workflow ${item.workflowId}`);
+  if (item.runId) meta.push(`Run ${item.runId}`);
+
+  return {
+    key: `assistant:${item.itemId}`,
+    kind: "assistant",
+    lane: assistantLane(item),
+    typeLabel: assistantTypeLabel(item),
+    record: item,
+    sourceLabel: item.source.serviceName,
+    statusLabel: humanize(item.status),
+    meta,
+  };
+}
+
+function pickPrimaryAssistantAction(item: AssistantNotificationRecord): NotificationAction | null {
+  return (
+    item.actions.find((action) => action.style === "primary") ??
+    item.actions.find((action) => action.id === "open_target") ??
+    item.actions[0] ??
+    null
+  );
 }
 
 export function NotificationsView({
@@ -114,14 +272,12 @@ export function NotificationsView({
   const [assistantNotifications, setAssistantNotifications] = useState<
     AssistantNotificationRecord[]
   >([]);
-  const [policy, setPolicy] = useState<AssistantAttentionPolicy | null>(null);
-  const [queryDraft, setQueryDraft] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [activeLane, setActiveLane] = useState<InboxLane>("needs_action");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [policyError, setPolicyError] = useState<string | null>(null);
-  const [savingPolicy, setSavingPolicy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [selectedAssistantItemId, setSelectedAssistantItemId] = useState<string | null>(null);
+  const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,15 +285,13 @@ export function NotificationsView({
     const load = async () => {
       try {
         setLoading(true);
-        const [loadedInterventions, loadedAssistant, loadedPolicy] = await Promise.all([
+        const [loadedInterventions, loadedAssistant] = await Promise.all([
           invoke<InterventionRecord[]>("notification_list_interventions"),
           invoke<AssistantNotificationRecord[]>("notification_list_assistant"),
-          invoke<AssistantAttentionPolicy>("assistant_attention_policy_get"),
         ]);
         if (cancelled) return;
         setInterventions(loadedInterventions);
         setAssistantNotifications(loadedAssistant);
-        setPolicy(loadedPolicy);
         setError(null);
       } catch (nextError) {
         if (cancelled) return;
@@ -156,9 +310,6 @@ export function NotificationsView({
       listen<AssistantNotificationRecord>("assistant-notification-updated", (event) => {
         setAssistantNotifications((current) => upsertById(current, event.payload));
       }),
-      listen<AssistantAttentionPolicy>("assistant-attention-policy-updated", (event) => {
-        setPolicy(event.payload);
-      }),
     ]);
 
     void load();
@@ -170,54 +321,6 @@ export function NotificationsView({
       });
     };
   }, []);
-
-  const sortedInterventions = useMemo(
-    () => [...interventions].sort(compareRecords),
-    [interventions],
-  );
-  const sortedAssistant = useMemo(
-    () => [...assistantNotifications].sort(compareRecords),
-    [assistantNotifications],
-  );
-
-  const unresolvedInterventions = useMemo(
-    () => sortedInterventions.filter((item) => !isResolvedIntervention(item.status)),
-    [sortedInterventions],
-  );
-  const unresolvedAssistant = useMemo(
-    () => sortedAssistant.filter((item) => !isResolvedAssistant(item.status)),
-    [sortedAssistant],
-  );
-  const selectedAssistantItem = useMemo(
-    () =>
-      selectedAssistantItemId
-        ? assistantNotifications.find((item) => item.itemId === selectedAssistantItemId) ?? null
-        : null,
-    [assistantNotifications, selectedAssistantItemId],
-  );
-
-  useEffect(() => {
-    if (!selectedAssistantItemId) return;
-    if (assistantNotifications.some((item) => item.itemId === selectedAssistantItemId)) {
-      return;
-    }
-    setSelectedAssistantItemId(null);
-  }, [assistantNotifications, selectedAssistantItemId]);
-
-  const persistPolicy = async (nextPolicy: AssistantAttentionPolicy) => {
-    setSavingPolicy(true);
-    setPolicyError(null);
-    try {
-      const saved = await invoke<AssistantAttentionPolicy>("assistant_attention_policy_set", {
-        policy: nextPolicy,
-      });
-      setPolicy(saved);
-    } catch (nextError) {
-      setPolicyError(String(nextError));
-    } finally {
-      setSavingPolicy(false);
-    }
-  };
 
   const updateInterventionStatus = async (
     itemId: string,
@@ -247,26 +350,6 @@ export function NotificationsView({
     });
   };
 
-  const applyQueryPolicy = async () => {
-    if (!queryDraft.trim()) return;
-    setSavingPolicy(true);
-    setPolicyError(null);
-    try {
-      const nextPolicy = await invoke<AssistantAttentionPolicy>(
-        "assistant_attention_policy_apply_query",
-        {
-          instruction: queryDraft,
-        },
-      );
-      setPolicy(nextPolicy);
-      setQueryDraft("");
-    } catch (nextError) {
-      setPolicyError(String(nextError));
-    } finally {
-      setSavingPolicy(false);
-    }
-  };
-
   const markAssistantSeenIfNeeded = async (item: AssistantNotificationRecord) => {
     if (item.status === "new") {
       await updateAssistantStatus(item.itemId, "seen");
@@ -285,7 +368,7 @@ export function NotificationsView({
         case "open_target":
           await markAssistantSeenIfNeeded(item);
           if (item.target) {
-            setSelectedAssistantItemId(item.itemId);
+            setSelectedItemKey(`assistant:${item.itemId}`);
             return;
           }
           onOpenAutopilot();
@@ -352,10 +435,91 @@ export function NotificationsView({
     }
   };
 
+  const queueItems = useMemo(
+    () =>
+      [
+        ...interventions.map(buildInterventionQueueItem),
+        ...assistantNotifications.map(buildAssistantQueueItem),
+      ].sort((left, right) => compareRecords(left.record, right.record)),
+    [assistantNotifications, interventions],
+  );
+
+  const summaryCounts = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTodayMs = startOfToday.getTime();
+
+    return {
+      needsAction: queueItems.filter((item) => item.lane === "needs_action").length,
+      readyForReview: queueItems.filter((item) => item.lane === "ready_for_review").length,
+      anomalies: queueItems.filter((item) => item.lane === "monitor").length,
+      resolvedToday: queueItems.filter(
+        (item) => item.lane === "resolved" && item.record.updatedAtMs >= startOfTodayMs,
+      ).length,
+    };
+  }, [queueItems]);
+
+  const laneCounts = useMemo(
+    () => ({
+      all: queueItems.length,
+      needs_action: queueItems.filter((item) => item.lane === "needs_action").length,
+      ready_for_review: queueItems.filter((item) => item.lane === "ready_for_review").length,
+      monitor: queueItems.filter((item) => item.lane === "monitor").length,
+      digests: queueItems.filter((item) => item.lane === "digests").length,
+      resolved: queueItems.filter((item) => item.lane === "resolved").length,
+    }),
+    [queueItems],
+  );
+
+  const filteredQueueItems = useMemo(() => {
+    const query = searchDraft.trim().toLowerCase();
+
+    return queueItems.filter((item) => {
+      if (activeLane !== "all" && item.lane !== activeLane) {
+        return false;
+      }
+
+      if (!query) return true;
+
+      const haystack = [
+        item.typeLabel,
+        item.record.title,
+        item.record.summary,
+        item.record.reason ?? "",
+        item.record.recommendedAction ?? "",
+        item.record.source.serviceName,
+        item.record.workflowId ?? "",
+        item.record.runId ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [activeLane, queueItems, searchDraft]);
+
+  useEffect(() => {
+    if (filteredQueueItems.length === 0) {
+      setSelectedItemKey(null);
+      return;
+    }
+
+    if (selectedItemKey && filteredQueueItems.some((item) => item.key === selectedItemKey)) {
+      return;
+    }
+
+    setSelectedItemKey(filteredQueueItems[0]?.key ?? null);
+  }, [filteredQueueItems, selectedItemKey]);
+
+  const selectedQueueItem = useMemo(
+    () => filteredQueueItems.find((item) => item.key === selectedItemKey) ?? null,
+    [filteredQueueItems, selectedItemKey],
+  );
+
   if (loading) {
     return (
       <div className="notifications-view">
-        <div className="notifications-empty-state">Loading notifications…</div>
+        <div className="notifications-empty-state">Loading inbox…</div>
       </div>
     );
   }
@@ -371,304 +535,236 @@ export function NotificationsView({
   return (
     <div className="notifications-view">
       <header className="notifications-header">
-        <div>
-          <span className="notifications-kicker">Operator Console</span>
-          <h1>Notifications</h1>
-          <p>
-            Interventions are control-plane workflow state. Assistant notifications are ranked,
-            suppressible suggestions.
-          </p>
+        <div className="notifications-header-copy">
+          <span className="notifications-kicker">Approve</span>
+          <h1>Inbox</h1>
+          <p>Operations queue for approvals, reviews, anomalies, and durable follow-up.</p>
         </div>
         <div className="notifications-header-stats">
           <div className="notifications-stat-card">
-            <span>Interventions</span>
-            <strong>{unresolvedInterventions.length}</strong>
+            <span>Needs action</span>
+            <strong>{summaryCounts.needsAction}</strong>
           </div>
           <div className="notifications-stat-card">
-            <span>Assistant</span>
-            <strong>{unresolvedAssistant.length}</strong>
+            <span>Ready for review</span>
+            <strong>{summaryCounts.readyForReview}</strong>
+          </div>
+          <div className="notifications-stat-card">
+            <span>Anomalies</span>
+            <strong>{summaryCounts.anomalies}</strong>
+          </div>
+          <div className="notifications-stat-card">
+            <span>Resolved today</span>
+            <strong>{summaryCounts.resolvedToday}</strong>
           </div>
         </div>
       </header>
 
-      <section className="notifications-policy-card">
-        <div className="notifications-policy-head">
-          <div>
-            <span className="notifications-card-eyebrow">Attention Policy</span>
-            <h2>Adapt assistant behavior</h2>
+      {actionError ? <p className="notifications-error">{actionError}</p> : null}
+
+      <div className="notifications-shell">
+        <aside className="notifications-sidebar">
+          <div className="notifications-sidebar-head">
+            <strong>Queues</strong>
+            <span>Filter</span>
           </div>
-          <button
-            type="button"
-            className="notifications-secondary-button"
-            onClick={onOpenAutopilot}
-          >
-            Open Autopilot
-          </button>
-        </div>
+          <div className="notifications-filter-list">
+            {INBOX_LANES.map((lane) => (
+              <button
+                key={lane.id}
+                type="button"
+                className={`notifications-filter-button ${activeLane === lane.id ? "active" : ""}`}
+                onClick={() => setActiveLane(lane.id)}
+              >
+                <div>
+                  <strong>{lane.label}</strong>
+                  <span>{lane.description}</span>
+                </div>
+                <em>{laneCounts[lane.id]}</em>
+              </button>
+            ))}
+          </div>
+        </aside>
 
-        <div className="notifications-policy-grid">
-          <label className="notifications-toggle">
+        <section className="notifications-queue-pane">
+          <div className="notifications-queue-toolbar">
             <input
-              type="checkbox"
-              checked={policy?.global.toastsEnabled ?? false}
-              onChange={(event) => {
-                if (!policy) return;
-                void persistPolicy({
-                  ...policy,
-                  global: {
-                    ...policy.global,
-                    toastsEnabled: event.target.checked,
-                  },
-                });
-              }}
+              className="notifications-search-input"
+              type="search"
+              value={searchDraft}
+              onChange={(event) => setSearchDraft(event.target.value)}
+              placeholder="Search title, workflow, run, or action"
             />
-            <span>System toasts</span>
-          </label>
-          <label className="notifications-toggle">
-            <input
-              type="checkbox"
-              checked={policy?.global.badgeEnabled ?? false}
-              onChange={(event) => {
-                if (!policy) return;
-                void persistPolicy({
-                  ...policy,
-                  global: {
-                    ...policy.global,
-                    badgeEnabled: event.target.checked,
-                  },
-                });
-              }}
-            />
-            <span>Action badge</span>
-          </label>
-          <label className="notifications-toggle">
-            <input
-              type="checkbox"
-              checked={policy?.global.digestEnabled ?? false}
-              onChange={(event) => {
-                if (!policy) return;
-                void persistPolicy({
-                  ...policy,
-                  global: {
-                    ...policy.global,
-                    digestEnabled: event.target.checked,
-                  },
-                });
-              }}
-            />
-            <span>Digest lane</span>
-          </label>
-          <label className="notifications-toggle">
-            <input
-              type="checkbox"
-              checked={policy?.global.hostedInferenceAllowed ?? false}
-              onChange={(event) => {
-                if (!policy) return;
-                void persistPolicy({
-                  ...policy,
-                  global: {
-                    ...policy.global,
-                    hostedInferenceAllowed: event.target.checked,
-                  },
-                });
-              }}
-            />
-            <span>Hosted inference for assistant summaries</span>
-          </label>
-        </div>
-
-        <div className="notifications-query-row">
-          <input
-            type="text"
-            value={queryDraft}
-            onChange={(event) => setQueryDraft(event.target.value)}
-            placeholder='Try: "move build completion alerts to digest"'
-          />
-          <button
-            type="button"
-            className="notifications-primary-button"
-            disabled={savingPolicy || !queryDraft.trim()}
-            onClick={() => {
-              void applyQueryPolicy();
-            }}
-          >
-            {savingPolicy ? "Applying…" : "Apply"}
-          </button>
-        </div>
-        {policyError ? <p className="notifications-error">{policyError}</p> : null}
-        {actionError ? <p className="notifications-error">{actionError}</p> : null}
-      </section>
-
-      <div className="notifications-workspace">
-        <section className="notifications-columns">
-          <div className="notifications-column">
-            <div className="notifications-column-head">
-              <div>
-                <span className="notifications-card-eyebrow">Control</span>
-                <h2>Interventions</h2>
-              </div>
-              <span className="notifications-column-count">{sortedInterventions.length}</span>
-            </div>
-            <div className="notifications-list">
-              {sortedInterventions.length === 0 ? (
-                <div className="notifications-empty-card">No active interventions.</div>
-              ) : (
-                sortedInterventions.map((item) => (
-                  <article
-                    key={item.itemId}
-                    className={`notifications-card notifications-card-${item.severity}`}
-                  >
-                    <div className="notifications-card-topline">
-                      <span className="notifications-pill notifications-pill-control">
-                        {item.interventionType.replace(/_/g, " ")}
-                      </span>
-                      <span className="notifications-pill">{item.status.replace(/_/g, " ")}</span>
-                    </div>
-                    <h3>{item.title}</h3>
-                    <p className="notifications-summary">{item.summary}</p>
-                    {item.reason ? <p className="notifications-reason">{item.reason}</p> : null}
-                    <div className="notifications-meta">
-                      <span>{item.source.serviceName}</span>
-                      {item.sessionId ? <span>Session {item.sessionId.slice(0, 8)}</span> : null}
-                      {item.dueAtMs ? <span>Due {dueCopy(item.dueAtMs)}</span> : null}
-                    </div>
-                    <div className="notifications-assistive-copy">
-                      {item.recommendedAction ? <p>Next: {item.recommendedAction}</p> : null}
-                      {item.consequenceIfIgnored ? (
-                        <p>If ignored: {item.consequenceIfIgnored}</p>
-                      ) : null}
-                    </div>
-                    <div className="notifications-card-actions">
-                      {item.status === "new" ? (
-                        <button
-                          type="button"
-                          className="notifications-primary-button"
-                          onClick={() => {
-                            void updateInterventionStatus(item.itemId, "seen");
-                          }}
-                        >
-                          Mark seen
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="notifications-secondary-button"
-                        onClick={onOpenAutopilot}
-                      >
-                        Open workflow
-                      </button>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
+            <button
+              type="button"
+              className="notifications-secondary-button"
+              onClick={onOpenSettings}
+            >
+              Inbox settings
+            </button>
           </div>
 
-          <div className="notifications-column">
-            <div className="notifications-column-head">
-              <div>
-                <span className="notifications-card-eyebrow">Assistant</span>
-                <h2>Productivity prompts</h2>
-              </div>
-              <span className="notifications-column-count">{sortedAssistant.length}</span>
+          <div className="notifications-queue-head">
+            <div>
+              <span className="notifications-card-eyebrow">Operations Queue</span>
+              <h2>
+                {INBOX_LANES.find((lane) => lane.id === activeLane)?.label ?? "All"} items
+              </h2>
             </div>
-            <div className="notifications-list">
-              {sortedAssistant.length === 0 ? (
-                <div className="notifications-empty-card">No assistant notifications yet.</div>
-              ) : (
-                sortedAssistant.map((item) => (
+            <span className="notifications-queue-count">{filteredQueueItems.length}</span>
+          </div>
+
+          <div className="notifications-list">
+            {filteredQueueItems.length === 0 ? (
+              <div className="notifications-empty-card">No inbox items match this queue.</div>
+            ) : (
+              filteredQueueItems.map((item) => {
+                const relativeTime = formatRelativeTime(item.record.updatedAtMs);
+                const dueLabel = dueCopy(item.record.dueAtMs);
+
+                return (
                   <article
-                    key={item.itemId}
-                    className={`notifications-card notifications-card-${item.severity}${
-                      selectedAssistantItemId === item.itemId ? " notifications-card-selected" : ""
+                    key={item.key}
+                    className={`notifications-card notifications-card-${item.record.severity}${
+                      selectedItemKey === item.key ? " notifications-card-selected" : ""
                     }`}
+                    onClick={() => setSelectedItemKey(item.key)}
                   >
                     <div className="notifications-card-topline">
-                      <span className="notifications-pill notifications-pill-assistant">
-                        {item.notificationClass.replace(/_/g, " ")}
+                      <div className="notifications-card-badges">
+                        <span className={`notifications-pill notifications-pill-type-${item.typeLabel.toLowerCase()}`}>
+                          {item.typeLabel}
+                        </span>
+                        <span className="notifications-pill">{item.statusLabel}</span>
+                        <span className="notifications-pill">{item.sourceLabel}</span>
+                      </div>
+                      <span className="notifications-card-time">
+                        {dueLabel ? `Due ${dueLabel}` : relativeTime}
                       </span>
-                      <span className="notifications-pill">{item.status.replace(/_/g, " ")}</span>
                     </div>
-                    <h3>{item.title}</h3>
-                    <p className="notifications-summary">{item.summary}</p>
-                    {item.reason ? <p className="notifications-reason">{item.reason}</p> : null}
-                    <div className="notifications-meta">
-                      <span>Priority {(item.priorityScore * 100).toFixed(0)}%</span>
-                      <span>Confidence {(item.confidenceScore * 100).toFixed(0)}%</span>
-                      {item.dueAtMs ? <span>Due {dueCopy(item.dueAtMs)}</span> : null}
+
+                    <div className="notifications-card-main">
+                      <h3>{item.record.title}</h3>
+                      <p className="notifications-summary">{item.record.summary}</p>
                     </div>
-                    <div className="notifications-assistive-copy">
-                      {item.recommendedAction ? <p>Next: {item.recommendedAction}</p> : null}
-                      <p>
-                        Why now:{" "}
-                        {item.rankingReason.map(observationLabel).join(", ") || "user value"}
-                      </p>
-                      <p>Observation tier: {observationLabel(item.privacy.observationTier)}</p>
-                    </div>
+
+                    {item.meta.length > 0 ? (
+                      <div className="notifications-meta">
+                        {item.meta.map((value) => (
+                          <span key={`${item.key}:${value}`}>{value}</span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {item.record.recommendedAction ? (
+                      <p className="notifications-next-step">Next: {item.record.recommendedAction}</p>
+                    ) : null}
+
                     <div className="notifications-card-actions">
-                      {item.actions.map((action) => (
-                        <button
-                          key={action.id}
-                          type="button"
-                          className={
-                            action.style === "primary"
-                              ? "notifications-primary-button"
-                              : action.style === "secondary"
-                                ? "notifications-secondary-button"
-                                : action.style === "danger"
-                                  ? "notifications-primary-button"
-                                  : "notifications-quiet-button"
-                          }
-                          onClick={() => {
-                            void handleAssistantAction(item, action.id);
-                          }}
-                        >
-                          {action.label}
-                        </button>
-                      ))}
-                      {!isResolvedAssistant(item.status) ? (
-                        <button
-                          type="button"
-                          className="notifications-secondary-button"
-                          onClick={() => {
-                            void handleAssistantAction(item, "snooze");
-                          }}
-                        >
-                          Snooze 1h
-                        </button>
-                      ) : null}
-                      {!isResolvedAssistant(item.status) ? (
-                        <button
-                          type="button"
-                          className="notifications-quiet-button"
-                          onClick={() => {
-                            void handleAssistantAction(item, "dismiss");
-                          }}
-                        >
-                          Dismiss
-                        </button>
+                      {item.kind === "assistant" ? (
+                        <>
+                          {pickPrimaryAssistantAction(item.record as AssistantNotificationRecord) ? (
+                            <button
+                              type="button"
+                              className="notifications-primary-button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const primaryAction = pickPrimaryAssistantAction(
+                                  item.record as AssistantNotificationRecord,
+                                );
+                                if (!primaryAction) return;
+                                void handleAssistantAction(
+                                  item.record as AssistantNotificationRecord,
+                                  primaryAction.id,
+                                );
+                              }}
+                            >
+                              {pickPrimaryAssistantAction(item.record as AssistantNotificationRecord)?.label ??
+                                "Open"}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="notifications-primary-button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void handleAssistantAction(
+                                  item.record as AssistantNotificationRecord,
+                                  "open_target",
+                                );
+                              }}
+                            >
+                              Open
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="notifications-secondary-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleAssistantAction(
+                                item.record as AssistantNotificationRecord,
+                                isResolvedAssistant((item.record as AssistantNotificationRecord).status)
+                                  ? "archive"
+                                  : "snooze",
+                              );
+                            }}
+                          >
+                            {isResolvedAssistant((item.record as AssistantNotificationRecord).status)
+                              ? "Archive"
+                              : "Snooze 1h"}
+                          </button>
+                        </>
                       ) : (
-                        <button
-                          type="button"
-                          className="notifications-quiet-button"
-                          onClick={() => {
-                            void handleAssistantAction(item, "archive");
-                          }}
-                        >
-                          Archive
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="notifications-primary-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void onOpenAutopilot();
+                            }}
+                          >
+                            Open chat
+                          </button>
+                          {!isResolvedIntervention((item.record as InterventionRecord).status) ? (
+                            <button
+                              type="button"
+                              className="notifications-secondary-button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void updateInterventionStatus(
+                                  (item.record as InterventionRecord).itemId,
+                                  (item.record as InterventionRecord).status === "new"
+                                    ? "seen"
+                                    : "pending",
+                                  (item.record as InterventionRecord).status === "new"
+                                    ? undefined
+                                    : Date.now() + 60 * 60 * 1000,
+                                ).catch((nextError) => {
+                                  setActionError(String(nextError));
+                                });
+                              }}
+                            >
+                              {(item.record as InterventionRecord).status === "new"
+                                ? "Mark seen"
+                                : "Snooze 1h"}
+                            </button>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   </article>
-                ))
-              )}
-            </div>
+                );
+              })
+            )}
           </div>
         </section>
 
         <NotificationDetailPanel
-          item={selectedAssistantItem}
-          onClose={() => setSelectedAssistantItemId(null)}
+          item={selectedQueueItem?.record ?? null}
+          onClose={() => setSelectedItemKey(null)}
+          onOpenAutopilot={onOpenAutopilot}
           onOpenReplyComposer={onOpenReplyComposer}
           onOpenMeetingPrep={onOpenMeetingPrep}
           onOpenIntegrations={onOpenIntegrations}

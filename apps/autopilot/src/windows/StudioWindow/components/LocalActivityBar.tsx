@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  AgentsIcon,
-  AtlasIcon,
   AutopilotIcon,
   ComposeIcon,
   FleetIcon,
   GhostIcon,
   IntegrationsIcon,
-  MarketplaceIcon,
+  NotificationsIcon,
   ShieldIcon,
-  SettingsIcon,
 } from "./ActivityBarIcons";
 
+type ActivityView = "chat" | "workflows" | "runs" | "inbox" | "connections" | "control";
+
 interface ActivityBarProps {
-  activeView: string;
-  onViewChange: (view: string) => void;
+  activeView: ActivityView;
+  onViewChange: (view: ActivityView) => void;
+  notificationCount: number;
   ghostMode: boolean;
   onToggleGhost: () => void;
 }
@@ -175,19 +175,16 @@ function RailButton({
   );
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { id: "autopilot", label: "Autopilot", icon: <AutopilotIcon />, shortcut: "⌘1" },
-  { id: "atlas", label: "Context Atlas", icon: <AtlasIcon />, shortcut: "⌘2" },
-  { id: "compose", label: "Compose", icon: <ComposeIcon />, shortcut: "⌘3" },
-  { id: "agents", label: "Agents", icon: <AgentsIcon />, shortcut: "⌘4" },
-  { id: "fleet", label: "Fleet", icon: <FleetIcon />, shortcut: "⌘5" },
-  { id: "marketplace", label: "Marketplace", icon: <MarketplaceIcon />, shortcut: "⌘6" },
-  { id: "integrations", label: "Integrations", icon: <IntegrationsIcon />, shortcut: "⌘7" },
-  { id: "shield", label: "Shield", icon: <ShieldIcon />, shortcut: "⌘8" },
+const NAV_ITEMS: Array<NavItem & { id: ActivityView }> = [
+  { id: "chat", label: "Chat", icon: <AutopilotIcon />, shortcut: "⌘1" },
+  { id: "workflows", label: "Workflows", icon: <ComposeIcon />, shortcut: "⌘2" },
+  { id: "runs", label: "Runs", icon: <FleetIcon />, shortcut: "⌘3" },
+  { id: "inbox", label: "Inbox", icon: <NotificationsIcon />, shortcut: "⌘4" },
+  { id: "connections", label: "Connections", icon: <IntegrationsIcon />, shortcut: "⌘5" },
+  { id: "control", label: "Control", icon: <ShieldIcon />, shortcut: "⌘6" },
 ];
 
 const GHOST_ITEM: NavItem = { id: "ghost", label: "Ghost Mode", icon: <GhostIcon />, shortcut: "⌘G" };
-const SETTINGS_ITEM: NavItem = { id: "settings", label: "Settings", icon: <SettingsIcon /> };
 
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -203,6 +200,7 @@ function isEditableElement(target: EventTarget | null): boolean {
 export function LocalActivityBar({
   activeView,
   onViewChange,
+  notificationCount,
   ghostMode,
   onToggleGhost,
 }: ActivityBarProps) {
@@ -245,12 +243,17 @@ export function LocalActivityBar({
     >
       <div style={{ display: "flex", flexDirection: "column", paddingTop: 4 }}>
         {NAV_ITEMS.map((item) => {
-          const isIntegrationsItem = item.id === "integrations";
+          const isIntegrationsItem = item.id === "connections";
           const resolvedItem = isIntegrationsItem
             ? {
-              ...item,
-              icon: <IntegrationsIcon disableHoverAnimation={activeView === "integrations"} />,
-            }
+                ...item,
+                icon: <IntegrationsIcon disableHoverAnimation={activeView === "connections"} />,
+              }
+            : item.id === "inbox"
+              ? {
+                  ...item,
+                  badgeCount: notificationCount,
+                }
             : item;
 
           return (
@@ -272,12 +275,6 @@ export function LocalActivityBar({
           isActive={ghostMode}
           onClick={onToggleGhost}
           variant="ghost"
-        />
-        <RailButton
-          item={SETTINGS_ITEM}
-          isActive={activeView === "settings"}
-          onClick={() => onViewChange("settings")}
-          variant="utility"
         />
       </div>
     </aside>

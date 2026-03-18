@@ -137,6 +137,10 @@ pub struct GuardianRegistryParams {
     /// Finality tier required for high-risk irreversible effects.
     #[serde(default = "default_high_risk_effect_tier")]
     pub asymptote_high_risk_effect_tier: FinalityTier,
+    /// Whether accountable faults should trigger validator-set membership
+    /// consequences immediately, or remain published evidence only.
+    #[serde(default = "default_true")]
+    pub apply_accountable_membership_updates: bool,
 }
 
 impl Default for GuardianRegistryParams {
@@ -156,6 +160,7 @@ impl Default for GuardianRegistryParams {
             asymptote_required_witness_strata: default_required_witness_strata(),
             asymptote_escalation_witness_strata: default_escalation_witness_strata(),
             asymptote_high_risk_effect_tier: default_high_risk_effect_tier(),
+            apply_accountable_membership_updates: default_true(),
         }
     }
 }

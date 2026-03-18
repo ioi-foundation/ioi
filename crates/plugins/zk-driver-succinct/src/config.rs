@@ -15,6 +15,12 @@ pub struct SuccinctDriverConfig {
     /// The raw bytes of the State Inclusion VK, required for actual verification in native mode.
     /// In mock mode, this can be empty.
     pub state_inclusion_vkey_bytes: Vec<u8>,
+
+    /// The expected hash of the canonical-collapse continuity VK (hex string).
+    pub canonical_collapse_continuity_vkey_hash: String,
+    /// The raw bytes of the canonical-collapse continuity VK, required for native verification.
+    /// In mock mode, this can be empty.
+    pub canonical_collapse_continuity_vkey_bytes: Vec<u8>,
 }
 
 impl Default for SuccinctDriverConfig {
@@ -27,6 +33,9 @@ impl Default for SuccinctDriverConfig {
             state_inclusion_vkey_hash:
                 "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
             state_inclusion_vkey_bytes: Vec::new(),
+            canonical_collapse_continuity_vkey_hash:
+                "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            canonical_collapse_continuity_vkey_bytes: Vec::new(),
         }
     }
 }

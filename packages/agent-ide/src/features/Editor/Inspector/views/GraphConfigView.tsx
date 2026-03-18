@@ -13,12 +13,11 @@ export function GraphConfigView({ config, onChange }: GraphConfigViewProps) {
   return (
     <div className="inspector-view">
       <div className="section-header" style={{ marginBottom: 16 }}>
-        <span style={{ fontWeight: 700 }}>GLOBAL CONFIG</span>
+        <span style={{ fontWeight: 700 }}>Graph settings</span>
       </div>
 
-      {/* Meta Section */}
       <div className="form-group">
-        <label>Graph Name</label>
+        <label>Workflow name</label>
         <input 
             value={safeConfig.meta?.name || ""}
             onChange={e => onChange({ meta: { ...safeConfig.meta, name: e.target.value } })}
@@ -27,7 +26,7 @@ export function GraphConfigView({ config, onChange }: GraphConfigViewProps) {
       </div>
 
       <div className="form-group">
-        <label>Global Env (JSON)</label>
+        <label>Runtime env (JSON)</label>
         <textarea 
             className="code-editor"
             rows={8}
@@ -37,9 +36,8 @@ export function GraphConfigView({ config, onChange }: GraphConfigViewProps) {
         />
       </div>
 
-      {/* Policy Section - Styled like Law View */}
       <div className="form-group">
-        <label>Global Policy</label>
+        <label>Workflow policy</label>
         <div className="law-card">
             
             {/* Max Budget Row */}

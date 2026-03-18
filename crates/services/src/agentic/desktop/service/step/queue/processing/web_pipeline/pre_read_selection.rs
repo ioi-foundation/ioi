@@ -764,6 +764,7 @@ async fn synthesize_pre_read_selection(
             max_tokens: WEB_PIPELINE_PRE_READ_SYNTHESIS_MAX_TOKENS,
             required_finality_tier: Default::default(),
             sealed_finality_proof: None,
+            canonical_collapse_object: None,
         };
         let airlocked_prompt = match service
             .prepare_cloud_inference_input(

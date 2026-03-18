@@ -78,3 +78,4 @@ run_model "formal/aft/guardian_majority" "GuardianMajority.cfg" "GuardianMajorit
 run_model "formal/aft/nested_guardian" "NestedGuardian.cfg" "NestedGuardian.tla"
 run_model "formal/aft" "Asymptote.cfg" "Asymptote.tla"
 run_model "formal/aft/canonical_ordering" "CanonicalOrdering.cfg" "CanonicalOrdering.tla"
+run_model "formal/aft/canonical_ordering" "CanonicalCollapseRecursiveContinuity.cfg" "CanonicalCollapseRecursiveContinuity.tla"

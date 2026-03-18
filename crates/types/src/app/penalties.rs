@@ -8,6 +8,7 @@
 //! proof provided. This makes the system robust against attacks that use
 //! alternative but equally valid proofs for the same underlying incident.
 
+use crate::app::guardianized::AsymptoteObserverChallengeKind;
 use crate::app::identity::AccountId;
 use crate::error::CoreError;
 use dcrypt::algorithms::xof::Blake3Xof;
@@ -23,8 +24,12 @@ pub enum OffenseType {
     /// Indicates that an agent failed a required calibration probe, suggesting
     /// it is either offline, malfunctioning, or providing incorrect results.
     FailedCalibrationProbe,
-    // Future offense types, such as providing provably incorrect data,
-    // can be added here.
+    /// Indicates that a validator published or was implicated by an objective
+    /// AFT omission proof against its canonical-order surface.
+    AftOrderingOmission,
+    /// Indicates that a validator was implicated by an objective
+    /// deterministic-observer challenge in the asymptote sealing plane.
+    AftObserverChallenge,
 }
 
 /// Contains the canonical, verifiable, and minimal facts that uniquely define an offense.
@@ -46,7 +51,30 @@ pub enum OffenseFacts {
         /// The on-chain UNIX timestamp (seconds) of the block that triggered the probe.
         probe_timestamp: u64,
     },
-    // Facts for other offenses would be defined here, corresponding to their OffenseType.
+    /// Canonical facts for an objective AFT ordering omission.
+    AftOrderingOmission {
+        /// Slot height at which the omission was proven.
+        height: u64,
+        /// Canonical hash of the omitted transaction.
+        tx_hash: [u8; 32],
+        /// Bulletin root that admitted the omitted transaction.
+        bulletin_root: [u8; 32],
+    },
+    /// Canonical facts for an asymptote deterministic observer challenge.
+    AftObserverChallenge {
+        /// Stable challenge identifier.
+        challenge_id: [u8; 32],
+        /// Observation epoch.
+        epoch: u64,
+        /// Slot height implicated by the challenge.
+        height: u64,
+        /// Slot view implicated by the challenge.
+        view: u64,
+        /// Objective kind of the observer challenge.
+        kind: AsymptoteObserverChallengeKind,
+        /// Stable hash of the supporting evidence bundle.
+        evidence_hash: [u8; 32],
+    },
 }
 
 /// A comprehensive report of misbehavior submitted to the chain for penalization.

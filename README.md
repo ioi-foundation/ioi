@@ -116,17 +116,38 @@ graph TD
 
 ### 1. Aft Fault Tolerance
 
-Classical Byzantine fault tolerance assumes deterministic safety only while fewer than one-third of participants are Byzantine. IOI's production path is now built around a different operating model: committee-backed non-equivocation evidence, externalized verification state, and explicit composed fault assumptions documented in the consensus crate. We refer to this family as Aft Fault Tolerance: replicas may be noisy, Byzantine, or offline, but finalized history must converge through certified quorums and shared evidence.
+Classical Byzantine fault tolerance assumes deterministic safety only while
+fewer than one-third of participants are Byzantine. IOI's production path is
+now built around a different operating model: committee-backed
+non-equivocation evidence, externalized verification state, proof-carrying
+canonical ordering, and explicit composed fault assumptions documented in the
+consensus crate.
+
+We refer to this family as Aft Fault Tolerance. The repository-level theorem
+surface is now `99% Byzantine Tolerance` over an explicit
+public-state-continuity (`PSC`) substrate: once ordering and sealing boundaries
+close over canonical bulletin / registry evidence, arbitrary behavior by up to
+`99%` of validators cannot create conflicting valid durable ordering outcomes
+or conflicting valid sealed-effect release outcomes. The hot path still uses
+guardian-backed transport and tentative `BaseFinal` progression, but durable
+state and irreversible effects advance only through the slot's canonical
+collapse object.
 
 - **Aft deterministic:** the deterministic production core for the aft path
-- **GuardianMajority:** the production majority-safety mode under committee-backed non-equivocation assumptions
+- **GuardianMajority:** the production transport / tentative-progress mode under committee-backed non-equivocation assumptions
 - **Asymptote:** the scalable two-tier mode with optimistic `BaseFinal` progression and witness-backed `SealedFinal` settlement
+- **CanonicalOrdering:** the proof-carrying equal-authority ordering path and the repository's `99%` ordering consensus theorem
 - **NestedGuardian:** the witness-augmented aft mode for committee cross-checking, audit sampling, and stronger composed trust assumptions
 - **Divergence handling:** proof of divergence now quarantines the local node and propagates evidence; it does not switch the network onto a separate production engine
 
-Any claim beyond the classical `3f+1` bound is treated as a research problem under layered assumptions, not as an unconditional production theorem.
+This is not an unconditional dense-vote `99% Byzantine consensus` claim.
+Classical `3f+1` bounds remain classical. The repository's stronger claim is
+the non-classical PSC theorem above, together with its ordering-specific
+equal-authority subtheorem and deterministic sealed-effect collapse theorem,
+under the protocol's explicit bulletin / recoverability, proof-soundness, and
+guardian non-equivocation assumptions.
 
-The canonical protocol specifications live in [`docs/consensus/aft/specs/guardian_majority.md`](docs/consensus/aft/specs/guardian_majority.md), [`docs/consensus/aft/specs/asymptote.md`](docs/consensus/aft/specs/asymptote.md), and [`docs/consensus/aft/specs/nested_guardian.md`](docs/consensus/aft/specs/nested_guardian.md). Formal models live under [`formal/aft/`](formal/aft/).
+The canonical protocol specifications live in [`docs/consensus/aft/specs/guardian_majority.md`](docs/consensus/aft/specs/guardian_majority.md), [`docs/consensus/aft/specs/asymptote.md`](docs/consensus/aft/specs/asymptote.md), [`docs/consensus/aft/specs/canonical_ordering.md`](docs/consensus/aft/specs/canonical_ordering.md), [`docs/consensus/aft/specs/equal_authority_ordering.md`](docs/consensus/aft/specs/equal_authority_ordering.md), and [`docs/consensus/aft/specs/nested_guardian.md`](docs/consensus/aft/specs/nested_guardian.md). Formal models live under [`formal/aft/`](formal/aft/).
 
 ### 2. The Agency Firewall
 

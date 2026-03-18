@@ -231,71 +231,35 @@ export function ShieldPolicyView({
   const activeOverrides = countActiveOverrides(policyState);
   const connectorInheritsGlobal =
     selectedConnector && policyState.overrides[selectedConnector.id]?.inheritGlobal !== false;
+  const scopeLabel = selectedConnector ? "Connector override" : "Global baseline";
+  const inheritanceLabel = selectedConnector
+    ? connectorInheritsGlobal
+      ? "Inherited"
+      : "Custom"
+    : "Source of truth";
 
   return (
     <div className="shield-policy-view">
-      <header className="shield-header">
-        <div>
-          <span className="shield-kicker">Shield</span>
-          <h1>Policy Center</h1>
-          <p>
-            Global runtime defaults live here. Connectors inherit by default, then opt into explicit
-            overrides only when a specific integration needs a tighter or looser posture.
-          </p>
-        </div>
-        <div className="shield-header-actions">
-          <button type="button" className="shield-button shield-button-secondary" onClick={() => openTarget("global")}>
-            Global defaults
-          </button>
-          {selectedConnector ? (
-            <button
-              type="button"
-              className="shield-button shield-button-secondary"
-              onClick={onOpenIntegrations}
-            >
-              Open connector
-            </button>
-          ) : null}
-        </div>
-      </header>
-
-      <section className="shield-stat-grid">
-        <article className="shield-stat-card">
-          <span>Reads</span>
-          <strong>{decisionSummary(policyState.global.reads)}</strong>
-          <p>Default posture for read-only connector actions.</p>
-        </article>
-        <article className="shield-stat-card">
-          <span>Writes</span>
-          <strong>{decisionSummary(policyState.global.writes)}</strong>
-          <p>Default approval bar for state-changing connector actions.</p>
-        </article>
-        <article className="shield-stat-card">
-          <span>Automations</span>
-          <strong>{automationSummary(policyState.global.automations)}</strong>
-          <p>How durable subscriptions and triggers enter runtime execution.</p>
-        </article>
-        <article className="shield-stat-card">
-          <span>Overrides</span>
-          <strong>{activeOverrides}</strong>
-          <p>Connector-specific exceptions to the global baseline.</p>
-        </article>
-      </section>
-
       <div className="shield-layout">
         <aside className="shield-sidebar">
-          <button
-            type="button"
-            className={`shield-target-card ${selectedTarget === "global" ? "active" : ""}`}
-            onClick={() => openTarget("global")}
-          >
-            <strong>Global runtime policy</strong>
-            <span>
-              Reads {decisionSummary(policyState.global.reads)} · Writes{" "}
-              {decisionSummary(policyState.global.writes)}
-            </span>
-            <small>Applies everywhere unless a connector override is active.</small>
-          </button>
+          <div className="shield-sidebar-section">
+            <div className="shield-sidebar-head">
+              <strong>Policy objects</strong>
+              <span>Governance</span>
+            </div>
+            <button
+              type="button"
+              className={`shield-target-card ${selectedTarget === "global" ? "active" : ""}`}
+              onClick={() => openTarget("global")}
+            >
+              <strong>Global runtime policy</strong>
+              <span>
+                Reads {decisionSummary(policyState.global.reads)} · Writes{" "}
+                {decisionSummary(policyState.global.writes)}
+              </span>
+              <small>Applies everywhere unless a connector override is active.</small>
+            </button>
+          </div>
 
           <div className="shield-sidebar-section">
             <div className="shield-sidebar-head">
@@ -340,8 +304,8 @@ export function ShieldPolicyView({
               <h2>{selectedConnector ? `${selectedConnector.name} policy` : "Global policy baseline"}</h2>
               <p>{selectedPolicy.summary.detail}</p>
             </div>
-            {selectedConnector ? (
-              <div className="shield-detail-actions">
+            <div className="shield-detail-actions">
+              {selectedConnector ? (
                 <label className="shield-toggle">
                   <input
                     type="checkbox"
@@ -352,6 +316,8 @@ export function ShieldPolicyView({
                   />
                   <span>Inherit global defaults</span>
                 </label>
+              ) : null}
+              {selectedConnector ? (
                 <button
                   type="button"
                   className="shield-button shield-button-secondary"
@@ -359,103 +325,152 @@ export function ShieldPolicyView({
                 >
                   Reset override
                 </button>
-              </div>
-            ) : null}
+              ) : null}
+              {selectedConnector ? (
+                <button
+                  type="button"
+                  className="shield-button shield-button-secondary"
+                  onClick={onOpenIntegrations}
+                >
+                  Open connector
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="shield-summary-row" role="list" aria-label="Policy summary">
+            <article className="shield-summary-chip" role="listitem">
+              <span>Scope</span>
+              <strong>{scopeLabel}</strong>
+            </article>
+            <article className="shield-summary-chip" role="listitem">
+              <span>Inheritance</span>
+              <strong>{inheritanceLabel}</strong>
+            </article>
+            <article className="shield-summary-chip" role="listitem">
+              <span>Reads</span>
+              <strong>{decisionSummary(selectedPolicy.effective.reads)}</strong>
+            </article>
+            <article className="shield-summary-chip" role="listitem">
+              <span>Writes</span>
+              <strong>{decisionSummary(selectedPolicy.effective.writes)}</strong>
+            </article>
+            <article className="shield-summary-chip" role="listitem">
+              <span>Automations</span>
+              <strong>{automationSummary(selectedPolicy.effective.automations)}</strong>
+            </article>
+            <article className="shield-summary-chip" role="listitem">
+              <span>Overrides</span>
+              <strong>{activeOverrides}</strong>
+            </article>
           </div>
 
           <div className="shield-callout">
             <strong>{selectedPolicy.summary.headline}</strong>
             <p>
-              Precedence is: hard runtime stop, global policy, connector override, graph-level
-              tightening, then explicit approval at execution time.
+              Precedence resolves in this order: hard runtime stop, global baseline, connector
+              override, graph tightening, then explicit approval at execution time.
             </p>
           </div>
 
-          <div className="shield-form-grid">
-            <PolicySelect
-              label="Read actions"
-              value={selectedPolicy.effective.reads}
-              options={DECISION_OPTIONS}
-              disabled={Boolean(connectorInheritsGlobal)}
-              onChange={(value) =>
-                selectedConnector ? updateOverride("reads", value) : updateGlobal("reads", value)
-              }
-            />
-            <PolicySelect
-              label="Write actions"
-              value={selectedPolicy.effective.writes}
-              options={DECISION_OPTIONS}
-              disabled={Boolean(connectorInheritsGlobal)}
-              onChange={(value) =>
-                selectedConnector ? updateOverride("writes", value) : updateGlobal("writes", value)
-              }
-            />
-            <PolicySelect
-              label="Admin actions"
-              value={selectedPolicy.effective.admin}
-              options={DECISION_OPTIONS}
-              disabled={Boolean(connectorInheritsGlobal)}
-              onChange={(value) =>
-                selectedConnector ? updateOverride("admin", value) : updateGlobal("admin", value)
-              }
-            />
-            <PolicySelect
-              label="Expert / raw actions"
-              value={selectedPolicy.effective.expert}
-              options={DECISION_OPTIONS}
-              disabled={Boolean(connectorInheritsGlobal)}
-              onChange={(value) =>
-                selectedConnector ? updateOverride("expert", value) : updateGlobal("expert", value)
-              }
-            />
-            <PolicySelect
-              label="Automations"
-              value={selectedPolicy.effective.automations}
-              options={AUTOMATION_OPTIONS}
-              disabled={Boolean(connectorInheritsGlobal)}
-              onChange={(value) =>
-                selectedConnector
-                  ? updateOverride("automations", value)
-                  : updateGlobal("automations", value)
-              }
-            />
-            <PolicySelect
-              label="Artifact handling"
-              value={selectedPolicy.effective.dataHandling}
-              options={DATA_OPTIONS}
-              disabled={Boolean(connectorInheritsGlobal)}
-              onChange={(value) =>
-                selectedConnector
-                  ? updateOverride("dataHandling", value)
-                  : updateGlobal("dataHandling", value)
-              }
-            />
-          </div>
+          <article className="shield-policy-card">
+            <div className="shield-policy-card-head">
+              <strong>Policy matrix</strong>
+              <span>
+                {selectedConnector && connectorInheritsGlobal
+                  ? "Inherited from the global baseline"
+                  : "Editing the selected governance object"}
+              </span>
+            </div>
+            <div className="shield-form-grid">
+              <PolicySelect
+                label="Read actions"
+                value={selectedPolicy.effective.reads}
+                options={DECISION_OPTIONS}
+                disabled={Boolean(connectorInheritsGlobal)}
+                onChange={(value) =>
+                  selectedConnector ? updateOverride("reads", value) : updateGlobal("reads", value)
+                }
+              />
+              <PolicySelect
+                label="Write actions"
+                value={selectedPolicy.effective.writes}
+                options={DECISION_OPTIONS}
+                disabled={Boolean(connectorInheritsGlobal)}
+                onChange={(value) =>
+                  selectedConnector ? updateOverride("writes", value) : updateGlobal("writes", value)
+                }
+              />
+              <PolicySelect
+                label="Admin actions"
+                value={selectedPolicy.effective.admin}
+                options={DECISION_OPTIONS}
+                disabled={Boolean(connectorInheritsGlobal)}
+                onChange={(value) =>
+                  selectedConnector ? updateOverride("admin", value) : updateGlobal("admin", value)
+                }
+              />
+              <PolicySelect
+                label="Expert / raw actions"
+                value={selectedPolicy.effective.expert}
+                options={DECISION_OPTIONS}
+                disabled={Boolean(connectorInheritsGlobal)}
+                onChange={(value) =>
+                  selectedConnector ? updateOverride("expert", value) : updateGlobal("expert", value)
+                }
+              />
+              <PolicySelect
+                label="Automations"
+                value={selectedPolicy.effective.automations}
+                options={AUTOMATION_OPTIONS}
+                disabled={Boolean(connectorInheritsGlobal)}
+                onChange={(value) =>
+                  selectedConnector
+                    ? updateOverride("automations", value)
+                    : updateGlobal("automations", value)
+                }
+              />
+              <PolicySelect
+                label="Artifact handling"
+                value={selectedPolicy.effective.dataHandling}
+                options={DATA_OPTIONS}
+                disabled={Boolean(connectorInheritsGlobal)}
+                onChange={(value) =>
+                  selectedConnector
+                    ? updateOverride("dataHandling", value)
+                    : updateGlobal("dataHandling", value)
+                }
+              />
+            </div>
+          </article>
 
-          <div className="shield-guidance-grid">
-            <article className="shield-guidance-card">
-              <strong>Use the global baseline for broad posture</strong>
-              <p>
-                Keep global settings conservative, then override only when a connector has a clear
-                operational need to behave differently.
-              </p>
-            </article>
-            <article className="shield-guidance-card">
-              <strong>Policy is separate from connector auth</strong>
-              <p>
-                Wallet-backed connector auth stores durable credentials and consent state, while
-                Shield policy defines whether reads, writes, admin actions, and automations should
-                run automatically.
-              </p>
-            </article>
-            <article className="shield-guidance-card">
-              <strong>Automations deserve their own gate</strong>
-              <p>
-                Durable background work is different from one-shot actions. Keep creation and first
-                execution approvals explicit unless a connector truly needs autonomy.
-              </p>
-            </article>
-          </div>
+          <details className="shield-help-panel">
+            <summary>Policy notes</summary>
+            <div className="shield-help-content">
+              <article className="shield-guidance-card">
+                <strong>Use the global baseline for broad posture</strong>
+                <p>
+                  Keep global settings conservative, then override only when a connector has a clear
+                  operational need to behave differently.
+                </p>
+              </article>
+              <article className="shield-guidance-card">
+                <strong>Policy is separate from connector auth</strong>
+                <p>
+                  Wallet-backed connector auth stores durable credentials and consent state, while
+                  Control policy defines whether reads, writes, admin actions, and automations
+                  should run automatically.
+                </p>
+              </article>
+              <article className="shield-guidance-card">
+                <strong>Automations deserve their own gate</strong>
+                <p>
+                  Durable background work is different from one-shot actions. Keep creation and first
+                  execution approvals explicit unless a connector truly needs autonomy.
+                </p>
+              </article>
+            </div>
+          </details>
         </section>
       </div>
     </div>

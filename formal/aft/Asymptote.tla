@@ -1,87 +1,92 @@
 ---- MODULE Asymptote ----
 EXTENDS Naturals, FiniteSets, TLC, TLAPS
 
-CONSTANT Validators, Blocks, Slots, Epochs, ValidatorQuorum, Round1Samples, Round2Samples
+CONSTANT Validators, Blocks, Slots, Epochs, ValidatorQuorum,
+          TranscriptRoots, ChallengeRoots, EmptyChallengeRoot
 
-Rounds == {1, 2}
-
-ASSUME Round1Samples \subseteq Validators
-ASSUME Round2Samples \subseteq Validators
-
-ObserversFor(s, r) ==
-  IF r = 1 THEN Round1Samples
-  ELSE IF r = 2 THEN Round2Samples
-  ELSE {}
-
+ASSUME EmptyChallengeRoot \in ChallengeRoots
 ASSUME ValidatorQuorumIntersection ==
   \A S, T \in SUBSET Validators :
     /\ Cardinality(S) >= ValidatorQuorum
     /\ Cardinality(T) >= ValidatorQuorum
     => S \cap T # {}
-ASSUME DistinctObserverAssignments ==
-  \A s \in Slots, r1 \in Rounds, r2 \in Rounds, v \in Validators :
-    /\ v \in ObserversFor(s, r1)
-    /\ v \in ObserversFor(s, r2)
-    => r1 = r2
-
-OkVerdict == 0
-VetoVerdict == 1
-Verdicts == {OkVerdict, VetoVerdict}
 
 CollapsePending == 0
 CollapseBase == 1
-CollapseSealing == 2
+CollapseObservation == 2
 CollapseAbort == 3
 CollapseSealed == 4
-CollapseEscalated == 5
-CollapseInvalid == 6
 
 CollapseStates ==
-  {CollapsePending, CollapseBase, CollapseSealing, CollapseAbort, CollapseSealed,
-   CollapseEscalated, CollapseInvalid}
+  {CollapsePending, CollapseBase, CollapseObservation, CollapseAbort, CollapseSealed}
 
-VARIABLES validatorVotes, baseCerts, observerVerdicts, closeCerts, abortSlots,
-          sealedFinal, collapseState
+VARIABLES validatorVotes, baseCerts, transcriptSurfaces, challengeSurfaces,
+          canonicalCloses, canonicalAborts, sealedFinal, collapseState
 
 vars ==
-  <<validatorVotes, baseCerts, observerVerdicts, closeCerts, abortSlots,
-    sealedFinal, collapseState>>
+  <<validatorVotes, baseCerts, transcriptSurfaces, challengeSurfaces,
+    canonicalCloses, canonicalAborts, sealedFinal, collapseState>>
 
 ValidatorVoteEvent(v, s, b, e) == <<v, s, b, e>>
 BaseCertEvent(s, b, e, q) == <<s, b, e, q>>
-ObserverVerdictEvent(v, s, r, b, e, d) == <<v, s, r, b, e, d>>
-CloseCertEvent(s, b, e) == <<s, b, e>>
+TranscriptSurfaceEvent(s, b, e, t) == <<s, b, e, t>>
+ChallengeSurfaceEvent(s, b, e, c) == <<s, b, e, c>>
+CanonicalCloseEvent(s, b, e, t) == <<s, b, e, t>>
+CanonicalAbortEvent(s, b, e, t, c) == <<s, b, e, t, c>>
 SealEvent(s, b, e) == <<s, b, e>>
 
 ValidatorVoteDomain == Validators \X Slots \X Blocks \X Epochs
 BaseCertDomain == Slots \X Blocks \X Epochs \X (SUBSET Validators)
-ObserverVerdictDomain == Validators \X Slots \X Rounds \X Blocks \X Epochs \X Verdicts
-CloseCertDomain == Slots \X Blocks \X Epochs
-AbortDomain == Slots
+TranscriptSurfaceDomain == Slots \X Blocks \X Epochs \X TranscriptRoots
+ChallengeSurfaceDomain == Slots \X Blocks \X Epochs \X ChallengeRoots
+CanonicalCloseDomain == Slots \X Blocks \X Epochs \X TranscriptRoots
+CanonicalAbortDomain ==
+  Slots \X Blocks \X Epochs \X TranscriptRoots \X (ChallengeRoots \ {EmptyChallengeRoot})
 SealedCertDomain == Slots \X Blocks \X Epochs
 
 Init ==
   /\ validatorVotes = {}
   /\ baseCerts = {}
-  /\ observerVerdicts = {}
-  /\ closeCerts = {}
-  /\ abortSlots = {}
+  /\ transcriptSurfaces = {}
+  /\ challengeSurfaces = {}
+  /\ canonicalCloses = {}
+  /\ canonicalAborts = {}
   /\ sealedFinal = {}
   /\ collapseState = [s \in Slots |-> CollapsePending]
 
 HasValidatorVote(v, s) ==
   \E b \in Blocks, e \in Epochs : ValidatorVoteEvent(v, s, b, e) \in validatorVotes
 
-HasObserverVerdict(v, s, r) ==
-  \E b \in Blocks, e \in Epochs, d \in Verdicts :
-    ObserverVerdictEvent(v, s, r, b, e, d) \in observerVerdicts
+HasBaseCert(s) ==
+  \E b \in Blocks, e \in Epochs, q \in SUBSET Validators :
+    BaseCertEvent(s, b, e, q) \in baseCerts
+
+HasTranscriptSurface(s) ==
+  \E b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+
+HasChallengeSurface(s) ==
+  \E b \in Blocks, e \in Epochs, c \in ChallengeRoots :
+    ChallengeSurfaceEvent(s, b, e, c) \in challengeSurfaces
+
+HasCanonicalOutcome(s) ==
+  \/ \E b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+       CanonicalCloseEvent(s, b, e, t) \in canonicalCloses
+  \/ \E b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+        c \in ChallengeRoots \ {EmptyChallengeRoot} :
+       CanonicalAbortEvent(s, b, e, t, c) \in canonicalAborts
+
+HasCanonicalAbort(s) ==
+  \E b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+    c \in ChallengeRoots \ {EmptyChallengeRoot} :
+    CanonicalAbortEvent(s, b, e, t, c) \in canonicalAborts
 
 ValidatorVoteStep ==
   \E v \in Validators, s \in Slots, b \in Blocks, e \in Epochs :
     /\ ~HasValidatorVote(v, s)
     /\ validatorVotes' = validatorVotes \cup {ValidatorVoteEvent(v, s, b, e)}
-    /\ UNCHANGED <<baseCerts, observerVerdicts, closeCerts, abortSlots,
-                  sealedFinal, collapseState>>
+    /\ UNCHANGED <<baseCerts, transcriptSurfaces, challengeSurfaces,
+                  canonicalCloses, canonicalAborts, sealedFinal, collapseState>>
 
 EligibleValidators(s, b, e) ==
   {v \in Validators : ValidatorVoteEvent(v, s, b, e) \in validatorVotes}
@@ -92,67 +97,83 @@ BaseFinalizeStep ==
     /\ Cardinality(q) >= ValidatorQuorum
     /\ baseCerts' = baseCerts \cup {BaseCertEvent(s, b, e, q)}
     /\ collapseState' = [collapseState EXCEPT ![s] = CollapseBase]
-    /\ UNCHANGED <<validatorVotes, observerVerdicts, closeCerts, abortSlots,
-                  sealedFinal>>
+    /\ UNCHANGED <<validatorVotes, transcriptSurfaces, challengeSurfaces,
+                  canonicalCloses, canonicalAborts, sealedFinal>>
 
-ObserverVerdictStep ==
-  \E v \in Validators, s \in Slots, r \in Rounds, b \in Blocks, e \in Epochs, d \in Verdicts :
-    /\ v \in ObserversFor(s, r)
-    /\ collapseState[s] \in {CollapseBase, CollapseSealing}
-    /\ ~HasObserverVerdict(v, s, r)
-    /\ \E q \in SUBSET Validators : BaseCertEvent(s, b, e, q) \in baseCerts
-    /\ observerVerdicts' =
-         observerVerdicts \cup {ObserverVerdictEvent(v, s, r, b, e, d)}
-    /\ abortSlots' = IF d = VetoVerdict THEN abortSlots \cup {s} ELSE abortSlots
-    /\ collapseState' =
-         [collapseState EXCEPT ![s] =
-            IF d = VetoVerdict THEN CollapseAbort ELSE CollapseSealing]
-    /\ UNCHANGED <<validatorVotes, baseCerts, closeCerts, sealedFinal>>
+TranscriptSurfaceStep ==
+  \E s \in Slots, b \in Blocks, e \in Epochs, q \in SUBSET Validators,
+     t \in TranscriptRoots :
+    /\ BaseCertEvent(s, b, e, q) \in baseCerts
+    /\ collapseState[s] \in {CollapseBase, CollapseObservation}
+    /\ ~HasTranscriptSurface(s)
+    /\ transcriptSurfaces' =
+         transcriptSurfaces \cup {TranscriptSurfaceEvent(s, b, e, t)}
+    /\ collapseState' = [collapseState EXCEPT ![s] = CollapseObservation]
+    /\ UNCHANGED <<validatorVotes, baseCerts, challengeSurfaces,
+                  canonicalCloses, canonicalAborts, sealedFinal>>
 
-CloseReady(s, b, e) ==
-  /\ \E q \in SUBSET Validators : BaseCertEvent(s, b, e, q) \in baseCerts
-  /\ \A r \in Rounds :
-       \A v \in ObserversFor(s, r) :
-         \E d \in Verdicts : ObserverVerdictEvent(v, s, r, b, e, d) \in observerVerdicts
+ChallengeSurfaceStep ==
+  \E s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+     c \in ChallengeRoots :
+    /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+    /\ collapseState[s] = CollapseObservation
+    /\ ~HasChallengeSurface(s)
+    /\ challengeSurfaces' =
+         challengeSurfaces \cup {ChallengeSurfaceEvent(s, b, e, c)}
+    /\ collapseState' = [collapseState EXCEPT ![s] = CollapseObservation]
+    /\ UNCHANGED <<validatorVotes, baseCerts, transcriptSurfaces,
+                  canonicalCloses, canonicalAborts, sealedFinal>>
 
-CloseStep ==
-  \E s \in Slots, b \in Blocks, e \in Epochs :
-    /\ CloseReady(s, b, e)
-    /\ closeCerts' = closeCerts \cup {CloseCertEvent(s, b, e)}
-    /\ collapseState' =
-         [collapseState EXCEPT ![s] =
-            IF s \in abortSlots THEN CollapseAbort ELSE CollapseSealing]
-    /\ UNCHANGED <<validatorVotes, baseCerts, observerVerdicts, abortSlots,
-                  sealedFinal>>
+CanonicalCloseStep ==
+  \E s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+    /\ ChallengeSurfaceEvent(s, b, e, EmptyChallengeRoot) \in challengeSurfaces
+    /\ collapseState[s] = CollapseObservation
+    /\ ~HasCanonicalOutcome(s)
+    /\ canonicalCloses' = canonicalCloses \cup {CanonicalCloseEvent(s, b, e, t)}
+    /\ UNCHANGED <<validatorVotes, baseCerts, transcriptSurfaces,
+                  challengeSurfaces, canonicalAborts, sealedFinal, collapseState>>
 
-SealReady(s, b, e) ==
-  /\ CloseCertEvent(s, b, e) \in closeCerts
-  /\ s \notin abortSlots
-  /\ \A r \in Rounds :
-       \A v \in ObserversFor(s, r) :
-         ObserverVerdictEvent(v, s, r, b, e, OkVerdict) \in observerVerdicts
+CanonicalAbortStep ==
+  \E s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+     c \in ChallengeRoots \ {EmptyChallengeRoot} :
+    /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+    /\ ChallengeSurfaceEvent(s, b, e, c) \in challengeSurfaces
+    /\ ~HasCanonicalOutcome(s)
+    /\ canonicalAborts' =
+         canonicalAborts \cup {CanonicalAbortEvent(s, b, e, t, c)}
+    /\ collapseState' = [collapseState EXCEPT ![s] = CollapseAbort]
+    /\ UNCHANGED <<validatorVotes, baseCerts, transcriptSurfaces,
+                  challengeSurfaces, canonicalCloses, sealedFinal>>
 
 SealStep ==
-  \E s \in Slots, b \in Blocks, e \in Epochs :
-    /\ SealReady(s, b, e)
+  \E s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    /\ CanonicalCloseEvent(s, b, e, t) \in canonicalCloses
+    /\ ~HasCanonicalAbort(s)
     /\ sealedFinal' = sealedFinal \cup {SealEvent(s, b, e)}
     /\ collapseState' = [collapseState EXCEPT ![s] = CollapseSealed]
-    /\ UNCHANGED <<validatorVotes, baseCerts, observerVerdicts, closeCerts,
-                  abortSlots>>
+    /\ UNCHANGED <<validatorVotes, baseCerts, transcriptSurfaces,
+                  challengeSurfaces, canonicalCloses, canonicalAborts>>
+
+StutterStep == UNCHANGED vars
 
 Next ==
   \/ ValidatorVoteStep
   \/ BaseFinalizeStep
-  \/ ObserverVerdictStep
-  \/ CloseStep
+  \/ TranscriptSurfaceStep
+  \/ ChallengeSurfaceStep
+  \/ CanonicalCloseStep
+  \/ CanonicalAbortStep
   \/ SealStep
+  \/ StutterStep
 
 TypeInvariant ==
   /\ validatorVotes \subseteq ValidatorVoteDomain
   /\ baseCerts \subseteq BaseCertDomain
-  /\ observerVerdicts \subseteq ObserverVerdictDomain
-  /\ closeCerts \subseteq CloseCertDomain
-  /\ abortSlots \subseteq AbortDomain
+  /\ transcriptSurfaces \subseteq TranscriptSurfaceDomain
+  /\ challengeSurfaces \subseteq ChallengeSurfaceDomain
+  /\ canonicalCloses \subseteq CanonicalCloseDomain
+  /\ canonicalAborts \subseteq CanonicalAbortDomain
   /\ sealedFinal \subseteq SealedCertDomain
   /\ collapseState \in [Slots -> CollapseStates]
 
@@ -164,14 +185,23 @@ NoDualValidatorVotes ==
     => /\ b1 = b2
        /\ e1 = e2
 
-NoDualObserverVerdicts ==
-  \A v \in Validators, s \in Slots, r \in Rounds, b1 \in Blocks, b2 \in Blocks,
-     e1 \in Epochs, e2 \in Epochs, d1 \in Verdicts, d2 \in Verdicts :
-    /\ ObserverVerdictEvent(v, s, r, b1, e1, d1) \in observerVerdicts
-    /\ ObserverVerdictEvent(v, s, r, b2, e2, d2) \in observerVerdicts
+NoDualTranscriptSurfaces ==
+  \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs,
+     t1 \in TranscriptRoots, t2 \in TranscriptRoots :
+    /\ TranscriptSurfaceEvent(s, b1, e1, t1) \in transcriptSurfaces
+    /\ TranscriptSurfaceEvent(s, b2, e2, t2) \in transcriptSurfaces
     => /\ b1 = b2
        /\ e1 = e2
-       /\ d1 = d2
+       /\ t1 = t2
+
+NoDualChallengeSurfaces ==
+  \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs,
+     c1 \in ChallengeRoots, c2 \in ChallengeRoots :
+    /\ ChallengeSurfaceEvent(s, b1, e1, c1) \in challengeSurfaces
+    /\ ChallengeSurfaceEvent(s, b2, e2, c2) \in challengeSurfaces
+    => /\ b1 = b2
+       /\ e1 = e2
+       /\ c1 = c2
 
 BaseCertSoundness ==
   \A s \in Slots, b \in Blocks, e \in Epochs, q \in SUBSET Validators :
@@ -179,29 +209,35 @@ BaseCertSoundness ==
     => /\ Cardinality(q) >= ValidatorQuorum
        /\ \A v \in q : ValidatorVoteEvent(v, s, b, e) \in validatorVotes
 
-CloseCertSoundness ==
-  \A s \in Slots, b \in Blocks, e \in Epochs :
-    CloseCertEvent(s, b, e) \in closeCerts
-    => /\ \E q \in SUBSET Validators : BaseCertEvent(s, b, e, q) \in baseCerts
-       /\ \A r \in Rounds :
-            \A v \in ObserversFor(s, r) :
-              \E d \in Verdicts : ObserverVerdictEvent(v, s, r, b, e, d) \in observerVerdicts
+TranscriptAnchored ==
+  \A s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+    => \E q \in SUBSET Validators : BaseCertEvent(s, b, e, q) \in baseCerts
 
-AbortSoundness ==
-  \A s \in Slots :
-    s \in abortSlots
-    => \E v \in Validators, r \in Rounds, b \in Blocks, e \in Epochs :
-         /\ v \in ObserversFor(s, r)
-         /\ ObserverVerdictEvent(v, s, r, b, e, VetoVerdict) \in observerVerdicts
+ChallengeAnchored ==
+  \A s \in Slots, b \in Blocks, e \in Epochs, c \in ChallengeRoots :
+    ChallengeSurfaceEvent(s, b, e, c) \in challengeSurfaces
+    => \E t \in TranscriptRoots :
+         TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+
+CanonicalCloseAnchored ==
+  \A s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+    CanonicalCloseEvent(s, b, e, t) \in canonicalCloses
+    => /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+       /\ ChallengeSurfaceEvent(s, b, e, EmptyChallengeRoot) \in challengeSurfaces
+
+CanonicalAbortAnchored ==
+  \A s \in Slots, b \in Blocks, e \in Epochs, t \in TranscriptRoots,
+     c \in ChallengeRoots \ {EmptyChallengeRoot} :
+    CanonicalAbortEvent(s, b, e, t, c) \in canonicalAborts
+    => /\ TranscriptSurfaceEvent(s, b, e, t) \in transcriptSurfaces
+       /\ ChallengeSurfaceEvent(s, b, e, c) \in challengeSurfaces
 
 SealedAnchored ==
   \A s \in Slots, b \in Blocks, e \in Epochs :
     SealEvent(s, b, e) \in sealedFinal
-    => /\ CloseCertEvent(s, b, e) \in closeCerts
-       /\ s \notin abortSlots
-       /\ \A r \in Rounds :
-            \A v \in ObserversFor(s, r) :
-              ObserverVerdictEvent(v, s, r, b, e, OkVerdict) \in observerVerdicts
+    => /\ \E t \in TranscriptRoots : CanonicalCloseEvent(s, b, e, t) \in canonicalCloses
+       /\ ~HasCanonicalAbort(s)
 
 BaseSafety ==
   \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs,
@@ -210,6 +246,21 @@ BaseSafety ==
     /\ BaseCertEvent(s, b2, e2, q2) \in baseCerts
     => /\ b1 = b2
        /\ e1 = e2
+
+CanonicalCloseSafety ==
+  \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs,
+     t1 \in TranscriptRoots, t2 \in TranscriptRoots :
+    /\ CanonicalCloseEvent(s, b1, e1, t1) \in canonicalCloses
+    /\ CanonicalCloseEvent(s, b2, e2, t2) \in canonicalCloses
+    => /\ b1 = b2
+       /\ e1 = e2
+       /\ t1 = t2
+
+AbortDominatesClose ==
+  \A s \in Slots :
+    HasCanonicalAbort(s)
+    => ~(\E b \in Blocks, e \in Epochs, t \in TranscriptRoots :
+           CanonicalCloseEvent(s, b, e, t) \in canonicalCloses)
 
 SealedSafety ==
   \A s \in Slots, b1 \in Blocks, b2 \in Blocks, e1 \in Epochs, e2 \in Epochs :
@@ -220,14 +271,14 @@ SealedSafety ==
 
 AbortDominatesSealed ==
   \A s \in Slots, b \in Blocks, e \in Epochs :
-    s \in abortSlots => SealEvent(s, b, e) \notin sealedFinal
+    HasCanonicalAbort(s) => SealEvent(s, b, e) \notin sealedFinal
 
 MonotoneCollapse ==
   /\ \A s \in Slots :
        collapseState[s] = CollapseSealed => \E b \in Blocks, e \in Epochs :
          SealEvent(s, b, e) \in sealedFinal
   /\ \A s \in Slots :
-       collapseState[s] = CollapseAbort => s \in abortSlots
+       collapseState[s] = CollapseAbort => HasCanonicalAbort(s)
 
 Spec == Init /\ [][Next]_vars
 
