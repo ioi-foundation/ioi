@@ -332,6 +332,9 @@ pub struct BlockHeader {
     /// Proof-carrying recursive-continuity certificate for the previous slot's collapse extension.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canonical_collapse_extension_certificate: Option<CanonicalCollapseExtensionCertificate>,
+    /// Compact signed publication frontier summarizing the slot's endogenous publication trace.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub publication_frontier: Option<PublicationFrontier>,
 
     /// The signature of the block header's canonical preimage.
     /// Signed payload is: Preimage || oracle_counter || oracle_trace_hash
@@ -407,6 +410,7 @@ impl BlockHeader {
                 &self.parent_qc, // Include QC in signature preimage
                 self.previous_canonical_collapse_commitment_hash,
                 &self.canonical_collapse_extension_certificate,
+                &self.publication_frontier,
             ),
         ))
         .map_err(CoreError::Custom)
@@ -919,6 +923,7 @@ mod tests {
             parent_qc: QuorumCertificate::default(),
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
             signature: vec![],
         }
     }

@@ -129,7 +129,7 @@
 }
 
 .resize-handle:hover {
-  background: rgba(99, 144, 255, 0.08);
+  background: var(--interactive-selected-bg);
 }
 
 .resize-line {
@@ -435,7 +435,7 @@
 
 .orb-ring {
   position: absolute;
-  border: 1px solid rgba(99, 144, 255, 0.3);
+  border: 1px solid var(--interactive-selected-border);
   border-radius: 50%;
   animation: orbit 2s linear infinite;
 }

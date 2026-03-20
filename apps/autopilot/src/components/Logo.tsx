@@ -13,57 +13,57 @@ export function Logo({ className, style }: { className?: string; style?: React.C
     >
       <defs>
         <linearGradient id={`${idPrefix}-lg1`} x1="295.3" y1="544.4" x2="485.4" y2="544.4" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#3650c0" />
-          <stop offset="1" stopColor="#346acf" />
+          <stop offset="0" stopColor="#ff79c6" />
+          <stop offset="1" stopColor="#bd93f9" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg2`} x1="302.6" y1="422" x2="697.4" y2="422" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#f7f8f7" />
-          <stop offset="1" stopColor="#b0c6f4" />
+          <stop offset="0" stopColor="#f3f5fb" />
+          <stop offset="1" stopColor="#8be9fd" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg3`} x1="797.7" y1="740.6" x2="797.7" y2="425.1" gradientUnits="userSpaceOnUse">
-          <stop offset=".2" stopColor="#3b5eda" />
-          <stop offset="1" stopColor="#2740a8" />
+          <stop offset=".2" stopColor="#bd93f9" />
+          <stop offset="1" stopColor="#ff79c6" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg4`} x1="609.7" y1="654.1" x2="609.7" y2="434.6" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#c8dcfd" />
-          <stop offset="1" stopColor="#93bef8" />
+          <stop offset="0" stopColor="#d7f4fb" />
+          <stop offset="1" stopColor="#8be9fd" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg5`} x1="223.7" y1="846.1" x2="392.7" y2="694" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#83a0e0" />
-          <stop offset="1" stopColor="#5b86de" />
+          <stop offset="0" stopColor="#69f0ae" />
+          <stop offset="1" stopColor="#8be9fd" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg6`} x1="518.7" y1="314.3" x2="622.4" y2="252" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#759ce8" />
-          <stop offset=".29" stopColor="#7198e5" />
-          <stop offset=".55" stopColor="#688dde" />
-          <stop offset=".8" stopColor="#587bd2" />
-          <stop offset="1" stopColor="#4666c4" />
+          <stop offset="0" stopColor="#8be9fd" />
+          <stop offset=".29" stopColor="#7adff2" />
+          <stop offset=".55" stopColor="#69f0ae" />
+          <stop offset=".8" stopColor="#bd93f9" />
+          <stop offset="1" stopColor="#ff79c6" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg7`} x1="202.3" y1="740.6" x2="202.3" y2="425.1" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#d3d3df" />
-          <stop offset=".53" stopColor="#e8e9ed" />
-          <stop offset="1" stopColor="#f7f8f7" />
+          <stop offset="0" stopColor="#c8d0df" />
+          <stop offset=".53" stopColor="#e8edf2" />
+          <stop offset="1" stopColor="#f3f5fb" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg8`} x1="688.7" y1="780.7" x2="688.7" y2="675.2" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#5a8cec" />
-          <stop offset="1" stopColor="#3b67d3" />
+          <stop offset="0" stopColor="#ffb86c" />
+          <stop offset="1" stopColor="#ff79c6" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg9`} x1="389.9" y1="414.1" x2="389.9" y2="104.8" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#f7f8f7" />
-          <stop offset="1" stopColor="#b2c8f4" />
+          <stop offset="0" stopColor="#f3f5fb" />
+          <stop offset="1" stopColor="#d7f4fb" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg10`} x1="401.3" y1="780.7" x2="401.3" y2="552.8" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#75abf0" />
-          <stop offset=".32" stopColor="#699aeb" />
-          <stop offset=".94" stopColor="#4d6fe0" />
-          <stop offset="1" stopColor="#4a6bdf" />
+          <stop offset="0" stopColor="#ff79c6" />
+          <stop offset=".32" stopColor="#bd93f9" />
+          <stop offset=".94" stopColor="#8be9fd" />
+          <stop offset="1" stopColor="#69f0ae" />
         </linearGradient>
         <linearGradient id={`${idPrefix}-lg11`} x1="598.7" y1="780.7" x2="598.7" y2="552.8" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#bbd8f2" />
-          <stop offset=".16" stopColor="#b3d3f1" />
-          <stop offset=".41" stopColor="#9ec6ef" />
-          <stop offset=".71" stopColor="#7cb0ed" />
-          <stop offset="1" stopColor="#5698ea" />
+          <stop offset="0" stopColor="#ffb86c" />
+          <stop offset=".16" stopColor="#ffd1a1" />
+          <stop offset=".41" stopColor="#8be9fd" />
+          <stop offset=".71" stopColor="#bd93f9" />
+          <stop offset="1" stopColor="#ff79c6" />
         </linearGradient>
       </defs>
       <g>

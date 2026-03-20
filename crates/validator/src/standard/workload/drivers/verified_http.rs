@@ -174,16 +174,17 @@ fn validate_guardian_receipt(
             ));
         }
         let observer_binding = sealed_finality_proof_observer_binding(sealed_finality_proof)
-            .map_err(|e| VmError::HostError(format!(
-                "Guardian sealed finality proof observer binding is invalid: {e}"
-            )))?;
+            .map_err(|e| {
+                VmError::HostError(format!(
+                    "Guardian sealed finality proof observer binding is invalid: {e}"
+                ))
+            })?;
         if seal_object.epoch != sealed_finality_proof.epoch
             || seal_object.intent.guardian_manifest_hash
                 != sealed_finality_proof.guardian_manifest_hash
             || seal_object.intent.guardian_decision_hash
                 != sealed_finality_proof.guardian_decision_hash
-            || seal_object.public_inputs.guardian_counter
-                != sealed_finality_proof.guardian_counter
+            || seal_object.public_inputs.guardian_counter != sealed_finality_proof.guardian_counter
             || seal_object.public_inputs.guardian_trace_hash
                 != sealed_finality_proof.guardian_trace_hash
             || seal_object.public_inputs.guardian_measurement_root
@@ -199,13 +200,15 @@ fn validate_guardian_receipt(
                 "Guardian seal object does not match the sealed finality proof".into(),
             ));
         }
-        let expected_collapse_hash =
-            canonical_collapse_hash_for_sealed_effect(canonical_collapse_object, sealed_finality_proof)
-                .map_err(|e| {
-                    VmError::HostError(format!(
-                        "Guardian canonical collapse object is invalid: {e}"
-                    ))
-                })?;
+        let expected_collapse_hash = canonical_collapse_hash_for_sealed_effect(
+            canonical_collapse_object,
+            sealed_finality_proof,
+        )
+        .map_err(|e| {
+            VmError::HostError(format!(
+                "Guardian canonical collapse object is invalid: {e}"
+            ))
+        })?;
         if seal_object.public_inputs.canonical_collapse_hash != expected_collapse_hash {
             return Err(VmError::HostError(
                 "Guardian seal object does not match the canonical collapse object".into(),
@@ -449,6 +452,9 @@ mod tests {
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             continuity_accumulator_hash: [0u8; 32],
             continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
             ordering: CanonicalOrderingCollapse {
                 height,
                 kind: CanonicalCollapseKind::Close,
@@ -798,8 +804,6 @@ mod tests {
             &guard,
         )
         .unwrap_err();
-        assert!(err
-            .to_string()
-            .contains("canonical collapse object"));
+        assert!(err.to_string().contains("canonical collapse object"));
     }
 }

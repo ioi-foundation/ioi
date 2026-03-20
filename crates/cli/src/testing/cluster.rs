@@ -22,12 +22,11 @@ use ioi_types::app::{
     account_id_from_key_material, guardian_registry_asymptote_policy_key,
     guardian_registry_committee_account_key, guardian_registry_committee_key,
     guardian_registry_log_key, guardian_registry_witness_key, guardian_registry_witness_seed_key,
-    guardian_registry_witness_set_key, AccountId, ActiveKeyRecord,
-    AsymptoteObserverSealingMode, AsymptotePolicy, BlockTimingParams, BlockTimingRuntime,
-    FinalityTier, GuardianCommitteeManifest, GuardianCommitteeMember,
-    GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest,
-    GuardianWitnessEpochSeed, GuardianWitnessSet, SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
-    ValidatorV1,
+    guardian_registry_witness_set_key, AccountId, ActiveKeyRecord, AsymptoteObserverSealingMode,
+    AsymptotePolicy, BlockTimingParams, BlockTimingRuntime, FinalityTier,
+    GuardianCommitteeManifest, GuardianCommitteeMember, GuardianTransparencyLogDescriptor,
+    GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed, GuardianWitnessSet, SignatureSuite,
+    ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
 use ioi_types::keys::CURRENT_EPOCH_KEY;
 use ioi_validator::config::{AttestationSignaturePolicy, GuardianConfig};

@@ -1,7 +1,7 @@
 .status-bar {
   height: 24px;
-  background: rgba(10, 14, 20, 0.96);
-  color: #b6c0d1;
+  background: var(--surface-1);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -11,10 +11,11 @@
   user-select: none;
   z-index: 100;
   flex-shrink: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid transparent;
 }
 
-.status-left, .status-right {
+.status-left,
+.status-right {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -27,7 +28,7 @@
   cursor: default;
   padding: 0 6px;
   height: 100%;
-  color: #8c96aa;
+  color: var(--text-tertiary);
 }
 
 .status-button {
@@ -43,7 +44,7 @@
 }
 
 .status-item strong {
-  color: #f5f7fb;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -52,21 +53,21 @@
 }
 
 .status-item.clickable:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-hover);
 }
 
 .status-icon-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
+  background: var(--status-success);
+  box-shadow: 0 0 0 4px var(--status-success-dim);
 }
 
 .status-meter {
   width: 36px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(232, 237, 242, 0.08);
   border-radius: 999px;
   overflow: hidden;
 }

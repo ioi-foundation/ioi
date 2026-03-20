@@ -1,7 +1,8 @@
 use crate::app::consensus::{
     canonical_collapse_object_hash, CanonicalCollapseKind, CanonicalCollapseObject,
+    RecoveryWitnessCertificate,
 };
-use crate::app::{AccountId, SignatureProof, SignatureSuite, ValidatorSetV1};
+use crate::app::{AccountId, BlockHeader, SignatureProof, SignatureSuite, ValidatorSetV1};
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -1339,6 +1340,28 @@ pub struct AsymptotePolicy {
     pub max_checkpoint_staleness_ms: u64,
 }
 
+/// Optional constructive recovery payload carried inside a signed witness statement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct GuardianWitnessRecoveryBinding {
+    /// Canonical hash of the exploratory recovery capsule bound to this witnessed slot.
+    #[serde(default)]
+    pub recovery_capsule_hash: [u8; 32],
+    /// Commitment to the coded share this witness committee is certifying for the slot.
+    #[serde(default)]
+    pub share_commitment_hash: [u8; 32],
+}
+
+/// Internal request payload pairing one witness committee with one recovery binding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
+pub struct GuardianWitnessRecoveryBindingAssignment {
+    /// Hash of the witness committee manifest that should sign this recovery binding.
+    #[serde(default)]
+    pub witness_manifest_hash: [u8; 32],
+    /// Recovery binding that committee should carry on its witness statement/certificate.
+    #[serde(default)]
+    pub recovery_binding: GuardianWitnessRecoveryBinding,
+}
+
 /// Statement cross-signed by external witness committees in research-only nested guardian mode.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Default)]
 pub struct GuardianWitnessStatement {
@@ -1360,6 +1383,9 @@ pub struct GuardianWitnessStatement {
     pub guardian_measurement_root: [u8; 32],
     /// Witness-log checkpoint root anchoring the guardian certificate when available.
     pub guardian_checkpoint_root: [u8; 32],
+    /// Optional signed recovery binding for constructive lower-bound variants.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_binding: Option<GuardianWitnessRecoveryBinding>,
 }
 
 /// Aggregated witness certificate for research-only nested guardian mode.
@@ -1383,9 +1409,107 @@ pub struct GuardianWitnessCertificate {
     /// Deterministic reassignment depth used to derive the assigned witness committee.
     #[serde(default)]
     pub reassignment_depth: u8,
+    /// Optional signed recovery binding mirrored from the witness statement for verification.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery_binding: Option<GuardianWitnessRecoveryBinding>,
     /// Optional witness-log checkpoint anchoring this witness certificate.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_checkpoint: Option<GuardianLogCheckpoint>,
+}
+
+/// Reconstructs the signed witness statement for a header-certified guardian slot.
+pub fn guardian_witness_statement_for_header_with_recovery_binding(
+    header: &BlockHeader,
+    certificate: &GuardianQuorumCertificate,
+    recovery_binding: Option<GuardianWitnessRecoveryBinding>,
+) -> GuardianWitnessStatement {
+    GuardianWitnessStatement {
+        producer_account_id: header.producer_account_id,
+        height: header.height,
+        view: header.view,
+        guardian_manifest_hash: certificate.manifest_hash,
+        guardian_decision_hash: certificate.decision_hash,
+        guardian_counter: certificate.counter,
+        guardian_trace_hash: certificate.trace_hash,
+        guardian_measurement_root: certificate.measurement_root,
+        guardian_checkpoint_root: certificate
+            .log_checkpoint
+            .as_ref()
+            .map(|checkpoint| checkpoint.root_hash)
+            .unwrap_or([0u8; 32]),
+        recovery_binding,
+    }
+}
+
+/// Reconstructs the signed witness statement for the primary header-carried witness pair.
+pub fn guardian_witness_statement_for_header(
+    header: &BlockHeader,
+    certificate: &GuardianQuorumCertificate,
+) -> GuardianWitnessStatement {
+    guardian_witness_statement_for_header_with_recovery_binding(
+        header,
+        certificate,
+        certificate
+            .experimental_witness_certificate
+            .as_ref()
+            .and_then(|witness_certificate| witness_certificate.recovery_binding.clone()),
+    )
+}
+
+/// Derives the exploratory recovery witness certificate carried by a signed witness pair.
+pub fn derive_recovery_witness_certificate(
+    statement: &GuardianWitnessStatement,
+    certificate: &GuardianWitnessCertificate,
+) -> Result<Option<RecoveryWitnessCertificate>, String> {
+    match (
+        statement.recovery_binding.as_ref(),
+        certificate.recovery_binding.as_ref(),
+    ) {
+        (None, None) => Ok(None),
+        (Some(_), None) | (None, Some(_)) => Err(
+            "guardian witness recovery binding must be present on both statement and certificate"
+                .into(),
+        ),
+        (Some(statement_binding), Some(certificate_binding)) => {
+            if statement_binding != certificate_binding {
+                return Err(
+                    "guardian witness recovery binding must match between statement and certificate"
+                        .into(),
+                );
+            }
+            if statement.height == 0
+                || certificate.epoch == 0
+                || certificate.manifest_hash == [0u8; 32]
+                || statement_binding.recovery_capsule_hash == [0u8; 32]
+                || statement_binding.share_commitment_hash == [0u8; 32]
+            {
+                return Err(
+                    "guardian witness recovery binding must produce a non-zero recovery witness certificate"
+                        .into(),
+                );
+            }
+            Ok(Some(RecoveryWitnessCertificate {
+                height: statement.height,
+                epoch: certificate.epoch,
+                witness_manifest_hash: certificate.manifest_hash,
+                recovery_capsule_hash: statement_binding.recovery_capsule_hash,
+                share_commitment_hash: statement_binding.share_commitment_hash,
+            }))
+        }
+    }
+}
+
+/// Derives the exploratory recovery witness certificate bound to a guardian-certified header.
+pub fn derive_recovery_witness_certificate_for_header(
+    header: &BlockHeader,
+    certificate: &GuardianQuorumCertificate,
+) -> Result<Option<RecoveryWitnessCertificate>, String> {
+    let witness_certificate = match certificate.experimental_witness_certificate.as_ref() {
+        Some(witness_certificate) => witness_certificate,
+        None => return Ok(None),
+    };
+    let statement = guardian_witness_statement_for_header(header, certificate);
+    derive_recovery_witness_certificate(&statement, witness_certificate)
 }
 
 /// Observer verdict for an equal-authority asymptote observation assignment.
@@ -1844,10 +1968,9 @@ pub fn canonical_collapse_hash_for_sealed_effect(
                 .into(),
         );
     }
-    let sealing = canonical_collapse_object
-        .sealing
-        .as_ref()
-        .ok_or_else(|| "sealed-effect canonical collapse object is missing the sealing branch".to_string())?;
+    let sealing = canonical_collapse_object.sealing.as_ref().ok_or_else(|| {
+        "sealed-effect canonical collapse object is missing the sealing branch".to_string()
+    })?;
     if sealing.kind != CanonicalCollapseKind::Close
         || sealing.finality_tier != FinalityTier::SealedFinal
         || sealing.collapse_state != CollapseState::SealedFinal
@@ -1864,7 +1987,9 @@ pub fn canonical_collapse_hash_for_sealed_effect(
         );
     }
     if sealing.epoch != sealed_finality_proof.epoch {
-        return Err("sealed-effect canonical collapse epoch does not match the sealed proof".into());
+        return Err(
+            "sealed-effect canonical collapse epoch does not match the sealed proof".into(),
+        );
     }
     let observer_binding = sealed_finality_proof_observer_binding(sealed_finality_proof)?;
     if sealing.transcripts_root != observer_binding.transcripts_root
@@ -1931,8 +2056,10 @@ pub fn build_http_egress_seal_object(
     }
     let verifier = default_http_egress_effect_verifier()?;
     let observer_binding = sealed_finality_proof_observer_binding(sealed_finality_proof)?;
-    let canonical_collapse_hash =
-        canonical_collapse_hash_for_sealed_effect(canonical_collapse_object, sealed_finality_proof)?;
+    let canonical_collapse_hash = canonical_collapse_hash_for_sealed_effect(
+        canonical_collapse_object,
+        sealed_finality_proof,
+    )?;
     let intent = EffectIntent {
         epoch: sealed_finality_proof.epoch,
         effect_class: SealedEffectClass::HttpEgress,
@@ -2058,17 +2185,23 @@ pub fn sealed_finality_proof_observer_binding(
     if !has_observer_surface {
         return Ok(ObserverSurfaceBinding::default());
     }
-    if proof.collapse_state != CollapseState::SealedFinal || proof.finality_tier != FinalityTier::SealedFinal {
+    if proof.collapse_state != CollapseState::SealedFinal
+        || proof.finality_tier != FinalityTier::SealedFinal
+    {
         return Err("sealed-effect observer binding requires a SealedFinal proof".into());
     }
     let transcript_commitment = proof
         .observer_transcript_commitment
         .as_ref()
-        .ok_or_else(|| "sealed final proof is missing an observer transcript commitment".to_string())?;
+        .ok_or_else(|| {
+            "sealed final proof is missing an observer transcript commitment".to_string()
+        })?;
     let challenge_commitment = proof
         .observer_challenge_commitment
         .as_ref()
-        .ok_or_else(|| "sealed final proof is missing an observer challenge commitment".to_string())?;
+        .ok_or_else(|| {
+            "sealed final proof is missing an observer challenge commitment".to_string()
+        })?;
     let canonical_close = proof
         .observer_canonical_close
         .as_ref()
@@ -2076,7 +2209,8 @@ pub fn sealed_finality_proof_observer_binding(
     if proof.observer_canonical_abort.is_some() {
         return Err("sealed final proof may not carry a canonical observer abort object".into());
     }
-    let transcripts_root = canonical_asymptote_observer_transcripts_hash(&proof.observer_transcripts)?;
+    let transcripts_root =
+        canonical_asymptote_observer_transcripts_hash(&proof.observer_transcripts)?;
     let challenges_root = canonical_asymptote_observer_challenges_hash(&proof.observer_challenges)?;
     if transcript_commitment.transcripts_root != transcripts_root
         || canonical_close.transcripts_root != transcripts_root
@@ -2124,7 +2258,8 @@ pub fn canonical_asymptote_observer_transcripts_hash(
     for window in normalized.windows(2) {
         if window[0].0 == window[1].0 {
             return Err(
-                "canonical observer transcript surface must not contain duplicate assignments".into(),
+                "canonical observer transcript surface must not contain duplicate assignments"
+                    .into(),
             );
         }
     }
@@ -2349,8 +2484,8 @@ pub struct EgressReceipt {
 mod tests {
     use super::*;
     use crate::app::{
-        ActiveKeyRecord, CanonicalOrderingCollapse, CanonicalSealingCollapse, SignatureSuite,
-        ValidatorV1,
+        ActiveKeyRecord, CanonicalOrderingCollapse, CanonicalSealingCollapse, QuorumCertificate,
+        SignatureSuite, ValidatorV1,
     };
 
     fn build_validator_set(ids: &[[u8; 32]]) -> ValidatorSetV1 {
@@ -2370,6 +2505,197 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn derives_recovery_witness_certificate_from_signed_binding() {
+        let statement = GuardianWitnessStatement {
+            producer_account_id: AccountId([1u8; 32]),
+            height: 33,
+            view: 5,
+            guardian_manifest_hash: [2u8; 32],
+            guardian_decision_hash: [3u8; 32],
+            guardian_counter: 7,
+            guardian_trace_hash: [4u8; 32],
+            guardian_measurement_root: [5u8; 32],
+            guardian_checkpoint_root: [6u8; 32],
+            recovery_binding: Some(GuardianWitnessRecoveryBinding {
+                recovery_capsule_hash: [7u8; 32],
+                share_commitment_hash: [8u8; 32],
+            }),
+        };
+        let certificate = GuardianWitnessCertificate {
+            manifest_hash: [9u8; 32],
+            stratum_id: "stratum-a".into(),
+            epoch: 11,
+            statement_hash: [10u8; 32],
+            signers_bitfield: vec![0b0000_0011],
+            aggregated_signature: vec![0xAA],
+            reassignment_depth: 0,
+            recovery_binding: statement.recovery_binding.clone(),
+            log_checkpoint: None,
+        };
+
+        let derived = derive_recovery_witness_certificate(&statement, &certificate)
+            .expect("recovery witness certificate derivation")
+            .expect("recovery witness certificate");
+
+        assert_eq!(derived.height, statement.height);
+        assert_eq!(derived.epoch, certificate.epoch);
+        assert_eq!(derived.witness_manifest_hash, certificate.manifest_hash);
+        assert_eq!(
+            derived.recovery_capsule_hash,
+            statement
+                .recovery_binding
+                .as_ref()
+                .expect("binding")
+                .recovery_capsule_hash
+        );
+        assert_eq!(
+            derived.share_commitment_hash,
+            statement
+                .recovery_binding
+                .as_ref()
+                .expect("binding")
+                .share_commitment_hash
+        );
+    }
+
+    #[test]
+    fn rejects_recovery_witness_certificate_derivation_on_binding_mismatch() {
+        let statement = GuardianWitnessStatement {
+            producer_account_id: AccountId([1u8; 32]),
+            height: 33,
+            view: 5,
+            guardian_manifest_hash: [2u8; 32],
+            guardian_decision_hash: [3u8; 32],
+            guardian_counter: 7,
+            guardian_trace_hash: [4u8; 32],
+            guardian_measurement_root: [5u8; 32],
+            guardian_checkpoint_root: [6u8; 32],
+            recovery_binding: Some(GuardianWitnessRecoveryBinding {
+                recovery_capsule_hash: [7u8; 32],
+                share_commitment_hash: [8u8; 32],
+            }),
+        };
+        let certificate = GuardianWitnessCertificate {
+            manifest_hash: [9u8; 32],
+            stratum_id: "stratum-a".into(),
+            epoch: 11,
+            statement_hash: [10u8; 32],
+            signers_bitfield: vec![0b0000_0011],
+            aggregated_signature: vec![0xAA],
+            reassignment_depth: 0,
+            recovery_binding: Some(GuardianWitnessRecoveryBinding {
+                recovery_capsule_hash: [17u8; 32],
+                share_commitment_hash: [18u8; 32],
+            }),
+            log_checkpoint: None,
+        };
+
+        let err = derive_recovery_witness_certificate(&statement, &certificate)
+            .expect_err("mismatched binding must fail");
+        assert!(err.contains("must match"));
+    }
+
+    #[test]
+    fn derives_recovery_witness_certificate_from_header_guardian_certificate_pair() {
+        let witness_certificate = GuardianWitnessCertificate {
+            manifest_hash: [9u8; 32],
+            stratum_id: "stratum-a".into(),
+            epoch: 11,
+            statement_hash: [10u8; 32],
+            signers_bitfield: vec![0b0000_0011],
+            aggregated_signature: vec![0xAA],
+            reassignment_depth: 0,
+            recovery_binding: Some(GuardianWitnessRecoveryBinding {
+                recovery_capsule_hash: [17u8; 32],
+                share_commitment_hash: [18u8; 32],
+            }),
+            log_checkpoint: Some(GuardianLogCheckpoint {
+                log_id: "guardian-log".into(),
+                tree_size: 3,
+                root_hash: [19u8; 32],
+                timestamp_ms: 1_700_000_000_000,
+                signature: vec![0xBB],
+                proof: None,
+            }),
+        };
+        let header = BlockHeader {
+            height: 33,
+            view: 5,
+            parent_hash: [1u8; 32],
+            parent_state_root: crate::app::StateRoot(vec![2u8; 32]),
+            state_root: crate::app::StateRoot(vec![3u8; 32]),
+            transactions_root: vec![4u8; 32],
+            timestamp: 1_700_000_000,
+            timestamp_ms: 1_700_000_000_000,
+            gas_used: 0,
+            validator_set: vec![vec![5u8; 32]],
+            producer_account_id: AccountId([6u8; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [7u8; 32],
+            producer_pubkey: vec![8u8; 32],
+            oracle_counter: 9,
+            oracle_trace_hash: [10u8; 32],
+            guardian_certificate: Some(GuardianQuorumCertificate {
+                manifest_hash: [11u8; 32],
+                epoch: 11,
+                decision_hash: [12u8; 32],
+                counter: 13,
+                trace_hash: [14u8; 32],
+                measurement_root: [15u8; 32],
+                signers_bitfield: vec![0b0000_0011],
+                aggregated_signature: vec![0xCC],
+                log_checkpoint: Some(GuardianLogCheckpoint {
+                    log_id: "guardian-log".into(),
+                    tree_size: 7,
+                    root_hash: [16u8; 32],
+                    timestamp_ms: 1_700_000_000_500,
+                    signature: vec![0xDD],
+                    proof: None,
+                }),
+                experimental_witness_certificate: Some(witness_certificate.clone()),
+            }),
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+            parent_qc: QuorumCertificate {
+                height: 32,
+                view: 4,
+                block_hash: [20u8; 32],
+                signatures: Vec::new(),
+                aggregated_signature: vec![0xEE],
+                signers_bitfield: vec![1],
+            },
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            signature: vec![0xFF],
+        };
+
+        let guardian_certificate = header
+            .guardian_certificate
+            .as_ref()
+            .expect("guardian certificate");
+        let statement = guardian_witness_statement_for_header(&header, guardian_certificate);
+        assert_eq!(
+            statement.recovery_binding,
+            witness_certificate.recovery_binding.clone()
+        );
+        assert_eq!(statement.guardian_checkpoint_root, [16u8; 32]);
+
+        let derived = derive_recovery_witness_certificate_for_header(&header, guardian_certificate)
+            .expect("header-bound recovery witness certificate derivation")
+            .expect("recovery witness certificate");
+        assert_eq!(derived.height, header.height);
+        assert_eq!(derived.epoch, witness_certificate.epoch);
+        assert_eq!(
+            derived.witness_manifest_hash,
+            witness_certificate.manifest_hash
+        );
+        assert_eq!(derived.recovery_capsule_hash, [17u8; 32]);
+        assert_eq!(derived.share_commitment_hash, [18u8; 32]);
     }
 
     #[test]
@@ -2547,6 +2873,9 @@ mod tests {
             }),
             transactions_root_hash: [31u8; 32],
             resulting_state_root_hash: [32u8; 32],
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
         };
         let sealed_finality_proof = SealedFinalityProof {
             epoch: 7,
@@ -2603,6 +2932,9 @@ mod tests {
             }),
             transactions_root_hash: [41u8; 32],
             resulting_state_root_hash: [42u8; 32],
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
         };
         let sealed_finality_proof = SealedFinalityProof {
             epoch: 11,

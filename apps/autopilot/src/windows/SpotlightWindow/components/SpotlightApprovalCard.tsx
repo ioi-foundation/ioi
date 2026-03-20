@@ -42,10 +42,26 @@ export function SpotlightApprovalCard({
   errorMessage,
 }: ApprovalProps) {
   const riskConfig = {
-    high: { color: "#EF4444", bg: "rgba(239, 68, 68, 0.08)", label: "HIGH RISK" },
-    medium: { color: "#F59E0B", bg: "rgba(245, 158, 11, 0.08)", label: "MEDIUM" },
-    low: { color: "#10B981", bg: "rgba(16, 185, 129, 0.08)", label: "LOW RISK" },
-  }[risk] || { color: "#6B7280", bg: "rgba(107, 114, 128, 0.08)", label: "UNKNOWN" };
+    high: {
+      color: "var(--status-error)",
+      bg: "var(--status-error-dim)",
+      label: "HIGH RISK",
+    },
+    medium: {
+      color: "var(--status-warning)",
+      bg: "var(--status-warning-dim)",
+      label: "MEDIUM",
+    },
+    low: {
+      color: "var(--status-success)",
+      bg: "var(--status-success-dim)",
+      label: "LOW RISK",
+    },
+  }[risk] || {
+    color: "var(--text-tertiary)",
+    bg: "rgba(124, 138, 155, 0.08)",
+    label: "UNKNOWN",
+  };
   const [remainingMs, setRemainingMs] = useState<number | null>(
     typeof deadlineMs === "number" ? Math.max(deadlineMs - Date.now(), 0) : null,
   );

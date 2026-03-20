@@ -2,38 +2,75 @@
 
 :root {
   /* --- Primitive Colors --- */
-  --bg-dark: #0a0a0b;
-  --bg-panel: #111418;
-  --bg-element: #1F2329;
-  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-dark: #1e1e1e;
+  --bg-panel: #252526;
+  --bg-element: #2d2d30;
+  --bg-hover: rgba(255, 255, 255, 0.045);
 
-  --accent-blue: #3D85C6;
-  --accent-blue-dim: rgba(61, 133, 198, 0.2);
-  --accent-blue-glow: rgba(61, 133, 198, 0.5);
+  --accent-blue: #ff79c6;
+  --accent-blue-strong: #ff92d0;
+  --accent-blue-dim: rgba(255, 121, 198, 0.16);
+  --accent-blue-glow: rgba(255, 121, 198, 0.22);
+  --accent-blue-ring: rgba(255, 121, 198, 0.34);
+  --accent-cyan: #8be9fd;
+  --accent-cyan-dim: rgba(139, 233, 253, 0.16);
+  --accent-green: #69f0ae;
+  --accent-green-dim: rgba(105, 240, 174, 0.14);
+  --accent-orange: #ffb86c;
+  --accent-orange-dim: rgba(255, 184, 108, 0.16);
+  --accent-violet: #bd93f9;
+  --accent-violet-dim: rgba(189, 147, 249, 0.16);
 
-  --status-success: #34D399;
-  --status-warning: #F59E0B;
-  --status-error: #EF4444;
+  --status-success: var(--accent-green);
+  --status-success-dim: var(--accent-green-dim);
+  --status-warning: var(--accent-orange);
+  --status-warning-dim: var(--accent-orange-dim);
+  --status-error: #ff6b81;
+  --status-error-dim: rgba(255, 107, 129, 0.14);
+  --status-info: var(--accent-cyan);
+  --status-info-dim: rgba(139, 233, 253, 0.14);
 
   /* --- Semantic Surfaces --- */
-  --surface-0: #0a0a0b;       /* App Background */
-  --surface-1: #111418;       /* Panels / Sidebar */
-  --surface-2: #181B21;       /* Secondary Panels / Headers */
-  --surface-3: #252A33;       /* Cards / Inputs */
-  --surface-4: #2E333D;       /* Hover States */
+  --surface-0: #1e1e1e; /* App Background */
+  --surface-1: #232323; /* Shell / Sidebar */
+  --surface-2: #272727; /* Primary Panels */
+  --surface-3: #2f2f2f; /* Inputs / Cards */
+  --surface-4: #373737; /* Selected / Hover Fills */
+  --surface-5: #404040; /* Strong Emphasis */
+  --surface-glass: rgba(37, 37, 38, 0.88);
+  --surface-glass-strong: rgba(30, 30, 30, 0.94);
 
   /* --- Borders --- */
-  --border-subtle: #2E333D;
-  --border-default: #3F4652;
-  --border-strong: #5F6B7C;
-  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.03);
+  --border-default: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.1);
+  --interactive-selected-bg: #353535;
+  --interactive-selected-border: rgba(255, 255, 255, 0.04);
+  --interactive-focus-border: rgba(255, 255, 255, 0.12);
+  --interactive-focus-ring: rgba(255, 255, 255, 0.05);
+  --button-primary-border: rgba(255, 255, 255, 0.08);
+  --button-primary-bg: linear-gradient(
+    180deg,
+    rgba(63, 63, 63, 0.96),
+    rgba(53, 53, 53, 0.96)
+  );
+  --button-primary-bg-hover: linear-gradient(
+    180deg,
+    rgba(72, 72, 72, 0.98),
+    rgba(60, 60, 60, 0.98)
+  );
+  --button-primary-text: #ececec;
+  --glass-border: 1px solid rgba(232, 237, 242, 0.08);
 
   /* --- Typography --- */
-  --text-primary: #E5E7EB;    /* almost white */
-  --text-secondary: #9CA3AF;  /* gray */
-  --text-tertiary: #6B7280;   /* dark gray */
+  --text-primary: #ececec;
+  --text-secondary: #c8c8c8;
+  --text-tertiary: #a0a0a0;
+  --text-muted: #7a7a7a;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
   --font-display: "SF Pro Display", var(--font-sans);
 
@@ -69,16 +106,23 @@
   --transition-normal: 0.25s ease;
 
   /* --- Shadows --- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.46);
+  --shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.28);
+  --shadow-glow:
+    0 0 0 1px rgba(255, 255, 255, 0.02), 0 16px 40px rgba(0, 0, 0, 0.24);
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -97,7 +141,8 @@ body {
   -webkit-user-select: none;
 }
 
-input, textarea {
+input,
+textarea {
   user-select: text;
   -webkit-user-select: text;
   font-family: inherit;
@@ -106,7 +151,7 @@ input, textarea {
 
 /* Focus styles */
 :focus-visible {
-  outline: 2px solid var(--ioi-blue);
+  outline: 2px solid var(--interactive-focus-border);
   outline-offset: 2px;
 }
 

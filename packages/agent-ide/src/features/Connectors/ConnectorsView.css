@@ -7,6 +7,15 @@
   overflow: hidden;
 }
 
+.connectors-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 .connectors-header {
   border-bottom: 1px solid var(--border-subtle);
   padding: 16px;
@@ -67,10 +76,127 @@
   color: var(--text-primary);
 }
 
+.capability-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.capability-overview-card,
+.capability-preview-card,
+.capability-empty-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.capability-overview-card {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.capability-overview-card span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.capability-overview-card strong {
+  font-size: 24px;
+  color: var(--text-primary);
+}
+
+.capability-overview-card p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.capability-preview-section,
+.connectors-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.capability-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.capability-section-head h2 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.capability-section-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 700px;
+}
+
+.capability-section-head span {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.capability-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.capability-preview-card {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.capability-preview-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.capability-preview-card-head strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.capability-preview-card-head span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #93c5fd;
+}
+
+.capability-preview-card p,
+.capability-preview-card small,
+.capability-empty-card {
+  color: var(--text-secondary);
+}
+
+.capability-preview-card p,
+.capability-preview-card small {
+  margin: 0;
+  font-size: 12px;
+}
+
+.capability-empty-card {
+  padding: 14px;
+  font-size: 12px;
+}
+
 .connectors-grid {
-  flex: 1;
-  overflow: auto;
-  padding: 16px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 14px;
@@ -803,7 +929,11 @@
   border-radius: 10px;
   padding: 14px;
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.2), transparent 45%),
+    radial-gradient(
+      circle at top left,
+      rgba(59, 130, 246, 0.2),
+      transparent 45%
+    ),
     linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.78));
   display: flex;
   justify-content: space-between;
@@ -921,7 +1051,11 @@
 
 .workspace-tab-button.active {
   border-color: rgba(96, 165, 250, 0.6);
-  background: linear-gradient(180deg, rgba(59, 130, 246, 0.16), rgba(30, 41, 59, 0.92));
+  background: linear-gradient(
+    180deg,
+    rgba(59, 130, 246, 0.16),
+    rgba(30, 41, 59, 0.92)
+  );
 }
 
 .workspace-tab-panel {
@@ -1087,7 +1221,11 @@
 }
 
 .workspace-composer-card {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(30, 41, 59, 0.86));
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.82),
+    rgba(30, 41, 59, 0.86)
+  );
 }
 
 .workspace-panel-heading {
@@ -1164,7 +1302,11 @@
   border: 1px solid rgba(96, 165, 250, 0.22);
   border-radius: 10px;
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.1), transparent 38%),
+    radial-gradient(
+      circle at top left,
+      rgba(59, 130, 246, 0.1),
+      transparent 38%
+    ),
     linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(30, 41, 59, 0.9));
   padding: 14px;
   display: flex;
@@ -1446,7 +1588,11 @@
   border: 1px solid rgba(96, 165, 250, 0.24);
   border-radius: 14px;
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.1), transparent 38%),
+    radial-gradient(
+      circle at top left,
+      rgba(59, 130, 246, 0.1),
+      transparent 38%
+    ),
     linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96));
   box-shadow: 0 24px 80px rgba(2, 6, 23, 0.55);
   display: flex;

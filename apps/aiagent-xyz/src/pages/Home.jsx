@@ -48,6 +48,12 @@ const allProducts = [
     price: '$45/mo', type: 'Content', rating: 4.3, reviews: 320,
     image: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)' 
   },
+  {
+    id: 9, name: 'Accounting Worker v3.2', dev: 'LedgerFlow_AI',
+    tagline: 'Handles 10k invoices/mo, learns your policy in <2 hours, never sleeps.',
+    price: '$49/mo', type: 'Finance', rating: 4.7, reviews: 218,
+    image: 'linear-gradient(135deg, #0f766e 0%, #155e75 100%)'
+  },
 ];
 
 export default function Home() {

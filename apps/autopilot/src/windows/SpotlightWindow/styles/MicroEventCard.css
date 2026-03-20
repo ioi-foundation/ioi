@@ -6,11 +6,11 @@
 }
 
 .micro-event-card.status-failure {
-  border-color: rgba(248, 113, 113, 0.28);
+  border-color: rgba(255, 107, 129, 0.28);
 }
 
 .micro-event-card.status-partial {
-  border-color: rgba(251, 191, 36, 0.24);
+  border-color: rgba(255, 184, 108, 0.24);
 }
 
 .micro-event-topline {
@@ -92,9 +92,9 @@
 }
 
 .micro-event-link-btn:hover {
-  border-color: rgba(99, 144, 255, 0.45);
+  border-color: var(--interactive-selected-border);
   color: var(--spot-text-primary);
-  background: rgba(99, 144, 255, 0.08);
+  background: var(--interactive-selected-bg);
 }
 
 .micro-event-actions-row {

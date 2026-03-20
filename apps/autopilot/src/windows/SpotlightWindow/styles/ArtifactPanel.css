@@ -51,7 +51,7 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--spot-text-primary);
-  font-family: 'SF Mono', 'JetBrains Mono', monospace;
+  font-family: "SF Mono", "JetBrains Mono", monospace;
 }
 
 .artifact-filename--drawer {
@@ -96,7 +96,7 @@
 }
 
 .artifact-action-btn.close:hover {
-  background: rgba(248, 113, 113, 0.12);
+  background: var(--spot-error-subtle);
   color: var(--spot-error);
 }
 
@@ -133,7 +133,7 @@
 
 .code-block pre {
   margin: 0;
-  font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
   font-size: 12px;
   line-height: 1.7;
   color: var(--spot-text-secondary);
@@ -172,24 +172,24 @@
 
 /* Syntax Highlighting Hints */
 .code-block .keyword {
-  color: #C792EA;
+  color: #ff79c6;
 }
 
 .code-block .string {
-  color: #C3E88D;
+  color: #69f0ae;
 }
 
 .code-block .comment {
-  color: #546E7A;
+  color: #6c7896;
   font-style: italic;
 }
 
 .code-block .function {
-  color: #82AAFF;
+  color: #8be9fd;
 }
 
 .code-block .number {
-  color: #F78C6C;
+  color: #bd93f9;
 }
 
 /* ============================================
@@ -435,8 +435,11 @@
   height: 14px;
   border-radius: 999px;
   border: 1px solid rgba(122, 250, 168, 0.55);
-  background:
-    radial-gradient(circle at 35% 35%, rgba(186, 255, 213, 0.95), rgba(55, 182, 113, 0.95));
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(186, 255, 213, 0.95),
+    rgba(55, 182, 113, 0.95)
+  );
   box-shadow: 0 0 10px rgba(64, 198, 130, 0.35);
   flex-shrink: 0;
 }
@@ -618,7 +621,7 @@
 }
 
 .artifact-hub-nav-item.active {
-  background: rgba(99, 144, 255, 0.12);
+  background: var(--interactive-selected-bg);
   color: var(--spot-text-primary);
 }
 
@@ -724,11 +727,11 @@
 }
 
 .artifact-hub-log-row.status-failure {
-  border-color: rgba(248, 113, 113, 0.28);
+  border-color: rgba(255, 107, 129, 0.28);
 }
 
 .artifact-hub-log-row.status-partial {
-  border-color: rgba(251, 191, 36, 0.24);
+  border-color: rgba(255, 184, 108, 0.24);
 }
 
 .artifact-hub-log-meta {
@@ -858,8 +861,8 @@
 
 .artifact-hub-open-btn:hover {
   color: var(--spot-text-primary);
-  border-color: rgba(99, 144, 255, 0.45);
-  background: rgba(99, 144, 255, 0.12);
+  border-color: var(--interactive-selected-border);
+  background: var(--interactive-selected-bg);
 }
 
 .artifact-hub-open-btn.secondary {
@@ -886,12 +889,20 @@
 }
 
 .artifact-hub-substrate-card {
-  border: 1px solid rgba(116, 145, 255, 0.32);
+  border: 1px solid rgba(255, 121, 198, 0.28);
   border-radius: 12px;
   background:
-    radial-gradient(circle at 16% 10%, rgba(96, 165, 250, 0.18), transparent 46%),
-    radial-gradient(circle at 84% 0%, rgba(244, 114, 182, 0.14), transparent 42%),
-    rgba(8, 11, 19, 0.9);
+    radial-gradient(
+      circle at 16% 10%,
+      rgba(255, 121, 198, 0.16),
+      transparent 46%
+    ),
+    radial-gradient(
+      circle at 84% 0%,
+      rgba(189, 147, 249, 0.14),
+      transparent 42%
+    ),
+    var(--surface-3);
   padding: 8px;
 }
 
@@ -925,7 +936,11 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
     linear-gradient(180deg, rgba(17, 24, 39, 0.3), rgba(17, 24, 39, 0.8)),
-    radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.1), transparent 60%);
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(232, 237, 242, 0.05),
+      transparent 60%
+    );
   overflow: hidden;
 }
 
@@ -990,7 +1005,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #7dd3fc;
+  color: var(--spot-text-secondary);
 }
 
 .artifact-hub-active-head h3 {
@@ -1040,11 +1055,13 @@
   background: rgba(255, 255, 255, 0.03);
   color: var(--spot-text);
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .artifact-hub-active-item:hover {
-  border-color: rgba(125, 211, 252, 0.35);
+  border-color: var(--interactive-selected-border);
   transform: translateY(-1px);
 }
 
@@ -1090,7 +1107,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.48), rgba(2, 6, 23, 0.88)),
-    radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 36%);
+    radial-gradient(circle at top, rgba(232, 237, 242, 0.06), transparent 36%);
   overflow: hidden;
 }
 

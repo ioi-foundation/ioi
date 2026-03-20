@@ -1,5 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ConnectorActionResult, ConnectorSubscriptionSummary } from "@ioi/agent-ide";
+import type {
+  ConnectorActionResult,
+  ConnectorSubscriptionSummary,
+} from "@ioi/agent-ide";
 import { useEffect, useState } from "react";
 import type {
   AssistantWorkbenchSession,
@@ -15,8 +18,12 @@ interface NotificationDetailPanelProps {
   item: AssistantNotificationRecord | InterventionRecord | null;
   onClose: () => void;
   onOpenAutopilot: () => void;
-  onOpenReplyComposer: (session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>) => void;
-  onOpenMeetingPrep: (session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>) => void;
+  onOpenReplyComposer: (
+    session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
+  ) => void;
+  onOpenMeetingPrep: (
+    session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>,
+  ) => void;
   onOpenIntegrations: (connectorId?: string | null) => void;
   onOpenShield: (connectorId?: string | null) => void;
 }
@@ -63,10 +70,13 @@ function headerMap(message: Record<string, unknown>): Record<string, string> {
   const entries = headers
     .map((header) => objectValue(header))
     .filter(Boolean)
-    .map((header) => [
-      String(header?.name ?? "").toLowerCase(),
-      String(header?.value ?? ""),
-    ] as const)
+    .map(
+      (header) =>
+        [
+          String(header?.name ?? "").toLowerCase(),
+          String(header?.value ?? ""),
+        ] as const,
+    )
     .filter(([name]) => Boolean(name));
   return Object.fromEntries(entries);
 }
@@ -101,7 +111,9 @@ function parseGmailThread(result: ConnectorActionResult): GmailThreadDetail {
   };
 }
 
-function parseCalendarEvent(result: ConnectorActionResult): CalendarEventDetail {
+function parseCalendarEvent(
+  result: ConnectorActionResult,
+): CalendarEventDetail {
   const payload = objectValue(result.data) ?? {};
   return {
     calendarId: stringValue(payload.calendarId) ?? "primary",
@@ -110,8 +122,12 @@ function parseCalendarEvent(result: ConnectorActionResult): CalendarEventDetail 
     description: stringValue(payload.description),
     location: stringValue(payload.location),
     status: stringValue(payload.status),
-    start: stringValue(objectValue(payload.start)?.dateTime) ?? stringValue(objectValue(payload.start)?.date),
-    end: stringValue(objectValue(payload.end)?.dateTime) ?? stringValue(objectValue(payload.end)?.date),
+    start:
+      stringValue(objectValue(payload.start)?.dateTime) ??
+      stringValue(objectValue(payload.start)?.date),
+    end:
+      stringValue(objectValue(payload.end)?.dateTime) ??
+      stringValue(objectValue(payload.end)?.date),
     htmlLink: stringValue(payload.htmlLink),
     attendees: arrayValue(payload.attendees)
       .map((attendee) => objectValue(attendee))
@@ -143,10 +159,15 @@ export function NotificationDetailPanel({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [gmailThread, setGmailThread] = useState<GmailThreadDetail | null>(null);
-  const [calendarEvent, setCalendarEvent] = useState<CalendarEventDetail | null>(null);
-  const [authRecord, setAuthRecord] = useState<WalletConnectorAuthGetResult | null>(null);
-  const [subscription, setSubscription] = useState<ConnectorSubscriptionSummary | null>(null);
+  const [gmailThread, setGmailThread] = useState<GmailThreadDetail | null>(
+    null,
+  );
+  const [calendarEvent, setCalendarEvent] =
+    useState<CalendarEventDetail | null>(null);
+  const [authRecord, setAuthRecord] =
+    useState<WalletConnectorAuthGetResult | null>(null);
+  const [subscription, setSubscription] =
+    useState<ConnectorSubscriptionSummary | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -166,39 +187,51 @@ export function NotificationDetailPanel({
       setLoading(true);
       try {
         if (target.kind === "gmail_thread") {
-          const result = await invoke<ConnectorActionResult>("connector_fetch_gmail_thread", {
-            connectorId: target.connectorId,
-            connector_id: target.connectorId,
-            threadId: target.threadId,
-            thread_id: target.threadId,
-          });
+          const result = await invoke<ConnectorActionResult>(
+            "connector_fetch_gmail_thread",
+            {
+              connectorId: target.connectorId,
+              connector_id: target.connectorId,
+              threadId: target.threadId,
+              thread_id: target.threadId,
+            },
+          );
           if (cancelled) return;
           setGmailThread(parseGmailThread(result));
         } else if (target.kind === "calendar_event") {
-          const result = await invoke<ConnectorActionResult>("connector_fetch_calendar_event", {
-            connectorId: target.connectorId,
-            connector_id: target.connectorId,
-            calendarId: target.calendarId,
-            calendar_id: target.calendarId,
-            eventId: target.eventId,
-            event_id: target.eventId,
-          });
+          const result = await invoke<ConnectorActionResult>(
+            "connector_fetch_calendar_event",
+            {
+              connectorId: target.connectorId,
+              connector_id: target.connectorId,
+              calendarId: target.calendarId,
+              calendar_id: target.calendarId,
+              eventId: target.eventId,
+              event_id: target.eventId,
+            },
+          );
           if (cancelled) return;
           setCalendarEvent(parseCalendarEvent(result));
         } else if (target.kind === "connector_auth") {
-          const result = await invoke<WalletConnectorAuthGetResult>("wallet_connector_auth_get", {
-            connectorId: target.connectorId,
-            connector_id: target.connectorId,
-          });
+          const result = await invoke<WalletConnectorAuthGetResult>(
+            "wallet_connector_auth_get",
+            {
+              connectorId: target.connectorId,
+              connector_id: target.connectorId,
+            },
+          );
           if (cancelled) return;
           setAuthRecord(result);
         } else if (target.kind === "connector_subscription") {
-          const result = await invoke<ConnectorSubscriptionSummary>("connector_get_subscription", {
-            connectorId: target.connectorId,
-            connector_id: target.connectorId,
-            subscriptionId: target.subscriptionId,
-            subscription_id: target.subscriptionId,
-          });
+          const result = await invoke<ConnectorSubscriptionSummary>(
+            "connector_get_subscription",
+            {
+              connectorId: target.connectorId,
+              connector_id: target.connectorId,
+              subscriptionId: target.subscriptionId,
+              subscription_id: target.subscriptionId,
+            },
+          );
           if (cancelled) return;
           setSubscription(result);
         }
@@ -252,7 +285,10 @@ export function NotificationDetailPanel({
         <div>
           <span className="notifications-card-eyebrow">Detail</span>
           <h2>Select an inbox item</h2>
-          <p>Select an inbox item to inspect context, risk, and the underlying record without leaving the queue.</p>
+          <p>
+            Select an inbox item to inspect context, risk, and the underlying
+            record without leaving the queue.
+          </p>
         </div>
       </aside>
     );
@@ -270,7 +306,11 @@ export function NotificationDetailPanel({
           <h2>{item.title}</h2>
           <p>{item.summary}</p>
         </div>
-        <button type="button" className="notifications-quiet-button" onClick={onClose}>
+        <button
+          type="button"
+          className="notifications-quiet-button"
+          onClick={onClose}
+        >
           Close
         </button>
       </div>
@@ -282,7 +322,9 @@ export function NotificationDetailPanel({
         {item.dueAtMs ? (
           <span>Due {timestampCopy(new Date(item.dueAtMs).toISOString())}</span>
         ) : null}
-        <span>Updated {timestampCopy(new Date(item.updatedAtMs).toISOString())}</span>
+        <span>
+          Updated {timestampCopy(new Date(item.updatedAtMs).toISOString())}
+        </span>
       </div>
 
       <div className="notifications-detail-section">
@@ -291,8 +333,12 @@ export function NotificationDetailPanel({
             <strong>Why this surfaced</strong>
           </div>
           {item.reason ? <p>{item.reason}</p> : <p>{item.summary}</p>}
-          {item.recommendedAction ? <p>Next: {item.recommendedAction}</p> : null}
-          {item.consequenceIfIgnored ? <p>If ignored: {item.consequenceIfIgnored}</p> : null}
+          {item.recommendedAction ? (
+            <p>Next: {item.recommendedAction}</p>
+          ) : null}
+          {item.consequenceIfIgnored ? (
+            <p>If ignored: {item.consequenceIfIgnored}</p>
+          ) : null}
         </article>
 
         <article className="notifications-detail-card">
@@ -302,17 +348,29 @@ export function NotificationDetailPanel({
           <div className="notifications-detail-tags">
             {item.workflowId ? <span>Workflow {item.workflowId}</span> : null}
             {item.runId ? <span>Run {item.runId}</span> : null}
-            {item.sessionId ? <span>Session {item.sessionId.slice(0, 8)}</span> : null}
-            {item.threadId ? <span>Thread {item.threadId.slice(0, 8)}</span> : null}
-            {item.artifactRefs.length > 0 ? <span>{item.artifactRefs.length} artifacts</span> : null}
+            {item.sessionId ? (
+              <span>Session {item.sessionId.slice(0, 8)}</span>
+            ) : null}
+            {item.threadId ? (
+              <span>Thread {item.threadId.slice(0, 8)}</span>
+            ) : null}
+            {item.artifactRefs.length > 0 ? (
+              <span>{item.artifactRefs.length} artifacts</span>
+            ) : null}
           </div>
           {isInterventionRecord(item) ? (
             <>
               <div className="notifications-detail-tags">
                 {item.blocking ? <span>Blocking</span> : null}
-                {item.approvalScope ? <span>{humanize(item.approvalScope)}</span> : null}
-                {item.sensitiveActionType ? <span>{humanize(item.sensitiveActionType)}</span> : null}
-                {item.blockedStage ? <span>{humanize(item.blockedStage)}</span> : null}
+                {item.approvalScope ? (
+                  <span>{humanize(item.approvalScope)}</span>
+                ) : null}
+                {item.sensitiveActionType ? (
+                  <span>{humanize(item.sensitiveActionType)}</span>
+                ) : null}
+                {item.blockedStage ? (
+                  <span>{humanize(item.blockedStage)}</span>
+                ) : null}
                 {item.retryAvailable ? <span>Retry available</span> : null}
               </div>
               {item.recoveryHint ? <p>{item.recoveryHint}</p> : null}
@@ -321,7 +379,9 @@ export function NotificationDetailPanel({
             <>
               <div className="notifications-detail-tags">
                 <span>Priority {(item.priorityScore * 100).toFixed(0)}%</span>
-                <span>Confidence {(item.confidenceScore * 100).toFixed(0)}%</span>
+                <span>
+                  Confidence {(item.confidenceScore * 100).toFixed(0)}%
+                </span>
                 {item.rankingReason.slice(0, 3).map((reason) => (
                   <span key={reason}>{humanize(reason)}</span>
                 ))}
@@ -345,7 +405,7 @@ export function NotificationDetailPanel({
               className="notifications-secondary-button"
               onClick={() => onOpenIntegrations(item.target?.connectorId)}
             >
-              Open Connections
+              Open Capabilities
             </button>
           ) : null}
           {item.target?.connectorId ? (
@@ -354,22 +414,37 @@ export function NotificationDetailPanel({
               className="notifications-quiet-button"
               onClick={() => onOpenShield(item.target?.connectorId)}
             >
-              Open Control
+              Open Policy
             </button>
           ) : null}
         </div>
       </div>
 
-      {loading ? <div className="notifications-empty-card">Loading target detail…</div> : null}
-      {error ? <div className="notifications-empty-card notifications-empty-state-error">{error}</div> : null}
+      {loading ? (
+        <div className="notifications-empty-card">Loading target detail…</div>
+      ) : null}
+      {error ? (
+        <div className="notifications-empty-card notifications-empty-state-error">
+          {error}
+        </div>
+      ) : null}
 
-      {!loading && !error && item.target?.kind === "gmail_thread" && gmailThread ? (
+      {!loading &&
+      !error &&
+      item.target?.kind === "gmail_thread" &&
+      gmailThread ? (
         <div className="notifications-detail-section">
           <div className="notifications-detail-meta">
             <span>Thread {gmailThread.threadId.slice(0, 12)}</span>
-            {gmailThread.historyId ? <span>History {gmailThread.historyId}</span> : null}
+            {gmailThread.historyId ? (
+              <span>History {gmailThread.historyId}</span>
+            ) : null}
           </div>
-          {gmailThread.snippet ? <p className="notifications-detail-snippet">{gmailThread.snippet}</p> : null}
+          {gmailThread.snippet ? (
+            <p className="notifications-detail-snippet">
+              {gmailThread.snippet}
+            </p>
+          ) : null}
           <div className="notifications-detail-stack">
             {gmailThread.messages.map((message) => (
               <article key={message.id} className="notifications-detail-card">
@@ -412,32 +487,50 @@ export function NotificationDetailPanel({
               className="notifications-secondary-button"
               onClick={() => onOpenIntegrations(item.target?.connectorId)}
             >
-              Open Connections
+              Open Capabilities
             </button>
           </div>
         </div>
       ) : null}
 
-      {!loading && !error && item.target?.kind === "calendar_event" && calendarEvent ? (
+      {!loading &&
+      !error &&
+      item.target?.kind === "calendar_event" &&
+      calendarEvent ? (
         <div className="notifications-detail-section">
           <div className="notifications-detail-meta">
             <span>{calendarEvent.summary || "Untitled event"}</span>
-            {calendarEvent.status ? <span>Status {calendarEvent.status}</span> : null}
+            {calendarEvent.status ? (
+              <span>Status {calendarEvent.status}</span>
+            ) : null}
           </div>
           <div className="notifications-detail-meta">
-            {calendarEvent.start ? <span>Starts {timestampCopy(calendarEvent.start)}</span> : null}
-            {calendarEvent.end ? <span>Ends {timestampCopy(calendarEvent.end)}</span> : null}
-            {calendarEvent.location ? <span>{calendarEvent.location}</span> : null}
+            {calendarEvent.start ? (
+              <span>Starts {timestampCopy(calendarEvent.start)}</span>
+            ) : null}
+            {calendarEvent.end ? (
+              <span>Ends {timestampCopy(calendarEvent.end)}</span>
+            ) : null}
+            {calendarEvent.location ? (
+              <span>{calendarEvent.location}</span>
+            ) : null}
           </div>
           {calendarEvent.description ? (
-            <p className="notifications-detail-snippet">{calendarEvent.description}</p>
+            <p className="notifications-detail-snippet">
+              {calendarEvent.description}
+            </p>
           ) : null}
           {calendarEvent.attendees.length > 0 ? (
             <div className="notifications-detail-stack">
               {calendarEvent.attendees.map((attendee, index) => (
-                <article key={`${attendee.email ?? "attendee"}-${index}`} className="notifications-detail-card">
+                <article
+                  key={`${attendee.email ?? "attendee"}-${index}`}
+                  className="notifications-detail-card"
+                >
                   <div className="notifications-detail-card-head">
-                    <strong>{attendee.displayName || attendee.email || "Attendee"}</strong>
+                    <strong>
+                      {attendee.displayName || attendee.email || "Attendee"}
+                    </strong>
                     <span>{attendee.responseStatus || "response unknown"}</span>
                   </div>
                   {attendee.organizer ? <p>Organizer</p> : null}
@@ -461,7 +554,12 @@ export function NotificationDetailPanel({
               Open prep workbench
             </button>
             {calendarEvent.htmlLink ? (
-              <a className="notifications-secondary-link" href={calendarEvent.htmlLink} target="_blank" rel="noreferrer">
+              <a
+                className="notifications-secondary-link"
+                href={calendarEvent.htmlLink}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Open in Calendar
               </a>
             ) : null}
@@ -469,17 +567,27 @@ export function NotificationDetailPanel({
         </div>
       ) : null}
 
-      {!loading && !error && item.target?.kind === "connector_auth" && authRecord ? (
+      {!loading &&
+      !error &&
+      item.target?.kind === "connector_auth" &&
+      authRecord ? (
         <div className="notifications-detail-section">
           <div className="notifications-detail-meta">
             <span>State {authRecord.record.state}</span>
             <span>Protocol {authRecord.record.authProtocol}</span>
             {authRecord.record.expiresAtMs ? (
-              <span>Expires {timestampCopy(new Date(authRecord.record.expiresAtMs).toISOString())}</span>
+              <span>
+                Expires{" "}
+                {timestampCopy(
+                  new Date(authRecord.record.expiresAtMs).toISOString(),
+                )}
+              </span>
             ) : null}
           </div>
           {authRecord.record.accountLabel ? (
-            <p className="notifications-detail-snippet">{authRecord.record.accountLabel}</p>
+            <p className="notifications-detail-snippet">
+              {authRecord.record.accountLabel}
+            </p>
           ) : null}
           {authRecord.record.grantedScopes.length > 0 ? (
             <div className="notifications-detail-tags">
@@ -504,25 +612,30 @@ export function NotificationDetailPanel({
               className="notifications-primary-button"
               onClick={() => onOpenIntegrations(item.target?.connectorId)}
             >
-              Open Connections
+              Open Capabilities
             </button>
             <button
               type="button"
               className="notifications-secondary-button"
               onClick={() => onOpenShield(item.target?.connectorId)}
             >
-              Open Control
+              Open Policy
             </button>
           </div>
         </div>
       ) : null}
 
-      {!loading && !error && item.target?.kind === "connector_subscription" && subscription ? (
+      {!loading &&
+      !error &&
+      item.target?.kind === "connector_subscription" &&
+      subscription ? (
         <div className="notifications-detail-section">
           <div className="notifications-detail-meta">
             <span>{subscription.kind}</span>
             <span>Status {subscription.status}</span>
-            {subscription.accountEmail ? <span>{subscription.accountEmail}</span> : null}
+            {subscription.accountEmail ? (
+              <span>{subscription.accountEmail}</span>
+            ) : null}
           </div>
           <div className="notifications-detail-stack">
             <article className="notifications-detail-card">
@@ -544,12 +657,20 @@ export function NotificationDetailPanel({
               <div className="notifications-detail-card-head">
                 <strong>Lifecycle</strong>
               </div>
-              {subscription.renewAtUtc ? <p>Renew at {timestampCopy(subscription.renewAtUtc)}</p> : null}
-              {subscription.expiresAtUtc ? <p>Expires at {timestampCopy(subscription.expiresAtUtc)}</p> : null}
-              {subscription.lastDeliveryAtUtc ? (
-                <p>Last delivery {timestampCopy(subscription.lastDeliveryAtUtc)}</p>
+              {subscription.renewAtUtc ? (
+                <p>Renew at {timestampCopy(subscription.renewAtUtc)}</p>
               ) : null}
-              {subscription.lastAckAtUtc ? <p>Last ack {timestampCopy(subscription.lastAckAtUtc)}</p> : null}
+              {subscription.expiresAtUtc ? (
+                <p>Expires at {timestampCopy(subscription.expiresAtUtc)}</p>
+              ) : null}
+              {subscription.lastDeliveryAtUtc ? (
+                <p>
+                  Last delivery {timestampCopy(subscription.lastDeliveryAtUtc)}
+                </p>
+              ) : null}
+              {subscription.lastAckAtUtc ? (
+                <p>Last ack {timestampCopy(subscription.lastAckAtUtc)}</p>
+              ) : null}
             </article>
           </div>
           <div className="notifications-detail-actions">
@@ -591,14 +712,16 @@ export function NotificationDetailPanel({
               className="notifications-quiet-button"
               onClick={() => onOpenIntegrations(item.target?.connectorId)}
             >
-              Open Connections
+              Open Capabilities
             </button>
           </div>
         </div>
       ) : null}
 
       {!loading && !error && !item.target ? (
-        <div className="notifications-empty-card">This notification does not expose a focused target yet.</div>
+        <div className="notifications-empty-card">
+          This notification does not expose a focused target yet.
+        </div>
       ) : null}
     </aside>
   );

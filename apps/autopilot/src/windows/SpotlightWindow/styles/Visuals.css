@@ -7,7 +7,7 @@
   border: 1px solid var(--spot-border);
   border-radius: var(--spot-radius-md);
   overflow: hidden;
-  background: #0A0A0C;
+  background: var(--surface-0);
   margin-top: 12px;
   animation: artifactFade 300ms ease-out;
 }
@@ -24,8 +24,8 @@
 }
 
 .visual-artifact.active {
-  border-color: rgba(99, 144, 255, 0.25);
-  box-shadow: 0 0 0 1px rgba(99, 144, 255, 0.1),
+  border-color: var(--interactive-selected-border);
+  box-shadow: 0 0 0 1px var(--interactive-focus-ring),
               var(--spot-shadow-md);
 }
 
@@ -33,7 +33,7 @@
    BROWSER CHROME - macOS Style
    ============================================ */
 .artifact-browser-bar {
-  background: linear-gradient(180deg, #2A2A2E 0%, #232326 100%);
+  background: linear-gradient(180deg, #1e2025 0%, #16181d 100%);
   padding: 10px 12px;
   display: flex;
   align-items: center;
@@ -124,7 +124,7 @@
 .artifact-viewport {
   height: 200px;
   position: relative;
-  background: #111114;
+  background: var(--surface-1);
   overflow: hidden;
 }
 
@@ -211,7 +211,7 @@
 .skel-cta {
   width: 90px;
   height: 28px;
-  background: rgba(99, 144, 255, 0.15);
+  background: var(--accent-blue-dim);
   border-radius: 5px;
   margin-top: 6px;
   animation: skeletonPulse 1.8s ease-in-out infinite;
@@ -255,7 +255,7 @@
    ACTIVITY FOOTER
    ============================================ */
 .artifact-activity {
-  background: linear-gradient(180deg, #1C1C1F 0%, #161618 100%);
+  background: linear-gradient(180deg, #1e2025 0%, #16181d 100%);
   padding: 9px 12px;
   display: flex;
   align-items: center;
@@ -343,7 +343,7 @@
 }
 
 .visual-evidence-status.error {
-  color: #fca5a5;
+  color: var(--status-error);
 }
 
 .visual-evidence-image {

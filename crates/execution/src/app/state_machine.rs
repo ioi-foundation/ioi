@@ -1,6 +1,9 @@
 // Path: crates/execution/src/app/state_machine.rs
 
-use super::{end_block, ExecutionMachine};
+use super::{
+    end_block, resolve_execution_anchor_from_recent_blocks_or_replay_prefix,
+    resolve_execution_parent_anchor, ExecutionMachine,
+};
 use crate::app::parallel_state::ParallelStateAccess;
 use crate::mv_memory::MVMemory;
 use crate::scheduler::{Scheduler, Task};
@@ -34,8 +37,8 @@ use ioi_types::app::{
     derive_canonical_collapse_object_with_previous,
     read_validator_sets,
     timestamp_millis_to_legacy_seconds,
-    to_root_hash,
     AccountId,
+    AftRecoveredStateSurface,
     BlockTimingParams,
     BlockTimingRuntime,
     Membership,
@@ -79,6 +82,7 @@ where
     transaction_model: UnifiedTransactionModel<CS>,
     workload_container: Arc<WorkloadContainer<ST>>,
     recent_blocks: Arc<Vec<Block<ChainTransaction>>>,
+    recent_aft_recovered_state: Arc<AftRecoveredStateSurface>,
     last_state_root: Vec<u8>,
     consensus_engine: Consensus<ChainTransaction>,
 }
@@ -93,34 +97,20 @@ where
         &self,
         state_ref: &StateRef,
     ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
-        // Re-implement view resolution logic using captured state
-        let (resolved_root_bytes, gas_used) = if state_ref.state_root.is_empty() {
-            return Err(ChainError::UnknownStateAnchor(
-                "Cannot create view for empty state root".to_string(),
-            ));
-        } else if self.last_state_root == state_ref.state_root {
-            let gas = self
-                .recent_blocks
-                .last()
-                .map(|b| b.header.gas_used)
-                .unwrap_or(0);
-            (Some(self.last_state_root.clone()), gas)
-        } else {
-            let found = self.recent_blocks.iter().rev().find_map(|b| {
-                if b.header.state_root.as_ref() == state_ref.state_root {
-                    Some((b.header.state_root.0.clone(), b.header.gas_used))
-                } else {
-                    None
-                }
-            });
-            match found {
-                Some((root, gas)) => (Some(root), gas),
-                None => (None, 0),
-            }
-        };
-
-        let root = resolved_root_bytes
-            .ok_or_else(|| ChainError::UnknownStateAnchor(hex::encode(&state_ref.state_root)))?;
+        let (root, gas_used) = resolve_execution_anchor_from_recent_blocks_or_replay_prefix(
+            self.recent_blocks.as_ref(),
+            &self.last_state_root,
+            self.recent_aft_recovered_state.as_ref(),
+            state_ref.height,
+            &state_ref.state_root,
+        )
+        .ok_or_else(|| {
+            ChainError::UnknownStateAnchor(if state_ref.state_root.is_empty() {
+                "Cannot create view for empty state root".to_string()
+            } else {
+                hex::encode(&state_ref.state_root)
+            })
+        })?;
 
         // Construct view manually since we can't use `ExecutionMachine` methods directly
         // We reuse the view type from `app/view.rs` which is generic.
@@ -335,7 +325,8 @@ where
         let block_header_height = block.header.height;
         let block_timestamp_ms = if block.header.timestamp_ms > 0 {
             block.header.timestamp_ms
-        } else if !block.header.state_root.0.is_empty() || !block.header.transactions_root.is_empty()
+        } else if !block.header.state_root.0.is_empty()
+            || !block.header.transactions_root.is_empty()
         {
             block.header.timestamp_ms_or_legacy()
         } else {
@@ -406,6 +397,7 @@ where
                 transaction_model: self.state.transaction_model.clone(),
                 workload_container: self.workload_container.clone(),
                 recent_blocks: Arc::new(self.state.recent_blocks.clone()),
+                recent_aft_recovered_state: Arc::new(self.state.recent_aft_recovered_state.clone()),
                 last_state_root: self.state.last_state_root.clone(),
                 consensus_engine: self.consensus_engine.clone(),
             });
@@ -852,29 +844,26 @@ where
                 == ConsensusType::Aft
                 && externally_finalized_header
             {
-                    let previous_canonical_collapse = if block.header.height <= 1 {
-                        None
-                    } else {
-                        let key = aft_canonical_collapse_object_key(block.header.height - 1);
-                        let Some(raw) = state.get(&key)? else {
-                            return Err(ChainError::Transaction(format!(
+                let previous_canonical_collapse = if block.header.height <= 1 {
+                    None
+                } else {
+                    let key = aft_canonical_collapse_object_key(block.header.height - 1);
+                    let Some(raw) = state.get(&key)? else {
+                        return Err(ChainError::Transaction(format!(
                                 "Externally finalized AFT block at height {} is missing the previous canonical collapse object at height {}",
                                 block.header.height,
                                 block.header.height - 1
                             )));
-                        };
-                        Some(
-                            codec::from_bytes_canonical(&raw).map_err(ChainError::Transaction)?,
-                        )
                     };
-                    let mut collapse_header = block.header.clone();
-                    collapse_header.timestamp =
-                        timestamp_millis_to_legacy_seconds(block_timestamp_ms);
-                    collapse_header.timestamp_ms = block_timestamp_ms;
-                    collapse_header.state_root = StateRoot(final_root_bytes.clone());
-                    collapse_header.transactions_root = prepared.transactions_root.clone();
-                    collapse_header.gas_used = authoritative_gas_used;
-                    Some(
+                    Some(codec::from_bytes_canonical(&raw).map_err(ChainError::Transaction)?)
+                };
+                let mut collapse_header = block.header.clone();
+                collapse_header.timestamp = timestamp_millis_to_legacy_seconds(block_timestamp_ms);
+                collapse_header.timestamp_ms = block_timestamp_ms;
+                collapse_header.state_root = StateRoot(final_root_bytes.clone());
+                collapse_header.transactions_root = prepared.transactions_root.clone();
+                collapse_header.gas_used = authoritative_gas_used;
+                Some(
                         derive_canonical_collapse_object_with_previous(
                             &collapse_header,
                             &block.transactions,
@@ -886,9 +875,9 @@ where
                             ))
                         })?,
                     )
-                } else {
-                    None
-                };
+            } else {
+                None
+            };
 
             if let Some(canonical_collapse_object) = canonical_collapse_object.as_ref() {
                 state.insert(
@@ -1006,21 +995,11 @@ where
         view: u64, // <--- NEW parameter
     ) -> Result<Block<ChainTransaction>, ChainError> {
         let height = self.state.status.height + 1;
-        let (parent_hash_vec, parent_state_root) = self.state.recent_blocks.last().map_or_else(
-            || {
-                let parent_hash =
-                    to_root_hash(&self.state.last_state_root).map_err(ChainError::State)?;
-                Ok((
-                    parent_hash.to_vec(),
-                    StateRoot(self.state.last_state_root.clone()),
-                ))
-            },
-            |b| -> Result<_, ChainError> {
-                Ok((
-                    b.header.hash().unwrap_or(vec![0; 32]),
-                    b.header.state_root.clone(),
-                ))
-            },
+        let (parent_hash_vec, parent_state_root) = resolve_execution_parent_anchor(
+            self.state.status.height,
+            &self.state.recent_blocks,
+            &self.state.last_state_root,
+            &self.state.recent_aft_recovered_state,
         )?;
 
         let parent_hash: [u8; 32] = parent_hash_vec.try_into().map_err(|_| {
@@ -1058,6 +1037,7 @@ where
             parent_qc: QuorumCertificate::default(), // [FIX] Added field
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
             guardian_certificate: None,
             sealed_finality_proof: None,
             canonical_order_certificate: None,

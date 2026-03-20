@@ -115,9 +115,10 @@ That means the production safety core is no longer only a bounded executable mod
 
 ## Explicit Non-Claims
 
-- This mode does not claim to "break `3f+1`" in the classical Byzantine model.
-- This mode is not itself the repository's `99% Byzantine Tolerance` theorem
-  surface; that broader claim is over the combined PSC substrate, deterministic
-  close-or-abort extraction, and collapse-gated durability.
+- This mode should be read as the production guardian-backed realization inside
+  the repository's promoted unconditional classical `99% Byzantine agreement`
+  sentence, not as a separate weaker theorem surface.
 - This mode does not claim confidentiality of arbitrary computation against a hostile kernel or hypervisor.
-- This mode does not yet prove unbounded liveness under registry rollback, transparency-log outage, or cross-provider common-mode bugs.
+- Broader registry-rollback, transparency-log-outage, and cross-provider
+  common-mode stress coverage remains an operational-envelope question rather
+  than a theorem-side liveness qualifier.

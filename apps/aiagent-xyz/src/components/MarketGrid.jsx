@@ -45,10 +45,16 @@ export default function MarketGrid({ products }) {
             
             <div className="p-4 flex flex-col flex-grow">
               <h3 className="font-bold text-slate-800 mb-1 group-hover:text-blue-600 truncate">{p.name}</h3>
-              <p className="text-xs text-slate-500 mb-4 flex items-center gap-1">
+              <p className="text-xs text-slate-500 mb-3 flex items-center gap-1">
                 by <span className="text-blue-500 hover:underline">{p.dev}</span>
                 <svg className="w-3 h-3 text-blue-500" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
               </p>
+
+              {p.tagline && (
+                <p className="text-sm text-slate-600 leading-5 mb-4">
+                  {p.tagline}
+                </p>
+              )}
               
               <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-1">

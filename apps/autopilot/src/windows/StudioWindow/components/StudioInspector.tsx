@@ -1,14 +1,24 @@
 import { countActiveOverrides, type ShieldPolicyState } from "../policyCenter";
-import type { AssistantUserProfile, AssistantWorkbenchSession } from "../../../types";
+import type {
+  AssistantUserProfile,
+  AssistantWorkbenchSession,
+} from "../../../types";
 
-type PrimaryView = "chat" | "workflows" | "runs" | "inbox" | "connections" | "control";
+type PrimaryView =
+  | "chat"
+  | "workflows"
+  | "runs"
+  | "inbox"
+  | "capabilities"
+  | "policy"
+  | "settings";
 
 interface StudioInspectorProps {
   activeView: PrimaryView;
   chatSurface: "chat" | "reply-composer" | "meeting-prep";
+  operatorPaneOpen: boolean;
   workflowSurface: "canvas" | "agents" | "catalog";
   runsSurface: "runtime" | "evidence";
-  controlSurface: "policy" | "system";
   interfaceMode: "GHOST" | "COMPOSE";
   notificationCount: number;
   shieldPolicy: ShieldPolicyState;
@@ -20,7 +30,11 @@ interface StudioInspectorProps {
 }
 
 function initialsForProfile(profile: AssistantUserProfile): string {
-  const source = (profile.preferredName || profile.displayName || "Operator").trim();
+  const source = (
+    profile.preferredName ||
+    profile.displayName ||
+    "Operator"
+  ).trim();
   const initials = source
     .split(/\s+/)
     .filter(Boolean)
@@ -35,7 +49,7 @@ function surfaceLabel(
   activeView: PrimaryView,
   surfaces: Pick<
     StudioInspectorProps,
-    "chatSurface" | "workflowSurface" | "runsSurface" | "controlSurface"
+    "chatSurface" | "workflowSurface" | "runsSurface"
   >,
 ): string {
   if (activeView === "chat") {
@@ -51,8 +65,11 @@ function surfaceLabel(
   if (activeView === "runs") {
     return surfaces.runsSurface === "evidence" ? "Evidence atlas" : "Runtime";
   }
-  if (activeView === "control") {
-    return surfaces.controlSurface === "system" ? "System ops" : "Policy";
+  if (activeView === "policy") {
+    return "Policy";
+  }
+  if (activeView === "settings") {
+    return "Settings";
   }
   return activeView[0].toUpperCase() + activeView.slice(1);
 }
@@ -67,21 +84,25 @@ function stageForView(activeView: PrimaryView): string {
       return "Execute / supervise";
     case "inbox":
       return "Approve";
-    case "connections":
-      return "Reach";
-    case "control":
+    case "capabilities":
+      return "Equip";
+    case "policy":
+    case "settings":
       return "Govern";
     default:
       return "Operate";
   }
 }
 
-function summaryForView(
-  props: StudioInspectorProps,
-): { title: string; body: string; items: string[] } {
+function summaryForView(props: StudioInspectorProps): {
+  title: string;
+  body: string;
+  items: string[];
+} {
   const {
     activeView,
     chatSurface,
+    operatorPaneOpen,
     workflowSurface,
     runsSurface,
     notificationCount,
@@ -102,63 +123,122 @@ function summaryForView(
             : "A native workbench is active so the operator can finish a precise task without losing context from the control plane.",
         items: [
           `Surface: ${surfaceLabel(activeView, props)}`,
-          assistantWorkbench ? `Task: ${assistantWorkbench.kind.replace(/_/g, " ")}` : "Task: general chat",
+          assistantWorkbench
+            ? `Task: ${assistantWorkbench.kind.replace(/_/g, " ")}`
+            : "Task: general chat",
           `Inbox backlog: ${notificationCount}`,
         ],
       };
     case "workflows":
       return {
         title: "Workflow primitives",
-        body:
-          "The canvas supports more than agents. Build automations out of triggers, actions, approvals, policies, evidence, logic, and queueing semantics.",
+        body: "The canvas supports more than agents. Build automations out of triggers, actions, approvals, policies, evidence, logic, and queueing semantics.",
         items: [
           `Surface: ${surfaceLabel(activeView, props)}`,
-          interfaceMode === "GHOST" ? "Ghost mode: recording" : "Ghost mode: idle",
-          editingAgentName ? `Builder open: ${editingAgentName}` : workflowSurface === "catalog" ? "Catalog: installable assets" : "Builder: no agent selected",
+          operatorPaneOpen
+            ? `Operator pane: ${
+                chatSurface === "chat"
+                  ? "conversation"
+                  : chatSurface.replace(/-/g, " ")
+              }`
+            : "Operator pane: hidden",
+          interfaceMode === "GHOST"
+            ? "Ghost mode: recording"
+            : "Ghost mode: idle",
+          editingAgentName
+            ? `Builder open: ${editingAgentName}`
+            : workflowSurface === "catalog"
+              ? "Catalog: installable assets"
+              : "Builder: no agent selected",
         ],
       };
     case "runs":
       return {
         title: "Operational supervision",
-        body:
-          "This lane is for live execution and evidence. Operators should be able to inspect what happened, why it happened, and which tools or memories influenced the run.",
+        body: "This lane is for live execution and evidence. Operators should be able to inspect what happened, why it happened, and which tools or memories influenced the run.",
         items: [
           `Surface: ${surfaceLabel(activeView, props)}`,
-          runsSurface === "evidence" ? "Focus: evidence graph and context receipts" : "Focus: runtime fleet and execution health",
+          operatorPaneOpen
+            ? `Operator pane: ${
+                chatSurface === "chat"
+                  ? "conversation"
+                  : chatSurface.replace(/-/g, " ")
+              }`
+            : "Operator pane: hidden",
+          runsSurface === "evidence"
+            ? "Focus: evidence graph and context receipts"
+            : "Focus: runtime fleet and execution health",
           `Inbox backlog: ${notificationCount}`,
         ],
       };
     case "inbox":
       return {
         title: "Inbox model",
-        body:
-          "Inbox is a full work queue, not a notification bell. It merges approvals, interventions, and ranked prompts into one durable place to review and act.",
+        body: "Inbox is a full work queue, not a notification bell. It merges approvals, interventions, and ranked prompts into one durable place to review and act.",
         items: [
           `Unresolved items: ${notificationCount}`,
-          "Control items: interventions and approvals",
+          operatorPaneOpen
+            ? `Operator pane: ${
+                chatSurface === "chat"
+                  ? "conversation"
+                  : chatSurface.replace(/-/g, " ")
+              }`
+            : "Operator pane: hidden",
+          "Policy items: interventions and approvals",
           "Assistant items: ranked prompts and recommendations",
         ],
       };
-    case "connections":
+    case "capabilities":
       return {
-        title: "Reachability boundary",
-        body:
-          "Connections answer what the system can reach. Keep capability, auth state, and subscription health here while leaving posture and approval rules to Control.",
+        title: "Capability surface",
+        body: "Capabilities answer what workers can use. Keep authenticated reach, reusable skills, and installable extensions together while leaving posture and approval rules to Policy.",
         items: [
           `Global reads: ${shieldPolicy.global.reads}`,
           `Global writes: ${shieldPolicy.global.writes}`,
+          operatorPaneOpen
+            ? `Operator pane: ${
+                chatSurface === "chat"
+                  ? "conversation"
+                  : chatSurface.replace(/-/g, " ")
+              }`
+            : "Operator pane: hidden",
           `Policy overrides: ${countActiveOverrides(shieldPolicy)}`,
         ],
       };
-    case "control":
+    case "policy":
       return {
         title: "Governance baseline",
-        body:
-          "Control is the sovereign plane for policy, approval posture, privacy handling, and system-level operations that shape how software workers behave.",
+        body: "Policy is the sovereign plane for approval posture, privacy handling, and execution boundaries that shape how software workers behave.",
         items: [
           `Surface: ${surfaceLabel(activeView, props)}`,
+          operatorPaneOpen
+            ? `Operator pane: ${
+                chatSurface === "chat"
+                  ? "conversation"
+                  : chatSurface.replace(/-/g, " ")
+              }`
+            : "Operator pane: hidden",
           `Automations: ${shieldPolicy.global.automations.replace(/_/g, " ")}`,
-          focusedPolicyConnectorId ? `Focused connector: ${focusedPolicyConnectorId}` : `Overrides: ${countActiveOverrides(shieldPolicy)}`,
+          focusedPolicyConnectorId
+            ? `Focused connection: ${focusedPolicyConnectorId}`
+            : `Overrides: ${countActiveOverrides(shieldPolicy)}`,
+        ],
+      };
+    case "settings":
+      return {
+        title: "System configuration",
+        body: "Settings hold local shell identity, diagnostics, storage, and reset operations without collapsing them into the policy model.",
+        items: [
+          `Surface: ${surfaceLabel(activeView, props)}`,
+          operatorPaneOpen
+            ? `Operator pane: ${
+                chatSurface === "chat"
+                  ? "conversation"
+                  : chatSurface.replace(/-/g, " ")
+              }`
+            : "Operator pane: hidden",
+          `Locale: ${props.profile.locale}`,
+          `Timezone: ${props.profile.timezone}`,
         ],
       };
     default:
@@ -190,12 +270,35 @@ export function StudioInspector(props: StudioInspectorProps) {
           <span>{currentStage}</span>
         </div>
         <div className="studio-shell-loop">
-          <span className={props.activeView === "chat" ? "is-active" : ""}>Talk</span>
-          <span className={props.activeView === "workflows" ? "is-active" : ""}>Encode</span>
-          <span className={props.activeView === "runs" ? "is-active" : ""}>Execute</span>
-          <span className={props.activeView === "runs" ? "is-active" : ""}>Supervise</span>
-          <span className={props.activeView === "inbox" ? "is-active" : ""}>Approve</span>
-          <span className={props.activeView === "control" ? "is-active" : ""}>Govern</span>
+          <span className={props.operatorPaneOpen ? "is-active" : ""}>
+            Talk
+          </span>
+          <span className={props.activeView === "workflows" ? "is-active" : ""}>
+            Encode
+          </span>
+          <span
+            className={props.activeView === "capabilities" ? "is-active" : ""}
+          >
+            Equip
+          </span>
+          <span className={props.activeView === "runs" ? "is-active" : ""}>
+            Execute
+          </span>
+          <span className={props.activeView === "runs" ? "is-active" : ""}>
+            Supervise
+          </span>
+          <span className={props.activeView === "inbox" ? "is-active" : ""}>
+            Approve
+          </span>
+          <span
+            className={
+              props.activeView === "policy" || props.activeView === "settings"
+                ? "is-active"
+                : ""
+            }
+          >
+            Govern
+          </span>
         </div>
       </section>
 
@@ -213,7 +316,9 @@ export function StudioInspector(props: StudioInspectorProps) {
 
       <section className="studio-shell-inspector-card">
         <div className="studio-shell-inspector-profile-head">
-          <span className="studio-shell-inspector-avatar">{initialsForProfile(props.profile)}</span>
+          <span className="studio-shell-inspector-avatar">
+            {initialsForProfile(props.profile)}
+          </span>
           <div className="studio-shell-inspector-profile-meta">
             <strong>{visibleName}</strong>
             <span>{props.profile.roleLabel || "Local shell profile"}</span>
@@ -225,8 +330,12 @@ export function StudioInspector(props: StudioInspectorProps) {
           <li>Email: {props.profile.primaryEmail || "Not set"}</li>
         </ul>
         <div className="studio-shell-inspector-actions">
-          <button type="button" className="studio-shell-inspector-button" onClick={props.onOpenControl}>
-            Manage in Control
+          <button
+            type="button"
+            className="studio-shell-inspector-button"
+            onClick={props.onOpenControl}
+          >
+            Manage in Policy
           </button>
         </div>
       </section>
@@ -237,8 +346,8 @@ export function StudioInspector(props: StudioInspectorProps) {
           <span>Autopilot shell</span>
         </div>
         <p className="studio-shell-inspector-quote">
-          Autopilot should feel like the sovereign control plane for software workers, not merely a
-          private desktop assistant.
+          Autopilot should feel like the sovereign control plane for software
+          workers, not merely a private desktop assistant.
         </p>
       </section>
     </aside>
