@@ -42,21 +42,29 @@ export function MissionControlControlView({
   onFocusConnector,
   onOpenConnections,
 }: MissionControlControlViewProps) {
+  const title = surface === "policy" ? "Policy" : "Settings";
+  const kicker = surface === "policy" ? "Govern" : "Configure";
+  const surfaceLabel = surface === "policy" ? "Policy" : "Settings";
+
   return (
     <div className="mission-control-view mission-control-view--control">
       <header className="mission-control-header mission-control-header--control">
         <div className="mission-control-header-copy mission-control-header-copy--control">
-          <span className="mission-control-kicker">Govern</span>
+          <span className="mission-control-kicker">{kicker}</span>
           <div className="mission-control-control-title-row">
-            <h2>Control</h2>
+            <h2>{title}</h2>
             <span className="mission-control-control-surface">
-              {surface === "policy" ? "Policy" : "System"}
+              {surfaceLabel}
             </span>
           </div>
         </div>
 
         <div className="mission-control-header-actions">
-          <div className="mission-control-tabs" role="tablist" aria-label="Control surfaces">
+          <div
+            className="mission-control-tabs"
+            role="tablist"
+            aria-label="Governance surfaces"
+          >
             <button
               type="button"
               className={surface === "policy" ? "is-active" : ""}
@@ -69,7 +77,7 @@ export function MissionControlControlView({
               className={surface === "system" ? "is-active" : ""}
               onClick={() => onSurfaceChange("system")}
             >
-              System
+              Settings
             </button>
           </div>
         </div>

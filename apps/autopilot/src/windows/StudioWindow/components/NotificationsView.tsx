@@ -17,8 +17,12 @@ interface NotificationsViewProps {
   onOpenIntegrations: (connectorId?: string | null) => void;
   onOpenShield: (connectorId?: string | null) => void;
   onOpenSettings: () => void;
-  onOpenReplyComposer: (session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>) => void;
-  onOpenMeetingPrep: (session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>) => void;
+  onOpenReplyComposer: (
+    session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
+  ) => void;
+  onOpenMeetingPrep: (
+    session: Extract<AssistantWorkbenchSession, { kind: "meeting_prep" }>,
+  ) => void;
 }
 
 type InboxLane =
@@ -63,9 +67,17 @@ const INBOX_LANES: Array<{
 }> = [
   { id: "all", label: "All", description: "Everything in the queue" },
   { id: "needs_action", label: "Needs action", description: "Blocked on you" },
-  { id: "ready_for_review", label: "Ready for review", description: "Completed or prepared" },
+  {
+    id: "ready_for_review",
+    label: "Ready for review",
+    description: "Completed or prepared",
+  },
   { id: "monitor", label: "Monitor", description: "Risk, drift, or anomalies" },
-  { id: "digests", label: "Digests", description: "Summaries and batched updates" },
+  {
+    id: "digests",
+    label: "Digests",
+    description: "Summaries and batched updates",
+  },
   { id: "resolved", label: "Resolved", description: "Handled or archived" },
 ];
 
@@ -74,7 +86,9 @@ function humanize(value: string): string {
 }
 
 function isResolvedIntervention(status: InterventionStatus): boolean {
-  return status === "resolved" || status === "expired" || status === "cancelled";
+  return (
+    status === "resolved" || status === "expired" || status === "cancelled"
+  );
 }
 
 function isResolvedAssistant(status: AssistantNotificationStatus): boolean {
@@ -86,7 +100,10 @@ function isResolvedAssistant(status: AssistantNotificationStatus): boolean {
   );
 }
 
-function upsertById<T extends { itemId: string; updatedAtMs: number }>(items: T[], next: T): T[] {
+function upsertById<T extends { itemId: string; updatedAtMs: number }>(
+  items: T[],
+  next: T,
+): T[] {
   const existingIndex = items.findIndex((item) => item.itemId === next.itemId);
   if (existingIndex === -1) {
     return [next, ...items];
@@ -98,10 +115,19 @@ function upsertById<T extends { itemId: string; updatedAtMs: number }>(items: T[
 }
 
 function compareRecords(
-  left: { severity: NotificationSeverity; dueAtMs?: number | null; updatedAtMs: number },
-  right: { severity: NotificationSeverity; dueAtMs?: number | null; updatedAtMs: number },
+  left: {
+    severity: NotificationSeverity;
+    dueAtMs?: number | null;
+    updatedAtMs: number;
+  },
+  right: {
+    severity: NotificationSeverity;
+    dueAtMs?: number | null;
+    updatedAtMs: number;
+  },
 ): number {
-  const severityDelta = SEVERITY_ORDER[right.severity] - SEVERITY_ORDER[left.severity];
+  const severityDelta =
+    SEVERITY_ORDER[right.severity] - SEVERITY_ORDER[left.severity];
   if (severityDelta !== 0) return severityDelta;
 
   const leftDue = left.dueAtMs ?? Number.MAX_SAFE_INTEGER;
@@ -190,7 +216,9 @@ function assistantTypeLabel(item: AssistantNotificationRecord): QueueItemType {
   }
 }
 
-function assistantLane(item: AssistantNotificationRecord): Exclude<InboxLane, "all"> {
+function assistantLane(
+  item: AssistantNotificationRecord,
+): Exclude<InboxLane, "all"> {
   if (isResolvedAssistant(item.status)) return "resolved";
 
   switch (item.notificationClass) {
@@ -231,7 +259,9 @@ function buildInterventionQueueItem(item: InterventionRecord): InboxQueueItem {
   };
 }
 
-function buildAssistantQueueItem(item: AssistantNotificationRecord): InboxQueueItem {
+function buildAssistantQueueItem(
+  item: AssistantNotificationRecord,
+): InboxQueueItem {
   const meta: string[] = [];
 
   meta.push(`Priority ${(item.priorityScore * 100).toFixed(0)}%`);
@@ -251,13 +281,22 @@ function buildAssistantQueueItem(item: AssistantNotificationRecord): InboxQueueI
   };
 }
 
-function pickPrimaryAssistantAction(item: AssistantNotificationRecord): NotificationAction | null {
+function pickPrimaryAssistantAction(
+  item: AssistantNotificationRecord,
+): NotificationAction | null {
   return (
     item.actions.find((action) => action.style === "primary") ??
     item.actions.find((action) => action.id === "open_target") ??
     item.actions[0] ??
     null
   );
+}
+
+function displayActionLabel(label: string | null | undefined): string {
+  if (!label) return "Open";
+  if (label === "Open Integrations") return "Open Capabilities";
+  if (label === "Open Shield") return "Open Policy";
+  return label;
 }
 
 export function NotificationsView({
@@ -307,9 +346,14 @@ export function NotificationsView({
       listen<InterventionRecord>("intervention-updated", (event) => {
         setInterventions((current) => upsertById(current, event.payload));
       }),
-      listen<AssistantNotificationRecord>("assistant-notification-updated", (event) => {
-        setAssistantNotifications((current) => upsertById(current, event.payload));
-      }),
+      listen<AssistantNotificationRecord>(
+        "assistant-notification-updated",
+        (event) => {
+          setAssistantNotifications((current) =>
+            upsertById(current, event.payload),
+          );
+        },
+      ),
     ]);
 
     void load();
@@ -350,7 +394,9 @@ export function NotificationsView({
     });
   };
 
-  const markAssistantSeenIfNeeded = async (item: AssistantNotificationRecord) => {
+  const markAssistantSeenIfNeeded = async (
+    item: AssistantNotificationRecord,
+  ) => {
     if (item.status === "new") {
       await updateAssistantStatus(item.itemId, "seen");
     }
@@ -424,7 +470,11 @@ export function NotificationsView({
           await updateAssistantStatus(item.itemId, "dismissed");
           return;
         case "snooze":
-          await updateAssistantStatus(item.itemId, "snoozed", Date.now() + 60 * 60 * 1000);
+          await updateAssistantStatus(
+            item.itemId,
+            "snoozed",
+            Date.now() + 60 * 60 * 1000,
+          );
           return;
         default:
           await markAssistantSeenIfNeeded(item);
@@ -450,11 +500,15 @@ export function NotificationsView({
     const startOfTodayMs = startOfToday.getTime();
 
     return {
-      needsAction: queueItems.filter((item) => item.lane === "needs_action").length,
-      readyForReview: queueItems.filter((item) => item.lane === "ready_for_review").length,
+      needsAction: queueItems.filter((item) => item.lane === "needs_action")
+        .length,
+      readyForReview: queueItems.filter(
+        (item) => item.lane === "ready_for_review",
+      ).length,
       anomalies: queueItems.filter((item) => item.lane === "monitor").length,
       resolvedToday: queueItems.filter(
-        (item) => item.lane === "resolved" && item.record.updatedAtMs >= startOfTodayMs,
+        (item) =>
+          item.lane === "resolved" && item.record.updatedAtMs >= startOfTodayMs,
       ).length,
     };
   }, [queueItems]);
@@ -462,8 +516,11 @@ export function NotificationsView({
   const laneCounts = useMemo(
     () => ({
       all: queueItems.length,
-      needs_action: queueItems.filter((item) => item.lane === "needs_action").length,
-      ready_for_review: queueItems.filter((item) => item.lane === "ready_for_review").length,
+      needs_action: queueItems.filter((item) => item.lane === "needs_action")
+        .length,
+      ready_for_review: queueItems.filter(
+        (item) => item.lane === "ready_for_review",
+      ).length,
       monitor: queueItems.filter((item) => item.lane === "monitor").length,
       digests: queueItems.filter((item) => item.lane === "digests").length,
       resolved: queueItems.filter((item) => item.lane === "resolved").length,
@@ -504,7 +561,10 @@ export function NotificationsView({
       return;
     }
 
-    if (selectedItemKey && filteredQueueItems.some((item) => item.key === selectedItemKey)) {
+    if (
+      selectedItemKey &&
+      filteredQueueItems.some((item) => item.key === selectedItemKey)
+    ) {
       return;
     }
 
@@ -512,7 +572,8 @@ export function NotificationsView({
   }, [filteredQueueItems, selectedItemKey]);
 
   const selectedQueueItem = useMemo(
-    () => filteredQueueItems.find((item) => item.key === selectedItemKey) ?? null,
+    () =>
+      filteredQueueItems.find((item) => item.key === selectedItemKey) ?? null,
     [filteredQueueItems, selectedItemKey],
   );
 
@@ -527,7 +588,9 @@ export function NotificationsView({
   if (error) {
     return (
       <div className="notifications-view">
-        <div className="notifications-empty-state notifications-empty-state-error">{error}</div>
+        <div className="notifications-empty-state notifications-empty-state-error">
+          {error}
+        </div>
       </div>
     );
   }
@@ -538,7 +601,10 @@ export function NotificationsView({
         <div className="notifications-header-copy">
           <span className="notifications-kicker">Approve</span>
           <h1>Inbox</h1>
-          <p>Operations queue for approvals, reviews, anomalies, and durable follow-up.</p>
+          <p>
+            Operations queue for approvals, reviews, anomalies, and durable
+            follow-up.
+          </p>
         </div>
         <div className="notifications-header-stats">
           <div className="notifications-stat-card">
@@ -560,7 +626,9 @@ export function NotificationsView({
         </div>
       </header>
 
-      {actionError ? <p className="notifications-error">{actionError}</p> : null}
+      {actionError ? (
+        <p className="notifications-error">{actionError}</p>
+      ) : null}
 
       <div className="notifications-shell">
         <aside className="notifications-sidebar">
@@ -606,37 +674,55 @@ export function NotificationsView({
 
           <div className="notifications-queue-head">
             <div>
-              <span className="notifications-card-eyebrow">Operations Queue</span>
+              <span className="notifications-card-eyebrow">
+                Operations Queue
+              </span>
               <h2>
-                {INBOX_LANES.find((lane) => lane.id === activeLane)?.label ?? "All"} items
+                {INBOX_LANES.find((lane) => lane.id === activeLane)?.label ??
+                  "All"}{" "}
+                items
               </h2>
             </div>
-            <span className="notifications-queue-count">{filteredQueueItems.length}</span>
+            <span className="notifications-queue-count">
+              {filteredQueueItems.length}
+            </span>
           </div>
 
           <div className="notifications-list">
             {filteredQueueItems.length === 0 ? (
-              <div className="notifications-empty-card">No inbox items match this queue.</div>
+              <div className="notifications-empty-card">
+                No inbox items match this queue.
+              </div>
             ) : (
               filteredQueueItems.map((item) => {
-                const relativeTime = formatRelativeTime(item.record.updatedAtMs);
+                const relativeTime = formatRelativeTime(
+                  item.record.updatedAtMs,
+                );
                 const dueLabel = dueCopy(item.record.dueAtMs);
 
                 return (
                   <article
                     key={item.key}
                     className={`notifications-card notifications-card-${item.record.severity}${
-                      selectedItemKey === item.key ? " notifications-card-selected" : ""
+                      selectedItemKey === item.key
+                        ? " notifications-card-selected"
+                        : ""
                     }`}
                     onClick={() => setSelectedItemKey(item.key)}
                   >
                     <div className="notifications-card-topline">
                       <div className="notifications-card-badges">
-                        <span className={`notifications-pill notifications-pill-type-${item.typeLabel.toLowerCase()}`}>
+                        <span
+                          className={`notifications-pill notifications-pill-type-${item.typeLabel.toLowerCase()}`}
+                        >
                           {item.typeLabel}
                         </span>
-                        <span className="notifications-pill">{item.statusLabel}</span>
-                        <span className="notifications-pill">{item.sourceLabel}</span>
+                        <span className="notifications-pill">
+                          {item.statusLabel}
+                        </span>
+                        <span className="notifications-pill">
+                          {item.sourceLabel}
+                        </span>
                       </div>
                       <span className="notifications-card-time">
                         {dueLabel ? `Due ${dueLabel}` : relativeTime}
@@ -645,7 +731,9 @@ export function NotificationsView({
 
                     <div className="notifications-card-main">
                       <h3>{item.record.title}</h3>
-                      <p className="notifications-summary">{item.record.summary}</p>
+                      <p className="notifications-summary">
+                        {item.record.summary}
+                      </p>
                     </div>
 
                     {item.meta.length > 0 ? (
@@ -657,21 +745,26 @@ export function NotificationsView({
                     ) : null}
 
                     {item.record.recommendedAction ? (
-                      <p className="notifications-next-step">Next: {item.record.recommendedAction}</p>
+                      <p className="notifications-next-step">
+                        Next: {item.record.recommendedAction}
+                      </p>
                     ) : null}
 
                     <div className="notifications-card-actions">
                       {item.kind === "assistant" ? (
                         <>
-                          {pickPrimaryAssistantAction(item.record as AssistantNotificationRecord) ? (
+                          {pickPrimaryAssistantAction(
+                            item.record as AssistantNotificationRecord,
+                          ) ? (
                             <button
                               type="button"
                               className="notifications-primary-button"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                const primaryAction = pickPrimaryAssistantAction(
-                                  item.record as AssistantNotificationRecord,
-                                );
+                                const primaryAction =
+                                  pickPrimaryAssistantAction(
+                                    item.record as AssistantNotificationRecord,
+                                  );
                                 if (!primaryAction) return;
                                 void handleAssistantAction(
                                   item.record as AssistantNotificationRecord,
@@ -679,8 +772,11 @@ export function NotificationsView({
                                 );
                               }}
                             >
-                              {pickPrimaryAssistantAction(item.record as AssistantNotificationRecord)?.label ??
-                                "Open"}
+                              {displayActionLabel(
+                                pickPrimaryAssistantAction(
+                                  item.record as AssistantNotificationRecord,
+                                )?.label,
+                              )}
                             </button>
                           ) : (
                             <button
@@ -704,13 +800,19 @@ export function NotificationsView({
                               event.stopPropagation();
                               void handleAssistantAction(
                                 item.record as AssistantNotificationRecord,
-                                isResolvedAssistant((item.record as AssistantNotificationRecord).status)
+                                isResolvedAssistant(
+                                  (item.record as AssistantNotificationRecord)
+                                    .status,
+                                )
                                   ? "archive"
                                   : "snooze",
                               );
                             }}
                           >
-                            {isResolvedAssistant((item.record as AssistantNotificationRecord).status)
+                            {isResolvedAssistant(
+                              (item.record as AssistantNotificationRecord)
+                                .status,
+                            )
                               ? "Archive"
                               : "Snooze 1h"}
                           </button>
@@ -727,7 +829,9 @@ export function NotificationsView({
                           >
                             Open chat
                           </button>
-                          {!isResolvedIntervention((item.record as InterventionRecord).status) ? (
+                          {!isResolvedIntervention(
+                            (item.record as InterventionRecord).status,
+                          ) ? (
                             <button
                               type="button"
                               className="notifications-secondary-button"
@@ -735,10 +839,12 @@ export function NotificationsView({
                                 event.stopPropagation();
                                 void updateInterventionStatus(
                                   (item.record as InterventionRecord).itemId,
-                                  (item.record as InterventionRecord).status === "new"
+                                  (item.record as InterventionRecord).status ===
+                                    "new"
                                     ? "seen"
                                     : "pending",
-                                  (item.record as InterventionRecord).status === "new"
+                                  (item.record as InterventionRecord).status ===
+                                    "new"
                                     ? undefined
                                     : Date.now() + 60 * 60 * 1000,
                                 ).catch((nextError) => {
@@ -746,7 +852,8 @@ export function NotificationsView({
                                 });
                               }}
                             >
-                              {(item.record as InterventionRecord).status === "new"
+                              {(item.record as InterventionRecord).status ===
+                              "new"
                                 ? "Mark seen"
                                 : "Snooze 1h"}
                             </button>

@@ -31,7 +31,9 @@ use ioi_api::{
 };
 use ioi_system::SystemState;
 use ioi_types::app::{
-    AccountId, Block, BlockHeader, ConsensusVote, FailureReport, QuorumCertificate,
+    AccountId, AftRecoveredCertifiedHeaderEntry, AftRecoveredConsensusHeaderEntry,
+    AftRecoveredRestartHeaderEntry, Block, BlockHeader, ConsensusVote, FailureReport,
+    QuorumCertificate,
 };
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{ConsensusError, TransactionError};
@@ -338,8 +340,233 @@ where
                     engine, header, collapse,
                 )
             }
+            Consensus::Solo(engine) => <SoloEngine as ConsensusEngine<T>>::observe_committed_block(
+                engine, header, collapse,
+            ),
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn observe_aft_recovered_consensus_header(
+        &mut self,
+        header: &AftRecoveredConsensusHeaderEntry,
+    ) -> bool {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::observe_aft_recovered_consensus_header(
+                    engine, header,
+                )
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::observe_aft_recovered_consensus_header(
+                    engine, header,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::observe_aft_recovered_consensus_header(
+                    engine, header,
+                )
+            }
             Consensus::Solo(engine) => {
-                <SoloEngine as ConsensusEngine<T>>::observe_committed_block(engine, header, collapse)
+                <SoloEngine as ConsensusEngine<T>>::observe_aft_recovered_consensus_header(
+                    engine, header,
+                )
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn aft_recovered_consensus_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredConsensusHeaderEntry> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::aft_recovered_consensus_header_for_quorum_certificate(
+                    engine, qc,
+                )
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<
+                    T,
+                >>::aft_recovered_consensus_header_for_quorum_certificate(engine, qc)
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<
+                    T,
+                >>::aft_recovered_consensus_header_for_quorum_certificate(engine, qc)
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::aft_recovered_consensus_header_for_quorum_certificate(
+                    engine, qc,
+                )
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn observe_aft_recovered_certified_header(
+        &mut self,
+        header: &AftRecoveredCertifiedHeaderEntry,
+    ) -> bool {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::observe_aft_recovered_certified_header(
+                    engine, header,
+                )
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::observe_aft_recovered_certified_header(
+                    engine, header,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::observe_aft_recovered_certified_header(
+                    engine, header,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::observe_aft_recovered_certified_header(
+                    engine, header,
+                )
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn aft_recovered_certified_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredCertifiedHeaderEntry> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::aft_recovered_certified_header_for_quorum_certificate(
+                    engine, qc,
+                )
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<
+                    T,
+                >>::aft_recovered_certified_header_for_quorum_certificate(engine, qc)
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<
+                    T,
+                >>::aft_recovered_certified_header_for_quorum_certificate(engine, qc)
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<
+                    T,
+                >>::aft_recovered_certified_header_for_quorum_certificate(engine, qc)
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn observe_aft_recovered_restart_header(
+        &mut self,
+        header: &AftRecoveredRestartHeaderEntry,
+    ) -> bool {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::observe_aft_recovered_restart_header(
+                    engine, header,
+                )
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::observe_aft_recovered_restart_header(
+                    engine, header,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::observe_aft_recovered_restart_header(
+                    engine, header,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::observe_aft_recovered_restart_header(
+                    engine, header,
+                )
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn aft_recovered_restart_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredRestartHeaderEntry> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::aft_recovered_restart_header_for_quorum_certificate(
+                    engine, qc,
+                )
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<
+                    T,
+                >>::aft_recovered_restart_header_for_quorum_certificate(engine, qc)
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<
+                    T,
+                >>::aft_recovered_restart_header_for_quorum_certificate(engine, qc)
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<
+                    T,
+                >>::aft_recovered_restart_header_for_quorum_certificate(engine, qc)
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn retain_recovered_ancestry_ranges(&mut self, keep_ranges: &[(u64, u64)]) {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::retain_recovered_ancestry_ranges(
+                    engine,
+                    keep_ranges,
+                )
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::retain_recovered_ancestry_ranges(
+                    engine,
+                    keep_ranges,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::retain_recovered_ancestry_ranges(
+                    engine,
+                    keep_ranges,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::retain_recovered_ancestry_ranges(
+                    engine,
+                    keep_ranges,
+                )
             }
             Consensus::_Phantom(_) => unreachable!(),
         }

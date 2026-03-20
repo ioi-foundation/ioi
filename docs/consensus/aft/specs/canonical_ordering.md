@@ -208,6 +208,294 @@ certificate carries a `BulletinCommitment`, a first-class
 published bulletin surface itself is externalized as `BulletinSurfaceEntry`
 objects rather than inlined into the certificate.
 
+## Exploratory Follow-On: Witness-Coded Recovery Capsule
+
+This section is exploratory only. It is not part of the current normative
+runtime.
+
+The constructive lower-bound follow-on now asks whether canonical ordering
+could replace its external public recoverability assumption with a
+witness-coded recovery lane carried by `NestedGuardian`-style assigned witness
+strata.
+
+The minimal candidate surface is:
+
+```text
+RecoveryCodingDescriptor_h = (
+  family_h,
+  share_count_h,
+  recovery_threshold_h
+)
+
+RecoveryCapsule_h = (
+  h,
+  RecoveryCodingDescriptor_h,
+  recovery_committee_root_h,
+  payload_commitment_h,
+  coding_root_h,
+  recovery_window_close_h
+)
+
+RecoveryWitnessCertificate_h = (
+  h,
+  witness_manifest_hash_h,
+  recovery_capsule_hash_h,
+  share_commitment_h
+)
+
+RecoverableSlotPayloadV1_h = (
+  h,
+  view_h,
+  producer_h,
+  block_commitment_h,
+  OCert_h,
+  ordered_tx_hashes_h
+)
+
+RecoverableSlotPayloadV2_h = (
+  h,
+  view_h,
+  producer_h,
+  block_commitment_h,
+  OCert_h,
+  ordered_tx_bytes_h
+)
+
+RecoverableSlotPayloadV3_h = (
+  h,
+  view_h,
+  producer_h,
+  block_commitment_h,
+  OCert_h,
+  ordered_tx_bytes_h,
+  canonical_order_publication_bundle_bytes_h
+)
+
+RecoverableSlotPayloadV4_h = (
+  h,
+  view_h,
+  producer_h,
+  block_commitment_h,
+  OCert_h,
+  ordered_tx_bytes_h,
+  canonical_order_publication_bundle_bytes_h,
+  canonical_bulletin_close_bytes_h
+)
+
+RecoveryShareMaterial_h = (
+  h,
+  witness_manifest_hash_h,
+  block_commitment_h,
+  RecoveryCodingDescriptor_h,
+  share_index_h,
+  share_commitment_h,
+  material_bytes_h
+)
+
+RecoveryShareReceipt_h = (
+  h,
+  witness_manifest_hash_h,
+  block_commitment_h,
+  share_commitment_h
+)
+
+RecoveredPublicationBundle_h = (
+  h,
+  block_commitment_h,
+  RecoveryCodingDescriptor_h,
+  supporting_witness_manifest_hashes_h,
+  recoverable_slot_payload_hash_h,
+  recoverable_full_surface_hash_h,
+  canonical_order_publication_bundle_hash_h,
+  canonical_bulletin_close_hash_h
+)
+
+MissingRecoveryShare_h = (
+  h,
+  witness_manifest_hash_h,
+  recovery_capsule_hash_h,
+  recovery_window_close_h
+)
+```
+
+The intended replacement rule is:
+
+```text
+1. OCert_h still proves the canonical order, resulting state root, and omission commitment
+2. RecoveryCapsule_h binds the witness-coded recovery carrier for the same slot surface
+3. threshold-many matching RecoveryShareReceipt_h objects make the slot surface reconstructable
+4. threshold-many public RecoveryShareMaterial_h reveals may be summarized into a compact RecoveredPublicationBundle_h that binds lifted RecoverableSlotPayloadV4_h and RecoverableSlotPayloadV5_h hashes plus the verifying publication-bundle and bulletin-close hashes, and therefore materializes the ordinary positive canonical close surface plus the extracted bulletin surface when the recovered certificate is omission-free
+5. if the recovered certificate carries objective omission proofs, the same recovered lane materializes the ordinary OmissionDominated canonical abort while keeping omission evidence and bulletin entries public
+6. conflicting RecoveredPublicationBundle_h objects fail closed to canonical abort rather than coexisting as two positive closes
+7. enough MissingRecoveryShare_h objects make threshold recovery impossible and materialize a deterministic recovery-impossible canonical abort instead of an open-ended recoverability assumption
+```
+
+The best current scope for this path is not the baseline ordering runtime. It
+is a witness-backed ordering lane that composes with `NestedGuardian`. The
+current exploratory runtime now gives it canonical hashes, registry storage,
+and a bounded recovery model, plus deterministic derivation/publication of a
+`DeterministicScaffoldV1` `RecoveryCapsule_h` and a derived
+`RecoveryWitnessCertificate_h` plus the matching signed scaffold
+`RecoveryShareReceipt_h` on ordinary `ExperimentalNestedGuardian`
+finalization; baseline ordering admission still does not depend on it.
+
+That runtime step is still only a scaffold. The live carrier is a
+single-witness threshold-1 obligation derived from the committed slot surface,
+not a finished multi-witness coded-share reconstruction engine. The underlying
+`recoverability_root` still binds only bulletin / randomness /
+ordered-transactions / post-state inputs; witness and coding semantics are
+layered above it, not already present inside that root. A new exploratory
+off-hot-path planning step can deterministically derive multi-witness
+committee/threshold/share-commitment plans from that root plus the witness
+assignment carrier. A new cold-path kernel can also materialize transparent
+`RecoveryShareMaterial_h` reveal objects and verify them into matching
+`RecoveryShareReceipt_h` objects from current endogenous inputs alone. The
+current live coded carrier now has three lanes over `RecoverableSlotPayloadV3_h`,
+the publication-oriented slot payload formed from the block commitment,
+canonical order certificate, canonical encoded ordered transaction bytes, and
+canonical encoded `CanonicalOrderPublicationBundle_h` bytes. The runtime now
+depends on an abstract coded recovery-family contract over that payload, as
+currently realized by the parametric `SystematicXorKOfKPlus1V1` `k-of-(k+1)`
+parity family plus the parametric true non-parity
+`SystematicGf256KOfNV1` `k-of-n` family with at least two parity shares, now
+implemented with systematic Cauchy-style coefficients and presently exercised
+in bounded `2-of-4`, `3-of-5`, `3-of-7`, `4-of-6`, and `4-of-7` lanes. The runtime can now
+reconstruct that publication-oriented payload from threshold-many witness
+shards, and the recovered bundle bytes decode to a verifying publication
+bundle under the current endogenous finalization rules. The runtime can now
+also lift that recovered `RecoverableSlotPayloadV3_h` into the explicit
+positive close-extraction surface `RecoverableSlotPayloadV4_h`, which adds the
+exact canonical encoded `CanonicalBulletinClose_h` bytes derived from the
+verifying recovered publication bundle. The runtime can now also lift
+`RecoverableSlotPayloadV4_h` into `RecoverableSlotPayloadV5_h`, the explicit
+extractable bulletin-surface payload that carries canonical encoded bulletin
+availability plus the sorted bulletin entries themselves. That is still not a
+finished arbitrary ordering theorem upgrade: the signed scaffold lane now has
+compact receipt publication and threshold-status observation, and the coded
+lanes now have distinct per-witness signed carriage plus shared-capsule /
+per-witness receipt publication through sealed finality. Those lanes now also
+have off-chain assigned-share delivery-before-sign and guardian-local durable
+custody for the exact share material, and they can now later reload those
+stored shares by signed binding, publish verified public
+`RecoveryShareMaterial_h` reveals, and reconstruct the publication-oriented
+payload from threshold-many public reveals. Threshold-many public reveals can
+now also be combined into a compact
+`RecoveredPublicationBundle_h` object that binds the recovered
+`RecoverableSlotPayloadV4_h` hash plus the recovered
+`RecoverableSlotPayloadV5_h` hash and verifying publication-bundle and
+bulletin-close hashes. The registry can now materialize both the ordinary
+positive canonical close surface and the same extractable bulletin surface
+from that object even when the ordinary publication-bundle lane is absent.
+The bounded recovered-only harness now also shows that two consecutive
+recovered `RecoverableSlotPayloadV5_h` surfaces can still derive and publish
+the ordinary `PublicationFrontier_h` predecessor chain and the same
+authoritative `CanonicalCollapseObject_h` predecessor chain without the
+ordinary publication-bundle lane.
+Another bounded recovered-only harness now shows a close/abort/close bulletin
+window with a recovered omission-dominated middle slot: recovered data alone
+materializes the ordinary positive closes and extracted bulletin surfaces on
+the outer slots, materializes the ordinary `OmissionDominated` abort in the
+middle while keeping omission evidence and recovered bulletin entries public,
+still lets the positive slots carry ordinary `PublicationFrontier_h`
+objects where applicable, and now also materializes the same authoritative
+`CanonicalCollapseObject_h` continuity chain across that bounded window.
+The runtime now also has a bounded read-side replay-prefix extractor over that
+persisted recovered chain, so the same recovered-only durable surface yields
+the same compact height-to-state-root prefix view that ordinary execution /
+replay would consume, and a bounded recovered canonical-header extractor now
+yields the same compact recent consensus ancestry surface from those recovered
+full-slot objects. The execution module now also uses that bounded
+replay-prefix tip as a restart verifier against the loaded durable state root,
+retains both bounded recovered prefixes in execution state, and now uses the
+recovered canonical-header ancestry for bounded anchored reads plus parent-
+block / parent-state-root continuity after restart when ordinary recent
+blocks are absent. Validator consensus orchestration now also consumes the
+same bounded recovered canonical-header / collapse surface to derive a
+recovered restart parent anchor when the ordinary committed block is absent,
+and the live `GuardianMajority` engine now also consumes that bounded
+recovered canonical-header prefix as restart-time parent/QC context for
+synthetic parent-height QC continuity when the full committed block is
+absent. The same bounded recovered surface now also yields a bounded
+recovered certified-header window plus a restart-only recovered
+`BlockHeader` / QC cache window for validator restart and live-engine
+restart-time header / QC lookup plus bounded QC-certified recovered branch
+reconciliation over the configured local five-entry window, and those same
+bounded windows can now be folded by exact overlap with a configurable budget,
+exercised today at five windows into a longer seventeen-step recovered
+certified branch without ordinary committed headers. Those same live cold-path
+loaders now also consume a configurable exact-overlap segment budget,
+exercised today at four exact-overlap segments into a longer fifty-three-step
+recovered certified branch with direct registry-extraction parity and explicit
+interior-overlap conflict rejection. Those same live restart loaders now also
+compose two overlapping four-segment exact-overlap folds into a longer
+eighty-nine-step recovered certified branch with direct registry-extraction
+parity and explicit inter-fold overlap conflict rejection, and runtime/tests
+now also exercise the same recursive carrier at three overlapping
+four-segment folds into a one-hundred-twenty-five-step recovered certified
+branch. The runtime now also has a bounded conformance harness over one, two,
+and three stitched segment folds, matching the same production-loader /
+registry-extraction carrier at the corresponding fifty-three-step,
+eighty-nine-step, and one-hundred-twenty-five-step branches. The same live
+restart path can now also page older exact-overlap segment folds on demand
+beneath that bounded suffix via an overlap-checked cursor while keeping only
+the bounded recent suffix plus the current streamed page live in engine
+caches, and runtime/tests now exercise that paged carrier at a longer
+two-hundred-thirty-three-step recovered certified branch with direct
+registry-extraction parity plus explicit duplicate-page, missing-gap, and
+late-page overlap rejection. Restart can therefore stream recovered certified
+ancestry until target height or recovered-history exhaustion without a
+theorem-relevant fixed depth bound; the remaining boundary is broader
+recovered-history availability outside the retained recovered publication
+surface, not local ancestry composition. The live theorem story is now
+singular rather than two-tiered: the whole AFT stack universally breaks the
+lower bound with no qualifiers. Ordinary canonical collapse and replay
+history now name the deeper historical continuation root, the AFT recovered
+state contract carries the same continuation bundle for restart consumers,
+and the historical continuation objects are profile-hash-bound,
+activation-hash-bound, and validated by predecessor/checkpoint history
+rather than mutable latest indexes. Archived continuation is therefore no
+longer a theorem-side qualifier; it is ordinary endogenous AFT history.
+When the recovered certificate carries objective omission proofs, the same
+recovered lane now routes into the ordinary `OmissionDominated` abort path
+while keeping the omission evidence and recovered bulletin entries public.
+Enough `MissingRecoveryShare_h` objects can now materialize a deterministic
+recovery-impossible canonical abort, and the bounded conformance harness now
+checks that every threshold-sized reveal subset reconstructs and every
+below-threshold subset fails across the shipped XOR and GF256 realizations of
+the abstract recovery-family contract. The coded recovery carrier is
+therefore no longer blocked on public close-or-abort integration or on the
+total absence of non-parity redundancy; the former scope boundary beyond the
+completed recovery-family contract is now closed. The stronger follow-on
+program is closed too: this achieved result explicitly claims the whole AFT
+stack universally breaks the lower bound with no qualifiers, and the same
+`99% Byzantine Tolerance` result is now promoted directly to unconditional
+classical `99% Byzantine agreement` in the ordinary dense-vote permissioned
+model. The current theorem should therefore be sold as finished and categorical
+full stop, not as a timid preview of a stronger sentence that still lies ahead.
+
+The current registry shape is:
+
+```text
+RecoveryCapsule_h                keyed by h
+RecoveryWitnessCertificate_h     keyed by (h, witness_manifest_hash_h)
+RecoveryShareReceipt_h           keyed by (h, witness_manifest_hash_h, block_commitment_h)
+RecoveryShareMaterial_h          keyed by (h, witness_manifest_hash_h, block_commitment_h)
+RecoveredPublicationBundle_h     keyed by (h, block_commitment_h, support_hash_h)
+MissingRecoveryShare_h           keyed by (h, witness_manifest_hash_h)
+```
+
+That shape is deliberate: conflicting same-witness share receipts remain
+publicly visible as pairwise objects rather than being collapsed into one
+overwritten slot record. The current registry helper also treats those
+conflicting same-witness receipts as non-supporting for positive threshold
+status, so `pending / recoverable / impossible` remains derivable from compact
+state without rewarding equivocation.
+
+That boundary is now internalized rather than merely named: the completed
+constructive result succeeds through AFT's own compact hot-path bindings plus
+cold-path recovered-state and historical-continuation surfaces, not through a
+standing external retrieval qualifier.
+
 ## Public Bulletin / DA Assumptions
 
 The ordering theorem depends on a public bulletin surface with explicit

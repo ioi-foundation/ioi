@@ -3,8 +3,8 @@ use ioi_api::app::{Block, ChainStatus, ChainTransaction};
 use ioi_api::chain::WorkloadClientApi;
 use ioi_api::consensus::CanonicalCollapseContinuityVerifier;
 use ioi_types::app::{
-    aft_canonical_collapse_object_key, derive_canonical_collapse_object,
-    derive_canonical_collapse_object_with_previous, canonical_collapse_continuity_public_inputs,
+    aft_canonical_collapse_object_key, canonical_collapse_continuity_public_inputs,
+    derive_canonical_collapse_object, derive_canonical_collapse_object_with_previous,
     verify_canonical_collapse_continuity, CanonicalCollapseContinuityProofSystem,
     CanonicalCollapseObject,
 };
@@ -38,8 +38,8 @@ pub(crate) fn maybe_derive_persisted_canonical_collapse_object(
         return Ok(None);
     }
 
-    let collapse = derive_canonical_collapse_object(&block.header, &block.transactions)
-        .map_err(|error| {
+    let collapse =
+        derive_canonical_collapse_object(&block.header, &block.transactions).map_err(|error| {
             anyhow!(
                 "failed to derive canonical collapse object for height {}: {error}",
                 block.header.height
@@ -55,7 +55,9 @@ pub(crate) async fn load_persisted_aft_canonical_collapse_object(
     let Some(raw) = workload_client
         .query_raw_state(&aft_canonical_collapse_object_key(height))
         .await
-        .map_err(|error| anyhow!("failed to load canonical collapse object from workload state: {error}"))?
+        .map_err(|error| {
+            anyhow!("failed to load canonical collapse object from workload state: {error}")
+        })?
     else {
         return Ok(None);
     };
@@ -247,9 +249,8 @@ mod tests {
     use ioi_api::chain::QueryStateResponse;
     use ioi_types::app::{
         canonical_collapse_commitment, canonical_collapse_commitment_hash_from_object,
-        canonical_collapse_continuity_public_inputs,
-        canonical_collapse_recursive_proof_hash,
-        canonical_collapse_extension_certificate, canonical_collapse_succinct_mock_proof_bytes,
+        canonical_collapse_continuity_public_inputs, canonical_collapse_extension_certificate,
+        canonical_collapse_recursive_proof_hash, canonical_collapse_succinct_mock_proof_bytes,
         AccountId, CanonicalCollapseContinuityProofSystem, CanonicalCollapseExtensionCertificate,
         QuorumCertificate, SignatureSuite, StateAnchor, StateRoot,
     };
@@ -376,6 +377,7 @@ mod tests {
             parent_qc: QuorumCertificate::default(),
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
         };
         header.canonical_order_certificate = Some(
             ioi_types::app::build_reference_canonical_order_certificate(&header, &[])
@@ -413,6 +415,9 @@ mod tests {
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             continuity_accumulator_hash: [0u8; 32],
             continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
             ordering: Default::default(),
             sealing: None,
             transactions_root_hash: [1u8; 32],
@@ -437,6 +442,9 @@ mod tests {
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             continuity_accumulator_hash: [0u8; 32],
             continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
             ordering: Default::default(),
             sealing: None,
             transactions_root_hash: [1u8; 32],
@@ -447,11 +455,10 @@ mod tests {
             .expect("bind previous continuity");
         block.header.previous_canonical_collapse_commitment_hash =
             canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
-        block.header.canonical_collapse_extension_certificate =
-            Some(
-                canonical_collapse_extension_certificate(block.header.height, &previous)
-                    .expect("extension certificate"),
-            );
+        block.header.canonical_collapse_extension_certificate = Some(
+            canonical_collapse_extension_certificate(block.header.height, &previous)
+                .expect("extension certificate"),
+        );
         let collapse = derive_canonical_collapse_object_with_previous(
             &block.header,
             &block.transactions,
@@ -488,6 +495,9 @@ mod tests {
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             continuity_accumulator_hash: [0u8; 32],
             continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
             ordering: Default::default(),
             sealing: None,
             transactions_root_hash: [3u8; 32],
@@ -544,6 +554,9 @@ mod tests {
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             continuity_accumulator_hash: [0u8; 32],
             continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
             ordering: Default::default(),
             sealing: None,
             transactions_root_hash: [5u8; 32],
@@ -586,9 +599,7 @@ mod tests {
             error
                 .to_string()
                 .contains("persisted canonical collapse object does not match")
-                || error
-                    .to_string()
-                    .contains("continuity verification failed"),
+                || error.to_string().contains("continuity verification failed"),
             "unexpected error: {error}"
         );
 
@@ -607,6 +618,9 @@ mod tests {
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             continuity_accumulator_hash: [0u8; 32],
             continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
             ordering: Default::default(),
             sealing: None,
             transactions_root_hash: [1u8; 32],
@@ -617,11 +631,10 @@ mod tests {
             .expect("bind previous continuity");
         block.header.previous_canonical_collapse_commitment_hash =
             canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
-        block.header.canonical_collapse_extension_certificate =
-            Some(
-                canonical_collapse_extension_certificate(block.header.height, &previous)
-                    .expect("extension certificate"),
-            );
+        block.header.canonical_collapse_extension_certificate = Some(
+            canonical_collapse_extension_certificate(block.header.height, &previous)
+                .expect("extension certificate"),
+        );
         let mut collapse = derive_canonical_collapse_object_with_previous(
             &block.header,
             &block.transactions,
@@ -662,6 +675,9 @@ mod tests {
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             continuity_accumulator_hash: [0u8; 32],
             continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
             ordering: Default::default(),
             sealing: None,
             transactions_root_hash: [9u8; 32],
@@ -693,6 +709,9 @@ mod tests {
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             continuity_accumulator_hash: [0u8; 32],
             continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
             ordering: Default::default(),
             sealing: None,
             transactions_root_hash: [11u8; 32],
@@ -741,6 +760,9 @@ mod tests {
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             continuity_accumulator_hash: [0u8; 32],
             continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
             ordering: Default::default(),
             sealing: None,
             transactions_root_hash: [13u8; 32],
@@ -753,14 +775,14 @@ mod tests {
         block.header.parent_state_root = StateRoot(previous.resulting_state_root_hash.to_vec());
         block.header.previous_canonical_collapse_commitment_hash =
             canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
-        block.header.canonical_collapse_extension_certificate = Some(
-            CanonicalCollapseExtensionCertificate {
+        block.header.canonical_collapse_extension_certificate =
+            Some(CanonicalCollapseExtensionCertificate {
                 predecessor_commitment: canonical_collapse_commitment(&previous),
-                predecessor_recursive_proof_hash:
-                    canonical_collapse_recursive_proof_hash(&previous.continuity_recursive_proof)
-                        .expect("predecessor proof hash"),
-            },
-        );
+                predecessor_recursive_proof_hash: canonical_collapse_recursive_proof_hash(
+                    &previous.continuity_recursive_proof,
+                )
+                .expect("predecessor proof hash"),
+            });
         let collapse = derive_canonical_collapse_object_with_previous(
             &block.header,
             &block.transactions,
@@ -768,10 +790,7 @@ mod tests {
         )
         .expect("collapse");
         let mut persisted = collapse.clone();
-        persisted
-            .continuity_recursive_proof
-            .proof_bytes
-            .reverse();
+        persisted.continuity_recursive_proof.proof_bytes.reverse();
         let previous_key = aft_canonical_collapse_object_key(previous.height);
         let key = aft_canonical_collapse_object_key(block.header.height);
         let client = TestWorkloadClient::default();

@@ -62,6 +62,20 @@ const agents = [
     pricing: { rent: '$15 / license', source: '$15 (Source)' },
     stats: { users: '89', uptime: '100%', avg_latency: '12ms' },
     manifest: { authority: "did:ioi:iotnative", version: "v0.9.5", runtime: "rust:1.75", hardware: "cpu:arm64" }
+  },
+  {
+    id: 9,
+    name: 'Accounting Worker v3.2',
+    developer: 'LedgerFlow_AI',
+    verified: true,
+    tier: 'Verified (Tier 3)',
+    bondAmount: '$15,000 USDC',
+    description: 'Automates invoice intake, coding, routing, and follow-up for finance teams processing up to 10,000 invoices per month. Learns your approval policy in under two hours and keeps exception handling active around the clock.',
+    capabilities: ['fs:read', 'compute:mid', 'net:fetch'],
+    integrations: ['QuickBooks', 'NetSuite', 'Slack'],
+    pricing: { rent: '$49 / month', source: 'Custom Quote' },
+    stats: { users: '218', uptime: '99.97%', avg_latency: '1.3s' },
+    manifest: { authority: "did:ioi:ledgerflow", version: "v3.2.0", runtime: "python:3.11", hardware: "cpu:8core" }
   }
 ];
 

@@ -1,4 +1,4 @@
-# Aft Fault Tolerance Yellow Paper
+# Asymptote Fault Tolerance (AFT) Yellow Paper
 
 The canonical yellow paper is now maintained in
 [`yellow_paper.tex`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/yellow_paper.tex).

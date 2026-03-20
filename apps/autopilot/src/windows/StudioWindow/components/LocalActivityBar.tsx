@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
   AutopilotIcon,
   ComposeIcon,
@@ -6,10 +6,24 @@ import {
   GhostIcon,
   IntegrationsIcon,
   NotificationsIcon,
+  SettingsIcon,
   ShieldIcon,
 } from "./ActivityBarIcons";
 
-type ActivityView = "chat" | "workflows" | "runs" | "inbox" | "connections" | "control";
+type ActivityView =
+  | "workflows"
+  | "runs"
+  | "inbox"
+  | "capabilities"
+  | "policy"
+  | "settings";
+
+interface ProjectScope {
+  id: string;
+  name: string;
+  description: string;
+  environment: string;
+}
 
 interface ActivityBarProps {
   activeView: ActivityView;
@@ -17,174 +31,80 @@ interface ActivityBarProps {
   notificationCount: number;
   ghostMode: boolean;
   onToggleGhost: () => void;
+  utilityPaneOpen: boolean;
+  activeUtilityTab: "operator" | "explorer" | "artifacts";
+  onToggleUtilityPane: () => void;
+  workspaceName: string;
+  currentProject: ProjectScope;
+  projects: ProjectScope[];
+  onSelectProject: (projectId: string) => void;
 }
 
 interface NavItem {
   id: string;
   label: string;
   icon: ReactNode;
+  description: string;
   shortcut?: string;
   badgeCount?: number;
 }
 
-function Tooltip({ label, shortcut, rect }: { label: string; shortcut?: string; rect: DOMRect }) {
-  return (
-    <div
-      role="tooltip"
-      style={{
-        position: "fixed",
-        left: rect.right + 8,
-        top: rect.top + rect.height / 2,
-        transform: "translateY(-50%)",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        background: "#252526",
-        border: "1px solid #454545",
-        borderRadius: 4,
-        padding: "4px 8px",
-        fontSize: 12,
-        color: "#cccccc",
-        whiteSpace: "nowrap",
-        pointerEvents: "none",
-        zIndex: 9999,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      }}
-    >
-      {label}
-      {shortcut && <span style={{ color: "#666", fontSize: 11 }}>{shortcut}</span>}
-    </div>
-  );
-}
-
-function RailButton({
-  item,
-  isActive,
-  onClick,
-  variant = "nav",
-}: {
-  item: NavItem;
-  isActive: boolean;
-  onClick: () => void;
-  variant?: "nav" | "ghost" | "utility";
-}) {
-  const ref = useRef<HTMLButtonElement | null>(null);
-  const [hovered, setHovered] = useState(false);
-  const [tooltipRect, setTooltipRect] = useState<DOMRect | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const show = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      if (ref.current) setTooltipRect(ref.current.getBoundingClientRect());
-    }, 350);
-  }, []);
-
-  const hide = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-    setTooltipRect(null);
-  }, []);
-
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
-
-  const activeColor = variant === "ghost" ? "#f59e0b" : "#e4e4e7";
-  const inactiveColor = "#6e6e78";
-  const hoverColor = variant === "ghost" ? "#f59e0b" : "#b4b4bc";
-  const iconColor = isActive ? activeColor : hovered ? hoverColor : inactiveColor;
-
-  return (
-    <>
-      <button
-        ref={ref}
-        type="button"
-        onClick={onClick}
-        onMouseEnter={() => {
-          setHovered(true);
-          show();
-        }}
-        onMouseLeave={() => {
-          setHovered(false);
-          hide();
-        }}
-        onFocus={show}
-        onBlur={hide}
-        aria-label={item.label}
-        aria-current={isActive ? "page" : undefined}
-        style={{
-          position: "relative",
-          width: "100%",
-          height: 48,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "transparent",
-          border: "none",
-          padding: 0,
-          cursor: "pointer",
-          color: iconColor,
-          transition: "color 0.15s ease",
-        }}
-      >
-        <span
-          style={{
-            position: "absolute",
-            left: 0,
-            top: "50%",
-            width: 4,
-            height: isActive ? 20 : hovered ? 8 : 0,
-            background: activeColor,
-            borderRadius: "999px",
-            transform: `translateY(-50%) translateX(${isActive || hovered ? "0px" : "-4px"})`,
-            transition:
-              "height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease",
-            opacity: isActive || hovered ? 1 : 0,
-          }}
-        />
-        {item.icon}
-        {item.badgeCount && item.badgeCount > 0 ? (
-          <span
-            style={{
-              position: "absolute",
-              top: 8,
-              right: 7,
-              minWidth: 16,
-              height: 16,
-              padding: "0 4px",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 999,
-              background: isActive ? activeColor : "#2563eb",
-              color: "#fafafa",
-              fontSize: 10,
-              fontWeight: 700,
-              lineHeight: 1,
-            }}
-          >
-            {item.badgeCount > 9 ? "9+" : item.badgeCount}
-          </span>
-        ) : null}
-      </button>
-
-      {tooltipRect && <Tooltip label={item.label} shortcut={item.shortcut} rect={tooltipRect} />}
-    </>
-  );
-}
-
 const NAV_ITEMS: Array<NavItem & { id: ActivityView }> = [
-  { id: "chat", label: "Chat", icon: <AutopilotIcon />, shortcut: "⌘1" },
-  { id: "workflows", label: "Workflows", icon: <ComposeIcon />, shortcut: "⌘2" },
-  { id: "runs", label: "Runs", icon: <FleetIcon />, shortcut: "⌘3" },
-  { id: "inbox", label: "Inbox", icon: <NotificationsIcon />, shortcut: "⌘4" },
-  { id: "connections", label: "Connections", icon: <IntegrationsIcon />, shortcut: "⌘5" },
-  { id: "control", label: "Control", icon: <ShieldIcon />, shortcut: "⌘6" },
+  {
+    id: "workflows",
+    label: "Workflows",
+    icon: <ComposeIcon />,
+    description: "Build workers, logic, and reusable procedures.",
+    shortcut: "⌘1",
+  },
+  {
+    id: "runs",
+    label: "Runs",
+    icon: <FleetIcon />,
+    description: "Supervise runtime health, evidence, and receipts.",
+    shortcut: "⌘2",
+  },
+  {
+    id: "inbox",
+    label: "Inbox",
+    icon: <NotificationsIcon />,
+    description: "Review ranked prompts, approvals, and interventions.",
+    shortcut: "⌘3",
+  },
+  {
+    id: "capabilities",
+    label: "Capabilities",
+    icon: <IntegrationsIcon />,
+    description: "Equip workers with connections, skills, and extensions.",
+    shortcut: "⌘4",
+  },
+  {
+    id: "policy",
+    label: "Policy",
+    icon: <ShieldIcon />,
+    description: "Set governance, approvals, and execution posture.",
+    shortcut: "⌘5",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: <SettingsIcon />,
+    description: "Manage shell identity, diagnostics, and local system state.",
+    shortcut: "⌘6",
+  },
 ];
 
-const GHOST_ITEM: NavItem = { id: "ghost", label: "Ghost Mode", icon: <GhostIcon />, shortcut: "⌘G" };
+function utilityTabLabel(
+  tab: ActivityBarProps["activeUtilityTab"],
+): string {
+  if (tab === "explorer") {
+    return "Explorer";
+  }
+  if (tab === "artifacts") {
+    return "Artifacts";
+  }
+  return "Operator";
+}
 
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -203,6 +123,13 @@ export function LocalActivityBar({
   notificationCount,
   ghostMode,
   onToggleGhost,
+  utilityPaneOpen,
+  activeUtilityTab,
+  onToggleUtilityPane,
+  workspaceName,
+  currentProject,
+  projects,
+  onSelectProject,
 }: ActivityBarProps) {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -216,6 +143,12 @@ export function LocalActivityBar({
         return;
       }
 
+      if (event.key === "0") {
+        event.preventDefault();
+        onToggleUtilityPane();
+        return;
+      }
+
       if (event.key.toLowerCase() === "g") {
         event.preventDefault();
         onToggleGhost();
@@ -224,59 +157,162 @@ export function LocalActivityBar({
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onViewChange, onToggleGhost]);
+  }, [onToggleGhost, onToggleUtilityPane, onViewChange]);
 
   return (
     <aside
+      className="studio-shell-nav"
       role="navigation"
       aria-label="Studio navigation"
-      style={{
-        width: 48,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "stretch",
-        background: "#181818",
-        borderRight: "1px solid #2a2a2a",
-        flexShrink: 0,
-        userSelect: "none",
-      }}
     >
-      <div style={{ display: "flex", flexDirection: "column", paddingTop: 4 }}>
-        {NAV_ITEMS.map((item) => {
-          const isIntegrationsItem = item.id === "connections";
-          const resolvedItem = isIntegrationsItem
-            ? {
-                ...item,
-                icon: <IntegrationsIcon disableHoverAnimation={activeView === "connections"} />,
-              }
-            : item.id === "inbox"
-              ? {
-                  ...item,
-                  badgeCount: notificationCount,
-                }
-            : item;
-
-          return (
-            <RailButton
-              key={item.id}
-              item={resolvedItem}
-              isActive={activeView === item.id}
-              onClick={() => onViewChange(item.id)}
-            />
-          );
-        })}
+      <div className="studio-shell-brand">
+        <span className="studio-shell-brand-mark">
+          <AutopilotIcon />
+        </span>
+        <div className="studio-shell-brand-copy">
+          <strong>Autopilot</strong>
+          <span>{workspaceName}</span>
+        </div>
       </div>
 
-      <div style={{ flex: 1 }} />
+      <section className="studio-shell-scope-card" aria-label="Current scope">
+        <div className="studio-shell-section-head">
+          <span>Scope</span>
+          <span>{currentProject.environment}</span>
+        </div>
+        <div className="studio-shell-scope-block">
+          <span className="studio-shell-scope-label">Workspace</span>
+          <div className="studio-shell-scope-chip">
+            <strong>{workspaceName}</strong>
+            <span>Organization boundary</span>
+          </div>
+        </div>
+        <div className="studio-shell-scope-block">
+          <span className="studio-shell-scope-label">Project</span>
+          <div className="studio-shell-scope-chip studio-shell-scope-chip--project">
+            <div className="studio-shell-scope-copy">
+              <strong>{currentProject.name}</strong>
+              <span>{currentProject.description}</span>
+            </div>
+            <span className="studio-shell-scope-badge">
+              {currentProject.environment}
+            </span>
+          </div>
+        </div>
+      </section>
 
-      <div style={{ display: "flex", flexDirection: "column", paddingBottom: 4 }}>
-        <RailButton
-          item={GHOST_ITEM}
-          isActive={ghostMode}
+      <section className="studio-shell-section" aria-label="Projects">
+        <div className="studio-shell-section-head">
+          <span>Projects</span>
+          <span>{projects.length}</span>
+        </div>
+        <div className="studio-shell-project-list">
+          {projects.map((project) => (
+            <button
+              key={project.id}
+              type="button"
+              className={`studio-shell-project-button ${
+                project.id === currentProject.id ? "is-active" : ""
+              }`}
+              onClick={() => onSelectProject(project.id)}
+            >
+              <strong>{project.name}</strong>
+              <span>{project.description}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="studio-shell-section" aria-label="Surface navigation">
+        <div className="studio-shell-section-head">
+          <span>Surfaces</span>
+          <span>Project</span>
+        </div>
+        <div className="studio-shell-nav-list">
+          {NAV_ITEMS.map((item) => {
+            const isCapabilitiesItem = item.id === "capabilities";
+            const icon = isCapabilitiesItem ? (
+              <IntegrationsIcon
+                disableHoverAnimation={activeView === "capabilities"}
+              />
+            ) : (
+              item.icon
+            );
+            const badgeCount =
+              item.id === "inbox" ? notificationCount : item.badgeCount;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`studio-shell-nav-button ${
+                  activeView === item.id ? "is-active" : ""
+                }`}
+                onClick={() => onViewChange(item.id)}
+                aria-current={activeView === item.id ? "page" : undefined}
+              >
+                <span className="studio-shell-nav-icon">{icon}</span>
+                <span className="studio-shell-nav-copy">
+                  <strong>{item.label}</strong>
+                  <span>{item.description}</span>
+                </span>
+                {badgeCount && badgeCount > 0 ? (
+                  <span className="studio-shell-nav-badge">
+                    {badgeCount > 9 ? "9+" : badgeCount}
+                  </span>
+                ) : (
+                  <span className="studio-shell-nav-shortcut">
+                    {item.shortcut}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="studio-shell-spacer" />
+
+      <section className="studio-shell-section" aria-label="Shell utilities">
+        <div className="studio-shell-section-head">
+          <span>Utilities</span>
+          <span>{utilityPaneOpen ? "Open" : "Hidden"}</span>
+        </div>
+        <button
+          type="button"
+          className={`studio-shell-nav-button studio-shell-nav-button--utility ${
+            utilityPaneOpen ? "is-active" : ""
+          }`}
+          onClick={onToggleUtilityPane}
+        >
+          <span className="studio-shell-nav-icon">
+            <AutopilotIcon />
+          </span>
+          <span className="studio-shell-nav-copy">
+            <strong>Utility pane</strong>
+            <span>{utilityTabLabel(activeUtilityTab)}</span>
+          </span>
+          <span className="studio-shell-nav-shortcut">⌘0</span>
+        </button>
+        <button
+          type="button"
+          className={`studio-shell-nav-button studio-shell-nav-button--ghost ${
+            ghostMode ? "is-active" : ""
+          }`}
           onClick={onToggleGhost}
-          variant="ghost"
-        />
-      </div>
+        >
+          <span className="studio-shell-nav-icon">
+            <GhostIcon />
+          </span>
+          <span className="studio-shell-nav-copy">
+            <strong>Ghost mode</strong>
+            <span>
+              {ghostMode ? "Recording interaction context" : "Ready to record"}
+            </span>
+          </span>
+          <span className="studio-shell-nav-shortcut">⌘G</span>
+        </button>
+      </section>
     </aside>
   );
 }

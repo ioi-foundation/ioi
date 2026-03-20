@@ -82,7 +82,8 @@ pub fn build_swarm(local_key: identity::Keypair) -> Result<Swarm<SyncBehaviour>>
                 gossipsub_config,
             )?;
 
-            let cfg = request_response::Config::default().with_request_timeout(aft_request_timeout());
+            let cfg =
+                request_response::Config::default().with_request_timeout(aft_request_timeout());
 
             let request_response = request_response::Behaviour::new(
                 iter::once(("/ioi/sync/2", request_response::ProtocolSupport::Full)),

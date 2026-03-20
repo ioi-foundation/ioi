@@ -1,5 +1,5 @@
-use super::*;
 use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
+use super::*;
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
 where

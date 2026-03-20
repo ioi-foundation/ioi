@@ -12,9 +12,9 @@ interface StatusBarProps {
 
 export function StatusBar({ metrics, status = "Ready", onOpenShield }: StatusBarProps) {
   const getRiskColor = (val: number) => {
-    if (val < 0.33) return "#107c10";
-    if (val < 0.66) return "#d18b0e";
-    return "#a80000";
+    if (val < 0.33) return "var(--status-success)";
+    if (val < 0.66) return "var(--status-warning)";
+    return "var(--status-error)";
   };
 
   return (

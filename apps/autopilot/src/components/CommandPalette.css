@@ -5,8 +5,8 @@
 .command-palette-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(30, 30, 30, 0.7);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -16,17 +16,21 @@
 }
 
 @keyframes overlay-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .command-palette {
   width: 560px;
   max-height: 400px;
   background: var(--surface-2);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  box-shadow: var(--shadow-lg);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
   overflow: hidden;
   animation: palette-slide-in 150ms ease;
 }
@@ -48,7 +52,8 @@
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-md);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid transparent;
+  background: var(--surface-3);
 }
 
 .command-palette-search-icon {
@@ -58,7 +63,7 @@
 
 .command-palette-input {
   flex: 1;
-  background: none;
+  background: transparent;
   border: none;
   outline: none;
   font-size: var(--text-lg);
@@ -118,7 +123,7 @@
 }
 
 .command-item.selected {
-  outline: 1px solid var(--ioi-blue);
+  outline: 1px solid var(--interactive-selected-border);
 }
 
 .command-icon {

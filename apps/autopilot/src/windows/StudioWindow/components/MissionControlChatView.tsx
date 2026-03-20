@@ -7,6 +7,7 @@ interface MissionControlChatViewProps {
   surface: "chat" | "reply-composer" | "meeting-prep";
   session: AssistantWorkbenchSession | null;
   runtime: AgentRuntime;
+  embedded?: boolean;
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
   onBackToInbox: () => void;
@@ -42,6 +43,7 @@ export function MissionControlChatView({
   surface,
   session,
   runtime,
+  embedded = false,
   seedIntent,
   onConsumeSeedIntent,
   onBackToInbox,
@@ -50,12 +52,15 @@ export function MissionControlChatView({
 }: MissionControlChatViewProps) {
   const copy = chatCopy(surface);
   const isPrimaryConversation = surface === "chat";
+  const showHeader = !isPrimaryConversation && !embedded;
 
   return (
     <div
-      className={`mission-control-view ${isPrimaryConversation ? "mission-control-view--chat" : ""}`}
+      className={`mission-control-view ${
+        isPrimaryConversation ? "mission-control-view--chat" : ""
+      } ${embedded ? "mission-control-view--pane" : ""}`}
     >
-      {!isPrimaryConversation ? (
+      {showHeader ? (
         <header className="mission-control-header">
           <div className="mission-control-header-copy">
             <span className="mission-control-kicker">Talk</span>
@@ -68,7 +73,9 @@ export function MissionControlChatView({
       <div className="mission-control-stage">
         <div
           className={`mission-control-stage-frame ${
-            isPrimaryConversation ? "mission-control-stage-frame--chat" : ""
+            isPrimaryConversation || embedded
+              ? "mission-control-stage-frame--chat"
+              : ""
           }`}
         >
           {surface === "chat" ? (

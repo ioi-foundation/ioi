@@ -222,6 +222,11 @@ pub fn verify_witness_certificate(
             "guardian witness certificate epoch mismatch".into(),
         ));
     }
+    if certificate.recovery_binding != statement.recovery_binding {
+        return Err(CryptoError::InvalidInput(
+            "guardian witness certificate recovery binding mismatch".into(),
+        ));
+    }
 
     let statement_hash = canonical_witness_statement_hash(statement)?;
     if certificate.statement_hash != statement_hash {
@@ -334,6 +339,7 @@ pub fn sign_witness_statement_with_members(
         signers_bitfield,
         aggregated_signature,
         reassignment_depth: 0,
+        recovery_binding: statement.recovery_binding.clone(),
         log_checkpoint: None,
     })
 }
@@ -421,6 +427,7 @@ mod tests {
             guardian_trace_hash: [23u8; 32],
             guardian_measurement_root: [24u8; 32],
             guardian_checkpoint_root: [25u8; 32],
+            recovery_binding: None,
         }
     }
 
@@ -474,6 +481,34 @@ mod tests {
         .unwrap();
 
         verify_witness_certificate(&manifest, &statement, &certificate).unwrap();
+    }
+
+    #[test]
+    fn witness_certificate_rejects_recovery_binding_mismatch() {
+        let member_keys = vec![
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+        ];
+        let manifest = test_witness_manifest(&member_keys);
+        let mut statement = test_witness_statement();
+        statement.recovery_binding = Some(ioi_types::app::GuardianWitnessRecoveryBinding {
+            recovery_capsule_hash: [41u8; 32],
+            share_commitment_hash: [42u8; 32],
+        });
+        let mut certificate = sign_witness_statement_with_members(
+            &manifest,
+            &statement,
+            &[
+                (0, member_keys[0].private_key()),
+                (2, member_keys[2].private_key()),
+            ],
+        )
+        .unwrap();
+        certificate.recovery_binding = None;
+
+        let err = verify_witness_certificate(&manifest, &statement, &certificate).unwrap_err();
+        assert!(matches!(err, CryptoError::InvalidInput(_)));
     }
 
     #[test]
@@ -611,6 +646,11 @@ mod tests {
         if certificate.epoch != manifest.epoch {
             return Err(CryptoError::InvalidInput(
                 "guardian witness certificate epoch mismatch".into(),
+            ));
+        }
+        if certificate.recovery_binding != statement.recovery_binding {
+            return Err(CryptoError::InvalidInput(
+                "guardian witness certificate recovery binding mismatch".into(),
             ));
         }
         if certificate.statement_hash != canonical_witness_statement_hash(statement)? {
@@ -758,6 +798,14 @@ mod tests {
         let mut bad_signature = certificate.clone();
         bad_signature.aggregated_signature[0] ^= 0x40;
         cases.push(bad_signature);
+
+        let mut wrong_recovery_binding = certificate.clone();
+        wrong_recovery_binding.recovery_binding =
+            Some(ioi_types::app::GuardianWitnessRecoveryBinding {
+                recovery_capsule_hash: [90u8; 32],
+                share_commitment_hash: [91u8; 32],
+            });
+        cases.push(wrong_recovery_binding);
 
         for case in cases {
             let actual = verify_witness_certificate(&manifest, &statement, &case).is_ok();

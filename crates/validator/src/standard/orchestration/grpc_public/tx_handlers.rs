@@ -181,27 +181,27 @@ where
             );
 
             let leader_peers = if let Some(block) = last_committed_block.as_ref() {
-                    let leader_accounts = leader_accounts_for_upcoming_heights(
-                        block.header.height,
-                        &block.header.validator_set,
-                        relay_fanout(),
-                    );
-                    let peers = peer_accounts_ref.lock().await;
-                    leader_accounts
-                        .into_iter()
-                        .filter(|leader_account_id| *leader_account_id != local_account_id)
-                        .filter_map(|leader_account_id| {
-                            peers.iter().find_map(|(peer_id, account_id)| {
-                                (*account_id == leader_account_id).then_some(*peer_id)
-                            })
+                let leader_accounts = leader_accounts_for_upcoming_heights(
+                    block.header.height,
+                    &block.header.validator_set,
+                    relay_fanout(),
+                );
+                let peers = peer_accounts_ref.lock().await;
+                leader_accounts
+                    .into_iter()
+                    .filter(|leader_account_id| *leader_account_id != local_account_id)
+                    .filter_map(|leader_account_id| {
+                        peers.iter().find_map(|(peer_id, account_id)| {
+                            (*account_id == leader_account_id).then_some(*peer_id)
                         })
-                        .collect::<Vec<_>>()
-                } else {
-                    // Clean-start admission runs before we have a committed tip. Avoid a workload
-                    // state lookup per transaction on that path; generic publish is sufficient until
-                    // the first committed block gives us a concrete leader schedule to target.
-                    Vec::new()
-                };
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                // Clean-start admission runs before we have a committed tip. Avoid a workload
+                // state lookup per transaction on that path; generic publish is sufficient until
+                // the first committed block gives us a concrete leader schedule to target.
+                Vec::new()
+            };
 
             let should_fast_admit = {
                 let limit = fast_admit_mempool_limit();

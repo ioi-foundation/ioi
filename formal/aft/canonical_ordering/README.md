@@ -11,11 +11,12 @@ This package captures the deterministic kernel of that claim:
 
 - a slot has one canonical ordered set once the canonical bulletin-close object
   is fixed,
-- admitted order certificates are unique,
-- valid omission proofs dominate candidate certificates,
-- the canonical ordered set is recoverable from the canonical bulletin-close
-  object plus public bulletin data, and the current runtime now makes that
-  extraction a precondition for positive closed-slot certificate admission.
+- positive admission now runs through a compact signed publication frontier
+  bound to the slot's canonical-order certificate,
+- same-slot frontier conflicts and stale predecessor links admit short objective
+  contradiction objects that dominate the positive lane,
+- admitted order certificates are unique once omission and frontier
+  contradictions are absent.
 
 As with the other AFT proof surfaces, the package is split:
 
@@ -23,9 +24,19 @@ As with the other AFT proof surfaces, the package is split:
   and omission proofs.
 - `CanonicalOrdering.tla` is the richer executable TLC model of bulletin
   publication, cutoff closure, availability certification, canonical
-  bulletin-close formation, candidate certification, omission, and
-  recoverability.
+  bulletin-close formation, candidate certification, compact publication
+  frontier publication, frontier contradiction, omission, and positive
+  admission. Frontier parent references are bounded to predecessor-linked
+  choices plus an explicit absent-parent sentinel, matching the live compact
+  link surface rather than an arbitrary hash oracle. The bounded model also
+  follows sequential closed-slot progression so TLC spends its budget on the
+  contradiction surface rather than on irrelevant cross-slot interleavings.
 - `CanonicalOrdering.cfg` is the bounded TLC configuration.
+  It intentionally uses the minimal witness set that still exercises
+  same-slot frontier conflict, stale parent linkage, omission dominance, and
+  positive admission, including explicit caps on candidate/frontier witness
+  multiplicity so the checker explores the contradiction basis rather than
+  redundant larger combinations.
 - `CanonicalCollapseRecursiveContinuity.tla` and
   `CanonicalCollapseRecursiveContinuity.cfg` are the bounded TLC model for the
   reference recursive continuity carrier used by
@@ -36,40 +47,56 @@ As with the other AFT proof surfaces, the package is split:
   intentionally produce a concrete omission-dominance trace.
 
 The prose spec states the full `99%` equal-authority ordering consensus theorem
-over canonical bulletin close, omission dominance,
-recoverability, and proof soundness. This package proves the deterministic
-uniqueness, omission-dominance, and recoverability core of that theorem.
-Bulletin availability is now represented by a protocol object in the TLC model.
-The TLC correspondence already matches the current runtime direction:
-availability is certified and canonical bulletin close forms before candidate
-certification. The remaining retrieval and proof-soundness conditions remain
-explicit environmental assumptions rather than TLAPS-proved network theorems;
-the open assumption is publication-substrate retrievability, not optional
-execution of the extractor.
+over canonical bulletin close, omission dominance, public recoverability, and
+proof soundness. The live runtime has now narrowed the hot-path theorem
+boundary: honest positive ordering carries a compact signed publication frontier
+plus objective contradiction objects for same-slot frontier conflicts and stale
+predecessor links, while full public recoverability remains outside the fast
+path as an environmental retrieval theorem. This package now matches that
+boundary. It proves and model-checks the deterministic uniqueness and
+negative-dominance core over bulletin close, compact frontier publication,
+frontier contradiction, and omission. Bulletin availability is represented by a
+protocol object in the TLC model, but full extraction of the complete ordered
+set from the public substrate is no longer a precondition for hot-path positive
+admission in this package. In the repository's now-singular theorem story,
+this package remains the ordering-specific PSC kernel inside the one AFT
+theorem surface rather than the baseline half of a split theorem stack.
+Ordinary canonical collapse / replay history now names the deeper historical
+continuation root, the AFT recovered-state contract carries the same
+continuation bundle for restart consumers, and archived publication / replay
+correctness is historical and index-free through profile-hash /
+activation-hash bindings plus predecessor/checkpoint validation.
 
 In the yellow-paper terminology, this package is one half of AFT's `public
-state continuity with extractable obstructions` program: the positive object is
-the canonical order certificate, and the negative kernel is the omission proof
-that objectively dominates any incomplete candidate. In the live runtime, that
-kernel is refined into a richer `CanonicalOrderAbortReason` family over the
-same public surface: missing certificates, bulletin-surface reconstruction or
-publication failures, invalid bulletin-close formation, omission dominance, and
-certificate-level mismatches over height, randomness, ordered root,
-resulting-state root, public inputs, bulletin-availability binding, and proof
-binding.
+state continuity with extractable obstructions` program. The live positive
+object is now the canonical order certificate plus its compact signed
+publication frontier; the negative kernel is no longer just omission. Same-slot
+frontier disagreement and stale predecessor links now admit short public
+contradiction objects on the hot path, while omission remains the objective
+negative witness over incomplete ordered sets. In the live runtime, that kernel
+is refined into the broader `CanonicalOrderAbortReason` family over the same
+public surface: frontier conflict, stale frontier linkage, missing
+certificates, bulletin-surface reconstruction or publication failures, invalid
+bulletin-close formation, omission dominance, and certificate-level mismatches
+over height, randomness, ordered root, resulting-state root, public inputs,
+bulletin-availability binding, and proof binding.
 
 This same proof shape now appears in `Asymptote` observer sealing as well:
 public evidence, a unique positive object, a unique negative object, and
 negative-authority dominance. Canonical ordering remains the repository's
 ordering theorem package; `Asymptote` applies the same structural discipline to
-sealed-effect release.
+sealed-effect release; and the nested-guardian recovery lane now lands inside
+the same qualifier-free whole-stack theorem rather than outside it as a
+separate theorem lane.
 
 In the live runtime, canonical ordering is also accountable: `OmissionProof`
 names the offending validator, `guardian_registry` replay-deduplicates valid
 omission evidence, and the registry can optionally apply membership updates as
 policy aftermath. That accountability layer is intentionally described as an
 implementation and policy strengthening above the deterministic proof kernel
-proved here.
+proved here. The same is true for frontier contradictions: the registry stores
+them as short durable domination objects, but the formal package treats them as
+objective negative witnesses rather than as a policy aftermath mechanism.
 
 The omission-trace witness is intentionally not part of the passing CI proof
 set, because TLC exits with a counterexample when it reaches the target state.

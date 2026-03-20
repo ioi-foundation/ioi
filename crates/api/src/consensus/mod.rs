@@ -2,16 +2,20 @@
 
 //! Defines the core `ConsensusEngine` trait for pluggable consensus algorithms.
 
-use crate::error::CoreError;
 use crate::chain::{AnchoredStateView, ChainView};
 use crate::commitment::CommitmentScheme;
+use crate::error::CoreError;
 use crate::state::{StateAccess, StateManager};
 use async_trait::async_trait;
 // [MODIFIED] Added ProofOfDivergence to imports
 use ioi_types::app::{
-    AccountId, Block, BlockHeader, CanonicalCollapseExtensionCertificate,
-    CanonicalCollapseContinuityProofSystem, CanonicalCollapseContinuityPublicInputs,
-    CanonicalCollapseObject, ConsensusVote, ProofOfDivergence, QuorumCertificate, TimeoutCertificate,
+    AccountId, AftRecoveredCertifiedHeaderEntry, AftRecoveredConsensusHeaderEntry,
+    AftRecoveredRestartHeaderEntry, AftRecoveredStateObservationStats, AftRecoveredStateSurface,
+    Block, BlockHeader, CanonicalCollapseContinuityProofSystem,
+    CanonicalCollapseContinuityPublicInputs, CanonicalCollapseExtensionCertificate,
+    CanonicalCollapseObject, ConsensusVote, ProofOfDivergence, QuorumCertificate,
+    RecoveredCanonicalHeaderEntry, RecoveredCertifiedHeaderEntry, RecoveredRestartBlockHeaderEntry,
+    TimeoutCertificate,
 };
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
@@ -174,6 +178,146 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     ) -> bool {
         true
     }
+
+    /// Records a compact recovered canonical-header hint so restart-time
+    /// consensus can recover bounded parent/QC continuity even when the full
+    /// committed block is not locally available.
+    fn observe_aft_recovered_consensus_header(
+        &mut self,
+        _header: &AftRecoveredConsensusHeaderEntry,
+    ) -> bool {
+        false
+    }
+
+    /// Returns the locally known AFT recovered canonical-header hint that corresponds to a QC, if
+    /// any.
+    fn aft_recovered_consensus_header_for_quorum_certificate(
+        &self,
+        _qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredConsensusHeaderEntry> {
+        None
+    }
+
+    fn observe_recovered_consensus_header(
+        &mut self,
+        header: &RecoveredCanonicalHeaderEntry,
+    ) -> bool {
+        self.observe_aft_recovered_consensus_header(header)
+    }
+
+    /// Returns the locally known recovered restart header that corresponds to a QC, if any.
+    fn recovered_consensus_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<RecoveredCanonicalHeaderEntry> {
+        self.aft_recovered_consensus_header_for_quorum_certificate(qc)
+    }
+
+    /// Records a compact recovered certified-header hint so restart-time
+    /// consensus can recover bounded QC/header continuity beyond the current tip
+    /// without reconstructing full committed block headers.
+    fn observe_aft_recovered_certified_header(
+        &mut self,
+        _header: &AftRecoveredCertifiedHeaderEntry,
+    ) -> bool {
+        false
+    }
+
+    /// Returns the locally known AFT recovered certified-header entry that corresponds to a QC, if
+    /// any.
+    fn aft_recovered_certified_header_for_quorum_certificate(
+        &self,
+        _qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredCertifiedHeaderEntry> {
+        None
+    }
+
+    fn observe_recovered_certified_header(
+        &mut self,
+        header: &RecoveredCertifiedHeaderEntry,
+    ) -> bool {
+        self.observe_aft_recovered_certified_header(header)
+    }
+
+    /// Returns the locally known recovered certified-header entry that corresponds to a QC, if
+    /// any.
+    fn recovered_certified_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<RecoveredCertifiedHeaderEntry> {
+        self.aft_recovered_certified_header_for_quorum_certificate(qc)
+    }
+
+    /// Records a restart-only recovered block-header cache entry so engines can
+    /// seed bounded QC/header lookup from recovered closed-slot surfaces.
+    fn observe_aft_recovered_restart_header(
+        &mut self,
+        _header: &AftRecoveredRestartHeaderEntry,
+    ) -> bool {
+        false
+    }
+
+    /// Returns the locally known AFT recovered restart block-header cache entry that corresponds
+    /// to a QC, if any.
+    fn aft_recovered_restart_header_for_quorum_certificate(
+        &self,
+        _qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredRestartHeaderEntry> {
+        None
+    }
+
+    /// Records the bundled AFT recovered-state surface consumed by restart / replay code paths.
+    ///
+    /// The default implementation preserves the existing cold-path ordering:
+    /// consensus headers first, then certified headers, then restart headers.
+    /// Engines intentionally ignore `historical_continuation`; deeper historical paging remains a
+    /// validator-side concern until individual engines ask for it explicitly.
+    fn observe_aft_recovered_state_surface(
+        &mut self,
+        surface: &AftRecoveredStateSurface,
+    ) -> AftRecoveredStateObservationStats {
+        let accepted_consensus_headers = surface
+            .consensus_headers
+            .iter()
+            .filter(|header| self.observe_aft_recovered_consensus_header(header))
+            .count();
+        let accepted_certified_headers = surface
+            .certified_headers
+            .iter()
+            .filter(|header| self.observe_aft_recovered_certified_header(header))
+            .count();
+        let accepted_restart_headers = surface
+            .restart_headers
+            .iter()
+            .filter(|header| self.observe_aft_recovered_restart_header(header))
+            .count();
+
+        AftRecoveredStateObservationStats {
+            accepted_consensus_headers,
+            accepted_certified_headers,
+            accepted_restart_headers,
+        }
+    }
+
+    fn observe_recovered_restart_block_header(
+        &mut self,
+        header: &RecoveredRestartBlockHeaderEntry,
+    ) -> bool {
+        self.observe_aft_recovered_restart_header(header)
+    }
+
+    /// Returns the locally known recovered restart block-header cache entry that corresponds to a
+    /// QC, if any.
+    fn recovered_restart_block_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<RecoveredRestartBlockHeaderEntry> {
+        self.aft_recovered_restart_header_for_quorum_certificate(qc)
+    }
+
+    /// Retains only the recovered restart-ancestry hints whose heights fall
+    /// within at least one of the supplied inclusive ranges.
+    fn retain_recovered_ancestry_ranges(&mut self, _keep_ranges: &[(u64, u64)]) {}
 
     /// Returns the locally known parent header that corresponds to a QC, if the
     /// engine has already verified or committed that branch.

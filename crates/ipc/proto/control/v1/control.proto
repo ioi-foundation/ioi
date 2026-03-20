@@ -37,6 +37,9 @@ service GuardianControl {
   // Request raw witness committee member signatures over a canonical witness statement.
   rpc SignWitnessStatement(SignWitnessStatementRequest) returns (SignWitnessStatementResponse);
 
+  // Load a previously stored assigned recovery share by signed witness binding.
+  rpc LoadAssignedRecoveryShare(LoadAssignedRecoveryShareRequest) returns (LoadAssignedRecoveryShareResponse);
+
   // Persist witness-fault evidence in the guardian witness log.
   rpc ReportWitnessFault(ReportWitnessFaultRequest) returns (ReportWitnessFaultResponse);
 }
@@ -125,6 +128,8 @@ message SignConsensusRequest {
   uint64 view = 9;
   bytes witness_manifest_hash = 10;
   uint32 witness_reassignment_depth = 11;
+  bytes recovery_capsule_hash = 12;
+  bytes share_commitment_hash = 13;
 }
 
 message SignConsensusResponse {
@@ -150,6 +155,10 @@ message SealConsensusRequest {
   repeated bytes observer_plan_entries = 12;
   // Canonical SCALE-encoded AsymptotePolicy payload for the target slot.
   bytes asymptote_policy = 13;
+  // Canonical SCALE-encoded GuardianWitnessRecoveryBindingAssignment payloads.
+  repeated bytes witness_recovery_bindings = 14;
+  // Canonical SCALE-encoded AssignedRecoveryShareEnvelopeV1 payloads.
+  repeated bytes witness_recovery_share_envelopes = 15;
 }
 
 message SealConsensusResponse {
@@ -195,12 +204,26 @@ message SignWitnessStatementRequest {
   // Canonical SCALE-encoded GuardianWitnessStatement payload.
   bytes statement = 1;
   bytes manifest_hash = 2;
+  // Canonical SCALE-encoded AssignedRecoveryShareEnvelopeV1 payload when present.
+  bytes recovery_share_envelope = 3;
 }
 
 message SignWitnessStatementResponse {
   bytes manifest_hash = 1;
   bytes statement_hash = 2;
   repeated GuardianMemberSignature partial_signatures = 3;
+}
+
+message LoadAssignedRecoveryShareRequest {
+  uint64 height = 1;
+  bytes manifest_hash = 2;
+  bytes recovery_capsule_hash = 3;
+  bytes share_commitment_hash = 4;
+}
+
+message LoadAssignedRecoveryShareResponse {
+  // Canonical SCALE-encoded RecoveryShareMaterial when present.
+  bytes recovery_share_material = 1;
 }
 
 message ReportWitnessFaultRequest {

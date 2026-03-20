@@ -532,21 +532,21 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         let processed_block = match workload_client.process_block(block.clone()).await {
             Ok((processed_block, _)) => processed_block,
             Err(error) => {
-            tracing::warn!(
-                target: "sync",
-                %peer,
-                expected_next = context
-                    .sync_progress
-                    .as_ref()
-                    .map(|progress| progress.next + 1)
-                    .unwrap_or(applying_height),
-                applying_height,
-                tip,
-                error = %error,
-                "Dropping sync progress because applying a synced block failed."
-            );
-            retry_sync_from_peer_set(context, Some(peer)).await;
-            return;
+                tracing::warn!(
+                    target: "sync",
+                    %peer,
+                    expected_next = context
+                        .sync_progress
+                        .as_ref()
+                        .map(|progress| progress.next + 1)
+                        .unwrap_or(applying_height),
+                    applying_height,
+                    tip,
+                    error = %error,
+                    "Dropping sync progress because applying a synced block failed."
+                );
+                retry_sync_from_peer_set(context, Some(peer)).await;
+                return;
             }
         };
         if let Some(progress) = context.sync_progress.as_mut() {

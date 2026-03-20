@@ -17,16 +17,19 @@ use ioi_api::crypto::SerializableKey;
 use ioi_api::validator::Container;
 use ioi_ipc::control::guardian_control_server::{GuardianControl, GuardianControlServer};
 use ioi_ipc::control::{
-    GuardianMemberSignature, ObserveAsymptoteRequest, ObserveAsymptoteResponse,
-    ReportWitnessFaultRequest, ReportWitnessFaultResponse, SealConsensusRequest,
-    SealConsensusResponse, SecureEgressRequest, SecureEgressResponse, SignCommitteeDecisionRequest,
-    SignCommitteeDecisionResponse, SignConsensusRequest, SignConsensusResponse,
-    SignWitnessStatementRequest, SignWitnessStatementResponse,
+    GuardianMemberSignature, LoadAssignedRecoveryShareRequest, LoadAssignedRecoveryShareResponse,
+    ObserveAsymptoteRequest, ObserveAsymptoteResponse, ReportWitnessFaultRequest,
+    ReportWitnessFaultResponse, SealConsensusRequest, SealConsensusResponse, SecureEgressRequest,
+    SecureEgressResponse, SignCommitteeDecisionRequest, SignCommitteeDecisionResponse,
+    SignConsensusRequest, SignConsensusResponse, SignWitnessStatementRequest,
+    SignWitnessStatementResponse,
 };
 use ioi_types::app::{
-    account_id_from_key_material, AsymptoteObserverObservationRequest, AsymptotePolicy,
-    CanonicalCollapseObject, FinalityTier, GuardianDecision, GuardianDecisionDomain, GuardianReport,
-    GuardianWitnessStatement, SealObject, SealedFinalityProof, SignatureSuite,
+    account_id_from_key_material, AssignedRecoveryShareEnvelopeV1,
+    AsymptoteObserverObservationRequest, AsymptotePolicy, CanonicalCollapseObject, FinalityTier,
+    GuardianDecision, GuardianDecisionDomain, GuardianReport, GuardianWitnessRecoveryBinding,
+    GuardianWitnessRecoveryBindingAssignment, GuardianWitnessStatement, SealObject,
+    SealedFinalityProof, SignatureSuite,
 };
 use ioi_types::codec;
 use ioi_validator::common::{generate_certificates_if_needed, GuardianContainer};
@@ -214,6 +217,37 @@ impl GuardianControl for GuardianControlImpl {
                 u8::try_from(req.witness_reassignment_depth).map_err(|_| {
                     Status::invalid_argument("witness_reassignment_depth must fit into u8")
                 })?,
+                match (
+                    req.recovery_capsule_hash.is_empty(),
+                    req.share_commitment_hash.is_empty(),
+                ) {
+                    (true, true) => None,
+                    (false, false) => Some(GuardianWitnessRecoveryBinding {
+                        recovery_capsule_hash: req
+                            .recovery_capsule_hash
+                            .as_slice()
+                            .try_into()
+                            .map_err(|_| {
+                                Status::invalid_argument(
+                                    "recovery_capsule_hash must be 32 bytes",
+                                )
+                            })?,
+                        share_commitment_hash: req
+                            .share_commitment_hash
+                            .as_slice()
+                            .try_into()
+                            .map_err(|_| {
+                                Status::invalid_argument(
+                                    "share_commitment_hash must be 32 bytes",
+                                )
+                            })?,
+                    }),
+                    _ => {
+                        return Err(Status::invalid_argument(
+                            "recovery_capsule_hash and share_commitment_hash must both be present or both be empty",
+                        ));
+                    }
+                },
             )
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
@@ -289,6 +323,30 @@ impl GuardianControl for GuardianControlImpl {
                     })
                 })
                 .collect::<Result<Vec<[u8; 32]>, _>>()?;
+        let witness_recovery_bindings = req
+            .witness_recovery_bindings
+            .into_iter()
+            .map(|binding| {
+                codec::from_bytes_canonical::<GuardianWitnessRecoveryBindingAssignment>(&binding)
+                    .map_err(|e| {
+                        Status::invalid_argument(format!(
+                            "invalid witness recovery binding assignment: {e}"
+                        ))
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let witness_recovery_share_envelopes =
+            req.witness_recovery_share_envelopes
+                .into_iter()
+                .map(|envelope| {
+                    codec::from_bytes_canonical::<AssignedRecoveryShareEnvelopeV1>(&envelope)
+                        .map_err(|e| {
+                            Status::invalid_argument(format!(
+                                "invalid witness recovery share envelope: {e}"
+                            ))
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
         let observer_plan_entries = req
             .observer_plan_entries
             .into_iter()
@@ -314,6 +372,8 @@ impl GuardianControl for GuardianControlImpl {
                 requested_policy_hash,
                 requested_manifest_hash,
                 witness_manifest_hashes,
+                witness_recovery_bindings,
+                witness_recovery_share_envelopes,
                 observer_plan_entries,
                 policy,
                 u8::try_from(req.witness_reassignment_depth).map_err(|_| {
@@ -425,9 +485,25 @@ impl GuardianControl for GuardianControlImpl {
                     .map_err(|_| Status::invalid_argument("manifest_hash must be 32 bytes"))?,
             )
         };
+        let recovery_share_envelope = if req.recovery_share_envelope.is_empty() {
+            None
+        } else {
+            Some(
+                codec::from_bytes_canonical::<AssignedRecoveryShareEnvelopeV1>(
+                    &req.recovery_share_envelope,
+                )
+                .map_err(|e| {
+                    Status::invalid_argument(format!("invalid recovery share envelope: {e}"))
+                })?,
+            )
+        };
         let member_signatures = self
             .container
-            .sign_witness_statement_members(&statement, requested_manifest_hash)
+            .sign_witness_statement_members(
+                &statement,
+                requested_manifest_hash,
+                recovery_share_envelope.as_ref(),
+            )
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
         let statement_hash =
@@ -444,6 +520,49 @@ impl GuardianControl for GuardianControlImpl {
                     signature: signature.to_bytes(),
                 })
                 .collect(),
+        }))
+    }
+
+    async fn load_assigned_recovery_share(
+        &self,
+        request: Request<LoadAssignedRecoveryShareRequest>,
+    ) -> Result<Response<LoadAssignedRecoveryShareResponse>, Status> {
+        let req = request.into_inner();
+        let witness_manifest_hash: [u8; 32] = req
+            .manifest_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| Status::invalid_argument("manifest_hash must be 32 bytes"))?;
+        let recovery_capsule_hash: [u8; 32] = req
+            .recovery_capsule_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| Status::invalid_argument("recovery_capsule_hash must be 32 bytes"))?;
+        let share_commitment_hash: [u8; 32] = req
+            .share_commitment_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| Status::invalid_argument("share_commitment_hash must be 32 bytes"))?;
+        let recovery_binding = GuardianWitnessRecoveryBinding {
+            recovery_capsule_hash,
+            share_commitment_hash,
+        };
+        let material = self
+            .container
+            .load_assigned_recovery_share_material(
+                witness_manifest_hash,
+                req.height,
+                &recovery_binding,
+            )
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        Ok(Response::new(LoadAssignedRecoveryShareResponse {
+            recovery_share_material: material
+                .as_ref()
+                .map(codec::to_bytes_canonical)
+                .transpose()
+                .map_err(|e| Status::internal(e.to_string()))?
+                .unwrap_or_default(),
         }))
     }
 

@@ -22,9 +22,7 @@ use ioi_ipc::blockchain::{
     QueryStateAtRequest, QueryStateAtResponse, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
 };
 use ioi_types::{
-    app::{
-        aft_canonical_collapse_object_key, Block, ChainTransaction, StateRoot,
-    },
+    app::{aft_canonical_collapse_object_key, Block, ChainTransaction, StateRoot},
     codec,
     config::ConsensusType,
 };

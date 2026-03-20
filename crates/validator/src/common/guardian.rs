@@ -30,31 +30,30 @@ use ioi_crypto::transport::hybrid_kem_tls::{
 };
 use ioi_ipc::control::{
     guardian_control_client::GuardianControlClient, GuardianMemberSignature,
-    ObserveAsymptoteRequest, ReportWitnessFaultRequest, SealConsensusRequest,
-    SignCommitteeDecisionRequest, SignConsensusRequest, SignWitnessStatementRequest,
+    LoadAssignedRecoveryShareRequest, ObserveAsymptoteRequest, ReportWitnessFaultRequest,
+    SealConsensusRequest, SignCommitteeDecisionRequest, SignConsensusRequest,
+    SignWitnessStatementRequest,
 };
 use ioi_ipc::IpcClientType;
 use ioi_types::app::{
     account_id_from_key_material, build_http_egress_seal_object,
-    canonical_collapse_hash_for_sealed_effect,
-    canonical_asymptote_observer_assignment_hash,
-    canonical_asymptote_observer_assignments_hash,
+    canonical_asymptote_observer_assignment_hash, canonical_asymptote_observer_assignments_hash,
     canonical_asymptote_observer_challenges_hash,
     canonical_asymptote_observer_observation_request_hash,
-    canonical_asymptote_observer_transcript_hash,
-    canonical_asymptote_observer_transcripts_hash, sealed_finality_proof_observer_binding,
-    verify_seal_object, AccountId,
-    AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose,
-    AsymptoteObserverCertificate, AsymptoteObserverChallenge,
-    AsymptoteObserverChallengeCommitment, AsymptoteObserverChallengeKind,
-    AsymptoteObserverCloseCertificate, AsymptoteObserverObservation,
-    AsymptoteObserverObservationRequest, AsymptoteObserverPlanEntry,
+    canonical_asymptote_observer_transcript_hash, canonical_asymptote_observer_transcripts_hash,
+    canonical_collapse_hash_for_sealed_effect, sealed_finality_proof_observer_binding,
+    verify_seal_object, AccountId, AssignedRecoveryShareEnvelopeV1,
+    AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose, AsymptoteObserverCertificate,
+    AsymptoteObserverChallenge, AsymptoteObserverChallengeCommitment,
+    AsymptoteObserverChallengeKind, AsymptoteObserverCloseCertificate,
+    AsymptoteObserverObservation, AsymptoteObserverObservationRequest, AsymptoteObserverPlanEntry,
     AsymptoteObserverSealingMode, AsymptoteObserverStatement, AsymptoteObserverTranscript,
     AsymptoteObserverTranscriptCommitment, AsymptotePolicy, BinaryMeasurement, BootAttestation,
     CanonicalCollapseObject, CollapseState, EgressReceipt, FinalityTier, GuardianCommitteeManifest,
     GuardianCommitteeMember, GuardianDecision, GuardianDecisionDomain, GuardianLogCheckpoint,
     GuardianProductionMode, GuardianQuorumCertificate, GuardianWitnessCertificate,
-    GuardianWitnessCommitteeManifest, GuardianWitnessFaultEvidence, GuardianWitnessStatement,
+    GuardianWitnessCommitteeManifest, GuardianWitnessFaultEvidence, GuardianWitnessRecoveryBinding,
+    GuardianWitnessRecoveryBindingAssignment, GuardianWitnessStatement, RecoveryShareMaterial,
     SealObject, SealedFinalityProof, SignatureBundle, SignatureProof, SignatureSuite,
 };
 use ioi_types::codec;
@@ -100,6 +99,7 @@ pub trait GuardianSigner: Send + Sync {
         height: u64,
         view: u64,
         experimental_witness_manifest: Option<([u8; 32], u8)>,
+        experimental_recovery_binding: Option<GuardianWitnessRecoveryBinding>,
     ) -> Result<SignatureBundle>;
 
     /// Requests stronger witness-backed sealed finality for an already certified slot.
@@ -109,10 +109,22 @@ pub trait GuardianSigner: Send + Sync {
         _height: u64,
         _view: u64,
         _witness_manifest_hashes: Vec<[u8; 32]>,
+        _witness_recovery_bindings: Vec<GuardianWitnessRecoveryBindingAssignment>,
+        _witness_recovery_share_envelopes: Vec<AssignedRecoveryShareEnvelopeV1>,
         _observer_plan: Vec<AsymptoteObserverPlanEntry>,
         _policy: AsymptotePolicy,
     ) -> Result<SealedFinalityProof> {
         Err(anyhow!("sealed finality is not supported by this signer"))
+    }
+
+    /// Loads a previously stored assigned recovery share so it can be revealed on the cold path.
+    async fn load_assigned_recovery_share_material(
+        &self,
+        _height: u64,
+        _witness_manifest_hash: [u8; 32],
+        _recovery_binding: GuardianWitnessRecoveryBinding,
+    ) -> Result<Option<RecoveryShareMaterial>> {
+        Ok(None)
     }
 
     /// Persists experimental witness-fault evidence when the runtime detects witness omission or
@@ -152,6 +164,7 @@ impl GuardianSigner for LocalSigner {
         _height: u64,
         _view: u64,
         _experimental_witness_manifest: Option<([u8; 32], u8)>,
+        _experimental_recovery_binding: Option<GuardianWitnessRecoveryBinding>,
     ) -> Result<SignatureBundle> {
         // [FIX] Increment counter to simulate Oracle monotonicity
         let counter = self.counter.fetch_add(1, Ordering::SeqCst) + 1;
@@ -208,6 +221,7 @@ impl GuardianSigner for RemoteSigner {
         _height: u64,
         _view: u64,
         _experimental_witness_manifest: Option<([u8; 32], u8)>,
+        _experimental_recovery_binding: Option<GuardianWitnessRecoveryBinding>,
     ) -> Result<SignatureBundle> {
         // The Oracle expects the hash as a hex string.
         let resp = self
@@ -747,6 +761,7 @@ impl GuardianWitnessCommitteeClient {
         &self,
         statement: &GuardianWitnessStatement,
         reassignment_depth: u8,
+        recovery_share_envelope: Option<&AssignedRecoveryShareEnvelopeV1>,
     ) -> Result<GuardianWitnessCertificate> {
         let statement_hash =
             canonical_witness_statement_hash(statement).map_err(|e| anyhow!(e.to_string()))?;
@@ -766,6 +781,7 @@ impl GuardianWitnessCommitteeClient {
                     statement,
                     statement_hash,
                     threshold.saturating_sub(member_signatures.len()),
+                    recovery_share_envelope,
                 )
                 .await?;
             for (member_index, signature) in remote_signatures {
@@ -798,6 +814,7 @@ impl GuardianWitnessCommitteeClient {
             signers_bitfield,
             aggregated_signature,
             reassignment_depth,
+            recovery_binding: statement.recovery_binding.clone(),
             log_checkpoint: None,
         })
     }
@@ -807,6 +824,7 @@ impl GuardianWitnessCommitteeClient {
         statement: &GuardianWitnessStatement,
         statement_hash: [u8; 32],
         needed_signatures: usize,
+        recovery_share_envelope: Option<&AssignedRecoveryShareEnvelopeV1>,
     ) -> Result<Vec<(usize, BlsSignature)>> {
         if needed_signatures == 0 {
             return Ok(Vec::new());
@@ -814,6 +832,11 @@ impl GuardianWitnessCommitteeClient {
 
         let statement_bytes =
             codec::to_bytes_canonical(statement).map_err(|e| anyhow!(e.to_string()))?;
+        let recovery_share_envelope_bytes = recovery_share_envelope
+            .map(codec::to_bytes_canonical)
+            .transpose()
+            .map_err(|e| anyhow!(e.to_string()))?
+            .unwrap_or_default();
         let rpc_timeout = GuardianCommitteeClient::remote_rpc_timeout();
         let mut inflight = FuturesUnordered::new();
         for remote_member in &self.remote_members {
@@ -821,10 +844,12 @@ impl GuardianWitnessCommitteeClient {
             let channel = remote_member.channel.clone();
             let manifest_hash = self.manifest_hash;
             let statement_bytes = statement_bytes.clone();
+            let recovery_share_envelope = recovery_share_envelope_bytes.clone();
             inflight.push(async move {
                 let request = SignWitnessStatementRequest {
                     statement: statement_bytes,
                     manifest_hash: manifest_hash.to_vec(),
+                    recovery_share_envelope,
                 };
                 let mut last_error = None;
                 for attempt in 0..4 {
@@ -998,6 +1023,7 @@ impl GuardianSigner for GuardianGrpcSigner {
         height: u64,
         view: u64,
         experimental_witness_manifest: Option<([u8; 32], u8)>,
+        experimental_recovery_binding: Option<GuardianWitnessRecoveryBinding>,
     ) -> Result<SignatureBundle> {
         let checkpoint = self.checkpoint.lock().await.clone();
         let request = SignConsensusRequest {
@@ -1015,6 +1041,14 @@ impl GuardianSigner for GuardianGrpcSigner {
                 .unwrap_or_default(),
             witness_reassignment_depth: experimental_witness_manifest
                 .map(|(_, depth)| u32::from(depth))
+                .unwrap_or_default(),
+            recovery_capsule_hash: experimental_recovery_binding
+                .as_ref()
+                .map(|binding| binding.recovery_capsule_hash.to_vec())
+                .unwrap_or_default(),
+            share_commitment_hash: experimental_recovery_binding
+                .as_ref()
+                .map(|binding| binding.share_commitment_hash.to_vec())
                 .unwrap_or_default(),
         };
 
@@ -1056,6 +1090,8 @@ impl GuardianSigner for GuardianGrpcSigner {
         height: u64,
         view: u64,
         witness_manifest_hashes: Vec<[u8; 32]>,
+        witness_recovery_bindings: Vec<GuardianWitnessRecoveryBindingAssignment>,
+        witness_recovery_share_envelopes: Vec<AssignedRecoveryShareEnvelopeV1>,
         observer_plan: Vec<AsymptoteObserverPlanEntry>,
         policy: AsymptotePolicy,
     ) -> Result<SealedFinalityProof> {
@@ -1075,6 +1111,18 @@ impl GuardianSigner for GuardianGrpcSigner {
                 .map(|manifest_hash| manifest_hash.to_vec())
                 .collect(),
             witness_reassignment_depth: 0,
+            witness_recovery_bindings: witness_recovery_bindings
+                .into_iter()
+                .map(|binding| {
+                    codec::to_bytes_canonical(&binding).map_err(|e| anyhow!(e.to_string()))
+                })
+                .collect::<Result<Vec<_>>>()?,
+            witness_recovery_share_envelopes: witness_recovery_share_envelopes
+                .into_iter()
+                .map(|envelope| {
+                    codec::to_bytes_canonical(&envelope).map_err(|e| anyhow!(e.to_string()))
+                })
+                .collect::<Result<Vec<_>>>()?,
             observer_plan_entries: observer_plan
                 .into_iter()
                 .map(|entry| codec::to_bytes_canonical(&entry).map_err(|e| anyhow!(e.to_string())))
@@ -1098,6 +1146,30 @@ impl GuardianSigner for GuardianGrpcSigner {
         };
 
         codec::from_bytes_canonical(&response.sealed_finality_proof)
+            .map_err(|e| anyhow!(e.to_string()))
+    }
+
+    async fn load_assigned_recovery_share_material(
+        &self,
+        height: u64,
+        witness_manifest_hash: [u8; 32],
+        recovery_binding: GuardianWitnessRecoveryBinding,
+    ) -> Result<Option<RecoveryShareMaterial>> {
+        let mut client = GuardianControlClient::new(self.channel.clone());
+        let response = client
+            .load_assigned_recovery_share(LoadAssignedRecoveryShareRequest {
+                height,
+                manifest_hash: witness_manifest_hash.to_vec(),
+                recovery_capsule_hash: recovery_binding.recovery_capsule_hash.to_vec(),
+                share_commitment_hash: recovery_binding.share_commitment_hash.to_vec(),
+            })
+            .await?
+            .into_inner();
+        if response.recovery_share_material.is_empty() {
+            return Ok(None);
+        }
+        codec::from_bytes_canonical(&response.recovery_share_material)
+            .map(Some)
             .map_err(|e| anyhow!(e.to_string()))
     }
 
@@ -1675,6 +1747,115 @@ impl GuardianContainer {
         self.transparency_log_for(&self.default_transparency_log_id)
     }
 
+    fn assigned_recovery_share_store_root(&self) -> PathBuf {
+        self.config_dir.join("recovery_shares").join("v1")
+    }
+
+    fn assigned_recovery_share_envelope_path(
+        &self,
+        witness_manifest_hash: [u8; 32],
+        height: u64,
+        recovery_binding: &GuardianWitnessRecoveryBinding,
+    ) -> PathBuf {
+        self.assigned_recovery_share_store_root()
+            .join(hex::encode(witness_manifest_hash))
+            .join(height.to_string())
+            .join(format!(
+                "{}-{}.scale",
+                hex::encode(recovery_binding.recovery_capsule_hash),
+                hex::encode(recovery_binding.share_commitment_hash)
+            ))
+    }
+
+    fn verify_and_store_assigned_recovery_share_envelope(
+        &self,
+        statement: &GuardianWitnessStatement,
+        witness_manifest_hash: [u8; 32],
+        recovery_share_envelope: &AssignedRecoveryShareEnvelopeV1,
+    ) -> Result<()> {
+        let expected_binding = statement.recovery_binding.as_ref().ok_or_else(|| {
+            anyhow!("assigned recovery share envelope requires a signed recovery binding")
+        })?;
+        recovery_share_envelope
+            .validate_for_witness(witness_manifest_hash, statement.height)
+            .map_err(anyhow::Error::msg)?;
+        if recovery_share_envelope.recovery_binding() != *expected_binding {
+            return Err(anyhow!(
+                "assigned recovery share envelope does not match the signed recovery binding"
+            ));
+        }
+
+        let path = self.assigned_recovery_share_envelope_path(
+            witness_manifest_hash,
+            statement.height,
+            expected_binding,
+        );
+        let envelope_bytes = codec::to_bytes_canonical(recovery_share_envelope)
+            .map_err(|e| anyhow!(e.to_string()))?;
+
+        match std::fs::read(&path) {
+            Ok(existing_bytes) => {
+                if existing_bytes != envelope_bytes {
+                    return Err(anyhow!(
+                        "assigned recovery share envelope conflicts with an existing stored share"
+                    ));
+                }
+                return Ok(());
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut file = File::create(&path)?;
+        file.write_all(&envelope_bytes)?;
+        file.sync_all()?;
+        Ok(())
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn load_assigned_recovery_share_envelope(
+        &self,
+        witness_manifest_hash: [u8; 32],
+        height: u64,
+        recovery_binding: &GuardianWitnessRecoveryBinding,
+    ) -> Result<Option<AssignedRecoveryShareEnvelopeV1>> {
+        let path = self.assigned_recovery_share_envelope_path(
+            witness_manifest_hash,
+            height,
+            recovery_binding,
+        );
+        let envelope_bytes = match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        let envelope: AssignedRecoveryShareEnvelopeV1 =
+            codec::from_bytes_canonical(&envelope_bytes).map_err(|e| anyhow!(e.to_string()))?;
+        envelope
+            .validate_for_witness(witness_manifest_hash, height)
+            .map_err(anyhow::Error::msg)?;
+        if envelope.recovery_binding() != *recovery_binding {
+            return Err(anyhow!(
+                "stored assigned recovery share envelope does not match the requested recovery binding"
+            ));
+        }
+        Ok(Some(envelope))
+    }
+
+    /// Loads previously stored assigned recovery share material by witness binding.
+    pub fn load_assigned_recovery_share_material(
+        &self,
+        witness_manifest_hash: [u8; 32],
+        height: u64,
+        recovery_binding: &GuardianWitnessRecoveryBinding,
+    ) -> Result<Option<RecoveryShareMaterial>> {
+        self.load_assigned_recovery_share_envelope(witness_manifest_hash, height, recovery_binding)
+            .map(|envelope| envelope.map(|envelope| envelope.share_material))
+    }
+
     async fn issue_guardian_quorum_certificate(
         &self,
         domain: GuardianDecisionDomain,
@@ -1827,6 +2008,8 @@ impl GuardianContainer {
         producer_account_id: AccountId,
         height: u64,
         view: u64,
+        recovery_binding: Option<GuardianWitnessRecoveryBinding>,
+        recovery_share_envelope: Option<&AssignedRecoveryShareEnvelopeV1>,
     ) -> Result<GuardianWitnessCertificate> {
         let witness_client = self
             .witness_committee_clients
@@ -1859,9 +2042,17 @@ impl GuardianContainer {
                 .as_ref()
                 .map(|checkpoint| checkpoint.root_hash)
                 .unwrap_or([0u8; 32]),
+            recovery_binding,
         };
+        if let Some(recovery_share_envelope) = recovery_share_envelope {
+            self.verify_and_store_assigned_recovery_share_envelope(
+                &statement,
+                witness_manifest_hash,
+                recovery_share_envelope,
+            )?;
+        }
         let mut witness_certificate = witness_client
-            .sign_witness_statement(&statement, reassignment_depth)
+            .sign_witness_statement(&statement, reassignment_depth, recovery_share_envelope)
             .await?;
         let checkpoint_payload = codec::to_bytes_canonical(&(&statement, &witness_certificate))
             .map_err(|e| anyhow!(e.to_string()))?;
@@ -1912,9 +2103,7 @@ impl GuardianContainer {
     }
 
     fn hash_guardianized_value<T: parity_scale_codec::Encode>(value: &T) -> Result<[u8; 32]> {
-        digest_to_array(
-            Sha256::digest(&value.encode()).map_err(|e| anyhow!(e.to_string()))?,
-        )
+        digest_to_array(Sha256::digest(&value.encode()).map_err(|e| anyhow!(e.to_string()))?)
     }
 
     fn build_observer_challenge(
@@ -2339,6 +2528,8 @@ impl GuardianContainer {
         requested_policy_hash: Option<[u8; 32]>,
         requested_manifest_hash: Option<[u8; 32]>,
         witness_manifest_hashes: Vec<[u8; 32]>,
+        witness_recovery_bindings: Vec<GuardianWitnessRecoveryBindingAssignment>,
+        witness_recovery_share_envelopes: Vec<AssignedRecoveryShareEnvelopeV1>,
         observer_plan: Vec<AsymptoteObserverPlanEntry>,
         policy: AsymptotePolicy,
         witness_reassignment_depth: u8,
@@ -2393,6 +2584,26 @@ impl GuardianContainer {
         let mut observer_canonical_abort = None;
         let mut finality_tier = FinalityTier::SealedFinal;
         let mut collapse_state = CollapseState::SealedFinal;
+        let witness_recovery_bindings = witness_recovery_bindings
+            .into_iter()
+            .map(|assignment| {
+                (
+                    assignment.witness_manifest_hash,
+                    assignment.recovery_binding,
+                )
+            })
+            .collect::<HashMap<_, _>>();
+        let witness_recovery_share_envelopes = witness_recovery_share_envelopes
+            .into_iter()
+            .map(|envelope| (envelope.share_material.witness_manifest_hash, envelope))
+            .collect::<HashMap<_, _>>();
+        for witness_manifest_hash in witness_recovery_share_envelopes.keys() {
+            if !witness_recovery_bindings.contains_key(witness_manifest_hash) {
+                return Err(anyhow!(
+                    "assigned recovery share envelope provided without a matching recovery binding"
+                ));
+            }
+        }
         if !observer_plan.is_empty() {
             if policy.observer_sealing_mode == AsymptoteObserverSealingMode::CanonicalChallengeV1 {
                 if policy.observer_challenge_window_ms == 0 {
@@ -2406,24 +2617,24 @@ impl GuardianContainer {
                     .collect::<Vec<_>>();
                 let assignments_hash = canonical_asymptote_observer_assignments_hash(&assignments)
                     .map_err(|e| anyhow!(e))?;
-                let transcript_conflict = |
-                    kind: AsymptoteObserverChallengeKind,
-                    assignment: &ioi_types::app::AsymptoteObserverAssignment,
-                    transcript: &AsymptoteObserverTranscript,
-                    details: String,
-                | -> Result<AsymptoteObserverChallenge> {
-                    Self::build_observer_challenge(
-                        kind,
-                        producer_account_id,
-                        Some(assignment.clone()),
-                        None,
-                        Some(transcript.clone()),
-                        None,
-                        canonical_asymptote_observer_transcript_hash(transcript)
-                            .map_err(|e| anyhow!(e))?,
-                        details,
-                    )
-                };
+                let transcript_conflict =
+                    |kind: AsymptoteObserverChallengeKind,
+                     assignment: &ioi_types::app::AsymptoteObserverAssignment,
+                     transcript: &AsymptoteObserverTranscript,
+                     details: String|
+                     -> Result<AsymptoteObserverChallenge> {
+                        Self::build_observer_challenge(
+                            kind,
+                            producer_account_id,
+                            Some(assignment.clone()),
+                            None,
+                            Some(transcript.clone()),
+                            None,
+                            canonical_asymptote_observer_transcript_hash(transcript)
+                                .map_err(|e| anyhow!(e))?,
+                            details,
+                        )
+                    };
                 for observer in &observer_plan {
                     let observation_request = Self::build_asymptote_observer_observation_request(
                         &guardian_certificate,
@@ -2503,10 +2714,8 @@ impl GuardianContainer {
                                 None,
                                 None,
                                 None,
-                                canonical_asymptote_observer_assignment_hash(
-                                    &observer.assignment,
-                                )
-                                .map_err(anyhow::Error::msg)?,
+                                canonical_asymptote_observer_assignment_hash(&observer.assignment)
+                                    .map_err(anyhow::Error::msg)?,
                                 format!(
                                     "observer {} did not publish a transcript: {error}",
                                     hex::encode(observer.assignment.observer_account_id)
@@ -2628,6 +2837,17 @@ impl GuardianContainer {
             }
             witness_certificates = Vec::with_capacity(unique_witness_manifests.len());
             for witness_manifest_hash in unique_witness_manifests {
+                let recovery_binding = witness_recovery_bindings
+                    .get(&witness_manifest_hash)
+                    .cloned();
+                let recovery_share_envelope =
+                    witness_recovery_share_envelopes.get(&witness_manifest_hash);
+                if recovery_binding.is_some() && recovery_share_envelope.is_none() {
+                    return Err(anyhow!(
+                        "assigned recovery share envelope is required before witness signing for manifest {}",
+                        hex::encode(witness_manifest_hash)
+                    ));
+                }
                 witness_certificates.push(
                     self.issue_experimental_witness_certificate(
                         &guardian_certificate,
@@ -2636,6 +2856,8 @@ impl GuardianContainer {
                         producer_account_id,
                         height,
                         view,
+                        recovery_binding,
+                        recovery_share_envelope,
                     )
                     .await?,
                 );
@@ -2702,6 +2924,7 @@ impl GuardianContainer {
         requested_manifest_hash: Option<[u8; 32]>,
         requested_witness_manifest_hash: Option<[u8; 32]>,
         witness_reassignment_depth: u8,
+        experimental_recovery_binding: Option<GuardianWitnessRecoveryBinding>,
     ) -> Result<SignatureBundle> {
         let producer_account_id = requested_witness_manifest_hash
             .filter(|hash| *hash != [0u8; 32])
@@ -2740,6 +2963,8 @@ impl GuardianContainer {
                         .ok_or_else(|| anyhow!("missing witness producer account id"))?,
                     height,
                     view,
+                    experimental_recovery_binding,
+                    None,
                 )
                 .await?,
             );
@@ -2846,6 +3071,7 @@ impl GuardianContainer {
         &self,
         statement: &GuardianWitnessStatement,
         requested_manifest_hash: Option<[u8; 32]>,
+        recovery_share_envelope: Option<&AssignedRecoveryShareEnvelopeV1>,
     ) -> Result<Vec<(usize, BlsSignature)>> {
         let manifest_hash = requested_manifest_hash
             .filter(|hash| *hash != [0u8; 32])
@@ -2854,6 +3080,13 @@ impl GuardianContainer {
             .witness_committee_clients
             .get(&manifest_hash)
             .ok_or_else(|| anyhow!("requested witness manifest is not configured"))?;
+        if let Some(recovery_share_envelope) = recovery_share_envelope {
+            self.verify_and_store_assigned_recovery_share_envelope(
+                statement,
+                manifest_hash,
+                recovery_share_envelope,
+            )?;
+        }
         let statement_hash =
             canonical_witness_statement_hash(statement).map_err(|e| anyhow!(e.to_string()))?;
         witness_client
@@ -3304,8 +3537,7 @@ impl GuardianContainer {
                     || seal_object.intent.guardian_manifest_hash != proof.guardian_manifest_hash
                     || seal_object.intent.guardian_decision_hash != proof.guardian_decision_hash
                     || seal_object.public_inputs.guardian_counter != proof.guardian_counter
-                    || seal_object.public_inputs.guardian_trace_hash
-                        != proof.guardian_trace_hash
+                    || seal_object.public_inputs.guardian_trace_hash != proof.guardian_trace_hash
                     || seal_object.public_inputs.guardian_measurement_root
                         != proof.guardian_measurement_root
                     || seal_object.public_inputs.observer_transcripts_root
@@ -3621,13 +3853,17 @@ mod tests {
     };
     use ioi_ipc::control::guardian_control_server::{GuardianControl, GuardianControlServer};
     use ioi_ipc::control::{
+        LoadAssignedRecoveryShareRequest, LoadAssignedRecoveryShareResponse,
         ObserveAsymptoteRequest, ObserveAsymptoteResponse, ReportWitnessFaultRequest,
         ReportWitnessFaultResponse, SealConsensusRequest, SealConsensusResponse,
         SecureEgressRequest, SecureEgressResponse, SignCommitteeDecisionRequest,
         SignCommitteeDecisionResponse, SignConsensusRequest, SignConsensusResponse,
         SignWitnessStatementRequest, SignWitnessStatementResponse,
     };
-    use ioi_types::app::{GuardianProductionMode, KeyAuthorityDescriptor, KeyAuthorityKind};
+    use ioi_types::app::{
+        AssignedRecoveryShareEnvelopeV1, GuardianProductionMode, KeyAuthorityDescriptor,
+        KeyAuthorityKind, RecoveryCodingDescriptor, RecoveryCodingFamily, RecoveryShareMaterial,
+    };
     use ioi_types::config::{
         GuardianCommitteeConfig, GuardianCommitteeMemberConfig, GuardianTransparencyLogConfig,
         GuardianWitnessCommitteeConfig,
@@ -3706,6 +3942,13 @@ mod tests {
             &self,
             _request: Request<SignWitnessStatementRequest>,
         ) -> Result<Response<SignWitnessStatementResponse>, Status> {
+            Err(Status::unimplemented("unused in remote committee tests"))
+        }
+
+        async fn load_assigned_recovery_share(
+            &self,
+            _request: Request<LoadAssignedRecoveryShareRequest>,
+        ) -> Result<Response<LoadAssignedRecoveryShareResponse>, Status> {
             Err(Status::unimplemented("unused in remote committee tests"))
         }
 
@@ -3924,6 +4167,7 @@ mod tests {
                 None,
                 None,
                 0,
+                None,
             )
             .await
             .unwrap();
@@ -3943,6 +4187,7 @@ mod tests {
                 None,
                 None,
                 0,
+                None,
             )
             .await
             .unwrap_err();
@@ -4015,17 +4260,130 @@ mod tests {
         container
     }
 
+    fn build_test_guardian_container_with_witness_committee(
+        dir: &tempfile::TempDir,
+        validator_account_id: AccountId,
+        witness_epoch: u64,
+    ) -> (GuardianContainer, [u8; 32]) {
+        let mut guardian_members = Vec::new();
+        for index in 0..3 {
+            let keypair = BlsKeyPair::generate().unwrap();
+            let private_key_path = dir.path().join(format!("guardian-member-{index}.bls"));
+            std::fs::write(
+                &private_key_path,
+                hex::encode(keypair.private_key().to_bytes()),
+            )
+            .unwrap();
+            guardian_members.push(GuardianCommitteeMemberConfig {
+                member_id: format!("guardian-{index}"),
+                endpoint: None,
+                public_key: keypair.public_key().to_bytes(),
+                private_key_path: Some(private_key_path.display().to_string()),
+                provider: Some(format!("provider-{index}")),
+                region: Some(format!("region-{index}")),
+                host_class: Some(format!("host-{index}")),
+                key_authority_kind: Some(KeyAuthorityKind::CloudKms),
+            });
+        }
+
+        let mut witness_members = Vec::new();
+        for index in 0..3 {
+            let keypair = BlsKeyPair::generate().unwrap();
+            let private_key_path = dir.path().join(format!("witness-member-{index}.bls"));
+            std::fs::write(
+                &private_key_path,
+                hex::encode(keypair.private_key().to_bytes()),
+            )
+            .unwrap();
+            witness_members.push(GuardianCommitteeMemberConfig {
+                member_id: format!("witness-{index}"),
+                endpoint: None,
+                public_key: keypair.public_key().to_bytes(),
+                private_key_path: Some(private_key_path.display().to_string()),
+                provider: Some(format!("witness-provider-{index}")),
+                region: Some(format!("witness-region-{index}")),
+                host_class: Some(format!("witness-host-{index}")),
+                key_authority_kind: Some(KeyAuthorityKind::Tpm2),
+            });
+        }
+
+        let config = GuardianConfig {
+            signature_policy: AttestationSignaturePolicy::Fixed,
+            production_mode: GuardianProductionMode::Development,
+            key_authority: Some(KeyAuthorityDescriptor {
+                kind: KeyAuthorityKind::DevMemory,
+                ..Default::default()
+            }),
+            committee: GuardianCommitteeConfig {
+                threshold: 2,
+                members: guardian_members,
+                transparency_log_id: "guardian-test".into(),
+            },
+            experimental_witness_committees: vec![GuardianWitnessCommitteeConfig {
+                committee_id: "witness-a".into(),
+                stratum_id: "stratum-a".into(),
+                epoch: witness_epoch,
+                threshold: 2,
+                members: witness_members,
+                transparency_log_id: "witness-test".into(),
+                policy_hash: Some([0x88u8; 32]),
+            }],
+            hardening: Default::default(),
+            transparency_log: GuardianTransparencyLogConfig {
+                log_id: "guardian-test".into(),
+                endpoint: None,
+                signing_key_path: None,
+                required: false,
+            },
+            verifier_policy: Default::default(),
+            enforce_binary_integrity: false,
+            approved_orchestrator_hash: None,
+            approved_workload_hash: None,
+            binary_dir_override: None,
+        };
+
+        let witness_manifest_hash = GuardianWitnessCommitteeClient::from_configs(&config)
+            .unwrap()
+            .into_keys()
+            .next()
+            .expect("expected one witness manifest");
+        (
+            GuardianContainer::new(dir.path().to_path_buf(), config, validator_account_id).unwrap(),
+            witness_manifest_hash,
+        )
+    }
+
+    fn sample_assigned_recovery_share_envelope(
+        witness_manifest_hash: [u8; 32],
+        height: u64,
+        recovery_binding: GuardianWitnessRecoveryBinding,
+    ) -> AssignedRecoveryShareEnvelopeV1 {
+        AssignedRecoveryShareEnvelopeV1 {
+            recovery_capsule_hash: recovery_binding.recovery_capsule_hash,
+            expected_share_commitment_hash: recovery_binding.share_commitment_hash,
+            share_material: RecoveryShareMaterial {
+                height,
+                witness_manifest_hash,
+                block_commitment_hash: [0xa4u8; 32],
+                coding: RecoveryCodingDescriptor {
+                    family: RecoveryCodingFamily::SystematicXorKOfKPlus1V1,
+                    share_count: 3,
+                    recovery_threshold: 2,
+                },
+                share_index: 1,
+                share_commitment_hash: recovery_binding.share_commitment_hash,
+                material_bytes: vec![0x10, 0x20, 0x30, 0x40],
+            },
+        }
+    }
+
     #[tokio::test]
     async fn observe_asymptote_request_returns_transcript_for_valid_request() {
         let dir = tempfile::tempdir().unwrap();
         let validator_account_id = AccountId([0x31u8; 32]);
         let epoch = 1;
         let container = build_test_guardian_container(&dir, validator_account_id, epoch);
-        let manifest_hash = container
-            .committee_client
-            .as_ref()
-            .unwrap()
-            .manifest_hash();
+        let manifest_hash = container.committee_client.as_ref().unwrap().manifest_hash();
         let request = AsymptoteObserverObservationRequest {
             epoch,
             assignment: ioi_types::app::AsymptoteObserverAssignment {
@@ -4068,11 +4426,7 @@ mod tests {
         let validator_account_id = AccountId([0x41u8; 32]);
         let epoch = 1;
         let container = build_test_guardian_container(&dir, validator_account_id, epoch);
-        let manifest_hash = container
-            .committee_client
-            .as_ref()
-            .unwrap()
-            .manifest_hash();
+        let manifest_hash = container.committee_client.as_ref().unwrap().manifest_hash();
         let request = AsymptoteObserverObservationRequest {
             epoch,
             assignment: ioi_types::app::AsymptoteObserverAssignment {
@@ -4203,6 +4557,7 @@ mod tests {
                 None,
                 None,
                 0,
+                None,
             )
             .await
             .unwrap();
@@ -4331,6 +4686,7 @@ mod tests {
                 None,
                 Some(witness_manifest_hash),
                 0,
+                None,
             )
             .await
             .unwrap();
@@ -4342,6 +4698,7 @@ mod tests {
             .expect("expected experimental witness certificate");
         assert_eq!(witness_certificate.manifest_hash, witness_manifest_hash);
         assert_eq!(witness_certificate.reassignment_depth, 0);
+        assert!(witness_certificate.recovery_binding.is_none());
         assert!(witness_certificate.log_checkpoint.is_some());
 
         let statement = GuardianWitnessStatement {
@@ -4358,9 +4715,270 @@ mod tests {
                 .as_ref()
                 .map(|checkpoint| checkpoint.root_hash)
                 .unwrap_or([0u8; 32]),
+            recovery_binding: witness_certificate.recovery_binding.clone(),
         };
         verify_witness_certificate(&witness_client.manifest, &statement, &witness_certificate)
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn guardian_sign_consensus_issues_experimental_witness_certificate_with_recovery_binding()
+    {
+        let dir = tempfile::tempdir().unwrap();
+
+        let mut guardian_members = Vec::new();
+        for index in 0..3 {
+            let keypair = BlsKeyPair::generate().unwrap();
+            let private_key_path = dir.path().join(format!("guardian-member-{index}.bls"));
+            std::fs::write(
+                &private_key_path,
+                hex::encode(keypair.private_key().to_bytes()),
+            )
+            .unwrap();
+            guardian_members.push(GuardianCommitteeMemberConfig {
+                member_id: format!("guardian-{index}"),
+                endpoint: None,
+                public_key: keypair.public_key().to_bytes(),
+                private_key_path: Some(private_key_path.display().to_string()),
+                provider: Some(format!("provider-{index}")),
+                region: Some(format!("region-{index}")),
+                host_class: Some(format!("host-{index}")),
+                key_authority_kind: Some(KeyAuthorityKind::CloudKms),
+            });
+        }
+
+        let mut witness_members = Vec::new();
+        for index in 0..3 {
+            let keypair = BlsKeyPair::generate().unwrap();
+            let private_key_path = dir.path().join(format!("witness-member-{index}.bls"));
+            std::fs::write(
+                &private_key_path,
+                hex::encode(keypair.private_key().to_bytes()),
+            )
+            .unwrap();
+            witness_members.push(GuardianCommitteeMemberConfig {
+                member_id: format!("witness-{index}"),
+                endpoint: None,
+                public_key: keypair.public_key().to_bytes(),
+                private_key_path: Some(private_key_path.display().to_string()),
+                provider: Some(format!("witness-provider-{index}")),
+                region: Some(format!("witness-region-{index}")),
+                host_class: Some(format!("witness-host-{index}")),
+                key_authority_kind: Some(KeyAuthorityKind::Tpm2),
+            });
+        }
+
+        let config = GuardianConfig {
+            signature_policy: AttestationSignaturePolicy::Fixed,
+            production_mode: GuardianProductionMode::Development,
+            key_authority: Some(KeyAuthorityDescriptor {
+                kind: KeyAuthorityKind::DevMemory,
+                ..Default::default()
+            }),
+            committee: GuardianCommitteeConfig {
+                threshold: 2,
+                members: guardian_members,
+                transparency_log_id: "guardian-test".into(),
+            },
+            experimental_witness_committees: vec![GuardianWitnessCommitteeConfig {
+                committee_id: "witness-a".into(),
+                stratum_id: "stratum-a".into(),
+                epoch: 7,
+                threshold: 2,
+                members: witness_members,
+                transparency_log_id: "witness-test".into(),
+                policy_hash: Some([0x88u8; 32]),
+            }],
+            hardening: Default::default(),
+            transparency_log: GuardianTransparencyLogConfig {
+                log_id: "guardian-test".into(),
+                endpoint: None,
+                signing_key_path: None,
+                required: false,
+            },
+            verifier_policy: Default::default(),
+            enforce_binary_integrity: false,
+            approved_orchestrator_hash: None,
+            approved_workload_hash: None,
+            binary_dir_override: None,
+        };
+
+        let validator_account_id = AccountId([8u8; 32]);
+        let witness_clients = GuardianWitnessCommitteeClient::from_configs(&config).unwrap();
+        let (&witness_manifest_hash, witness_client) = witness_clients.iter().next().unwrap();
+        let container =
+            GuardianContainer::new(dir.path().to_path_buf(), config, validator_account_id).unwrap();
+        let signer = libp2p::identity::Keypair::generate_ed25519();
+        let payload_hash = [0x43u8; 32];
+        let recovery_binding = GuardianWitnessRecoveryBinding {
+            recovery_capsule_hash: [0x51u8; 32],
+            share_commitment_hash: [0x52u8; 32],
+        };
+
+        let bundle = container
+            .sign_consensus_with_guardian(
+                &signer,
+                payload_hash,
+                22,
+                5,
+                validator_account_id.0.to_vec(),
+                0,
+                [0u8; 32],
+                None,
+                None,
+                None,
+                Some(witness_manifest_hash),
+                0,
+                Some(recovery_binding.clone()),
+            )
+            .await
+            .unwrap();
+
+        let guardian_certificate = bundle.guardian_certificate.unwrap();
+        let witness_certificate = guardian_certificate
+            .experimental_witness_certificate
+            .clone()
+            .expect("expected experimental witness certificate");
+        assert_eq!(witness_certificate.manifest_hash, witness_manifest_hash);
+        assert_eq!(
+            witness_certificate.recovery_binding,
+            Some(recovery_binding.clone())
+        );
+
+        let statement = GuardianWitnessStatement {
+            producer_account_id: validator_account_id,
+            height: 22,
+            view: 5,
+            guardian_manifest_hash: guardian_certificate.manifest_hash,
+            guardian_decision_hash: guardian_certificate.decision_hash,
+            guardian_counter: guardian_certificate.counter,
+            guardian_trace_hash: guardian_certificate.trace_hash,
+            guardian_measurement_root: guardian_certificate.measurement_root,
+            guardian_checkpoint_root: guardian_certificate
+                .log_checkpoint
+                .as_ref()
+                .map(|checkpoint| checkpoint.root_hash)
+                .unwrap_or([0u8; 32]),
+            recovery_binding: Some(recovery_binding),
+        };
+        verify_witness_certificate(&witness_client.manifest, &statement, &witness_certificate)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn guardian_issue_experimental_witness_certificate_persists_assigned_recovery_share() {
+        let dir = tempfile::tempdir().unwrap();
+        let validator_account_id = AccountId([0x91u8; 32]);
+        let (container, witness_manifest_hash) =
+            build_test_guardian_container_with_witness_committee(&dir, validator_account_id, 11);
+        let signer = libp2p::identity::Keypair::generate_ed25519();
+        let guardian_certificate = container
+            .sign_consensus_with_guardian(
+                &signer,
+                [0x61u8; 32],
+                33,
+                6,
+                validator_account_id.0.to_vec(),
+                0,
+                [0u8; 32],
+                None,
+                None,
+                None,
+                None,
+                0,
+                None,
+            )
+            .await
+            .unwrap()
+            .guardian_certificate
+            .expect("guardian certificate");
+        let recovery_binding = GuardianWitnessRecoveryBinding {
+            recovery_capsule_hash: [0x71u8; 32],
+            share_commitment_hash: [0x72u8; 32],
+        };
+        let recovery_share_envelope = sample_assigned_recovery_share_envelope(
+            witness_manifest_hash,
+            33,
+            recovery_binding.clone(),
+        );
+
+        let witness_certificate = container
+            .issue_experimental_witness_certificate(
+                &guardian_certificate,
+                witness_manifest_hash,
+                0,
+                validator_account_id,
+                33,
+                6,
+                Some(recovery_binding.clone()),
+                Some(&recovery_share_envelope),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(witness_certificate.manifest_hash, witness_manifest_hash);
+        assert_eq!(
+            witness_certificate.recovery_binding,
+            Some(recovery_binding.clone())
+        );
+        let stored = container
+            .load_assigned_recovery_share_envelope(witness_manifest_hash, 33, &recovery_binding)
+            .unwrap()
+            .expect("stored assigned recovery share envelope");
+        assert_eq!(stored, recovery_share_envelope);
+        let stored_material = container
+            .load_assigned_recovery_share_material(witness_manifest_hash, 33, &recovery_binding)
+            .unwrap()
+            .expect("stored assigned recovery share material");
+        assert_eq!(stored_material, recovery_share_envelope.share_material);
+        assert_eq!(
+            stored.share_material.to_recovery_share_receipt(),
+            ioi_types::app::RecoveryShareReceipt {
+                height: 33,
+                witness_manifest_hash,
+                block_commitment_hash: [0xa4u8; 32],
+                share_commitment_hash: [0x72u8; 32],
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn guardian_sign_witness_statement_members_rejects_malformed_recovery_share_envelope() {
+        let dir = tempfile::tempdir().unwrap();
+        let validator_account_id = AccountId([0x92u8; 32]);
+        let (container, witness_manifest_hash) =
+            build_test_guardian_container_with_witness_committee(&dir, validator_account_id, 12);
+        let recovery_binding = GuardianWitnessRecoveryBinding {
+            recovery_capsule_hash: [0x81u8; 32],
+            share_commitment_hash: [0x82u8; 32],
+        };
+        let statement = GuardianWitnessStatement {
+            producer_account_id: validator_account_id,
+            height: 34,
+            view: 7,
+            guardian_manifest_hash: [0x83u8; 32],
+            guardian_decision_hash: [0x84u8; 32],
+            guardian_counter: 9,
+            guardian_trace_hash: [0x85u8; 32],
+            guardian_measurement_root: [0x86u8; 32],
+            guardian_checkpoint_root: [0x87u8; 32],
+            recovery_binding: Some(recovery_binding.clone()),
+        };
+        let mut malformed =
+            sample_assigned_recovery_share_envelope(witness_manifest_hash, 34, recovery_binding);
+        malformed.share_material.witness_manifest_hash = [0xffu8; 32];
+
+        let error = container
+            .sign_witness_statement_members(
+                &statement,
+                Some(witness_manifest_hash),
+                Some(&malformed),
+            )
+            .await
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("assigned recovery share envelope witness manifest does not match"));
     }
 
     #[tokio::test]

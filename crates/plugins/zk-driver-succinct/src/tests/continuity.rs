@@ -45,7 +45,10 @@ fn mock_continuity_verifier_rejects_mutated_succinct_proof() {
         &proof,
         &inputs,
     );
-    assert!(result.is_err(), "mutated succinct continuity proof must fail");
+    assert!(
+        result.is_err(),
+        "mutated succinct continuity proof must fail"
+    );
 }
 
 #[test]

@@ -1,49 +1,55 @@
-# `sas.xyz` v1.2 Product Spec
+# `sas.xyz` v1.4 Product Spec
 
 ## Provider Operating System for Service-as-Software on IOI
 
 ## 1. Executive Summary
 
-`sas.xyz` is the **provider operating system** for building, packaging, deploying, governing, monetizing, and distributing **service-as-software** on IOI.
+`sas.xyz` is the **provider operating system** for turning repeatable worker workflows into productized, deployable, billable, portable worker services on IOI.
 
-It is the provider-side surface where a team turns:
+It is the provider-side surface where a team takes:
 
-* a local/private workflow,
-* a recurring assistant behavior,
+* a private Autopilot workflow,
+* a reusable worker,
+* a recurring internal operating pattern,
 * an OSS model pipeline,
 * a BYOK-enabled service,
-* a proprietary hosted model product,
-* or a hybrid human+agent delivery stack
+* a proprietary hosted product,
+* or a hybrid human+worker delivery flow ready to be bounded into software delivery
 
-into a **portable service package** that can be:
+and turns it into a **service package** with:
+
+* a manifest,
+* contracts,
+* capability requirements,
+* policy and approval envelopes,
+* execution support declarations,
+* versioned operating logic,
+* deployment presets,
+* receipts and evidence,
+* onboarding and activation templates,
+* pricing,
+* tenant controls,
+* and distribution settings.
+
+A mature Service-as-Software product is not merely a deployed endpoint. It is versioned digital labor with a governed operating envelope, bounded human exception handling, repeatable onboarding, and one-to-many product economics.
+
+That package can then be:
 
 * listed on `aiagent.xyz`,
 * invoked from `ioi.ai`,
 * installed into `Autopilot`,
-* embedded into the provider’s own website or API,
-* or deployed into a customer boundary (VPC / on-prem / local runtime).
+* embedded into a provider API or website,
+* or deployed into a customer boundary such as VPC, on-prem, or local runtime.
 
 The core thesis of `sas.xyz` is:
 
-> **Build once, package once, deliver across execution targets and trust presets.**
+> **Package once and productize repeatable worker delivery into portable worker services across execution targets and trust boundaries.**
 
-A service is defined once, then exposed through one or more:
+Publicly, `sas.xyz` should lead with one primary truth:
 
-* execution targets,
-* inference sources,
-* trust postures,
-* readiness postures (hot/cold),
-* pricing models,
-* and distribution surfaces,
+> **Providers use `sas.xyz` to productize repeatable worker delivery.**
 
-under one common model for:
-
-* policy,
-* approvals,
-* receipts,
-* context slicing,
-* deployment,
-* and billing.
+Everything deeper, including multi-plane scaling, trust classes, coordinators, and SCS modes, exists to support that product truth rather than replace it.
 
 ---
 
@@ -51,215 +57,279 @@ under one common model for:
 
 ## 2.1 Product definition
 
-`sas.xyz` is a **provider operating system**, not just a control plane and not just a deployment dashboard.
+`sas.xyz` is the **provider OS for Service-as-Software**.
 
-It owns the provider lifecycle for productized services:
+More concretely, it is the provider-side system for:
 
-* service authoring
-* packaging and versioning
-* deployment and runtime governance
-* public and white-label API exposure
-* tenant/customer operations
-* billing and monetization
-* receipts and evidence exports
-* marketplace publication
-* internal operations for managed delivery
+* productizing repeatable worker delivery into reusable worker services,
+* versioning and publishing them,
+* configuring deployment support across trust boundaries,
+* exposing APIs and install surfaces,
+* managing tenants and customer operations,
+* billing and monetization,
+* exporting receipts and evidence,
+* and operating provider-side delivery at scale.
 
-## 2.2 What `sas.xyz` is not
+The primary wedge is explicit:
+
+> **Package, contractize, and deploy reusable worker services from repeatable workflows.**
+
+That wedge comes before broader ambitions such as marketplace operations, white-label commerce, or full enterprise delivery control.
+
+`sas.xyz` does not merely expose worker execution; it productizes worker delivery.
+It is where service candidates become real provider products.
+
+## 2.2 Who `sas.xyz` is for
+
+`sas.xyz` is for:
+
+* providers turning stable workflows into products,
+* teams operating internal or external worker services,
+* builders promoting local/private work into reusable offerings,
+* and companies that need one service definition to travel across local, hosted, BYOK, and customer-boundary execution.
+
+## 2.3 What `sas.xyz` is not
 
 It is not:
 
-* the demand-side freelance marketplace
-* the end-user intent UX
-* the local runtime itself
-* or the only place services can be used
+* the end-user intent ingress,
+* the private local runtime,
+* the demand-side marketplace,
+* the freelance procurement board,
+* or a generic infra dashboard marketed before the service story is clear.
 
 Those roles belong to:
 
-* `aiagent.xyz` for marketplace discovery and freelance procurement
-* `ioi.ai` for intent and execution UX
-* `Autopilot` for private local runtime and power-user building
+* `ioi.ai` for intent ingress and hosted demand UX,
+* `Autopilot` for private/local operator execution,
+* `aiagent.xyz` for discovery and procurement.
 
 ---
 
 # 3. Product Surfaces and Their Roles
 
-## 3.1 `ioi.ai`
+The ecosystem works only if each surface has a crisp job.
 
-**Intent and execution UX**
+## 3.1 `Autopilot`
 
-The user says what they want.
-`ioi.ai` selects, recommends, or dispatches the right service and execution preset, collects approvals, and shows outcomes plus receipts/evidence.
+**Operate workers**
 
-It is a user-facing **demand ingress**.
+Autopilot is the private/local operator shell and worker runtime. It is where people:
 
-## 3.2 `aiagent.xyz`
+* run workers inside their own trust boundary,
+* use local GPU, desktop, browser, apps, files, and terminals,
+* manage local context, approvals, and receipts,
+* install marketplace services,
+* evolve one-off work into stable workflows worth promoting,
+* and preview service-candidate characteristics before provider packaging.
 
-**Marketplace**
+Autopilot is the source surface for many future services and overlaps with `sas.xyz` in the shared authoring layer, but it is not the primary provider monetization, tenant-ops, or deployment source-of-truth surface.
 
-The demand-side market for two distinct categories:
+## 3.2 `sas.xyz`
 
-### A. Productized services
+**Productize workers**
 
-Install, run, buy, compare, or subscribe to packaged agent services.
+Providers use `sas.xyz` to:
 
-### B. Freelance / bespoke procurement
+* formalize service packaging and manifests,
+* define service contracts, provider policy, and capability requirements,
+* configure deployment presets and readiness posture,
+* own hosted and server-side configuration,
+* expose APIs, installs, and white-label surfaces,
+* manage tenants, billing, and provider operations,
+* publish, version, and distribute worker services,
+* and export evidence, observability, and compliance artifacts.
 
-Post work, solicit operator/provider responses, and choose a provider for custom delivery.
+## 3.3 `aiagent.xyz`
+
+**Discover or procure workers**
+
+`aiagent.xyz` owns the demand-side discovery and procurement layer for two distinct object types:
+
+### A. Productized worker services
+
+Compare, evaluate, buy, install, route to run surfaces, or subscribe to published services.
+
+### B. Bespoke / freelance procurement
+
+Post demand, solicit provider responses, compare proposals, and procure custom delivery.
 
 Important distinction:
 
-* productized service listings are **service objects**
+* productized listings are **service objects**
 * freelance postings are **procurement objects**
 
-`aiagent.xyz` owns the procurement/discovery layer, not provider operations.
+`aiagent.xyz` owns discovery and procurement, not provider operations.
 
-## 3.3 `Autopilot`
+## 3.4 `ioi.ai`
 
-**Local runtime + power-user builder + marketplace install surface**
+**Use workers**
 
-Autopilot is the private local runtime. It can:
+`ioi.ai` is the hosted demand and execution UX. It is where end users:
 
-* run services locally
-* use local GPU
-* access desktop/browser/local files/apps
-* hold local context and receipts
-* install services from the marketplace
-* and let power users build and fork workflows/services
+* express intent,
+* get routed to the right worker service or execution preset,
+* approve actions when needed,
+* and receive outcomes plus receipts.
 
-Autopilot is where “private desktop assistant” and “local service runtime” meet.
+It is the user-facing demand ingress, not the provider operating surface.
 
-## 3.4 `sas.xyz`
+## 3.5 Boundary rules
 
-**Provider operating system**
+* `Autopilot` is for private/local operation and promotion source material.
+* `sas.xyz` is for provider-side productization and service operations.
+* `aiagent.xyz` is for discovery, comparison, and procurement.
+* `ioi.ai` is for user-facing demand and hosted execution UX.
 
-The provider uses `sas.xyz` to:
+More concretely:
 
-* build/package services
-* define contracts and deployment support
-* configure execution targets, inference sources, trust presets, and readiness postures
-* expose APIs
-* manage customers and tenants
-* manage receipts and compliance artifacts
-* price and bill
-* publish to marketplace
-* and run provider-side delivery operations
+* `Autopilot` owns local/operator policy: local worker authority, local capability leases, local approvals, local egress rules, and trust boundary controls.
+* `sas.xyz` owns provider/service policy: service operating envelope, tenant-facing approvals, hosted execution restrictions, deployment-specific profiles, exposure limits, and billing-related enforcement.
+* `Autopilot` may preview or suggest deployment characteristics during promotion.
+* `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenancy, billing, and publication.
+
+If those jobs blur, the ecosystem becomes confusing.
+
+**Doctrine:** `Autopilot` stabilizes work; `sas.xyz` productizes it.
+**Doctrine:** `sas.xyz` does not replace `Autopilot` as the private operating shell; it extends stabilized worker systems into provider-grade products, deployment presets, and distribution surfaces.
 
 ---
 
-# 4. Core Corrections Incorporated in v1.2
+# 4. Public Narrative and Website Story
 
-This spec incorporates the major corrections needed from prior discussion.
+The website should not teach the entire internal architecture in the hero path.
 
-## 4.1 Agent IDE and Agent API are distinct
+It should answer four questions quickly:
 
-This is a key correction.
+1. What is `sas.xyz`?
+2. Who is it for?
+3. What can they do with it?
+4. Why is it different from orchestration tools, deployment dashboards, and AI marketplaces?
 
-### Agent IDE
+## 4.1 Website framing
 
-The Agent IDE is the **authoring engine**:
+Recommended category and message stack:
 
-* compose workflows
-* define services
-* add models/tools/connectors
-* package reusable graphs
+* **Category:** Provider OS for Service-as-Software
+* **One-liner:** Turn repeatable worker workflows into productized, deployable, billable, portable worker services.
+* **Subheadline:** Package once and deliver across local, hosted, BYOK, and customer-boundary execution with contracts, policy, receipts, billing, and marketplace distribution built in.
 
-### Agent API
+## 4.2 Hero and narrative sequence
 
-The Agent API is the **invocation surface**:
+The core website story should move in this order:
 
-* run a packaged service
-* stream outputs
-* retrieve receipts
-* embed a service into a provider app or third-party platform
+1. **Hero**
+   Productize, deploy, and monetize Service-as-Software.
+2. **What it is**
+   Stabilize, contractize, serviceize, monetize, operate.
+3. **Promotion path**
+   `Autopilot` workflow or worker -> `sas.xyz` service -> `aiagent.xyz` / API / installs.
+4. **Examples**
+   Real worker services, not abstract infrastructure claims.
+5. **Delivery across targets**
+   One manifest, multiple execution presets.
+6. **Why different**
+   Packaging, monetization, receipts, and portability in one provider surface.
+7. **Trust and compliance**
+   Receipts, evidence bundles, policy, approval records, privacy declarations.
+8. **Ecosystem map**
+   Shown lower on the page after the product is clear.
+9. **Docs CTA**
+   Manifest, deployment matrix, privacy classes, Service API, receipts.
+
+## 4.3 What to de-emphasize on the public hero path
+
+These remain important, but should live in docs, deep dives, or enterprise/security pages rather than lead the landing page:
+
+* the full four-plane deployment architecture,
+* SCS modes in depth,
+* principal / sponsor / guardian identity nuance,
+* AIIP and install token internals,
+* detailed lane derivation,
+* exact secret injection rules,
+* readiness posture taxonomy in infrastructure language.
+
+## 4.4 Builder and Service API are distinct
+
+This remains a key correction.
+
+The underlying shared package may still be implemented as `agent-ide`, but public product language for `sas.xyz` should lead with **Builder** or **Shared Builder Engine**, not “Agent IDE.”
+
+### Builder
+
+The Builder is the authoring surface:
+
+* compose workflows,
+* define worker services,
+* add models, tools, skills, and connections,
+* attach contracts and policies,
+* package reusable graphs.
+
+### Service API
+
+The Service API is the invocation surface:
+
+* run a packaged service,
+* stream outputs,
+* retrieve receipts,
+* embed a service into a provider app or third-party platform.
 
 So:
 
-> **Agent IDE builds services. Agent API exposes services.**
+> **The Builder packages services. The Service API exposes them.**
 
-The Agent API is not “for the IDE.”
-
-## 4.2 Private AI is a product surface, not a single lane
-
-“Private AI” is not one execution method. It is a **user-facing surface** that can route into different execution targets, trust presets, and readiness postures.
-
-In practice, to avoid cold starts and poor UX, the default private AI product will often run on a **protocol-native hosted stack** with:
-
-* API gateway/admission
-* warm inference capacity
-* distributed execution workers
-* bounded kernel/coordinator plane
-* receipts and policy enforcement
-
-Then it can escalate into:
-
-* local Autopilot
-* BYOK
-* clean-room execution
-* confidential execution
-* customer VPC
-  when needed.
-
-So “Private AI” is best understood as:
-
-> **a privacy-first intent and execution surface over IOI-native infrastructure**
-
-not as a single confidential or local-only lane.
-
-## 4.3 Two loops are separate
+## 4.5 Two loops are separate
 
 There are two ecosystem loops:
 
-### A. Productized Service Loop
+### A. Productized worker service loop
 
-Used by `sas.xyz` natively:
+Owned by `sas.xyz`:
 
-* build
-* package
-* deploy
-* publish
-* invoke
-* bill
-* support
+* build,
+* package,
+* deploy,
+* publish,
+* invoke,
+* bill,
+* support.
 
-### B. Bespoke Engagement Loop
+### B. Bespoke engagement loop
 
 Owned by `aiagent.xyz` procurement:
 
-* demand posted or requested
-* provider/operator responds
-* delivery occurs via provider stack
-* outcome delivered as bespoke work
+* demand is posted,
+* provider responds,
+* delivery occurs through provider operations,
+* outcomes are delivered as bespoke work.
 
-Providers may use `sas.xyz` internally to help deliver freelance work, but freelance demand itself is **not** a `sas.xyz` service object.
+Providers may use `sas.xyz` internally to help fulfill freelance work, but freelance demand itself is not a `sas.xyz` service object.
 
-## 4.4 Internal runtime model is axis-based, not lane-only
+## 4.6 Capability requirements are part of the ontology
 
-Lanes still exist in UX and commerce, but operationally the system is modeled by four axes:
+The ecosystem is converging around a worker-first model with capabilities as the grantable surface of work.
 
-1. **Where it runs**
-2. **How inference is sourced**
-3. **What trust/privacy posture applies**
-4. **What readiness/serving posture applies**
+For `sas.xyz`, that means manifests and contracts should increasingly describe:
 
-Lanes are derived presets over these axes.
+* required connections,
+* required skills,
+* required tools or action surfaces,
+* desktop or local-runtime requirements,
+* approval requirements,
+* and budget or spend limits
 
-## 4.5 Scaling is multi-plane
+under a common **capability requirements** concept rather than disconnected fields.
 
-The spec now explicitly assumes the hosted/default product path scales horizontally across planes:
+## 4.7 Narrative layer vs. systems appendix
 
-* API / edge admission plane
-* inference plane
-* execution worker plane
-* bounded kernel/coordinator/settlement plane
-
-The kernel is **not** modeled as the place where every token of inference must happen.
+Sections 1 through 8 define the product narrative.
+Sections 9 through 18 are the systems architecture appendix for technical buyers, docs, and implementation teams.
 
 ---
 
 # 5. Product Principles
 
-## 5.1 Build once, deliver many ways
+## 5.1 Package once, deliver many ways
 
 A provider should not need to rebuild a service to support:
 
@@ -272,15 +342,29 @@ A provider should not need to rebuild a service to support:
 
 The packaging model should make these delivery modes configurable, not fundamentally separate products.
 
-## 5.2 Local is first-class
+## 5.2 Worker-centric productization
+
+A `sas.xyz` worker service is not merely a prompt wrapper or API endpoint.
+
+It is a productized worker system plus operating envelope with:
+
+* a contract
+* capability requirements
+* policy and approval envelope
+* deployment support
+* evidence and receipts profile
+* commercials
+* distribution settings
+
+## 5.3 Local is first-class
 
 Local Autopilot execution and local GPU are first-class targets.
 
-## 5.3 Published truth must be portable
+## 5.4 Published truth must be portable
 
 Drafts can be mutable and centralized. Published versions must be portable and verifiable through the IOI publication/trust layer.
 
-## 5.4 Receipts are product
+## 5.5 Receipts are product
 
 Receipts must be first-class because they power:
 
@@ -291,17 +375,72 @@ Receipts must be first-class because they power:
 * disputes
 * marketplace differentiation
 
-## 5.5 Privacy claims are execution-dependent
+## 5.6 Privacy claims are execution-dependent
 
 The same service may offer multiple privacy classes depending on execution target and trust posture. This must be explicit.
 
+## 5.7 Productized digital labor
+
+A mature `sas.xyz` worker service is not just a workflow exposed as an endpoint. It is **productized digital labor** with:
+
+* a defined contract
+* bounded capability requirements
+* explicit policy and approval envelopes
+* execution support declarations
+* receipts and evidence exports
+* versioned operating logic
+* repeatable onboarding
+* scalable software economics
+
+If a service still depends on high-touch bespoke delivery, indefinite human steering, or non-versioned operating logic, it has not yet fully matured into Service-as-Software.
+
+## 5.8 Escalation principle
+
+Human involvement is a governance and exception mechanism, not the default hidden execution substrate.
+
+Mature worker services should concentrate human effort at:
+
+* approvals
+* exception handling
+* governed escalations
+* service evolution
+
+Hybrid human+worker delivery is a valid intermediate or premium operating model, but the productized unit remains the worker service. Human roles should be modeled as governed escalation, review, or premium delivery overlays rather than the hidden core product.
+
+## 5.9 Productization doctrine
+
+`sas.xyz` should optimize toward one-to-many worker products, not permanent high-touch bespoke delivery with a software wrapper.
+
+Repeated work should progressively move from:
+
+* bespoke operation
+* to bounded reusable worker delivery
+* to versioned governed worker services
+
+## 5.10 Repeatable onboarding and adoption
+
+A mature worker service must be not only deployable, but also:
+
+* adoptable
+* understandable
+* supportable
+* repeatably configurable
+
+The product model should favor self-serve or low-friction onboarding, tenant-scoped setup templates, installability, and repeatable activation over expensive custom setup for every customer.
+
+## 5.11 Software economics
+
+`sas.xyz` exists to convert repeated worker delivery from time-priced service labor into software-priced, versioned, scalable products with low incremental delivery cost relative to bespoke service operations.
+
 ---
 
-# 6. One Agent IDE Engine, Multiple Lenses
+# 6. One Shared Builder Engine, Multiple Lenses
 
 ## 6.1 Canonical engine
 
-There is one shared **Agent IDE engine**.
+There is one shared **Builder engine**.
+
+The implementation substrate may still be the shared `agent-ide` package, but the `sas.xyz` lens should present it as a Builder for packaging worker services.
 
 It supports:
 
@@ -322,7 +461,7 @@ This one engine is rendered through multiple lenses.
 
 Optimized for:
 
-* private local workflows
+* private local workflows and workers
 * recurring tasks
 * local models and local GPU
 * browser/desktop/app control
@@ -332,10 +471,11 @@ Optimized for:
 Prominent concepts:
 
 * tasks
+* workers
 * schedules
 * local context
-* local tools
-* playbooks/lenses
+* local capabilities
+* playbooks
 * local inference choices
 * local approvals
 * marketplace install
@@ -343,7 +483,9 @@ Prominent concepts:
 De-emphasized:
 
 * pricing
-* public API contracts
+* public service contracts
+* live provider deployment presets
+* hosted/server-side configuration
 * tenant ops
 * SLA
 * marketplace listing metadata
@@ -352,23 +494,30 @@ De-emphasized:
 
 Optimized for:
 
-* packaging a reusable service
+* productizing a reusable worker service
 * contract exposure
 * API shape
+* provider policy and operating envelope
 * deployment support
+* readiness posture
+* hosted/server-side configuration
 * pricing
 * tenant ops
 * billing
 * marketplace publication
+* provider observability and compliance
 * receipts export
 
 Prominent concepts:
 
+* builder
 * service contract
-* deployment matrix
-* execution presets
-* target support
-* privacy/trust declarations
+* deployment presets
+* readiness posture
+* execution support matrix
+* capability requirements
+* provider policy profiles
+* privacy and trust declarations
 * pricing
 * versions
 * customers
@@ -394,14 +543,17 @@ Browser/desktop/app-control-centric graph, usually as receipted subgraphs or reu
 
 ### Service format
 
-Workflow plus product contract:
+A worker workflow plus product contract:
 
 * input schema
 * output schema
 * invocation model
+* capability requirements
+* policy and approval envelope
 * deployment support
 * billing
-* receipts profile
+* evidence and receipts profile
+* onboarding profile
 
 ### API format
 
@@ -414,22 +566,34 @@ Public service exposure:
 
 ## 6.5 Promotion path
 
-A private local graph can become a service.
+A private local workflow or worker can become a productized worker service.
 
-**Autopilot private workflow**
+The canonical productization flow is:
+
+1. Stabilize repeated work
+2. Extract a reusable worker or workflow
+3. Contractize it
+4. Bound its capability and policy envelope
+5. Declare execution support, privacy classes, and evidence profile
+6. Attach monetization and onboarding
+7. Distribute it through marketplace, install surfaces, or Service API
+
+**Autopilot private workflow or worker**
 → stabilized graph
-→ converted into Service format
-→ opened in `sas.xyz` lens
-→ configured for targets/pricing/publishing
-→ published to marketplace or exposed as API
+→ extracted into reusable worker logic
+→ contractized into Service format
+→ opened in `sas.xyz` Builder
+→ configured with capability requirements, policy envelope, execution support, privacy classes, pricing, onboarding, and publication settings
+→ published to marketplace, install surfaces, or Service API
 
 This is the intended path from power user to service provider.
+`Autopilot` may preview or suggest deployment characteristics during promotion, but `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenant setup, billing, and publication.
 
 ---
 
-# 7. Two Ecosystem Loops
+# 7. Provider Loop and Procurement Boundary
 
-## 7.1 Productized Service Loop
+## 7.1 Productized worker service loop
 
 This is the primary `sas.xyz` loop.
 
@@ -446,16 +610,16 @@ This is the primary `sas.xyz` loop.
 
 ### Flow
 
-Author → package → configure targets/trust → deploy → publish → run → monetize → operate
+Author → stabilize → extract → contractize → bind operating envelope → serviceize → declare support → deploy → monetize → distribute → operate
 
 ### Examples
 
-* cabin plans service
-* docs agent
-* Gmail executive assistant
-* customer support agent
-* legal review assistant
-* coding/repo service
+* Cabin Plans AI
+* docs worker
+* Gmail executive assistant worker
+* customer support worker
+* legal review worker
+* coding / repo worker
 
 ## 7.2 Bespoke Engagement Loop
 
@@ -483,13 +647,18 @@ Buyer posts need → provider responds → provider delivers outcome via their o
 
 ## 8.1 Service
 
-A reusable productized capability package with:
+A reusable productized worker system plus operating envelope.
 
-* contract
-* runtime requirements
-* trust declarations
-* billing metadata
-* distribution settings
+A mature service combines:
+
+* worker system
+* service contract
+* capability requirements
+* policy and approval envelope
+* deployment support
+* evidence profile
+* commercial terms
+* distribution and onboarding settings
 
 ## 8.2 Manifest
 
@@ -514,7 +683,7 @@ Customer-specific config:
 * policy overrides
 * secrets bindings
 * deployment target bindings
-* lane entitlements
+* preset entitlements
 * sponsor rules
 
 ## 8.7 Run
@@ -531,6 +700,46 @@ Portable export package:
 * artifacts
 * receipt roots
 * allowed logs
+
+## 8.9 Capability Requirement
+
+The canonical declaration of what a worker service needs in order to run safely and truthfully, including:
+
+* required connections
+* required skills
+* required tools or action surfaces
+* desktop/browser/local-runtime requirements
+* approval requirements
+* budget or spend limits
+* environment assumptions
+
+## 8.10 Service Maturity Ladder
+
+### M0 — Assisted internal workflow
+
+Still fragile, operator-heavy, and not ready for productization.
+
+### M1 — Stable internal worker
+
+Repeatable, bounded, and measurable, but not yet contractized.
+
+### M2 — Service candidate
+
+Defined inputs and outputs, capability requirements, policy envelope, and basic receipts.
+
+### M3 — Productized worker service
+
+Versioned, deployable, billable, supportable, and publishable.
+
+### M4 — Catalog-grade worker product
+
+Portable across targets, trust classes, and distribution surfaces with strong evidence and repeatable onboarding.
+
+---
+
+# Part II — Systems Appendix
+
+The following sections are intentionally deeper. They describe the architecture, execution model, trust semantics, and deployment mechanics that support the product narrative above.
 
 ---
 
@@ -562,7 +771,7 @@ This is the real operational model.
 
 * **Cold (On-Demand):** Zero-idle. Hydrated at the moment of execution. Best for async tasks, batch jobs, and maximizing developer margins.
 * **Warm (Elastic Pool):** Resident workers kept alive in a shared pool. Balances cost-efficiency with faster spin-up times.
-* **Hot (Always-Live):** Routed to dedicated, pre-warmed runtime capacity. Best for low-latency conversational AI (`ioi.ai`), real-time agents, and instant API responses.
+* **Hot (Always-Live):** Routed to dedicated, pre-warmed runtime capacity. Best for low-latency conversational AI (`ioi.ai`), real-time worker services, and instant API responses.
 
 ## 9.5 Derived presets (lanes)
 
@@ -874,7 +1083,7 @@ For proprietary hosted models, `sas.xyz` does not need raw weights. It stores:
 
 # 16. Sovereign Context Strategy
 
-SCS is for agent/user considerations and execution context, not the same thing as product/control-plane storage.
+SCS is for worker/operator considerations and execution context, not the same thing as product/control-plane storage.
 
 Three modes are supported.
 
@@ -904,8 +1113,8 @@ Provider-hosted tenant-scoped SCS for low-latency recurring services.
 
 Used by:
 
-* docs assistants
-* support agents
+* docs workers
+* support workers
 * managed recurring copilots
 * API-first services needing warm context
 
@@ -1014,7 +1223,7 @@ Secrets sealed to attested runtime if supported.
 
 ### Standard hosted
 
-Secrets may still be sourced from wallet/network bindings, but this does not imply provider-blind visibility unless the lane supports it.
+Secrets may still be sourced from wallet/network bindings, but this does not imply provider-blind visibility unless the preset supports it.
 
 ## 18.4 BYOK nuance
 
@@ -1027,114 +1236,119 @@ BYOK is not one privacy class.
 
 ---
 
-# 19. Information Architecture
+# 19. Website Information Architecture
 
 ## 19.1 Top-level nav
 
+* Product
+* Examples
+* Deployments
+* Marketplace
+* Docs
+* Pricing
+* Sign in
+
+## 19.2 Product
+
+The primary product section should focus on:
+
+* Overview
+* Builder
+* Service Contracts
+* Receipts and Trust
+* Tenant Ops
+* Billing
+
+## 19.3 Examples
+
+The examples section should include concrete worker services such as:
+
+* Docs worker
+* Gmail executive assistant worker
+* Coding / repo worker
+* Customer support worker
+* Vertical copilot
+
+## 19.4 Deployments
+
+The deployments section should explain:
+
+* Local Autopilot
+* Provider-hosted
+* BYOK
+* Confidential hosted
+* Customer VPC / on-prem
+
+## 19.5 Marketplace
+
+The marketplace section should cover:
+
+* Publish to `aiagent.xyz`
+* White-label APIs
+* Embedded installs
+* Distribution surfaces
+
+## 19.6 Docs
+
+The docs section should route deeper buyers into:
+
+* Service Manifest
+* Service API
+* Deployment matrix
+* Privacy classes
+* Publication / AIIP
+* Receipts / evidence bundles
+
+## 19.7 Logged-in provider workspace
+
+Once a provider is inside the product, the workspace can expose:
+
 * Overview
 * Services
-* Agent IDE
+* Builder
 * Deployments
-* Customers
+* Tenants
 * Receipts
 * Billing
 * Marketplace
 * Settings
 
-## 19.2 Overview
+## 19.8 Overview workspace
 
-Shows:
+The logged-in overview should show:
 
 * service inventory
-* target usage
-* trust posture usage
-* lane usage
+* execution target mix
+* trust posture mix
+* preset usage
 * deployment health
 * cold-start pressure
-* receipts errors
-* cost by target/lane
+* receipt anomalies
+* cost by target and preset
 * revenue trends
 
-## 19.3 Services
+## 19.9 Service workspace
 
-Each service page includes:
+Each service page should include:
 
 * manifest
 * versions
 * contract
-* target matrix
-* trust/posture matrix
+* execution support matrix
+* capability requirements
+* policy envelope
 * pricing
+* onboarding profile
 * APIs
 * listing state
 
-## 19.4 Agent IDE
-
-Shared engine in `sas.xyz` lens.
-
-Key panels:
-
-* graph canvas
-* service contract panel
-* execution preset matrix
-* target support matrix
-* privacy/trust declaration panel
-* deployment preview
-* listing publication controls
-* endpoint/API config
-
-## 19.5 Deployments
-
-* environments
-* rollout controls
-* version pinning
-* secrets
-* boundary deployment packages
-* confidential settings
-* rollback
-
-## 19.6 Customers
-
-* tenants
-* orgs
-* secret bindings
-* policy overrides
-* lane/target entitlements
-* sponsor rules
-* residency rules
-
-## 19.7 Receipts
-
-* run explorer
-* receipt timeline
-* evidence bundle export
-* proof viewer
-* dispute prep
-
-## 19.8 Billing
-
-* subscriptions
-* credits
-* execution fees
-* confidential premiums
-* take rates
-* invoices
-
-## 19.9 Marketplace
-
-* listing editor
-* trust/privacy badge preview
-* installability matrix
-* public metadata preview
-* white-label redirect config
-
 ---
 
-# 20. Agent IDE Builder Spec
+# 20. Shared Builder Spec
 
 ## 20.1 Philosophy
 
-Workflow-first. Browser/desktop/app control appears as typed actions or playbook/lens artifacts.
+Workflow-first, worker-centric, and productization-aware. Browser, desktop, and app control should appear as typed actions or playbook artifacts rather than the entire public identity of the surface.
 
 ## 20.2 Node families
 
@@ -1165,7 +1379,7 @@ Workflow-first. Browser/desktop/app control appears as typed actions or playbook
 * persist context
 * summarize
 
-### Agent/model
+### Worker/cognition
 
 * prompt
 * model call
@@ -1179,7 +1393,7 @@ Workflow-first. Browser/desktop/app control appears as typed actions or playbook
 * filesystem
 * exec
 * connectors
-* service call / agent-as-tool call
+* service call / worker-as-tool call
 * artifact export
 
 ### Verification
@@ -1195,7 +1409,7 @@ Workflow-first. Browser/desktop/app control appears as typed actions or playbook
 
 Emphasizes:
 
-* local tools
+* local capabilities
 * browser/desktop
 * playbooks
 * local models/GPU
@@ -1206,9 +1420,11 @@ Emphasizes:
 
 Emphasizes:
 
+* builder
 * service contract
 * API endpoints
-* target/trust selection
+* execution target and trust selection
+* capability requirements
 * billing nodes
 * tenant nodes
 * deployment nodes
@@ -1216,7 +1432,7 @@ Emphasizes:
 
 ---
 
-# 21. Service Manifest v1.2
+# 21. Service Manifest v1.4
 
 Each service manifest must include:
 
@@ -1235,35 +1451,46 @@ Each service manifest must include:
 * `output_schema`
 * `run_modes`
 * `artifact_types`
+* `outcome_contract`
 
-## 21.3 Capabilities
+## 21.3 Capability requirements
 
-* `action_targets`
-* `connectors_required`
-* `desktop_required`
+* `connections_required`
+* `skills_required`
+* `tools_or_action_surfaces_required`
+* `desktop_or_local_runtime_required`
 * `domain_allowlists`
 * `approval_requirements`
 * `spend_limits`
+* `environment_assumptions`
 
-## 21.4 Execution support
+## 21.4 Policy and approval envelope
+
+* `policy_scope`
+* `approval_boundaries`
+* `escalation_rules`
+* `human_review_triggers`
+* `budget_guardrails`
+
+## 21.5 Execution support
 
 * supported execution targets
 * supported inference sources
 * supported trust postures
-* supported readiness postures (e.g., requires Hot, allows Cold)
-* derived supported lanes
+* supported readiness postures
+* derived supported presets
 * local hardware requirements
 * proprietary model constraints
 
-## 21.5 Privacy contract
+## 21.6 Privacy contract
 
-* privacy class per target/posture
+* privacy class per target and posture
 * retention policy
 * training/logging policy
 * operator visibility
 * minimum context policy
 
-## 21.6 Verification contract
+## 21.7 Verification contract
 
 * RRS-I profile
 * optional RRS-A requirements
@@ -1271,7 +1498,7 @@ Each service manifest must include:
 * artifact commit mode
 * evidence export formats
 
-## 21.7 Commercials
+## 21.8 Commercials
 
 * subscription support
 * credit pricing
@@ -1280,82 +1507,64 @@ Each service manifest must include:
 * take rate
 * public pricing terms
 
-## 21.8 Distribution
+## 21.9 Distribution and onboarding
 
 * marketplace publishable?
 * discoverable via `ioi.ai`?
 * installable into Autopilot?
 * white-label API enabled?
+* provider-managed / private-only?
+* tenant setup template
+* activation/onboarding profile
+* install or activation requirements
 
 ---
 
 # 22. Example Service Patterns
 
+Each example should be legible enough to turn into a website card. It should show what the service does, where it can run, what trust postures it supports, and how it monetizes.
+
 ## 22.1 Cabin Plans AI
 
-May already exist as:
+* **Does:** generate, revise, and explain cabin plans.
+* **Runs:** provider-hosted, BYOK, and local Autopilot review/install flows.
+* **Trust posture:** Fast for ideation, Private or Verified for final deliverables.
+* **Monetization:** subscription plus per-plan credits and white-label API.
 
-* local workflow
-* BYOK app
-* hosted generation pipeline
+## 22.2 Docs worker
 
-`sas.xyz` should allow:
+* **Does:** answer questions over documentation, generate briefs, and maintain knowledge artifacts.
+* **Runs:** hosted docs chat, per-tenant isolated indexing, API-first service, or installable worker.
+* **Trust posture:** Fast for public docs, Private for tenant-isolated corpora.
+* **Monetization:** seat-based subscription, usage credits, or embedded support plans.
 
-* white-label provider site/API
-* local Autopilot install
-* provider clean-room generation
-* marketplace listing
+## 22.3 Gmail executive assistant worker
 
-Typical presets:
+* **Does:** triage inbox, draft replies, prep meetings, and keep an operating queue current.
+* **Runs:** local Autopilot, BYOK, managed hosted, or customer boundary.
+* **Trust posture:** Private by default, with stronger customer-boundary options for sensitive orgs.
+* **Monetization:** subscription with optional premium execution tiers.
 
-* Fast: BYOK ideation
-* Private: local or OSS clean-room final generation
-* Verified: final deliverable with evidence export
+## 22.4 Customer support worker
 
-## 22.2 Documentation Agent
+* **Does:** resolve tickets, summarize conversations, escalate risk, and maintain support context.
+* **Runs:** hosted warm pools, managed tenant environments, or private enterprise deployments.
+* **Trust posture:** Fast for routine triage, Private or Verified for regulated workflows.
+* **Monetization:** seat, ticket-volume, or outcome-based pricing.
 
-Distinct product variants:
+## 22.5 Coding / repo worker
 
-1. tradable capability / market product
-2. interactive docs chat
-3. per-tenant isolated indexing and retention
-4. API-first docs service
+* **Does:** inspect repos, propose patches, answer architecture questions, and operate in CI or boundary environments.
+* **Runs:** local Autopilot, team automation, CI, VPC, or on-prem.
+* **Trust posture:** Private for sensitive repos, Verified for auditable delivery flows.
+* **Monetization:** seat, credits, or team deployment tiers.
 
-All should be expressible without forcing a single deployment model.
+## 22.6 Proprietary vertical copilot
 
-## 22.3 Gmail Executive Assistant
-
-Can support:
-
-* local Autopilot
-* BYOK
-* managed hosted
-* customer boundary
-
-## 22.4 Customer Support Agent
-
-Likely:
-
-* Fast + BYOK or hosted warm workers
-* managed tenant SCS
-* optional private deployments
-
-## 22.5 Coding / Repo Agent
-
-Strong fit for:
-
-* local Autopilot
-* team automation
-* CI/VPC deployment
-
-## 22.6 Proprietary Vertical Copilot
-
-Likely supports:
-
-* hosted
-* confidential hosted
-* BYOK
-  not necessarily local.
+* **Does:** domain-specific work over proprietary data and provider-owned workflows.
+* **Runs:** hosted, confidential hosted, BYOK, or customer boundary depending on the deployment.
+* **Trust posture:** usually Private or Confidential; not necessarily local.
+* **Monetization:** contract pricing, tenant subscriptions, or white-label enterprise deals.
 
 ---
 
@@ -1437,7 +1646,7 @@ For marketplace or embedded commerce participation.
 * run logs
 * receipts timeline
 * queue depth
-* target/lane cost
+* target/preset cost
 * worker saturation
 * cold-start pressure
 * deployment health
@@ -1459,31 +1668,38 @@ Must support:
 
 # 26. Best-Practice Defaults
 
-## 26.1 Publication
+## 26.1 Product narrative
+
+* lead with turning repeatable worker delivery into productized worker services
+* keep the promotion path central: `Autopilot` -> `sas.xyz` -> `aiagent.xyz` / API / installs
+* move deep infrastructure material into docs, appendix, and security pages
+
+## 26.2 Publication
 
 * drafts in `sas.xyz`
 * immutable published versions in AIIP/canonical publish layer
 
-## 26.2 Secrets
+## 26.3 Secrets
 
 * customer secrets from wallet.network / Autopilot / customer vault
 * provider secrets from provider vault
 * no raw secrets in publish layer
 
-## 26.3 Context
+## 26.4 Context
 
-* local lane: local SCS
+* local preset: local SCS
 * private remote: tethered slices / TFEC
 * fast hosted: managed tenant SCS
 
-## 26.4 IDE
+## 26.5 Builder
 
 * one engine
 * different lenses
 * workflow-first
-* promote private graphs into services
+* worker-centric contracts
+* contractize and serviceize private graphs into worker services
 
-## 26.5 Marketplace relation
+## 26.6 Marketplace relation
 
 * services publish from `sas.xyz`
 * freelance remains procurement in `aiagent.xyz`
@@ -1493,14 +1709,15 @@ Must support:
 
 # 27. Definition of Done
 
-`sas.xyz` v1.2 is complete when a provider can:
+`sas.xyz` v1.4 is complete when a provider can:
 
-1. author a graph once in the shared Agent IDE engine,
-2. switch between Autopilot and `sas.xyz` lenses without changing runtime semantics,
-3. package that graph as a service,
-4. declare execution targets, inference sources, trust postures, readiness postures, and derived lane presets,
-5. deploy it in managed, local, or customer-boundary environments,
+1. author a workflow or worker once in the shared Builder engine,
+2. switch between `Autopilot` and `sas.xyz` lenses without changing runtime semantics,
+3. turn a repeated internal worker flow into a productized worker service with contract, capability requirements, policy envelope, evidence profile, and repeatable onboarding,
+4. declare execution targets, inference sources, trust postures, readiness postures, and derived presets,
+5. deploy it in managed, local, confidential, or customer-boundary environments,
 6. publish immutable versions into the canonical publication layer,
-7. expose the service through marketplace, `ioi.ai`, Autopilot install, and/or white-label API,
-8. manage tenants, secrets, billing, receipts, and evidence in one provider OS,
-9. and do all of that while keeping privacy claims accurate to the actual execution target and trust posture.
+7. expose the service through marketplace, `ioi.ai`, `Autopilot` install, and/or white-label API,
+8. manage tenants, secrets, billing, receipts, evidence, and onboarding in one provider OS,
+9. operate the service with bounded approvals, bounded escalations, and governed human exception handling instead of indefinite manual babysitting,
+10. and do all of that while keeping privacy claims accurate to the actual execution target and trust posture.

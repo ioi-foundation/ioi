@@ -95,7 +95,12 @@ interface ApprovalCardProps {
 }
 
 export function ApprovalCard({ title, description, risk, onApprove, onDeny }: ApprovalCardProps) {
-    const riskColor = risk === 'high' ? '#EF4444' : risk === 'medium' ? '#F59E0B' : '#10B981';
+    const riskColor =
+      risk === 'high'
+        ? 'var(--status-error)'
+        : risk === 'medium'
+          ? 'var(--status-warning)'
+          : 'var(--status-success)';
     
     return (
         <div style={{

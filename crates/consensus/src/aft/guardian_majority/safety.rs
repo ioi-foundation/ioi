@@ -111,9 +111,9 @@ impl SafetyGadget {
     /// conditions, such as the presence of a canonical collapse object.
     pub fn next_ready_commit(&self) -> Option<QuorumCertificate> {
         let now = Instant::now();
-        self.pending_commits.front().and_then(|pending| {
-            (now >= pending.can_commit_at).then(|| pending.qc.clone())
-        })
+        self.pending_commits
+            .front()
+            .and_then(|pending| (now >= pending.can_commit_at).then(|| pending.qc.clone()))
     }
 
     /// Consumes the next ready commit and records it as committed.

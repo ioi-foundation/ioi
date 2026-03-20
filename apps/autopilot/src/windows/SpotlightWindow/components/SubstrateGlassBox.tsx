@@ -35,13 +35,13 @@ interface GraphData {
 }
 
 const NODE_COLORS: Record<GraphNodeKind, string> = {
-  query: "#6ee7ff",
-  index: "#93c5fd",
-  candidates: "#fbbf24",
-  rerank: "#34d399",
-  topk: "#f472b6",
-  proof: "#a78bfa",
-  certificate: "#f97316",
+  query: "#8be9fd",
+  index: "#6272a4",
+  candidates: "#ffb86c",
+  rerank: "#69f0ae",
+  topk: "#ff79c6",
+  proof: "#bd93f9",
+  certificate: "#ffb86c",
 };
 
 function safeParseMs(value: string): number {
@@ -62,7 +62,10 @@ function boundedVal(raw: number, min = 1.5, max = 12): number {
   return Math.max(min, Math.min(max, raw));
 }
 
-function buildGraphData(receipts: SubstrateReceiptRow[], maxReceipts: number): GraphData {
+function buildGraphData(
+  receipts: SubstrateReceiptRow[],
+  maxReceipts: number,
+): GraphData {
   const sorted = receipts
     .slice()
     .sort((a, b) => safeParseMs(a.timestamp) - safeParseMs(b.timestamp))
@@ -78,7 +81,12 @@ function buildGraphData(receipts: SubstrateReceiptRow[], maxReceipts: number): G
     }
   };
 
-  const addLink = (source: string, target: string, label: string, color: string) => {
+  const addLink = (
+    source: string,
+    target: string,
+    label: string,
+    color: string,
+  ) => {
     links.push({ source, target, label, color });
   };
 
@@ -142,10 +150,10 @@ function buildGraphData(receipts: SubstrateReceiptRow[], maxReceipts: number): G
       z: z + 8,
     });
 
-    addLink(qNodeId, idxNodeId, "lookup", "#60a5fa");
-    addLink(idxNodeId, candNodeId, "candidate gen", "#f59e0b");
-    addLink(candNodeId, rerankNodeId, "exact rerank", "#22c55e");
-    addLink(rerankNodeId, topNodeId, "select top-k", "#ec4899");
+    addLink(qNodeId, idxNodeId, "lookup", "#6272a4");
+    addLink(idxNodeId, candNodeId, "candidate gen", "#ffb86c");
+    addLink(candNodeId, rerankNodeId, "exact rerank", "#69f0ae");
+    addLink(rerankNodeId, topNodeId, "select top-k", "#ff79c6");
 
     if (receipt.proofHash || receipt.proofRef) {
       const proofNodeId = `proof:${receipt.eventId}`;
@@ -159,7 +167,7 @@ function buildGraphData(receipts: SubstrateReceiptRow[], maxReceipts: number): G
         y: 18,
         z: z + 10,
       });
-      addLink(topNodeId, proofNodeId, "trace proof", "#a78bfa");
+      addLink(topNodeId, proofNodeId, "trace proof", "#bd93f9");
     }
 
     if (receipt.certificateMode && receipt.certificateMode !== "none") {
@@ -174,11 +182,11 @@ function buildGraphData(receipts: SubstrateReceiptRow[], maxReceipts: number): G
         y: -18,
         z: z + 12,
       });
-      addLink(topNodeId, certNodeId, "lb cert", "#fb923c");
+      addLink(topNodeId, certNodeId, "lb cert", "#ffb86c");
     }
 
     if (previousTopNode) {
-      addLink(previousTopNode, qNodeId, "next introspection", "#64748b");
+      addLink(previousTopNode, qNodeId, "next introspection", "#6c7896");
     }
     previousTopNode = topNodeId;
   });
@@ -229,7 +237,11 @@ export function SubstrateGlassBox({
           const y = typeof node.y === "number" ? node.y : 0;
           const z = typeof node.z === "number" ? node.z : 0;
           graphRef.current.centerAt(x, y, 700);
-          graphRef.current.cameraPosition({ x, y, z: z + 110 }, { x, y, z }, 900);
+          graphRef.current.cameraPosition(
+            { x, y, z: z + 110 },
+            { x, y, z },
+            900,
+          );
         });
       graphRef.current = graph;
     }

@@ -12,37 +12,37 @@ body.spotlight-shell-host,
 
 /* CSS Custom Properties - Design Tokens */
 .spot-window {
-  /* Core Colors - Darker, more opaque */
-  --spot-bg-primary: rgba(10, 10, 14, 0.97);
-  --spot-bg-secondary: rgba(18, 18, 24, 0.95);
-  --spot-bg-tertiary: rgba(22, 22, 28, 0.93);
-  --spot-bg-elevated: rgba(24, 24, 30, 0.95);
-  --spot-bg-surface: rgba(20, 20, 26, 0.98);
+  /* Core Colors */
+  --spot-bg-primary: rgba(30, 30, 30, 0.98);
+  --spot-bg-secondary: rgba(35, 35, 35, 0.98);
+  --spot-bg-tertiary: rgba(39, 39, 39, 0.98);
+  --spot-bg-elevated: rgba(47, 47, 47, 0.98);
+  --spot-bg-surface: rgba(47, 47, 47, 0.98);
 
-  /* Borders - Slightly more visible */
-  --spot-border: rgba(255, 255, 255, 0.1);
-  --spot-border-subtle: rgba(255, 255, 255, 0.06);
-  --spot-border-strong: rgba(255, 255, 255, 0.14);
-  --spot-border-focus: rgba(99, 144, 255, 0.5);
+  /* Borders */
+  --spot-border: var(--border-default);
+  --spot-border-subtle: var(--border-subtle);
+  --spot-border-strong: var(--border-strong);
+  --spot-border-focus: var(--interactive-focus-border);
 
-  /* Text - Better contrast */
-  --spot-text-primary: #f8f8fa;
-  --spot-text-secondary: #b0b0b8;
-  --spot-text-muted: #6e6e78;
-  --spot-text-dim: #505058;
+  /* Text */
+  --spot-text-primary: var(--text-primary);
+  --spot-text-secondary: var(--text-secondary);
+  --spot-text-muted: var(--text-tertiary);
+  --spot-text-dim: var(--text-muted);
 
-  /* Accent - Slightly more saturated */
-  --spot-accent: #6b8abf;
-  --spot-accent-hover: #5d7cab;
-  --spot-accent-muted: #6077a8;
-  --spot-accent-glow: rgba(107, 138, 191, 0);
-  --spot-accent-subtle: rgba(107, 138, 191, 0.1);
+  /* Accent */
+  --spot-accent: var(--accent-blue);
+  --spot-accent-hover: var(--accent-blue-strong);
+  --spot-accent-muted: var(--text-secondary);
+  --spot-accent-glow: rgba(232, 237, 242, 0.08);
+  --spot-accent-subtle: var(--interactive-selected-bg);
 
   /* Status Colors */
-  --spot-success: #34d399;
-  --spot-warning: #fbbf24;
-  --spot-error: #f87171;
-  --spot-error-subtle: rgba(248, 113, 113, 0.12);
+  --spot-success: var(--status-success);
+  --spot-warning: var(--status-warning);
+  --spot-error: var(--status-error);
+  --spot-error-subtle: var(--status-error-dim);
 
   /* Radii */
   --spot-radius-xs: 4px;
@@ -76,9 +76,7 @@ body.spotlight-shell-host,
   overflow: hidden;
   background: transparent !important;
   color: var(--spot-text-primary);
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui,
-    sans-serif;
+  font-family: var(--font-display);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
@@ -110,9 +108,9 @@ body.spotlight-shell-host,
   height: 100%;
   overflow: hidden;
   background: var(--spot-bg-primary);
-  border: 1px solid var(--spot-border);
+  border: 1px solid transparent;
   border-radius: var(--spot-radius-lg);
-  box-shadow: var(--spot-shadow-elevated);
+  box-shadow: var(--spot-shadow-elevated), var(--shadow-glow);
   position: relative;
 }
 
@@ -137,10 +135,10 @@ body.spotlight-shell-host,
   padding: 0 8px 0 12px;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.02) 0%,
+    rgba(232, 237, 242, 0.02) 0%,
     transparent 100%
   );
-  border-bottom: 1px solid var(--spot-border-subtle);
+  border-bottom: 1px solid transparent;
   flex-shrink: 0;
   position: relative;
   z-index: 20;
@@ -165,7 +163,7 @@ body.spotlight-shell-host,
 .spot-header-divider {
   width: 1px;
   height: 20px;
-  background: var(--spot-border);
+  background: rgba(255, 255, 255, 0.04);
   margin: 0 8px;
 }
 
@@ -174,7 +172,7 @@ body.spotlight-shell-host,
   display: flex;
   align-items: center;
   gap: 1px;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: var(--spot-radius-sm);
   padding: 2px;
 }
@@ -188,6 +186,7 @@ body.spotlight-shell-host,
   min-height: 0;
   position: relative;
   z-index: 1;
+  background: var(--spot-bg-secondary);
 }
 
 /* Main Content Panel */
@@ -196,9 +195,10 @@ body.spotlight-shell-host,
   display: flex;
   flex-direction: column;
   min-width: 0;
-  --spot-content-lane-template: minmax(12px, 1fr) minmax(0, 5fr) minmax(12px, 1fr);
+  --spot-content-lane-template: minmax(12px, 1fr) minmax(0, 5fr)
+    minmax(12px, 1fr);
   position: relative;
-  background: transparent;
+  background: var(--spot-bg-secondary);
   isolation: isolate;
   /* [FIX] Ensure container constrains children to trigger their overflow */
   overflow: hidden;
@@ -242,8 +242,8 @@ body.spotlight-shell-host,
   align-items: center;
   justify-content: center;
   border-radius: var(--spot-radius-sm);
-  border: 1px solid var(--spot-border);
-  background: var(--spot-bg-surface);
+  border: 1px solid transparent;
+  background: var(--surface-3);
   color: var(--spot-text-muted);
   cursor: pointer;
   transition: all var(--spot-transition-fast);
@@ -251,9 +251,8 @@ body.spotlight-shell-host,
 }
 
 .spot-sidebar-toggle:hover {
-  background: var(--spot-bg-elevated);
+  background: var(--surface-4);
   color: var(--spot-text-primary);
-  border-color: var(--spot-border-strong);
   box-shadow: var(--spot-shadow-md);
 }
 
@@ -280,22 +279,23 @@ body.spotlight-shell-host,
 }
 
 .spot-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--spot-text-primary);
 }
 
 .spot-icon-btn:active {
   transform: scale(0.92);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .spot-icon-btn.active {
-  color: var(--spot-accent);
+  color: var(--spot-text-primary);
   background: var(--spot-accent-subtle);
+  border: 1px solid transparent;
 }
 
 .spot-icon-btn.active:hover {
-  background: rgba(91, 138, 255, 0.15);
+  background: rgba(232, 237, 242, 0.07);
 }
 
 /* Close button - red hover */
@@ -305,7 +305,7 @@ body.spotlight-shell-host,
 }
 
 .spot-icon-btn.close:active {
-  background: rgba(248, 113, 113, 0.2);
+  background: var(--spot-error-subtle);
 }
 
 /* Action buttons (settings, code view) - slightly larger */
@@ -321,7 +321,7 @@ body.spotlight-shell-host,
   padding: 12px 0 16px;
   background:
     linear-gradient(to top, var(--spot-bg-primary) 60%, transparent 100%),
-    rgba(12, 12, 14, 0.98);
+    var(--spot-bg-secondary);
   position: relative;
   flex-shrink: 0;
   z-index: 30;
@@ -345,8 +345,8 @@ body.spotlight-shell-host,
   );
   background: linear-gradient(
     to top,
-    rgba(12, 12, 14, 0.98) 0%,
-    rgba(12, 12, 14, 0.85) 45%,
+    var(--spot-bg-secondary) 0%,
+    rgba(39, 39, 39, 0.92) 45%,
     transparent 100%
   );
 }
@@ -363,12 +363,12 @@ body.spotlight-shell-host,
   right: 0;
   top: -32px;
   height: 32px;
-  background: linear-gradient(to top, rgba(12, 12, 14, 0.98), transparent);
+  background: linear-gradient(to top, var(--spot-bg-secondary), transparent);
   pointer-events: none;
 }
 
 .spot-input-section.drag-active {
-  background: var(--spot-accent-subtle);
+  background: var(--interactive-selected-bg);
 }
 
 /* Input Wrapper - Clean Card */
@@ -376,8 +376,8 @@ body.spotlight-shell-host,
   grid-column: 2;
   border-radius: var(--spot-radius-xl);
   padding: 12px 14px;
-  background: var(--spot-bg-secondary);
-  border: 1px solid var(--spot-border);
+  background: var(--surface-3);
+  border: 1px solid transparent;
   transition: all var(--spot-transition);
   display: flex;
   flex-direction: column;
@@ -385,13 +385,13 @@ body.spotlight-shell-host,
   position: relative;
   z-index: 31;
   pointer-events: auto;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .spot-input-wrapper:focus-within {
-  background: var(--spot-bg-tertiary);
-  border-color: var(--spot-border-focus);
+  background: var(--surface-4);
   box-shadow:
-    0 0 0 3px var(--spot-accent-subtle),
+    inset 0 0 0 1px var(--spot-border-focus),
     var(--spot-shadow-md);
 }
 
@@ -480,8 +480,8 @@ body.spotlight-shell-host,
 
 .spot-context-btn.active {
   background: var(--spot-accent-subtle);
-  border-color: rgba(99, 144, 255, 0.2);
-  color: var(--spot-accent);
+  border-color: var(--interactive-selected-border);
+  color: var(--spot-text-primary);
 }
 
 /* Send Button - Primary CTA */
@@ -491,8 +491,8 @@ body.spotlight-shell-host,
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--spot-accent);
-  border: none;
+  background: var(--button-primary-bg);
+  border: 1px solid var(--button-primary-border);
   border-radius: var(--spot-radius-full);
   color: white;
   cursor: pointer;
@@ -501,7 +501,7 @@ body.spotlight-shell-host,
 }
 
 .spot-send-btn:hover:not(:disabled) {
-  background: var(--spot-accent-hover);
+  background: var(--button-primary-bg-hover);
   transform: translateY(-1px);
   box-shadow: none;
 }
@@ -559,7 +559,7 @@ body.spotlight-shell-host,
   border-color: var(--spot-warning);
   box-shadow:
     var(--spot-shadow-elevated),
-    inset 0 0 0 1px rgba(251, 191, 36, calc(var(--threshold-progress, 0) * 0.3));
+    inset 0 0 0 1px rgba(255, 184, 108, calc(var(--threshold-progress, 0) * 0.3));
   transition:
     opacity 150ms ease,
     border-color 150ms ease,
@@ -570,8 +570,8 @@ body.spotlight-shell-host,
   border-color: var(--spot-accent);
   box-shadow:
     var(--spot-shadow-elevated),
-    inset 0 0 0 1px rgba(99, 144, 255, calc(var(--threshold-progress, 0) * 0.3)),
-    0 0 calc(var(--threshold-progress, 0) * 20px) rgba(99, 144, 255, 0.2);
+    inset 0 0 0 1px rgba(255, 121, 198, calc(var(--threshold-progress, 0) * 0.3)),
+    0 0 calc(var(--threshold-progress, 0) * 20px) rgba(255, 121, 198, 0.2);
   transition:
     border-color 150ms ease,
     box-shadow 150ms ease;

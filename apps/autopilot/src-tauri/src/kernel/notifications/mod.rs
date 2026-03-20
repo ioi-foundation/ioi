@@ -1051,7 +1051,7 @@ async fn maybe_emit_google_productivity_notifications(app: &AppHandle) {
                         },
                         NotificationAction {
                             id: "open_integrations:google.workspace".to_string(),
-                            label: "Open Integrations".to_string(),
+                            label: "Open Capabilities".to_string(),
                             style: Some(NotificationActionStyle::Secondary),
                         },
                     ],
@@ -1177,7 +1177,7 @@ async fn maybe_emit_google_productivity_notifications(app: &AppHandle) {
                         },
                         NotificationAction {
                             id: "open_integrations:google.workspace".to_string(),
-                            label: "Open Integrations".to_string(),
+                            label: "Open Capabilities".to_string(),
                             style: Some(NotificationActionStyle::Secondary),
                         },
                     ],
@@ -1287,7 +1287,7 @@ async fn maybe_emit_google_productivity_notifications(app: &AppHandle) {
                     summary,
                     reason: Some(reason.to_string()),
                     recommended_action: Some(
-                        "Open Integrations to reconnect the account or inspect the connector."
+                        "Open Capabilities to reconnect the account or inspect the connection."
                             .to_string(),
                     ),
                     consequence_if_ignored: Some(
@@ -1324,7 +1324,7 @@ async fn maybe_emit_google_productivity_notifications(app: &AppHandle) {
                         },
                         NotificationAction {
                             id: format!("open_shield:{}", record.connector_id),
-                            label: "Open Shield".to_string(),
+                            label: "Open Policy".to_string(),
                             style: Some(NotificationActionStyle::Secondary),
                         },
                     ],
@@ -1390,9 +1390,9 @@ async fn maybe_emit_google_productivity_notifications(app: &AppHandle) {
                     reason_code,
                     "renewal_due" | "expires_soon" | "stale_delivery"
                 ) {
-                    "Renew the subscription now or inspect it in Integrations."
+                    "Renew the subscription now or inspect it in Capabilities."
                 } else {
-                    "Open Integrations to reconnect or inspect the subscription."
+                    "Open Capabilities to reconnect or inspect the subscription."
                 };
                 let record = AssistantNotificationRecord {
                     item_id: format!("notif-{}", Uuid::new_v4()),
@@ -1441,7 +1441,7 @@ async fn maybe_emit_google_productivity_notifications(app: &AppHandle) {
                         },
                         NotificationAction {
                             id: format!("open_integrations:{}", subscription.connector_id),
-                            label: "Open Integrations".to_string(),
+                            label: "Open Capabilities".to_string(),
                             style: Some(NotificationActionStyle::Secondary),
                         },
                     ],

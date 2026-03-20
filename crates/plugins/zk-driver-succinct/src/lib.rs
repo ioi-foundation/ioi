@@ -16,8 +16,8 @@ use ioi_api::{
 };
 use ioi_types::{
     app::{
-        canonical_collapse_succinct_mock_proof_bytes,
-        CanonicalCollapseContinuityProofSystem, CanonicalCollapseContinuityPublicInputs,
+        canonical_collapse_succinct_mock_proof_bytes, CanonicalCollapseContinuityProofSystem,
+        CanonicalCollapseContinuityPublicInputs,
     },
     ibc::StateProofScheme,
 };
@@ -46,17 +46,15 @@ impl ZkProofSystem for SimulatedGroth16 {
         let target_root: [u8; 32] = if let Ok(inputs) =
             bincode::deserialize::<CanonicalCollapseContinuityPublicInputs>(public_inputs)
         {
-            let expected_proof = canonical_collapse_succinct_mock_proof_bytes(&inputs).map_err(
-                |e| ioi_api::error::CryptoError::InvalidInput(format!(
-                    "canonical collapse continuity public inputs invalid: {}",
-                    e
-                )),
-            )?;
+            let expected_proof =
+                canonical_collapse_succinct_mock_proof_bytes(&inputs).map_err(|e| {
+                    ioi_api::error::CryptoError::InvalidInput(format!(
+                        "canonical collapse continuity public inputs invalid: {}",
+                        e
+                    ))
+                })?;
             return Ok(proof == expected_proof.as_slice());
-        }
-        else if let Ok(inputs) =
-            bincode::deserialize::<BeaconPublicInputs>(public_inputs)
-        {
+        } else if let Ok(inputs) = bincode::deserialize::<BeaconPublicInputs>(public_inputs) {
             inputs.new_state_root
         }
         // Try to interpret inputs as StateInclusionPublicInputs

@@ -423,7 +423,9 @@ pub fn run() {
             kernel::workflows::workflow_export_project,
             ingestion::ingest_file,
             project::save_project,
-            project::load_project
+            project::load_project,
+            project::project_shell_inspect,
+            project::project_initialize_repository
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

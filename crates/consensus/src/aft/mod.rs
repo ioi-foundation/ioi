@@ -9,7 +9,9 @@ use ioi_api::consensus::ConsensusControl;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_system::SystemState;
 use ioi_types::app::{
-    AccountId, Block, BlockHeader, ConsensusVote, FailureReport, QuorumCertificate,
+    AccountId, AftRecoveredCertifiedHeaderEntry, AftRecoveredConsensusHeaderEntry,
+    AftRecoveredRestartHeaderEntry, Block, BlockHeader, ConsensusVote, FailureReport,
+    QuorumCertificate,
 };
 use ioi_types::config::AftSafetyMode;
 use ioi_types::error::{ConsensusError, TransactionError};
@@ -179,10 +181,73 @@ where
         )
     }
 
+    fn observe_aft_recovered_consensus_header(
+        &mut self,
+        header: &AftRecoveredConsensusHeaderEntry,
+    ) -> bool {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::observe_aft_recovered_consensus_header(
+            &mut self.core,
+            header,
+        )
+    }
+
+    fn aft_recovered_consensus_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredConsensusHeaderEntry> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::aft_recovered_consensus_header_for_quorum_certificate(
+            &self.core, qc,
+        )
+    }
+
+    fn observe_aft_recovered_certified_header(
+        &mut self,
+        header: &AftRecoveredCertifiedHeaderEntry,
+    ) -> bool {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::observe_aft_recovered_certified_header(
+            &mut self.core,
+            header,
+        )
+    }
+
+    fn aft_recovered_certified_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredCertifiedHeaderEntry> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::aft_recovered_certified_header_for_quorum_certificate(
+            &self.core, qc,
+        )
+    }
+
+    fn observe_aft_recovered_restart_header(
+        &mut self,
+        header: &AftRecoveredRestartHeaderEntry,
+    ) -> bool {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::observe_aft_recovered_restart_header(
+            &mut self.core,
+            header,
+        )
+    }
+
+    fn aft_recovered_restart_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredRestartHeaderEntry> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::aft_recovered_restart_header_for_quorum_certificate(
+            &self.core, qc,
+        )
+    }
+
+    fn retain_recovered_ancestry_ranges(&mut self, keep_ranges: &[(u64, u64)]) {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::retain_recovered_ancestry_ranges(
+            &mut self.core,
+            keep_ranges,
+        )
+    }
+
     fn header_for_quorum_certificate(&self, qc: &QuorumCertificate) -> Option<BlockHeader> {
         <GuardianMajorityEngine as ConsensusEngine<T>>::header_for_quorum_certificate(
-            &self.core,
-            qc,
+            &self.core, qc,
         )
     }
 

@@ -1,7 +1,7 @@
 // Path: crates/execution/src/app/view.rs
 
-use super::ExecutionMachine;
 use super::PenaltyDelegator; // Added PenaltyDelegator to imports
+use super::{resolve_execution_anchor_from_recent_blocks_or_replay_prefix, ExecutionMachine};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, RemoteStateView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
@@ -71,43 +71,32 @@ where
         &self,
         state_ref: &StateRef,
     ) -> Result<Arc<dyn AnchoredStateView>, ChainError> {
-        let (resolved_root_bytes, gas_used) = if state_ref.state_root.is_empty() {
-            return Err(ChainError::UnknownStateAnchor(
-                "Cannot create view for empty state root".to_string(),
-            ));
-        } else if self.state.last_state_root == state_ref.state_root {
-            // Look up gas_used for the head block from recent_blocks
-            let gas = self
-                .state
-                .recent_blocks
-                .last()
-                .map(|b| b.header.gas_used)
-                .unwrap_or(0);
-            (Some(self.state.last_state_root.clone()), gas)
-        } else {
-            let found = self.state.recent_blocks.iter().rev().find_map(|b| {
-                if b.header.state_root.as_ref() == state_ref.state_root {
-                    tracing::info!(target: "state", event = "view_at_resolve", height = b.header.height, root = hex::encode(b.header.state_root.as_ref()));
-                    Some((b.header.state_root.0.clone(), b.header.gas_used))
+        let (resolved_root_bytes, gas_used) =
+            resolve_execution_anchor_from_recent_blocks_or_replay_prefix(
+                &self.state.recent_blocks,
+                &self.state.last_state_root,
+                &self.state.recent_aft_recovered_state,
+                state_ref.height,
+                &state_ref.state_root,
+            )
+            .ok_or_else(|| {
+                ChainError::UnknownStateAnchor(if state_ref.state_root.is_empty() {
+                    "Cannot create view for empty state root".to_string()
                 } else {
-                    None
-                }
-            });
-            match found {
-                Some((root, gas)) => (Some(root), gas),
-                None => (None, 0),
-            }
-        };
+                    hex::encode(&state_ref.state_root)
+                })
+            })?;
 
-        let root = resolved_root_bytes
-            .ok_or_else(|| ChainError::UnknownStateAnchor(hex::encode(&state_ref.state_root)))?;
-
-        tracing::info!(target: "state", event = "view_at_resolved", root = hex::encode(&root));
+        tracing::info!(
+            target: "state",
+            event = "view_at_resolved",
+            root = hex::encode(&resolved_root_bytes)
+        );
 
         let view = ChainStateView {
             state_tree: self.workload_container.state_tree(),
             height: state_ref.height,
-            root,
+            root: resolved_root_bytes,
             gas_used,
         };
         Ok(Arc::new(view))

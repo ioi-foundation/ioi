@@ -43,7 +43,8 @@ const FALLBACK_CONNECTORS: ConnectorSummary[] = [
     name: "Google",
     provider: "google",
     category: "productivity",
-    description: "Gmail, Calendar, Docs, Sheets, BigQuery, and durable Google automations.",
+    description:
+      "Gmail, Calendar, Docs, Sheets, BigQuery, and durable Google automations.",
     status: "connected",
     authMode: "wallet_capability",
     scopes: ["gmail", "calendar", "docs", "sheets", "bigquery", "automations"],
@@ -56,7 +57,10 @@ const DECISION_OPTIONS: Array<{ value: PolicyDecisionMode; label: string }> = [
   { value: "block", label: "Block" },
 ];
 
-const AUTOMATION_OPTIONS: Array<{ value: AutomationPolicyMode; label: string }> = [
+const AUTOMATION_OPTIONS: Array<{
+  value: AutomationPolicyMode;
+  label: string;
+}> = [
   { value: "confirm_on_create", label: "Confirm on create" },
   { value: "confirm_on_run", label: "Confirm on first run" },
   { value: "manual_only", label: "Manual only" },
@@ -145,7 +149,8 @@ export function ShieldPolicyView({
   onFocusConnector,
   onOpenIntegrations,
 }: ShieldPolicyViewProps) {
-  const [connectors, setConnectors] = useState<ConnectorSummary[]>(FALLBACK_CONNECTORS);
+  const [connectors, setConnectors] =
+    useState<ConnectorSummary[]>(FALLBACK_CONNECTORS);
   const [selectedTarget, setSelectedTarget] = useState<string>("global");
 
   useEffect(() => {
@@ -177,7 +182,8 @@ export function ShieldPolicyView({
   }, [focusedConnectorId]);
 
   const selectedConnector = useMemo(
-    () => connectors.find((connector) => connector.id === selectedTarget) ?? null,
+    () =>
+      connectors.find((connector) => connector.id === selectedTarget) ?? null,
     [connectors, selectedTarget],
   );
 
@@ -225,13 +231,20 @@ export function ShieldPolicyView({
     value: ConnectorPolicyOverride[K],
   ) => {
     if (!selectedConnector) return;
-    onChange(updateConnectorOverride(policyState, selectedConnector.id, { [key]: value }));
+    onChange(
+      updateConnectorOverride(policyState, selectedConnector.id, {
+        [key]: value,
+      }),
+    );
   };
 
   const activeOverrides = countActiveOverrides(policyState);
   const connectorInheritsGlobal =
-    selectedConnector && policyState.overrides[selectedConnector.id]?.inheritGlobal !== false;
-  const scopeLabel = selectedConnector ? "Connector override" : "Global baseline";
+    selectedConnector &&
+    policyState.overrides[selectedConnector.id]?.inheritGlobal !== false;
+  const scopeLabel = selectedConnector
+    ? "Connector override"
+    : "Global baseline";
   const inheritanceLabel = selectedConnector
     ? connectorInheritsGlobal
       ? "Inherited"
@@ -257,17 +270,22 @@ export function ShieldPolicyView({
                 Reads {decisionSummary(policyState.global.reads)} · Writes{" "}
                 {decisionSummary(policyState.global.writes)}
               </span>
-              <small>Applies everywhere unless a connector override is active.</small>
+              <small>
+                Applies everywhere unless a connection override is active.
+              </small>
             </button>
           </div>
 
           <div className="shield-sidebar-section">
             <div className="shield-sidebar-head">
-              <strong>Connector overrides</strong>
-              <span>{connectors.length} connectors</span>
+              <strong>Connection overrides</strong>
+              <span>{connectors.length} connections</span>
             </div>
             {connectors.map((connector) => {
-              const summary = buildConnectorPolicySummary(policyState, connector.id);
+              const summary = buildConnectorPolicySummary(
+                policyState,
+                connector.id,
+              );
               const override = policyState.overrides[connector.id];
               return (
                 <button
@@ -278,7 +296,9 @@ export function ShieldPolicyView({
                 >
                   <div className="shield-target-head">
                     <strong>{connector.name}</strong>
-                    <span className={`shield-status status-${connector.status}`}>
+                    <span
+                      className={`shield-status status-${connector.status}`}
+                    >
                       {connectorStatusLabel(connector.status)}
                     </span>
                   </div>
@@ -299,9 +319,13 @@ export function ShieldPolicyView({
           <div className="shield-detail-head">
             <div>
               <span className="shield-kicker">
-                {selectedConnector ? "Connector policy" : "Global defaults"}
+                {selectedConnector ? "Connection policy" : "Global defaults"}
               </span>
-              <h2>{selectedConnector ? `${selectedConnector.name} policy` : "Global policy baseline"}</h2>
+              <h2>
+                {selectedConnector
+                  ? `${selectedConnector.name} policy`
+                  : "Global policy baseline"}
+              </h2>
               <p>{selectedPolicy.summary.detail}</p>
             </div>
             <div className="shield-detail-actions">
@@ -309,7 +333,10 @@ export function ShieldPolicyView({
                 <label className="shield-toggle">
                   <input
                     type="checkbox"
-                    checked={policyState.overrides[selectedConnector.id]?.inheritGlobal !== false}
+                    checked={
+                      policyState.overrides[selectedConnector.id]
+                        ?.inheritGlobal !== false
+                    }
                     onChange={(event) =>
                       updateOverride("inheritGlobal", event.target.checked)
                     }
@@ -321,7 +348,11 @@ export function ShieldPolicyView({
                 <button
                   type="button"
                   className="shield-button shield-button-secondary"
-                  onClick={() => onChange(resetConnectorOverride(policyState, selectedConnector.id))}
+                  onClick={() =>
+                    onChange(
+                      resetConnectorOverride(policyState, selectedConnector.id),
+                    )
+                  }
                 >
                   Reset override
                 </button>
@@ -332,13 +363,17 @@ export function ShieldPolicyView({
                   className="shield-button shield-button-secondary"
                   onClick={onOpenIntegrations}
                 >
-                  Open connector
+                  Open capabilities
                 </button>
               ) : null}
             </div>
           </div>
 
-          <div className="shield-summary-row" role="list" aria-label="Policy summary">
+          <div
+            className="shield-summary-row"
+            role="list"
+            aria-label="Policy summary"
+          >
             <article className="shield-summary-chip" role="listitem">
               <span>Scope</span>
               <strong>{scopeLabel}</strong>
@@ -353,11 +388,15 @@ export function ShieldPolicyView({
             </article>
             <article className="shield-summary-chip" role="listitem">
               <span>Writes</span>
-              <strong>{decisionSummary(selectedPolicy.effective.writes)}</strong>
+              <strong>
+                {decisionSummary(selectedPolicy.effective.writes)}
+              </strong>
             </article>
             <article className="shield-summary-chip" role="listitem">
               <span>Automations</span>
-              <strong>{automationSummary(selectedPolicy.effective.automations)}</strong>
+              <strong>
+                {automationSummary(selectedPolicy.effective.automations)}
+              </strong>
             </article>
             <article className="shield-summary-chip" role="listitem">
               <span>Overrides</span>
@@ -368,8 +407,9 @@ export function ShieldPolicyView({
           <div className="shield-callout">
             <strong>{selectedPolicy.summary.headline}</strong>
             <p>
-              Precedence resolves in this order: hard runtime stop, global baseline, connector
-              override, graph tightening, then explicit approval at execution time.
+              Precedence resolves in this order: hard runtime stop, global
+              baseline, connector override, graph tightening, then explicit
+              approval at execution time.
             </p>
           </div>
 
@@ -389,7 +429,9 @@ export function ShieldPolicyView({
                 options={DECISION_OPTIONS}
                 disabled={Boolean(connectorInheritsGlobal)}
                 onChange={(value) =>
-                  selectedConnector ? updateOverride("reads", value) : updateGlobal("reads", value)
+                  selectedConnector
+                    ? updateOverride("reads", value)
+                    : updateGlobal("reads", value)
                 }
               />
               <PolicySelect
@@ -398,7 +440,9 @@ export function ShieldPolicyView({
                 options={DECISION_OPTIONS}
                 disabled={Boolean(connectorInheritsGlobal)}
                 onChange={(value) =>
-                  selectedConnector ? updateOverride("writes", value) : updateGlobal("writes", value)
+                  selectedConnector
+                    ? updateOverride("writes", value)
+                    : updateGlobal("writes", value)
                 }
               />
               <PolicySelect
@@ -407,7 +451,9 @@ export function ShieldPolicyView({
                 options={DECISION_OPTIONS}
                 disabled={Boolean(connectorInheritsGlobal)}
                 onChange={(value) =>
-                  selectedConnector ? updateOverride("admin", value) : updateGlobal("admin", value)
+                  selectedConnector
+                    ? updateOverride("admin", value)
+                    : updateGlobal("admin", value)
                 }
               />
               <PolicySelect
@@ -416,7 +462,9 @@ export function ShieldPolicyView({
                 options={DECISION_OPTIONS}
                 disabled={Boolean(connectorInheritsGlobal)}
                 onChange={(value) =>
-                  selectedConnector ? updateOverride("expert", value) : updateGlobal("expert", value)
+                  selectedConnector
+                    ? updateOverride("expert", value)
+                    : updateGlobal("expert", value)
                 }
               />
               <PolicySelect
@@ -450,23 +498,24 @@ export function ShieldPolicyView({
               <article className="shield-guidance-card">
                 <strong>Use the global baseline for broad posture</strong>
                 <p>
-                  Keep global settings conservative, then override only when a connector has a clear
-                  operational need to behave differently.
+                  Keep global settings conservative, then override only when a
+                  connection has a clear operational need to behave differently.
                 </p>
               </article>
               <article className="shield-guidance-card">
-                <strong>Policy is separate from connector auth</strong>
+                <strong>Policy is separate from connection auth</strong>
                 <p>
-                  Wallet-backed connector auth stores durable credentials and consent state, while
-                  Control policy defines whether reads, writes, admin actions, and automations
-                  should run automatically.
+                  Wallet-backed connection auth stores durable credentials and
+                  consent state, while policy defines whether reads, writes,
+                  admin actions, and automations should run automatically.
                 </p>
               </article>
               <article className="shield-guidance-card">
                 <strong>Automations deserve their own gate</strong>
                 <p>
-                  Durable background work is different from one-shot actions. Keep creation and first
-                  execution approvals explicit unless a connector truly needs autonomy.
+                  Durable background work is different from one-shot actions.
+                  Keep creation and first execution approvals explicit unless a
+                  connection truly needs autonomy.
                 </p>
               </article>
             </div>

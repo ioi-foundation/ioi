@@ -1,7 +1,7 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 
-use super::context::MainLoopContext;
 use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
+use super::context::MainLoopContext;
 use super::finalize::schedule_committed_block_vote_replays;
 use super::sync as sync_handlers;
 use crate::standard::orchestration::mempool::Mempool;
@@ -540,8 +540,8 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                         None
                     }
                 };
-                let accepted =
-                    engine.observe_committed_block(&processed_block.header, committed_collapse.as_ref());
+                let accepted = engine
+                    .observe_committed_block(&processed_block.header, committed_collapse.as_ref());
                 if !accepted {
                     tracing::warn!(
                         target: "gossip",

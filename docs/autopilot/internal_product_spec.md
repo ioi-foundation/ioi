@@ -1,29 +1,23 @@
-Yes. The current spec is strong, but based on our discussion I would revise it in five major ways:
-
-1. **Reserve “runtime” for the underlying fractal kernel**
-2. **Promote “worker” as the primary product abstraction**
-3. **Split Policy from Settings/Configuration**
-4. **Replace broad “Control” language with clearer product IA**
-5. **Clarify how Extensions, Connections, Workers, and Models relate**
-
-Below is a revised version that keeps your intent but tightens the ontology.
-
----
-
 # Autopilot Internal Product Spec
 
-**Version:** 1.1
+**Version:** 1.2
 **Status:** Proposed revision
-**Audience:** Product, design, Studio UI, Spotlight UI, runtime, orchestration, policy, connector, and platform teams
+**Audience:** Product, design, Studio UI, Spotlight UI, runtime, orchestration, policy, capability, connector, and platform teams
 
 ## 1. Vision-State Product Definition
 
 **Category:** Autonomous agent orchestration platform
 **Differentiator:** Private, sovereign, and verifiable by design
 
-Autopilot is the control plane for autonomous, private, and verifiable software workers.
+Autopilot is the private and sovereign operator shell for autonomous, local-first, and verifiable software workers.
 
 At its end state, Autopilot is not just a private desktop assistant, a workflow builder, or a copilot. It is a zero-trust hypervisor for generative AI that lets an individual or organization run bounded digital workers across the desktop, browser, APIs, and external software systems while preserving operator control, policy enforcement, provenance, and replayable evidence.
+
+Within the broader IOI surface map, Autopilot is where workers are operated privately and locally. When stable local work should become a provider-facing product with deployment presets, billing, tenants, and marketplace publication, the promotion path continues into `sas.xyz`.
+
+**Doctrine:** Autopilot stabilizes work; `sas.xyz` productizes it.
+
+Autopilot overlaps with `sas.xyz` in the shared authoring layer, but that overlap is the private/local lens: operate, refine, stabilize, and promote. Formal packaging, deployment presets, serving posture, tenancy, billing, and distribution live in `sas.xyz`.
 
 Autopilot should unify six things that are usually split apart:
 
@@ -31,7 +25,7 @@ Autopilot should unify six things that are usually split apart:
 * connector-based automation
 * worker orchestration
 * bounded recursive improvement
-* service-as-software packaging
+* local-to-service promotion
 * verifiable execution under sovereign control
 
 The product should start from the user’s machine and trust boundary, but grow into a company-scale orchestration layer for fleets of digital workers.
@@ -42,11 +36,11 @@ The product should start from the user’s machine and trust boundary, but grow 
 
 ### One sentence
 
-Autopilot is an autonomous agent orchestration platform for running private, sovereign, and verifiable software workers across your desktop, apps, and connected systems.
+Autopilot is the private/local operator shell and orchestration platform for running sovereign, verifiable software workers across your desktop, apps, and connected systems with governed capabilities.
 
 ### One paragraph
 
-Autopilot is the operating layer for software workers: a zero-trust hypervisor and orchestration platform that can understand goals, decompose work, spawn and supervise worker swarms, act through computer use and connections, and package stable workflows into durable digital services. It is private by default, sovereign in control, and verifiable in execution, so every meaningful action can be gated, audited, simulated, replayed, and improved without surrendering authority to a black-box cloud agent.
+Autopilot is the operating layer for software workers: a zero-trust hypervisor and orchestration platform that can understand goals, decompose work, spawn and supervise worker swarms, act through a unified capability surface spanning computer use, connected systems, tools, and reusable skills, and promote stable workflows into durable service candidates. It is private by default, sovereign in control, and verifiable in execution, so every meaningful action can be gated, audited, simulated, replayed, and improved without surrendering authority to a black-box cloud agent.
 
 ---
 
@@ -66,10 +60,11 @@ A private desktop assistant that can:
 
 A worker orchestration studio that can:
 
-* define workers, workflows, triggers, policy posture, tools, memory, and models
+* define workers, workflows, capabilities, triggers, policy posture, memory, and models
 * route work across specialist workers
 * monitor runs, failures, artifacts, receipts, and approvals
-* convert successful ad hoc tasks into durable services
+* convert successful ad hoc tasks into durable service candidates
+* preview service-candidate characteristics before promotion without owning live provider presets
 * evolve and improve workflows under bounded controls
 
 ### 3.3 For a company
@@ -78,7 +73,7 @@ A digital workforce control plane that can:
 
 * run fleets of workers across internal and external systems
 * support function-specific workers for research, support, GTM, finance, ops, legal, recruiting, and engineering
-* use connections, APIs, computer use, and browser automation together
+* use capabilities spanning connections, APIs, computer use, and browser automation together
 * provide a durable Inbox for interventions, approvals, exceptions, and result review
 * let leadership supervise outcomes, not prompt transcripts
 
@@ -105,7 +100,7 @@ The market has converged on two weak shapes:
 
 Autopilot should collapse that distinction.
 
-The winning product is not AI chat and not workflow automation in isolation, but a sovereign orchestration layer where natural language, structured workflows, computer use, and connected systems all feed one kernel, one worker model, and one governance model.
+The winning product is not AI chat and not workflow automation in isolation, but a sovereign orchestration layer where natural language, structured workflows, reusable skills, computer use, and connected systems all feed one kernel, one worker model, and one governance model.
 
 That system must be:
 
@@ -154,6 +149,7 @@ This requires both:
 * connections
 
 Neither is sufficient alone.
+Over time, both should live inside one capability surface alongside reusable skills and installable extensions.
 
 ### 5.3 Orchestrated autonomy
 
@@ -180,7 +176,7 @@ Autopilot should produce:
 * provenance
 * policy decisions
 * execution receipts
-* connection actions
+* capability actions
 * source references
 * replayable traces where possible
 
@@ -216,21 +212,23 @@ Workers should not be able to:
 * mutate critical operating rules invisibly
 * exfiltrate data under the guise of self-improvement
 
-### 5.6 Service-as-software packaging
+### 5.6 Service candidate promotion
 
-A successful workflow should be promotable into a durable service.
+A successful workflow should be promotable into a durable service candidate.
 
 Operators should be able to:
 
-* turn repeatable workflows into named workers and services
+* turn repeatable workflows into named workers and service candidates
 * version them
 * assign inputs, outputs, and SLAs
 * monitor them
 * approve them
-* expose them internally or externally
-* attach pricing, budgets, or quotas when needed
+* prepare them for internal use or downstream provider exposure
+* prepare promotion metadata and preview deployment characteristics when needed
 
-This is where the product grows beyond assistant into a true economic primitive.
+Autopilot should own the local promotion path and pre-product validation. Provider packaging, tenant operations, billing, and publication should continue in `sas.xyz`.
+**Doctrine:** Autopilot stabilizes work; `sas.xyz` productizes it.
+Autopilot may preview service shape or deployment implications, but `sas.xyz` is the source of truth for provider manifests, deployment presets, readiness posture, tenant setup, billing, and publication.
 
 ---
 
@@ -244,7 +242,7 @@ Autopilot should be all of the following at once:
 * a human decision surface
 * a zero-trust hypervisor for generative AI
 * a bounded digital worker operating system
-* a service-as-software control plane
+* a local promotion surface for service candidates
 
 ---
 
@@ -271,9 +269,19 @@ A reusable software worker with:
 * memory model
 * policy scope
 * budget
-* tools and connections
 * model configuration
 * specialization profile
+
+### Capability
+
+A grantable surface a worker can use directly, or an installable package that adds such surfaces.
+
+Capability forms include:
+
+* connections
+* skills
+* tools
+* extensions
 
 ### Workflow
 
@@ -304,7 +312,7 @@ A specific execution instance with:
 
 ### Connection
 
-A reachable external system with:
+An authenticated reachable external system with:
 
 * auth
 * scopes
@@ -313,11 +321,33 @@ A reachable external system with:
 * trust posture
 * recent activity
 
+### Skill
+
+A reusable higher-level procedure or packaged operating pattern with:
+
+* an intended outcome
+* underlying tools and connections
+* versioning and promotion paths
+* policy compatibility
+* reuse boundaries
+
+### Tool
+
+A concrete callable operation with:
+
+* an action contract
+* a parameter schema
+* execution constraints
+* observability and receipts
+* escalation semantics when required
+
 ### Extension
 
 An installable capability package that adds one or more of:
 
 * adapters
+* connections
+* skills
 * tools
 * worker backends
 * local app integrations
@@ -425,7 +455,7 @@ Autopilot’s product loop should be:
    The system forms an execution plan or selects a known one.
 
 3. **Delegate**
-   Work is split across workers, tools, connections, and computer-use actions.
+   Work is split across workers and capabilities such as skills, tools, connections, and computer-use actions.
 
 4. **Execute**
    Workers act across apps, browser, terminal, docs, and connected systems.
@@ -443,7 +473,7 @@ Autopilot’s product loop should be:
    The system proposes workflow extraction, refinement, new tests, or serviceization.
 
 9. **Productize**
-   Repeated successful work becomes a durable digital service.
+   Repeated successful work becomes a durable service candidate that can be promoted into `sas.xyz`, where formal packaging, deployment presets, tenancy, billing, and distribution become provider source-of-truth concerns.
 
 That loop is the core of the product.
 
@@ -459,7 +489,7 @@ Natural language control surface used to instruct, inspect, redirect, and resolv
 
 ### Workflows
 
-Visual and structured authoring surface used to define durable worker systems.
+Visual and structured authoring surface used to define durable worker systems and stabilize service candidates in the private/local lens.
 
 ### Runs
 
@@ -469,17 +499,31 @@ Operational surface used to observe live and historical execution.
 
 Durable decision surface used for approvals, clarifications, results, anomalies, and digests.
 
-### Connections
+### Capabilities
 
-Reachability surface used to bind external systems and define scopes and trust posture.
+Surface used to manage the systems, skills, and installable extensions available to workers.
 
-### Extensions
+Primary subsections should be:
 
-Installable capability surface used to manage adapters, wrappers, plugins, and external worker integrations.
+* Connections
+* Skills
+* Extensions
+* Tools in advanced or builder mode when needed
 
 ### Policy
 
 Governance surface used to define authority, approvals, budgets, allowlists, leases, and egress rules.
+
+This is primarily **local/operator policy**:
+
+* local worker authority
+* local file/browser/app permissions
+* local approvals
+* egress rules
+* local capability leases
+* trust boundary rules
+
+Service-level operating envelopes, tenant-facing approvals, hosted execution restrictions, deployment-specific policy profiles, exposure limits, and billing enforcement belong in `sas.xyz`.
 
 ### Settings
 
@@ -491,7 +535,7 @@ Unified inspection surface for outputs, evidence, previews, receipts, and proven
 
 ### Catalog and Services
 
-Surface for reusable workers, promoted workflows, internal services, and distribution.
+Surface for reusable workers, promoted workflows, local installs, and service candidates. It overlaps with `sas.xyz` through the shared Builder engine, but provider publication, deployment presets, tenant ops, and commercial distribution should continue in `sas.xyz`.
 
 ### Home and Mission Control
 
@@ -537,15 +581,23 @@ Workers exposed as durable software services with defined inputs and outputs.
 
 ### Improvement workers
 
-Workers that analyze runs and propose improvements to prompts, routing, tools, or workflows.
+Workers that analyze runs and propose improvements to prompts, routing, capabilities, or workflows.
 
 The orchestration layer should let these workers collaborate while remaining bounded by policy and authority.
 
 ---
 
-## 11. Computer Use and Connections
+## 11. The Capability Surface
 
-The strongest version of Autopilot must treat both as native.
+The strongest version of Autopilot must treat capabilities as the full surface a worker can use.
+
+### Capability surface includes
+
+* reach through connections to external systems
+* action through tools and computer use
+* reusable know-how through skills
+
+Computer use is a first-class capability domain composed of typed action surfaces, not merely a single generic tool.
 
 ### Computer use covers
 
@@ -569,9 +621,17 @@ The strongest version of Autopilot must treat both as native.
 * custom APIs
 * internal enterprise systems
 
+### Skills cover
+
+* inbox triage
+* research brief generation
+* repo audit
+* expense categorization
+* investor update drafting
+
 ### Key principle
 
-Use connections where possible, computer use where necessary, and unify both behind one execution model.
+Use connections where possible, computer use where necessary, and skills where recurring work deserves a reusable named behavior. Unify all three behind one capability model.
 
 The operator should not need to care whether the worker achieved the outcome via:
 
@@ -580,6 +640,7 @@ The operator should not need to care whether the worker achieved the outcome via
 * filesystem manipulation
 * a terminal command
 * a local app interaction
+* a packaged inbox triage skill
 
 They should care that:
 
@@ -590,14 +651,21 @@ They should care that:
 
 ---
 
-## 12. Extensions, Workers, and Models
+## 12. Capabilities, Extensions, Workers, and Models
 
 Autopilot must distinguish clearly between product ontology and implementation substrate.
 
+### Capabilities
+
+Capabilities are what workers use.
+The operator-facing umbrella should group connections, skills, and extensions together, while low-level tools surface more directly in advanced or builder contexts.
+
 ### Extensions
 
-Extensions are how new capability surfaces enter the system. They may install:
+Extensions are installable packages that add one or more capabilities. They may install:
 
+* connections
+* skills
 * adapters
 * tools
 * wrappers
@@ -605,9 +673,12 @@ Extensions are how new capability surfaces enter the system. They may install:
 * MCP integrations
 * local app integrations
 
+Extensions are installable packaging and distribution units; they are not the primary user-facing ontology for daily operation.
+
 ### Workers
 
 Workers are the user-facing software labor units that do the work.
+A worker has a role, a model configuration, a policy scope, and a set of capabilities.
 
 ### Models
 
@@ -622,7 +693,8 @@ Models are subordinate worker configuration, not the primary product abstraction
 
 ### Product rule
 
-Extensions may introduce new worker backends, but workers remain the primary product object. Models power workers; they are not peers to workers in the user-facing ontology.
+Workers are actors. Models are cognitive backends. Capabilities are what workers can use. Policy defines what workers are allowed to do. The kernel and runtime are the substrate that enforces those rules.
+Extensions may introduce new worker backends or new capabilities, but workers remain the primary product object. Models power workers; they are not peers to workers in the user-facing ontology.
 
 ---
 
@@ -660,7 +732,8 @@ Autopilot should support workers that improve workflows and services over time, 
 * better decomposition
 * prompt and instruction refinement
 * tool choice improvements
-* connection routing improvements
+* capability routing improvements
+* skill extraction and reuse
 * test generation
 * policy suggestions
 * reusable sub-workflow extraction
@@ -702,7 +775,7 @@ Workers receive capability-specific rights, not ambient access.
 
 ### Delegated capability leases
 
-Connections and credentials are mediated through durable, revocable grants.
+Connections, credentials, and other sensitive capabilities are mediated through durable, revocable grants.
 
 ### Explicit authority boundaries
 
@@ -744,7 +817,7 @@ Autopilot should follow these doctrines.
    A smart model does not get to act freely.
 
 2. Reach is separate from authority.
-   Connection access and permission to act are distinct.
+   Capability access and permission to act are distinct.
 
 3. Progress beats opacity.
    Workers should surface plan, status, blockers, and next steps in structured form.
@@ -756,7 +829,7 @@ Autopilot should follow these doctrines.
    A great system knows when to escalate.
 
 6. Durable work should become durable software.
-   Repeated work should promote into services.
+   Repeated work should promote into service candidates locally and into provider services through `sas.xyz`.
 
 7. Improvement must be governed.
    Optimization without bounds becomes loss of sovereignty.
@@ -765,7 +838,7 @@ Autopilot should follow these doctrines.
    The same core primitives should work for personal, team, and company modes.
 
 9. Product ontology must reflect operator meaning, not just implementation details.
-   A worker is not merely a tool; a model is not merely a worker; an extension is not merely a connection.
+   A worker uses capabilities; a model powers a worker; an extension packages capabilities; the kernel and runtime enforce the boundary.
 
 ---
 
@@ -779,6 +852,7 @@ Autopilot should explicitly not become:
 * just an API wrapper
 * an opaque cloud agent
 * a generic agent marketplace shell
+* the primary provider monetization or tenant-ops console
 * assistant suggestions as the main UX
 
 Chat is a surface, not the product. The core UX is control, outcomes, and decision surfaces.
@@ -793,7 +867,7 @@ Chat is a surface, not the product. The core UX is control, outcomes, and decisi
 
 ### Builder
 
-“Take something I did in chat, extract it into a workflow, attach approvals and policy, test it, and promote it into a durable worker.”
+“Take something I did in chat, extract it into a skill or workflow, attach approvals and policy, test it, and promote it into a durable worker.”
 
 ### Team operator
 
@@ -805,11 +879,11 @@ Chat is a surface, not the product. The core UX is control, outcomes, and decisi
 
 ### Enterprise integrator
 
-“Bind internal systems and SaaS tools to workers without surrendering secrets, policy, or auditability.”
+“Bind internal systems and SaaS tools into worker capabilities without surrendering secrets, policy, or auditability.”
 
 ### Service creator
 
-“Package a reliable workflow into a digital service with an interface, budget, monitoring, and verifiable execution.”
+“Package a reliable workflow into a service candidate locally, then promote it into a provider service with an interface, budget, monitoring, and verifiable execution.”
 
 ---
 
@@ -817,7 +891,7 @@ Chat is a surface, not the product. The core UX is control, outcomes, and decisi
 
 At maturity, Autopilot should make it possible to say:
 
-> A user or company can run an entire layer of autonomous software labor under their own authority, across local and connected systems, with computer use and APIs combined, with worker swarms coordinated under policy, with outcomes surfaced through durable review and approval queues, and with enough evidence and replayability to trust and continuously improve the system over time.
+> A user or company can run an entire layer of autonomous software labor under their own authority, across local and connected systems, with capabilities spanning computer use and APIs, with worker swarms coordinated under policy, with outcomes surfaced through durable review and approval queues, and with enough evidence and replayability to trust and continuously improve the system over time.
 
 That is the end state.
 
@@ -832,7 +906,7 @@ Autopilot should feel like:
 * an operational supervision surface when the task is live and ongoing
 * a human intervention queue when the task needs judgment
 * a zero-trust hypervisor when the task crosses trust boundaries
-* a service operating system when the task becomes repeatable software labor
+* a promotion surface into provider services when the task becomes repeatable software labor
 
 One shell. One ontology. One control plane.
 
@@ -840,6 +914,6 @@ One shell. One ontology. One control plane.
 
 ## 21. Final Product Statement
 
-Autopilot should strive to become the operating system for sovereign software workers: an autonomous agent orchestration platform that is private, sovereign, and verifiable by design, capable of spanning private desktop assistance, computer use, connections, worker swarms, bounded recursive improvement, and service-as-software orchestration inside a zero-trust generative AI hypervisor.
+Autopilot should strive to become the operating system for sovereign software workers: an autonomous agent orchestration platform that is private, sovereign, and verifiable by design, capable of spanning private desktop assistance, governed capabilities across computer use and connected systems, worker swarms, bounded recursive improvement, and local-to-service promotion inside a zero-trust generative AI hypervisor.
 
 That is the product.

@@ -15,52 +15,51 @@ use ioi_system::SystemState;
 use ioi_types::app::{
     aft_bulletin_availability_certificate_key, aft_bulletin_commitment_key,
     aft_canonical_bulletin_close_key, aft_canonical_collapse_object_key,
-    aft_canonical_order_abort_key,
-    build_canonical_bulletin_close,
-    canonical_asymptote_observer_assignment_hash,
+    aft_canonical_order_abort_key, aft_publication_frontier_contradiction_key,
+    aft_publication_frontier_key, bind_canonical_collapse_continuity,
+    build_canonical_bulletin_close, canonical_asymptote_observer_assignment_hash,
     canonical_asymptote_observer_assignments_hash,
     canonical_asymptote_observer_canonical_close_hash,
     canonical_asymptote_observer_challenges_hash,
     canonical_asymptote_observer_observation_request_hash,
     canonical_asymptote_observer_transcript_hash, canonical_asymptote_observer_transcripts_hash,
     canonical_bulletin_availability_certificate_hash, canonical_bulletin_close_hash,
-    bind_canonical_collapse_continuity,
-    canonical_collapse_commitment,
-    canonical_collapse_continuity_public_inputs,
-    canonical_collapse_commitment_hash_from_object,
-    canonical_collapse_extension_certificate,
-    canonical_bulletin_commitment_hash, canonical_order_certificate_hash,
-    canonical_sealed_finality_proof_signing_bytes,
+    canonical_bulletin_commitment_hash, canonical_collapse_commitment,
+    canonical_collapse_commitment_hash_from_object, canonical_collapse_continuity_public_inputs,
+    canonical_collapse_extension_certificate, canonical_order_certificate_hash,
+    canonical_publication_frontier_hash, canonical_sealed_finality_proof_signing_bytes,
     compute_next_timestamp_ms, derive_asymptote_observer_plan_entries,
-    derive_canonical_sealing_collapse,
-    derive_guardian_witness_assignment, derive_guardian_witness_assignments_for_strata,
-    effective_set_for_height, guardian_registry_asymptote_policy_key,
-    guardian_registry_checkpoint_key, guardian_registry_committee_account_key,
-    guardian_registry_committee_key, guardian_registry_log_key,
-    guardian_registry_observer_canonical_abort_key,
+    derive_canonical_sealing_collapse, derive_guardian_witness_assignment,
+    derive_guardian_witness_assignments_for_strata, effective_set_for_height,
+    guardian_registry_asymptote_policy_key, guardian_registry_checkpoint_key,
+    guardian_registry_committee_account_key, guardian_registry_committee_key,
+    guardian_registry_log_key, guardian_registry_observer_canonical_abort_key,
     guardian_registry_observer_canonical_close_key,
-    guardian_registry_observer_challenge_commitment_key, guardian_registry_observer_transcript_commitment_key,
-    guardian_registry_witness_key, guardian_registry_witness_seed_key,
-    guardian_registry_witness_set_key, read_validator_sets, timestamp_millis_to_legacy_seconds,
-    to_root_hash, verify_block_header_canonical_collapse_evidence,
-    verify_canonical_order_certificate, AccountId, AsymptoteObserverAssignment,
-    AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose,
-    AsymptoteObserverCertificate,
+    guardian_registry_observer_challenge_commitment_key,
+    guardian_registry_observer_transcript_commitment_key, guardian_registry_witness_key,
+    guardian_registry_witness_seed_key, guardian_registry_witness_set_key,
+    guardian_witness_statement_for_header,
+    guardian_witness_statement_for_header_with_recovery_binding, read_validator_sets,
+    timestamp_millis_to_legacy_seconds, to_root_hash,
+    verify_block_header_canonical_collapse_evidence, verify_canonical_collapse_continuity,
+    verify_canonical_order_certificate, verify_publication_frontier_binding,
+    verify_publication_frontier_chain, AccountId, AftRecoveredCertifiedHeaderEntry,
+    AftRecoveredConsensusHeaderEntry, AftRecoveredRestartHeaderEntry, AsymptoteObserverAssignment,
+    AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose, AsymptoteObserverCertificate,
     AsymptoteObserverChallengeKind, AsymptoteObserverObservationRequest,
     AsymptoteObserverSealingMode, AsymptoteObserverStatement, AsymptoteObserverTranscript,
-    AsymptoteObserverVerdict,
-    AsymptotePolicy, Block, BlockHeader, BlockTimingParams, BlockTimingRuntime,
-    BulletinAvailabilityCertificate, BulletinCommitment, CanonicalBulletinClose,
-    CanonicalCollapseContinuityProofSystem, CanonicalCollapseExtensionCertificate, CanonicalCollapseKind,
-    CanonicalCollapseObject, CanonicalOrderingCollapse,
-    CanonicalOrderAbort, ChainStatus, ChainTransaction,
-    CollapseState, ConsensusVote,
-    EchoMessage, FailureReport, FinalityTier, GuardianCommitteeManifest, GuardianDecision,
-    GuardianDecisionDomain, GuardianLogCheckpoint, GuardianQuorumCertificate,
-    GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest,
-    GuardianWitnessEpochSeed, GuardianWitnessSet, GuardianWitnessStatement,
-    ProofOfDivergence, QuorumCertificate, TimeoutCertificate, ViewChangeVote,
-    verify_canonical_collapse_continuity,
+    AsymptoteObserverVerdict, AsymptotePolicy, Block, BlockHeader, BlockTimingParams,
+    BlockTimingRuntime, BulletinAvailabilityCertificate, BulletinCommitment,
+    CanonicalBulletinClose, CanonicalCollapseContinuityProofSystem,
+    CanonicalCollapseExtensionCertificate, CanonicalCollapseKind, CanonicalCollapseObject,
+    CanonicalOrderAbort, CanonicalOrderingCollapse, ChainStatus, ChainTransaction, CollapseState,
+    ConsensusVote, EchoMessage, FailureReport, FinalityTier, GuardianCommitteeManifest,
+    GuardianDecision, GuardianDecisionDomain, GuardianLogCheckpoint, GuardianQuorumCertificate,
+    GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed,
+    GuardianWitnessSet, GuardianWitnessStatement, ProofOfDivergence, PublicationFrontier,
+    PublicationFrontierContradiction, QuorumCertificate, RecoveredCanonicalHeaderEntry,
+    RecoveredCertifiedHeaderEntry, RecoveredRestartBlockHeaderEntry, TimeoutCertificate,
+    ViewChangeVote,
 };
 use ioi_types::codec;
 use ioi_types::config::AftSafetyMode;
@@ -211,6 +210,21 @@ pub struct GuardianMajorityEngine {
     /// committed hints can prove rolling continuity rather than only single-slot collapse.
     committed_collapses: HashMap<u64, CanonicalCollapseObject>,
 
+    /// Records bounded recovered canonical-header ancestry so restart continuity
+    /// can still seed parent/QC selection when the full committed block is not
+    /// locally available.
+    recovered_headers: HashMap<u64, RecoveredCanonicalHeaderEntry>,
+
+    /// Records bounded recovered certified-header ancestry so restart continuity
+    /// can still reconcile multi-hop QC/header progress when the full
+    /// committed header cache is not locally available.
+    recovered_certified_headers: HashMap<u64, RecoveredCertifiedHeaderEntry>,
+
+    /// Records bounded recovered restart block-header entries so restart-time
+    /// QC/header lookup can use a compact header cache derived from recovered
+    /// closed-slot surfaces.
+    recovered_restart_headers: HashMap<u64, RecoveredRestartBlockHeaderEntry>,
+
     /// Newly formed quorum certificates that should be propagated promptly so
     /// the next leader can advance without waiting to reconstruct them.
     pending_qc_broadcasts: VecDeque<QuorumCertificate>,
@@ -311,6 +325,9 @@ impl GuardianMajorityEngine {
             qc_pool: HashMap::new(),
             committed_headers: HashMap::new(),
             committed_collapses: HashMap::new(),
+            recovered_headers: HashMap::new(),
+            recovered_certified_headers: HashMap::new(),
+            recovered_restart_headers: HashMap::new(),
             pending_qc_broadcasts: VecDeque::new(),
             announced_qcs: HashSet::new(),
             highest_qc: QuorumCertificate::default(),
@@ -413,6 +430,48 @@ impl GuardianMajorityEngine {
             .insert(qc.block_hash, qc.clone());
     }
 
+    fn local_recovered_header_for_qc(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<RecoveredCanonicalHeaderEntry> {
+        let header = self.recovered_headers.get(&qc.height)?;
+        (header.canonical_block_commitment_hash == qc.block_hash && header.view == qc.view)
+            .then(|| header.clone())
+    }
+
+    fn local_recovered_certified_header_for_qc(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<RecoveredCertifiedHeaderEntry> {
+        let entry = self.recovered_certified_headers.get(&qc.height)?;
+        let certified_qc = entry.certified_quorum_certificate();
+        (certified_qc.block_hash == qc.block_hash && certified_qc.view == qc.view)
+            .then(|| entry.clone())
+    }
+
+    fn local_recovered_restart_header_for_qc(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<RecoveredRestartBlockHeaderEntry> {
+        let entry = self.recovered_restart_headers.get(&qc.height)?;
+        let certified_qc = entry.certified_quorum_certificate();
+        (certified_qc.block_hash == qc.block_hash && certified_qc.view == qc.view)
+            .then(|| entry.clone())
+    }
+
+    fn local_recovered_qc_for_height(&self, height: u64) -> Option<QuorumCertificate> {
+        self.recovered_headers
+            .get(&height)
+            .map(RecoveredCanonicalHeaderEntry::synthetic_quorum_certificate)
+    }
+
+    fn qc_has_local_restart_context(&self, qc: &QuorumCertificate) -> bool {
+        self.local_header_for_qc(qc).is_some()
+            || self.local_recovered_header_for_qc(qc).is_some()
+            || self.local_recovered_certified_header_for_qc(qc).is_some()
+            || self.local_recovered_restart_header_for_qc(qc).is_some()
+    }
+
     fn queue_qc_broadcast(&mut self, qc: &QuorumCertificate) {
         let key = (qc.height, qc.block_hash);
         if self.announced_qcs.insert(key) {
@@ -493,6 +552,9 @@ impl GuardianMajorityEngine {
                 .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?,
             resulting_state_root_hash: to_root_hash(&header.state_root.0)
                 .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?,
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
         };
         bind_canonical_collapse_continuity(&mut collapse, previous)
             .map_err(ConsensusError::BlockVerificationFailed)?;
@@ -500,7 +562,9 @@ impl GuardianMajorityEngine {
         Ok(collapse)
     }
 
-    fn quorum_certificate_from_header(header: &BlockHeader) -> Result<QuorumCertificate, ConsensusError> {
+    fn quorum_certificate_from_header(
+        header: &BlockHeader,
+    ) -> Result<QuorumCertificate, ConsensusError> {
         let block_hash = to_root_hash(
             &header
                 .hash()
@@ -656,7 +720,10 @@ impl GuardianMajorityEngine {
                 height
             )));
         }
-        let Some(head) = self.previous_canonical_collapse_for_height(height, parent_view).await? else {
+        let Some(head) = self
+            .previous_canonical_collapse_for_height(height, parent_view)
+            .await?
+        else {
             return Err(ConsensusError::BlockVerificationFailed(format!(
                 "missing previous canonical collapse object for height {}",
                 height
@@ -729,11 +796,10 @@ impl GuardianMajorityEngine {
             if certificate.predecessor_commitment != canonical_collapse_commitment(local) {
                 return Ok(false);
             }
-            let expected_proof_hash =
-                ioi_types::app::canonical_collapse_recursive_proof_hash(
-                    &local.continuity_recursive_proof,
-                )
-                .map_err(ConsensusError::BlockVerificationFailed)?;
+            let expected_proof_hash = ioi_types::app::canonical_collapse_recursive_proof_hash(
+                &local.continuity_recursive_proof,
+            )
+            .map_err(ConsensusError::BlockVerificationFailed)?;
             if certificate.predecessor_recursive_proof_hash != expected_proof_hash {
                 return Ok(false);
             }
@@ -811,7 +877,10 @@ impl GuardianMajorityEngine {
         candidates.reverse();
 
         for candidate in candidates {
-            if self.header_is_collapse_backed(&candidate, parent_view).await? {
+            if self
+                .header_is_collapse_backed(&candidate, parent_view)
+                .await?
+            {
                 return Ok(Some(Self::quorum_certificate_from_header(&candidate)?));
             }
         }
@@ -852,6 +921,12 @@ impl GuardianMajorityEngine {
             let Ok(qc) = Self::quorum_certificate_from_header(header) else {
                 return;
             };
+            self.highest_qc = qc.clone();
+            self.queue_qc_broadcast(&qc);
+            return;
+        }
+
+        if let Some(qc) = self.local_recovered_qc_for_height(height) {
             self.highest_qc = qc.clone();
             self.queue_qc_broadcast(&qc);
             return;
@@ -927,22 +1002,31 @@ impl GuardianMajorityEngine {
             });
         }
 
-        if let Some(qc) = self
-            .qc_pool
-            .get(&parent_height)
-            .and_then(|qcs| (qcs.len() == 1).then(|| qcs.values().next().cloned()).flatten())
-        {
+        if let Some(qc) = self.local_recovered_qc_for_height(parent_height) {
             return Some(qc);
         }
 
-        if let Some((block_hash, votes)) = self
-            .vote_pool
-            .get(&parent_height)
-            .and_then(|votes_by_hash| {
-                (votes_by_hash.len() == 1)
-                    .then(|| votes_by_hash.iter().next().map(|(hash, votes)| (*hash, votes)))
-                    .flatten()
-            })
+        if let Some(qc) = self.qc_pool.get(&parent_height).and_then(|qcs| {
+            (qcs.len() == 1)
+                .then(|| qcs.values().next().cloned())
+                .flatten()
+        }) {
+            return Some(qc);
+        }
+
+        if let Some((block_hash, votes)) =
+            self.vote_pool
+                .get(&parent_height)
+                .and_then(|votes_by_hash| {
+                    (votes_by_hash.len() == 1)
+                        .then(|| {
+                            votes_by_hash
+                                .iter()
+                                .next()
+                                .map(|(hash, votes)| (*hash, votes))
+                        })
+                        .flatten()
+                })
         {
             let view = votes.first().map(|vote| vote.view)?;
             return Some(QuorumCertificate {
@@ -1006,7 +1090,11 @@ impl GuardianMajorityEngine {
         }
 
         let header = self.local_header_for_qc(&qc);
-        if header.is_none() && qc.height > self.highest_qc.height.saturating_add(1) {
+        let recovered_header = self.local_recovered_header_for_qc(&qc);
+        if header.is_none()
+            && recovered_header.is_none()
+            && qc.height > self.highest_qc.height.saturating_add(1)
+        {
             debug!(
                 target: "consensus",
                 height = qc.height,
@@ -1186,21 +1274,7 @@ impl GuardianMajorityEngine {
         header: &BlockHeader,
         certificate: &GuardianQuorumCertificate,
     ) -> GuardianWitnessStatement {
-        GuardianWitnessStatement {
-            producer_account_id: header.producer_account_id,
-            height: header.height,
-            view: header.view,
-            guardian_manifest_hash: certificate.manifest_hash,
-            guardian_decision_hash: certificate.decision_hash,
-            guardian_counter: certificate.counter,
-            guardian_trace_hash: certificate.trace_hash,
-            guardian_measurement_root: certificate.measurement_root,
-            guardian_checkpoint_root: certificate
-                .log_checkpoint
-                .as_ref()
-                .map(|checkpoint| checkpoint.root_hash)
-                .unwrap_or([0u8; 32]),
-        }
+        guardian_witness_statement_for_header(header, certificate)
     }
 
     fn asymptote_observer_statement(
@@ -1213,8 +1287,8 @@ impl GuardianMajorityEngine {
             &header
                 .to_preimage_for_signing()
                 .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?,
-            )
-            .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
+        )
+        .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
         Ok(AsymptoteObserverStatement {
             epoch: observer_certificate.assignment.epoch,
             assignment: observer_certificate.assignment.clone(),
@@ -1514,22 +1588,25 @@ impl GuardianMajorityEngine {
             ));
         }
 
-        let transcript_commitment = proof
-            .observer_transcript_commitment
-            .as_ref()
-            .ok_or_else(|| {
-                ConsensusError::BlockVerificationFailed(
-                    "canonical observer sealing proof is missing a transcript commitment".into(),
-                )
-            })?;
-        let challenge_commitment = proof
-            .observer_challenge_commitment
-            .as_ref()
-            .ok_or_else(|| {
-                ConsensusError::BlockVerificationFailed(
-                    "canonical observer sealing proof is missing a challenge commitment".into(),
-                )
-            })?;
+        let transcript_commitment =
+            proof
+                .observer_transcript_commitment
+                .as_ref()
+                .ok_or_else(|| {
+                    ConsensusError::BlockVerificationFailed(
+                        "canonical observer sealing proof is missing a transcript commitment"
+                            .into(),
+                    )
+                })?;
+        let challenge_commitment =
+            proof
+                .observer_challenge_commitment
+                .as_ref()
+                .ok_or_else(|| {
+                    ConsensusError::BlockVerificationFailed(
+                        "canonical observer sealing proof is missing a challenge commitment".into(),
+                    )
+                })?;
         if proof.observer_canonical_close.is_some() == proof.observer_canonical_abort.is_some() {
             return Err(ConsensusError::BlockVerificationFailed(
                 "canonical observer sealing proof must carry exactly one of canonical close or canonical abort".into(),
@@ -1701,7 +1778,8 @@ impl GuardianMajorityEngine {
                 .unwrap_or(false)
         {
             return Err(ConsensusError::BlockVerificationFailed(
-                "observer transcript surface root does not match the proof-carried transcripts".into(),
+                "observer transcript surface root does not match the proof-carried transcripts"
+                    .into(),
             ));
         }
         if canonical_close
@@ -1725,10 +1803,12 @@ impl GuardianMajorityEngine {
                 .unwrap_or(false)
         {
             return Err(ConsensusError::BlockVerificationFailed(
-                "observer challenge surface root does not match the proof-carried challenges".into(),
+                "observer challenge surface root does not match the proof-carried challenges"
+                    .into(),
             ));
         }
-        let proof_challenge_count = u16::try_from(proof.observer_challenges.len()).map_err(|_| {
+        let proof_challenge_count =
+            u16::try_from(proof.observer_challenges.len()).map_err(|_| {
                 ConsensusError::BlockVerificationFailed(
                     "deterministic observer challenge surface exceeds u16 capacity".into(),
                 )
@@ -1948,8 +2028,11 @@ impl GuardianMajorityEngine {
                         evidence_hash: transcript.statement.evidence_hash,
                         guardian_certificate: transcript.guardian_certificate.clone(),
                     };
-                    let expected_statement = self
-                        .asymptote_observer_statement(header, certificate, &observer_certificate)?;
+                    let expected_statement = self.asymptote_observer_statement(
+                        header,
+                        certificate,
+                        &observer_certificate,
+                    )?;
                     if transcript.statement != expected_statement {
                         return Err(ConsensusError::BlockVerificationFailed(
                             "veto-transcript challenge does not bind the canonical slot surface"
@@ -2023,8 +2106,11 @@ impl GuardianMajorityEngine {
                         evidence_hash: transcript.statement.evidence_hash,
                         guardian_certificate: transcript.guardian_certificate.clone(),
                     };
-                    let expected_statement = self
-                        .asymptote_observer_statement(header, certificate, &observer_certificate)?;
+                    let expected_statement = self.asymptote_observer_statement(
+                        header,
+                        certificate,
+                        &observer_certificate,
+                    )?;
                     if transcript.statement.assignment == *assignment
                         && transcript.statement == expected_statement
                     {
@@ -2042,8 +2128,7 @@ impl GuardianMajorityEngine {
                     })?;
                     if challenge.assignment.is_some() {
                         return Err(ConsensusError::BlockVerificationFailed(
-                            "invalid-canonical-close challenge may not be assignment scoped"
-                                .into(),
+                            "invalid-canonical-close challenge may not be assignment scoped".into(),
                         ));
                     }
                     if challenge.observation_request.is_some() {
@@ -2066,10 +2151,11 @@ impl GuardianMajorityEngine {
                     }
                     let empty_challenges_root = canonical_asymptote_observer_challenges_hash(&[])
                         .map_err(ConsensusError::BlockVerificationFailed)?;
-                    let transcripts_are_all_ok = proof.observer_transcripts.iter().all(|transcript| {
-                        transcript.statement.verdict == AsymptoteObserverVerdict::Ok
-                            && transcript.statement.veto_kind.is_none()
-                    });
+                    let transcripts_are_all_ok =
+                        proof.observer_transcripts.iter().all(|transcript| {
+                            transcript.statement.verdict == AsymptoteObserverVerdict::Ok
+                                && transcript.statement.veto_kind.is_none()
+                        });
                     let close_is_valid = close.epoch == current_epoch
                         && close.height == header.height
                         && close.view == header.view
@@ -2508,7 +2594,6 @@ impl GuardianMajorityEngine {
             .iter()
             .map(|assignment| assignment.stratum_id.clone())
             .collect::<BTreeSet<_>>();
-        let statement = self.experimental_witness_statement(header, certificate);
         let mut seen_manifests = BTreeSet::new();
         let mut seen_strata = BTreeSet::new();
         for witness_certificate in &proof.witness_certificates {
@@ -2578,6 +2663,11 @@ impl GuardianMajorityEngine {
                         "sealed finality witness certificate is missing a checkpoint".into(),
                     )
                 })?;
+            let statement = guardian_witness_statement_for_header_with_recovery_binding(
+                header,
+                certificate,
+                witness_certificate.recovery_binding.clone(),
+            );
             let witness_descriptor =
                 Self::load_log_descriptor(parent_view, &witness_manifest.transparency_log_id)
                     .await?;
@@ -2670,6 +2760,133 @@ impl GuardianMajorityEngine {
             published_bulletin_close.as_ref(),
         )
         .map_err(ConsensusError::BlockVerificationFailed)
+    }
+
+    async fn load_published_publication_frontier(
+        &self,
+        height: u64,
+        parent_view: &dyn AnchoredStateView,
+    ) -> Result<Option<PublicationFrontier>, ConsensusError> {
+        let Some(bytes) = parent_view
+            .get(&aft_publication_frontier_key(height))
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+        else {
+            return Ok(None);
+        };
+
+        codec::from_bytes_canonical(&bytes)
+            .map(Some)
+            .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))
+    }
+
+    async fn load_published_publication_frontier_contradiction(
+        &self,
+        height: u64,
+        parent_view: &dyn AnchoredStateView,
+    ) -> Result<Option<PublicationFrontierContradiction>, ConsensusError> {
+        let Some(bytes) = parent_view
+            .get(&aft_publication_frontier_contradiction_key(height))
+            .await
+            .map_err(|e| ConsensusError::StateAccess(StateError::Backend(e.to_string())))?
+        else {
+            return Ok(None);
+        };
+
+        codec::from_bytes_canonical(&bytes)
+            .map(Some)
+            .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))
+    }
+
+    async fn previous_publication_frontier_for_height(
+        &self,
+        height: u64,
+        parent_view: &dyn AnchoredStateView,
+    ) -> Result<Option<PublicationFrontier>, ConsensusError> {
+        if height <= 1 {
+            return Ok(None);
+        }
+        if let Some(local) = self
+            .committed_headers
+            .get(&(height - 1))
+            .and_then(|header| header.publication_frontier.clone())
+        {
+            return Ok(Some(local));
+        }
+        self.load_published_publication_frontier(height - 1, parent_view)
+            .await
+    }
+
+    async fn verify_publication_frontier_enrichment(
+        &self,
+        header: &BlockHeader,
+        parent_view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        if let Some(contradiction) = self
+            .load_published_publication_frontier_contradiction(header.height, parent_view)
+            .await?
+        {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "publication frontier contradiction already dominates slot {}: {}",
+                header.height,
+                hex::encode(
+                    canonical_publication_frontier_hash(&contradiction.candidate_frontier)
+                        .map_err(ConsensusError::BlockVerificationFailed)?
+                ),
+            )));
+        }
+
+        let Some(certificate) = header.canonical_order_certificate.as_ref() else {
+            if header.publication_frontier.is_some() {
+                return Err(ConsensusError::BlockVerificationFailed(
+                    "publication frontier requires a canonical-order certificate".into(),
+                ));
+            }
+            return Ok(());
+        };
+
+        let frontier = header.publication_frontier.as_ref().ok_or_else(|| {
+            ConsensusError::BlockVerificationFailed(format!(
+                "canonical-order certificate for slot {} requires a publication frontier",
+                header.height
+            ))
+        })?;
+
+        verify_publication_frontier_binding(header, frontier)
+            .map_err(ConsensusError::BlockVerificationFailed)?;
+
+        if let Some(previous) = self
+            .previous_publication_frontier_for_height(header.height, parent_view)
+            .await?
+            .as_ref()
+        {
+            verify_publication_frontier_chain(frontier, previous)
+                .map_err(ConsensusError::BlockVerificationFailed)?;
+        }
+
+        if frontier.bulletin_commitment_hash
+            != canonical_bulletin_commitment_hash(&certificate.bulletin_commitment)
+                .map_err(ConsensusError::BlockVerificationFailed)?
+        {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "publication frontier does not match the canonical-order bulletin commitment"
+                    .into(),
+            ));
+        }
+
+        if let Some(published) = self
+            .load_published_publication_frontier(header.height, parent_view)
+            .await?
+        {
+            if published != *frontier {
+                return Err(ConsensusError::BlockVerificationFailed(format!(
+                    "publication frontier for slot {} conflicts with the published same-slot frontier",
+                    header.height
+                )));
+            }
+        }
+
+        Ok(())
     }
 
     async fn verify_published_canonical_collapse_object(
@@ -2844,6 +3061,8 @@ impl GuardianMajorityEngine {
                     )
                     .await?;
                     self.verify_canonical_order_enrichment(header, parent_view)
+                        .await?;
+                    self.verify_publication_frontier_enrichment(header, parent_view)
                         .await?;
                 }
                 if matches!(self.safety_mode, AftSafetyMode::ExperimentalNestedGuardian) {
@@ -3320,8 +3539,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         let mut current_view = { self.pacemaker.lock().await.current_view };
         let bootstrap_first_commit_pending =
             height == 1 && self.highest_qc.height == 0 && !self.committed_headers.contains_key(&1);
-        let pin_bootstrap_view_zero =
-            bootstrap_first_commit_pending || (height <= 3 && Instant::now() < self.bootstrap_grace_until);
+        let pin_bootstrap_view_zero = bootstrap_first_commit_pending
+            || (height <= 3 && Instant::now() < self.bootstrap_grace_until);
 
         if pin_bootstrap_view_zero {
             if let Ok(mut pacemaker) = self.pacemaker.try_lock() {
@@ -3330,7 +3549,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             }
             current_view = 0;
             if bootstrap_first_commit_pending {
-                self.timeout_votes_sent.retain(|(vote_height, _)| *vote_height != height);
+                self.timeout_votes_sent
+                    .retain(|(vote_height, _)| *vote_height != height);
                 self.tc_formed.retain(|(tc_height, _)| *tc_height != height);
             }
             if Self::benchmark_trace_enabled() {
@@ -3493,20 +3713,20 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 };
                 if let Some(synthetic_parent_qc) = progress_parent_qc {
                     let highest_qc_at_parent_height = self.highest_qc.height == height - 1;
-                    let highest_qc_has_local_header = if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
-                        highest_qc_at_parent_height
-                            && self
-                                .quorum_certificate_is_collapse_backed(&self.highest_qc, parent_view)
-                                .await
-                                .unwrap_or(false)
-                    } else {
-                        highest_qc_at_parent_height
-                            && <GuardianMajorityEngine as ConsensusEngine<T>>::header_for_quorum_certificate(
-                                self,
-                                &self.highest_qc,
-                            )
-                            .is_some()
-                    };
+                    let highest_qc_has_local_header =
+                        if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
+                            highest_qc_at_parent_height
+                                && self
+                                    .quorum_certificate_is_collapse_backed(
+                                        &self.highest_qc,
+                                        parent_view,
+                                    )
+                                    .await
+                                    .unwrap_or(false)
+                        } else {
+                            highest_qc_at_parent_height
+                                && self.qc_has_local_restart_context(&self.highest_qc)
+                        };
 
                     if self.highest_qc.height < height - 1
                         || (highest_qc_at_parent_height && !highest_qc_has_local_header)
@@ -3659,27 +3879,26 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             let (
                 previous_canonical_collapse_commitment_hash,
                 canonical_collapse_extension_certificate,
-            ) =
-                if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
-                    match self
-                        .canonical_collapse_extension_certificate_for_height(height, parent_view)
-                        .await
-                    {
-                        Ok((hash, certificate)) => (hash, Some(certificate)),
-                        Err(error) => {
-                            debug!(
-                                target: "consensus",
-                                height,
-                                current_view,
-                                error = %error,
-                                "Stalling block production until the canonical collapse extension certificate is available"
-                            );
-                            return ConsensusDecision::Stall;
-                        }
+            ) = if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
+                match self
+                    .canonical_collapse_extension_certificate_for_height(height, parent_view)
+                    .await
+                {
+                    Ok((hash, certificate)) => (hash, Some(certificate)),
+                    Err(error) => {
+                        debug!(
+                            target: "consensus",
+                            height,
+                            current_view,
+                            error = %error,
+                            "Stalling block production until the canonical collapse extension certificate is available"
+                        );
+                        return ConsensusDecision::Stall;
                     }
-                } else {
-                    ([0u8; 32], None)
-                };
+                }
+            } else {
+                ([0u8; 32], None)
+            };
 
             info!(target: "consensus", "I am leader for H={} V={}. Producing block.", height, current_view);
 
@@ -4005,6 +4224,11 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         self.qc_pool.retain(|h, _| *h + 2 >= height);
         self.committed_headers.retain(|h, _| *h + 2 >= height);
         self.committed_collapses.retain(|h, _| *h + 2 >= height);
+        self.recovered_headers.retain(|h, _| *h + 2 >= height);
+        self.recovered_certified_headers
+            .retain(|h, _| *h + 2 >= height);
+        self.recovered_restart_headers
+            .retain(|h, _| *h + 2 >= height);
         self.pending_qc_broadcasts
             .retain(|qc| qc.height + 2 >= height);
         self.announced_qcs
@@ -4057,10 +4281,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 }
                 Some(previous)
             };
-            let Ok(derived) = self.canonical_collapse_from_header_surface_with_previous(
-                header,
-                previous,
-            ) else {
+            let Ok(derived) =
+                self.canonical_collapse_from_header_surface_with_previous(header, previous)
+            else {
                 debug!(
                     target: "consensus",
                     height = header.height,
@@ -4078,10 +4301,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 );
                 return false;
             }
-            if let Err(error) = self.verify_runtime_canonical_collapse_continuity(
-                expected_collapse,
-                previous,
-            ) {
+            if let Err(error) =
+                self.verify_runtime_canonical_collapse_continuity(expected_collapse, previous)
+            {
                 debug!(
                     target: "consensus",
                     height = header.height,
@@ -4101,7 +4323,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         };
         self.committed_headers.insert(header.height, header.clone());
         if let Some(collapse) = collapse {
-            self.committed_collapses.insert(header.height, collapse.clone());
+            self.committed_collapses
+                .insert(header.height, collapse.clone());
         }
         self.seen_headers
             .entry((header.height, header.view))
@@ -4110,8 +4333,214 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         true
     }
 
+    fn observe_aft_recovered_consensus_header(
+        &mut self,
+        header: &AftRecoveredConsensusHeaderEntry,
+    ) -> bool {
+        if let Some(existing) = self.recovered_headers.get(&header.height) {
+            return existing == header;
+        }
+
+        if header.height > 1 {
+            if let Some(previous) = self.recovered_headers.get(&(header.height - 1)) {
+                if previous.canonical_block_commitment_hash != header.parent_block_commitment_hash {
+                    return false;
+                }
+            } else if let Some(previous) = self.committed_headers.get(&(header.height - 1)) {
+                let Ok(previous_hash) = previous.hash() else {
+                    return false;
+                };
+                let Ok(previous_hash) = to_root_hash(&previous_hash) else {
+                    return false;
+                };
+                if previous_hash != header.parent_block_commitment_hash {
+                    return false;
+                }
+            }
+        }
+
+        self.recovered_headers.insert(header.height, header.clone());
+        true
+    }
+
+    fn observe_aft_recovered_certified_header(
+        &mut self,
+        entry: &AftRecoveredCertifiedHeaderEntry,
+    ) -> bool {
+        if let Some(existing) = self.recovered_certified_headers.get(&entry.header.height) {
+            return existing == entry;
+        }
+
+        let certified_qc = entry.certified_quorum_certificate();
+        if certified_qc.height != entry.header.height
+            || certified_qc.view != entry.header.view
+            || certified_qc.block_hash != entry.header.canonical_block_commitment_hash
+        {
+            return false;
+        }
+
+        if entry.header.height > 1 {
+            if entry.certified_parent_quorum_certificate.height + 1 != entry.header.height
+                || entry.certified_parent_quorum_certificate.block_hash
+                    != entry.header.parent_block_commitment_hash
+            {
+                return false;
+            }
+
+            if let Some(previous) = self
+                .recovered_certified_headers
+                .get(&(entry.header.height - 1))
+            {
+                if previous.certified_quorum_certificate()
+                    != entry.certified_parent_quorum_certificate
+                    || previous.header.resulting_state_root_hash
+                        != entry.certified_parent_resulting_state_root_hash
+                {
+                    return false;
+                }
+            } else if let Some(previous) = self.recovered_headers.get(&(entry.header.height - 1)) {
+                if previous.synthetic_quorum_certificate()
+                    != entry.certified_parent_quorum_certificate
+                    || previous.resulting_state_root_hash
+                        != entry.certified_parent_resulting_state_root_hash
+                {
+                    return false;
+                }
+            } else if let Some(previous) = self.committed_headers.get(&(entry.header.height - 1)) {
+                let Ok(previous_hash) = previous.hash() else {
+                    return false;
+                };
+                let Ok(previous_hash) = to_root_hash(&previous_hash) else {
+                    return false;
+                };
+                if previous.height != entry.certified_parent_quorum_certificate.height
+                    || previous.view != entry.certified_parent_quorum_certificate.view
+                    || previous_hash != entry.certified_parent_quorum_certificate.block_hash
+                    || previous.state_root.as_ref()
+                        != entry.certified_parent_resulting_state_root_hash.as_slice()
+                {
+                    return false;
+                }
+            }
+        } else if entry.certified_parent_quorum_certificate != QuorumCertificate::default()
+            || entry.certified_parent_resulting_state_root_hash != [0u8; 32]
+        {
+            return false;
+        }
+
+        if !<GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_aft_recovered_consensus_header(
+            self,
+            &entry.header,
+        ) {
+            return false;
+        }
+
+        self.recovered_certified_headers
+            .insert(entry.header.height, entry.clone());
+        true
+    }
+
+    fn aft_recovered_consensus_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredConsensusHeaderEntry> {
+        self.local_recovered_header_for_qc(qc)
+    }
+
+    fn aft_recovered_certified_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredCertifiedHeaderEntry> {
+        self.local_recovered_certified_header_for_qc(qc)
+    }
+
+    fn observe_aft_recovered_restart_header(
+        &mut self,
+        entry: &AftRecoveredRestartHeaderEntry,
+    ) -> bool {
+        if let Some(existing) = self.recovered_restart_headers.get(&entry.header.height) {
+            return existing == entry;
+        }
+
+        if !<GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_aft_recovered_certified_header(
+            self,
+            &entry.certified_header,
+        ) {
+            return false;
+        }
+
+        let certified = &entry.certified_header;
+        let header = &entry.header;
+        if header.height != certified.header.height
+            || header.view != certified.header.view
+            || header.parent_hash != certified.header.parent_block_commitment_hash
+            || header.transactions_root != certified.header.transactions_root_hash.to_vec()
+            || header.state_root.0 != certified.header.resulting_state_root_hash.to_vec()
+            || header.parent_qc != certified.certified_parent_quorum_certificate
+            || header.previous_canonical_collapse_commitment_hash
+                != certified.header.previous_canonical_collapse_commitment_hash
+        {
+            return false;
+        }
+
+        let expected_parent_state_root = if header.height <= 1 {
+            vec![0u8; 32]
+        } else {
+            certified
+                .certified_parent_resulting_state_root_hash
+                .to_vec()
+        };
+        if header.parent_state_root.0 != expected_parent_state_root {
+            return false;
+        }
+
+        let Some(certificate) = header.canonical_order_certificate.as_ref() else {
+            return false;
+        };
+        if certificate.height != header.height
+            || certificate.ordered_transactions_root_hash != certified.header.transactions_root_hash
+            || certificate.resulting_state_root_hash != certified.header.resulting_state_root_hash
+            || header.timestamp_ms != certificate.bulletin_commitment.cutoff_timestamp_ms
+            || header.timestamp
+                != timestamp_millis_to_legacy_seconds(
+                    certificate.bulletin_commitment.cutoff_timestamp_ms,
+                )
+        {
+            return false;
+        }
+
+        self.recovered_restart_headers
+            .insert(entry.header.height, entry.clone());
+        true
+    }
+
+    fn aft_recovered_restart_header_for_quorum_certificate(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<AftRecoveredRestartHeaderEntry> {
+        self.local_recovered_restart_header_for_qc(qc)
+    }
+
+    fn retain_recovered_ancestry_ranges(&mut self, keep_ranges: &[(u64, u64)]) {
+        let keep_height = |height: u64| {
+            keep_ranges
+                .iter()
+                .any(|(start, end)| *start <= height && height <= *end)
+        };
+
+        self.recovered_headers
+            .retain(|height, _| keep_height(*height));
+        self.recovered_certified_headers
+            .retain(|height, _| keep_height(*height));
+        self.recovered_restart_headers
+            .retain(|height, _| keep_height(*height));
+    }
+
     fn header_for_quorum_certificate(&self, qc: &QuorumCertificate) -> Option<BlockHeader> {
-        self.local_header_for_qc(qc)
+        self.local_header_for_qc(qc).or_else(|| {
+            self.local_recovered_restart_header_for_qc(qc)
+                .map(|entry| entry.header)
+        })
     }
 
     fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
@@ -4137,40 +4566,38 @@ mod tests {
     use ioi_types::app::{
         aft_bulletin_availability_certificate_key, aft_bulletin_commitment_key,
         aft_canonical_bulletin_close_key, aft_canonical_collapse_object_key,
-        aft_canonical_order_abort_key,
-        build_bulletin_availability_certificate,
-        build_canonical_bulletin_close, build_reference_canonical_order_proof_bytes,
+        aft_canonical_order_abort_key, aft_publication_frontier_key,
+        build_bulletin_availability_certificate, build_canonical_bulletin_close,
+        build_publication_frontier, build_reference_canonical_order_proof_bytes,
         canonical_asymptote_observer_assignments_hash,
         canonical_asymptote_observer_challenges_hash,
-        canonical_asymptote_observer_transcripts_hash,
-        canonical_collapse_commitment,
-        canonical_collapse_continuity_public_inputs,
+        canonical_asymptote_observer_transcripts_hash, canonical_collapse_commitment,
         canonical_collapse_commitment_hash_from_object,
-        canonical_collapse_recursive_proof_hash,
-        canonical_collapse_succinct_mock_proof_bytes,
-        canonical_sealed_finality_proof_signing_bytes, canonical_order_public_inputs,
-        canonical_order_public_inputs_hash, derive_asymptote_observer_assignments,
-        derive_canonical_collapse_object, derive_canonical_collapse_object_with_previous,
-        derive_guardian_witness_assignments, derive_reference_ordering_randomness_beacon,
-        guardian_registry_asymptote_policy_key, guardian_registry_checkpoint_key,
-        guardian_registry_committee_account_key, guardian_registry_committee_key,
-        guardian_registry_log_key, guardian_registry_observer_canonical_abort_key,
+        canonical_collapse_continuity_public_inputs, canonical_collapse_recursive_proof_hash,
+        canonical_collapse_succinct_mock_proof_bytes, canonical_order_public_inputs,
+        canonical_order_public_inputs_hash, canonical_sealed_finality_proof_signing_bytes,
+        derive_asymptote_observer_assignments, derive_canonical_collapse_object,
+        derive_canonical_collapse_object_with_previous, derive_guardian_witness_assignments,
+        derive_reference_ordering_randomness_beacon, guardian_registry_asymptote_policy_key,
+        guardian_registry_checkpoint_key, guardian_registry_committee_account_key,
+        guardian_registry_committee_key, guardian_registry_log_key,
+        guardian_registry_observer_canonical_abort_key,
         guardian_registry_observer_canonical_close_key,
         guardian_registry_observer_challenge_commitment_key,
-        guardian_registry_observer_transcript_commitment_key,
-        guardian_registry_witness_key, guardian_registry_witness_seed_key,
-        guardian_registry_witness_set_key, write_validator_sets,
+        guardian_registry_observer_transcript_commitment_key, guardian_registry_witness_key,
+        guardian_registry_witness_seed_key, guardian_registry_witness_set_key,
+        recovered_restart_block_header_entry, write_validator_sets, AftRecoveredStateSurface,
         AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose,
-        AsymptoteObserverCertificate,
-        AsymptoteObserverChallenge, AsymptoteObserverChallengeCommitment,
-        AsymptoteObserverCloseCertificate, AsymptoteObserverCorrelationBudget,
-        AsymptoteObserverTranscript, AsymptoteObserverTranscriptCommitment,
-        AsymptoteObserverVerdict, AsymptotePolicy, AsymptoteVetoKind,
-        AsymptoteVetoProof, BulletinAvailabilityCertificate, BulletinCommitment,
-        CanonicalCollapseContinuityProofSystem, CanonicalOrderAbort, CanonicalOrderAbortReason, CanonicalOrderCertificate,
-        CanonicalOrderProof, CanonicalOrderProofSystem, CollapseState, FinalityTier,
-        GuardianCommitteeMember, GuardianLogCheckpoint, GuardianLogProof,
-        GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest, OmissionProof,
+        AsymptoteObserverCertificate, AsymptoteObserverChallenge,
+        AsymptoteObserverChallengeCommitment, AsymptoteObserverCloseCertificate,
+        AsymptoteObserverCorrelationBudget, AsymptoteObserverTranscript,
+        AsymptoteObserverTranscriptCommitment, AsymptoteObserverVerdict, AsymptotePolicy,
+        AsymptoteVetoKind, AsymptoteVetoProof, BulletinAvailabilityCertificate, BulletinCommitment,
+        CanonicalCollapseContinuityProofSystem, CanonicalOrderAbort, CanonicalOrderAbortReason,
+        CanonicalOrderCertificate, CanonicalOrderProof, CanonicalOrderProofSystem, CollapseState,
+        FinalityTier, GuardianCommitteeMember, GuardianLogCheckpoint, GuardianLogProof,
+        GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest,
+        GuardianWitnessRecoveryBinding, OmissionProof, RecoverableSlotPayloadV5,
         SealedFinalityProof, SignatureProof, SignatureSuite, StateRoot, ValidatorSetV1,
         ValidatorSetsV1, ValidatorV1,
     };
@@ -4179,6 +4606,99 @@ mod tests {
     use libp2p::identity::Keypair;
     use std::collections::HashMap;
     use std::sync::{Mutex as StdMutex, OnceLock};
+
+    fn sample_recovered_restart_entry(
+        parent_header: &RecoveredCanonicalHeaderEntry,
+        parent_qc: QuorumCertificate,
+        parent_state_root: [u8; 32],
+        height: u64,
+        view: u64,
+        block_seed: u8,
+        tx_seed: u8,
+        state_seed: u8,
+        collapse_seed: u8,
+        producer_seed: u8,
+        bulletin_seed: u8,
+    ) -> RecoveredRestartBlockHeaderEntry {
+        let certified_entry = RecoveredCertifiedHeaderEntry {
+            header: RecoveredCanonicalHeaderEntry {
+                height,
+                view,
+                canonical_block_commitment_hash: [block_seed; 32],
+                parent_block_commitment_hash: parent_header.canonical_block_commitment_hash,
+                transactions_root_hash: [tx_seed; 32],
+                resulting_state_root_hash: [state_seed; 32],
+                previous_canonical_collapse_commitment_hash: [collapse_seed; 32],
+            },
+            certified_parent_quorum_certificate: parent_qc,
+            certified_parent_resulting_state_root_hash: parent_state_root,
+        };
+        let payload = RecoverableSlotPayloadV5 {
+            height,
+            view,
+            producer_account_id: AccountId([producer_seed; 32]),
+            block_commitment_hash: certified_entry.header.canonical_block_commitment_hash,
+            parent_block_hash: certified_entry.header.parent_block_commitment_hash,
+            canonical_order_certificate: CanonicalOrderCertificate {
+                height,
+                bulletin_commitment: BulletinCommitment {
+                    height,
+                    cutoff_timestamp_ms: 1_760_000_000_000 + height * 1_000,
+                    bulletin_root: [bulletin_seed; 32],
+                    entry_count: 0,
+                },
+                bulletin_availability_certificate: BulletinAvailabilityCertificate {
+                    height,
+                    bulletin_commitment_hash: [bulletin_seed.wrapping_add(1); 32],
+                    recoverability_root: [bulletin_seed.wrapping_add(2); 32],
+                },
+                randomness_beacon: [bulletin_seed.wrapping_add(3); 32],
+                ordered_transactions_root_hash: certified_entry.header.transactions_root_hash,
+                resulting_state_root_hash: certified_entry.header.resulting_state_root_hash,
+                proof: CanonicalOrderProof::default(),
+                omission_proofs: Vec::new(),
+            },
+            ordered_transaction_bytes: Vec::new(),
+            canonical_order_publication_bundle_bytes: Vec::new(),
+            canonical_bulletin_close_bytes: Vec::new(),
+            canonical_bulletin_availability_certificate_bytes: Vec::new(),
+            bulletin_surface_entries: Vec::new(),
+        };
+        recovered_restart_block_header_entry(&payload, &certified_entry).expect("restart entry")
+    }
+
+    fn sample_recovered_restart_entry_branch(
+        previous_header: &RecoveredCanonicalHeaderEntry,
+        first_view: u64,
+        depth: usize,
+        seed_base: u8,
+    ) -> Vec<RecoveredRestartBlockHeaderEntry> {
+        let mut branch = Vec::with_capacity(depth);
+        let mut parent_header = previous_header.clone();
+        let mut parent_qc = previous_header.synthetic_quorum_certificate();
+        let mut parent_state_root = previous_header.resulting_state_root_hash;
+        for offset in 0..depth {
+            let seed = seed_base.wrapping_add(offset as u8);
+            let entry = sample_recovered_restart_entry(
+                &parent_header,
+                parent_qc.clone(),
+                parent_state_root,
+                previous_header.height + 1 + offset as u64,
+                first_view + offset as u64,
+                seed,
+                seed.wrapping_add(0x10),
+                seed.wrapping_add(0x20),
+                seed.wrapping_add(0x30),
+                seed.wrapping_add(0x40),
+                seed.wrapping_add(0x50),
+            );
+            parent_header = entry.certified_header.header.clone();
+            parent_qc = entry.certified_quorum_certificate();
+            parent_state_root = entry.certified_header.header.resulting_state_root_hash;
+            branch.push(entry);
+        }
+        branch
+    }
 
     #[derive(Clone, Default)]
     struct MockAnchoredView {
@@ -4313,6 +4833,7 @@ mod tests {
             parent_qc: QuorumCertificate::default(),
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
             timeout_certificate: None,
             signature: Vec::new(),
         };
@@ -4511,7 +5032,10 @@ mod tests {
                 BlsKeyPair::generate().unwrap(),
                 BlsKeyPair::generate().unwrap(),
             ];
-            let log_id = format!("observer-canonical-fixture-{}", hex::encode(account.as_ref()));
+            let log_id = format!(
+                "observer-canonical-fixture-{}",
+                hex::encode(account.as_ref())
+            );
             let observer_manifest =
                 build_observer_manifest(account, manifest.epoch, [91u8; 32], &log_id, &member_keys);
             if selected_accounts.contains(&account) {
@@ -4619,10 +5143,9 @@ mod tests {
     fn finalize_observer_challenge_id(challenge: &mut AsymptoteObserverChallenge) {
         let mut normalized = challenge.clone();
         normalized.challenge_id = [0u8; 32];
-        challenge.challenge_id = ioi_crypto::algorithms::hash::sha256(
-            &codec::to_bytes_canonical(&normalized).unwrap(),
-        )
-        .unwrap();
+        challenge.challenge_id =
+            ioi_crypto::algorithms::hash::sha256(&codec::to_bytes_canonical(&normalized).unwrap())
+                .unwrap();
     }
 
     fn build_parent_view(
@@ -4849,6 +5372,7 @@ mod tests {
             },
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
             timeout_certificate: None,
             signature: vec![height as u8 + 34; 64],
         }
@@ -4882,6 +5406,9 @@ mod tests {
             sealing: None,
             transactions_root_hash,
             resulting_state_root_hash,
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
         };
         bind_canonical_collapse_continuity(&mut collapse, previous)
             .expect("bind test canonical collapse continuity");
@@ -4913,11 +5440,10 @@ mod tests {
         header.parent_state_root = StateRoot(previous.resulting_state_root_hash.to_vec());
     }
 
-    fn link_header_to_collapse_chain(
-        header: &mut BlockHeader,
-        chain: &[CanonicalCollapseObject],
-    ) {
-        let previous = chain.first().expect("collapse chain requires at least one object");
+    fn link_header_to_collapse_chain(header: &mut BlockHeader, chain: &[CanonicalCollapseObject]) {
+        let previous = chain
+            .first()
+            .expect("collapse chain requires at least one object");
         header.previous_canonical_collapse_commitment_hash =
             canonical_collapse_commitment_hash_from_object(previous).unwrap();
         header.canonical_collapse_extension_certificate = Some(
@@ -4929,8 +5455,7 @@ mod tests {
     #[test]
     fn verify_canonical_collapse_backend_accepts_and_rejects_succinct_mock_proofs() {
         let engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-        let mut collapse =
-            test_canonical_collapse_object(1, None, [0x21u8; 32], [0x22u8; 32]);
+        let mut collapse = test_canonical_collapse_object(1, None, [0x21u8; 32], [0x22u8; 32]);
         let proof = &mut collapse.continuity_recursive_proof;
         let public_inputs = canonical_collapse_continuity_public_inputs(
             &proof.commitment,
@@ -5007,7 +5532,10 @@ mod tests {
         let decision: ConsensusDecision<ChainTransaction> = engine
             .decide(&validators[1], 2, 0, &parent_view, &known_peers)
             .await;
-        assert!(matches!(decision, ConsensusDecision::ProduceBlock { view: 0, .. }));
+        assert!(matches!(
+            decision,
+            ConsensusDecision::ProduceBlock { view: 0, .. }
+        ));
         assert_eq!(engine.pacemaker.lock().await.current_view, 0);
     }
 
@@ -5029,7 +5557,10 @@ mod tests {
             height: 1,
             view: 0,
             block_hash: [77u8; 32],
-            signatures: vec![(validators[0], vec![1u8; 64]), (validators[1], vec![2u8; 64])],
+            signatures: vec![
+                (validators[0], vec![1u8; 64]),
+                (validators[1], vec![2u8; 64]),
+            ],
             aggregated_signature: vec![],
             signers_bitfield: vec![],
         };
@@ -5079,7 +5610,10 @@ mod tests {
             height: 1,
             view: 0,
             block_hash: parent_hash,
-            signatures: vec![(validators[0], vec![1u8; 64]), (validators[1], vec![2u8; 64])],
+            signatures: vec![
+                (validators[0], vec![1u8; 64]),
+                (validators[1], vec![2u8; 64]),
+            ],
             aggregated_signature: vec![],
             signers_bitfield: vec![],
         };
@@ -5116,7 +5650,8 @@ mod tests {
         engine.bootstrap_grace_until = Instant::now() + Duration::from_secs(60);
 
         let grandparent_header = build_progress_parent_header(1, 0);
-        let grandparent_collapse = derive_canonical_collapse_object(&grandparent_header, &[]).unwrap();
+        let grandparent_collapse =
+            derive_canonical_collapse_object(&grandparent_header, &[]).unwrap();
         parent_view.state.insert(
             aft_canonical_collapse_object_key(grandparent_header.height),
             codec::to_bytes_canonical(&grandparent_collapse).unwrap(),
@@ -5149,7 +5684,10 @@ mod tests {
             height: 2,
             view: 0,
             block_hash: parent_hash,
-            signatures: vec![(validators[0], vec![1u8; 64]), (validators[1], vec![2u8; 64])],
+            signatures: vec![
+                (validators[0], vec![1u8; 64]),
+                (validators[1], vec![2u8; 64]),
+            ],
             aggregated_signature: vec![],
             signers_bitfield: vec![],
         };
@@ -5205,7 +5743,10 @@ mod tests {
             height: 2,
             view: 0,
             block_hash: parent_hash,
-            signatures: vec![(validators[0], vec![1u8; 64]), (validators[1], vec![2u8; 64])],
+            signatures: vec![
+                (validators[0], vec![1u8; 64]),
+                (validators[1], vec![2u8; 64]),
+            ],
             aggregated_signature: vec![],
             signers_bitfield: vec![],
         };
@@ -5236,7 +5777,10 @@ mod tests {
             height: 1,
             view: 0,
             block_hash: [77u8; 32],
-            signatures: vec![(validators[0], vec![1u8; 64]), (validators[1], vec![2u8; 64])],
+            signatures: vec![
+                (validators[0], vec![1u8; 64]),
+                (validators[1], vec![2u8; 64]),
+            ],
             aggregated_signature: vec![],
             signers_bitfield: vec![],
         };
@@ -5295,7 +5839,10 @@ mod tests {
             height: 1,
             view: 0,
             block_hash: parent_hash,
-            signatures: vec![(validators[0], vec![1u8; 64]), (validators[1], vec![2u8; 64])],
+            signatures: vec![
+                (validators[0], vec![1u8; 64]),
+                (validators[1], vec![2u8; 64]),
+            ],
             aggregated_signature: vec![],
             signers_bitfield: vec![],
         };
@@ -5315,7 +5862,10 @@ mod tests {
         let _: ConsensusDecision<ChainTransaction> = engine
             .decide(&validators[1], 2, 0, &parent_view, &known_peers)
             .await;
-        assert_eq!(engine.safety.committed_qc.as_ref().map(|qc| qc.height), Some(1));
+        assert_eq!(
+            engine.safety.committed_qc.as_ref().map(|qc| qc.height),
+            Some(1)
+        );
         assert!(engine.safety.next_ready_commit().is_none());
     }
 
@@ -5513,6 +6063,54 @@ mod tests {
                 &witness_manifest,
             )
             .unwrap();
+    }
+
+    #[test]
+    fn experimental_nested_guardian_rejects_tampered_recovery_binding() {
+        let (mut engine, mut header, manifest, preimage, _, _) = build_case(&[(0, 0), (1, 1)]);
+        engine.safety_mode = AftSafetyMode::ExperimentalNestedGuardian;
+        let witness_members = vec![
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+        ];
+        let witness_manifest = build_witness_manifest(&witness_members);
+        let guardian_certificate = header.guardian_certificate.as_ref().unwrap().clone();
+        let mut statement = engine.experimental_witness_statement(&header, &guardian_certificate);
+        statement.recovery_binding = Some(GuardianWitnessRecoveryBinding {
+            recovery_capsule_hash: [61u8; 32],
+            share_commitment_hash: [62u8; 32],
+        });
+        let mut witness_certificate = sign_witness_statement_with_members(
+            &witness_manifest,
+            &statement,
+            &[
+                (0, witness_members[0].private_key()),
+                (2, witness_members[2].private_key()),
+            ],
+        )
+        .unwrap();
+        witness_certificate.recovery_binding = Some(GuardianWitnessRecoveryBinding {
+            recovery_capsule_hash: [63u8; 32],
+            share_commitment_hash: [64u8; 32],
+        });
+        header
+            .guardian_certificate
+            .as_mut()
+            .unwrap()
+            .experimental_witness_certificate = Some(witness_certificate);
+
+        engine
+            .verify_guardianized_certificate_against_manifest(&header, &preimage, &manifest)
+            .unwrap();
+        let err = engine
+            .verify_experimental_witness_certificate_against_manifest(
+                &header,
+                header.guardian_certificate.as_ref().unwrap(),
+                &witness_manifest,
+            )
+            .unwrap_err();
+        assert!(matches!(err, ConsensusError::BlockVerificationFailed(_)));
     }
 
     #[tokio::test]
@@ -5825,6 +6423,180 @@ mod tests {
                 } else {
                     (&witness_manifest_b, &witness_members_b)
                 };
+            let mut witness_certificate = sign_witness_statement_with_members(
+                assigned_manifest,
+                &statement,
+                &[
+                    (0, assigned_members[0].private_key()),
+                    (1, assigned_members[1].private_key()),
+                    (2, assigned_members[2].private_key()),
+                ],
+            )
+            .unwrap();
+            let witness_checkpoint_entry =
+                codec::to_bytes_canonical(&(statement.clone(), witness_certificate.clone()))
+                    .unwrap();
+            witness_certificate.log_checkpoint = Some(build_signed_checkpoint(
+                &assigned_manifest.transparency_log_id,
+                &witness_log_keypair,
+                std::slice::from_ref(&witness_checkpoint_entry),
+                0,
+                1,
+            ));
+            anchored_checkpoints.push(witness_certificate.log_checkpoint.clone().unwrap());
+            witness_certificates.push(witness_certificate);
+        }
+        header.sealed_finality_proof = Some(SealedFinalityProof {
+            epoch: manifest.epoch,
+            finality_tier: FinalityTier::SealedFinal,
+            collapse_state: CollapseState::SealedFinal,
+            guardian_manifest_hash: header.guardian_certificate.as_ref().unwrap().manifest_hash,
+            guardian_decision_hash: header.guardian_certificate.as_ref().unwrap().decision_hash,
+            guardian_counter: header.oracle_counter,
+            guardian_trace_hash: header.oracle_trace_hash,
+            guardian_measurement_root: header
+                .guardian_certificate
+                .as_ref()
+                .unwrap()
+                .measurement_root,
+            policy_hash: manifest.policy_hash,
+            witness_certificates,
+            observer_certificates: Vec::new(),
+            observer_close_certificate: None,
+            observer_transcripts: Vec::new(),
+            observer_challenges: Vec::new(),
+            observer_transcript_commitment: None,
+            observer_challenge_commitment: None,
+            observer_canonical_close: None,
+            observer_canonical_abort: None,
+            veto_proofs: Vec::new(),
+            divergence_signals: Vec::new(),
+            proof_signature: SignatureProof::default(),
+        });
+        sign_test_sealed_finality_proof(
+            header.sealed_finality_proof.as_mut().unwrap(),
+            &guardian_log_keypair,
+        );
+
+        let parent_view = build_parent_view_with_asymptote_policy(
+            &manifest,
+            &[
+                guardian_log_descriptor,
+                build_log_descriptor(
+                    &witness_manifest_a.transparency_log_id,
+                    &witness_log_keypair,
+                ),
+                build_log_descriptor(
+                    &witness_manifest_b.transparency_log_id,
+                    &witness_log_keypair,
+                ),
+            ],
+            &[witness_manifest_a, witness_manifest_b],
+            witness_set,
+            witness_seed,
+            &anchored_checkpoints,
+            AsymptotePolicy {
+                epoch: manifest.epoch,
+                high_risk_effect_tier: FinalityTier::SealedFinal,
+                required_witness_strata: vec!["stratum-a".into(), "stratum-b".into()],
+                escalation_witness_strata: vec![
+                    "stratum-a".into(),
+                    "stratum-b".into(),
+                    "stratum-c".into(),
+                ],
+                observer_rounds: 0,
+                observer_committee_size: 0,
+                observer_correlation_budget: AsymptoteObserverCorrelationBudget::default(),
+                observer_sealing_mode: AsymptoteObserverSealingMode::SampledCloseV1,
+                observer_challenge_window_ms: 0,
+                max_reassignment_depth: 0,
+                max_checkpoint_staleness_ms: 120_000,
+            },
+        );
+
+        engine
+            .verify_guardianized_certificate(&header, &preimage, &parent_view)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn asymptote_accepts_sealed_finality_proof_with_distinct_recovery_bindings() {
+        let (mut engine, mut header, manifest, preimage, _, guardian_log_keypair) =
+            build_case(&[(0, 0), (1, 1)]);
+        engine.safety_mode = AftSafetyMode::Asymptote;
+        let guardian_log_descriptor =
+            build_log_descriptor(&manifest.transparency_log_id, &guardian_log_keypair);
+        let witness_log_keypair = Keypair::generate_ed25519();
+
+        let witness_members_a = vec![
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+        ];
+        let witness_members_b = vec![
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+            BlsKeyPair::generate().unwrap(),
+        ];
+        let witness_manifest_a = build_witness_manifest(&witness_members_a);
+        let mut witness_manifest_b = build_witness_manifest(&witness_members_b);
+        witness_manifest_b.committee_id = "witness-b".into();
+        witness_manifest_b.stratum_id = "stratum-b".into();
+        witness_manifest_b.transparency_log_id = "witness-test-b".into();
+
+        let witness_hash_a = canonical_witness_manifest_hash(&witness_manifest_a).unwrap();
+        let witness_hash_b = canonical_witness_manifest_hash(&witness_manifest_b).unwrap();
+        let witness_set = GuardianWitnessSet {
+            epoch: witness_manifest_a.epoch,
+            manifest_hashes: vec![witness_hash_a, witness_hash_b],
+            checkpoint_interval_blocks: 1,
+        };
+        let witness_seed = GuardianWitnessEpochSeed {
+            epoch: witness_manifest_a.epoch,
+            seed: [79u8; 32],
+            checkpoint_interval_blocks: 1,
+            max_reassignment_depth: 0,
+        };
+        let assignments = derive_guardian_witness_assignments(
+            &witness_seed,
+            &witness_set,
+            header.producer_account_id,
+            header.height,
+            header.view,
+            0,
+            2,
+        )
+        .unwrap();
+        let recovery_capsule_hash = [0x91u8; 32];
+        let mut witness_certificates = Vec::new();
+        let mut anchored_checkpoints = vec![header
+            .guardian_certificate
+            .as_ref()
+            .unwrap()
+            .log_checkpoint
+            .as_ref()
+            .unwrap()
+            .clone()];
+        for (index, assignment) in assignments.into_iter().enumerate() {
+            let (assigned_manifest, assigned_members) =
+                if assignment.manifest_hash == witness_hash_a {
+                    (&witness_manifest_a, &witness_members_a)
+                } else {
+                    (&witness_manifest_b, &witness_members_b)
+                };
+            let recovery_binding = GuardianWitnessRecoveryBinding {
+                recovery_capsule_hash,
+                share_commitment_hash: [0xA0u8.saturating_add(index as u8); 32],
+            };
+            let statement =
+                ioi_types::app::guardian_witness_statement_for_header_with_recovery_binding(
+                    &header,
+                    header.guardian_certificate.as_ref().unwrap(),
+                    Some(recovery_binding.clone()),
+                );
             let mut witness_certificate = sign_witness_statement_with_members(
                 assigned_manifest,
                 &statement,
@@ -6538,7 +7310,12 @@ mod tests {
     #[tokio::test]
     async fn asymptote_accepts_canonical_observer_sealed_finality_proof_without_registry_copies() {
         let mut fixture = build_canonical_observer_fixture();
-        let base_certificate = fixture.header.guardian_certificate.as_ref().unwrap().clone();
+        let base_certificate = fixture
+            .header
+            .guardian_certificate
+            .as_ref()
+            .unwrap()
+            .clone();
         let observer_assignments_hash =
             canonical_asymptote_observer_assignments_hash(&fixture.observer_assignments).unwrap();
         let observer_challenges = Vec::<AsymptoteObserverChallenge>::new();
@@ -6610,10 +7387,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn asymptote_rejects_canonical_observer_sealed_finality_proof_with_mismatched_registry_copy()
-    {
+    async fn asymptote_rejects_canonical_observer_sealed_finality_proof_with_mismatched_registry_copy(
+    ) {
         let mut fixture = build_canonical_observer_fixture();
-        let base_certificate = fixture.header.guardian_certificate.as_ref().unwrap().clone();
+        let base_certificate = fixture
+            .header
+            .guardian_certificate
+            .as_ref()
+            .unwrap()
+            .clone();
         let observer_assignments_hash =
             canonical_asymptote_observer_assignments_hash(&fixture.observer_assignments).unwrap();
         let observer_challenges = Vec::<AsymptoteObserverChallenge>::new();
@@ -6701,7 +7483,12 @@ mod tests {
     #[tokio::test]
     async fn asymptote_accepts_canonical_observer_abort_proof() {
         let mut fixture = build_canonical_observer_fixture();
-        let base_certificate = fixture.header.guardian_certificate.as_ref().unwrap().clone();
+        let base_certificate = fixture
+            .header
+            .guardian_certificate
+            .as_ref()
+            .unwrap()
+            .clone();
         let observer_assignments_hash =
             canonical_asymptote_observer_assignments_hash(&fixture.observer_assignments).unwrap();
         let challenged_assignment = fixture.observer_assignments[0].clone();
@@ -6722,7 +7509,10 @@ mod tests {
             observation_request: None,
             transcript: None,
             canonical_close: None,
-            evidence_hash: canonical_asymptote_observer_assignment_hash(&fixture.observer_assignments[0]).unwrap(),
+            evidence_hash: canonical_asymptote_observer_assignment_hash(
+                &fixture.observer_assignments[0],
+            )
+            .unwrap(),
             details: "observer transcript was omitted from the canonical surface".into(),
         };
         finalize_observer_challenge_id(&mut challenge);
@@ -6822,7 +7612,12 @@ mod tests {
     #[tokio::test]
     async fn asymptote_accepts_invalid_canonical_close_challenge_abort_proof() {
         let mut fixture = build_canonical_observer_fixture();
-        let base_certificate = fixture.header.guardian_certificate.as_ref().unwrap().clone();
+        let base_certificate = fixture
+            .header
+            .guardian_certificate
+            .as_ref()
+            .unwrap()
+            .clone();
         let observer_assignments_hash =
             canonical_asymptote_observer_assignments_hash(&fixture.observer_assignments).unwrap();
         let observer_transcripts = fixture.observer_transcripts.clone();
@@ -6953,7 +7748,12 @@ mod tests {
     #[tokio::test]
     async fn asymptote_rejects_missing_transcript_challenge_with_wrong_assignment_hash() {
         let mut fixture = build_canonical_observer_fixture();
-        let base_certificate = fixture.header.guardian_certificate.as_ref().unwrap().clone();
+        let base_certificate = fixture
+            .header
+            .guardian_certificate
+            .as_ref()
+            .unwrap()
+            .clone();
         let observer_assignments_hash =
             canonical_asymptote_observer_assignments_hash(&fixture.observer_assignments).unwrap();
         let challenged_assignment = fixture.observer_assignments[0].clone();
@@ -7052,7 +7852,12 @@ mod tests {
     #[tokio::test]
     async fn asymptote_rejects_invalid_canonical_close_challenge_when_close_is_valid() {
         let mut fixture = build_canonical_observer_fixture();
-        let base_certificate = fixture.header.guardian_certificate.as_ref().unwrap().clone();
+        let base_certificate = fixture
+            .header
+            .guardian_certificate
+            .as_ref()
+            .unwrap()
+            .clone();
         let observer_assignments_hash =
             canonical_asymptote_observer_assignments_hash(&fixture.observer_assignments).unwrap();
         let observer_transcripts = fixture.observer_transcripts.clone();
@@ -7151,15 +7956,20 @@ mod tests {
             .verify_guardianized_certificate(&fixture.header, &fixture.preimage, &parent_view)
             .await
             .unwrap_err();
-        assert!(err
-            .to_string()
-            .contains("invalid-canonical-close challenge does not contain an objectively invalid close"));
+        assert!(err.to_string().contains(
+            "invalid-canonical-close challenge does not contain an objectively invalid close"
+        ));
     }
 
     #[tokio::test]
     async fn asymptote_rejects_sealed_final_canonical_close_when_challenge_surface_is_non_empty() {
         let mut fixture = build_canonical_observer_fixture();
-        let base_certificate = fixture.header.guardian_certificate.as_ref().unwrap().clone();
+        let base_certificate = fixture
+            .header
+            .guardian_certificate
+            .as_ref()
+            .unwrap()
+            .clone();
         let observer_assignments_hash =
             canonical_asymptote_observer_assignments_hash(&fixture.observer_assignments).unwrap();
         let challenged_assignment = fixture.observer_assignments[0].clone();
@@ -7180,7 +7990,10 @@ mod tests {
             observation_request: None,
             transcript: None,
             canonical_close: None,
-            evidence_hash: canonical_asymptote_observer_assignment_hash(&fixture.observer_assignments[0]).unwrap(),
+            evidence_hash: canonical_asymptote_observer_assignment_hash(
+                &fixture.observer_assignments[0],
+            )
+            .unwrap(),
             details: "observer transcript missing at close".into(),
         };
         finalize_observer_challenge_id(&mut challenge);
@@ -7378,7 +8191,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn asymptote_rejects_canonical_order_certificate_with_mismatched_published_availability() {
+    async fn asymptote_rejects_canonical_order_certificate_with_mismatched_published_availability()
+    {
         let (mut engine, mut header, manifest, preimage, _, log_keypair) =
             build_case(&[(0, 0), (1, 1)]);
         engine.safety_mode = AftSafetyMode::Asymptote;
@@ -7804,8 +8618,204 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn asymptote_rejects_canonical_order_certificate_without_publication_frontier() {
+        let (mut engine, mut header, manifest, preimage, _, log_keypair) =
+            build_case(&[(0, 0), (1, 1)]);
+        engine.safety_mode = AftSafetyMode::Asymptote;
+
+        let bulletin = BulletinCommitment {
+            height: header.height,
+            cutoff_timestamp_ms: 1_750_000_026,
+            bulletin_root: [107u8; 32],
+            entry_count: 3,
+        };
+        let randomness_beacon = derive_reference_ordering_randomness_beacon(&header).unwrap();
+        let template_certificate = CanonicalOrderCertificate {
+            height: header.height,
+            bulletin_commitment: bulletin.clone(),
+            bulletin_availability_certificate: BulletinAvailabilityCertificate::default(),
+            randomness_beacon,
+            ordered_transactions_root_hash: [0u8; 32],
+            resulting_state_root_hash: [0u8; 32],
+            proof: CanonicalOrderProof {
+                proof_system: CanonicalOrderProofSystem::HashBindingV1,
+                public_inputs_hash: [0u8; 32],
+                proof_bytes: Vec::new(),
+            },
+            omission_proofs: Vec::new(),
+        };
+        let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
+        let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
+        let bulletin_availability_certificate = build_bulletin_availability_certificate(
+            &bulletin,
+            &randomness_beacon,
+            &public_inputs.ordered_transactions_root_hash,
+            &public_inputs.resulting_state_root_hash,
+        )
+        .unwrap();
+        header.canonical_order_certificate = Some(CanonicalOrderCertificate {
+            bulletin_availability_certificate,
+            ordered_transactions_root_hash: public_inputs.ordered_transactions_root_hash,
+            resulting_state_root_hash: public_inputs.resulting_state_root_hash,
+            proof: CanonicalOrderProof {
+                proof_system: CanonicalOrderProofSystem::HashBindingV1,
+                public_inputs_hash,
+                proof_bytes: build_reference_canonical_order_proof_bytes(public_inputs_hash)
+                    .unwrap(),
+            },
+            ..template_certificate
+        });
+
+        let policy = AsymptotePolicy {
+            epoch: manifest.epoch,
+            high_risk_effect_tier: FinalityTier::SealedFinal,
+            required_witness_strata: vec!["stratum-a".into()],
+            escalation_witness_strata: vec!["stratum-a".into()],
+            observer_rounds: 0,
+            observer_committee_size: 0,
+            max_reassignment_depth: 0,
+            max_checkpoint_staleness_ms: 120_000,
+            observer_correlation_budget: AsymptoteObserverCorrelationBudget::default(),
+            observer_sealing_mode: AsymptoteObserverSealingMode::SampledCloseV1,
+            observer_challenge_window_ms: 0,
+        };
+        let parent_view = build_parent_view_with_bulletin_commitment(
+            &manifest,
+            &[build_log_descriptor(
+                &manifest.transparency_log_id,
+                &log_keypair,
+            )],
+            policy,
+            GuardianWitnessEpochSeed {
+                epoch: manifest.epoch,
+                seed: [108u8; 32],
+                checkpoint_interval_blocks: 4,
+                max_reassignment_depth: 0,
+            },
+            &[header
+                .guardian_certificate
+                .as_ref()
+                .unwrap()
+                .log_checkpoint
+                .clone()
+                .unwrap()],
+            bulletin,
+        );
+
+        let err = engine
+            .verify_guardianized_certificate(&header, &preimage, &parent_view)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("requires a publication frontier"));
+    }
+
+    #[tokio::test]
+    async fn asymptote_rejects_conflicting_published_publication_frontier() {
+        let (mut engine, mut header, manifest, preimage, _, log_keypair) =
+            build_case(&[(0, 0), (1, 1)]);
+        engine.safety_mode = AftSafetyMode::Asymptote;
+
+        let bulletin = BulletinCommitment {
+            height: header.height,
+            cutoff_timestamp_ms: 1_750_000_027,
+            bulletin_root: [109u8; 32],
+            entry_count: 3,
+        };
+        let randomness_beacon = derive_reference_ordering_randomness_beacon(&header).unwrap();
+        let template_certificate = CanonicalOrderCertificate {
+            height: header.height,
+            bulletin_commitment: bulletin.clone(),
+            bulletin_availability_certificate: BulletinAvailabilityCertificate::default(),
+            randomness_beacon,
+            ordered_transactions_root_hash: [0u8; 32],
+            resulting_state_root_hash: [0u8; 32],
+            proof: CanonicalOrderProof {
+                proof_system: CanonicalOrderProofSystem::HashBindingV1,
+                public_inputs_hash: [0u8; 32],
+                proof_bytes: Vec::new(),
+            },
+            omission_proofs: Vec::new(),
+        };
+        let public_inputs = canonical_order_public_inputs(&header, &template_certificate).unwrap();
+        let public_inputs_hash = canonical_order_public_inputs_hash(&public_inputs).unwrap();
+        let bulletin_availability_certificate = build_bulletin_availability_certificate(
+            &bulletin,
+            &randomness_beacon,
+            &public_inputs.ordered_transactions_root_hash,
+            &public_inputs.resulting_state_root_hash,
+        )
+        .unwrap();
+        header.canonical_order_certificate = Some(CanonicalOrderCertificate {
+            bulletin_availability_certificate,
+            ordered_transactions_root_hash: public_inputs.ordered_transactions_root_hash,
+            resulting_state_root_hash: public_inputs.resulting_state_root_hash,
+            proof: CanonicalOrderProof {
+                proof_system: CanonicalOrderProofSystem::HashBindingV1,
+                public_inputs_hash,
+                proof_bytes: build_reference_canonical_order_proof_bytes(public_inputs_hash)
+                    .unwrap(),
+            },
+            ..template_certificate
+        });
+        let frontier = build_publication_frontier(&header, None).unwrap();
+        header.publication_frontier = Some(frontier.clone());
+
+        let policy = AsymptotePolicy {
+            epoch: manifest.epoch,
+            high_risk_effect_tier: FinalityTier::SealedFinal,
+            required_witness_strata: vec!["stratum-a".into()],
+            escalation_witness_strata: vec!["stratum-a".into()],
+            observer_rounds: 0,
+            observer_committee_size: 0,
+            max_reassignment_depth: 0,
+            max_checkpoint_staleness_ms: 120_000,
+            observer_correlation_budget: AsymptoteObserverCorrelationBudget::default(),
+            observer_sealing_mode: AsymptoteObserverSealingMode::SampledCloseV1,
+            observer_challenge_window_ms: 0,
+        };
+        let mut parent_view = build_parent_view_with_bulletin_commitment(
+            &manifest,
+            &[build_log_descriptor(
+                &manifest.transparency_log_id,
+                &log_keypair,
+            )],
+            policy,
+            GuardianWitnessEpochSeed {
+                epoch: manifest.epoch,
+                seed: [110u8; 32],
+                checkpoint_interval_blocks: 4,
+                max_reassignment_depth: 0,
+            },
+            &[header
+                .guardian_certificate
+                .as_ref()
+                .unwrap()
+                .log_checkpoint
+                .clone()
+                .unwrap()],
+            bulletin,
+        );
+        let mut conflicting_frontier = frontier.clone();
+        conflicting_frontier.view += 1;
+        conflicting_frontier.bulletin_commitment_hash[0] ^= 0xFF;
+        parent_view.state.insert(
+            aft_publication_frontier_key(header.height),
+            codec::to_bytes_canonical(&conflicting_frontier).unwrap(),
+        );
+
+        let err = engine
+            .verify_guardianized_certificate(&header, &preimage, &parent_view)
+            .await
+            .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("conflicts with the published same-slot frontier"));
+    }
+
+    #[tokio::test]
     async fn asymptote_accepts_abort_only_ordering_outcome_when_abort_is_published() {
-        let (mut engine, header, manifest, preimage, _, log_keypair) = build_case(&[(0, 0), (1, 1)]);
+        let (mut engine, header, manifest, preimage, _, log_keypair) =
+            build_case(&[(0, 0), (1, 1)]);
         engine.safety_mode = AftSafetyMode::Asymptote;
 
         let bulletin = BulletinCommitment {
@@ -7854,7 +8864,9 @@ mod tests {
             codec::to_bytes_canonical(&CanonicalOrderAbort {
                 height: header.height,
                 reason: CanonicalOrderAbortReason::BulletinSurfaceMismatch,
-                details: "published canonical abort is the ordering outcome after a surface mismatch".into(),
+                details:
+                    "published canonical abort is the ordering outcome after a surface mismatch"
+                        .into(),
                 bulletin_commitment_hash: [113u8; 32],
                 bulletin_availability_certificate_hash: [114u8; 32],
                 bulletin_close_hash: [115u8; 32],
@@ -7872,7 +8884,8 @@ mod tests {
     #[tokio::test]
     async fn asymptote_rejects_abort_only_outcome_when_parent_state_coexists_with_positive_ordering_artifacts(
     ) {
-        let (mut engine, header, manifest, preimage, _, log_keypair) = build_case(&[(0, 0), (1, 1)]);
+        let (mut engine, header, manifest, preimage, _, log_keypair) =
+            build_case(&[(0, 0), (1, 1)]);
         engine.safety_mode = AftSafetyMode::Asymptote;
 
         let bulletin = BulletinCommitment {
@@ -7949,9 +8962,9 @@ mod tests {
             .verify_guardianized_certificate(&header, &preimage, &parent_view)
             .await
             .unwrap_err();
-        assert!(err.to_string().contains(
-            "canonical order abort coexists with positive published ordering artifacts"
-        ));
+        assert!(err
+            .to_string()
+            .contains("canonical order abort coexists with positive published ordering artifacts"));
     }
 
     #[tokio::test]
@@ -8001,12 +9014,8 @@ mod tests {
                 .unwrap()],
             bulletin,
         );
-        let previous = test_canonical_collapse_object(
-            header.height - 1,
-            None,
-            [210u8; 32],
-            [211u8; 32],
-        );
+        let previous =
+            test_canonical_collapse_object(header.height - 1, None, [210u8; 32], [211u8; 32]);
         parent_view.state.insert(
             aft_canonical_collapse_object_key(previous.height),
             codec::to_bytes_canonical(&previous).unwrap(),
@@ -8071,12 +9080,8 @@ mod tests {
                 .unwrap()],
             bulletin,
         );
-        let previous = test_canonical_collapse_object(
-            header.height - 1,
-            None,
-            [212u8; 32],
-            [213u8; 32],
-        );
+        let previous =
+            test_canonical_collapse_object(header.height - 1, None, [212u8; 32], [213u8; 32]);
         parent_view.state.insert(
             aft_canonical_collapse_object_key(previous.height),
             codec::to_bytes_canonical(&previous).unwrap(),
@@ -8562,18 +9567,936 @@ mod tests {
     }
 
     #[test]
+    fn reset_promotes_recovered_header_for_committed_height() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let recovered_header = RecoveredCanonicalHeaderEntry {
+            height: 5,
+            view: 2,
+            canonical_block_commitment_hash: [0x45u8; 32],
+            parent_block_commitment_hash: [0x34u8; 32],
+            transactions_root_hash: [0x23u8; 32],
+            resulting_state_root_hash: [0x13u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x12u8; 32],
+        };
+
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &recovered_header,
+        ));
+
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::reset(&mut engine, 5);
+
+        assert_eq!(engine.highest_qc.height, 5);
+        assert_eq!(engine.highest_qc.view, recovered_header.view);
+        assert_eq!(
+            engine.highest_qc.block_hash,
+            recovered_header.canonical_block_commitment_hash
+        );
+    }
+
+    #[test]
+    fn synthetic_parent_qc_uses_recovered_header_hint() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let recovered_header = RecoveredCanonicalHeaderEntry {
+            height: 4,
+            view: 7,
+            canonical_block_commitment_hash: [0x56u8; 32],
+            parent_block_commitment_hash: [0x46u8; 32],
+            transactions_root_hash: [0x36u8; 32],
+            resulting_state_root_hash: [0x26u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x26u8; 32],
+        };
+
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &recovered_header,
+        ));
+
+        let parent_qc = engine
+            .synthetic_parent_qc_for_height(5)
+            .expect("recovered parent QC hint");
+        assert_eq!(parent_qc.height, 4);
+        assert_eq!(parent_qc.view, recovered_header.view);
+        assert_eq!(
+            parent_qc.block_hash,
+            recovered_header.canonical_block_commitment_hash
+        );
+    }
+
+    #[test]
+    fn recovered_header_for_quorum_certificate_returns_restart_hint() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let recovered_header = RecoveredCanonicalHeaderEntry {
+            height: 6,
+            view: 3,
+            canonical_block_commitment_hash: [0x66u8; 32],
+            parent_block_commitment_hash: [0x56u8; 32],
+            transactions_root_hash: [0x46u8; 32],
+            resulting_state_root_hash: [0x36u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x26u8; 32],
+        };
+
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &recovered_header,
+        ));
+
+        let recovered_qc = recovered_header.synthetic_quorum_certificate();
+        let resolved = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::recovered_consensus_header_for_quorum_certificate(
+            &engine,
+            &recovered_qc,
+        )
+        .expect("matching recovered header hint");
+        assert_eq!(resolved, recovered_header);
+    }
+
+    #[test]
+    fn recovered_certified_header_for_quorum_certificate_returns_restart_entry() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 5,
+            view: 2,
+            canonical_block_commitment_hash: [0x55u8; 32],
+            parent_block_commitment_hash: [0x45u8; 32],
+            transactions_root_hash: [0x35u8; 32],
+            resulting_state_root_hash: [0x25u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x15u8; 32],
+        };
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &previous_header,
+        ));
+
+        let recovered_entry = RecoveredCertifiedHeaderEntry {
+            header: RecoveredCanonicalHeaderEntry {
+                height: 6,
+                view: 3,
+                canonical_block_commitment_hash: [0x66u8; 32],
+                parent_block_commitment_hash: previous_header.canonical_block_commitment_hash,
+                transactions_root_hash: [0x46u8; 32],
+                resulting_state_root_hash: [0x36u8; 32],
+                previous_canonical_collapse_commitment_hash: [0x26u8; 32],
+            },
+            certified_parent_quorum_certificate: previous_header.synthetic_quorum_certificate(),
+            certified_parent_resulting_state_root_hash: previous_header.resulting_state_root_hash,
+        };
+
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_certified_header(
+            &mut engine,
+            &recovered_entry,
+        ));
+
+        let resolved = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::recovered_certified_header_for_quorum_certificate(
+            &engine,
+            &recovered_entry.certified_quorum_certificate(),
+        )
+        .expect("matching recovered certified header hint");
+        assert_eq!(resolved, recovered_entry);
+    }
+
+    #[test]
+    fn observe_recovered_certified_header_rejects_conflicting_parent_state_root() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 7,
+            view: 4,
+            canonical_block_commitment_hash: [0x77u8; 32],
+            parent_block_commitment_hash: [0x67u8; 32],
+            transactions_root_hash: [0x57u8; 32],
+            resulting_state_root_hash: [0x47u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x37u8; 32],
+        };
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &previous_header,
+        ));
+
+        let conflicting_entry = RecoveredCertifiedHeaderEntry {
+            header: RecoveredCanonicalHeaderEntry {
+                height: 8,
+                view: 5,
+                canonical_block_commitment_hash: [0x88u8; 32],
+                parent_block_commitment_hash: previous_header.canonical_block_commitment_hash,
+                transactions_root_hash: [0x68u8; 32],
+                resulting_state_root_hash: [0x58u8; 32],
+                previous_canonical_collapse_commitment_hash: [0x48u8; 32],
+            },
+            certified_parent_quorum_certificate: previous_header.synthetic_quorum_certificate(),
+            certified_parent_resulting_state_root_hash: [0xffu8; 32],
+        };
+
+        assert!(!<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_certified_header(
+            &mut engine,
+            &conflicting_entry,
+        ));
+    }
+
+    #[test]
+    fn header_for_quorum_certificate_returns_recovered_restart_header() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 6,
+            view: 2,
+            canonical_block_commitment_hash: [0x61u8; 32],
+            parent_block_commitment_hash: [0x51u8; 32],
+            transactions_root_hash: [0x41u8; 32],
+            resulting_state_root_hash: [0x31u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x21u8; 32],
+        };
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &previous_header,
+        ));
+
+        let certified_entry = RecoveredCertifiedHeaderEntry {
+            header: RecoveredCanonicalHeaderEntry {
+                height: 7,
+                view: 3,
+                canonical_block_commitment_hash: [0x71u8; 32],
+                parent_block_commitment_hash: previous_header.canonical_block_commitment_hash,
+                transactions_root_hash: [0x51u8; 32],
+                resulting_state_root_hash: [0x41u8; 32],
+                previous_canonical_collapse_commitment_hash: [0x31u8; 32],
+            },
+            certified_parent_quorum_certificate: previous_header.synthetic_quorum_certificate(),
+            certified_parent_resulting_state_root_hash: previous_header.resulting_state_root_hash,
+        };
+        let payload = RecoverableSlotPayloadV5 {
+            height: 7,
+            view: 3,
+            producer_account_id: AccountId([0x72u8; 32]),
+            block_commitment_hash: certified_entry.header.canonical_block_commitment_hash,
+            parent_block_hash: certified_entry.header.parent_block_commitment_hash,
+            canonical_order_certificate: CanonicalOrderCertificate {
+                height: 7,
+                bulletin_commitment: BulletinCommitment {
+                    height: 7,
+                    cutoff_timestamp_ms: 1_760_000_777_000,
+                    bulletin_root: [0x73u8; 32],
+                    entry_count: 0,
+                },
+                bulletin_availability_certificate: BulletinAvailabilityCertificate {
+                    height: 7,
+                    bulletin_commitment_hash: [0x74u8; 32],
+                    recoverability_root: [0x75u8; 32],
+                },
+                randomness_beacon: [0x76u8; 32],
+                ordered_transactions_root_hash: certified_entry.header.transactions_root_hash,
+                resulting_state_root_hash: certified_entry.header.resulting_state_root_hash,
+                proof: CanonicalOrderProof::default(),
+                omission_proofs: Vec::new(),
+            },
+            ordered_transaction_bytes: Vec::new(),
+            canonical_order_publication_bundle_bytes: Vec::new(),
+            canonical_bulletin_close_bytes: Vec::new(),
+            canonical_bulletin_availability_certificate_bytes: Vec::new(),
+            bulletin_surface_entries: Vec::new(),
+        };
+        let restart_entry = recovered_restart_block_header_entry(&payload, &certified_entry)
+            .expect("restart entry");
+
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_restart_block_header(
+            &mut engine,
+            &restart_entry,
+        ));
+
+        let resolved = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::header_for_quorum_certificate(
+            &engine,
+            &restart_entry.certified_quorum_certificate(),
+        )
+        .expect("matching recovered restart header");
+        assert_eq!(resolved, restart_entry.header);
+    }
+
+    #[test]
+    fn observe_recovered_restart_block_header_rejects_conflicting_parent_qc() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 8,
+            view: 4,
+            canonical_block_commitment_hash: [0x81u8; 32],
+            parent_block_commitment_hash: [0x71u8; 32],
+            transactions_root_hash: [0x61u8; 32],
+            resulting_state_root_hash: [0x51u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x41u8; 32],
+        };
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &previous_header,
+        ));
+
+        let certified_entry = RecoveredCertifiedHeaderEntry {
+            header: RecoveredCanonicalHeaderEntry {
+                height: 9,
+                view: 5,
+                canonical_block_commitment_hash: [0x91u8; 32],
+                parent_block_commitment_hash: previous_header.canonical_block_commitment_hash,
+                transactions_root_hash: [0x71u8; 32],
+                resulting_state_root_hash: [0x61u8; 32],
+                previous_canonical_collapse_commitment_hash: [0x51u8; 32],
+            },
+            certified_parent_quorum_certificate: previous_header.synthetic_quorum_certificate(),
+            certified_parent_resulting_state_root_hash: previous_header.resulting_state_root_hash,
+        };
+        let payload = RecoverableSlotPayloadV5 {
+            height: 9,
+            view: 5,
+            producer_account_id: AccountId([0x92u8; 32]),
+            block_commitment_hash: certified_entry.header.canonical_block_commitment_hash,
+            parent_block_hash: certified_entry.header.parent_block_commitment_hash,
+            canonical_order_certificate: CanonicalOrderCertificate {
+                height: 9,
+                bulletin_commitment: BulletinCommitment {
+                    height: 9,
+                    cutoff_timestamp_ms: 1_760_000_999_000,
+                    bulletin_root: [0x93u8; 32],
+                    entry_count: 0,
+                },
+                bulletin_availability_certificate: BulletinAvailabilityCertificate {
+                    height: 9,
+                    bulletin_commitment_hash: [0x94u8; 32],
+                    recoverability_root: [0x95u8; 32],
+                },
+                randomness_beacon: [0x96u8; 32],
+                ordered_transactions_root_hash: certified_entry.header.transactions_root_hash,
+                resulting_state_root_hash: certified_entry.header.resulting_state_root_hash,
+                proof: CanonicalOrderProof::default(),
+                omission_proofs: Vec::new(),
+            },
+            ordered_transaction_bytes: Vec::new(),
+            canonical_order_publication_bundle_bytes: Vec::new(),
+            canonical_bulletin_close_bytes: Vec::new(),
+            canonical_bulletin_availability_certificate_bytes: Vec::new(),
+            bulletin_surface_entries: Vec::new(),
+        };
+        let mut restart_entry = recovered_restart_block_header_entry(&payload, &certified_entry)
+            .expect("restart entry");
+        restart_entry.header.parent_qc.block_hash[0] ^= 0xFF;
+
+        assert!(!<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_restart_block_header(
+            &mut engine,
+            &restart_entry,
+        ));
+    }
+
+    #[test]
+    fn aft_recovered_trait_paths_match_legacy_wrappers() {
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 5,
+            view: 2,
+            canonical_block_commitment_hash: [0x51u8; 32],
+            parent_block_commitment_hash: [0x41u8; 32],
+            transactions_root_hash: [0x31u8; 32],
+            resulting_state_root_hash: [0x21u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x11u8; 32],
+        };
+        let certified_entry = RecoveredCertifiedHeaderEntry {
+            header: RecoveredCanonicalHeaderEntry {
+                height: 6,
+                view: 3,
+                canonical_block_commitment_hash: [0x61u8; 32],
+                parent_block_commitment_hash: previous_header.canonical_block_commitment_hash,
+                transactions_root_hash: [0x41u8; 32],
+                resulting_state_root_hash: [0x31u8; 32],
+                previous_canonical_collapse_commitment_hash: [0x21u8; 32],
+            },
+            certified_parent_quorum_certificate: previous_header.synthetic_quorum_certificate(),
+            certified_parent_resulting_state_root_hash: previous_header.resulting_state_root_hash,
+        };
+        let restart_entry = sample_recovered_restart_entry(
+            &certified_entry.header,
+            certified_entry.certified_quorum_certificate(),
+            certified_entry.header.resulting_state_root_hash,
+            7,
+            4,
+            0x71,
+            0x72,
+            0x73,
+            0x74,
+            0x75,
+            0x76,
+        );
+
+        let mut legacy_engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let mut aft_engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut legacy_engine,
+            &previous_header,
+        ));
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_certified_header(
+            &mut legacy_engine,
+            &certified_entry,
+        ));
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_restart_block_header(
+            &mut legacy_engine,
+            &restart_entry,
+        ));
+
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_aft_recovered_consensus_header(
+            &mut aft_engine,
+            &previous_header,
+        ));
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_aft_recovered_certified_header(
+            &mut aft_engine,
+            &certified_entry,
+        ));
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_aft_recovered_restart_header(
+            &mut aft_engine,
+            &restart_entry,
+        ));
+
+        assert_eq!(
+            legacy_engine.recovered_headers,
+            aft_engine.recovered_headers
+        );
+        assert_eq!(
+            legacy_engine.recovered_certified_headers,
+            aft_engine.recovered_certified_headers
+        );
+        assert_eq!(
+            legacy_engine.recovered_restart_headers,
+            aft_engine.recovered_restart_headers
+        );
+
+        let recovered_qc = previous_header.synthetic_quorum_certificate();
+        let certified_qc = certified_entry.certified_quorum_certificate();
+        let restart_qc = restart_entry.certified_quorum_certificate();
+        assert_eq!(
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::recovered_consensus_header_for_quorum_certificate(
+                &legacy_engine,
+                &recovered_qc,
+            ),
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::aft_recovered_consensus_header_for_quorum_certificate(
+                &aft_engine,
+                &recovered_qc,
+            )
+        );
+        assert_eq!(
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::recovered_certified_header_for_quorum_certificate(
+                &legacy_engine,
+                &certified_qc,
+            ),
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::aft_recovered_certified_header_for_quorum_certificate(
+                &aft_engine,
+                &certified_qc,
+            )
+        );
+        assert_eq!(
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::recovered_restart_block_header_for_quorum_certificate(
+                &legacy_engine,
+                &restart_qc,
+            ),
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::aft_recovered_restart_header_for_quorum_certificate(
+                &aft_engine,
+                &restart_qc,
+            )
+        );
+    }
+
+    #[test]
+    fn observe_aft_recovered_state_surface_matches_manual_header_seeding() {
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 5,
+            view: 2,
+            canonical_block_commitment_hash: [0x51u8; 32],
+            parent_block_commitment_hash: [0x41u8; 32],
+            transactions_root_hash: [0x31u8; 32],
+            resulting_state_root_hash: [0x21u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x11u8; 32],
+        };
+        let certified_entry = RecoveredCertifiedHeaderEntry {
+            header: RecoveredCanonicalHeaderEntry {
+                height: 6,
+                view: 3,
+                canonical_block_commitment_hash: [0x61u8; 32],
+                parent_block_commitment_hash: previous_header.canonical_block_commitment_hash,
+                transactions_root_hash: [0x41u8; 32],
+                resulting_state_root_hash: [0x31u8; 32],
+                previous_canonical_collapse_commitment_hash: [0x21u8; 32],
+            },
+            certified_parent_quorum_certificate: previous_header.synthetic_quorum_certificate(),
+            certified_parent_resulting_state_root_hash: previous_header.resulting_state_root_hash,
+        };
+        let restart_entry = sample_recovered_restart_entry(
+            &certified_entry.header,
+            certified_entry.certified_quorum_certificate(),
+            certified_entry.header.resulting_state_root_hash,
+            7,
+            4,
+            0x71,
+            0x72,
+            0x73,
+            0x74,
+            0x75,
+            0x76,
+        );
+        let surface = AftRecoveredStateSurface {
+            replay_prefix: Vec::new(),
+            consensus_headers: vec![previous_header.clone()],
+            certified_headers: vec![certified_entry.clone()],
+            restart_headers: vec![restart_entry.clone()],
+            historical_continuation: None,
+        };
+
+        let mut manual_engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let mut surface_engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_aft_recovered_consensus_header(
+            &mut manual_engine,
+            &previous_header,
+        ));
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_aft_recovered_certified_header(
+            &mut manual_engine,
+            &certified_entry,
+        ));
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_aft_recovered_restart_header(
+            &mut manual_engine,
+            &restart_entry,
+        ));
+
+        let stats = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_aft_recovered_state_surface(&mut surface_engine, &surface);
+
+        assert_eq!(stats.accepted_consensus_headers, 1);
+        assert_eq!(stats.accepted_certified_headers, 1);
+        assert_eq!(stats.accepted_restart_headers, 1);
+        assert!(stats.accepted_any());
+
+        assert_eq!(
+            manual_engine.recovered_headers,
+            surface_engine.recovered_headers
+        );
+        assert_eq!(
+            manual_engine.recovered_certified_headers,
+            surface_engine.recovered_certified_headers
+        );
+        assert_eq!(
+            manual_engine.recovered_restart_headers,
+            surface_engine.recovered_restart_headers
+        );
+
+        let recovered_qc = previous_header.synthetic_quorum_certificate();
+        let certified_qc = certified_entry.certified_quorum_certificate();
+        let restart_qc = restart_entry.certified_quorum_certificate();
+        assert_eq!(
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::aft_recovered_consensus_header_for_quorum_certificate(
+                &manual_engine,
+                &recovered_qc,
+            ),
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::aft_recovered_consensus_header_for_quorum_certificate(
+                &surface_engine,
+                &recovered_qc,
+            )
+        );
+        assert_eq!(
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::aft_recovered_certified_header_for_quorum_certificate(
+                &manual_engine,
+                &certified_qc,
+            ),
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::aft_recovered_certified_header_for_quorum_certificate(
+                &surface_engine,
+                &certified_qc,
+            )
+        );
+        assert_eq!(
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::aft_recovered_restart_header_for_quorum_certificate(
+                &manual_engine,
+                &restart_qc,
+            ),
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::aft_recovered_restart_header_for_quorum_certificate(
+                &surface_engine,
+                &restart_qc,
+            )
+        );
+    }
+
+    #[test]
+    fn recovered_restart_block_header_for_quorum_certificate_returns_later_step_entry() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 10,
+            view: 5,
+            canonical_block_commitment_hash: [0xA1u8; 32],
+            parent_block_commitment_hash: [0x91u8; 32],
+            transactions_root_hash: [0x81u8; 32],
+            resulting_state_root_hash: [0x71u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x61u8; 32],
+        };
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &previous_header,
+        ));
+
+        let step_one = sample_recovered_restart_entry(
+            &previous_header,
+            previous_header.synthetic_quorum_certificate(),
+            previous_header.resulting_state_root_hash,
+            11,
+            6,
+            0xA2,
+            0x82,
+            0x72,
+            0x62,
+            0xB2,
+            0xC2,
+        );
+        let step_two = sample_recovered_restart_entry(
+            &step_one.certified_header.header,
+            step_one.certified_quorum_certificate(),
+            step_one.certified_header.header.resulting_state_root_hash,
+            12,
+            7,
+            0xA3,
+            0x83,
+            0x73,
+            0x63,
+            0xB3,
+            0xC3,
+        );
+        let step_three = sample_recovered_restart_entry(
+            &step_two.certified_header.header,
+            step_two.certified_quorum_certificate(),
+            step_two.certified_header.header.resulting_state_root_hash,
+            13,
+            8,
+            0xA4,
+            0x84,
+            0x74,
+            0x64,
+            0xB4,
+            0xC4,
+        );
+
+        for entry in [&step_one, &step_two, &step_three] {
+            assert!(<GuardianMajorityEngine as ConsensusEngine<
+                ChainTransaction,
+            >>::observe_recovered_restart_block_header(
+                &mut engine, entry,
+            ));
+        }
+
+        let resolved = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::recovered_restart_block_header_for_quorum_certificate(
+            &engine,
+            &step_three.certified_quorum_certificate(),
+        )
+        .expect("later-step recovered restart entry");
+        assert_eq!(resolved, step_three);
+
+        let resolved_header = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::header_for_quorum_certificate(
+            &engine,
+            &step_three.certified_quorum_certificate(),
+        )
+        .expect("later-step recovered restart header");
+        assert_eq!(resolved_header, step_three.header);
+    }
+
+    #[test]
+    fn recovered_restart_block_header_for_quorum_certificate_returns_fourth_step_entry() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 20,
+            view: 9,
+            canonical_block_commitment_hash: [0xB1u8; 32],
+            parent_block_commitment_hash: [0xA1u8; 32],
+            transactions_root_hash: [0x91u8; 32],
+            resulting_state_root_hash: [0x81u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x71u8; 32],
+        };
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &previous_header,
+        ));
+
+        let step_one = sample_recovered_restart_entry(
+            &previous_header,
+            previous_header.synthetic_quorum_certificate(),
+            previous_header.resulting_state_root_hash,
+            21,
+            10,
+            0xB2,
+            0x92,
+            0x82,
+            0x72,
+            0xC2,
+            0xD2,
+        );
+        let step_two = sample_recovered_restart_entry(
+            &step_one.certified_header.header,
+            step_one.certified_quorum_certificate(),
+            step_one.certified_header.header.resulting_state_root_hash,
+            22,
+            11,
+            0xB3,
+            0x93,
+            0x83,
+            0x73,
+            0xC3,
+            0xD3,
+        );
+        let step_three = sample_recovered_restart_entry(
+            &step_two.certified_header.header,
+            step_two.certified_quorum_certificate(),
+            step_two.certified_header.header.resulting_state_root_hash,
+            23,
+            12,
+            0xB4,
+            0x94,
+            0x84,
+            0x74,
+            0xC4,
+            0xD4,
+        );
+        let step_four = sample_recovered_restart_entry(
+            &step_three.certified_header.header,
+            step_three.certified_quorum_certificate(),
+            step_three.certified_header.header.resulting_state_root_hash,
+            24,
+            13,
+            0xB5,
+            0x95,
+            0x85,
+            0x75,
+            0xC5,
+            0xD5,
+        );
+
+        for entry in [&step_one, &step_two, &step_three, &step_four] {
+            assert!(<GuardianMajorityEngine as ConsensusEngine<
+                ChainTransaction,
+            >>::observe_recovered_restart_block_header(
+                &mut engine, entry,
+            ));
+        }
+
+        let resolved = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::recovered_restart_block_header_for_quorum_certificate(
+            &engine,
+            &step_four.certified_quorum_certificate(),
+        )
+        .expect("fourth-step recovered restart entry");
+        assert_eq!(resolved, step_four);
+
+        let resolved_header = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::header_for_quorum_certificate(
+            &engine,
+            &step_four.certified_quorum_certificate(),
+        )
+        .expect("fourth-step recovered restart header");
+        assert_eq!(resolved_header, step_four.header);
+    }
+
+    #[test]
+    fn recovered_restart_block_header_for_quorum_certificate_returns_fifth_step_entry() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 30,
+            view: 14,
+            canonical_block_commitment_hash: [0xC1u8; 32],
+            parent_block_commitment_hash: [0xB1u8; 32],
+            transactions_root_hash: [0xA1u8; 32],
+            resulting_state_root_hash: [0x91u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x81u8; 32],
+        };
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &previous_header,
+        ));
+
+        let branch = sample_recovered_restart_entry_branch(&previous_header, 15, 5, 0xD1);
+        for entry in &branch {
+            assert!(<GuardianMajorityEngine as ConsensusEngine<
+                ChainTransaction,
+            >>::observe_recovered_restart_block_header(
+                &mut engine, entry,
+            ));
+        }
+
+        let tail = branch.last().expect("fifth-step branch tail");
+        let resolved = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::recovered_restart_block_header_for_quorum_certificate(
+            &engine,
+            &tail.certified_quorum_certificate(),
+        )
+        .expect("fifth-step recovered restart entry");
+        assert_eq!(resolved, *tail);
+
+        let resolved_header = <GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::header_for_quorum_certificate(
+            &engine,
+            &tail.certified_quorum_certificate(),
+        )
+        .expect("fifth-step recovered restart header");
+        assert_eq!(resolved_header, tail.header);
+    }
+
+    #[test]
+    fn retain_recovered_ancestry_ranges_prunes_restart_caches_outside_keep_ranges() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 40,
+            view: 19,
+            canonical_block_commitment_hash: [0xD1u8; 32],
+            parent_block_commitment_hash: [0xC1u8; 32],
+            transactions_root_hash: [0xB1u8; 32],
+            resulting_state_root_hash: [0xA1u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x91u8; 32],
+        };
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &previous_header,
+        ));
+
+        let branch = sample_recovered_restart_entry_branch(&previous_header, 20, 5, 0xE1);
+        for entry in &branch {
+            assert!(<GuardianMajorityEngine as ConsensusEngine<
+                ChainTransaction,
+            >>::observe_recovered_restart_block_header(
+                &mut engine, entry,
+            ));
+        }
+
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::retain_recovered_ancestry_ranges(
+            &mut engine,
+            &[(42, 43), (45, 45)],
+        );
+
+        let mut recovered_header_heights =
+            engine.recovered_headers.keys().copied().collect::<Vec<_>>();
+        let mut recovered_certified_heights = engine
+            .recovered_certified_headers
+            .keys()
+            .copied()
+            .collect::<Vec<_>>();
+        let mut recovered_restart_heights = engine
+            .recovered_restart_headers
+            .keys()
+            .copied()
+            .collect::<Vec<_>>();
+        recovered_header_heights.sort_unstable();
+        recovered_certified_heights.sort_unstable();
+        recovered_restart_heights.sort_unstable();
+
+        assert_eq!(recovered_header_heights, vec![42, 43, 45]);
+        assert_eq!(recovered_certified_heights, vec![42, 43, 45]);
+        assert_eq!(recovered_restart_heights, vec![42, 43, 45]);
+    }
+
+    #[test]
+    fn observe_recovered_consensus_header_rejects_conflicting_parent_link() {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+        let previous_header = RecoveredCanonicalHeaderEntry {
+            height: 4,
+            view: 1,
+            canonical_block_commitment_hash: [0x61u8; 32],
+            parent_block_commitment_hash: [0x51u8; 32],
+            transactions_root_hash: [0x41u8; 32],
+            resulting_state_root_hash: [0x31u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x31u8; 32],
+        };
+        let conflicting_child = RecoveredCanonicalHeaderEntry {
+            height: 5,
+            view: 2,
+            canonical_block_commitment_hash: [0x62u8; 32],
+            parent_block_commitment_hash: [0x99u8; 32],
+            transactions_root_hash: [0x42u8; 32],
+            resulting_state_root_hash: [0x32u8; 32],
+            previous_canonical_collapse_commitment_hash: [0x32u8; 32],
+        };
+
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &previous_header,
+        ));
+        assert!(!<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_recovered_consensus_header(
+            &mut engine,
+            &conflicting_child,
+        ));
+        assert!(!engine.recovered_headers.contains_key(&5));
+    }
+
+    #[test]
     fn asymptote_reset_promotes_committed_header_for_committed_height() {
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-        let previous_collapse =
-            test_canonical_collapse_object(4, None, [44u8; 32], [45u8; 32]);
+        let previous_collapse = test_canonical_collapse_object(4, None, [44u8; 32], [45u8; 32]);
         engine
             .committed_collapses
             .insert(previous_collapse.height, previous_collapse.clone());
         let mut committed_header = build_progress_parent_header(5, 0);
         link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
-        let committed_collapse =
-            derive_canonical_collapse_object_with_previous(&committed_header, &[], Some(&previous_collapse))
-                .unwrap();
+        let committed_collapse = derive_canonical_collapse_object_with_previous(
+            &committed_header,
+            &[],
+            Some(&previous_collapse),
+        )
+        .unwrap();
         let committed_hash = to_root_hash(&committed_header.hash().unwrap()).unwrap();
         engine
             .committed_headers
@@ -8598,26 +10521,31 @@ mod tests {
     #[test]
     fn asymptote_observe_committed_block_ignores_mismatched_collapse_object() {
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-        let previous_collapse =
-            test_canonical_collapse_object(4, None, [46u8; 32], [47u8; 32]);
+        let previous_collapse = test_canonical_collapse_object(4, None, [46u8; 32], [47u8; 32]);
         engine
             .committed_collapses
             .insert(previous_collapse.height, previous_collapse.clone());
         let mut committed_header = build_progress_parent_header(5, 0);
         link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
-        let mut collapse =
-            derive_canonical_collapse_object_with_previous(&committed_header, &[], Some(&previous_collapse))
-                .unwrap();
+        let mut collapse = derive_canonical_collapse_object_with_previous(
+            &committed_header,
+            &[],
+            Some(&previous_collapse),
+        )
+        .unwrap();
         collapse.resulting_state_root_hash[0] ^= 0xFF;
 
-        let accepted = <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
-            &mut engine,
-            &committed_header,
-            Some(&collapse),
-        );
+        let accepted =
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+                &mut engine,
+                &committed_header,
+                Some(&collapse),
+            );
 
         assert!(!accepted);
-        assert!(!engine.committed_headers.contains_key(&committed_header.height));
+        assert!(!engine
+            .committed_headers
+            .contains_key(&committed_header.height));
 
         <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::reset(&mut engine, 5);
 
@@ -8627,23 +10555,26 @@ mod tests {
     #[test]
     fn asymptote_observe_committed_block_with_matching_collapse_enables_reset_promotion() {
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-        let previous_collapse =
-            test_canonical_collapse_object(4, None, [48u8; 32], [49u8; 32]);
+        let previous_collapse = test_canonical_collapse_object(4, None, [48u8; 32], [49u8; 32]);
         engine
             .committed_collapses
             .insert(previous_collapse.height, previous_collapse.clone());
         let mut committed_header = build_progress_parent_header(5, 0);
         link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
         let committed_hash = to_root_hash(&committed_header.hash().unwrap()).unwrap();
-        let collapse =
-            derive_canonical_collapse_object_with_previous(&committed_header, &[], Some(&previous_collapse))
-                .unwrap();
-
-        let accepted = <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
-            &mut engine,
+        let collapse = derive_canonical_collapse_object_with_previous(
             &committed_header,
-            Some(&collapse),
-        );
+            &[],
+            Some(&previous_collapse),
+        )
+        .unwrap();
+
+        let accepted =
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+                &mut engine,
+                &committed_header,
+                Some(&collapse),
+            );
 
         assert!(accepted);
         <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::reset(&mut engine, 5);
@@ -8653,15 +10584,13 @@ mod tests {
     }
 
     #[test]
-    fn asymptote_observe_committed_block_with_matching_succinct_collapse_enables_reset_promotion()
-    {
+    fn asymptote_observe_committed_block_with_matching_succinct_collapse_enables_reset_promotion() {
         let _guard = continuity_env_lock().lock().expect("continuity env lock");
         let previous_env = std::env::var("IOI_AFT_CONTINUITY_PROOF_SYSTEM").ok();
         std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", "succinct-sp1-v1");
 
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-        let previous_collapse =
-            test_canonical_collapse_object(4, None, [0x31u8; 32], [0x32u8; 32]);
+        let previous_collapse = test_canonical_collapse_object(4, None, [0x31u8; 32], [0x32u8; 32]);
         engine
             .committed_collapses
             .insert(previous_collapse.height, previous_collapse.clone());
@@ -8675,11 +10604,12 @@ mod tests {
         )
         .unwrap();
 
-        let accepted = <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
-            &mut engine,
-            &committed_header,
-            Some(&committed_collapse),
-        );
+        let accepted =
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+                &mut engine,
+                &committed_header,
+                Some(&committed_collapse),
+            );
 
         assert!(accepted);
         <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::reset(&mut engine, 5);
@@ -8701,8 +10631,7 @@ mod tests {
         std::env::set_var("IOI_AFT_CONTINUITY_PROOF_SYSTEM", "succinct-sp1-v1");
 
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-        let previous_collapse =
-            test_canonical_collapse_object(4, None, [0x41u8; 32], [0x42u8; 32]);
+        let previous_collapse = test_canonical_collapse_object(4, None, [0x41u8; 32], [0x42u8; 32]);
         let mut stored_previous = previous_collapse.clone();
         stored_previous.continuity_recursive_proof.proof_bytes[0] ^= 0xFF;
         engine
@@ -8717,11 +10646,12 @@ mod tests {
         )
         .unwrap();
 
-        let accepted = <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
-            &mut engine,
-            &committed_header,
-            Some(&committed_collapse),
-        );
+        let accepted =
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+                &mut engine,
+                &committed_header,
+                Some(&committed_collapse),
+            );
 
         assert!(!accepted);
 
@@ -8801,13 +10731,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn asymptote_handle_quorum_certificate_does_not_advance_without_previous_anchor()
-    {
+    async fn asymptote_handle_quorum_certificate_does_not_advance_without_previous_anchor() {
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
         engine.remember_validator_count(2, 3);
 
-        let previous_collapse =
-            test_canonical_collapse_object(1, None, [60u8; 32], [61u8; 32]);
+        let previous_collapse = test_canonical_collapse_object(1, None, [60u8; 32], [61u8; 32]);
         let mut header = build_progress_parent_header(2, 0);
         link_header_to_previous_collapse(&mut header, &previous_collapse);
         let block_hash = to_root_hash(&header.hash().unwrap()).unwrap();
@@ -8840,13 +10768,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn asymptote_handle_quorum_certificate_does_not_advance_without_carried_previous_collapse_certificate()
-    {
+    async fn asymptote_handle_quorum_certificate_does_not_advance_without_carried_previous_collapse_certificate(
+    ) {
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
         engine.remember_validator_count(2, 3);
 
-        let previous_collapse =
-            test_canonical_collapse_object(1, None, [70u8; 32], [71u8; 32]);
+        let previous_collapse = test_canonical_collapse_object(1, None, [70u8; 32], [71u8; 32]);
         engine
             .committed_collapses
             .insert(previous_collapse.height, previous_collapse.clone());
@@ -8884,19 +10811,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn asymptote_handle_quorum_certificate_does_not_advance_with_mismatched_local_previous_collapse()
-    {
+    async fn asymptote_handle_quorum_certificate_does_not_advance_with_mismatched_local_previous_collapse(
+    ) {
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
         engine.remember_validator_count(3, 3);
 
-        let grandparent_collapse =
-            test_canonical_collapse_object(1, None, [72u8; 32], [73u8; 32]);
-        let previous_collapse = test_canonical_collapse_object(
-            2,
-            Some(&grandparent_collapse),
-            [74u8; 32],
-            [75u8; 32],
-        );
+        let grandparent_collapse = test_canonical_collapse_object(1, None, [72u8; 32], [73u8; 32]);
+        let previous_collapse =
+            test_canonical_collapse_object(2, Some(&grandparent_collapse), [74u8; 32], [75u8; 32]);
         engine
             .committed_collapses
             .insert(grandparent_collapse.height, grandparent_collapse.clone());
@@ -8942,18 +10864,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn asymptote_handle_quorum_certificate_advances_with_recursive_proof_backed_predecessor() {
+    async fn asymptote_handle_quorum_certificate_advances_with_recursive_proof_backed_predecessor()
+    {
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
         engine.remember_validator_count(3, 3);
 
-        let grandparent_collapse =
-            test_canonical_collapse_object(1, None, [76u8; 32], [77u8; 32]);
-        let previous_collapse = test_canonical_collapse_object(
-            2,
-            Some(&grandparent_collapse),
-            [78u8; 32],
-            [79u8; 32],
-        );
+        let grandparent_collapse = test_canonical_collapse_object(1, None, [76u8; 32], [77u8; 32]);
+        let previous_collapse =
+            test_canonical_collapse_object(2, Some(&grandparent_collapse), [78u8; 32], [79u8; 32]);
         engine
             .committed_collapses
             .insert(grandparent_collapse.height, grandparent_collapse.clone());
@@ -9001,14 +10919,9 @@ mod tests {
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
         engine.remember_validator_count(3, 3);
 
-        let grandparent_collapse =
-            test_canonical_collapse_object(1, None, [80u8; 32], [81u8; 32]);
-        let mut previous_collapse = test_canonical_collapse_object(
-            2,
-            Some(&grandparent_collapse),
-            [82u8; 32],
-            [83u8; 32],
-        );
+        let grandparent_collapse = test_canonical_collapse_object(1, None, [80u8; 32], [81u8; 32]);
+        let mut previous_collapse =
+            test_canonical_collapse_object(2, Some(&grandparent_collapse), [82u8; 32], [83u8; 32]);
         bind_succinct_mock_continuity(&mut previous_collapse);
         engine
             .committed_collapses
@@ -9054,16 +10967,14 @@ mod tests {
         let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
         engine.remember_validator_count(3, 3);
 
-        let grandparent_collapse =
-            test_canonical_collapse_object(1, None, [84u8; 32], [85u8; 32]);
-        let mut previous_collapse = test_canonical_collapse_object(
-            2,
-            Some(&grandparent_collapse),
-            [86u8; 32],
-            [87u8; 32],
-        );
+        let grandparent_collapse = test_canonical_collapse_object(1, None, [84u8; 32], [85u8; 32]);
+        let mut previous_collapse =
+            test_canonical_collapse_object(2, Some(&grandparent_collapse), [86u8; 32], [87u8; 32]);
         bind_succinct_mock_continuity(&mut previous_collapse);
-        previous_collapse.continuity_recursive_proof.proof_bytes.reverse();
+        previous_collapse
+            .continuity_recursive_proof
+            .proof_bytes
+            .reverse();
         engine
             .committed_collapses
             .insert(grandparent_collapse.height, grandparent_collapse.clone());
@@ -9074,15 +10985,14 @@ mod tests {
         let mut header = build_progress_parent_header(3, 0);
         header.previous_canonical_collapse_commitment_hash =
             canonical_collapse_commitment_hash_from_object(&previous_collapse).unwrap();
-        header.canonical_collapse_extension_certificate = Some(
-            CanonicalCollapseExtensionCertificate {
+        header.canonical_collapse_extension_certificate =
+            Some(CanonicalCollapseExtensionCertificate {
                 predecessor_commitment: canonical_collapse_commitment(&previous_collapse),
                 predecessor_recursive_proof_hash: canonical_collapse_recursive_proof_hash(
                     &previous_collapse.continuity_recursive_proof,
                 )
                 .unwrap(),
-            },
-        );
+            });
         header.parent_state_root = StateRoot(previous_collapse.resulting_state_root_hash.to_vec());
         let block_hash = to_root_hash(&header.hash().unwrap()).unwrap();
         engine

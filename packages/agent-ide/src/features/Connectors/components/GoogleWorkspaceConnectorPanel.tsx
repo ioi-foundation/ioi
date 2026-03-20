@@ -55,11 +55,16 @@ export function GoogleWorkspaceConnectorPanel({
   });
 
   const actionsById = useMemo(() => {
-    return new Map(workspace.actions.map((action) => [action.id, action] as const));
+    return new Map(
+      workspace.actions.map((action) => [action.id, action] as const),
+    );
   }, [workspace.actions]);
 
   const groupedActions = useMemo<WorkspaceServiceGroup[]>(() => {
-    const groups = new Map<string, { serviceLabel: string; actions: ConnectorActionDefinition[] }>();
+    const groups = new Map<
+      string,
+      { serviceLabel: string; actions: ConnectorActionDefinition[] }
+    >();
     for (const action of workspace.actions) {
       const key = action.service ?? "workspace";
       const current = groups.get(key);
@@ -83,10 +88,19 @@ export function GoogleWorkspaceConnectorPanel({
         };
         const featuredIds = new Set(meta.featuredActionIds);
         const featuredActions = meta.featuredActionIds
-          .map((actionId) => value.actions.find((action) => action.id === actionId) ?? null)
-          .filter((action): action is ConnectorActionDefinition => Boolean(action));
-        const supportingActions = value.actions.filter((action) => !featuredIds.has(action.id));
-        const kinds = Array.from(new Set(value.actions.map((action) => actionKindLabel(action.kind))));
+          .map(
+            (actionId) =>
+              value.actions.find((action) => action.id === actionId) ?? null,
+          )
+          .filter((action): action is ConnectorActionDefinition =>
+            Boolean(action),
+          );
+        const supportingActions = value.actions.filter(
+          (action) => !featuredIds.has(action.id),
+        );
+        const kinds = Array.from(
+          new Set(value.actions.map((action) => actionKindLabel(action.kind))),
+        );
 
         return {
           service,
@@ -95,36 +109,48 @@ export function GoogleWorkspaceConnectorPanel({
           summary: meta.summary,
           detail: meta.detail,
           actions: value.actions,
-          featuredActions: featuredActions.length > 0 ? featuredActions : value.actions.slice(0, 3),
+          featuredActions:
+            featuredActions.length > 0
+              ? featuredActions
+              : value.actions.slice(0, 3),
           supportingActions,
           kinds,
         };
       })
-      .sort((left, right) => orderIndex(left.service) - orderIndex(right.service));
+      .sort(
+        (left, right) => orderIndex(left.service) - orderIndex(right.service),
+      );
   }, [workspace.actions]);
 
   const capabilityGroups = groupedActions.filter(
-    (group) => group.service !== "expert" && group.service !== "events"
+    (group) => group.service !== "expert" && group.service !== "events",
   );
   const automationGroups = groupedActions.filter(
     (group) =>
       group.service === "events" ||
-      group.actions.some((action) => action.id === "gmail.watch_emails" || action.kind === "admin")
+      group.actions.some(
+        (action) =>
+          action.id === "gmail.watch_emails" || action.kind === "admin",
+      ),
   );
   const advancedGroups = groupedActions;
   const activeSubscriptions = workspace.subscriptions.filter(
-    (subscription) => subscription.status === "active" || subscription.status === "renewing"
+    (subscription) =>
+      subscription.status === "active" || subscription.status === "renewing",
   );
   const attentionSubscriptions = workspace.subscriptions.filter(
     (subscription) =>
-      subscription.status === "degraded" || subscription.status === "reauth_required"
+      subscription.status === "degraded" ||
+      subscription.status === "reauth_required",
   );
 
   const connectorStatus =
-    (workspace.connectionStatus as ConnectorSummary["status"] | null) ?? connector.status;
+    (workspace.connectionStatus as ConnectorSummary["status"] | null) ??
+    connector.status;
   const availability = availabilityLabel(connectorStatus);
   const availabilityStyle = availabilityTone(connectorStatus);
-  const isConnected = connectorStatus === "connected" || connectorStatus === "degraded";
+  const isConnected =
+    connectorStatus === "connected" || connectorStatus === "degraded";
   const missingOauthClient = isMissingOauthClientError(workspace.error);
   const onboardingStep: WorkspaceOnboardingStepId = isConnected
     ? "connected"
@@ -136,15 +162,17 @@ export function GoogleWorkspaceConnectorPanel({
 
   useEffect(() => {
     if (workspace.authPending && workspace.requestedScopes.length > 0) {
-      setSelectedBundleIds(inferBundleSelectionFromScopes(workspace.requestedScopes));
+      setSelectedBundleIds(
+        inferBundleSelectionFromScopes(workspace.requestedScopes),
+      );
     }
   }, [workspace.authPending, workspace.requestedScopes]);
 
   const selectedBundles = GOOGLE_SCOPE_BUNDLES.filter((bundle) =>
-    selectedBundleIds.includes(bundle.id)
+    selectedBundleIds.includes(bundle.id),
   );
   const requestedScopes = Array.from(
-    new Set(selectedBundles.flatMap((bundle) => bundle.scopes))
+    new Set(selectedBundles.flatMap((bundle) => bundle.scopes)),
   );
   const canBeginAuth = workspace.runtimeReady && requestedScopes.length > 0;
   const reconnectScopes =
@@ -152,10 +180,10 @@ export function GoogleWorkspaceConnectorPanel({
   const tokenStoragePath = workspace.tokenStorage.storagePath;
   const clientStoragePath = workspace.oauthClient.storagePath;
   const troubleshootingScopes = Array.from(
-    new Set(["openid", "email", ...requestedScopes].map(googleScopeUri))
+    new Set(["openid", "email", ...requestedScopes].map(googleScopeUri)),
   );
   const troubleshootingApis = Array.from(
-    new Set(selectedBundles.flatMap((bundle) => bundle.apiLabels))
+    new Set(selectedBundles.flatMap((bundle) => bundle.apiLabels)),
   );
   const oauthClientPreview =
     workspace.oauthClient.clientIdPreview ||
@@ -164,15 +192,18 @@ export function GoogleWorkspaceConnectorPanel({
 
   const presetForAction = (
     action: ConnectorActionDefinition,
-    extraPreset?: Record<string, string>
+    extraPreset?: Record<string, string>,
   ) => {
-    const fieldProfilePreset = action.fields.reduce<Record<string, string>>((next, field) => {
-      const defaultValue = workspace.fieldProfiles[field.id]?.defaultValue;
-      if (defaultValue !== undefined) {
-        next[field.id] = defaultValue;
-      }
-      return next;
-    }, {});
+    const fieldProfilePreset = action.fields.reduce<Record<string, string>>(
+      (next, field) => {
+        const defaultValue = workspace.fieldProfiles[field.id]?.defaultValue;
+        if (defaultValue !== undefined) {
+          next[field.id] = defaultValue;
+        }
+        return next;
+      },
+      {},
+    );
     return {
       ...fieldProfilePreset,
       ...extraPreset,
@@ -182,7 +213,7 @@ export function GoogleWorkspaceConnectorPanel({
   const openAction = (
     tab: WorkspaceTabId,
     actionId: string,
-    presetInput?: Record<string, string>
+    presetInput?: Record<string, string>,
   ) => {
     const action = actionsById.get(actionId);
     if (!action) return;
@@ -208,13 +239,13 @@ export function GoogleWorkspaceConnectorPanel({
     setSelectedBundleIds((current) =>
       current.includes(bundleId)
         ? current.filter((value) => value !== bundleId)
-        : [...current, bundleId]
+        : [...current, bundleId],
     );
   };
 
   const resetGoogleSetup = async () => {
     const confirmed = window.confirm(
-      "Reset Google setup? This will remove local OAuth tokens and the saved local client configuration."
+      "Reset Google setup? This will remove local OAuth tokens and the saved local client configuration.",
     );
     if (!confirmed) return;
     setScopeModalOpen(false);
@@ -240,20 +271,26 @@ export function GoogleWorkspaceConnectorPanel({
     <div className="connector-test-panel workspace-connector-panel workspace-product-panel">
       <div className="workspace-overview-hero">
         <div className="workspace-hero-copy">
-          <span className="workspace-hero-kicker">Built-in Google Connector</span>
+          <span className="workspace-hero-kicker">
+            Built-in Google Connector
+          </span>
           <h3>Google Workspace</h3>
           <p>
-            Local-first Google access for Gmail, Calendar, Docs, Sheets, BigQuery, Drive, Tasks,
-            Chat, and durable Workspace automations inside Autopilot.
+            Local-first Google access for Gmail, Calendar, Docs, Sheets,
+            BigQuery, Drive, Tasks, Chat, and durable Workspace automations
+            inside Autopilot.
           </p>
           {workspace.connectedAccountEmail ? (
             <p className="workspace-hero-account">
-              Connected account: <strong>{workspace.connectedAccountEmail}</strong>
+              Connected account:{" "}
+              <strong>{workspace.connectedAccountEmail}</strong>
             </p>
           ) : null}
         </div>
         <div className="workspace-hero-meta">
-          <div className={`workspace-health-pill tone-${availabilityStyle}`}>{availability}</div>
+          <div className={`workspace-health-pill tone-${availabilityStyle}`}>
+            {availability}
+          </div>
           <div className="workspace-hero-actions">
             <button
               type="button"
@@ -276,30 +313,40 @@ export function GoogleWorkspaceConnectorPanel({
             ) : null}
             {isConnected ? (
               <>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => void workspace.beginAuth(reconnectScopes)}
-                disabled={workspace.busy || !workspace.runtimeReady || reconnectScopes.length === 0}
-              >
-                {workspace.busy ? "Working..." : isConnected ? "Reconnect" : "Start sign-in"}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={workspace.checkConnection}
-                disabled={workspace.busy || !workspace.runtimeReady}
-              >
-                Refresh
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={workspace.disconnect}
-                disabled={workspace.busy || !workspace.runtimeReady}
-              >
-                {workspace.tokenStorage.source === "local" ? "Wipe local tokens" : "Disconnect"}
-              </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void workspace.beginAuth(reconnectScopes)}
+                  disabled={
+                    workspace.busy ||
+                    !workspace.runtimeReady ||
+                    reconnectScopes.length === 0
+                  }
+                >
+                  {workspace.busy
+                    ? "Working..."
+                    : isConnected
+                      ? "Reconnect"
+                      : "Start sign-in"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={workspace.checkConnection}
+                  disabled={workspace.busy || !workspace.runtimeReady}
+                >
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={workspace.disconnect}
+                  disabled={workspace.busy || !workspace.runtimeReady}
+                >
+                  {workspace.tokenStorage.source === "local"
+                    ? "Wipe local tokens"
+                    : "Disconnect"}
+                </button>
               </>
             ) : null}
           </div>
@@ -334,8 +381,12 @@ export function GoogleWorkspaceConnectorPanel({
           Runtime is missing the generic Google connector commands.
         </p>
       ) : null}
-      {workspace.notice ? <p className="connector-test-success">{workspace.notice}</p> : null}
-      {workspace.error ? <p className="connector-test-error">{workspace.error}</p> : null}
+      {workspace.notice ? (
+        <p className="connector-test-success">{workspace.notice}</p>
+      ) : null}
+      {workspace.error ? (
+        <p className="connector-test-error">{workspace.error}</p>
+      ) : null}
 
       {!isConnected ? (
         <div className="workspace-tab-panel">
@@ -346,30 +397,38 @@ export function GoogleWorkspaceConnectorPanel({
                   <span className="workspace-hero-kicker">Step 1</span>
                   <h4>Set up Google access</h4>
                   <p>
-                    Create a Desktop OAuth client in your own Google Cloud project, then save it
-                    locally in Autopilot. This assistant does not use platform-managed Google
-                    credentials.
+                    Create a Desktop OAuth client in your own Google Cloud
+                    project, then save it locally in Autopilot. This assistant
+                    does not use platform-managed Google credentials.
                   </p>
                 </div>
-                <span className="workspace-health-pill tone-setup">Credentials required</span>
+                <span className="workspace-health-pill tone-setup">
+                  Credentials required
+                </span>
               </div>
 
               <div className="workspace-auth-stage-grid">
                 <article className="workspace-auth-step">
                   <strong>1. Create a Desktop OAuth client</strong>
                   <p>
-                    Use Google Cloud Console credentials for your own project. If you plan to sign
-                    in with personal Gmail or any account outside a Workspace org, the app must be
-                    set to External.
+                    Use Google Cloud Console credentials for your own project.
+                    If you plan to sign in with personal Gmail or any account
+                    outside a Workspace org, the app must be set to External.
                   </p>
                 </article>
                 <article className="workspace-auth-step">
                   <strong>2. Save it locally</strong>
-                  <p>Autopilot validates the client ID format before it enables Google consent.</p>
+                  <p>
+                    Autopilot validates the client ID format before it enables
+                    Google consent.
+                  </p>
                 </article>
                 <article className="workspace-auth-step">
                   <strong>3. Keep ownership local</strong>
-                  <p>Client config and tokens stay on this machine, under your control.</p>
+                  <p>
+                    Client config and tokens stay on this machine, under your
+                    control.
+                  </p>
                 </article>
               </div>
 
@@ -396,9 +455,15 @@ export function GoogleWorkspaceConnectorPanel({
                 <div className="workspace-warning-panel">
                   <strong>Google client setup is the first gate</strong>
                   <div className="workspace-warning-list">
-                    <span>Create a Desktop OAuth client in your own Google Cloud project.</span>
+                    <span>
+                      Create a Desktop OAuth client in your own Google Cloud
+                      project.
+                    </span>
                     <span>Paste the client ID below and save it locally.</span>
-                    <span>Google sign-in is only enabled after local validation succeeds.</span>
+                    <span>
+                      Google sign-in is only enabled after local validation
+                      succeeds.
+                    </span>
                   </div>
                 </div>
               ) : null}
@@ -407,16 +472,17 @@ export function GoogleWorkspaceConnectorPanel({
                 <strong>Common Google setup failures</strong>
                 <div className="workspace-warning-list">
                   <span>
-                    `org_internal` means the OAuth app is restricted to an internal Workspace
-                    organization.
+                    `org_internal` means the OAuth app is restricted to an
+                    internal Workspace organization.
                   </span>
                   <span>
-                    Personal Gmail accounts need an External audience, or they must be listed as
-                    test users while the app is still in testing mode.
+                    Personal Gmail accounts need an External audience, or they
+                    must be listed as test users while the app is still in
+                    testing mode.
                   </span>
                   <span>
-                    Use a Desktop app OAuth client, not a Web app client, for the native Autopilot
-                    redirect flow.
+                    Use a Desktop app OAuth client, not a Web app client, for
+                    the native Autopilot redirect flow.
                   </span>
                 </div>
               </div>
@@ -426,11 +492,14 @@ export function GoogleWorkspaceConnectorPanel({
                   <div>
                     <strong>Google Cloud Desktop OAuth client</strong>
                     <p>
-                      This is the required setup path for private Autopilot installs. The client
-                      belongs to you and is stored locally on disk.
+                      This is the required setup path for private Autopilot
+                      installs. The client belongs to you and is stored locally
+                      on disk.
                     </p>
                   </div>
-                  <span className="workspace-health-pill tone-setup">Local setup</span>
+                  <span className="workspace-health-pill tone-setup">
+                    Local setup
+                  </span>
                 </div>
                 <div className="workspace-action-grid">
                   <label className="workspace-field">
@@ -438,36 +507,53 @@ export function GoogleWorkspaceConnectorPanel({
                     <input
                       type="text"
                       value={oauthClientIdInput}
-                      onChange={(event) => setOauthClientIdInput(event.target.value)}
+                      onChange={(event) =>
+                        setOauthClientIdInput(event.target.value)
+                      }
                       placeholder="1234567890-abcdef.apps.googleusercontent.com"
                     />
-                    <span>Use the Desktop app client ID from your own Google Cloud project.</span>
+                    <span>
+                      Use the Desktop app client ID from your own Google Cloud
+                      project.
+                    </span>
                   </label>
                   <label className="workspace-field">
                     Client secret
                     <input
                       type="password"
                       value={oauthClientSecretInput}
-                      onChange={(event) => setOauthClientSecretInput(event.target.value)}
+                      onChange={(event) =>
+                        setOauthClientSecretInput(event.target.value)
+                      }
                       placeholder="Optional"
                     />
-                    <span>Optional for this native flow. Leave blank unless your client needs it.</span>
+                    <span>
+                      Optional for this native flow. Leave blank unless your
+                      client needs it.
+                    </span>
                   </label>
                 </div>
                 <div className="workspace-storage-list">
                   <span>
                     Client config path:{" "}
-                    <code>{clientStoragePath ?? "Unavailable until runtime is ready."}</code>
+                    <code>
+                      {clientStoragePath ??
+                        "Unavailable until runtime is ready."}
+                    </code>
                   </span>
                   <span>
                     Token storage path:{" "}
-                    <code>{tokenStoragePath ?? "Unavailable until runtime is ready."}</code>
+                    <code>
+                      {tokenStoragePath ??
+                        "Unavailable until runtime is ready."}
+                    </code>
                   </span>
                 </div>
                 <div className="workspace-byok-meta">
                   <span>
-                    Nothing is sent to a platform relay. Your Google project issues the consent
-                    screen, and Autopilot stores the result locally.
+                    Nothing is sent to a platform relay. Your Google project
+                    issues the consent screen, and Autopilot stores the result
+                    locally.
                   </span>
                 </div>
                 <div className="workspace-auth-stage-actions">
@@ -475,9 +561,16 @@ export function GoogleWorkspaceConnectorPanel({
                     type="button"
                     className="btn-primary"
                     onClick={() =>
-                      void workspace.saveOauthClient(oauthClientIdInput, oauthClientSecretInput)
+                      void workspace.saveOauthClient(
+                        oauthClientIdInput,
+                        oauthClientSecretInput,
+                      )
                     }
-                    disabled={workspace.busy || !workspace.runtimeReady || !oauthClientIdInput.trim()}
+                    disabled={
+                      workspace.busy ||
+                      !workspace.runtimeReady ||
+                      !oauthClientIdInput.trim()
+                    }
                   >
                     Save locally
                   </button>
@@ -509,12 +602,15 @@ export function GoogleWorkspaceConnectorPanel({
                   <span className="workspace-hero-kicker">Step 2</span>
                   <h4>Choose what this local agent can access</h4>
                   <p>
-                    Select the Google capabilities you want to grant before Autopilot sends you to
-                    Google consent. Nothing beyond these bundles will be requested.
+                    Select the Google capabilities you want to grant before
+                    Autopilot sends you to Google consent. Nothing beyond these
+                    bundles will be requested.
                   </p>
                 </div>
                 <span className="workspace-health-pill tone-setup">
-                  {selectedBundles.length > 0 ? `${selectedBundles.length} selected` : "Select scopes"}
+                  {selectedBundles.length > 0
+                    ? `${selectedBundles.length} selected`
+                    : "Select scopes"}
                 </span>
               </div>
               <div className="workspace-onboarding-summary">
@@ -524,8 +620,8 @@ export function GoogleWorkspaceConnectorPanel({
                     : "No bundles selected yet"}
                 </strong>
                 <p>
-                  Keep the column focused on the next action. Use the bundle picker to review and
-                  change the detailed scope map.
+                  Keep the column focused on the next action. Use the bundle
+                  picker to review and change the detailed scope map.
                 </p>
                 <div className="workspace-bundle-strip">
                   {selectedBundles.length > 0 ? (
@@ -535,7 +631,9 @@ export function GoogleWorkspaceConnectorPanel({
                       </span>
                     ))
                   ) : (
-                    <span className="workspace-bundle-chip">Choose bundles to continue</span>
+                    <span className="workspace-bundle-chip">
+                      Choose bundles to continue
+                    </span>
                   )}
                 </div>
               </div>
@@ -550,7 +648,8 @@ export function GoogleWorkspaceConnectorPanel({
                   </code>
                 </span>
                 <span>
-                  Tokens stay on disk at <code>{tokenStoragePath ?? "Unavailable"}</code>
+                  Tokens stay on disk at{" "}
+                  <code>{tokenStoragePath ?? "Unavailable"}</code>
                 </span>
               </div>
 
@@ -569,7 +668,9 @@ export function GoogleWorkspaceConnectorPanel({
                   onClick={() => void workspace.beginAuth(requestedScopes)}
                   disabled={workspace.busy || !canBeginAuth}
                 >
-                  {workspace.busy ? "Starting..." : "Continue to Google consent"}
+                  {workspace.busy
+                    ? "Starting..."
+                    : "Continue to Google consent"}
                 </button>
                 <button
                   type="button"
@@ -606,12 +707,14 @@ export function GoogleWorkspaceConnectorPanel({
                   <span className="workspace-hero-kicker">Step 3</span>
                   <h4>Finish consent in Google</h4>
                   <p>
-                    Autopilot has started native Google OAuth with the exact bundles you selected.
-                    Complete consent in your browser, then return here while the connector refreshes
-                    automatically.
+                    Autopilot has started native Google OAuth with the exact
+                    bundles you selected. Complete consent in your browser, then
+                    return here while the connector refreshes automatically.
                   </p>
                 </div>
-                <span className="workspace-health-pill tone-setup">Awaiting approval</span>
+                <span className="workspace-health-pill tone-setup">
+                  Awaiting approval
+                </span>
               </div>
               <div className="workspace-onboarding-summary">
                 <strong>
@@ -620,10 +723,12 @@ export function GoogleWorkspaceConnectorPanel({
                     : "Consent is in progress"}
                 </strong>
                 <p>
-                  The OAuth link now forces the Google account chooser. If Google opens the wrong
-                  cached account or shows an authorization error, restart from here without retyping
-                  your client credentials. Google-side errors like `org_internal` happen before the
-                  local callback, so fix the Cloud Console settings and retry from this step.
+                  The OAuth link now forces the Google account chooser. If
+                  Google opens the wrong cached account or shows an
+                  authorization error, restart from here without retyping your
+                  client credentials. Google-side errors like `org_internal`
+                  happen before the local callback, so fix the Cloud Console
+                  settings and retry from this step.
                 </p>
                 <div className="workspace-bundle-strip">
                   {selectedBundles.map((bundle) => (
@@ -662,7 +767,11 @@ export function GoogleWorkspaceConnectorPanel({
                   type="button"
                   className="btn-secondary"
                   onClick={() => void retryConsent()}
-                  disabled={workspace.busy || !workspace.runtimeReady || requestedScopes.length === 0}
+                  disabled={
+                    workspace.busy ||
+                    !workspace.runtimeReady ||
+                    requestedScopes.length === 0
+                  }
                 >
                   Retry sign-in
                 </button>
@@ -693,7 +802,8 @@ export function GoogleWorkspaceConnectorPanel({
               </div>
               {workspace.authExpiresAtUtc ? (
                 <p className="workspace-inline-note">
-                  Link expires around {formatTimestamp(workspace.authExpiresAtUtc)}.
+                  Link expires around{" "}
+                  {formatTimestamp(workspace.authExpiresAtUtc)}.
                 </p>
               ) : null}
             </section>
@@ -701,7 +811,11 @@ export function GoogleWorkspaceConnectorPanel({
         </div>
       ) : (
         <>
-          <div className="workspace-tab-nav" role="tablist" aria-label="Google Workspace sections">
+          <div
+            className="workspace-tab-nav"
+            role="tablist"
+            aria-label="Google Workspace sections"
+          >
             {TAB_DEFINITIONS.map((tab) => (
               <button
                 key={tab.id}
@@ -722,7 +836,9 @@ export function GoogleWorkspaceConnectorPanel({
               <div className="workspace-overview-grid">
                 <article className="workspace-stat-card">
                   <span>Account</span>
-                  <strong>{workspace.connectedAccountEmail ?? "Not connected"}</strong>
+                  <strong>
+                    {workspace.connectedAccountEmail ?? "Not connected"}
+                  </strong>
                   <p>
                     {workspace.lastConfiguredAtUtc
                       ? `Last checked ${formatTimestamp(workspace.lastConfiguredAtUtc)}`
@@ -752,17 +868,24 @@ export function GoogleWorkspaceConnectorPanel({
                 <article className="workspace-stat-card">
                   <span>Capability Bundles</span>
                   <strong>{capabilityGroups.length}</strong>
-                  <p>{capabilityGroups.map((group) => group.title).join(", ")}</p>
+                  <p>
+                    {capabilityGroups.map((group) => group.title).join(", ")}
+                  </p>
                 </article>
               </div>
 
               <div className="workspace-overview-grid">
                 <article className="workspace-stat-card workspace-summary-card">
                   <span>Local settings</span>
-                  <strong>{workspace.tokenStorage.source === "local" ? "Stored locally" : "Managed by runtime"}</strong>
+                  <strong>
+                    {workspace.tokenStorage.source === "local"
+                      ? "Stored locally"
+                      : "Managed by runtime"}
+                  </strong>
                   <p>
-                    Client configuration and tokens stay on this machine. Open local settings to
-                    review storage paths, grants, reconnect flow, and destructive reset actions.
+                    Client configuration and tokens stay on this machine. Open
+                    local settings to review storage paths, grants, reconnect
+                    flow, and destructive reset actions.
                   </p>
                   <div className="workspace-card-actions">
                     <button
@@ -785,7 +908,7 @@ export function GoogleWorkspaceConnectorPanel({
                         className="btn-secondary"
                         onClick={() => onOpenPolicyCenter?.(connector)}
                       >
-                        Open Shield policy
+                        Open policy
                       </button>
                     </div>
                   </article>
@@ -795,24 +918,34 @@ export function GoogleWorkspaceConnectorPanel({
               <div className="workspace-state-grid">
                 {capabilityGroups.map((group) => {
                   const serviceState = workspace.serviceStates[group.service];
-                  const readinessLabel = serviceStateLabel(serviceState?.status);
+                  const readinessLabel = serviceStateLabel(
+                    serviceState?.status,
+                  );
                   const readinessTone = serviceStateTone(serviceState?.status);
 
                   return (
-                    <article key={group.service} className="workspace-state-card">
+                    <article
+                      key={group.service}
+                      className="workspace-state-card"
+                    >
                       <div className="workspace-state-head">
                         <strong>{group.title}</strong>
-                        <span className={`workspace-health-pill tone-${readinessTone}`}>
+                        <span
+                          className={`workspace-health-pill tone-${readinessTone}`}
+                        >
                           {readinessLabel}
                         </span>
                       </div>
                       <p>{serviceState?.summary ?? group.summary}</p>
                       {serviceState?.missingScopes?.length ? (
                         <span className="workspace-state-detail">
-                          Missing scopes: {serviceState.missingScopes.join(", ")}
+                          Missing scopes:{" "}
+                          {serviceState.missingScopes.join(", ")}
                         </span>
                       ) : (
-                        <span className="workspace-state-detail">{group.detail}</span>
+                        <span className="workspace-state-detail">
+                          {group.detail}
+                        </span>
                       )}
                     </article>
                   );
@@ -822,22 +955,39 @@ export function GoogleWorkspaceConnectorPanel({
               <div className="workspace-section-header">
                 <div>
                   <h4>Recommended next moves</h4>
-                  <p>Guide users toward a first win, then into durable background automation.</p>
+                  <p>
+                    Guide users toward a first win, then into durable background
+                    automation.
+                  </p>
                 </div>
               </div>
               <div className="workspace-quickstart-grid">
                 {OVERVIEW_QUICKSTARTS.map((item) => {
-                  const enabled = item.actionId ? actionsById.has(item.actionId) : true;
+                  const enabled = item.actionId
+                    ? actionsById.has(item.actionId)
+                    : true;
                   return (
-                    <article key={item.id} className="workspace-quickstart-card">
+                    <article
+                      key={item.id}
+                      className="workspace-quickstart-card"
+                    >
                       <strong>{item.title}</strong>
                       <p>{item.summary}</p>
                       {item.actionId && item.tab ? (
                         <button
                           type="button"
                           className="btn-secondary"
-                          onClick={() => openAction(item.tab!, item.actionId!, item.presetInput)}
-                          disabled={!enabled || (item.requiresRuntime && !workspace.runtimeReady)}
+                          onClick={() =>
+                            openAction(
+                              item.tab!,
+                              item.actionId!,
+                              item.presetInput,
+                            )
+                          }
+                          disabled={
+                            !enabled ||
+                            (item.requiresRuntime && !workspace.runtimeReady)
+                          }
                         >
                           Open flow
                         </button>
@@ -850,7 +1000,10 @@ export function GoogleWorkspaceConnectorPanel({
               <div className="workspace-section-header">
                 <div>
                   <h4>Scope bundles</h4>
-                  <p>Expose capabilities as service bundles first, not raw OAuth jargon.</p>
+                  <p>
+                    Expose capabilities as service bundles first, not raw OAuth
+                    jargon.
+                  </p>
                 </div>
               </div>
               <div className="workspace-bundle-strip">
@@ -876,169 +1029,220 @@ export function GoogleWorkspaceConnectorPanel({
           ) : null}
 
           {activeTab === "capabilities" ? (
-        <div className="workspace-tab-panel">
-          <div className="workspace-section-header">
-            <div>
-              <h4>Capability catalog</h4>
-              <p>Lead with common jobs to be done, then open the full action composer only when needed.</p>
-            </div>
-          </div>
-          <div className="workspace-capability-grid">
-            {capabilityGroups.map((group) => (
-              <article key={group.service} className="workspace-service-card">
-                {(() => {
-                  const serviceState = workspace.serviceStates[group.service];
-                  return (
-                    <>
-                <div className="workspace-service-card-head">
-                  <div>
-                    <h4>{group.title}</h4>
-                    <p>{serviceState?.summary ?? group.summary}</p>
-                  </div>
-                  <div className="workspace-service-card-meta">
-                    <span className={`workspace-health-pill tone-${serviceStateTone(serviceState?.status)}`}>
-                      {serviceStateLabel(serviceState?.status)}
-                    </span>
-                    <span className="workspace-service-count">{group.actions.length} tools</span>
-                  </div>
+            <div className="workspace-tab-panel">
+              <div className="workspace-section-header">
+                <div>
+                  <h4>Capability catalog</h4>
+                  <p>
+                    Lead with common jobs to be done, then open the full action
+                    composer only when needed.
+                  </p>
                 </div>
-                {serviceState?.missingScopes?.length ? (
-                  <span className="workspace-state-detail">
-                    Missing scopes: {serviceState.missingScopes.join(", ")}
-                  </span>
-                ) : null}
-                <div className="workspace-kind-list">
-                  {group.kinds.map((kind) => (
-                    <span key={`${group.service}-${kind}`} className="workspace-kind-chip">
-                      {kind}
-                    </span>
-                  ))}
-                </div>
-                <div className="workspace-featured-actions">
-                  {group.featuredActions.map((action) => (
-                    <button
-                      key={action.id}
-                      type="button"
-                      className={`workspace-featured-action ${
-                        workspace.selectedActionId === action.id ? "active" : ""
-                      }`}
-                      onClick={() => openAction("capabilities", action.id)}
-                    >
-                      {action.label}
-                    </button>
-                  ))}
-                </div>
-                {group.supportingActions.length > 0 ? (
-                  <div className="workspace-supporting-actions">
-                    {group.supportingActions.map((action) => (
-                      <button
-                        key={action.id}
-                        type="button"
-                        className={`workspace-tool-chip ${
-                          workspace.selectedActionId === action.id ? "active" : ""
-                        }`}
-                        onClick={() => openAction("capabilities", action.id)}
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                    </>
-                  );
-                })()}
-              </article>
-            ))}
-          </div>
+              </div>
+              <div className="workspace-capability-grid">
+                {capabilityGroups.map((group) => (
+                  <article
+                    key={group.service}
+                    className="workspace-service-card"
+                  >
+                    {(() => {
+                      const serviceState =
+                        workspace.serviceStates[group.service];
+                      return (
+                        <>
+                          <div className="workspace-service-card-head">
+                            <div>
+                              <h4>{group.title}</h4>
+                              <p>{serviceState?.summary ?? group.summary}</p>
+                            </div>
+                            <div className="workspace-service-card-meta">
+                              <span
+                                className={`workspace-health-pill tone-${serviceStateTone(serviceState?.status)}`}
+                              >
+                                {serviceStateLabel(serviceState?.status)}
+                              </span>
+                              <span className="workspace-service-count">
+                                {group.actions.length} tools
+                              </span>
+                            </div>
+                          </div>
+                          {serviceState?.missingScopes?.length ? (
+                            <span className="workspace-state-detail">
+                              Missing scopes:{" "}
+                              {serviceState.missingScopes.join(", ")}
+                            </span>
+                          ) : null}
+                          <div className="workspace-kind-list">
+                            {group.kinds.map((kind) => (
+                              <span
+                                key={`${group.service}-${kind}`}
+                                className="workspace-kind-chip"
+                              >
+                                {kind}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="workspace-featured-actions">
+                            {group.featuredActions.map((action) => (
+                              <button
+                                key={action.id}
+                                type="button"
+                                className={`workspace-featured-action ${
+                                  workspace.selectedActionId === action.id
+                                    ? "active"
+                                    : ""
+                                }`}
+                                onClick={() =>
+                                  openAction("capabilities", action.id)
+                                }
+                              >
+                                {action.label}
+                              </button>
+                            ))}
+                          </div>
+                          {group.supportingActions.length > 0 ? (
+                            <div className="workspace-supporting-actions">
+                              {group.supportingActions.map((action) => (
+                                <button
+                                  key={action.id}
+                                  type="button"
+                                  className={`workspace-tool-chip ${
+                                    workspace.selectedActionId === action.id
+                                      ? "active"
+                                      : ""
+                                  }`}
+                                  onClick={() =>
+                                    openAction("capabilities", action.id)
+                                  }
+                                >
+                                  {action.label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </>
+                      );
+                    })()}
+                  </article>
+                ))}
+              </div>
 
-          <WorkspaceActionComposer
-            action={workspace.selectedAction}
-            workspace={workspace}
-            eyebrow="Capability workspace"
-          />
-        </div>
+              <WorkspaceActionComposer
+                action={workspace.selectedAction}
+                workspace={workspace}
+                eyebrow="Capability workspace"
+              />
+            </div>
           ) : null}
 
           {activeTab === "automations" ? (
-        <div className="workspace-tab-panel">
-          <div className="workspace-section-header">
-            <div>
-              <h4>Automation center</h4>
-              <p>Manage durable Gmail watches and Workspace event ingestion as long-lived product state.</p>
-            </div>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={workspace.refreshSubscriptions}
-              disabled={workspace.busy || !workspace.subscriptionRuntimeReady}
-            >
-              Refresh automations
-            </button>
-          </div>
-
-          <div className="workspace-overview-grid">
-            <article className="workspace-stat-card">
-              <span>Running</span>
-              <strong>{activeSubscriptions.length}</strong>
-              <p>Watches and event streams currently kept alive by the desktop runtime.</p>
-            </article>
-            <article className="workspace-stat-card">
-              <span>Attention</span>
-              <strong>{attentionSubscriptions.length}</strong>
-              <p>Subscriptions needing reauth or repair before they can keep consuming.</p>
-            </article>
-            <article className="workspace-stat-card">
-              <span>Total subscriptions</span>
-              <strong>{workspace.subscriptions.length}</strong>
-              <p>Pause, renew, and inspect them directly from this surface.</p>
-            </article>
-            <article className="workspace-stat-card">
-              <span>Automation entry points</span>
-              <strong>{automationGroups.length}</strong>
-              <p>Admin-grade actions are packaged separately from the day-to-day capability grid.</p>
-            </article>
-          </div>
-
-          <div className="workspace-automation-grid">
-            {AUTOMATION_RECIPES.map((recipe) => (
-              <article key={recipe.id} className="workspace-automation-card">
-                <strong>{recipe.title}</strong>
-                <p>{recipe.summary}</p>
+            <div className="workspace-tab-panel">
+              <div className="workspace-section-header">
+                <div>
+                  <h4>Automation center</h4>
+                  <p>
+                    Manage durable Gmail watches and Workspace event ingestion
+                    as long-lived product state.
+                  </p>
+                </div>
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => openAction("automations", recipe.actionId, recipe.presetInput)}
-                  disabled={!actionsById.has(recipe.actionId)}
+                  onClick={workspace.refreshSubscriptions}
+                  disabled={
+                    workspace.busy || !workspace.subscriptionRuntimeReady
+                  }
                 >
-                  Configure recipe
+                  Refresh automations
                 </button>
-              </article>
-            ))}
-          </div>
+              </div>
 
-          {workspace.subscriptions.length > 0 ? (
-            <div className="workspace-subscription-list">
-              {workspace.subscriptions.map((subscription) => (
-                <WorkspaceSubscriptionCard
-                  key={subscription.subscriptionId}
-                  subscription={subscription}
-                  workspace={workspace}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="workspace-empty-state">
-              <strong>No automations running yet</strong>
-              <p>Configure Gmail Watch Emails or Workspace Events Subscribe to create the first durable job.</p>
-            </div>
-          )}
+              <div className="workspace-overview-grid">
+                <article className="workspace-stat-card">
+                  <span>Running</span>
+                  <strong>{activeSubscriptions.length}</strong>
+                  <p>
+                    Watches and event streams currently kept alive by the
+                    desktop runtime.
+                  </p>
+                </article>
+                <article className="workspace-stat-card">
+                  <span>Attention</span>
+                  <strong>{attentionSubscriptions.length}</strong>
+                  <p>
+                    Subscriptions needing reauth or repair before they can keep
+                    consuming.
+                  </p>
+                </article>
+                <article className="workspace-stat-card">
+                  <span>Total subscriptions</span>
+                  <strong>{workspace.subscriptions.length}</strong>
+                  <p>
+                    Pause, renew, and inspect them directly from this surface.
+                  </p>
+                </article>
+                <article className="workspace-stat-card">
+                  <span>Automation entry points</span>
+                  <strong>{automationGroups.length}</strong>
+                  <p>
+                    Admin-grade actions are packaged separately from the
+                    day-to-day capability grid.
+                  </p>
+                </article>
+              </div>
 
-          <WorkspaceActionComposer
-            action={workspace.selectedAction}
-            workspace={workspace}
-            eyebrow="Automation setup"
-          />
-        </div>
+              <div className="workspace-automation-grid">
+                {AUTOMATION_RECIPES.map((recipe) => (
+                  <article
+                    key={recipe.id}
+                    className="workspace-automation-card"
+                  >
+                    <strong>{recipe.title}</strong>
+                    <p>{recipe.summary}</p>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() =>
+                        openAction(
+                          "automations",
+                          recipe.actionId,
+                          recipe.presetInput,
+                        )
+                      }
+                      disabled={!actionsById.has(recipe.actionId)}
+                    >
+                      Configure recipe
+                    </button>
+                  </article>
+                ))}
+              </div>
+
+              {workspace.subscriptions.length > 0 ? (
+                <div className="workspace-subscription-list">
+                  {workspace.subscriptions.map((subscription) => (
+                    <WorkspaceSubscriptionCard
+                      key={subscription.subscriptionId}
+                      subscription={subscription}
+                      workspace={workspace}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="workspace-empty-state">
+                  <strong>No automations running yet</strong>
+                  <p>
+                    Configure Gmail Watch Emails or Workspace Events Subscribe
+                    to create the first durable job.
+                  </p>
+                </div>
+              )}
+
+              <WorkspaceActionComposer
+                action={workspace.selectedAction}
+                workspace={workspace}
+                eyebrow="Automation setup"
+              />
+            </div>
           ) : null}
 
           {activeTab === "advanced" ? (
@@ -1047,14 +1251,17 @@ export function GoogleWorkspaceConnectorPanel({
                 <div>
                   <h4>Advanced tool catalog</h4>
                   <p>
-                    Keep the full connector catalog available for power users, debugging, and edge
-                    cases.
+                    Keep the full connector catalog available for power users,
+                    debugging, and edge cases.
                   </p>
                 </div>
               </div>
               <div className="workspace-service-panel">
                 {advancedGroups.map((group) => (
-                  <section key={group.service} className="workspace-service-group">
+                  <section
+                    key={group.service}
+                    className="workspace-service-group"
+                  >
                     <div className="workspace-service-head">
                       <div>
                         <h4>{group.title}</h4>
@@ -1066,7 +1273,9 @@ export function GoogleWorkspaceConnectorPanel({
                             key={action.id}
                             type="button"
                             className={`workspace-tool-chip ${
-                              workspace.selectedActionId === action.id ? "active" : ""
+                              workspace.selectedActionId === action.id
+                                ? "active"
+                                : ""
                             }`}
                             onClick={() => openAction("advanced", action.id)}
                           >
@@ -1084,7 +1293,9 @@ export function GoogleWorkspaceConnectorPanel({
                 workspace={workspace}
                 eyebrow="Advanced execution"
               />
-              {connector.notes ? <p className="workspace-inline-note">{connector.notes}</p> : null}
+              {connector.notes ? (
+                <p className="workspace-inline-note">{connector.notes}</p>
+              ) : null}
               {workspace.formattedResult ? (
                 <pre className="connector-test-result workspace-result-panel">
                   {workspace.formattedResult}
@@ -1097,20 +1308,23 @@ export function GoogleWorkspaceConnectorPanel({
 
       <WorkspaceModal
         open={settingsModalOpen}
-        title="Google connector settings"
-        description="Connector-local operational settings live here. Governance and approval posture live in Shield."
+        title="Google connection settings"
+        description="Connection-local operational settings live here. Governance and approval posture live in Policy."
         onClose={() => setSettingsModalOpen(false)}
       >
         <div className="workspace-settings-grid">
           <article className="workspace-settings-card">
             <strong>Trust model</strong>
             <p>
-              Google access is owned by the local user. Client configuration and refresh tokens stay
-              on disk unless you explicitly remove them.
+              Google access is owned by the local user. Client configuration and
+              refresh tokens stay on disk unless you explicitly remove them.
             </p>
             <div className="workspace-storage-list">
               <span>
-                Connected account: <code>{workspace.connectedAccountEmail ?? "Not connected"}</code>
+                Connected account:{" "}
+                <code>
+                  {workspace.connectedAccountEmail ?? "Not connected"}
+                </code>
               </span>
               <span>
                 OAuth client source:{" "}
@@ -1130,15 +1344,17 @@ export function GoogleWorkspaceConnectorPanel({
           <article className="workspace-settings-card">
             <strong>Local storage</strong>
             <p>
-              These paths are local to this machine. They are not shared with a hosted platform
-              service.
+              These paths are local to this machine. They are not shared with a
+              hosted platform service.
             </p>
             <div className="workspace-storage-list">
               <span>
-                Client config path: <code>{clientStoragePath ?? "Unavailable"}</code>
+                Client config path:{" "}
+                <code>{clientStoragePath ?? "Unavailable"}</code>
               </span>
               <span>
-                Token storage path: <code>{tokenStoragePath ?? "Unavailable"}</code>
+                Token storage path:{" "}
+                <code>{tokenStoragePath ?? "Unavailable"}</code>
               </span>
             </div>
           </article>
@@ -1146,8 +1362,8 @@ export function GoogleWorkspaceConnectorPanel({
           <article className="workspace-settings-card">
             <strong>Account maintenance</strong>
             <p>
-              Use reconnect to refresh scopes or swap accounts. Review grants in Google when you want
-              to inspect or revoke permissions directly.
+              Use reconnect to refresh scopes or swap accounts. Review grants in
+              Google when you want to inspect or revoke permissions directly.
             </p>
             <div className="workspace-auth-stage-actions">
               <button
@@ -1180,8 +1396,8 @@ export function GoogleWorkspaceConnectorPanel({
           <article className="workspace-settings-card workspace-settings-card-danger">
             <strong>Danger zone</strong>
             <p>
-              Use these only when rotating credentials, intentionally disconnecting, or fully
-              resetting the local Google setup.
+              Use these only when rotating credentials, intentionally
+              disconnecting, or fully resetting the local Google setup.
             </p>
             <div className="workspace-auth-stage-actions">
               <button
@@ -1190,7 +1406,9 @@ export function GoogleWorkspaceConnectorPanel({
                 onClick={workspace.disconnect}
                 disabled={workspace.busy || !workspace.runtimeReady}
               >
-                {workspace.tokenStorage.source === "local" ? "Wipe local tokens" : "Disconnect"}
+                {workspace.tokenStorage.source === "local"
+                  ? "Wipe local tokens"
+                  : "Disconnect"}
               </button>
               <button
                 type="button"
@@ -1231,7 +1449,10 @@ export function GoogleWorkspaceConnectorPanel({
           {GOOGLE_SCOPE_BUNDLES.map((bundle) => {
             const selected = selectedBundleIds.includes(bundle.id);
             return (
-              <label key={bundle.id} className={`workspace-scope-card ${selected ? "selected" : ""}`}>
+              <label
+                key={bundle.id}
+                className={`workspace-scope-card ${selected ? "selected" : ""}`}
+              >
                 <div className="workspace-scope-card-head">
                   <input
                     type="checkbox"
@@ -1246,7 +1467,10 @@ export function GoogleWorkspaceConnectorPanel({
                 <span className="workspace-state-detail">{bundle.detail}</span>
                 <div className="workspace-bundle-strip">
                   {bundle.scopes.map((scope) => (
-                    <span key={`${bundle.id}-${scope}`} className="workspace-bundle-chip">
+                    <span
+                      key={`${bundle.id}-${scope}`}
+                      className="workspace-bundle-chip"
+                    >
                       {scope}
                     </span>
                   ))}
@@ -1287,7 +1511,12 @@ export function GoogleWorkspaceConnectorPanel({
           </div>
         </div>
         {workspace.authUrl ? (
-          <a className="workspace-auth-link" href={workspace.authUrl} target="_blank" rel="noreferrer">
+          <a
+            className="workspace-auth-link"
+            href={workspace.authUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
             {workspace.authUrl}
           </a>
         ) : null}
@@ -1304,7 +1533,11 @@ export function GoogleWorkspaceConnectorPanel({
             type="button"
             className="btn-secondary"
             onClick={() => void retryConsent()}
-            disabled={workspace.busy || !workspace.runtimeReady || requestedScopes.length === 0}
+            disabled={
+              workspace.busy ||
+              !workspace.runtimeReady ||
+              requestedScopes.length === 0
+            }
           >
             Retry sign-in
           </button>
@@ -1328,13 +1561,17 @@ export function GoogleWorkspaceConnectorPanel({
         <div className="workspace-warning-panel">
           <strong>What to do next</strong>
           <div className="workspace-warning-list">
-            <span>Fix the Google Cloud Console setting that caused the browser error.</span>
             <span>
-              Keep the saved local client unless you are replacing credentials entirely.
+              Fix the Google Cloud Console setting that caused the browser
+              error.
             </span>
             <span>
-              Return here and use Retry sign-in. That restarts OAuth without forcing you to re-enter
-              your client configuration.
+              Keep the saved local client unless you are replacing credentials
+              entirely.
+            </span>
+            <span>
+              Return here and use Retry sign-in. That restarts OAuth without
+              forcing you to re-enter your client configuration.
             </span>
           </div>
         </div>
@@ -1343,8 +1580,9 @@ export function GoogleWorkspaceConnectorPanel({
             <strong>Enable necessary APIs</strong>
             <p>
               In Google Cloud Console, open the project associated with{" "}
-              <code>{oauthClientPreview}</code>, then go to <code>APIs &amp; Services</code>, then{" "}
-              <code>Library</code>, and confirm the APIs below are enabled.
+              <code>{oauthClientPreview}</code>, then go to{" "}
+              <code>APIs &amp; Services</code>, then <code>Library</code>, and
+              confirm the APIs below are enabled.
             </p>
             <div className="workspace-bundle-strip">
               {troubleshootingApis.length > 0 ? (
@@ -1354,28 +1592,33 @@ export function GoogleWorkspaceConnectorPanel({
                   </span>
                 ))
               ) : (
-                <span className="workspace-bundle-chip">Select capability bundles first</span>
+                <span className="workspace-bundle-chip">
+                  Select capability bundles first
+                </span>
               )}
             </div>
           </article>
           <article className="workspace-troubleshooting-card">
             <strong>Verify OAuth consent screen</strong>
             <p>
-              In <code>Google Auth Platform</code>, then <code>Audience</code>, switch the app to{" "}
-              <code>External</code> if this local assistant should work with personal Gmail or any
-              account outside a Workspace org. <code>Internal</code> is only appropriate if every
-              user belongs to that Workspace organization and you intentionally want org-only access.
-              If the app stays in testing mode, add the exact Google account as a test user before
-              retrying.
+              In <code>Google Auth Platform</code>, then <code>Audience</code>,
+              switch the app to <code>External</code> if this local assistant
+              should work with personal Gmail or any account outside a Workspace
+              org. <code>Internal</code> is only appropriate if every user
+              belongs to that Workspace organization and you intentionally want
+              org-only access. If the app stays in testing mode, add the exact
+              Google account as a test user before retrying.
             </p>
             <p>
-              In <code>Google Auth Platform</code>, then <code>Data Access</code>, review the
-              exact scopes that will be requested for the bundles selected in Autopilot.
+              In <code>Google Auth Platform</code>, then{" "}
+              <code>Data Access</code>, review the exact scopes that will be
+              requested for the bundles selected in Autopilot.
             </p>
             <p>
-              When switching to <code>External</code>, Google may require extra app metadata such as
-              privacy policy, terms of service, and authorized domains, especially if you later move
-              beyond personal testing or request sensitive scopes.
+              When switching to <code>External</code>, Google may require extra
+              app metadata such as privacy policy, terms of service, and
+              authorized domains, especially if you later move beyond personal
+              testing or request sensitive scopes.
             </p>
             <div className="workspace-bundle-strip">
               {troubleshootingScopes.map((scope) => (
@@ -1415,7 +1658,11 @@ export function GoogleWorkspaceConnectorPanel({
             type="button"
             className="btn-primary"
             onClick={() => void retryConsent()}
-            disabled={workspace.busy || !workspace.runtimeReady || requestedScopes.length === 0}
+            disabled={
+              workspace.busy ||
+              !workspace.runtimeReady ||
+              requestedScopes.length === 0
+            }
           >
             Retry sign-in
           </button>

@@ -36,22 +36,25 @@ interface ContextAtlasGraph3DProps {
 }
 
 const NODE_COLORS: Record<string, string> = {
-  session: "#7dd3fc",
-  skill: "#fbbf24",
-  tool: "#34d399",
-  evidence: "#fb7185",
-  published_doc: "#f97316",
-  constraint: "#c4b5fd",
-  query: "#67e8f9",
-  index_root: "#93c5fd",
-  proof: "#c084fc",
+  session: "#8be9fd",
+  skill: "#ff79c6",
+  tool: "#69f0ae",
+  evidence: "#ffb86c",
+  published_doc: "#ffb86c",
+  constraint: "#bd93f9",
+  query: "#8be9fd",
+  index_root: "#6272a4",
+  proof: "#bd93f9",
 };
 
 function colorForNode(kind: string): string {
-  return NODE_COLORS[kind] || "#94a3b8";
+  return NODE_COLORS[kind] || "#7c8a9b";
 }
 
-function buildGraphData(neighborhood: AtlasNeighborhood, maxNodes: number): ForceGraphData {
+function buildGraphData(
+  neighborhood: AtlasNeighborhood,
+  maxNodes: number,
+): ForceGraphData {
   const focusId = neighborhood.focus_id ?? null;
   const rankedNodes = neighborhood.nodes
     .slice()
@@ -70,16 +73,19 @@ function buildGraphData(neighborhood: AtlasNeighborhood, maxNodes: number): Forc
     color: colorForNode(node.kind),
     val: Math.max(1.6, Math.min(9.5, 2 + (node.emphasis ?? 0.4) * 7)),
     x: index % 2 === 0 ? -26 * (index + 1) : 26 * (index + 1),
-    y: node.id === focusId ? 0 : (index % 3 === 0 ? -20 : 20),
+    y: node.id === focusId ? 0 : index % 3 === 0 ? -20 : 20,
     z: (index - Math.floor(rankedNodes.length / 2)) * 14,
   }));
   const links = neighborhood.edges
-    .filter((edge) => allowedIds.has(edge.source_id) && allowedIds.has(edge.target_id))
+    .filter(
+      (edge) =>
+        allowedIds.has(edge.source_id) && allowedIds.has(edge.target_id),
+    )
     .map((edge) => ({
       source: edge.source_id,
       target: edge.target_id,
       label: edge.summary || edge.relation,
-      color: edge.relation === "similar_to" ? "#facc15" : "#94a3b8",
+      color: edge.relation === "similar_to" ? "#ffb86c" : "#7c8a9b",
       width: Math.max(0.6, Math.min(2.6, edge.weight || 1)),
     }));
 
@@ -121,17 +127,23 @@ export function ContextAtlasGraph3D({
         .linkDirectionalParticleSpeed(0.0032)
         .showNavInfo(false)
         .cooldownTicks(80)
-        .onNodeClick((node: { id: string; x?: number; y?: number; z?: number }) => {
-          if (onSelectNode) {
-            onSelectNode(node.id);
-          }
-          if (!graphRef.current) return;
-          const x = typeof node.x === "number" ? node.x : 0;
-          const y = typeof node.y === "number" ? node.y : 0;
-          const z = typeof node.z === "number" ? node.z : 0;
-          graphRef.current.centerAt(x, y, 650);
-          graphRef.current.cameraPosition({ x, y, z: z + 95 }, { x, y, z }, 900);
-        });
+        .onNodeClick(
+          (node: { id: string; x?: number; y?: number; z?: number }) => {
+            if (onSelectNode) {
+              onSelectNode(node.id);
+            }
+            if (!graphRef.current) return;
+            const x = typeof node.x === "number" ? node.x : 0;
+            const y = typeof node.y === "number" ? node.y : 0;
+            const z = typeof node.z === "number" ? node.z : 0;
+            graphRef.current.centerAt(x, y, 650);
+            graphRef.current.cameraPosition(
+              { x, y, z: z + 95 },
+              { x, y, z },
+              900,
+            );
+          },
+        );
     }
 
     const setSize = () => {
@@ -160,16 +172,23 @@ export function ContextAtlasGraph3D({
 
   const resolvedTitle = title || neighborhood.title || "Context Atlas";
   const resolvedBadge =
-    badge || `${graphData.nodes.length} nodes · ${graphData.links.length} edges`;
+    badge ||
+    `${graphData.nodes.length} nodes · ${graphData.links.length} edges`;
 
   return (
-    <div className={["context-atlas-graph-card", className].filter(Boolean).join(" ")}>
+    <div
+      className={["context-atlas-graph-card", className]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <div className="context-atlas-graph-head">
         <span className="context-atlas-graph-title">{resolvedTitle}</span>
         <span className="context-atlas-graph-badge">{resolvedBadge}</span>
       </div>
       {graphData.nodes.length === 0 ? (
-        <div className="context-atlas-graph-empty">No graph context available for this scope.</div>
+        <div className="context-atlas-graph-empty">
+          No graph context available for this scope.
+        </div>
       ) : (
         <div className="context-atlas-graph-canvas" ref={containerRef} />
       )}
