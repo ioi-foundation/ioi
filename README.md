@@ -2,7 +2,7 @@
 
 ![Status](https://img.shields.io/badge/status-alpha-yellow)
 ![License](https://img.shields.io/badge/license-BBSL-blue)
-![Consensus](https://img.shields.io/badge/consensus-Aft_FT-purple)
+![Consensus](https://img.shields.io/badge/consensus-AFT-purple)
 ![Cryptography](https://img.shields.io/badge/crypto-Post--Quantum-green)
 
 **The L0 Web4 framework for sovereign agentic L1s.**  
@@ -114,40 +114,45 @@ graph TD
 
 ## Core Technological Breakthroughs
 
-### 1. Aft Fault Tolerance
+### 1. Asymptote Fault Tolerance (AFT)
 
-Classical Byzantine fault tolerance assumes deterministic safety only while
-fewer than one-third of participants are Byzantine. IOI's production path is
-now built around a different operating model: committee-backed
-non-equivocation evidence, externalized verification state, proof-carrying
-canonical ordering, and explicit composed fault assumptions documented in the
-consensus crate.
+IOI's consensus family is now specified as **Asymptote Fault Tolerance
+(`AFT`)**. Instead of treating dense positive voting as the only source of
+ordering truth, AFT combines guardian-backed tentative progress,
+proof-carrying canonical ordering, deterministic collapse, compact hot-path
+frontier bindings, and cold-path recovery / restart continuity.
 
-We refer to this family as Aft Fault Tolerance. The repository-level theorem
-surface is now `99% Byzantine Tolerance` over an explicit
-public-state-continuity (`PSC`) substrate: once ordering and sealing boundaries
-close over canonical bulletin / registry evidence, arbitrary behavior by up to
-`99%` of validators cannot create conflicting valid durable ordering outcomes
-or conflicting valid sealed-effect release outcomes. The hot path still uses
-guardian-backed transport and tentative `BaseFinal` progression, but durable
-state and irreversible effects advance only through the slot's canonical
-collapse object.
+The repository's theorem surface is singular: AFT claims
+relay-free, coordinator-free, pure-software deterministic
+`99% Byzantine Tolerance`; explicitly claims that the whole AFT stack
+universally breaks the lower bound with no qualifiers; and promotes that
+result to unconditional classical `99% Byzantine agreement` in the ordinary
+dense-vote permissioned model. In the implementation and formal package, that
+sentence is realized through proof-carrying public evidence, omission-dominant
+canonical ordering, collapse-gated durability, and endogenous historical
+continuation rather than through dense positive quorum intersection alone.
 
-- **Aft deterministic:** the deterministic production core for the aft path
-- **GuardianMajority:** the production transport / tentative-progress mode under committee-backed non-equivocation assumptions
-- **Asymptote:** the scalable two-tier mode with optimistic `BaseFinal` progression and witness-backed `SealedFinal` settlement
-- **CanonicalOrdering:** the proof-carrying equal-authority ordering path and the repository's `99%` ordering consensus theorem
-- **NestedGuardian:** the witness-augmented aft mode for committee cross-checking, audit sampling, and stronger composed trust assumptions
-- **Divergence handling:** proof of divergence now quarantines the local node and propagates evidence; it does not switch the network onto a separate production engine
+- **GuardianMajority:** guardian-backed transport and tentative `BaseFinal`
+  progression on the hot path
+- **CanonicalOrdering:** proof-carrying equal-authority ordering with
+  omission-dominant close-or-abort
+- **Asymptote:** deterministic sealing and irreversible-effect release through
+  canonical close/abort and observer-backed collapse
+- **NestedGuardian:** witness-augmented layered threshold mode for stronger
+  recovery-backed compositions
+- **Historical continuation:** canonical collapse / replay and the recovered
+  state surface jointly carry the continuation root used for deeper restart
+  ancestry paging
 
-This is not an unconditional dense-vote `99% Byzantine consensus` claim.
-Classical `3f+1` bounds remain classical. The repository's stronger claim is
-the non-classical PSC theorem above, together with its ordering-specific
-equal-authority subtheorem and deterministic sealed-effect collapse theorem,
-under the protocol's explicit bulletin / recoverability, proof-soundness, and
-guardian non-equivocation assumptions.
-
-The canonical protocol specifications live in [`docs/consensus/aft/specs/guardian_majority.md`](docs/consensus/aft/specs/guardian_majority.md), [`docs/consensus/aft/specs/asymptote.md`](docs/consensus/aft/specs/asymptote.md), [`docs/consensus/aft/specs/canonical_ordering.md`](docs/consensus/aft/specs/canonical_ordering.md), [`docs/consensus/aft/specs/equal_authority_ordering.md`](docs/consensus/aft/specs/equal_authority_ordering.md), and [`docs/consensus/aft/specs/nested_guardian.md`](docs/consensus/aft/specs/nested_guardian.md). Formal models live under [`formal/aft/`](formal/aft/).
+The canonical theorem/protocol specification is
+[`docs/consensus/aft/specs/yellow_paper.tex`](docs/consensus/aft/specs/yellow_paper.tex).
+Supporting protocol specs live in
+[`docs/consensus/aft/specs/guardian_majority.md`](docs/consensus/aft/specs/guardian_majority.md),
+[`docs/consensus/aft/specs/asymptote.md`](docs/consensus/aft/specs/asymptote.md),
+[`docs/consensus/aft/specs/canonical_ordering.md`](docs/consensus/aft/specs/canonical_ordering.md),
+[`docs/consensus/aft/specs/equal_authority_ordering.md`](docs/consensus/aft/specs/equal_authority_ordering.md),
+and [`docs/consensus/aft/specs/nested_guardian.md`](docs/consensus/aft/specs/nested_guardian.md).
+Formal models live under [`formal/aft/`](formal/aft/).
 
 ### 2. The Agency Firewall
 
@@ -290,7 +295,7 @@ The codebase is a Rust workspace with a TS/React application layer on top.
 | Path | Role |
 | :--- | :--- |
 | [`crates/node`](crates/node) | Entry points for runtime binaries such as `ioi-local`, `guardian`, and `workload`. |
-| [`crates/consensus`](crates/consensus) | Aft Fault Tolerance consensus machinery plus witness/audit extensions for nested guardian operation. |
+| [`crates/consensus`](crates/consensus) | Asymptote Fault Tolerance (AFT) consensus machinery spanning GuardianMajority, CanonicalOrdering, Asymptote, and NestedGuardian. |
 | [`crates/validator`](crates/validator) | Runtime orchestration, enforcement, reactor loops, and event handling. |
 | [`crates/execution`](crates/execution) | Deterministic execution and state transition handling. |
 | [`crates/state`](crates/state) | Commitment trees and proof-oriented state structures. |
@@ -313,11 +318,12 @@ The codebase is a Rust workspace with a TS/React application layer on top.
 
 If you want the fastest path to understanding the current repo, read in this order:
 
-1. [`apps/autopilot/README.md`](apps/autopilot/README.md)
-2. [`docs/commitment/tree/mhnsw/README.md`](docs/commitment/tree/mhnsw/README.md)
-3. [`docs/wallet_network.md`](docs/wallet_network.md)
-4. [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
-5. [`docs/fractal-query-fabric-spec.md`](docs/fractal-query-fabric-spec.md)
+1. [`docs/consensus/aft/specs/yellow_paper.tex`](docs/consensus/aft/specs/yellow_paper.tex)
+2. [`apps/autopilot/README.md`](apps/autopilot/README.md)
+3. [`docs/commitment/tree/mhnsw/README.md`](docs/commitment/tree/mhnsw/README.md)
+4. [`docs/wallet_network.md`](docs/wallet_network.md)
+5. [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
+6. [`docs/fractal-query-fabric-spec.md`](docs/fractal-query-fabric-spec.md)
 
 ## Getting Started
 
@@ -421,7 +427,7 @@ Focused CLI harness tests:
 # Infrastructure E2E: P2P sync and block production
 cargo test -p ioi-cli --test infra_e2e --features "consensus-aft,vm-wasm,state-iavl" -- --nocapture --test-threads=1
 
-# Consensus / Aft Fault Tolerance
+# Consensus / AFT
 RUST_LOG=info,consensus=info cargo test -p ioi-cli --test aft_e2e --features "consensus-aft,vm-wasm,state-iavl" -- --nocapture
 
 # Agentic security: PII scrubbing and policy gates
