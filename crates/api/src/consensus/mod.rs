@@ -270,7 +270,7 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     ///
     /// The default implementation preserves the existing cold-path ordering:
     /// consensus headers first, then certified headers, then restart headers.
-    /// Engines intentionally ignore `historical_continuation`; deeper historical paging remains a
+    /// Engines intentionally ignore `historical_retrievability`; deeper historical paging remains a
     /// validator-side concern until individual engines ask for it explicitly.
     fn observe_aft_recovered_state_surface(
         &mut self,

@@ -131,6 +131,17 @@ pub struct ServiceUpgradeManager {
     refreshed_this_block: bool,
 }
 
+impl Clone for ServiceUpgradeManager {
+    fn clone(&self) -> Self {
+        Self {
+            active_services: self.active_services.clone(),
+            upgrade_history: self.upgrade_history.clone(),
+            runtimes: self.runtimes.clone(),
+            refreshed_this_block: self.refreshed_this_block,
+        }
+    }
+}
+
 impl fmt::Debug for ServiceUpgradeManager {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ServiceUpgradeManager")

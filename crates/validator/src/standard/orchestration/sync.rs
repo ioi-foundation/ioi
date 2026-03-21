@@ -336,18 +336,24 @@ pub async fn handle_status_response<CS, ST, CE, V>(
             });
             request_next_batch(context).await;
         }
-    } else if *context.node_state.lock().await == NodeState::Syncing
-        && context.sync_progress.is_none()
-    {
-        *context.node_state.lock().await = NodeState::Synced;
-        let _ = context.consensus_kick_tx.send(());
-        tracing::info!(
-            target: "orchestration",
-            %peer,
-            peer_height,
-            our_height,
-            "State -> Synced (status confirmed no catch-up needed)."
-        );
+    } else {
+        let bootstrap_no_catchup = our_height == 0 && peer_height == 0;
+        let node_state_is_syncing = *context.node_state.lock().await == NodeState::Syncing;
+        if node_state_is_syncing && (context.sync_progress.is_none() || bootstrap_no_catchup) {
+            if bootstrap_no_catchup {
+                context.sync_progress = None;
+            }
+            *context.node_state.lock().await = NodeState::Synced;
+            let _ = context.consensus_kick_tx.send(());
+            tracing::info!(
+                target: "orchestration",
+                %peer,
+                peer_height,
+                our_height,
+                bootstrap_no_catchup,
+                "State -> Synced (status confirmed no catch-up needed)."
+            );
+        }
     }
 }
 
@@ -376,12 +382,23 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         + Debug,
 {
     let mut blocks = blocks;
+    let workload_client = context.view_resolver.workload_client();
     if context.sync_progress.is_none() {
-        let local_height = context
+        let mut local_height = context
             .last_committed_block
             .as_ref()
             .map(|block| block.header.height)
             .unwrap_or(0);
+        if let Ok(status) = workload_client.get_status().await {
+            if status.height > local_height {
+                if let Ok(Some(workload_tip)) =
+                    workload_client.get_block_by_height(status.height).await
+                {
+                    local_height = workload_tip.header.height;
+                    context.last_committed_block = Some(workload_tip);
+                }
+            }
+        }
         let first_new_index = blocks
             .iter()
             .position(|block| block.header.height > local_height);
@@ -432,11 +449,20 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         }
     }
 
-    let local_height = context
+    let mut local_height = context
         .last_committed_block
         .as_ref()
         .map(|block| block.header.height)
         .unwrap_or(0);
+    if let Ok(status) = workload_client.get_status().await {
+        if status.height > local_height {
+            if let Ok(Some(workload_tip)) = workload_client.get_block_by_height(status.height).await
+            {
+                local_height = workload_tip.header.height;
+                context.last_committed_block = Some(workload_tip);
+            }
+        }
+    }
     {
         let Some(progress) = context.sync_progress.as_mut() else {
             return;
@@ -523,12 +549,77 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         return;
     }
 
-    let workload_client = context.view_resolver.workload_client();
     let receipt_map = context.receipt_map.clone();
     let tx_status_cache = context.tx_status_cache.clone();
 
     for block in blocks {
         let applying_height = block.header.height;
+        let workload_height = workload_client
+            .get_status()
+            .await
+            .map(|status| status.height)
+            .unwrap_or_else(|_| {
+                context
+                    .last_committed_block
+                    .as_ref()
+                    .map(|candidate| candidate.header.height)
+                    .unwrap_or(0)
+            });
+
+        if workload_height >= applying_height {
+            if workload_height == applying_height {
+                match workload_client.update_block_header(block.clone()).await {
+                    Ok(()) => {
+                        if let Ok(Some(reconciled_block)) =
+                            workload_client.get_block_by_height(applying_height).await
+                        {
+                            context.last_committed_block = Some(reconciled_block);
+                        } else {
+                            context.last_committed_block = Some(block.clone());
+                        }
+                        if let Some(progress) = context.sync_progress.as_mut() {
+                            progress.next = progress.next.max(applying_height);
+                        }
+                        tracing::info!(
+                            target: "sync",
+                            %peer,
+                            applying_height,
+                            workload_height,
+                            "Skipping synced block execution because the local workload already committed this height; reconciled header metadata instead."
+                        );
+                        continue;
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "sync",
+                            %peer,
+                            applying_height,
+                            workload_height,
+                            error = %error,
+                            "Local workload is already at this height, but synced block header reconciliation failed."
+                        );
+                    }
+                }
+            } else {
+                if let Ok(Some(workload_tip)) =
+                    workload_client.get_block_by_height(workload_height).await
+                {
+                    context.last_committed_block = Some(workload_tip);
+                }
+                if let Some(progress) = context.sync_progress.as_mut() {
+                    progress.next = progress.next.max(workload_height);
+                }
+                tracing::info!(
+                    target: "sync",
+                    %peer,
+                    applying_height,
+                    workload_height,
+                    "Skipping synced block execution because the local workload is already ahead."
+                );
+                continue;
+            }
+        }
+
         let processed_block = match workload_client.process_block(block.clone()).await {
             Ok((processed_block, _)) => processed_block,
             Err(error) => {

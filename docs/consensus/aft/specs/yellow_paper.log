@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  20 MAR 2026 18:53
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  21 MAR 2026 01:36
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -997,11 +997,11 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 105.
+(Font)              <10> on input line 106.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 105.
+(Font)              <7> on input line 106.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 105.
+(Font)              <5> on input line 106.
  [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texmf/fonts/enc/
@@ -1010,49 +1010,54 @@ Package microtype Info: Character `029' is missing
 (microtype)             in font `T1/lmr/m/sc/10.95'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 1
-23.
+24.
 
 (/usr/share/texmf/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-Underfull \hbox (badness 4779) in paragraph at lines 174--174
+Underfull \hbox (badness 2285) in paragraph at lines 175--175
+\T1/lmr/m/n/10 (+20) re-triev-abil-ity his-tory and or-di-nary
+ []
+
+
+Underfull \hbox (badness 4779) in paragraph at lines 175--175
 []|\T1/lmr/m/n/10 (+20) one com-pleted classical-agreement-
  []
 
 [2{/usr/share/texmf/fonts/enc/dvips/lm/lm-mathit.enc}{/usr/share/texmf/fonts/en
 c/dvips/lm/lm-rm.enc}{/usr/share/texmf/fonts/enc/dvips/lm/lm-ts1.enc}]
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10.95> on input line 223.
+(Font)              <10.95> on input line 224.
  [3]
 [4]
-Overfull \hbox (30.20566pt too wide) in paragraph at lines 328--330
+Overfull \hbox (30.20566pt too wide) in paragraph at lines 329--331
  [][] 
  []
 
 
-Underfull \hbox (badness 1097) in paragraph at lines 375--375
+Underfull \hbox (badness 1097) in paragraph at lines 376--376
 []|\T1/lmr/m/n/10 (+20) Public bul-letin com-mit-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 375--375
+Underfull \hbox (badness 10000) in paragraph at lines 376--376
 []|\T1/lmtt/m/n/10 SealedFinalityProof
  []
 
 [5]
-Underfull \hbox (badness 10000) in paragraph at lines 391--391
+Underfull \hbox (badness 10000) in paragraph at lines 392--392
 []|\T1/lmr/m/n/10 (+20) Live through
  []
 
 [6{/usr/share/texmf/fonts/enc/dvips/lm/lm-mathsy.enc}] [7]
-Overfull \hbox (34.92125pt too wide) in paragraph at lines 556--560
+Overfull \hbox (34.92125pt too wide) in paragraph at lines 557--561
 \T1/lmtt/m/n/10.95 ConflictingTranscript \T1/lmr/m/n/10.95 (-20) blame the as-s
 igned ob-server; \T1/lmtt/m/n/10.95 TranscriptMismatch\T1/lmr/m/n/10.95 (-20) ,
  \T1/lmtt/m/n/10.95 VetoTranscriptPresent\T1/lmr/m/n/10.95 (-20) ,
  []
 
 [8] [9]
-Overfull \hbox (7.09868pt too wide) in paragraph at lines 665--710
+Overfull \hbox (7.09868pt too wide) in paragraph at lines 666--711
 \T1/lmtt/m/n/10.95 CanonicalCollapseObject \T1/lmr/m/n/10.95 (-20) also car-rie
 s a rolling \T1/lmtt/m/n/10.95 previous_canonical_collapse_commitment_hash\T1/l
 mr/m/n/10.95 (-20) ,
@@ -1061,22 +1066,32 @@ mr/m/n/10.95 (-20) ,
 [10{/usr/share/texmf/fonts/enc/dvips/lm/lm-mathex.enc}]
 
 LaTeX Font Warning: Font shape `T1/lmr/m/scit' undefined
-(Font)              using `T1/lmr/m/scsl' instead on input line 715.
+(Font)              using `T1/lmr/m/scsl' instead on input line 716.
 
-[11] [12] [13] [14] [15] [16] [17] [18]
-Overfull \hbox (156.97281pt too wide) in paragraph at lines 1264--1269
+[11] [12] [13] [14] [15]
+Overfull \hbox (2.07002pt too wide) in paragraph at lines 1088--1088
+[]|[]| 
+ []
+
+
+Overfull \hbox (19.07002pt too wide) in paragraph at lines 1088--1088
+[]|[]| 
+ []
+
+[16] [17] [18] [19] [20]
+Overfull \hbox (156.97281pt too wide) in paragraph at lines 1290--1295
  [][] 
  []
 
-[19] [20] [21] [22]
-Overfull \hbox (96.32828pt too wide) in paragraph at lines 1462--1465
+[21] [22] [23] [24]
+Overfull \hbox (96.32828pt too wide) in paragraph at lines 1488--1491
 []\T1/lmr/m/n/10.95 (-20) exactly one canon-i-cal out-come ob-ject: \T1/lmtt/m/
 n/10.95 AsymptoteObserverCanonicalClose \T1/lmr/m/n/10.95 (-20) or \T1/lmtt/m/n
 /10.95 AsymptoteObserverCanonicalAbort\T1/lmr/m/n/10.95 (-20) . 
  []
 
-[23]
-Overfull \hbox (187.0389pt too wide) detected at line 1543
+[25]
+Overfull \hbox (187.0389pt too wide) detected at line 1569
 []\OT1/lmr/m/n/10.95 (\OML/lmm/m/it/10.95 e\OT1/lmr/m/n/10.95 )  \OMS/lmsy/m/n/
 10.95 ([])  []\OT1/lmr/m/n/10.95 ([](\OML/lmm/m/it/10.95 e\OT1/lmr/m/n/10.95 ))
  \OMS/lmsy/m/n/10.95 ^ []\OT1/lmr/m/n/10.95 ([](\OML/lmm/m/it/10.95 e\OT1/lmr/m
@@ -1087,92 +1102,87 @@ T1/lmr/m/n/10.95 ) \OMS/lmsy/m/n/10.95 ^ []\OT1/lmr/m/n/10.95 (\OML/lmm/m/it/10
 10.95 )\OML/lmm/m/it/10.95 :
  []
 
-[24] [25] [26] [27]
-Underfull \hbox (badness 1009) in paragraph at lines 1780--1780
-\T1/lmr/m/n/10 (+20) de-ter-min-is-tic ex-trac-tion, ac-count-
- []
-
-[28]
-Overfull \hbox (198.64638pt too wide) in paragraph at lines 1828--1834
+[26] [27] [28] [29] [30]
+Overfull \hbox (198.64638pt too wide) in paragraph at lines 1855--1861
 \T1/lmr/m/n/10.95 (-20) The for-mal pack-age in-cludes an ex-e-cutable TLC wit-
 ness mod-ule, \T1/lmtt/m/n/10.95 formal/aft/canonical_ordering/CanonicalOrderin
 gOmissionTrace.tla\T1/lmr/m/n/10.95 (-20) ,
  []
 
-[29]
-Overfull \hbox (281.48727pt too wide) in paragraph at lines 1891--1904
+[31]
+Overfull \hbox (281.48727pt too wide) in paragraph at lines 1918--1931
 []\T1/lmr/m/n/10.95 (-20) The same for-mal pack-age car-ries a bounded recursiv
 e-continuity model, \T1/lmtt/m/n/10.95 formal/aft/canonical_ordering/CanonicalC
 ollapseRecursiveContinuity.tla\T1/lmr/m/n/10.95 (-20) ,
  []
 
-[30]
-Underfull \hbox (badness 3919) in paragraph at lines 1948--1948
+
+Underfull \hbox (badness 3919) in paragraph at lines 1975--1975
 []|\T1/lmtt/m/n/8 CanonicalOrderProofSystem\T1/lmr/m/n/8 (+20) , with con-crete
  vari-ants \T1/lmtt/m/n/8 HashBindingV1 \T1/lmr/m/n/8 (+20) and
  []
 
-
-Underfull \hbox (badness 1082) in paragraph at lines 1984--1984
+[32]
+Underfull \hbox (badness 1082) in paragraph at lines 2011--2011
 []|\T1/lmtt/m/n/10 AsymptoteObserverChallenge\T1/lmr/m/n/10 (+20) , with kinds 
 \T1/lmtt/m/n/10 MissingTranscript\T1/lmr/m/n/10 (+20) ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 1984--1984
+Underfull \hbox (badness 10000) in paragraph at lines 2011--2011
 \T1/lmtt/m/n/10 TranscriptMismatch\T1/lmr/m/n/10 (+20) , \T1/lmtt/m/n/10 VetoTr
 anscriptPresent\T1/lmr/m/n/10 (+20) ,
  []
 
-[31]
-Underfull \hbox (badness 10000) in paragraph at lines 1989--1995
+[33]
+Underfull \hbox (badness 10000) in paragraph at lines 2016--2022
 \T1/lmtt/m/n/10.95 ioi_crypto::sign::guardian_committee\T1/lmr/m/n/10.95 (+20) 
 , \T1/lmtt/m/n/10.95 ioi_services::guardian_registry\T1/lmr/m/n/10.95 (+20) , a
 nd the
  []
 
-[32]
+[34]
 Overfull \vbox (126.58403pt too high) has occurred while \output is active []
 
 
-[33]
-Underfull \hbox (badness 1057) in paragraph at lines 2029--2066
+[35]
+Underfull \hbox (badness 1057) in paragraph at lines 2056--2093
 \T1/lmr/m/n/10.95 (+20) tion, val-ida-tor fi-nal-iza-tion pub-lishes a protocol
 -visible \T1/lmtt/m/n/10.95 CanonicalCollapseObject \T1/lmr/m/n/10.95 (+20) thr
 ough
  []
 
 
-Underfull \hbox (badness 2626) in paragraph at lines 2029--2066
+Underfull \hbox (badness 2626) in paragraph at lines 2056--2093
 \T1/lmtt/m/n/10.95 publish_aft_canonical_collapse_object@v1 \T1/lmr/m/n/10.95 (
 +20) af-ter lo-cal post-commit header en-rich-ment,
  []
 
 
-Overfull \hbox (245.39755pt too wide) in paragraph at lines 2029--2066
+Overfull \hbox (245.39755pt too wide) in paragraph at lines 2056--2093
 \T1/lmtt/m/n/10.95 guardian_registry \T1/lmr/m/n/10.95 (-20) ex-poses \T1/lmtt/
 m/n/10.95 load_canonical_collapse_object\T1/lmr/m/n/10.95 (-20) , and \T1/lmtt/
 m/n/10.95 GuardianMajorityEngine::verify_published_canonical_collapse_object
  []
 
 
-Overfull \hbox (30.57375pt too wide) in paragraph at lines 2029--2066
+Overfull \hbox (30.57375pt too wide) in paragraph at lines 2056--2093
 \T1/lmr/m/n/10.95 (-20) con-ti-nu-ity slice, val-ida-tor or-ches-tra-tion now s
 igns both \T1/lmtt/m/n/10.95 previous_canonical_collapse_commitment_hash
  []
 
 
-Underfull \hbox (badness 2393) in paragraph at lines 2029--2066
+Underfull \hbox (badness 2393) in paragraph at lines 2056--2093
 \T1/lmr/m/n/10.95 (+20) and a typed \T1/lmtt/m/n/10.95 CanonicalCollapseExtensi
 onCertificate \T1/lmr/m/n/10.95 (+20) into each pro-duced AFT block
  []
 
-[34] [35] [36]
+[36] [37] [38]
 
 LaTeX Font Warning: Font shape `T1/lmr/m/scit' undefined
-(Font)              using `T1/lmr/m/scsl' instead on input line 2269.
+(Font)              using `T1/lmr/m/scsl' instead on input line 2296.
 
-[37] [38] [39] (./yellow_paper.aux)
+[39] [40] [41] (./yellow_paper.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -1185,11 +1195,11 @@ Package rerunfilecheck Info: File `yellow_paper.out' has not changed.
 (rerunfilecheck)             Checksum: 95E6130216D6FA1D1BB70516819B813D;11787.
  ) 
 Here is how much of TeX's memory you used:
- 26884 strings out of 476182
- 502379 string characters out of 5795595
+ 26890 strings out of 476182
+ 502437 string characters out of 5795595
  1948975 words of memory out of 5000000
  47927 multiletter control sequences out of 15000+600000
- 663443 words of font info for 263 fonts, out of 8000000 for 9000
+ 663631 words of font info for 265 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  102i,12n,107p,1009b,825s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texmf/fonts/type1/public/lm/lmbx10.pfb></usr/share/texmf/fonts/ty
@@ -1205,10 +1215,10 @@ ts/type1/public/lm/lmr17.pfb></usr/share/texmf/fonts/type1/public/lm/lmr8.pfb><
 /public/lm/lmsy10.pfb></usr/share/texmf/fonts/type1/public/lm/lmsy8.pfb></usr/s
 hare/texmf/fonts/type1/public/lm/lmtt10.pfb></usr/share/texmf/fonts/type1/publi
 c/lm/lmtt8.pfb></usr/share/texmf/fonts/type1/public/lm/lmtti10.pfb>
-Output written on yellow_paper.pdf (39 pages, 529292 bytes).
+Output written on yellow_paper.pdf (41 pages, 531439 bytes).
 PDF statistics:
- 663 PDF objects out of 1000 (max. 8388607)
- 572 compressed objects within 6 object streams
- 165 named destinations out of 1000 (max. 500000)
+ 671 PDF objects out of 1000 (max. 8388607)
+ 578 compressed objects within 6 object streams
+ 167 named destinations out of 1000 (max. 500000)
  57829 words of extra memory for PDF output out of 61914 (max. 10000000)
 

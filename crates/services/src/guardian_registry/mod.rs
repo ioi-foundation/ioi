@@ -13,13 +13,18 @@ use ioi_types::app::{
     aft_archived_recovered_history_retention_receipt_key,
     aft_archived_recovered_history_segment_hash_key, aft_archived_recovered_history_segment_key,
     aft_archived_recovered_history_segment_prefix, aft_archived_recovered_restart_page_key,
-    aft_bulletin_availability_certificate_key, aft_bulletin_commitment_key, aft_bulletin_entry_key,
-    aft_canonical_bulletin_close_key, aft_canonical_collapse_object_key,
-    aft_canonical_order_abort_key, aft_missing_recovery_share_key, aft_omission_proof_key,
-    aft_order_certificate_key, aft_publication_frontier_contradiction_key,
-    aft_publication_frontier_key, aft_recovered_publication_bundle_key,
-    aft_recovered_publication_bundle_prefix, aft_recovery_capsule_key,
-    aft_recovery_share_material_key, aft_recovery_share_material_prefix,
+    aft_bulletin_availability_certificate_key, aft_bulletin_commitment_key,
+    aft_bulletin_custody_assignment_key, aft_bulletin_custody_receipt_key,
+    aft_bulletin_custody_response_key, aft_bulletin_entry_key,
+    aft_bulletin_reconstruction_certificate_key,
+    aft_bulletin_reconstruction_abort_key,
+    aft_bulletin_retrievability_challenge_key, aft_bulletin_retrievability_profile_key,
+    aft_bulletin_shard_manifest_key, aft_canonical_bulletin_close_key,
+    aft_canonical_collapse_object_key, aft_canonical_order_abort_key,
+    aft_missing_recovery_share_key, aft_omission_proof_key, aft_order_certificate_key,
+    aft_publication_frontier_contradiction_key, aft_publication_frontier_key,
+    aft_recovered_publication_bundle_key, aft_recovered_publication_bundle_prefix,
+    aft_recovery_capsule_key, aft_recovery_share_material_key, aft_recovery_share_material_prefix,
     aft_recovery_share_receipt_key, aft_recovery_share_receipt_prefix,
     aft_recovery_witness_certificate_key, bind_canonical_collapse_continuity,
     build_archived_recovered_history_checkpoint, build_archived_recovered_history_profile,
@@ -44,8 +49,9 @@ use ioi_types::app::{
     canonical_publication_frontier_hash, canonical_recoverable_slot_payload_v4_hash,
     canonical_recoverable_slot_payload_v5_hash, canonical_recovery_capsule_hash,
     canonical_replay_prefix_entry, canonical_replay_prefix_historical_continuation_anchor,
-    canonical_validator_sets_hash, derive_canonical_collapse_object_from_recovered_surface,
-    effective_set_for_height, evidence_id, extract_canonical_bulletin_surface,
+    canonical_validator_sets_hash,
+    derive_canonical_collapse_object_from_recovered_surface,
+    effective_set_for_height, evidence_id, extract_endogenous_canonical_bulletin_surface,
     guardian_registry_asymptote_policy_key, guardian_registry_committee_account_key,
     guardian_registry_committee_key, guardian_registry_effect_nullifier_key,
     guardian_registry_effect_verifier_key, guardian_registry_log_key,
@@ -73,21 +79,31 @@ use ioi_types::app::{
     validate_archived_recovered_history_retention_receipt_against_profile,
     validate_archived_recovered_history_segment_against_profile,
     validate_archived_recovered_history_segment_predecessor,
-    validate_archived_recovered_restart_page_against_profile, validate_recovered_page_coverage,
+    build_bulletin_custody_assignment, build_bulletin_custody_response,
+    build_bulletin_reconstruction_abort, build_bulletin_reconstruction_certificate,
+    validate_archived_recovered_restart_page_against_profile,
+    validate_bulletin_custody_assignment, validate_bulletin_custody_receipt,
+    validate_bulletin_custody_response,
+    validate_bulletin_retrievability_challenge, validate_bulletin_retrievability_profile,
+    validate_bulletin_shard_manifest, validate_recovered_page_coverage,
     verify_canonical_collapse_continuity, verify_canonical_order_publication_bundle,
     verify_publication_frontier_contradiction, write_validator_sets, AccountId,
-    AftHistoricalContinuationSurface, AftRecoveredStateSurface, ArchivedRecoveredHistoryCheckpoint,
+    AftHistoricalRetrievabilitySurface, AftRecoveredStateSurface,
+    ArchivedRecoveredHistoryCheckpoint,
     ArchivedRecoveredHistoryProfile, ArchivedRecoveredHistoryProfileActivation,
     ArchivedRecoveredHistoryRetentionReceipt, ArchivedRecoveredHistorySegment,
     ArchivedRecoveredRestartPage, AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose,
     AsymptoteObserverChallenge, AsymptoteObserverChallengeCommitment,
     AsymptoteObserverChallengeKind, AsymptoteObserverSealingMode, AsymptoteObserverTranscript,
     AsymptoteObserverTranscriptCommitment, AsymptotePolicy, BulletinAvailabilityCertificate,
-    BulletinCommitment, BulletinSurfaceEntry, CanonicalBulletinClose, CanonicalCollapseKind,
-    CanonicalCollapseObject, CanonicalOrderAbort, CanonicalOrderAbortReason,
-    CanonicalOrderCertificate, CanonicalOrderPublicationBundle, CanonicalReplayPrefixEntry,
-    CollapseState, EffectProofVerifierDescriptor, FailureReport, FinalityTier,
-    GuardianCommitteeManifest, GuardianLogCheckpoint, GuardianMeasurementProfile,
+    BulletinCommitment, BulletinCustodyAssignment, BulletinCustodyReceipt,
+    BulletinCustodyResponse, BulletinReconstructionAbort, BulletinReconstructionCertificate,
+    BulletinRetrievabilityChallenge,
+    BulletinRetrievabilityProfile, BulletinShardManifest, BulletinSurfaceEntry,
+    CanonicalBulletinClose, CanonicalCollapseKind, CanonicalCollapseObject, CanonicalOrderAbort,
+    CanonicalOrderAbortReason, CanonicalOrderCertificate, CanonicalOrderPublicationBundle,
+    CanonicalReplayPrefixEntry, CollapseState, EffectProofVerifierDescriptor, FailureReport,
+    FinalityTier, GuardianCommitteeManifest, GuardianLogCheckpoint, GuardianMeasurementProfile,
     GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed,
     GuardianWitnessFaultEvidence, GuardianWitnessSet, MissingRecoveryShare, OffenseFacts,
     OffenseType, OmissionProof, ProofOfDivergence, PublicationFrontier,
@@ -252,6 +268,102 @@ impl GuardianRegistry {
         }
     }
 
+    pub fn load_bulletin_retrievability_profile(
+        state: &dyn StateAccess,
+        height: u64,
+    ) -> Result<Option<BulletinRetrievabilityProfile>, StateError> {
+        match state.get(&aft_bulletin_retrievability_profile_key(height))? {
+            Some(bytes) => codec::from_bytes_canonical(&bytes)
+                .map(Some)
+                .map_err(|e| StateError::InvalidValue(e.to_string())),
+            None => Ok(None),
+        }
+    }
+
+    pub fn load_bulletin_shard_manifest(
+        state: &dyn StateAccess,
+        height: u64,
+    ) -> Result<Option<BulletinShardManifest>, StateError> {
+        match state.get(&aft_bulletin_shard_manifest_key(height))? {
+            Some(bytes) => codec::from_bytes_canonical(&bytes)
+                .map(Some)
+                .map_err(|e| StateError::InvalidValue(e.to_string())),
+            None => Ok(None),
+        }
+    }
+
+    pub fn load_bulletin_custody_assignment(
+        state: &dyn StateAccess,
+        height: u64,
+    ) -> Result<Option<BulletinCustodyAssignment>, StateError> {
+        match state.get(&aft_bulletin_custody_assignment_key(height))? {
+            Some(bytes) => codec::from_bytes_canonical(&bytes)
+                .map(Some)
+                .map_err(|e| StateError::InvalidValue(e.to_string())),
+            None => Ok(None),
+        }
+    }
+
+    pub fn load_bulletin_custody_receipt(
+        state: &dyn StateAccess,
+        height: u64,
+    ) -> Result<Option<BulletinCustodyReceipt>, StateError> {
+        match state.get(&aft_bulletin_custody_receipt_key(height))? {
+            Some(bytes) => codec::from_bytes_canonical(&bytes)
+                .map(Some)
+                .map_err(|e| StateError::InvalidValue(e.to_string())),
+            None => Ok(None),
+        }
+    }
+
+    pub fn load_bulletin_custody_response(
+        state: &dyn StateAccess,
+        height: u64,
+    ) -> Result<Option<BulletinCustodyResponse>, StateError> {
+        match state.get(&aft_bulletin_custody_response_key(height))? {
+            Some(bytes) => codec::from_bytes_canonical(&bytes)
+                .map(Some)
+                .map_err(|e| StateError::InvalidValue(e.to_string())),
+            None => Ok(None),
+        }
+    }
+
+    pub fn load_bulletin_retrievability_challenge(
+        state: &dyn StateAccess,
+        height: u64,
+    ) -> Result<Option<BulletinRetrievabilityChallenge>, StateError> {
+        match state.get(&aft_bulletin_retrievability_challenge_key(height))? {
+            Some(bytes) => codec::from_bytes_canonical(&bytes)
+                .map(Some)
+                .map_err(|e| StateError::InvalidValue(e.to_string())),
+            None => Ok(None),
+        }
+    }
+
+    pub fn load_bulletin_reconstruction_certificate(
+        state: &dyn StateAccess,
+        height: u64,
+    ) -> Result<Option<BulletinReconstructionCertificate>, StateError> {
+        match state.get(&aft_bulletin_reconstruction_certificate_key(height))? {
+            Some(bytes) => codec::from_bytes_canonical(&bytes)
+                .map(Some)
+                .map_err(|e| StateError::InvalidValue(e.to_string())),
+            None => Ok(None),
+        }
+    }
+
+    pub fn load_bulletin_reconstruction_abort(
+        state: &dyn StateAccess,
+        height: u64,
+    ) -> Result<Option<BulletinReconstructionAbort>, StateError> {
+        match state.get(&aft_bulletin_reconstruction_abort_key(height))? {
+            Some(bytes) => codec::from_bytes_canonical(&bytes)
+                .map(Some)
+                .map_err(|e| StateError::InvalidValue(e.to_string())),
+            None => Ok(None),
+        }
+    }
+
     pub fn load_canonical_bulletin_close(
         state: &dyn StateAccess,
         height: u64,
@@ -268,6 +380,12 @@ impl GuardianRegistry {
         state: &dyn StateAccess,
         height: u64,
     ) -> Result<Option<Vec<BulletinSurfaceEntry>>, StateError> {
+        if let Some(challenge) = Self::load_bulletin_retrievability_challenge(state, height)? {
+            return Err(StateError::InvalidValue(format!(
+                "published bulletin surface at height {height} is dominated by retrievability challenge {:?}: {}",
+                challenge.kind, challenge.details
+            )));
+        }
         let Some(bulletin_commitment) = Self::load_bulletin_commitment(state, height)? else {
             return Ok(None);
         };
@@ -279,21 +397,89 @@ impl GuardianRegistry {
         let Some(bulletin_close) = Self::load_canonical_bulletin_close(state, height)? else {
             return Ok(None);
         };
+        let Some(profile) = Self::load_bulletin_retrievability_profile(state, height)? else {
+            return Err(StateError::InvalidValue(format!(
+                "canonical bulletin close at height {height} is missing its endogenous retrievability profile"
+            )));
+        };
+        let Some(manifest) = Self::load_bulletin_shard_manifest(state, height)? else {
+            return Err(StateError::InvalidValue(format!(
+                "canonical bulletin close at height {height} is missing its endogenous shard manifest"
+            )));
+        };
+        let Some(assignment) = Self::load_bulletin_custody_assignment(state, height)? else {
+            return Err(StateError::InvalidValue(format!(
+                "canonical bulletin close at height {height} is missing its endogenous custody assignment"
+            )));
+        };
+        let Some(receipt) = Self::load_bulletin_custody_receipt(state, height)? else {
+            return Err(StateError::InvalidValue(format!(
+                "canonical bulletin close at height {height} is missing its endogenous custody receipt"
+            )));
+        };
+        let Some(response) = Self::load_bulletin_custody_response(state, height)? else {
+            return Err(StateError::InvalidValue(format!(
+                "canonical bulletin close at height {height} is missing its endogenous custody response"
+            )));
+        };
+        let Some(reconstruction_certificate) =
+            Self::load_bulletin_reconstruction_certificate(state, height)?
+        else {
+            return Err(StateError::InvalidValue(format!(
+                "canonical bulletin close at height {height} is missing its positive bulletin reconstruction certificate"
+            )));
+        };
         let entries = Self::load_bulletin_surface_entries(state, height)?;
-        extract_canonical_bulletin_surface(
+        let validator_set = Self::load_effective_validator_set_for_height(state, height)?;
+        let extracted = extract_endogenous_canonical_bulletin_surface(
             &bulletin_close,
             &bulletin_commitment,
             &bulletin_availability_certificate,
+            &profile,
+            &manifest,
+            &assignment,
+            &receipt,
+            &response,
             &entries,
+            &validator_set,
         )
-        .map(Some)
-        .map_err(StateError::InvalidValue)
+        .map_err(StateError::InvalidValue)?;
+        let expected_reconstruction_certificate = build_bulletin_reconstruction_certificate(
+            &bulletin_close,
+            &bulletin_commitment,
+            &bulletin_availability_certificate,
+            &profile,
+            &manifest,
+            &assignment,
+            &receipt,
+            &response,
+            &entries,
+            &Self::load_canonical_order_certificate(state, height)?.ok_or_else(|| {
+                StateError::InvalidValue(format!(
+                    "canonical bulletin close at height {height} is missing its canonical-order certificate"
+                ))
+            })?,
+            &validator_set,
+        )
+        .map_err(StateError::InvalidValue)?;
+        if reconstruction_certificate != expected_reconstruction_certificate {
+            return Err(StateError::InvalidValue(format!(
+                "canonical bulletin close at height {height} does not match its positive bulletin reconstruction certificate"
+            )));
+        }
+        Ok(Some(extracted))
     }
 
     pub fn require_published_bulletin_surface(
         state: &dyn StateAccess,
         height: u64,
     ) -> Result<Vec<BulletinSurfaceEntry>, StateError> {
+        if let Some(challenge) = Self::load_bulletin_retrievability_challenge(state, height)? {
+            return Err(StateError::InvalidValue(format!(
+                "published bulletin surface at height {height} is dominated by retrievability challenge {:?}: {}",
+                challenge.kind, challenge.details
+            )));
+        }
         let bulletin_commitment =
             Self::load_bulletin_commitment(state, height)?.ok_or_else(|| {
                 StateError::InvalidValue(
@@ -313,14 +499,89 @@ impl GuardianRegistry {
                     "canonical bulletin close is required for closed-slot extraction".into(),
                 )
             })?;
+        let profile = Self::load_bulletin_retrievability_profile(state, height)?.ok_or_else(
+            || {
+                StateError::InvalidValue(
+                    "endogenous bulletin retrievability profile is required for closed-slot extraction"
+                        .into(),
+                )
+            },
+        )?;
+        let manifest = Self::load_bulletin_shard_manifest(state, height)?.ok_or_else(|| {
+            StateError::InvalidValue(
+                "endogenous bulletin shard manifest is required for closed-slot extraction".into(),
+            )
+        })?;
+        let assignment = Self::load_bulletin_custody_assignment(state, height)?.ok_or_else(
+            || {
+                StateError::InvalidValue(
+                    "endogenous bulletin custody assignment is required for closed-slot extraction"
+                        .into(),
+                )
+            },
+        )?;
+        let receipt = Self::load_bulletin_custody_receipt(state, height)?.ok_or_else(|| {
+            StateError::InvalidValue(
+                "endogenous bulletin custody receipt is required for closed-slot extraction"
+                    .into(),
+            )
+        })?;
+        let response = Self::load_bulletin_custody_response(state, height)?.ok_or_else(|| {
+            StateError::InvalidValue(
+                "endogenous bulletin custody response is required for closed-slot extraction"
+                    .into(),
+            )
+        })?;
+        let reconstruction_certificate =
+            Self::load_bulletin_reconstruction_certificate(state, height)?.ok_or_else(|| {
+                StateError::InvalidValue(
+                    "positive bulletin reconstruction certificate is required for closed-slot extraction"
+                        .into(),
+            )
+        })?;
         let entries = Self::load_bulletin_surface_entries(state, height)?;
-        extract_canonical_bulletin_surface(
+        let validator_set = Self::load_effective_validator_set_for_height(state, height)?;
+        let extracted = extract_endogenous_canonical_bulletin_surface(
             &bulletin_close,
             &bulletin_commitment,
             &bulletin_availability_certificate,
+            &profile,
+            &manifest,
+            &assignment,
+            &receipt,
+            &response,
             &entries,
+            &validator_set,
         )
-        .map_err(StateError::InvalidValue)
+        .map_err(StateError::InvalidValue)?;
+        let order_certificate = Self::load_canonical_order_certificate(state, height)?.ok_or_else(
+            || {
+                StateError::InvalidValue(
+                    "canonical-order certificate is required for closed-slot extraction".into(),
+                )
+            },
+        )?;
+        let expected_reconstruction_certificate = build_bulletin_reconstruction_certificate(
+            &bulletin_close,
+            &bulletin_commitment,
+            &bulletin_availability_certificate,
+            &profile,
+            &manifest,
+            &assignment,
+            &receipt,
+            &response,
+            &entries,
+            &order_certificate,
+            &validator_set,
+        )
+        .map_err(StateError::InvalidValue)?;
+        if reconstruction_certificate != expected_reconstruction_certificate {
+            return Err(StateError::InvalidValue(
+                "positive bulletin reconstruction certificate does not match the canonical slot surface"
+                    .into(),
+            ));
+        }
+        Ok(extracted)
     }
 
     pub fn load_canonical_order_certificate(
@@ -1415,20 +1676,20 @@ impl GuardianRegistry {
         Ok(Some((checkpoint_hash, activation_hash, receipt_hash)))
     }
 
-    pub fn load_aft_historical_continuation_surface_for_height(
+    pub fn load_aft_historical_retrievability_surface_for_height(
         state: &dyn StateAccess,
         height: u64,
-    ) -> Result<Option<AftHistoricalContinuationSurface>, StateError> {
+    ) -> Result<Option<AftHistoricalRetrievabilitySurface>, StateError> {
         let Some(collapse) = Self::load_canonical_collapse_object(state, height)? else {
             return Ok(None);
         };
-        Self::load_aft_historical_continuation_surface_for_collapse(state, &collapse)
+        Self::load_aft_historical_retrievability_surface_for_collapse(state, &collapse)
     }
 
-    fn load_aft_historical_continuation_surface_for_collapse(
+    fn load_aft_historical_retrievability_surface_for_collapse(
         state: &dyn StateAccess,
         collapse: &CanonicalCollapseObject,
-    ) -> Result<Option<AftHistoricalContinuationSurface>, StateError> {
+    ) -> Result<Option<AftHistoricalRetrievabilitySurface>, StateError> {
         let Some(anchor) = canonical_collapse_historical_continuation_anchor(collapse)
             .map_err(StateError::InvalidValue)?
         else {
@@ -1444,7 +1705,7 @@ impl GuardianRegistry {
         )?
         .ok_or_else(|| {
             StateError::InvalidValue(
-                "ordinary historical continuation checkpoint is missing from state".into(),
+                "ordinary historical retrievability checkpoint is missing from state".into(),
             )
         })?;
         let activation = Self::load_archived_recovered_history_profile_activation_by_hash(
@@ -1453,7 +1714,7 @@ impl GuardianRegistry {
         )?
         .ok_or_else(|| {
             StateError::InvalidValue(
-                "ordinary historical continuation profile activation is missing from state".into(),
+                "ordinary historical retrievability profile activation is missing from state".into(),
             )
         })?;
         let receipt = Self::load_archived_recovered_history_retention_receipt(
@@ -1462,24 +1723,24 @@ impl GuardianRegistry {
         )?
         .ok_or_else(|| {
             StateError::InvalidValue(
-                "ordinary historical continuation retention receipt is missing from state".into(),
+                "ordinary historical retrievability retention receipt is missing from state".into(),
             )
         })?;
 
         if checkpoint.archived_profile_activation_hash != anchor.profile_activation_hash {
             return Err(StateError::InvalidValue(
-                "ordinary historical continuation checkpoint activation hash does not match the canonical anchor"
+                "ordinary historical retrievability checkpoint activation hash does not match the canonical anchor"
                     .into(),
             ));
         }
         if receipt.archived_profile_activation_hash != anchor.profile_activation_hash {
             return Err(StateError::InvalidValue(
-                "ordinary historical continuation retention receipt activation hash does not match the canonical anchor"
+                "ordinary historical retrievability retention receipt activation hash does not match the canonical anchor"
                     .into(),
             ));
         }
 
-        Ok(Some(AftHistoricalContinuationSurface {
+        Ok(Some(AftHistoricalRetrievabilitySurface {
             anchor,
             checkpoint,
             profile_activation: activation,
@@ -1505,6 +1766,20 @@ impl GuardianRegistry {
             cursor -= 1;
         }
         Ok(None)
+    }
+
+    fn load_effective_validator_set_for_height(
+        state: &dyn StateAccess,
+        height: u64,
+    ) -> Result<ioi_types::app::ValidatorSetV1, StateError> {
+        let Some(validator_set_bytes) = state.get(VALIDATOR_SET_KEY)? else {
+            return Err(StateError::InvalidValue(
+                "active validator set is missing from state".into(),
+            ));
+        };
+        let validator_sets = read_validator_sets(&validator_set_bytes)
+            .map_err(|error| StateError::InvalidValue(error.to_string()))?;
+        Ok(effective_set_for_height(&validator_sets, height).clone())
     }
 
     fn load_unique_recovered_publication_ancestry(
@@ -1994,13 +2269,13 @@ impl GuardianRegistry {
             Self::extract_aft_recovered_certified_header_prefix(state, start_height, end_height)?;
         let restart_headers =
             Self::extract_aft_recovered_restart_header_prefix(state, start_height, end_height)?;
-        let historical_continuation = match replay_prefix.last() {
+        let historical_retrievability = match replay_prefix.last() {
             Some(entry)
                 if canonical_replay_prefix_historical_continuation_anchor(entry)
                     .map_err(StateError::InvalidValue)?
                     .is_some() =>
             {
-                Self::load_aft_historical_continuation_surface_for_height(state, end_height)?
+                Self::load_aft_historical_retrievability_surface_for_height(state, end_height)?
             }
             _ => None,
         };
@@ -2010,7 +2285,7 @@ impl GuardianRegistry {
             consensus_headers,
             certified_headers,
             restart_headers,
-            historical_continuation,
+            historical_retrievability,
         })
     }
 
@@ -2319,6 +2594,12 @@ impl GuardianRegistry {
         )?;
         state.delete(&aft_order_certificate_key(abort.height))?;
         state.delete(&aft_bulletin_availability_certificate_key(abort.height))?;
+        state.delete(&aft_bulletin_retrievability_profile_key(abort.height))?;
+        state.delete(&aft_bulletin_shard_manifest_key(abort.height))?;
+        state.delete(&aft_bulletin_custody_assignment_key(abort.height))?;
+        state.delete(&aft_bulletin_custody_receipt_key(abort.height))?;
+        state.delete(&aft_bulletin_custody_response_key(abort.height))?;
+        state.delete(&aft_bulletin_reconstruction_certificate_key(abort.height))?;
         state.delete(&aft_canonical_bulletin_close_key(abort.height))?;
         state.delete(&aft_publication_frontier_key(abort.height))?;
 
@@ -2397,6 +2678,12 @@ impl GuardianRegistry {
             CanonicalCollapseKind::Abort => {
                 state.delete(&aft_order_certificate_key(collapse.height))?;
                 state.delete(&aft_bulletin_availability_certificate_key(collapse.height))?;
+                state.delete(&aft_bulletin_retrievability_profile_key(collapse.height))?;
+                state.delete(&aft_bulletin_shard_manifest_key(collapse.height))?;
+                state.delete(&aft_bulletin_custody_assignment_key(collapse.height))?;
+                state.delete(&aft_bulletin_custody_receipt_key(collapse.height))?;
+                state.delete(&aft_bulletin_custody_response_key(collapse.height))?;
+                state.delete(&aft_bulletin_reconstruction_certificate_key(collapse.height))?;
                 state.delete(&aft_canonical_bulletin_close_key(collapse.height))?;
             }
         }
@@ -2529,6 +2816,17 @@ impl GuardianRegistry {
         bulletin_close: &CanonicalBulletinClose,
         ctx: &mut TxContext<'_>,
     ) -> Result<(), TransactionError> {
+        if Self::load_bulletin_retrievability_challenge(
+            state,
+            bundle.canonical_order_certificate.height,
+        )?
+        .is_some()
+        {
+            return Err(TransactionError::Invalid(
+                "cannot admit a positive canonical-order bundle after retrievability challenge publication"
+                    .into(),
+            ));
+        }
         if bundle
             .canonical_order_certificate
             .omission_proofs
@@ -2541,6 +2839,76 @@ impl GuardianRegistry {
                     .into(),
             ));
         }
+
+        validate_bulletin_retrievability_profile(
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_commitment,
+            &bundle.bulletin_availability_certificate,
+        )
+        .map_err(TransactionError::Invalid)?;
+        validate_bulletin_shard_manifest(
+            &bundle.bulletin_shard_manifest,
+            &bundle.bulletin_commitment,
+            &bundle.bulletin_availability_certificate,
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_entries,
+        )
+        .map_err(TransactionError::Invalid)?;
+        validate_bulletin_custody_receipt(
+            &bundle.bulletin_custody_receipt,
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+        )
+        .map_err(TransactionError::Invalid)?;
+        let active_validator_set =
+            Self::load_effective_validator_set_for_height(state, bundle.canonical_order_certificate.height)
+                .map_err(TransactionError::State)?;
+        let custody_assignment = build_bulletin_custody_assignment(
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &active_validator_set,
+        )
+        .map_err(TransactionError::Invalid)?;
+        validate_bulletin_custody_assignment(
+            &custody_assignment,
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &active_validator_set,
+        )
+        .map_err(TransactionError::Invalid)?;
+        let custody_response = build_bulletin_custody_response(
+            &bundle.bulletin_commitment,
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &custody_assignment,
+            &bundle.bulletin_custody_receipt,
+            &bundle.bulletin_entries,
+        )
+        .map_err(TransactionError::Invalid)?;
+        validate_bulletin_custody_response(
+            &custody_response,
+            &bundle.bulletin_commitment,
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &custody_assignment,
+            &bundle.bulletin_custody_receipt,
+            &bundle.bulletin_entries,
+        )
+        .map_err(TransactionError::Invalid)?;
+        let reconstruction_certificate = build_bulletin_reconstruction_certificate(
+            bulletin_close,
+            &bundle.bulletin_commitment,
+            &bundle.bulletin_availability_certificate,
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &custody_assignment,
+            &bundle.bulletin_custody_receipt,
+            &custody_response,
+            &bundle.bulletin_entries,
+            &bundle.canonical_order_certificate,
+            &active_validator_set,
+        )
+        .map_err(TransactionError::Invalid)?;
 
         state.insert(
             &aft_bulletin_commitment_key(bundle.bulletin_commitment.height),
@@ -2598,6 +2966,31 @@ impl GuardianRegistry {
                 .map_err(TransactionError::Serialization)?,
         )?;
         state.insert(
+            &aft_bulletin_retrievability_profile_key(bundle.bulletin_retrievability_profile.height),
+            &codec::to_bytes_canonical(&bundle.bulletin_retrievability_profile)
+                .map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
+            &aft_bulletin_shard_manifest_key(bundle.bulletin_shard_manifest.height),
+            &codec::to_bytes_canonical(&bundle.bulletin_shard_manifest)
+                .map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
+            &aft_bulletin_custody_assignment_key(custody_assignment.height),
+            &codec::to_bytes_canonical(&custody_assignment)
+                .map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
+            &aft_bulletin_custody_receipt_key(bundle.bulletin_custody_receipt.height),
+            &codec::to_bytes_canonical(&bundle.bulletin_custody_receipt)
+                .map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
+            &aft_bulletin_custody_response_key(custody_response.height),
+            &codec::to_bytes_canonical(&custody_response)
+                .map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
             &aft_order_certificate_key(bundle.canonical_order_certificate.height),
             &codec::to_bytes_canonical(&bundle.canonical_order_certificate)
                 .map_err(TransactionError::Serialization)?,
@@ -2605,6 +2998,77 @@ impl GuardianRegistry {
         state.insert(
             &aft_canonical_bulletin_close_key(bundle.canonical_order_certificate.height),
             &codec::to_bytes_canonical(bulletin_close).map_err(TransactionError::Serialization)?,
+        )?;
+        state.insert(
+            &aft_bulletin_reconstruction_certificate_key(bundle.canonical_order_certificate.height),
+            &codec::to_bytes_canonical(&reconstruction_certificate)
+                .map_err(TransactionError::Serialization)?,
+        )?;
+        Ok(())
+    }
+
+    fn materialize_bulletin_retrievability_challenge(
+        state: &mut dyn StateAccess,
+        challenge: &BulletinRetrievabilityChallenge,
+    ) -> Result<(), TransactionError> {
+        if let Some(existing) =
+            Self::load_bulletin_retrievability_challenge(state, challenge.height)?
+        {
+            if existing != *challenge {
+                return Err(TransactionError::Invalid(
+                    "conflicting bulletin retrievability challenge already published for slot"
+                        .into(),
+                ));
+            }
+            return Ok(());
+        }
+        if Self::load_canonical_bulletin_close(state, challenge.height)?.is_some() {
+            return Err(TransactionError::Invalid(
+                "cannot publish bulletin retrievability challenge after canonical bulletin close publication"
+                    .into(),
+            ));
+        }
+        state.insert(
+            &aft_bulletin_retrievability_challenge_key(challenge.height),
+            &codec::to_bytes_canonical(challenge).map_err(TransactionError::Serialization)?,
+        )?;
+        if Self::load_canonical_order_abort(state, challenge.height)?.is_none() {
+            let certificate = Self::load_canonical_order_certificate(state, challenge.height)?;
+            let abort = Self::build_canonical_order_abort(
+                challenge.height,
+                CanonicalOrderAbortReason::RetrievabilityChallengeDominated,
+                format!(
+                    "endogenous bulletin retrievability challenge {:?}: {}",
+                    challenge.kind, challenge.details
+                ),
+                certificate.as_ref(),
+                None,
+            );
+            Self::materialize_canonical_order_abort(state, abort)?;
+        }
+        let canonical_abort = Self::load_canonical_order_abort(state, challenge.height)?.ok_or_else(
+            || {
+                TransactionError::Invalid(
+                    "bulletin reconstruction abort requires canonical-order abort materialization"
+                        .into(),
+                )
+            },
+        )?;
+        let reconstruction_abort =
+            build_bulletin_reconstruction_abort(challenge, &canonical_abort)
+                .map_err(TransactionError::Invalid)?;
+        if let Some(existing) = Self::load_bulletin_reconstruction_abort(state, challenge.height)? {
+            if existing != reconstruction_abort {
+                return Err(TransactionError::Invalid(
+                    "conflicting bulletin reconstruction abort already published for slot".into(),
+                ));
+            }
+            return Ok(());
+        }
+        state.insert(
+            &aft_bulletin_reconstruction_abort_key(challenge.height),
+            &codec::to_bytes_canonical(&reconstruction_abort)
+                .map_err(TransactionError::Serialization)?,
         )?;
         Ok(())
     }
@@ -5134,6 +5598,53 @@ impl BlockchainService for GuardianRegistry {
                     ctx,
                 )
             }
+            "publish_aft_bulletin_retrievability_challenge@v1" => {
+                let challenge: BulletinRetrievabilityChallenge =
+                    codec::from_bytes_canonical(params)?;
+                if challenge.height == 0 {
+                    return Err(TransactionError::Invalid(
+                        "aft bulletin retrievability challenge requires non-zero height".into(),
+                    ));
+                }
+                let bulletin_commitment = Self::load_bulletin_commitment(state, challenge.height)?
+                    .ok_or_else(|| {
+                        TransactionError::Invalid(
+                            "aft bulletin retrievability challenge requires a published bulletin commitment"
+                                .into(),
+                        )
+                    })?;
+                let bulletin_availability_certificate =
+                    Self::load_bulletin_availability_certificate(state, challenge.height)?
+                        .ok_or_else(|| {
+                            TransactionError::Invalid(
+                                "aft bulletin retrievability challenge requires a published bulletin availability certificate"
+                                    .into(),
+                            )
+                        })?;
+                let profile = Self::load_bulletin_retrievability_profile(state, challenge.height)?;
+                let manifest = Self::load_bulletin_shard_manifest(state, challenge.height)?;
+                let assignment = Self::load_bulletin_custody_assignment(state, challenge.height)?;
+                let receipt = Self::load_bulletin_custody_receipt(state, challenge.height)?;
+                let response = Self::load_bulletin_custody_response(state, challenge.height)?;
+                let entries = Self::load_bulletin_surface_entries(state, challenge.height)?;
+                let validator_set =
+                    Self::load_effective_validator_set_for_height(state, challenge.height)
+                        .map_err(TransactionError::State)?;
+                validate_bulletin_retrievability_challenge(
+                    &challenge,
+                    &bulletin_commitment,
+                    &bulletin_availability_certificate,
+                    profile.as_ref(),
+                    manifest.as_ref(),
+                    Some(&validator_set),
+                    assignment.as_ref(),
+                    receipt.as_ref(),
+                    response.as_ref(),
+                    &entries,
+                )
+                .map_err(TransactionError::Invalid)?;
+                Self::materialize_bulletin_retrievability_challenge(state, &challenge)
+            }
             "publish_aft_canonical_order_abort@v1" => {
                 let abort: CanonicalOrderAbort = codec::from_bytes_canonical(params)?;
                 if abort.height == 0 {
@@ -5259,31 +5770,41 @@ mod tests {
         aft_archived_recovered_history_segment_hash_key,
         aft_archived_recovered_history_segment_key, aft_archived_recovered_restart_page_key,
         aft_bulletin_availability_certificate_key, aft_bulletin_commitment_key,
-        aft_bulletin_entry_key, aft_canonical_bulletin_close_key,
-        aft_canonical_collapse_object_key, aft_canonical_order_abort_key,
-        aft_missing_recovery_share_key, aft_omission_proof_key, aft_order_certificate_key,
-        aft_publication_frontier_contradiction_key, aft_publication_frontier_key,
-        aft_recovered_publication_bundle_key, aft_recovery_capsule_key,
-        aft_recovery_share_material_key, aft_recovery_share_receipt_key,
+        aft_bulletin_custody_receipt_key, aft_bulletin_entry_key,
+        aft_bulletin_reconstruction_certificate_key,
+        aft_bulletin_retrievability_profile_key, aft_bulletin_shard_manifest_key,
+        aft_canonical_bulletin_close_key, aft_canonical_collapse_object_key,
+        aft_canonical_order_abort_key, aft_missing_recovery_share_key, aft_omission_proof_key,
+        aft_order_certificate_key, aft_publication_frontier_contradiction_key,
+        aft_publication_frontier_key, aft_recovered_publication_bundle_key,
+        aft_recovery_capsule_key, aft_recovery_share_material_key, aft_recovery_share_receipt_key,
         aft_recovery_witness_certificate_key, archived_recovered_history_retained_through_height,
         build_archived_recovered_history_checkpoint, build_archived_recovered_history_profile,
         build_archived_recovered_history_profile_activation,
         build_archived_recovered_history_retention_receipt,
         build_archived_recovered_history_segment, build_archived_recovered_restart_page,
-        build_bulletin_surface_entries, build_canonical_bulletin_close,
-        build_committed_surface_canonical_order_certificate,
+        build_bulletin_custody_receipt, build_bulletin_retrievability_profile,
+        build_bulletin_shard_manifest, build_bulletin_surface_entries,
+        build_canonical_bulletin_close, build_committed_surface_canonical_order_certificate,
         canonical_archived_recovered_history_checkpoint_hash,
         canonical_archived_recovered_history_profile_hash,
         canonical_archived_recovered_history_retention_receipt_hash,
         canonical_archived_recovered_history_segment_hash,
         canonical_asymptote_observer_canonical_close_hash, canonical_bulletin_close_hash,
-        canonical_order_certificate_hash, canonical_order_publication_bundle_hash,
-        canonical_recoverable_slot_payload_v4_hash, canonical_recoverable_slot_payload_v5_hash,
-        canonical_recovery_capsule_hash, canonical_transaction_root_from_hashes,
-        canonical_validator_sets_hash, canonicalize_transactions_for_header,
-        derive_canonical_order_execution_object, encode_coded_recovery_shards,
-        guardian_registry_effect_nullifier_key, guardian_registry_effect_verifier_key,
-        guardian_registry_log_key, guardian_registry_observer_canonical_abort_key,
+        canonical_bulletin_custody_assignment_hash,
+        canonical_bulletin_custody_receipt_hash,
+        canonical_bulletin_custody_response_hash,
+        canonical_bulletin_reconstruction_abort_hash,
+        canonical_bulletin_reconstruction_certificate_hash,
+        canonical_bulletin_retrievability_profile_hash, canonical_bulletin_shard_manifest_hash,
+        canonical_order_certificate_hash,
+        canonical_order_publication_bundle_hash, canonical_recoverable_slot_payload_v4_hash,
+        canonical_recoverable_slot_payload_v5_hash, canonical_recovery_capsule_hash,
+        canonical_transaction_root_from_hashes, canonical_validator_sets_hash,
+        canonicalize_transactions_for_header, derive_canonical_order_execution_object,
+        encode_coded_recovery_shards, guardian_registry_effect_nullifier_key,
+        guardian_registry_effect_verifier_key, guardian_registry_log_key,
+        guardian_registry_observer_canonical_abort_key,
         guardian_registry_observer_canonical_close_key,
         guardian_registry_observer_challenge_commitment_key,
         guardian_registry_observer_challenge_key,
@@ -5301,7 +5822,11 @@ mod tests {
         AsymptoteObserverChallengeKind, AsymptoteObserverObservationRequest,
         AsymptoteObserverSealingMode, AsymptoteObserverStatement, AsymptoteObserverTranscript,
         AsymptoteObserverTranscriptCommitment, AsymptoteObserverVerdict, BlockHeader,
-        BulletinAvailabilityCertificate, BulletinCommitment, BulletinSurfaceEntry,
+        BulletinAvailabilityCertificate, BulletinCommitment, BulletinCustodyReceipt,
+        BulletinReconstructionAbort, BulletinReconstructionCertificate,
+        BulletinRetrievabilityChallenge,
+        BulletinRetrievabilityChallengeKind, BulletinRetrievabilityProfile,
+        BulletinShardManifest, BulletinSurfaceEntry,
         CanonicalBulletinClose, CanonicalCollapseObject, CanonicalOrderAbort,
         CanonicalOrderAbortReason, CanonicalOrderCertificate, CanonicalOrderProof,
         CanonicalOrderProofSystem, CanonicalOrderPublicationBundle, ChainId, ChainTransaction,
@@ -5416,6 +5941,284 @@ mod tests {
             apply_accountable_membership_updates: false,
             ..Default::default()
         })
+    }
+
+    fn canonical_order_publication_bundle_with_retrievability(
+        certificate: &CanonicalOrderCertificate,
+        bulletin_entries: Vec<BulletinSurfaceEntry>,
+    ) -> CanonicalOrderPublicationBundle {
+        let bulletin_retrievability_profile = build_bulletin_retrievability_profile(
+            &certificate.bulletin_commitment,
+            &certificate.bulletin_availability_certificate,
+        )
+        .expect("build bulletin retrievability profile");
+        let bulletin_shard_manifest = build_bulletin_shard_manifest(
+            &certificate.bulletin_commitment,
+            &certificate.bulletin_availability_certificate,
+            &bulletin_retrievability_profile,
+            &bulletin_entries,
+        )
+        .expect("build bulletin shard manifest");
+        let bulletin_custody_receipt = build_bulletin_custody_receipt(
+            &bulletin_retrievability_profile,
+            &bulletin_shard_manifest,
+        )
+        .expect("build bulletin custody receipt");
+        CanonicalOrderPublicationBundle {
+            bulletin_commitment: certificate.bulletin_commitment.clone(),
+            bulletin_entries,
+            bulletin_availability_certificate: certificate
+                .bulletin_availability_certificate
+                .clone(),
+            bulletin_retrievability_profile,
+            bulletin_shard_manifest,
+            bulletin_custody_receipt,
+            canonical_order_certificate: certificate.clone(),
+        }
+    }
+
+    fn sample_canonical_order_publication_bundle_with_retrievability(
+        height: u64,
+        view: u64,
+        seed: u8,
+    ) -> CanonicalOrderPublicationBundle {
+        let base_header = ioi_types::app::BlockHeader {
+            height,
+            view,
+            parent_hash: [seed; 32],
+            parent_state_root: StateRoot(vec![seed.wrapping_add(1); 32]),
+            state_root: StateRoot(vec![seed.wrapping_add(2); 32]),
+            transactions_root: Vec::new(),
+            timestamp: 1_760_001_000 + u64::from(seed),
+            timestamp_ms: (1_760_001_000 + u64::from(seed)) * 1000,
+            gas_used: 0,
+            validator_set: Vec::new(),
+            producer_account_id: AccountId([seed.wrapping_add(3); 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [seed.wrapping_add(4); 32],
+            producer_pubkey: Vec::new(),
+            signature: Vec::new(),
+            oracle_counter: 0,
+            oracle_trace_hash: [0u8; 32],
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+        };
+        let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([seed.wrapping_add(5); 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_bulletin_commitment@v1".into(),
+                params: vec![seed],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let tx_two = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([seed.wrapping_add(6); 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_canonical_order_artifact_bundle@v1".into(),
+                params: vec![seed.wrapping_add(1)],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let ordered_transactions =
+            canonicalize_transactions_for_header(&base_header, &[tx_one, tx_two]).unwrap();
+        let tx_hashes: Vec<[u8; 32]> = ordered_transactions
+            .iter()
+            .map(|tx| tx.hash().unwrap())
+            .collect();
+        let mut header = base_header;
+        header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
+        let certificate =
+            build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+                .unwrap();
+        canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        )
+    }
+
+    fn seed_endogenous_bulletin_surface_state(
+        state: &mut MockState,
+        bundle: &CanonicalOrderPublicationBundle,
+        bulletin_entries: &[BulletinSurfaceEntry],
+        include_profile: bool,
+        include_manifest: bool,
+        include_receipt: bool,
+    ) {
+        state
+            .insert(
+                &aft_bulletin_commitment_key(bundle.bulletin_commitment.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_commitment).unwrap(),
+            )
+            .unwrap();
+        for entry in bulletin_entries {
+            state
+                .insert(
+                    &aft_bulletin_entry_key(entry.height, &entry.tx_hash),
+                    &codec::to_bytes_canonical(entry).unwrap(),
+                )
+                .unwrap();
+        }
+        state
+            .insert(
+                &aft_bulletin_availability_certificate_key(
+                    bundle.bulletin_availability_certificate.height,
+                ),
+                &codec::to_bytes_canonical(&bundle.bulletin_availability_certificate).unwrap(),
+            )
+            .unwrap();
+        let validator_sets = validator_sets(&[(18, 1), (145, 1), (19, 1)]);
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&validator_sets).unwrap(),
+            )
+            .unwrap();
+        if include_profile {
+            state
+                .insert(
+                    &aft_bulletin_retrievability_profile_key(
+                        bundle.bulletin_retrievability_profile.height,
+                    ),
+                    &codec::to_bytes_canonical(&bundle.bulletin_retrievability_profile).unwrap(),
+                )
+                .unwrap();
+        }
+        if include_manifest {
+            state
+                .insert(
+                    &aft_bulletin_shard_manifest_key(bundle.bulletin_shard_manifest.height),
+                    &codec::to_bytes_canonical(&bundle.bulletin_shard_manifest).unwrap(),
+                )
+                .unwrap();
+            let assignment = build_bulletin_custody_assignment(
+                &bundle.bulletin_retrievability_profile,
+                &bundle.bulletin_shard_manifest,
+                &validator_sets.current,
+            )
+            .unwrap();
+            state
+                .insert(
+                    &aft_bulletin_custody_assignment_key(assignment.height),
+                    &codec::to_bytes_canonical(&assignment).unwrap(),
+                )
+                .unwrap();
+            if include_receipt {
+                let response = build_bulletin_custody_response(
+                    &bundle.bulletin_commitment,
+                    &bundle.bulletin_retrievability_profile,
+                    &bundle.bulletin_shard_manifest,
+                    &assignment,
+                    &bundle.bulletin_custody_receipt,
+                    bulletin_entries,
+                )
+                .unwrap();
+                state
+                    .insert(
+                        &aft_bulletin_custody_response_key(response.height),
+                        &codec::to_bytes_canonical(&response).unwrap(),
+                    )
+                    .unwrap();
+            }
+        }
+        if include_receipt {
+            state
+                .insert(
+                    &aft_bulletin_custody_receipt_key(bundle.bulletin_custody_receipt.height),
+                    &codec::to_bytes_canonical(&bundle.bulletin_custody_receipt).unwrap(),
+                )
+                .unwrap();
+        }
+    }
+
+    fn sample_bulletin_custody_plane_hashes(
+        bundle: &CanonicalOrderPublicationBundle,
+        bulletin_entries: &[BulletinSurfaceEntry],
+    ) -> ([u8; 32], [u8; 32]) {
+        let validator_sets = validator_sets(&[(18, 1), (145, 1), (19, 1)]);
+        let assignment = build_bulletin_custody_assignment(
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &validator_sets.current,
+        )
+        .unwrap();
+        let response = build_bulletin_custody_response(
+            &bundle.bulletin_commitment,
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &assignment,
+            &bundle.bulletin_custody_receipt,
+            bulletin_entries,
+        )
+        .unwrap();
+        (
+            canonical_bulletin_custody_assignment_hash(&assignment).unwrap(),
+            canonical_bulletin_custody_response_hash(&response).unwrap(),
+        )
+    }
+
+    fn assert_bulletin_reconstruction_abort_present(
+        state: &MockState,
+        height: u64,
+        expected_kind: BulletinRetrievabilityChallengeKind,
+    ) {
+        let reconstruction_abort: BulletinReconstructionAbort = codec::from_bytes_canonical(
+            &state
+                .get(&aft_bulletin_reconstruction_abort_key(height))
+                .unwrap()
+                .expect("bulletin reconstruction abort stored"),
+        )
+        .unwrap();
+        assert_eq!(reconstruction_abort.height, height);
+        assert_eq!(reconstruction_abort.kind, expected_kind);
+        assert_ne!(
+            canonical_bulletin_reconstruction_abort_hash(&reconstruction_abort).unwrap(),
+            [0u8; 32]
+        );
+    }
+
+    fn assert_bulletin_reconstruction_certificate_present(
+        state: &MockState,
+        height: u64,
+        expected_entry_count: u32,
+    ) {
+        let reconstruction_certificate: BulletinReconstructionCertificate =
+            codec::from_bytes_canonical(
+                &state
+                    .get(&aft_bulletin_reconstruction_certificate_key(height))
+                    .unwrap()
+                    .expect("bulletin reconstruction certificate stored"),
+            )
+            .unwrap();
+        assert_eq!(reconstruction_certificate.height, height);
+        assert_eq!(
+            reconstruction_certificate.reconstructed_entry_count,
+            expected_entry_count
+        );
+        assert_ne!(
+            canonical_bulletin_reconstruction_certificate_hash(&reconstruction_certificate)
+                .unwrap(),
+            [0u8; 32]
+        );
     }
 
     fn validator(account: u8, weight: u128) -> ValidatorV1 {
@@ -5605,24 +6408,16 @@ mod tests {
             let execution_object =
                 derive_canonical_order_execution_object(&header, &ordered_transactions)
                     .expect("derive canonical order execution object");
-            CanonicalOrderPublicationBundle {
-                bulletin_commitment: execution_object.bulletin_commitment.clone(),
-                bulletin_entries: execution_object.bulletin_entries.clone(),
-                bulletin_availability_certificate: execution_object
-                    .bulletin_availability_certificate
-                    .clone(),
-                canonical_order_certificate: execution_object.canonical_order_certificate.clone(),
-            }
+            canonical_order_publication_bundle_with_retrievability(
+                &execution_object.canonical_order_certificate,
+                execution_object.bulletin_entries.clone(),
+            )
         } else {
-            CanonicalOrderPublicationBundle {
-                bulletin_commitment: certificate.bulletin_commitment.clone(),
-                bulletin_entries: build_bulletin_surface_entries(height, &ordered_transactions)
+            canonical_order_publication_bundle_with_retrievability(
+                &certificate,
+                build_bulletin_surface_entries(height, &ordered_transactions)
                     .expect("build bulletin surface entries"),
-                bulletin_availability_certificate: certificate
-                    .bulletin_availability_certificate
-                    .clone(),
-                canonical_order_certificate: certificate.clone(),
-            }
+            )
         };
         let block_hash = header.hash().expect("header hash");
         let block_commitment_hash: [u8; 32] = block_hash
@@ -5905,6 +6700,9 @@ mod tests {
                 kind: CanonicalCollapseKind::Close,
                 bulletin_commitment_hash: [seed; 32],
                 bulletin_availability_certificate_hash: [seed.wrapping_add(1); 32],
+                bulletin_retrievability_profile_hash: [0u8; 32],
+                bulletin_shard_manifest_hash: [0u8; 32],
+                bulletin_custody_receipt_hash: [0u8; 32],
                 bulletin_close_hash: [seed.wrapping_add(2); 32],
                 canonical_order_certificate_hash: [seed.wrapping_add(3); 32],
             },
@@ -7131,7 +7929,7 @@ mod tests {
     }
 
     #[test]
-    fn aft_recovered_state_surface_loads_ordinary_historical_continuation_from_canonical_tip() {
+    fn aft_recovered_state_surface_loads_ordinary_historical_retrievability_from_canonical_tip() {
         let registry = production_registry();
         let mut state = MockState::default();
         let profile = seed_active_archived_recovered_history_profile(&mut state);
@@ -7211,7 +8009,7 @@ mod tests {
             activation_hash,
             receipt_hash,
         )
-        .expect("set historical continuation anchor");
+        .expect("set historical retrievability anchor");
         state
             .insert(
                 &aft_canonical_collapse_object_key(collapse.height),
@@ -7219,12 +8017,12 @@ mod tests {
             )
             .unwrap();
 
-        let continuation = GuardianRegistry::load_aft_historical_continuation_surface_for_height(
+        let continuation = GuardianRegistry::load_aft_historical_retrievability_surface_for_height(
             &state,
             collapse.height,
         )
-        .expect("load ordinary historical continuation")
-        .expect("historical continuation present");
+        .expect("load ordinary historical retrievability")
+        .expect("historical retrievability present");
         assert_eq!(continuation.anchor.checkpoint_hash, checkpoint_hash);
         assert_eq!(continuation.anchor.profile_activation_hash, activation_hash);
         assert_eq!(continuation.anchor.retention_receipt_hash, receipt_hash);
@@ -7382,10 +8180,11 @@ mod tests {
     }
 
     fn validator_sets(validators: &[(u8, u128)]) -> ValidatorSetsV1 {
-        let entries = validators
+        let mut entries = validators
             .iter()
             .map(|(account, weight)| validator(*account, *weight))
             .collect::<Vec<_>>();
+        entries.sort_by_key(|validator| validator.account_id);
         ValidatorSetsV1 {
             current: ValidatorSetV1 {
                 effective_from_height: 1,
@@ -7728,15 +8527,10 @@ mod tests {
             details: "tx omitted from canonical order".into(),
         };
         certificate.omission_proofs = vec![omission.clone()];
-        let bundle = CanonicalOrderPublicationBundle {
-            bulletin_commitment: certificate.bulletin_commitment.clone(),
-            bulletin_entries: build_bulletin_surface_entries(header.height, &ordered_transactions)
-                .unwrap(),
-            bulletin_availability_certificate: certificate
-                .bulletin_availability_certificate
-                .clone(),
-            canonical_order_certificate: certificate.clone(),
-        };
+        let bundle = canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        );
 
         let mut state = MockState::default();
         with_ctx(|ctx| {
@@ -7779,6 +8573,30 @@ mod tests {
             bundle.bulletin_availability_certificate
         );
 
+        let stored_profile = state
+            .get(&aft_bulletin_retrievability_profile_key(header.height))
+            .unwrap()
+            .expect("bulletin retrievability profile stored");
+        let restored_profile: BulletinRetrievabilityProfile =
+            codec::from_bytes_canonical(&stored_profile).unwrap();
+        assert_eq!(restored_profile, bundle.bulletin_retrievability_profile);
+
+        let stored_manifest = state
+            .get(&aft_bulletin_shard_manifest_key(header.height))
+            .unwrap()
+            .expect("bulletin shard manifest stored");
+        let restored_manifest: BulletinShardManifest =
+            codec::from_bytes_canonical(&stored_manifest).unwrap();
+        assert_eq!(restored_manifest, bundle.bulletin_shard_manifest);
+
+        let stored_custody = state
+            .get(&aft_bulletin_custody_receipt_key(header.height))
+            .unwrap()
+            .expect("bulletin custody receipt stored");
+        let restored_custody: BulletinCustodyReceipt =
+            codec::from_bytes_canonical(&stored_custody).unwrap();
+        assert_eq!(restored_custody, bundle.bulletin_custody_receipt);
+
         let stored_certificate = state
             .get(&aft_order_certificate_key(header.height))
             .unwrap()
@@ -7793,13 +8611,26 @@ mod tests {
             .expect("canonical bulletin close stored");
         let restored_close: CanonicalBulletinClose =
             codec::from_bytes_canonical(&stored_close).unwrap();
+        let expected_close =
+            verify_canonical_order_publication_bundle(&bundle).expect("verify bundle");
+        assert_eq!(restored_close, expected_close);
         assert_eq!(
-            restored_close,
-            build_canonical_bulletin_close(
-                &bundle.bulletin_commitment,
-                &bundle.bulletin_availability_certificate,
-            )
-            .unwrap()
+            restored_close.bulletin_retrievability_profile_hash,
+            canonical_bulletin_retrievability_profile_hash(&bundle.bulletin_retrievability_profile)
+                .unwrap()
+        );
+        assert_eq!(
+            restored_close.bulletin_shard_manifest_hash,
+            canonical_bulletin_shard_manifest_hash(&bundle.bulletin_shard_manifest).unwrap()
+        );
+        assert_eq!(
+            restored_close.bulletin_custody_receipt_hash,
+            canonical_bulletin_custody_receipt_hash(&bundle.bulletin_custody_receipt).unwrap()
+        );
+        assert_bulletin_reconstruction_certificate_present(
+            &state,
+            header.height,
+            bundle.bulletin_entries.len() as u32,
         );
 
         let stored_omission = state
@@ -7885,16 +8716,16 @@ mod tests {
             build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
                 .unwrap();
         let entries = build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap();
-        let bundle = CanonicalOrderPublicationBundle {
-            bulletin_commitment: certificate.bulletin_commitment.clone(),
-            bulletin_entries: entries.clone(),
-            bulletin_availability_certificate: certificate
-                .bulletin_availability_certificate
-                .clone(),
-            canonical_order_certificate: certificate,
-        };
+        let bundle =
+            canonical_order_publication_bundle_with_retrievability(&certificate, entries.clone());
 
         let mut state = MockState::default();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&validator_sets(&[(18, 1), (145, 1), (19, 1)])).unwrap(),
+            )
+            .unwrap();
         with_ctx(|ctx| {
             run_async(registry.handle_service_call(
                 &mut state,
@@ -7909,6 +8740,110 @@ mod tests {
             .unwrap()
             .expect("canonical bulletin surface extracted");
         assert_eq!(extracted, entries);
+    }
+
+    #[test]
+    fn extracting_published_bulletin_surface_requires_positive_reconstruction_certificate() {
+        let registry = production_registry();
+        let base_header = ioi_types::app::BlockHeader {
+            height: 18,
+            view: 4,
+            parent_hash: [29u8; 32],
+            parent_state_root: StateRoot(vec![1u8; 32]),
+            state_root: StateRoot(vec![2u8; 32]),
+            transactions_root: Vec::new(),
+            timestamp: 1_760_000_223,
+            timestamp_ms: 1_760_000_223_000,
+            gas_used: 0,
+            validator_set: Vec::new(),
+            producer_account_id: AccountId([34u8; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [35u8; 32],
+            producer_pubkey: Vec::new(),
+            signature: Vec::new(),
+            oracle_counter: 0,
+            oracle_trace_hash: [0u8; 32],
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+        };
+        let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([36u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_bulletin_commitment@v1".into(),
+                params: vec![3],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let tx_two = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([37u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_canonical_order_artifact_bundle@v1".into(),
+                params: vec![4],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+
+        let ordered_transactions =
+            canonicalize_transactions_for_header(&base_header, &[tx_one, tx_two]).unwrap();
+        let tx_hashes: Vec<[u8; 32]> = ordered_transactions
+            .iter()
+            .map(|tx| tx.hash().unwrap())
+            .collect();
+        let mut header = base_header;
+        header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
+
+        let certificate =
+            build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+                .unwrap();
+        let entries = build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap();
+        let bundle =
+            canonical_order_publication_bundle_with_retrievability(&certificate, entries.clone());
+
+        let mut state = MockState::default();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&validator_sets(&[(18, 1), (145, 1), (19, 1)])).unwrap(),
+            )
+            .unwrap();
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_canonical_order_artifact_bundle@v1",
+                &codec::to_bytes_canonical(&bundle).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+        state
+            .delete(&aft_bulletin_reconstruction_certificate_key(header.height))
+            .unwrap();
+
+        let error = GuardianRegistry::extract_published_bulletin_surface(&state, header.height)
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("positive bulletin reconstruction certificate"));
     }
 
     #[test]
@@ -7983,15 +8918,10 @@ mod tests {
         let certificate =
             build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
                 .unwrap();
-        let bundle = CanonicalOrderPublicationBundle {
-            bulletin_commitment: certificate.bulletin_commitment.clone(),
-            bulletin_entries: build_bulletin_surface_entries(header.height, &ordered_transactions)
-                .unwrap(),
-            bulletin_availability_certificate: certificate
-                .bulletin_availability_certificate
-                .clone(),
-            canonical_order_certificate: certificate.clone(),
-        };
+        let bundle = canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        );
 
         let mut state = MockState::default();
         with_ctx(|ctx| {
@@ -8444,15 +9374,10 @@ mod tests {
         let certificate =
             build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
                 .unwrap();
-        let mut bundle = CanonicalOrderPublicationBundle {
-            bulletin_commitment: certificate.bulletin_commitment.clone(),
-            bulletin_entries: build_bulletin_surface_entries(header.height, &ordered_transactions)
-                .unwrap(),
-            bulletin_availability_certificate: certificate
-                .bulletin_availability_certificate
-                .clone(),
-            canonical_order_certificate: certificate.clone(),
-        };
+        let mut bundle = canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        );
         bundle.bulletin_entries.pop();
 
         let mut state = MockState::default();
@@ -8542,15 +9467,10 @@ mod tests {
         let certificate =
             build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
                 .unwrap();
-        let mut bundle = CanonicalOrderPublicationBundle {
-            bulletin_commitment: certificate.bulletin_commitment.clone(),
-            bulletin_entries: build_bulletin_surface_entries(header.height, &ordered_transactions)
-                .unwrap(),
-            bulletin_availability_certificate: certificate
-                .bulletin_availability_certificate
-                .clone(),
-            canonical_order_certificate: certificate.clone(),
-        };
+        let mut bundle = canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        );
         bundle.bulletin_entries[0].height = header.height + 1;
 
         let mut state = MockState::default();
@@ -8640,15 +9560,10 @@ mod tests {
         let certificate =
             build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
                 .unwrap();
-        let bundle = CanonicalOrderPublicationBundle {
-            bulletin_commitment: certificate.bulletin_commitment.clone(),
-            bulletin_entries: build_bulletin_surface_entries(header.height, &ordered_transactions)
-                .unwrap(),
-            bulletin_availability_certificate: certificate
-                .bulletin_availability_certificate
-                .clone(),
-            canonical_order_certificate: certificate,
-        };
+        let bundle = canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        );
         let abort = CanonicalOrderAbort {
             height: header.height,
             reason: CanonicalOrderAbortReason::MissingOrderCertificate,
@@ -8679,6 +9594,1253 @@ mod tests {
                 .to_string()
                 .contains("after canonical abort publication"));
         });
+    }
+
+    #[test]
+    fn publishing_contradictory_shard_manifest_challenge_materializes_abort() {
+        let registry = production_registry();
+        let base_header = ioi_types::app::BlockHeader {
+            height: 46,
+            view: 5,
+            parent_hash: [121u8; 32],
+            parent_state_root: StateRoot(vec![11u8; 32]),
+            state_root: StateRoot(vec![12u8; 32]),
+            transactions_root: Vec::new(),
+            timestamp: 1_760_000_888,
+            timestamp_ms: 1_760_000_888_000,
+            gas_used: 0,
+            validator_set: Vec::new(),
+            producer_account_id: AccountId([122u8; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [123u8; 32],
+            producer_pubkey: Vec::new(),
+            signature: Vec::new(),
+            oracle_counter: 0,
+            oracle_trace_hash: [0u8; 32],
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+        };
+        let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([124u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_bulletin_commitment@v1".into(),
+                params: vec![3],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let tx_two = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([125u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_canonical_order_artifact_bundle@v1".into(),
+                params: vec![4],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let ordered_transactions =
+            canonicalize_transactions_for_header(&base_header, &[tx_one, tx_two]).unwrap();
+        let tx_hashes: Vec<[u8; 32]> = ordered_transactions
+            .iter()
+            .map(|tx| tx.hash().unwrap())
+            .collect();
+        let mut header = base_header;
+        header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
+        let certificate =
+            build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+                .unwrap();
+        let bundle = canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        );
+        let mut contradictory_manifest = bundle.bulletin_shard_manifest.clone();
+        contradictory_manifest.shard_commitment_root[0] ^= 0x7f;
+        let challenge = BulletinRetrievabilityChallenge {
+            height: header.height,
+            kind: BulletinRetrievabilityChallengeKind::ContradictoryShardManifest,
+            bulletin_commitment_hash: ioi_types::app::canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                ioi_types::app::canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: canonical_bulletin_shard_manifest_hash(
+                &contradictory_manifest,
+            )
+            .unwrap(),
+            bulletin_custody_assignment_hash: [0u8; 32],
+            bulletin_custody_receipt_hash: [0u8; 32],
+            bulletin_custody_response_hash: [0u8; 32],
+            details: "published shard manifest contradicts the deterministic slot geometry".into(),
+        };
+
+        let mut state = MockState::default();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&validator_sets(&[(18, 1), (145, 1), (19, 1)])).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_commitment_key(bundle.bulletin_commitment.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_commitment).unwrap(),
+            )
+            .unwrap();
+        for entry in &bundle.bulletin_entries {
+            state
+                .insert(
+                    &aft_bulletin_entry_key(entry.height, &entry.tx_hash),
+                    &codec::to_bytes_canonical(entry).unwrap(),
+                )
+                .unwrap();
+        }
+        state
+            .insert(
+                &aft_bulletin_availability_certificate_key(
+                    bundle.bulletin_availability_certificate.height,
+                ),
+                &codec::to_bytes_canonical(&bundle.bulletin_availability_certificate).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_retrievability_profile_key(bundle.bulletin_retrievability_profile.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_retrievability_profile).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_shard_manifest_key(contradictory_manifest.height),
+                &codec::to_bytes_canonical(&contradictory_manifest).unwrap(),
+            )
+            .unwrap();
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        let stored_challenge: BulletinRetrievabilityChallenge = codec::from_bytes_canonical(
+            &state
+                .get(&aft_bulletin_retrievability_challenge_key(header.height))
+                .unwrap()
+                .expect("challenge stored"),
+        )
+        .unwrap();
+        assert_eq!(stored_challenge, challenge);
+
+        let abort: CanonicalOrderAbort = codec::from_bytes_canonical(
+            &state
+                .get(&aft_canonical_order_abort_key(header.height))
+                .unwrap()
+                .expect("abort stored"),
+        )
+        .unwrap();
+        assert_eq!(
+            abort.reason,
+            CanonicalOrderAbortReason::RetrievabilityChallengeDominated
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(&state, header.height).is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_missing_retrievability_profile_challenge_materializes_abort() {
+        let registry = production_registry();
+        let bundle = sample_canonical_order_publication_bundle_with_retrievability(48, 7, 141);
+        let challenge = BulletinRetrievabilityChallenge {
+            height: bundle.bulletin_commitment.height,
+            kind: BulletinRetrievabilityChallengeKind::MissingRetrievabilityProfile,
+            bulletin_commitment_hash: ioi_types::app::canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                ioi_types::app::canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+            )
+            .unwrap(),
+            bulletin_retrievability_profile_hash: [0u8; 32],
+            bulletin_shard_manifest_hash: [0u8; 32],
+            bulletin_custody_assignment_hash: [0u8; 32],
+            bulletin_custody_receipt_hash: [0u8; 32],
+            bulletin_custody_response_hash: [0u8; 32],
+            details: "closed slot is missing its endogenous retrievability profile".into(),
+        };
+
+        let mut state = MockState::default();
+        seed_endogenous_bulletin_surface_state(
+            &mut state,
+            &bundle,
+            &bundle.bulletin_entries,
+            false,
+            false,
+            false,
+        );
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        let abort: CanonicalOrderAbort = codec::from_bytes_canonical(
+            &state
+                .get(&aft_canonical_order_abort_key(bundle.bulletin_commitment.height))
+                .unwrap()
+                .expect("abort stored"),
+        )
+        .unwrap();
+        assert_eq!(
+            abort.reason,
+            CanonicalOrderAbortReason::RetrievabilityChallengeDominated
+        );
+        assert_bulletin_reconstruction_abort_present(
+            &state,
+            bundle.bulletin_commitment.height,
+            BulletinRetrievabilityChallengeKind::MissingRetrievabilityProfile,
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(
+                &state,
+                bundle.bulletin_commitment.height
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_missing_shard_manifest_challenge_materializes_abort() {
+        let registry = production_registry();
+        let bundle = sample_canonical_order_publication_bundle_with_retrievability(49, 8, 151);
+        let challenge = BulletinRetrievabilityChallenge {
+            height: bundle.bulletin_commitment.height,
+            kind: BulletinRetrievabilityChallengeKind::MissingShardManifest,
+            bulletin_commitment_hash: ioi_types::app::canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                ioi_types::app::canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: [0u8; 32],
+            bulletin_custody_assignment_hash: [0u8; 32],
+            bulletin_custody_receipt_hash: [0u8; 32],
+            bulletin_custody_response_hash: [0u8; 32],
+            details: "closed slot is missing its deterministic shard manifest".into(),
+        };
+
+        let mut state = MockState::default();
+        seed_endogenous_bulletin_surface_state(
+            &mut state,
+            &bundle,
+            &bundle.bulletin_entries,
+            true,
+            false,
+            false,
+        );
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        let abort: CanonicalOrderAbort = codec::from_bytes_canonical(
+            &state
+                .get(&aft_canonical_order_abort_key(bundle.bulletin_commitment.height))
+                .unwrap()
+                .expect("abort stored"),
+        )
+        .unwrap();
+        assert_eq!(
+            abort.reason,
+            CanonicalOrderAbortReason::RetrievabilityChallengeDominated
+        );
+        assert_bulletin_reconstruction_abort_present(
+            &state,
+            bundle.bulletin_commitment.height,
+            BulletinRetrievabilityChallengeKind::MissingShardManifest,
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(
+                &state,
+                bundle.bulletin_commitment.height
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_missing_custody_receipt_challenge_materializes_abort() {
+        let registry = production_registry();
+        let bundle = sample_canonical_order_publication_bundle_with_retrievability(50, 9, 161);
+        let (assignment_hash, _) =
+            sample_bulletin_custody_plane_hashes(&bundle, &bundle.bulletin_entries);
+        let challenge = BulletinRetrievabilityChallenge {
+            height: bundle.bulletin_commitment.height,
+            kind: BulletinRetrievabilityChallengeKind::MissingCustodyReceipt,
+            bulletin_commitment_hash: ioi_types::app::canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                ioi_types::app::canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: canonical_bulletin_shard_manifest_hash(
+                &bundle.bulletin_shard_manifest,
+            )
+            .unwrap(),
+            bulletin_custody_assignment_hash: assignment_hash,
+            bulletin_custody_receipt_hash: [0u8; 32],
+            bulletin_custody_response_hash: [0u8; 32],
+            details: "closed slot is missing its deterministic custody receipt".into(),
+        };
+
+        let mut state = MockState::default();
+        seed_endogenous_bulletin_surface_state(
+            &mut state,
+            &bundle,
+            &bundle.bulletin_entries,
+            true,
+            true,
+            false,
+        );
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        let abort: CanonicalOrderAbort = codec::from_bytes_canonical(
+            &state
+                .get(&aft_canonical_order_abort_key(bundle.bulletin_commitment.height))
+                .unwrap()
+                .expect("abort stored"),
+        )
+        .unwrap();
+        assert_eq!(
+            abort.reason,
+            CanonicalOrderAbortReason::RetrievabilityChallengeDominated
+        );
+        assert_bulletin_reconstruction_abort_present(
+            &state,
+            bundle.bulletin_commitment.height,
+            BulletinRetrievabilityChallengeKind::MissingCustodyReceipt,
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(
+                &state,
+                bundle.bulletin_commitment.height
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_missing_custody_assignment_challenge_materializes_abort() {
+        let registry = production_registry();
+        let bundle = sample_canonical_order_publication_bundle_with_retrievability(50, 12, 191);
+        let challenge = BulletinRetrievabilityChallenge {
+            height: bundle.bulletin_commitment.height,
+            kind: BulletinRetrievabilityChallengeKind::MissingCustodyAssignment,
+            bulletin_commitment_hash: canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: canonical_bulletin_shard_manifest_hash(
+                &bundle.bulletin_shard_manifest,
+            )
+            .unwrap(),
+            bulletin_custody_assignment_hash: [0u8; 32],
+            bulletin_custody_receipt_hash: canonical_bulletin_custody_receipt_hash(
+                &bundle.bulletin_custody_receipt,
+            )
+            .unwrap(),
+            bulletin_custody_response_hash: [0u8; 32],
+            details: "closed slot is missing its deterministic custody assignment".into(),
+        };
+
+        let mut state = MockState::default();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&validator_sets(&[(18, 1), (145, 1), (19, 1)])).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_commitment_key(bundle.bulletin_commitment.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_commitment).unwrap(),
+            )
+            .unwrap();
+        for entry in &bundle.bulletin_entries {
+            state
+                .insert(
+                    &aft_bulletin_entry_key(entry.height, &entry.tx_hash),
+                    &codec::to_bytes_canonical(entry).unwrap(),
+                )
+                .unwrap();
+        }
+        state
+            .insert(
+                &aft_bulletin_availability_certificate_key(
+                    bundle.bulletin_availability_certificate.height,
+                ),
+                &codec::to_bytes_canonical(&bundle.bulletin_availability_certificate).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_retrievability_profile_key(bundle.bulletin_retrievability_profile.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_retrievability_profile).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_shard_manifest_key(bundle.bulletin_shard_manifest.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_shard_manifest).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_receipt_key(bundle.bulletin_custody_receipt.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_custody_receipt).unwrap(),
+            )
+            .unwrap();
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        assert_bulletin_reconstruction_abort_present(
+            &state,
+            bundle.bulletin_commitment.height,
+            BulletinRetrievabilityChallengeKind::MissingCustodyAssignment,
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(
+                &state,
+                bundle.bulletin_commitment.height
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_missing_surface_entries_challenge_materializes_abort() {
+        let registry = production_registry();
+        let bundle = sample_canonical_order_publication_bundle_with_retrievability(51, 10, 171);
+        let (assignment_hash, response_hash) =
+            sample_bulletin_custody_plane_hashes(&bundle, &[]);
+        let challenge = BulletinRetrievabilityChallenge {
+            height: bundle.bulletin_commitment.height,
+            kind: BulletinRetrievabilityChallengeKind::MissingSurfaceEntries,
+            bulletin_commitment_hash: ioi_types::app::canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                ioi_types::app::canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: canonical_bulletin_shard_manifest_hash(
+                &bundle.bulletin_shard_manifest,
+            )
+            .unwrap(),
+            bulletin_custody_assignment_hash: assignment_hash,
+            bulletin_custody_receipt_hash: canonical_bulletin_custody_receipt_hash(
+                &bundle.bulletin_custody_receipt,
+            )
+            .unwrap(),
+            bulletin_custody_response_hash: response_hash,
+            details: "closed slot carries no protocol-visible bulletin entries".into(),
+        };
+
+        let mut state = MockState::default();
+        seed_endogenous_bulletin_surface_state(&mut state, &bundle, &[], true, true, true);
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        let abort: CanonicalOrderAbort = codec::from_bytes_canonical(
+            &state
+                .get(&aft_canonical_order_abort_key(bundle.bulletin_commitment.height))
+                .unwrap()
+                .expect("abort stored"),
+        )
+        .unwrap();
+        assert_eq!(
+            abort.reason,
+            CanonicalOrderAbortReason::RetrievabilityChallengeDominated
+        );
+        assert_bulletin_reconstruction_abort_present(
+            &state,
+            bundle.bulletin_commitment.height,
+            BulletinRetrievabilityChallengeKind::MissingSurfaceEntries,
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(
+                &state,
+                bundle.bulletin_commitment.height
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_missing_custody_response_challenge_materializes_abort() {
+        let registry = production_registry();
+        let bundle = sample_canonical_order_publication_bundle_with_retrievability(52, 13, 201);
+        let validator_sets = validator_sets(&[(18, 1), (145, 1), (19, 1)]);
+        let assignment = build_bulletin_custody_assignment(
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &validator_sets.current,
+        )
+        .unwrap();
+        let challenge = BulletinRetrievabilityChallenge {
+            height: bundle.bulletin_commitment.height,
+            kind: BulletinRetrievabilityChallengeKind::MissingCustodyResponse,
+            bulletin_commitment_hash: canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: canonical_bulletin_shard_manifest_hash(
+                &bundle.bulletin_shard_manifest,
+            )
+            .unwrap(),
+            bulletin_custody_assignment_hash: canonical_bulletin_custody_assignment_hash(
+                &assignment,
+            )
+            .unwrap(),
+            bulletin_custody_receipt_hash: canonical_bulletin_custody_receipt_hash(
+                &bundle.bulletin_custody_receipt,
+            )
+            .unwrap(),
+            bulletin_custody_response_hash: [0u8; 32],
+            details: "closed slot is missing its deterministic custody response".into(),
+        };
+
+        let mut state = MockState::default();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&validator_sets).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_commitment_key(bundle.bulletin_commitment.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_commitment).unwrap(),
+            )
+            .unwrap();
+        for entry in &bundle.bulletin_entries {
+            state
+                .insert(
+                    &aft_bulletin_entry_key(entry.height, &entry.tx_hash),
+                    &codec::to_bytes_canonical(entry).unwrap(),
+                )
+                .unwrap();
+        }
+        state
+            .insert(
+                &aft_bulletin_availability_certificate_key(
+                    bundle.bulletin_availability_certificate.height,
+                ),
+                &codec::to_bytes_canonical(&bundle.bulletin_availability_certificate).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_retrievability_profile_key(bundle.bulletin_retrievability_profile.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_retrievability_profile).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_shard_manifest_key(bundle.bulletin_shard_manifest.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_shard_manifest).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_assignment_key(assignment.height),
+                &codec::to_bytes_canonical(&assignment).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_receipt_key(bundle.bulletin_custody_receipt.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_custody_receipt).unwrap(),
+            )
+            .unwrap();
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        assert_bulletin_reconstruction_abort_present(
+            &state,
+            bundle.bulletin_commitment.height,
+            BulletinRetrievabilityChallengeKind::MissingCustodyResponse,
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(
+                &state,
+                bundle.bulletin_commitment.height
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_invalid_surface_entries_challenge_materializes_abort() {
+        let registry = production_registry();
+        let bundle = sample_canonical_order_publication_bundle_with_retrievability(52, 11, 181);
+        let mut invalid_entries = bundle.bulletin_entries.clone();
+        invalid_entries[0].tx_hash[0] ^= 0x21;
+        let (assignment_hash, response_hash) =
+            sample_bulletin_custody_plane_hashes(&bundle, &invalid_entries);
+        let challenge = BulletinRetrievabilityChallenge {
+            height: bundle.bulletin_commitment.height,
+            kind: BulletinRetrievabilityChallengeKind::InvalidSurfaceEntries,
+            bulletin_commitment_hash: ioi_types::app::canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                ioi_types::app::canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: canonical_bulletin_shard_manifest_hash(
+                &bundle.bulletin_shard_manifest,
+            )
+            .unwrap(),
+            bulletin_custody_assignment_hash: assignment_hash,
+            bulletin_custody_receipt_hash: canonical_bulletin_custody_receipt_hash(
+                &bundle.bulletin_custody_receipt,
+            )
+            .unwrap(),
+            bulletin_custody_response_hash: response_hash,
+            details: "published bulletin entries do not reconstruct the committed surface".into(),
+        };
+
+        let mut state = MockState::default();
+        seed_endogenous_bulletin_surface_state(
+            &mut state,
+            &bundle,
+            &invalid_entries,
+            true,
+            true,
+            true,
+        );
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        let abort: CanonicalOrderAbort = codec::from_bytes_canonical(
+            &state
+                .get(&aft_canonical_order_abort_key(bundle.bulletin_commitment.height))
+                .unwrap()
+                .expect("abort stored"),
+        )
+        .unwrap();
+        assert_eq!(
+            abort.reason,
+            CanonicalOrderAbortReason::RetrievabilityChallengeDominated
+        );
+        assert_bulletin_reconstruction_abort_present(
+            &state,
+            bundle.bulletin_commitment.height,
+            BulletinRetrievabilityChallengeKind::InvalidSurfaceEntries,
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(
+                &state,
+                bundle.bulletin_commitment.height
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_invalid_custody_response_challenge_materializes_abort() {
+        let registry = production_registry();
+        let bundle = sample_canonical_order_publication_bundle_with_retrievability(53, 14, 211);
+        let validator_sets = validator_sets(&[(18, 1), (145, 1), (19, 1)]);
+        let assignment = build_bulletin_custody_assignment(
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &validator_sets.current,
+        )
+        .unwrap();
+        let mut invalid_response = build_bulletin_custody_response(
+            &bundle.bulletin_commitment,
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &assignment,
+            &bundle.bulletin_custody_receipt,
+            &bundle.bulletin_entries,
+        )
+        .unwrap();
+        invalid_response.served_shards[0].served_shard_hash[0] ^= 0x11;
+        let challenge = BulletinRetrievabilityChallenge {
+            height: bundle.bulletin_commitment.height,
+            kind: BulletinRetrievabilityChallengeKind::InvalidCustodyResponse,
+            bulletin_commitment_hash: canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: canonical_bulletin_shard_manifest_hash(
+                &bundle.bulletin_shard_manifest,
+            )
+            .unwrap(),
+            bulletin_custody_assignment_hash: canonical_bulletin_custody_assignment_hash(
+                &assignment,
+            )
+            .unwrap(),
+            bulletin_custody_receipt_hash: canonical_bulletin_custody_receipt_hash(
+                &bundle.bulletin_custody_receipt,
+            )
+            .unwrap(),
+            bulletin_custody_response_hash: canonical_bulletin_custody_response_hash(
+                &invalid_response,
+            )
+            .unwrap(),
+            details: "published custody response contradicts deterministic shard-service reconstruction".into(),
+        };
+
+        let mut state = MockState::default();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&validator_sets).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_commitment_key(bundle.bulletin_commitment.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_commitment).unwrap(),
+            )
+            .unwrap();
+        for entry in &bundle.bulletin_entries {
+            state
+                .insert(
+                    &aft_bulletin_entry_key(entry.height, &entry.tx_hash),
+                    &codec::to_bytes_canonical(entry).unwrap(),
+                )
+                .unwrap();
+        }
+        state
+            .insert(
+                &aft_bulletin_availability_certificate_key(
+                    bundle.bulletin_availability_certificate.height,
+                ),
+                &codec::to_bytes_canonical(&bundle.bulletin_availability_certificate).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_retrievability_profile_key(bundle.bulletin_retrievability_profile.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_retrievability_profile).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_shard_manifest_key(bundle.bulletin_shard_manifest.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_shard_manifest).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_assignment_key(assignment.height),
+                &codec::to_bytes_canonical(&assignment).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_receipt_key(bundle.bulletin_custody_receipt.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_custody_receipt).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_response_key(invalid_response.height),
+                &codec::to_bytes_canonical(&invalid_response).unwrap(),
+            )
+            .unwrap();
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        assert_bulletin_reconstruction_abort_present(
+            &state,
+            bundle.bulletin_commitment.height,
+            BulletinRetrievabilityChallengeKind::InvalidCustodyResponse,
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(
+                &state,
+                bundle.bulletin_commitment.height
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_contradictory_custody_receipt_challenge_materializes_abort() {
+        let registry = production_registry();
+        let base_header = ioi_types::app::BlockHeader {
+            height: 47,
+            view: 6,
+            parent_hash: [131u8; 32],
+            parent_state_root: StateRoot(vec![21u8; 32]),
+            state_root: StateRoot(vec![22u8; 32]),
+            transactions_root: Vec::new(),
+            timestamp: 1_760_000_999,
+            timestamp_ms: 1_760_000_999_000,
+            gas_used: 0,
+            validator_set: Vec::new(),
+            producer_account_id: AccountId([132u8; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [133u8; 32],
+            producer_pubkey: Vec::new(),
+            signature: Vec::new(),
+            oracle_counter: 0,
+            oracle_trace_hash: [0u8; 32],
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+        };
+        let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([134u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_bulletin_commitment@v1".into(),
+                params: vec![5],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let tx_two = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([135u8; 32]),
+                nonce: 1,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: "guardian_registry".into(),
+                method: "publish_aft_canonical_order_artifact_bundle@v1".into(),
+                params: vec![6],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let ordered_transactions =
+            canonicalize_transactions_for_header(&base_header, &[tx_one, tx_two]).unwrap();
+        let tx_hashes: Vec<[u8; 32]> = ordered_transactions
+            .iter()
+            .map(|tx| tx.hash().unwrap())
+            .collect();
+        let mut header = base_header;
+        header.transactions_root = canonical_transaction_root_from_hashes(&tx_hashes).unwrap();
+        let certificate =
+            build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
+                .unwrap();
+        let bundle = canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        );
+        let mut contradictory_receipt = bundle.bulletin_custody_receipt.clone();
+        contradictory_receipt.custody_root[0] ^= 0x44;
+        let validator_sets = validator_sets(&[(18, 1), (145, 1), (19, 1)]);
+        let assignment = build_bulletin_custody_assignment(
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &validator_sets.current,
+        )
+        .unwrap();
+        let challenge = BulletinRetrievabilityChallenge {
+            height: header.height,
+            kind: BulletinRetrievabilityChallengeKind::ContradictoryCustodyReceipt,
+            bulletin_commitment_hash: ioi_types::app::canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                ioi_types::app::canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: canonical_bulletin_shard_manifest_hash(
+                &bundle.bulletin_shard_manifest,
+            )
+            .unwrap(),
+            bulletin_custody_assignment_hash: canonical_bulletin_custody_assignment_hash(
+                &assignment,
+            )
+            .unwrap(),
+            bulletin_custody_receipt_hash: canonical_bulletin_custody_receipt_hash(
+                &contradictory_receipt,
+            )
+            .unwrap(),
+            bulletin_custody_response_hash: [0u8; 32],
+            details: "published custody receipt contradicts the deterministic manifest binding"
+                .into(),
+        };
+
+        let mut state = MockState::default();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&validator_sets).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_commitment_key(bundle.bulletin_commitment.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_commitment).unwrap(),
+            )
+            .unwrap();
+        for entry in &bundle.bulletin_entries {
+            state
+                .insert(
+                    &aft_bulletin_entry_key(entry.height, &entry.tx_hash),
+                    &codec::to_bytes_canonical(entry).unwrap(),
+                )
+                .unwrap();
+        }
+        state
+            .insert(
+                &aft_bulletin_availability_certificate_key(
+                    bundle.bulletin_availability_certificate.height,
+                ),
+                &codec::to_bytes_canonical(&bundle.bulletin_availability_certificate).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_retrievability_profile_key(bundle.bulletin_retrievability_profile.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_retrievability_profile).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_shard_manifest_key(bundle.bulletin_shard_manifest.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_shard_manifest).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_receipt_key(contradictory_receipt.height),
+                &codec::to_bytes_canonical(&contradictory_receipt).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_assignment_key(assignment.height),
+                &codec::to_bytes_canonical(&assignment).unwrap(),
+            )
+            .unwrap();
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        let stored_challenge: BulletinRetrievabilityChallenge = codec::from_bytes_canonical(
+            &state
+                .get(&aft_bulletin_retrievability_challenge_key(header.height))
+                .unwrap()
+                .expect("challenge stored"),
+        )
+        .unwrap();
+        assert_eq!(stored_challenge, challenge);
+
+        let abort: CanonicalOrderAbort = codec::from_bytes_canonical(
+            &state
+                .get(&aft_canonical_order_abort_key(header.height))
+                .unwrap()
+                .expect("abort stored"),
+        )
+        .unwrap();
+        assert_eq!(
+            abort.reason,
+            CanonicalOrderAbortReason::RetrievabilityChallengeDominated
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(&state, header.height).is_err()
+        );
+    }
+
+    #[test]
+    fn publishing_contradictory_custody_assignment_challenge_materializes_abort() {
+        let registry = production_registry();
+        let bundle = sample_canonical_order_publication_bundle_with_retrievability(54, 15, 221);
+        let validator_sets = validator_sets(&[(18, 1), (145, 1), (19, 1)]);
+        let mut contradictory_assignment = build_bulletin_custody_assignment(
+            &bundle.bulletin_retrievability_profile,
+            &bundle.bulletin_shard_manifest,
+            &validator_sets.current,
+        )
+        .unwrap();
+        contradictory_assignment.assignments[0].custodian_account_id = AccountId([209u8; 32]);
+        let challenge = BulletinRetrievabilityChallenge {
+            height: bundle.bulletin_commitment.height,
+            kind: BulletinRetrievabilityChallengeKind::ContradictoryCustodyAssignment,
+            bulletin_commitment_hash: canonical_bulletin_commitment_hash(
+                &bundle.bulletin_commitment,
+            )
+            .unwrap(),
+            bulletin_availability_certificate_hash:
+                canonical_bulletin_availability_certificate_hash(
+                    &bundle.bulletin_availability_certificate,
+                )
+                .unwrap(),
+            bulletin_retrievability_profile_hash: canonical_bulletin_retrievability_profile_hash(
+                &bundle.bulletin_retrievability_profile,
+            )
+            .unwrap(),
+            bulletin_shard_manifest_hash: canonical_bulletin_shard_manifest_hash(
+                &bundle.bulletin_shard_manifest,
+            )
+            .unwrap(),
+            bulletin_custody_assignment_hash: canonical_bulletin_custody_assignment_hash(
+                &contradictory_assignment,
+            )
+            .unwrap(),
+            bulletin_custody_receipt_hash: canonical_bulletin_custody_receipt_hash(
+                &bundle.bulletin_custody_receipt,
+            )
+            .unwrap(),
+            bulletin_custody_response_hash: [0u8; 32],
+            details: "published custody assignment contradicts the deterministic validator-set binding".into(),
+        };
+
+        let mut state = MockState::default();
+        state
+            .insert(
+                VALIDATOR_SET_KEY,
+                &write_validator_sets(&validator_sets).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_commitment_key(bundle.bulletin_commitment.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_commitment).unwrap(),
+            )
+            .unwrap();
+        for entry in &bundle.bulletin_entries {
+            state
+                .insert(
+                    &aft_bulletin_entry_key(entry.height, &entry.tx_hash),
+                    &codec::to_bytes_canonical(entry).unwrap(),
+                )
+                .unwrap();
+        }
+        state
+            .insert(
+                &aft_bulletin_availability_certificate_key(
+                    bundle.bulletin_availability_certificate.height,
+                ),
+                &codec::to_bytes_canonical(&bundle.bulletin_availability_certificate).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_retrievability_profile_key(bundle.bulletin_retrievability_profile.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_retrievability_profile).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_shard_manifest_key(bundle.bulletin_shard_manifest.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_shard_manifest).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_assignment_key(contradictory_assignment.height),
+                &codec::to_bytes_canonical(&contradictory_assignment).unwrap(),
+            )
+            .unwrap();
+        state
+            .insert(
+                &aft_bulletin_custody_receipt_key(bundle.bulletin_custody_receipt.height),
+                &codec::to_bytes_canonical(&bundle.bulletin_custody_receipt).unwrap(),
+            )
+            .unwrap();
+
+        with_ctx(|ctx| {
+            run_async(registry.handle_service_call(
+                &mut state,
+                "publish_aft_bulletin_retrievability_challenge@v1",
+                &codec::to_bytes_canonical(&challenge).unwrap(),
+                ctx,
+            ))
+            .unwrap();
+        });
+
+        assert_bulletin_reconstruction_abort_present(
+            &state,
+            bundle.bulletin_commitment.height,
+            BulletinRetrievabilityChallengeKind::ContradictoryCustodyAssignment,
+        );
+        assert!(
+            GuardianRegistry::extract_published_bulletin_surface(
+                &state,
+                bundle.bulletin_commitment.height
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -12208,15 +14370,10 @@ mod tests {
             details: "bundle-carried omission remains decisive without membership penalties".into(),
         };
         certificate.omission_proofs = vec![omission.clone()];
-        let bundle = CanonicalOrderPublicationBundle {
-            bulletin_commitment: certificate.bulletin_commitment.clone(),
-            bulletin_entries: build_bulletin_surface_entries(header.height, &ordered_transactions)
-                .unwrap(),
-            bulletin_availability_certificate: certificate
-                .bulletin_availability_certificate
-                .clone(),
-            canonical_order_certificate: certificate.clone(),
-        };
+        let bundle = canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        );
 
         let mut state = MockState::default();
         state
@@ -12410,15 +14567,10 @@ mod tests {
         let certificate =
             build_committed_surface_canonical_order_certificate(&header, &ordered_transactions)
                 .unwrap();
-        let bundle = CanonicalOrderPublicationBundle {
-            bulletin_commitment: certificate.bulletin_commitment.clone(),
-            bulletin_entries: build_bulletin_surface_entries(header.height, &ordered_transactions)
-                .unwrap(),
-            bulletin_availability_certificate: certificate
-                .bulletin_availability_certificate
-                .clone(),
-            canonical_order_certificate: certificate.clone(),
-        };
+        let bundle = canonical_order_publication_bundle_with_retrievability(
+            &certificate,
+            build_bulletin_surface_entries(header.height, &ordered_transactions).unwrap(),
+        );
         let omission = OmissionProof {
             height: header.height,
             offender_account_id: AccountId([35u8; 32]),

@@ -45,26 +45,32 @@ As with the other AFT proof surfaces, the package is split:
 - `CanonicalOrderingOmissionTrace.tla` and
   `CanonicalOrderingOmissionTrace.cfg` are a small executable TLC witness that
   intentionally produce a concrete omission-dominance trace.
+- `CanonicalOrderingRetrievability.tla` and
+  `CanonicalOrderingRetrievability.cfg` are the bounded TLC model for the
+  endogenous retrievability plane: profile publication, shard-manifest
+  publication, custody-assignment publication, custody-receipt publication,
+  custody-response publication, positive reconstruction certification,
+  objective retrievability challenges, positive extraction, historical
+  retrievability promotion, and deterministic reconstruction abort.
 
 The prose spec states the full `99%` equal-authority ordering consensus theorem
-over canonical bulletin close, omission dominance, public recoverability, and
-proof soundness. The live runtime has now narrowed the hot-path theorem
+over canonical bulletin close, omission dominance, endogenous retrievability,
+and proof soundness. The live runtime has now narrowed the hot-path theorem
 boundary: honest positive ordering carries a compact signed publication frontier
 plus objective contradiction objects for same-slot frontier conflicts and stale
-predecessor links, while full public recoverability remains outside the fast
-path as an environmental retrieval theorem. This package now matches that
-boundary. It proves and model-checks the deterministic uniqueness and
-negative-dominance core over bulletin close, compact frontier publication,
-frontier contradiction, and omission. Bulletin availability is represented by a
-protocol object in the TLC model, but full extraction of the complete ordered
-set from the public substrate is no longer a precondition for hot-path positive
-admission in this package. In the repository's now-singular theorem story,
+predecessor links, while the full bulletin surface is reconstructed or aborted
+through a protocol-native retrievability plane rooted in canonical close. This
+package now matches that boundary. It proves and model-checks the deterministic
+uniqueness and negative-dominance core over bulletin close, compact frontier
+publication, frontier contradiction, omission, and endogenous retrievability.
+Full extraction of the ordered set now depends on protocol objects rather than
+on any parallel bulletin surface. In the repository's now-singular theorem story,
 this package remains the ordering-specific PSC kernel inside the one AFT
 theorem surface rather than the baseline half of a split theorem stack.
 Ordinary canonical collapse / replay history now names the deeper historical
-continuation root, the AFT recovered-state contract carries the same
-continuation bundle for restart consumers, and archived publication / replay
-correctness is historical and index-free through profile-hash /
+retrievability root, the AFT recovered-state contract carries the same
+historical retrievability surface for restart consumers, and archived
+publication / replay correctness is historical and index-free through profile-hash /
 activation-hash bindings plus predecessor/checkpoint validation.
 
 In the yellow-paper terminology, this package is one half of AFT's `public
@@ -79,7 +85,11 @@ public surface: frontier conflict, stale frontier linkage, missing
 certificates, bulletin-surface reconstruction or publication failures, invalid
 bulletin-close formation, omission dominance, and certificate-level mismatches
 over height, randomness, ordered root, resulting-state root, public inputs,
-bulletin-availability binding, and proof binding.
+bulletin-availability binding, proof binding, and endogenous retrievability
+failures such as missing profiles, missing manifests, contradictory manifests,
+missing or contradictory custody assignments, missing or contradictory custody
+receipts, missing or invalid custody responses, and invalid or absent
+published bulletin entries.
 
 This same proof shape now appears in `Asymptote` observer sealing as well:
 public evidence, a unique positive object, a unique negative object, and

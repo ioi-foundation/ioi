@@ -510,6 +510,9 @@ impl GuardianMajorityEngine {
                             &certificate.bulletin_availability_certificate,
                         )
                         .map_err(ConsensusError::BlockVerificationFailed)?,
+                    bulletin_retrievability_profile_hash: [0u8; 32],
+                    bulletin_shard_manifest_hash: [0u8; 32],
+                    bulletin_custody_receipt_hash: [0u8; 32],
                     bulletin_close_hash: canonical_bulletin_close_hash(&bulletin_close)
                         .map_err(ConsensusError::BlockVerificationFailed)?,
                     canonical_order_certificate_hash: canonical_order_certificate_hash(certificate)
@@ -521,6 +524,9 @@ impl GuardianMajorityEngine {
                 kind: CanonicalCollapseKind::Abort,
                 bulletin_commitment_hash: [0u8; 32],
                 bulletin_availability_certificate_hash: [0u8; 32],
+                bulletin_retrievability_profile_hash: [0u8; 32],
+                bulletin_shard_manifest_hash: [0u8; 32],
+                bulletin_custody_receipt_hash: [0u8; 32],
                 bulletin_close_hash: [0u8; 32],
                 canonical_order_certificate_hash: [0u8; 32],
             }),
@@ -3501,13 +3507,52 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         info!(target: "consensus", "GuardianMajorityEngine::decide called for height {}", height);
 
+        if Self::benchmark_trace_enabled() && height <= 3 {
+            let root = parent_view.state_root();
+            let root_prefix_len = root.len().min(4);
+            eprintln!(
+                "[BENCH-AFT-DECIDE] height={} parent_height={} parent_root_len={} parent_root={}",
+                height,
+                parent_view.height(),
+                root.len(),
+                hex::encode(&root[..root_prefix_len]),
+            );
+        }
+
         let vs_bytes = match parent_view.get(VALIDATOR_SET_KEY).await {
             Ok(Some(b)) => b,
-            _ => return ConsensusDecision::Stall,
+            Ok(None) => {
+                if Self::benchmark_trace_enabled() {
+                    eprintln!(
+                        "[BENCH-AFT-DECIDE] height={} decision=stall reason=missing_validator_set",
+                        height
+                    );
+                }
+                return ConsensusDecision::Stall;
+            }
+            Err(error) => {
+                if Self::benchmark_trace_enabled() {
+                    eprintln!(
+                        "[BENCH-AFT-DECIDE] height={} decision=stall reason=validator_set_read_error error={}",
+                        height,
+                        error
+                    );
+                }
+                return ConsensusDecision::Stall;
+            }
         };
         let sets = match read_validator_sets(&vs_bytes) {
             Ok(s) => s,
-            _ => return ConsensusDecision::Stall,
+            Err(error) => {
+                if Self::benchmark_trace_enabled() {
+                    eprintln!(
+                        "[BENCH-AFT-DECIDE] height={} decision=stall reason=validator_set_decode_error error={}",
+                        height,
+                        error
+                    );
+                }
+                return ConsensusDecision::Stall;
+            }
         };
 
         let quarantined: BTreeSet<AccountId> =
@@ -3879,7 +3924,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             let (
                 previous_canonical_collapse_commitment_hash,
                 canonical_collapse_extension_certificate,
-            ) = if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
+            ) = if height <= 1 {
+                ([0u8; 32], None)
+            } else {
                 match self
                     .canonical_collapse_extension_certificate_for_height(height, parent_view)
                     .await
@@ -3896,8 +3943,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                         return ConsensusDecision::Stall;
                     }
                 }
-            } else {
-                ([0u8; 32], None)
             };
 
             info!(target: "consensus", "I am leader for H={} V={}. Producing block.", height, current_view);
@@ -10076,7 +10121,7 @@ mod tests {
             consensus_headers: vec![previous_header.clone()],
             certified_headers: vec![certified_entry.clone()],
             restart_headers: vec![restart_entry.clone()],
-            historical_continuation: None,
+            historical_retrievability: None,
         };
 
         let mut manual_engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);

@@ -1769,7 +1769,7 @@ where
         canonical_validator_sets_hash(&validator_sets)
             .map_err(|error| anyhow!("failed to hash active validator set: {error}"))?
     };
-    let Some(historical_continuation) =
+    let Some(historical_retrievability) =
         load_archived_recovered_history_anchor_from_canonical_collapse_tip(
             workload_client,
             base_range.1,
@@ -1782,9 +1782,9 @@ where
             exhausted: true,
         });
     };
-    let mut checkpoint = historical_continuation.checkpoint;
-    let anchored_activation = historical_continuation.profile_activation;
-    let receipt = historical_continuation.retention_receipt;
+    let mut checkpoint = historical_retrievability.checkpoint;
+    let anchored_activation = historical_retrievability.profile_activation;
+    let receipt = historical_retrievability.retention_receipt;
     let mut profile = validate_archived_recovered_history_profile_activation_chain_for_checkpoint(
         workload_client,
         &anchored_activation,
@@ -1902,7 +1902,7 @@ where
             consensus_headers: archived_consensus_headers,
             certified_headers: archived_certified_headers,
             restart_headers: archived_page.restart_headers.clone(),
-            historical_continuation: None,
+            historical_retrievability: None,
         };
 
         {
@@ -2087,7 +2087,7 @@ where
                 consensus_headers: loaded_page.consensus_headers.clone(),
                 certified_headers: loaded_page.certified_headers.clone(),
                 restart_headers: loaded_page.restart_headers.clone(),
-                historical_continuation: None,
+                historical_retrievability: None,
             };
             seed_aft_recovered_state_into_engine(&mut *engine, &loaded_recovered_state);
             let keep_ranges = recovered_keep_ranges(
@@ -2597,22 +2597,22 @@ where
             )
             .await
             {
-                Ok(historical_continuation) => {
-                    if let Some(surface) = historical_continuation.as_ref() {
+                Ok(historical_retrievability) => {
+                    if let Some(surface) = historical_retrievability.as_ref() {
                         tracing::info!(
                             target: "consensus",
                             height = surface.checkpoint.covered_end_height,
-                            "Loaded ordinary AFT historical continuation from canonical collapse for restart continuity."
+                            "Loaded ordinary AFT historical retrievability from canonical collapse for restart continuity."
                         );
                     }
-                    aft_recovered_state.historical_continuation = historical_continuation;
+                    aft_recovered_state.historical_retrievability = historical_retrievability;
                 }
                 Err(error) => {
                     tracing::info!(
                         target: "consensus",
                         status_height,
                         error = %error,
-                        "Ordinary AFT historical continuation unavailable for validator restart continuity."
+                        "Ordinary AFT historical retrievability unavailable for validator restart continuity."
                     );
                 }
             }
@@ -2676,6 +2676,39 @@ where
         .or_else(|| recovered_tip_anchor.as_ref().map(|anchor| anchor.height))
         .unwrap_or(0);
     let producing_h = parent_h + 1;
+
+    if benchmark_trace_enabled() && producing_h <= 3 {
+        if let Some(last) = last_committed_block_opt.as_ref() {
+            let root = last.header.state_root.0.as_slice();
+            let root_prefix_len = root.len().min(4);
+            eprintln!(
+                "[BENCH-AFT-ORCH] cause={} producing_h={} local_tip_height={} local_tip_root_len={} local_tip_root={} local_tip_ts_ms={}",
+                cause,
+                producing_h,
+                last.header.height,
+                root.len(),
+                hex::encode(&root[..root_prefix_len]),
+                last.header.timestamp_ms_or_legacy(),
+            );
+        } else if let Some(anchor) = recovered_tip_anchor.as_ref() {
+            let root = anchor.state_root.as_slice();
+            let root_prefix_len = root.len().min(4);
+            eprintln!(
+                "[BENCH-AFT-ORCH] cause={} producing_h={} recovered_tip_height={} recovered_tip_root_len={} recovered_tip_root={}",
+                cause,
+                producing_h,
+                anchor.height,
+                root.len(),
+                hex::encode(&root[..root_prefix_len]),
+            );
+        } else {
+            eprintln!(
+                "[BENCH-AFT-ORCH] cause={} producing_h={} local_tip_height=0 local_tip_root_len=0 local_tip_root=",
+                cause,
+                producing_h,
+            );
+        }
+    }
 
     let consensus_allows_bootstrap = matches!(
         cons_ty,
@@ -2902,13 +2935,16 @@ where
             if expected_timestamp_ms > now_ms {
                 let due_at = Duration::from_millis(expected_timestamp_ms);
                 let delay = due_at.saturating_sub(now);
-                let (kick_tx, kick_scheduled) = {
+                let (kick_tx, kick_scheduled, next_due_wakeup_at_ms) = {
                     let ctx = context_arc.lock().await;
                     (
                         ctx.consensus_kick_tx.clone(),
                         ctx.consensus_kick_scheduled.clone(),
+                        ctx.next_due_wakeup_at_ms.clone(),
                     )
                 };
+                next_due_wakeup_at_ms
+                    .store(expected_timestamp_ms, std::sync::atomic::Ordering::SeqCst);
                 if !kick_scheduled.swap(true, std::sync::atomic::Ordering::SeqCst) {
                     tokio::spawn(async move {
                         tokio::time::sleep(delay).await;
@@ -2927,6 +2963,11 @@ where
                     "Deferring block production until the configured block timestamp is due."
                 );
                 return Ok(());
+            }
+            {
+                let ctx = context_arc.lock().await;
+                ctx.next_due_wakeup_at_ms
+                    .store(0, std::sync::atomic::Ordering::SeqCst);
             }
 
             let production_marker = (producing_h, view, parent_qc.block_hash);
@@ -3514,7 +3555,7 @@ where
                 parent_hash: parent_ref.block_hash,
                 parent_state_root: ioi_types::app::StateRoot(parent_ref.state_root.clone()),
                 state_root: ioi_types::app::StateRoot(vec![]),
-                transactions_root: vec![0; 32],
+                transactions_root: vec![],
                 timestamp: timestamp_millis_to_legacy_seconds(expected_timestamp_ms),
                 timestamp_ms: expected_timestamp_ms,
                 gas_used: 0,
@@ -3731,49 +3772,63 @@ fn verify_batch_and_filter(
     batch_verifier: &dyn BatchVerifier,
     tx_pool: &Mempool,
 ) -> Result<Vec<ChainTransaction>> {
-    let mut sig_indices = Vec::new();
-    let mut sign_bytes_storage = Vec::new();
-
-    for (i, tx) in candidate_txs.iter().enumerate() {
-        if let Ok(Some((_, _, bytes))) = ioi_tx::system::validation::get_signature_components(tx) {
-            sign_bytes_storage.push(bytes);
-            sig_indices.push(i);
-        }
+    struct BatchCandidate<'a> {
+        index: usize,
+        public_key: &'a [u8],
+        sign_bytes: Vec<u8>,
+        signature: &'a [u8],
+        suite: SignatureSuite,
     }
 
-    let mut batch_items = Vec::with_capacity(sig_indices.len());
-    for (i, &idx) in sig_indices.iter().enumerate() {
-        if let Ok(Some((_, proof, _))) =
-            ioi_tx::system::validation::get_signature_components(&candidate_txs[idx])
+    let mut batch_candidates = Vec::new();
+    for (index, tx) in candidate_txs.iter().enumerate() {
+        if let Ok(Some((_, proof, sign_bytes))) =
+            ioi_tx::system::validation::get_signature_components(tx)
         {
-            batch_items.push((
-                proof.public_key.as_slice(),
-                sign_bytes_storage[i].as_slice(),
-                proof.signature.as_slice(),
-                proof.suite,
-            ));
+            batch_candidates.push(BatchCandidate {
+                index,
+                public_key: proof.public_key.as_slice(),
+                sign_bytes,
+                signature: proof.signature.as_slice(),
+                suite: proof.suite,
+            });
         }
     }
 
-    let batch_results = if !batch_items.is_empty() {
-        batch_verifier.verify_batch(&batch_items)?
-    } else {
+    let batch_results = if batch_candidates.is_empty() {
         vec![]
+    } else {
+        let batch_items = batch_candidates
+            .iter()
+            .map(|candidate| {
+                (
+                    candidate.public_key,
+                    candidate.sign_bytes.as_slice(),
+                    candidate.signature,
+                    candidate.suite,
+                )
+            })
+            .collect::<Vec<_>>();
+        batch_verifier.verify_batch(&batch_items)?
     };
 
     let mut valid_txs = Vec::with_capacity(candidate_txs.len());
-    let mut results_iter = batch_results.into_iter();
-    let mut sig_idx_iter = sig_indices.into_iter();
-    let mut next_sig_idx = sig_idx_iter.next();
+    let mut verified_candidates = batch_candidates.into_iter().zip(batch_results.into_iter());
+    let mut next_verified = verified_candidates.next();
 
     for (i, tx) in candidate_txs.iter().enumerate() {
-        if Some(i) == next_sig_idx {
-            if results_iter.next().unwrap_or(false) {
+        if next_verified
+            .as_ref()
+            .map(|(candidate, _)| candidate.index == i)
+            .unwrap_or(false)
+        {
+            let (_, accepted) = next_verified.take().expect("verified candidate present");
+            if accepted {
                 valid_txs.push(tx.clone());
             } else if let Ok(h) = tx.hash() {
                 tx_pool.remove_by_hash(&h);
             }
-            next_sig_idx = sig_idx_iter.next();
+            next_verified = verified_candidates.next();
         } else {
             valid_txs.push(tx.clone());
         }
@@ -4400,6 +4455,11 @@ mod tests {
             bulletin_availability_certificate: execution_object
                 .bulletin_availability_certificate
                 .clone(),
+            bulletin_retrievability_profile: execution_object
+                .bulletin_retrievability_profile
+                .clone(),
+            bulletin_shard_manifest: execution_object.bulletin_shard_manifest.clone(),
+            bulletin_custody_receipt: execution_object.bulletin_custody_receipt.clone(),
             canonical_order_certificate: execution_object.canonical_order_certificate.clone(),
         };
         let block_commitment_hash =
@@ -4912,9 +4972,7 @@ mod tests {
                 .expect("encode rotated archived profile activation"),
         );
         client.raw_state.insert(
-            aft_archived_recovered_history_profile_activation_hash_key(
-                &rotated_activation_hash,
-            ),
+            aft_archived_recovered_history_profile_activation_hash_key(&rotated_activation_hash),
             codec::to_bytes_canonical(&rotated_activation)
                 .expect("encode rotated archived profile activation by hash"),
         );
@@ -4989,14 +5047,13 @@ mod tests {
             let archived_profile_hash =
                 canonical_archived_recovered_history_profile_hash(&archived_profile)
                     .expect("archived recovered-history profile hash");
-            let archived_profile_activation =
-                build_archived_recovered_history_profile_activation(
-                    &archived_profile,
-                    None,
-                    1,
-                    None,
-                )
-                .expect("bootstrap archived recovered-history profile activation");
+            let archived_profile_activation = build_archived_recovered_history_profile_activation(
+                &archived_profile,
+                None,
+                1,
+                None,
+            )
+            .expect("bootstrap archived recovered-history profile activation");
             let archived_profile_activation_hash =
                 canonical_archived_recovered_history_profile_activation_hash(
                     &archived_profile_activation,
@@ -5140,8 +5197,7 @@ mod tests {
                 );
                 self.client.raw_state.insert(
                     aft_archived_recovered_history_segment_hash_key(&segment_hash),
-                    codec::to_bytes_canonical(&segment)
-                        .expect("encode archived segment by hash"),
+                    codec::to_bytes_canonical(&segment).expect("encode archived segment by hash"),
                 );
                 self.client.raw_state.insert(
                     aft_archived_recovered_restart_page_key(&segment_hash),
@@ -5167,9 +5223,7 @@ mod tests {
                         .expect("encode archived recovered history checkpoint"),
                 );
                 self.client.raw_state.insert(
-                    aft_archived_recovered_history_checkpoint_hash_key(
-                        &archived_checkpoint_hash,
-                    ),
+                    aft_archived_recovered_history_checkpoint_hash_key(&archived_checkpoint_hash),
                     codec::to_bytes_canonical(&archived_checkpoint)
                         .expect("encode archived recovered history checkpoint by hash"),
                 );
@@ -5179,20 +5233,19 @@ mod tests {
                         .expect("encode latest archived recovered history checkpoint"),
                 );
 
-                let archived_retention_receipt = build_archived_recovered_history_retention_receipt(
-                    &archived_checkpoint,
-                    self.validator_set_commitment_hash,
-                    archived_recovered_history_retained_through_height(
+                let archived_retention_receipt =
+                    build_archived_recovered_history_retention_receipt(
                         &archived_checkpoint,
-                        &self.archived_profile,
+                        self.validator_set_commitment_hash,
+                        archived_recovered_history_retained_through_height(
+                            &archived_checkpoint,
+                            &self.archived_profile,
+                        )
+                        .expect("archived retained-through height"),
                     )
-                    .expect("archived retained-through height"),
-                )
-                .expect("archived recovered history retention receipt");
+                    .expect("archived recovered history retention receipt");
                 self.client.raw_state.insert(
-                    aft_archived_recovered_history_retention_receipt_key(
-                        &archived_checkpoint_hash,
-                    ),
+                    aft_archived_recovered_history_retention_receipt_key(&archived_checkpoint_hash),
                     codec::to_bytes_canonical(&archived_retention_receipt)
                         .expect("encode archived recovered history retention receipt"),
                 );
@@ -5221,8 +5274,7 @@ mod tests {
                                 &material.witness_manifest_hash,
                                 &material.block_commitment_hash,
                             ),
-                            codec::to_bytes_canonical(material)
-                                .expect("encode material"),
+                            codec::to_bytes_canonical(material).expect("encode material"),
                         );
                     }
                     self.client.raw_state.insert(
@@ -5232,8 +5284,7 @@ mod tests {
                             &recovered.supporting_witness_manifest_hashes,
                         )
                         .expect("recovered publication bundle key"),
-                        codec::to_bytes_canonical(&recovered)
-                            .expect("encode recovered bundle"),
+                        codec::to_bytes_canonical(&recovered).expect("encode recovered bundle"),
                     );
                 }
 
@@ -5275,10 +5326,8 @@ mod tests {
             )
             .expect("rotated archived recovered-history profile activation");
             let rotated_activation_hash =
-                canonical_archived_recovered_history_profile_activation_hash(
-                    &rotated_activation,
-                )
-                .expect("rotated archived recovered-history profile activation hash");
+                canonical_archived_recovered_history_profile_activation_hash(&rotated_activation)
+                    .expect("rotated archived recovered-history profile activation hash");
 
             self.client.raw_state.insert(
                 AFT_ACTIVE_ARCHIVED_RECOVERED_HISTORY_PROFILE_KEY.to_vec(),
@@ -5291,9 +5340,7 @@ mod tests {
                     .expect("encode rotated archived profile by hash"),
             );
             self.client.raw_state.insert(
-                aft_archived_recovered_history_profile_activation_key(
-                    &rotated_profile_hash,
-                ),
+                aft_archived_recovered_history_profile_activation_key(&rotated_profile_hash),
                 codec::to_bytes_canonical(&rotated_activation)
                     .expect("encode rotated archived profile activation"),
             );
@@ -5375,11 +5422,8 @@ mod tests {
         ) -> RecoveredAncestryStreamReport {
             let (recovered_headers, recovered_certified, recovered_restart) =
                 self.retained_suffix(retained_start_height);
-            let engine = seed_recovered_engine(
-                &recovered_headers,
-                &recovered_certified,
-                &recovered_restart,
-            );
+            let engine =
+                seed_recovered_engine(&recovered_headers, &recovered_certified, &recovered_restart);
 
             run_async_test(stream_recovered_ancestry_to_height(
                 &self.client,
@@ -5394,7 +5438,7 @@ mod tests {
                 &recovered_certified,
                 &recovered_restart,
             ))
-            .expect("persistent historical continuation simulator should stream ancestry")
+            .expect("persistent historical retrievability simulator should stream ancestry")
         }
     }
 
@@ -5430,11 +5474,8 @@ mod tests {
                 seed_base,
             );
         rotate_active_archived_profile_and_remove_latest_side_indexes(&mut client);
-        let engine = seed_recovered_engine(
-            &recovered_headers,
-            &recovered_certified,
-            &recovered_restart,
-        );
+        let engine =
+            seed_recovered_engine(&recovered_headers, &recovered_certified, &recovered_restart);
 
         run_async_test(stream_recovered_ancestry_to_height(
             &client,
@@ -5449,7 +5490,7 @@ mod tests {
             &recovered_certified,
             &recovered_restart,
         ))
-        .expect("repeated historical continuation cycle should stream ancestry")
+        .expect("repeated historical retrievability cycle should stream ancestry")
     }
 
     fn load_paged_recovered_prefixes_to_height(
@@ -8068,7 +8109,7 @@ mod tests {
             );
             assert!(
                 !report.loaded_pages.is_empty(),
-                "runtime recurring cycle {cycle} should page older historical continuation ranges"
+                "runtime recurring cycle {cycle} should page older historical retrievability ranges"
             );
             assert!(
                 report.loaded_pages.iter().any(|page| page.0 == 1),
@@ -8090,11 +8131,7 @@ mod tests {
         let mut simulator = PersistentRecoveredHistoricalContinuationSimulator::new();
 
         for (cycle, expected_end_height, retained_start_height, seed_base) in cycles {
-            simulator.append_through(
-                expected_end_height,
-                retained_start_height,
-                seed_base,
-            );
+            simulator.append_through(expected_end_height, retained_start_height, seed_base);
             simulator.rotate_active_profile_and_remove_latest_side_indexes();
             let report = simulator.stream_to_target(retained_start_height, target_height);
 
@@ -8108,7 +8145,7 @@ mod tests {
             );
             assert!(
                 !report.loaded_pages.is_empty(),
-                "persistent runtime churn cycle {cycle} should page older historical continuation ranges"
+                "persistent runtime churn cycle {cycle} should page older historical retrievability ranges"
             );
             assert!(
                 report.loaded_pages.iter().any(|page| page.0 == 1),
