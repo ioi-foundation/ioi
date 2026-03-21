@@ -16,7 +16,7 @@ pub const NUM_RPC_CONNECTIONS: usize = 16;
 pub const BACKOFF_MS: u64 = 50;
 pub const MAX_RETRIES: usize = 100;
 
-pub const BLOCK_TIME_SECS: u64 = 1;
+pub const BLOCK_TIME_MS: u64 = 1_000;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ThroughputBenchmarkReport {
@@ -40,6 +40,7 @@ pub struct PaperBenchmarkResult {
     pub scenario: String,
     pub validators: usize,
     pub safety_mode: String,
+    pub lane: String,
     pub attempted: usize,
     pub accepted: u64,
     pub committed: u64,
@@ -47,7 +48,9 @@ pub struct PaperBenchmarkResult {
     pub injection_tps: f64,
     pub sustained_tps: f64,
     pub commit_latency: LatencySummary,
-    pub sealed_latency: Option<LatencySummary>,
+    pub terminal_latency: Option<LatencySummary>,
+    pub terminal_close_blocks: usize,
+    pub terminal_abort_blocks: usize,
 }
 
 pub fn create_transfer_tx(
@@ -145,25 +148,26 @@ pub fn summarize_latencies(samples: &[Duration]) -> LatencySummary {
 
 pub fn render_markdown_table(results: &[PaperBenchmarkResult]) -> String {
     let mut lines = vec![
-        "| scenario | validators | mode | attempted | accepted | committed | blocks | injection_tps | sustained_tps | commit_p50_ms | commit_p95_ms | commit_p99_ms | sealed_p50_ms | sealed_p95_ms |".to_string(),
-        "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|".to_string(),
+        "| scenario | validators | mode | lane | attempted | accepted | committed | blocks | injection_tps | sustained_tps | commit_p50_ms | commit_p95_ms | commit_p99_ms | terminal_p50_ms | terminal_p95_ms | terminal_close_blocks | terminal_abort_blocks |".to_string(),
+        "|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|".to_string(),
     ];
 
     for result in results {
-        let sealed_p50 = result
-            .sealed_latency
+        let terminal_p50 = result
+            .terminal_latency
             .map(|summary| format!("{:.2}", summary.p50_ms))
             .unwrap_or_else(|| "-".to_string());
-        let sealed_p95 = result
-            .sealed_latency
+        let terminal_p95 = result
+            .terminal_latency
             .map(|summary| format!("{:.2}", summary.p95_ms))
             .unwrap_or_else(|| "-".to_string());
 
         lines.push(format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} | {} | {} |",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {:.2} | {:.2} | {:.2} | {:.2} | {:.2} | {} | {} | {} | {} |",
             result.scenario,
             result.validators,
             result.safety_mode,
+            result.lane,
             result.attempted,
             result.accepted,
             result.committed,
@@ -173,8 +177,10 @@ pub fn render_markdown_table(results: &[PaperBenchmarkResult]) -> String {
             result.commit_latency.p50_ms,
             result.commit_latency.p95_ms,
             result.commit_latency.p99_ms,
-            sealed_p50,
-            sealed_p95,
+            terminal_p50,
+            terminal_p95,
+            result.terminal_close_blocks,
+            result.terminal_abort_blocks,
         ));
     }
 

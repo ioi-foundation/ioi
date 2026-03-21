@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, RemoteStateView, WorkloadClientApi};
 use ioi_api::state::Verifier;
-use ioi_types::app::{StateAnchor, StateRoot};
+use ioi_types::app::{StateAnchor, StateRoot, AFT_COLLAPSE_OBJECT_PREFIX};
 use ioi_types::codec;
 use ioi_types::error::{ChainError, StateError};
 use ioi_types::{MAX_STATE_PROOF_BYTES, MAX_STATE_VALUE_BYTES};
@@ -117,7 +117,15 @@ where
             }
         }
 
-        let result = response.membership.into_option();
+        let result = match response.membership.into_option() {
+            some @ Some(_) => some,
+            None if key.starts_with(AFT_COLLAPSE_OBJECT_PREFIX) => self
+                .client
+                .query_raw_state(key)
+                .await
+                .map_err(|e| ChainError::State(StateError::Backend(e.to_string())))?,
+            None => None,
+        };
         self.proof_cache.lock().await.put(cache_key, result.clone());
         Ok(result)
     }

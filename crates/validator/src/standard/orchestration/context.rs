@@ -21,7 +21,10 @@ use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64},
+    Arc,
+};
 use tokio::sync::{mpsc, watch, Mutex}; // [FIX] Added imports
 
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel}; // [FIX] Added InferenceRuntime
@@ -134,6 +137,8 @@ where
     pub consensus_kick_tx: mpsc::UnboundedSender<()>,
     /// Shared debounce flag for consensus wakeups triggered outside the ingestion worker.
     pub consensus_kick_scheduled: Arc<AtomicBool>,
+    /// Next scheduled millisecond wake-up for deferred block production.
+    pub next_due_wakeup_at_ms: Arc<AtomicU64>,
     /// Current synchronization progress state.
     pub sync_progress: Option<SyncProgress>,
     /// Manager for tracking account nonces.

@@ -1,4 +1,5 @@
 // Path: crates/execution/src/app/mod.rs
+mod aft_aux;
 mod end_block;
 mod state_machine;
 mod view;
@@ -45,6 +46,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 // [FIX] Import OsDriver trait
 use ioi_api::vm::drivers::os::OsDriver;
+
+pub use aft_aux::{
+    derive_canonical_collapse_for_block, derive_canonical_collapse_for_height,
+    load_aft_auxiliary_raw_state_value,
+};
 
 /// Represents the initialization state of the chain's genesis block.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -439,12 +445,6 @@ where
 
                 tracing::info!(target: "execution", event = "status_loaded", height = status.height, "Successfully loaded existing chain status from state manager.");
                 self.state.status = status;
-                let root = state.root_commitment().as_ref().to_vec();
-                self.state.last_state_root = root.clone();
-                self.state.genesis_state = GenesisState::Ready {
-                    root,
-                    chain_id: self.state.chain_id,
-                };
                 self.state.recent_aft_recovered_state = AftRecoveredStateSurface::default();
                 if self.consensus_engine.consensus_type() == ConsensusType::Aft
                     && self.state.status.height > 0
@@ -538,6 +538,13 @@ where
                         );
                     }
                 }
+
+                let root = state.root_commitment().as_ref().to_vec();
+                self.state.last_state_root = root.clone();
+                self.state.genesis_state = GenesisState::Ready {
+                    root,
+                    chain_id: self.state.chain_id,
+                };
             }
             Ok(None) => {
                 tracing::info!(target: "execution", event = "status_init", "No existing chain status found. Initializing and saving genesis status.");

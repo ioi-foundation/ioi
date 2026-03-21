@@ -14,7 +14,7 @@ use ioi_api::state::{
 use ioi_api::storage::NodeStore;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_storage::adapter::{commit_and_persist, commit_and_persist_with_block, DeltaAccumulator};
-use ioi_types::app::{Membership, RootHash};
+use ioi_types::app::{to_root_hash, Membership, RootHash};
 use ioi_types::error::StateError;
 use parity_scale_codec::Encode;
 use rayon::prelude::*;
@@ -34,6 +34,13 @@ struct ProofTrieNode {
     children: BTreeMap<u8, ProofTrieNode>,
     leaf: Option<LeafNode>,
     node_hash: NodeHash,
+}
+
+#[derive(Clone, Debug, Default)]
+struct HistoricalStateSnapshot {
+    kv_cache: HashMap<Vec<u8>, Vec<u8>>,
+    proof_trie: ProofTrieNode,
+    height: u64,
 }
 
 impl ProofTrieNode {
@@ -139,7 +146,6 @@ impl Default for ProofTrieNode {
 }
 
 /// A Jellyfish Merkle Tree capable of parallel batch updates.
-#[derive(Clone)]
 pub struct JellyfishMerkleTree<CS: CommitmentScheme> {
     root_hash: NodeHash,
     /// In-memory cache of dirty nodes for the current block.
@@ -149,11 +155,30 @@ pub struct JellyfishMerkleTree<CS: CommitmentScheme> {
     kv_cache: Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
     /// Incrementally maintained proof trie for fast root updates and proof generation.
     proof_trie: Arc<RwLock<ProofTrieNode>>,
+    historical_snapshots: Arc<RwLock<HashMap<NodeHash, HistoricalStateSnapshot>>>,
     /// Underlying commitment scheme (usually Hash).
     scheme: CS,
     current_height: u64,
     delta: Arc<RwLock<DeltaAccumulator>>,
     store: Option<Arc<dyn NodeStore>>,
+}
+
+impl<CS: CommitmentScheme + Clone> Clone for JellyfishMerkleTree<CS> {
+    fn clone(&self) -> Self {
+        Self {
+            root_hash: self.root_hash,
+            nodes: Arc::new(RwLock::new(self.nodes.read().unwrap().clone())),
+            kv_cache: Arc::new(RwLock::new(self.kv_cache.read().unwrap().clone())),
+            proof_trie: Arc::new(RwLock::new(self.proof_trie.read().unwrap().clone())),
+            historical_snapshots: Arc::new(RwLock::new(
+                self.historical_snapshots.read().unwrap().clone(),
+            )),
+            scheme: self.scheme.clone(),
+            current_height: self.current_height,
+            delta: Arc::new(RwLock::new(self.delta.read().unwrap().clone())),
+            store: self.store.clone(),
+        }
+    }
 }
 
 impl<CS: CommitmentScheme> Debug for JellyfishMerkleTree<CS> {
@@ -178,6 +203,7 @@ where
             nodes: Arc::new(RwLock::new(HashMap::new())),
             kv_cache: Arc::new(RwLock::new(HashMap::new())),
             proof_trie: Arc::new(RwLock::new(ProofTrieNode::default())),
+            historical_snapshots: Arc::new(RwLock::new(HashMap::new())),
             scheme,
             current_height: 0,
             delta: Arc::new(RwLock::new(DeltaAccumulator::default())),
@@ -391,6 +417,9 @@ where
         inserts: &[(Vec<u8>, Vec<u8>)],
         deletes: &[Vec<u8>],
     ) -> Result<(), StateError> {
+        if inserts.is_empty() && deletes.is_empty() {
+            return Ok(());
+        }
         let mut cache = self.kv_cache.write().unwrap();
         let mut trie = self.proof_trie.write().unwrap();
         for k in deletes {
@@ -449,20 +478,8 @@ where
     CS::Proof: From<HashProof>,
 {
     fn create_proof(&self, key: &[u8]) -> Option<Self::Proof> {
-        let key_hash = sha256(key).ok()?;
-        let mut key_hash_arr = [0u8; 32];
-        key_hash_arr.copy_from_slice(&key_hash);
-        let nibble_path = NibblePath::new(&key_hash_arr);
-        let mut siblings = Vec::new();
         let trie = self.proof_trie.read().ok()?;
-        let leaf = trie.build_proof(&nibble_path, 0, &mut siblings);
-        let proof_bytes = JellyfishMerkleProof { leaf, siblings }.encode();
-        let proof = HashProof {
-            value: proof_bytes,
-            selector: Selector::Key(key.to_vec()),
-            additional_data: vec![],
-        };
-        Some(CS::Proof::from(proof))
+        Self::create_snapshot_proof(&trie, key)
     }
 
     fn verify_proof(
@@ -485,19 +502,34 @@ where
 
     fn get_with_proof_at(
         &self,
-        _r: &Self::Commitment,
+        root: &Self::Commitment,
         key: &[u8],
     ) -> Result<(Membership, Self::Proof), StateError> {
-        // Stub: Retrieve from kv_cache (ignoring historical root for now)
-        let val_opt = self.get(key)?;
-        let membership = match &val_opt {
-            Some(v) => Membership::Present(v.clone()),
+        let requested_root = to_root_hash(root.as_ref())?;
+        if requested_root == self.root_hash {
+            let val_opt = self.get(key)?;
+            let membership = match &val_opt {
+                Some(v) => Membership::Present(v.clone()),
+                None => Membership::Absent,
+            };
+
+            let proof = self
+                .create_proof(key)
+                .ok_or(StateError::Backend("Proof creation failed".into()))?;
+            return Ok((membership, proof));
+        }
+
+        let snapshots = self.historical_snapshots.read().unwrap();
+        let Some(snapshot) = snapshots.get(&requested_root) else {
+            return Err(StateError::UnknownAnchor(hex::encode(requested_root)));
+        };
+        let membership = match snapshot.kv_cache.get(key) {
+            Some(value) => Membership::Present(value.clone()),
             None => Membership::Absent,
         };
-
-        let proof = self
-            .create_proof(key)
-            .ok_or(StateError::Backend("Proof creation failed".into()))?;
+        let proof = Self::create_snapshot_proof(&snapshot.proof_trie, key).ok_or(
+            StateError::Backend("Historical proof creation failed".into()),
+        )?;
         Ok((membership, proof))
     }
 
@@ -510,14 +542,30 @@ where
     }
 
     fn commitment_to_bytes(&self, c: &Self::Commitment) -> Vec<u8> {
-        // Assuming Commitment is HashCommitment which is Vec<u8> wrapper or similar
-        // We need to access inner bytes. Since CS::Commitment is generic, we can't easily.
-        // But for HashCommitmentScheme, Commitment is HashCommitment which impls AsRef<[u8]>.
-        // However, here we only have `CS::Commitment: From<Vec<u8>>`.
-        // Let's rely on the assumption that for JMT we use HashCommitmentScheme.
-        // Or better, add `AsRef<[u8]>` bound to CS::Commitment in impl block.
-        // Wait, the trait def says `type Commitment: AsRef<[u8]>`.
         c.as_ref().to_vec()
+    }
+}
+
+impl<CS: CommitmentScheme> JellyfishMerkleTree<CS>
+where
+    CS::Commitment: From<Vec<u8>>,
+    CS::Proof: AsRef<[u8]> + From<HashProof>,
+    CS::Witness: Default,
+{
+    fn create_snapshot_proof(trie: &ProofTrieNode, key: &[u8]) -> Option<CS::Proof> {
+        let key_hash = sha256(key).ok()?;
+        let mut key_hash_arr = [0u8; 32];
+        key_hash_arr.copy_from_slice(&key_hash);
+        let nibble_path = NibblePath::new(&key_hash_arr);
+        let mut siblings = Vec::new();
+        let leaf = trie.build_proof(&nibble_path, 0, &mut siblings);
+        let proof_bytes = JellyfishMerkleProof { leaf, siblings }.encode();
+        let proof = HashProof {
+            value: proof_bytes,
+            selector: Selector::Key(key.to_vec()),
+            additional_data: vec![],
+        };
+        Some(CS::Proof::from(proof))
     }
 }
 
@@ -536,7 +584,29 @@ where
     }
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
         self.current_height = height;
+        let snapshot = HistoricalStateSnapshot {
+            kv_cache: self.kv_cache.read().unwrap().clone(),
+            proof_trie: self.proof_trie.read().unwrap().clone(),
+            height,
+        };
+        self.historical_snapshots
+            .write()
+            .unwrap()
+            .insert(self.root_hash, snapshot);
         Ok(self.root_hash)
+    }
+
+    fn version_exists_for_root(&self, root: &Self::Commitment) -> bool {
+        if let Ok(root_hash) = to_root_hash(root.as_ref()) {
+            root_hash == self.root_hash
+                || self
+                    .historical_snapshots
+                    .read()
+                    .unwrap()
+                    .contains_key(&root_hash)
+        } else {
+            false
+        }
     }
 
     // UPDATED: Async persistence with DeltaAccumulator
@@ -596,8 +666,21 @@ where
         if root.len() == 32 {
             let mut h = [0u8; 32];
             h.copy_from_slice(root);
-            self.root_hash = h;
-            self.current_height = ver;
+            if let Some(snapshot) = self.historical_snapshots.read().unwrap().get(&h).cloned() {
+                self.root_hash = h;
+                self.current_height = snapshot.height;
+                self.nodes.write().unwrap().clear();
+                *self.kv_cache.write().unwrap() = snapshot.kv_cache;
+                *self.proof_trie.write().unwrap() = snapshot.proof_trie;
+                self.delta.write().unwrap().clear();
+            } else {
+                self.root_hash = h;
+                self.current_height = ver;
+                self.nodes.write().unwrap().clear();
+                self.kv_cache.write().unwrap().clear();
+                *self.proof_trie.write().unwrap() = ProofTrieNode::default();
+                self.delta.write().unwrap().clear();
+            }
         }
         Ok(())
     }
@@ -641,5 +724,22 @@ mod tests {
         verifier
             .verify(&commitment, &absent, b"missing", &Membership::Absent)
             .unwrap();
+    }
+
+    #[test]
+    fn jellyfish_clone_is_an_independent_snapshot() {
+        let scheme = HashCommitmentScheme::new();
+        let mut original = JellyfishMerkleTree::new(scheme);
+        original.insert(b"validator_set", b"vset").unwrap();
+        original.commit_version(0).unwrap();
+        let cloned = original.clone();
+
+        original.insert(b"status", b"height-1").unwrap();
+
+        assert_eq!(cloned.get(b"status").unwrap(), None);
+        assert_ne!(
+            original.root_commitment().as_ref(),
+            cloned.root_commitment().as_ref()
+        );
     }
 }

@@ -70,14 +70,15 @@ witness-augmented mode for layered threshold constructions.
 
 This paper is self-contained and normative for the protocol family. Its
 ordering subtheorem remains \code{99\%} equal-authority ordering consensus
-under explicit bulletin-publication, cutoff, omission, public recoverability /
-self-extraction, and proof-soundness assumptions. The runtime also
+under explicit bulletin-publication, cutoff, omission, protocol-native
+retrievability, and proof-soundness assumptions. The runtime also
 internalizes compact signed publication-frontier metadata on the hot path:
 positive committed blocks carry a predecessor-linked frontier summary and
 compact availability-receipt binding, while same-slot conflicts or stale parent
 links admit short objective contradiction objects. Those frontier objects bind
-the claimed bulletin / ordering surface, but they do not eliminate the
-recoverability assumption. The repository's theorem surface is
+the claimed bulletin / ordering surface, while the protocol-native
+retrievability plane internalizes deterministic extraction-or-abort on the
+cold path. The repository's theorem surface is
 singular: \AFT{} is \code{relay-free, coordinator-free, pure-software
 deterministic 99\% Byzantine Tolerance}. For each closed slot boundary there
 exists at most one admissible public execution object, every conflicting fully
@@ -90,7 +91,7 @@ surfaces through the AFT-native recovery-family contract, with restart able to
 stream recovered certified ancestry until target height or recovered-history
 exhaustion without a theorem-relevant fixed depth bound. Ordinary canonical
 collapse / replay history and the AFT recovered-state contract also carry
-the historical-continuation bootstrap bundle used for deeper paging, so
+the historical-retrievability bootstrap surface used for deeper paging, so
 recovered history is ordinary endogenous AFT history rather than a theorem-side
 qualifier. This is a categorical full-stack lower-bound break that explicitly
 claims \AFT{} universally breaks the lower bound with no qualifiers, and a real
@@ -98,7 +99,7 @@ repository claim of relay-free, coordinator-free, pure-software deterministic
 \code{99\% Byzantine Tolerance}. It is therefore also an honest claim of
 unconditional classical \code{99\% Byzantine agreement} in the ordinary
 dense-vote permissioned model. The proof-carrying public-evidence
-architecture, endogenous historical continuation, and collapse-gated
+architecture, endogenous historical retrievability, and collapse-gated
 durability are the realizing mechanism of that same classical sentence, not a
 residual qualifier. Unlike classical partially synchronous Byzantine
 agreement, which is usually presented through dense positive quorum
@@ -106,7 +107,7 @@ intersection and \(> 2/3\) honest-participation thresholds, \AFT{} derives
 safety without trusted relays, privileged
 coordinators, TEEs, or dense positive quorum intersection. Safety comes from
 proof-carrying public evidence, dominant negative proofs, compact signed
-frontier consistency, explicit public recoverability of the closed slot
+frontier consistency, explicit endogenous retrievability of the closed slot
 surface, and collapse-gated durability; accountable publication and validator
 removal remain operational reinforcement, not the source of correctness.
 \end{abstract}
@@ -145,8 +146,8 @@ same recovered close-or-abort, collapse, replay-prefix, execution-restart,
 and streamed restart-ancestry surfaces through the AFT-native recovery-family
 contract. Compact publication/frontier metadata is internalized on the live
 path throughout, and deeper recovered history is now ordinary endogenous AFT
-history through the canonical-collapse / replay continuation anchor and the
-matching recovered-state continuation bundle.
+history through the canonical-collapse / replay retrievability anchor and the
+matching recovered-state historical retrievability surface.
 
 \paragraph{Singular theorem sentence.}
 The theorem surface of this repository is now singular all the way up:
@@ -156,7 +157,7 @@ lower bound with no qualifiers, and claims unconditional classical
 \code{99\% Byzantine agreement} in the ordinary dense-vote permissioned model.
 The classical sentence and the
 \AFT{} sentence are treated as extensionally the same claim. Proof-carrying
-public evidence, endogenous historical continuation, restart continuity, and
+public evidence, endogenous historical retrievability, restart continuity, and
 collapse-gated durability are the realizing architecture of that claim, not a
 remaining semantic delta.
 
@@ -167,8 +168,8 @@ remaining semantic delta.
 \textbf{Dimension} & \textbf{AFT realizing surface} & \textbf{Promoted singular claim} \\
 \midrule
 Agreement object & canonical close-or-abort / canonical collapse surface & ordinary classical agreement object with no architecture-specific restatement \\
-Safety carrier & compact commitments, short contradiction objects, cold-path recovery, endogenous historical continuation & unconditional classical agreement sentence with no separate evidence-model caveat \\
-History / bootstrap & canonical-collapse / replay continuation root plus recovered-state continuation bundle & no semantic distinction between \AFT{} continuation and ordinary agreement history \\
+Safety carrier & compact commitments, short contradiction objects, cold-path recovery, endogenous historical retrievability & unconditional classical agreement sentence with no separate evidence-model caveat \\
+History / bootstrap & canonical-collapse / replay historical retrievability root plus recovered-state historical retrievability surface & no semantic distinction between \AFT{} retrievability history and ordinary agreement history \\
 Liveness burden & composed recurrence/reduction/totality/collapse chain plus persistent churn simulator & one completed classical-agreement-style theorem surface under the target adversary model \\
 \bottomrule
 \end{tabularx}
@@ -177,7 +178,7 @@ Liveness burden & composed recurrence/reduction/totality/collapse chain plus per
 \paragraph{Target adversary/scheduler model and discharged liveness kernel.}
 The singular theorem is interpreted under one explicit liveness model rather
 than a vague aspiration. Byzantine authorities may equivocate,
-omit, reorder, withhold reveals, withhold historical-continuation objects,
+omit, reorder, withhold reveals, withhold historical-retrievability objects,
 rotate maliciously, and crash/restart arbitrarily. Before stabilization the
 scheduler may delay or interleave publication, registry, recovery, archival,
 and restart traffic arbitrarily. After stabilization the scheduler is assumed
@@ -188,7 +189,7 @@ hash, and governing profile/activation churn quiesces into bounded windows
 long enough for progress to compose. Under that model, the liveness bridge is
 the conjunction of five obligations: frontier-generation progress,
 canonical-resolution progress, recovery-completion progress,
-restart/historical-continuation re-entry progress, and infinite composition of
+restart/historical-retrievability re-entry progress, and infinite composition of
 those four obligations across reassignment, outage, profile rotation, and
 archival page boundaries. That kernel is no longer open; it is the discharged
 bridge that supports the promoted singular classical-agreement sentence.
@@ -201,14 +202,14 @@ canonical-resolution progress lands on canonical-order certificates,
 \code{CanonicalCollapseObject}, omission dominance, and recursive continuity;
 recovery-completion progress lands on the coded recovery-family contract and
 the recovered publication / close-or-abort surface; and
-restart/historical-continuation progress lands on the AFT recovered-state
-surface plus canonical-history continuation anchors and bounded-memory paging.
+restart/historical-retrievability progress lands on the AFT recovered-state
+surface plus canonical-history retrievability anchors and bounded-memory paging.
 Those obligations now have both concrete runtime carriers and a completed
 formal bridge. The formal package contains bounded churn witnesses, recurring
 cycle cores, a recurrence theorem, a finite reduction, a total classical-
 agreement history bridge, and a directly discharged semantic-collapse wrapper
 ending in \code{NestedGuardianRecoveryClassicalAgreementCollapse.tla}. The
-runtime mirrors the same story through a persistent historical-continuation
+runtime mirrors the same story through a persistent historical-retrievability
 churn/restart simulator over one evolving recovered-history state. The
 remaining work is therefore no longer theorem completion, but cleanup, stress
 expansion, and maintenance of the promoted singular claim.
@@ -709,8 +710,8 @@ public collapse object, and QC progression only treats continuity-linked headers
 progress-authoritative.
 
 \begin{theorem}[Public State Continuity with Extractable Obstructions]
-Assume a closed boundary \(\partial_h\), objective publication, public
-recoverability / self-extraction, compact publication-frontier consistency,
+Assume a closed boundary \(\partial_h\), objective publication, a
+protocol-native retrievability plane, compact publication-frontier consistency,
 objective validity only, and proof soundness. Then the target theorem shape
 for \AFT{} is:
 \begin{enumerate}[leftmargin=1.5em]
@@ -730,9 +731,9 @@ classical DLS / PBFT frontier disappeared inside the standard dense-vote model.
 The point is different: the uniqueness source has moved from quorum overlap
 into the public-evidence language itself.
 In the instantiated runtime, compact publication frontiers internalize same-slot and
-predecessor consistency inside the live protocol, while recoverability /
-self-extraction remains the explicit assumption that keeps the closed bulletin
-surface publicly reconstructable.
+predecessor consistency inside the live protocol, while the protocol-native
+retrievability plane discharges closed-bulletin extraction-or-abort on the
+cold path.
 
 \subsection{Lemma program}
 
@@ -1018,13 +1019,16 @@ Each admitted transaction or batch in \(B_h\) has a stable content hash, a
 verifiable inclusion path into the bulletin commitment, and an objective
 publication time or publication position relative to the slot cutoff.
 
-\paragraph{A2. Availability.}
-The bulletin contents committed by \(bulletin\_commitment_h\) remain
-recoverable from the public bulletin substrate. This is the public
-recoverability / self-extraction assumption. Compact publication-frontier
-summaries and availability receipts bind that claim on the hot path, but they
-do not by themselves reconstruct the full bulletin surface. Without
-recoverability, uniqueness may still hold while timely revelation can fail.
+\paragraph{A2. Endogenous retrievability.}
+The bulletin contents committed by \(bulletin\_commitment_h\) are reconstructed
+or deterministically aborted from protocol-native retrievability objects rooted
+in the canonical bulletin close for slot \(h\). Compact publication-frontier
+summaries and availability certificates bind that claim on the hot path, while
+retrievability profiles, shard manifests, custody assignments, custody
+receipts, custody responses, and objective challenge objects close the
+extraction-or-abort loop on the cold path.
+Without that plane, uniqueness may still hold while timely revelation can
+fail.
 
 \paragraph{A3. Append-only or equivocation-evident commitment.}
 The bulletin commitment and any carried publication frontier for slot \(h\)
@@ -1040,7 +1044,7 @@ inputs.
 \paragraph{A5. Proof soundness.}
 \(\mathrm{VerifyProof}(witness_h) = \mathrm{true}\) implies that the witness
 obligations for cutoff binding, bulletin binding, ordering, state transition,
-recoverability, and omission commitments actually hold.
+retrievability commitments, and omission commitments actually hold.
 
 The cutoff \(\tau_h\) is not a private local clock read. It is a protocol-bound
 object. In the instantiated runtime, the cutoff is bound directly into
@@ -1062,15 +1066,23 @@ objects:
 \code{BulletinCommitment} & \code{(height, cutoff\_timestamp\_ms, bulletin\_root, entry\_count)} \\
 \code{BulletinSurfaceEntry} & \code{(height, tx\_hash)} \\
 \shortstack[l]{\code{BulletinAvailability}\\\code{Certificate}} & \code{(height, bulletin\_commitment\_hash, recoverability\_root)} \\
+\code{BulletinRetrievabilityProfile} & \shortstack[l]{\code{(height, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash, recoverability\_root,}\\\code{shard\_count, recovery\_threshold, custody\_threshold)}} \\
+\code{BulletinShardManifest} & \shortstack[l]{\code{(height, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash,}\\\code{bulletin\_retrievability\_profile\_hash, recoverability\_root,}\\\code{entry\_count, shard\_count, recovery\_threshold, shard\_commitment\_root)}} \\
+\code{BulletinCustodyAssignment} & \shortstack[l]{\code{(height, bulletin\_retrievability\_profile\_hash,}\\\code{bulletin\_shard\_manifest\_hash, validator\_set\_commitment\_hash,}\\\code{assignments)}} \\
+\code{BulletinCustodyReceipt} & \shortstack[l]{\code{(height, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash,}\\\code{bulletin\_retrievability\_profile\_hash, bulletin\_shard\_manifest\_hash,}\\\code{custodian\_count, custody\_threshold, custody\_root)}} \\
+\code{BulletinCustodyResponse} & \shortstack[l]{\code{(height, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash,}\\\code{bulletin\_retrievability\_profile\_hash, bulletin\_shard\_manifest\_hash,}\\\code{bulletin\_custody\_assignment\_hash, bulletin\_custody\_receipt\_hash,}\\\code{served\_shards)}} \\
+\code{BulletinRetrievabilityChallenge} & \shortstack[l]{\code{(height, kind, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash,}\\\code{bulletin\_retrievability\_profile\_hash, bulletin\_shard\_manifest\_hash,}\\\code{bulletin\_custody\_assignment\_hash, bulletin\_custody\_receipt\_hash,}\\\code{bulletin\_custody\_response\_hash, details)}} \\
+\code{BulletinReconstructionCertificate} & \shortstack[l]{\code{(height, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash,}\\\code{bulletin\_retrievability\_profile\_hash, bulletin\_shard\_manifest\_hash,}\\\code{bulletin\_custody\_assignment\_hash, bulletin\_custody\_receipt\_hash,}\\\code{bulletin\_custody\_response\_hash, canonical\_bulletin\_close\_hash,}\\\code{canonical\_order\_certificate\_hash, reconstructed\_entry\_count,}\\\code{reconstructed\_bulletin\_root)}} \\
+\code{BulletinReconstructionAbort} & \shortstack[l]{\code{(height, kind, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash,}\\\code{bulletin\_retrievability\_profile\_hash, bulletin\_shard\_manifest\_hash,}\\\code{bulletin\_custody\_receipt\_hash, bulletin\_retrievability\_challenge\_hash,}\\\code{canonical\_order\_abort\_hash, details)}} \\
 \code{PublicationAvailabilityReceipt} & \shortstack[l]{\code{(height, bulletin\_commitment\_hash,}\\\code{ordered\_transactions\_root\_hash, resulting\_state\_root\_hash,}\\\code{receipt\_root)}} \\
 \code{PublicationFrontier} & \shortstack[l]{\code{(height, view, counter, parent\_frontier\_hash,}\\\code{bulletin\_commitment\_hash, ordered\_transactions\_root\_hash,}\\\code{availability\_receipt\_hash)}} \\
 \code{PublicationFrontierContradiction} & \code{(height, kind, candidate\_frontier, reference\_frontier)} \\
-\shortstack[l]{\code{CanonicalBulletin}\\\code{Close}} & \shortstack[l]{\code{(height, cutoff\_timestamp\_ms, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash, entry\_count)}} \\
+\shortstack[l]{\code{CanonicalBulletin}\\\code{Close}} & \shortstack[l]{\code{(height, cutoff\_timestamp\_ms, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash,}\\\code{bulletin\_retrievability\_profile\_hash, bulletin\_shard\_manifest\_hash,}\\\code{bulletin\_custody\_receipt\_hash, entry\_count)}} \\
 \shortstack[l]{\code{CanonicalOrder}\\\code{PublicInputs}} & \shortstack[l]{\code{(height, parent\_state\_root\_hash, bulletin\_commitment\_hash,}\\\code{randomness\_beacon, ordered\_transactions\_root\_hash,}\\\code{resulting\_state\_root\_hash, cutoff\_timestamp\_ms)}} \\
 \code{CanonicalOrderProofSystem} & concrete variants \code{HashBindingV1} and \code{CommittedSurfaceV1} \\
 \shortstack[l]{\code{CommittedSurface}\\\code{CanonicalOrderProof}} & \code{(recoverability\_root, omission\_commitment\_root)} \\
 \shortstack[l]{\code{CanonicalOrder}\\\code{Certificate}} & \shortstack[l]{\code{(height, bulletin\_commitment, bulletin\_availability\_certificate,}\\\code{randomness\_beacon, ordered\_transactions\_root\_hash,}\\\code{resulting\_state\_root\_hash, proof, omission\_proofs)}} \\
-\shortstack[l]{\code{CanonicalOrder}\\\code{PublicationBundle}} & \shortstack[l]{\code{(bulletin\_commitment, bulletin\_entries,}\\\code{bulletin\_availability\_certificate, canonical\_order\_certificate)}} \\
+\shortstack[l]{\code{CanonicalOrder}\\\code{PublicationBundle}} & \shortstack[l]{\code{(bulletin\_commitment, bulletin\_entries, bulletin\_availability\_certificate,}\\\code{bulletin\_retrievability\_profile, bulletin\_shard\_manifest,}\\\code{bulletin\_custody\_receipt, canonical\_order\_certificate)}} \\
 \shortstack[l]{\code{CanonicalOrder}\\\code{Abort}} & \shortstack[l]{\code{(height, reason, details, bulletin\_commitment\_hash,}\\\code{bulletin\_availability\_certificate\_hash, bulletin\_close\_hash,}\\\code{canonical\_order\_certificate\_hash)}} \\
 \bottomrule
 \end{tabularx}
@@ -1081,20 +1093,31 @@ canonical hash binding over the public-input hash. \code{CommittedSurfaceV1}
 is the live proof family: its proof payload contains the recoverability root
 and the omission-commitment root for the committed surface. In the current
 runtime, positive ordering artifacts are published through the atomic
-\code{CanonicalOrderPublicationBundle}, and the registry admits that bundle
-only after deterministic closed-slot extraction succeeds. Positive committed
+\code{CanonicalOrderPublicationBundle}, carrying the bound retrievability
+profile / manifest / custody-receipt objects, while the registry
+deterministically materializes the coupled custody-assignment and
+custody-response objects over the same slot surface before admitting the
+positive lane. Positive committed
 blocks also carry a compact signed \code{PublicationFrontier}: it binds the
 same-slot bulletin commitment, ordered-transactions root, and compact
 publication-availability receipt, and it hash-links that summary to the
 previous slot's frontier. Short \code{PublicationFrontierContradiction}
 objects make same-slot conflict or stale predecessor linkage objectively
 rejectable on the hot path. Those frontier objects internalize compact
-publication consistency, but they do not replace successful recovery of the
-full bulletin surface. Validators also run a block-local derivation pass over
+publication consistency, but they do not replace the protocol-native
+retrievability plane that reconstructs or aborts the full bulletin surface.
+Validators also run a block-local derivation pass over
 the committed block boundary: they derive either a
 \code{CanonicalOrderExecutionObject} or a \code{CanonicalOrderAbort}, and
 publish the abort artifact when the proof-carried positive object cannot be
-derived.
+derived. When the endogenous retrievability lane succeeds, the registry
+materializes a first-class \code{BulletinReconstructionCertificate} bound to
+the canonical close, canonical-order certificate, and the same retrievability
+objects. When endogenous retrievability evidence dominates that same surface,
+the registry also materializes a specialized
+\code{BulletinReconstructionAbort} object bound to the challenge and the paired
+\code{CanonicalOrderAbort}, so reconstruction-impossible failure is named as a
+first-class protocol object rather than only as a generic ordering abort.
 
 \subsection{Acceptance rule}
 
@@ -1199,17 +1222,19 @@ stale lineage is objectively rejectable without reconstructing the full
 bulletin on the hot path. But the frontier only binds hashes and receipt roots;
 it is not itself the recoverable bulletin surface.
 
-\begin{theorem}[Recoverability]
-If \(\mathrm{ValidOrderCert}(h, C)\) and the public recoverability /
-self-extraction assumption holds, then every honest verifier can reconstruct
-the same ordered set \(O_h\) from the public bulletin surface, the bound
-frontier / availability commitments, and the succinct witness commitments.
+\begin{theorem}[Endogenous Retrievability]
+If \(\mathrm{ValidOrderCert}(h, C)\) and the canonical bulletin close plus
+protocol-native retrievability plane for slot \(h\) are present and
+unchallenged, then every honest verifier can reconstruct the same ordered set
+\(O_h\) from protocol objects alone: the canonical close, bound frontier /
+availability commitments, retrievability profile, shard manifest, custody
+receipt, positive reconstruction certificate, and published bulletin entries.
 \end{theorem}
 
-Recoverability matters because the accepted order is not merely unique. The
-compact frontier tells validators which surface is being claimed; the
-recoverability assumption tells them that the full surface can actually be
-reconstructed from public evidence.
+Endogenous retrievability matters because the accepted order is not merely
+unique. The compact frontier tells validators which surface is being claimed;
+the retrievability plane tells them that the full surface can actually be
+reconstructed or objectively aborted from protocol evidence.
 
 \subsection{\texorpdfstring{\(99\%\)}{99\%} equal-authority ordering consensus}
 
@@ -1220,8 +1245,9 @@ BFT theorem.
 Assume:
 \begin{enumerate}[leftmargin=1.5em]
 \item the closed bulletin surface \(B_h\) bound by the carried publication
-frontier and bulletin commitment is recoverable from the public bulletin
-substrate,
+frontier and bulletin commitment is governed by a canonical bulletin close and
+protocol-native retrievability plane that deterministically yields extraction
+or abort,
 \item the cutoff object for slot \(h\) is canonical,
 \item bulletin commitments, compact publication-frontier bindings, and omission
 proofs are objectively verifiable,
@@ -1753,8 +1779,8 @@ archived activation is merely latest in local state.
 When the recovered certificate carries objective omission proofs, the same
 recovered lane routes into the ordinary \code{OmissionDominated} abort path
 while keeping omission evidence and recovered bulletin entries public. The
-recovery-family contract, canonical-collapse / replay continuation anchor, and
-recovered-state continuation bundle are therefore part of ordinary endogenous
+recovery-family contract, canonical-collapse / replay retrievability anchor, and
+recovered-state historical retrievability surface are therefore part of ordinary endogenous
 \AFT{} history rather than a narrower theorem-side qualifier. The directly
 discharged recurrence/reduction/totality/collapse chain closes the former
 distance to unconditional classical \code{99\% Byzantine agreement}, so no
@@ -1772,7 +1798,7 @@ The \AFT{} family depends on explicit assumptions. They are not optional prose.
 \textbf{Layer} & \textbf{Required assumptions} & \textbf{Failure consequence} \\
 \midrule
 Base finality & current manifests, current epoch state, majority thresholds, guardian non-equivocation, valid checkpoints, enough validators and guardians to reach quorum & conflicting base-finality evidence or loss of progress \\
-Canonical ordering & objective publication, compact publication-frontier binding and contradiction rules, canonical cutoff, deterministic eligibility, append-only bulletin commitment, proof soundness, explicit public recoverability / self-extraction, canonical bulletin-close extraction, cheap omission verification, accountable omission publication & loss of compact frontier consistency, deterministic extraction, accountability, or the ordering theorem \\
+Canonical ordering & objective publication, compact publication-frontier binding and contradiction rules, canonical cutoff, deterministic eligibility, append-only bulletin commitment, proof soundness, protocol-native retrievability profile / manifest / custody / challenge surface, canonical bulletin-close extraction-or-abort, cheap omission verification, accountable omission publication & loss of compact frontier consistency, deterministic extraction-or-abort, accountability, or the ordering theorem \\
 Sealed finality & valid asymptote policy, current witness seed, valid witness or observer assignments, checkpoint freshness, valid log consistency proofs, deterministic transcript/challenge derivation, accountable challenge publication & incorrect sealed release, loss of accountability, or fail-closed stalling \\
 Sealed effects & correct finality-tier policy, sound verifier metadata, nullifier uniqueness, intent/public-input binding & replay or unsafe irreversible effect release \\
 NestedGuardian & sound witness assignment and registration, correct reassignment handling, witness committee non-equivocation & degraded safety or open liveness behavior \\
@@ -1813,9 +1839,10 @@ classical-agreement bridge builds on. The full ordinary classical
 reduction, totality, and collapse layers discussed above, rather than by these
 module-local safety kernels in isolation. Compact publication-frontier
 summaries internalize same-slot and predecessor consistency on the live path,
-while recoverability / self-extraction remains part of the realizing
-architecture rather than a purely algebraic consequence of the authenticated
-message transcript alone.
+while the protocol-native retrievability plane internalizes closed-bulletin
+extraction-or-abort as an endogenous part of the realizing architecture rather
+than a purely algebraic consequence of the authenticated message transcript
+alone.
 
 The accountable-adversary variant therefore composes these formal kernels with
 runtime accountability rules rather than replacing them: replay-deduplicated
@@ -2191,8 +2218,7 @@ This paper claims:
 \item a production guardian-backed base-finality model in which validator
 quorums are composed with guardian committee admissibility,
 \item proof-carrying canonical ordering with omission dominance and uniqueness,
-plus recoverability under explicit public recoverability / self-extraction
-assumptions,
+plus protocol-native endogenous retrievability,
 \item compact signed publication-frontier summaries and short contradiction
 objects that internalize same-slot and predecessor consistency on the live
 path,
@@ -2205,7 +2231,7 @@ assumptions,
 \item a relay-free, coordinator-free, pure-software public-state-continuity
 theorem yielding deterministic \code{99\% Byzantine Tolerance} for durable
 ordering and sealed-effect safety over the explicit bulletin /
-recoverability/self-extraction substrate,
+retrievability substrate,
 \item that the whole \AFT{} stack universally breaks the lower bound with no
 qualifiers,
 \item a witness-augmented mode for layered threshold constructions,
@@ -2220,8 +2246,8 @@ This paper does \textbf{not} claim:
 \begin{itemize}[leftmargin=1.5em]
 \item that public state continuity arises for free inside the classical DLS /
 PBFT partially synchronous message-passing model,
-\item freedom from bulletin-publication, public recoverability /
-self-extraction, or proof-soundness assumptions,
+\item freedom from bulletin-publication, protocol-native retrievability
+obligations, or proof-soundness assumptions,
 \item that compact publication-frontier summaries make the bulletin surface
 self-extracting inside the classical authenticated-message model,
 \item a full asynchronous liveness theorem under arbitrary registry, log,
@@ -2241,8 +2267,9 @@ revelation phrasing, provided the substrate model is stated honestly.
 Assume the system model of Section~\ref{sec:system-model}, guardian
 non-equivocation, proof soundness, compact signed publication-frontier
 summaries whose same-slot and predecessor-link contradictions are objectively
-checkable, public recoverability / self-extraction plus canonical
-bulletin-close extraction for the bulletin surface bound by those frontiers,
+checkable, protocol-native retrievability objects plus canonical
+bulletin-close extraction-or-abort for the bulletin surface bound by those
+frontiers,
 deterministic transcript/challenge derivation for sealing, durable state
 advancement only through canonical collapse, and irreversible-effect release
 only through collapse-bound sealed proofs. Then up to \(99\%\) of validators
@@ -2260,20 +2287,22 @@ The theorem is stronger than the older accountable revelation summary because
 invalid positive objects are not merely rejectable or penalty-bearing. They are
 already dominated by deterministic negative objects and collapse-gated durable
 state before any penalty logic runs.
-Compact publication frontiers narrow the live hot-path assumption surface by
-internalizing cheap consistency and lineage checks, but they do not replace the
-recoverability / self-extraction assumption on the full bulletin surface.
+Compact publication frontiers keep the live hot path cheap by internalizing
+consistency and lineage checks, while the protocol-native retrievability plane
+discharges deterministic extraction-or-abort on the full bulletin surface.
 
 \begin{theorem}[Realizing-Mechanism Statement]
 The new publication-frontier slice is not the theorem by itself; the theorem is
 realized by the full \AFT{} public-state-continuity architecture. Compact
 signed publication-frontier summaries, compact availability receipts, short
-frontier contradiction objects, public recoverability, self-extracting
-reconstruction of the closed bulletin surface, canonical collapse, and
-historical continuation together realize the same unconditional classical
+frontier contradiction objects, endogenous retrievability profiles, manifests,
+custody assignments, custody receipts, custody responses, retrievability
+challenges, canonical extraction-or-abort, canonical collapse, and historical
+retrievability together realize the same
+unconditional classical
 \code{99\% Byzantine agreement} sentence stated above. Removing that
-recoverability / self-extraction primitive removes part of the realizing
-mechanism rather than merely shaving off an optional refinement.
+protocol-native retrievability plane removes part of the realizing mechanism
+rather than merely shaving off an optional refinement.
 \end{theorem}
 
 \begin{proposition}[Scoped Witness-Coded Constructive Corollary]
@@ -2311,7 +2340,7 @@ negative proofs, without trusted relays, privileged coordinators, TEEs, or
 dense positive quorum intersection. The live publication-frontier slice
 internalizes compact same-slot and predecessor consistency on the hot path,
 while explicit recoverability of the bound bulletin surface, canonical
-collapse, and historical continuation complete the same ordinary agreement
+collapse, and historical retrievability complete the same ordinary agreement
 sentence. Publication and accountability serve as reinforcement rather than the
 source of correctness. Liveness then follows from the availability of the PSC
 substrate and eventual publication of the protocol-defined artifacts, and the

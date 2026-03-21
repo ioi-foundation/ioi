@@ -7,10 +7,14 @@ Canonical theorem/protocol specification:
 
 - [`yellow_paper.tex`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/yellow_paper.tex): standalone LaTeX yellow paper for Asymptote Fault Tolerance (AFT), including the final theorem surface, self-contained protocol coverage, embedded formal-artifact context, and implementation correspondence
 
+Current follow-on design program:
+
+- [`../ENDOGENOUS_RETRIEVABILITY_PROGRAM.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/ENDOGENOUS_RETRIEVABILITY_PROGRAM.md): design program for finishing the protocol-native retrievability plane rooted in canonical close, custody, challenge, extraction, and deterministic abort
+
 - [`guardian_majority.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/guardian_majority.md): production GuardianMajority fault model, now scoped as transport / tentative progress under PSC-gated durability
 - [`asymptote.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/asymptote.md): two-tier finality with asynchronous sealing, equal-authority observer veto-collapse, and sealed-only effects under the repository's broader PSC-based `99%` Byzantine-tolerance claim
 - [`deterministic_observer_sealing.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/deterministic_observer_sealing.md): normative `CanonicalChallengeV1` observer-sealing spec: deterministic transcript/challenge surfaces, close-or-abort exclusivity, challenge dominance, and sealed-effect binding
-- [`canonical_ordering.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/canonical_ordering.md): normative ordering-specific PSC theorem surface: `99%` equal-authority canonical ordering, deterministic extraction, omission-dominant aborts, and bulletin / DA assumptions
+- [`canonical_ordering.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/canonical_ordering.md): normative ordering-specific PSC theorem surface: `99%` equal-authority canonical ordering, deterministic extraction-or-abort, omission-dominant aborts, compact publication frontiers, and the endogenous retrievability plane
 - [`equal_authority_ordering.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/equal_authority_ordering.md): architectural framing for AFT's `99%` equal-authority ordering consensus claim and its separation of revelation from dense positive voting
 - [`nested_guardian.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/nested_guardian.md): witness-augmented NestedGuardian protocol scope
 - [`recovered_prefix_kernel_certificates.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/recovered_prefix_kernel_certificates.md): exploratory future-work note for a bounded recovered-prefix certificate family, starting from a public fixed-function validity certificate and only later considering succinct or zk wrappers

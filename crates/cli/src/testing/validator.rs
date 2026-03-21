@@ -19,6 +19,8 @@ use ioi_types::config::{
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
@@ -34,6 +36,17 @@ use tokio::time::Duration;
 // use ioi_types::codec;
 
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(120);
+
+fn benchmark_trace_component_log_path(base_port: u16, component: &str) -> Option<PathBuf> {
+    let dir = std::env::var_os("IOI_AFT_BENCH_TRACE_DIR")?;
+    Some(PathBuf::from(dir).join(format!("validator-{base_port}-{component}.log")))
+}
+
+fn append_benchmark_trace_line(path: &Path, line: &str) {
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(file, "{line}");
+    }
+}
 
 fn built_node_profiles() -> &'static StdMutex<HashSet<String>> {
     static BUILT_NODE_PROFILES: OnceLock<StdMutex<HashSet<String>>> = OnceLock::new();
@@ -621,6 +634,13 @@ impl TestValidator {
                 .kill_on_drop(true);
             if let Some(value) = std::env::var_os("IOI_AFT_BENCH_TRACE") {
                 workload_cmd.env("IOI_AFT_BENCH_TRACE", value);
+                if let Some(dir) = std::env::var_os("IOI_AFT_BENCH_TRACE_DIR") {
+                    workload_cmd.env("IOI_AFT_BENCH_TRACE_DIR", dir);
+                }
+                workload_cmd.env(
+                    "IOI_AFT_BENCH_NODE_LABEL",
+                    format!("validator-{}-workload", base_port),
+                );
                 workload_cmd.env(
                     "RUST_LOG",
                     "info,execution=info,execution_bench=info,workload=info",
@@ -670,6 +690,13 @@ impl TestValidator {
                 .kill_on_drop(true);
             if let Some(value) = std::env::var_os("IOI_AFT_BENCH_TRACE") {
                 orch_cmd.env("IOI_AFT_BENCH_TRACE", value);
+                if let Some(dir) = std::env::var_os("IOI_AFT_BENCH_TRACE_DIR") {
+                    orch_cmd.env("IOI_AFT_BENCH_TRACE_DIR", dir);
+                }
+                orch_cmd.env(
+                    "IOI_AFT_BENCH_NODE_LABEL",
+                    format!("validator-{}-orch", base_port),
+                );
                 orch_cmd.env(
                     "RUST_LOG",
                     "info,rpc=debug,consensus=debug,consensus_bench=info,orchestration=info",
@@ -692,23 +719,35 @@ impl TestValidator {
         let (mut orch_logs, mut workload_logs, guardian_logs_opt) = backend.get_log_streams()?;
 
         let orch_tx_clone = orch_log_tx.clone();
+        let orch_trace_path = benchmark_trace_component_log_path(base_port, "orch");
         log_drain_handles.push(tokio::spawn(async move {
             while let Some(Ok(line)) = orch_logs.next().await {
+                if let Some(path) = orch_trace_path.as_ref() {
+                    append_benchmark_trace_line(path, &line);
+                }
                 let _ = orch_tx_clone.send(line);
             }
         }));
 
         let work_tx_clone = workload_log_tx.clone();
+        let workload_trace_path = benchmark_trace_component_log_path(base_port, "workload");
         log_drain_handles.push(tokio::spawn(async move {
             while let Some(Ok(line)) = workload_logs.next().await {
+                if let Some(path) = workload_trace_path.as_ref() {
+                    append_benchmark_trace_line(path, &line);
+                }
                 let _ = work_tx_clone.send(line);
             }
         }));
 
         if let (Some(mut guardian_logs), Some(tx)) = (guardian_logs_opt, guardian_log_tx.as_ref()) {
             let tx_clone = tx.clone();
+            let guardian_trace_path = benchmark_trace_component_log_path(base_port, "guardian");
             log_drain_handles.push(tokio::spawn(async move {
                 while let Some(Ok(line)) = guardian_logs.next().await {
+                    if let Some(path) = guardian_trace_path.as_ref() {
+                        append_benchmark_trace_line(path, &line);
+                    }
                     let _ = tx_clone.send(line);
                 }
             }));

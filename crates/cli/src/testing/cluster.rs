@@ -530,7 +530,7 @@ fn build_auto_guardian_harness(
                 observer_rounds: if observer_committee_size > 0 { 1 } else { 0 },
                 observer_committee_size,
                 observer_correlation_budget: Default::default(),
-                observer_sealing_mode: AsymptoteObserverSealingMode::SampledCloseV1,
+                observer_sealing_mode: AsymptoteObserverSealingMode::CanonicalChallengeV1,
                 observer_challenge_window_ms: 0,
                 max_reassignment_depth: 0,
                 max_checkpoint_staleness_ms: 120_000,
@@ -1108,6 +1108,7 @@ impl TestClusterBuilder {
                 let mut observed_heights = Vec::new();
                 let mut observed_timestamps = Vec::new();
                 let mut observed_peer_counts = Vec::new();
+                let mut zero_height_indices = Vec::new();
 
                 for (i, v_guard) in validators.iter().enumerate() {
                     let rpc_addr = &v_guard.validator().rpc_addr;
@@ -1126,7 +1127,9 @@ impl TestClusterBuilder {
                                 "Node {}: Height={} Peers={} Ts={}",
                                 i, status.height, peers, status.latest_timestamp
                             ));
-                            if status.height < 1 && !allow_zero_height_ready {
+                            if status.height == 0 {
+                                zero_height_indices.push(i);
+                            } else if status.height < 1 && !allow_zero_height_ready {
                                 all_reached = false;
                             }
                         }
@@ -1136,6 +1139,43 @@ impl TestClusterBuilder {
                             all_reached = false;
                         }
                     }
+                }
+
+                if all_reached
+                    && !zero_height_indices.is_empty()
+                    && observed_heights.iter().copied().any(|height| height > 0)
+                {
+                    for index in zero_height_indices.iter().copied() {
+                        let rpc_addr = &validators[index].validator().rpc_addr;
+                        match crate::testing::rpc::tip_height_resilient(rpc_addr).await {
+                            Ok(probed_height) if probed_height > 0 => {
+                                observed_heights[index] = probed_height;
+                                status_lines.push(format!(
+                                    "Node {}: get_status.height=0 looked stale; resilient tip probe found height {}",
+                                    index, probed_height
+                                ));
+                            }
+                            Ok(_) => {
+                                status_lines.push(format!(
+                                    "Node {}: get_status.height=0 and resilient tip probe also found no committed blocks yet",
+                                    index
+                                ));
+                            }
+                            Err(error) => {
+                                status_lines.push(format!(
+                                    "Node {}: get_status.height=0 and resilient tip probe failed: {}",
+                                    index, error
+                                ));
+                            }
+                        }
+                    }
+                }
+
+                if all_reached
+                    && !allow_zero_height_ready
+                    && observed_heights.iter().copied().any(|height| height < 1)
+                {
+                    all_reached = false;
                 }
 
                 if all_reached {
@@ -1161,6 +1201,12 @@ impl TestClusterBuilder {
                         status_lines.push(format!(
                             "Heights diverged beyond readiness lag: min={} max={} lag={}",
                             min_height, max_height, height_lag
+                        ));
+                    } else if min_height == 0 && max_height > 0 {
+                        all_reached = false;
+                        status_lines.push(format!(
+                            "Mixed zero/non-zero heights are not readiness-safe: min={} max={}",
+                            min_height, max_height
                         ));
                     } else if max_height == 0
                         && (allow_zero_height_ready

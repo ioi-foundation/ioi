@@ -6,7 +6,7 @@
 
 use super::support::{
     create_transfer_tx, generate_accounts, render_markdown_table, summarize_latencies,
-    PaperBenchmarkResult, BACKOFF_MS, BLOCK_TIME_SECS, MAX_RETRIES,
+    PaperBenchmarkResult, BACKOFF_MS, BLOCK_TIME_MS, MAX_RETRIES,
 };
 use anyhow::{anyhow, Result};
 use futures_util::stream::{self, StreamExt, TryStreamExt};
@@ -17,9 +17,11 @@ use ioi_ipc::public::{
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, interval_millis_to_legacy_seconds, AccountId,
-        ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, ChainTransaction, SignatureSuite,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, aft_canonical_collapse_object_key,
+        aft_canonical_order_abort_key, aft_order_certificate_key,
+        interval_millis_to_legacy_seconds, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, ChainTransaction, SignatureSuite, ValidatorSetV1, ValidatorSetsV1,
+        ValidatorV1,
     },
     codec,
     config::{AftSafetyMode, ValidatorRole},
@@ -40,6 +42,42 @@ const LATENCY_SAMPLE_LIMIT: usize = 128;
 const DEFAULT_SUBMIT_TIMEOUT_MS: u64 = 5_000;
 const DEFAULT_STATUS_TIMEOUT_MS: u64 = 1_000;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AftBenchmarkLane {
+    BaseFinal,
+    SealedFinal,
+    CanonicalOrdering,
+    DurableCollapse,
+}
+
+impl AftBenchmarkLane {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::BaseFinal => "base_final",
+            Self::SealedFinal => "sealed_final",
+            Self::CanonicalOrdering => "canonical_ordering",
+            Self::DurableCollapse => "durable_collapse",
+        }
+    }
+
+    fn supports(self, safety_mode: AftSafetyMode) -> bool {
+        match self {
+            Self::BaseFinal | Self::CanonicalOrdering | Self::DurableCollapse => true,
+            Self::SealedFinal => matches!(safety_mode, AftSafetyMode::Asymptote),
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        match value {
+            "base_final" | "base" => Some(Self::BaseFinal),
+            "sealed_final" | "sealed" => Some(Self::SealedFinal),
+            "canonical_ordering" | "ordering" => Some(Self::CanonicalOrdering),
+            "durable_collapse" | "canonical_collapse" | "collapse" => Some(Self::DurableCollapse),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 struct MetricsSnapshot {
     connected_peers: String,
@@ -50,6 +88,13 @@ struct MetricsSnapshot {
 fn prebuilt_node_profiles() -> &'static StdMutex<BTreeSet<String>> {
     static PREBUILT: OnceLock<StdMutex<BTreeSet<String>>> = OnceLock::new();
     PREBUILT.get_or_init(|| StdMutex::new(BTreeSet::new()))
+}
+
+fn benchmark_rebuild_node_binary() -> bool {
+    std::env::var("IOI_AFT_BENCH_REBUILD_NODE")
+        .ok()
+        .map(|value| !matches!(value.as_str(), "0" | "false" | "FALSE" | "False"))
+        .unwrap_or(true)
 }
 
 fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
@@ -64,13 +109,27 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
     let build_profile =
         std::env::var("IOI_TEST_BUILD_PROFILE").unwrap_or_else(|_| "release".to_string());
     let cache_key = format!("{build_profile}|{features}");
-    {
+    let rebuild_node_binary = benchmark_rebuild_node_binary();
+    let first_build_for_profile = {
         let mut built = prebuilt_node_profiles()
             .lock()
             .expect("benchmark prebuild cache poisoned");
-        if !built.insert(cache_key.clone()) {
-            return Ok(());
-        }
+        built.insert(cache_key.clone())
+    };
+    if !first_build_for_profile {
+        return Ok(());
+    }
+
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("workspace root");
+    let node_binary_dir = workspace_root.join("target").join(&build_profile);
+    let binaries_present = ["orchestration", "workload", "guardian"]
+        .iter()
+        .all(|bin| node_binary_dir.join(bin).exists());
+    if binaries_present && !rebuild_node_binary {
+        return Ok(());
     }
 
     let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
@@ -117,12 +176,23 @@ fn benchmark_fast_probe() -> bool {
         .unwrap_or(false)
 }
 
+fn benchmark_trace_enabled() -> bool {
+    std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
+}
+
+fn benchmark_skip_artifact_build() -> bool {
+    std::env::var("IOI_AFT_BENCH_SKIP_ARTIFACT_BUILD")
+        .ok()
+        .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
+        .unwrap_or(true)
+}
+
 #[derive(Debug, Clone, Copy)]
 struct AftBenchmarkScenario {
     name: &'static str,
     validators: usize,
     safety_mode: AftSafetyMode,
-    target_block_time_secs: u64,
+    target_block_time_ms: u64,
     target_gas_per_block: u64,
     accounts: usize,
     txs_per_account: u64,
@@ -136,7 +206,7 @@ impl AftBenchmarkScenario {
             name: "guardian_majority_4v",
             validators: 4,
             safety_mode: AftSafetyMode::GuardianMajority,
-            target_block_time_secs: BLOCK_TIME_SECS,
+            target_block_time_ms: BLOCK_TIME_MS,
             target_gas_per_block: 1_000_000_000,
             accounts: 512,
             txs_per_account: 1,
@@ -150,7 +220,7 @@ impl AftBenchmarkScenario {
             name: "guardian_majority_7v",
             validators: 7,
             safety_mode: AftSafetyMode::GuardianMajority,
-            target_block_time_secs: BLOCK_TIME_SECS,
+            target_block_time_ms: BLOCK_TIME_MS,
             target_gas_per_block: 1_000_000_000,
             accounts: 768,
             txs_per_account: 1,
@@ -164,7 +234,7 @@ impl AftBenchmarkScenario {
             name: "asymptote_4v",
             validators: 4,
             safety_mode: AftSafetyMode::Asymptote,
-            target_block_time_secs: BLOCK_TIME_SECS,
+            target_block_time_ms: BLOCK_TIME_MS,
             target_gas_per_block: 1_000_000_000,
             accounts: 512,
             txs_per_account: 1,
@@ -178,7 +248,7 @@ impl AftBenchmarkScenario {
             name: "asymptote_7v",
             validators: 7,
             safety_mode: AftSafetyMode::Asymptote,
-            target_block_time_secs: BLOCK_TIME_SECS,
+            target_block_time_ms: BLOCK_TIME_MS,
             target_gas_per_block: 1_000_000_000,
             accounts: 768,
             txs_per_account: 1,
@@ -204,9 +274,16 @@ struct CommittedTx {
 }
 
 #[derive(Debug, Clone)]
-struct SealedBlock {
+enum AftTerminalOutcome {
+    Close,
+    Abort,
+}
+
+#[derive(Debug, Clone)]
+struct AftTerminalBlock {
     height: u64,
-    sealed_at: Instant,
+    terminal_at: Instant,
+    outcome: AftTerminalOutcome,
 }
 
 struct ScopedEnv {
@@ -310,6 +387,35 @@ fn benchmark_primary_only() -> bool {
         .unwrap_or(false)
 }
 
+fn benchmark_lane_filter() -> Option<AftBenchmarkLane> {
+    std::env::var("IOI_AFT_BENCH_LANE")
+        .ok()
+        .as_deref()
+        .and_then(AftBenchmarkLane::parse)
+}
+
+fn benchmark_route_to_leaders() -> bool {
+    std::env::var("IOI_AFT_BENCH_ROUTE_TO_LEADERS")
+        .ok()
+        .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
+        .unwrap_or(false)
+}
+
+fn benchmark_block_time_ms(default_ms: u64) -> u64 {
+    std::env::var("IOI_AFT_BENCH_BLOCK_TIME_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .or_else(|| {
+            std::env::var("IOI_AFT_BENCH_BLOCK_TIME_SECS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .filter(|value| *value > 0)
+                .map(|secs| secs.saturating_mul(1_000))
+        })
+        .unwrap_or(default_ms)
+}
+
 fn benchmark_live_logs_enabled() -> bool {
     std::env::var("IOI_AFT_BENCH_LIVE_LOGS")
         .ok()
@@ -323,7 +429,7 @@ fn spawn_benchmark_live_log_drains(cluster: &TestCluster) {
     }
 
     for (validator_index, guard) in cluster.validators.iter().enumerate() {
-        let (mut orch_logs, _workload_logs, _guardian_logs) = guard.validator().subscribe_logs();
+        let (mut orch_logs, mut workload_logs, guardian_logs) = guard.validator().subscribe_logs();
         tokio::spawn(async move {
             loop {
                 match orch_logs.recv().await {
@@ -339,6 +445,42 @@ fn spawn_benchmark_live_log_drains(cluster: &TestCluster) {
                 }
             }
         });
+
+        if benchmark_trace_enabled() {
+            tokio::spawn(async move {
+                loop {
+                    match workload_logs.recv().await {
+                        Ok(line) => {
+                            println!("[BENCH-LIVE][v{validator_index}][workload] {line}");
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                            println!(
+                                "[BENCH-LIVE][v{validator_index}][workload] <lagged {skipped} log lines>"
+                            );
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+            });
+
+            if let Some(mut guardian_logs) = guardian_logs {
+                tokio::spawn(async move {
+                    loop {
+                        match guardian_logs.recv().await {
+                            Ok(line) => {
+                                println!("[BENCH-LIVE][v{validator_index}][guardian] {line}");
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                                println!(
+                                    "[BENCH-LIVE][v{validator_index}][guardian] <lagged {skipped} log lines>"
+                                );
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                        }
+                    }
+                });
+            }
+        }
     }
 }
 
@@ -542,25 +684,136 @@ async fn poll_committed_transaction(
     }
 }
 
-async fn wait_for_sealed_block(
-    rpc_addr: &str,
+async fn query_state_key_any_rpc(rpc_addrs: &[String], key: &[u8]) -> Result<Option<Vec<u8>>> {
+    for rpc_addr in rpc_addrs {
+        if let Some(value) = rpc::query_state_key(rpc_addr, key).await? {
+            return Ok(Some(value));
+        }
+    }
+    Ok(None)
+}
+
+async fn wait_for_canonical_ordering_terminal_block(
+    rpc_addrs: &[String],
     height: u64,
     timeout: Duration,
-) -> Result<SealedBlock> {
+) -> Result<AftTerminalBlock> {
     let start = Instant::now();
+    let close_key = aft_order_certificate_key(height);
+    let abort_key = aft_canonical_order_abort_key(height);
     loop {
         if start.elapsed() > timeout {
             return Err(anyhow!(
-                "timeout waiting for sealed finality proof at height {}",
+                "timeout waiting for canonical ordering terminal surface at height {}",
                 height
             ));
         }
 
-        if let Some(block) = rpc::get_block_by_height_resilient(rpc_addr, height).await? {
-            if block.header.sealed_finality_proof.is_some() {
-                return Ok(SealedBlock {
+        if query_state_key_any_rpc(rpc_addrs, &abort_key)
+            .await?
+            .is_some()
+        {
+            return Ok(AftTerminalBlock {
+                height,
+                terminal_at: Instant::now(),
+                outcome: AftTerminalOutcome::Abort,
+            });
+        }
+        if query_state_key_any_rpc(rpc_addrs, &close_key)
+            .await?
+            .is_some()
+        {
+            return Ok(AftTerminalBlock {
+                height,
+                terminal_at: Instant::now(),
+                outcome: AftTerminalOutcome::Close,
+            });
+        }
+        if let Some(block) = get_block_by_height_any_rpc(rpc_addrs, height).await? {
+            if block.header.canonical_order_certificate.is_some() {
+                return Ok(AftTerminalBlock {
                     height,
-                    sealed_at: Instant::now(),
+                    terminal_at: Instant::now(),
+                    outcome: AftTerminalOutcome::Close,
+                });
+            }
+        }
+
+        sleep(Duration::from_millis(200)).await;
+    }
+}
+
+async fn wait_for_durable_collapse_terminal_block(
+    rpc_addrs: &[String],
+    height: u64,
+    timeout: Duration,
+) -> Result<AftTerminalBlock> {
+    let start = Instant::now();
+    let collapse_key = aft_canonical_collapse_object_key(height);
+    let abort_key = aft_canonical_order_abort_key(height);
+    loop {
+        if start.elapsed() > timeout {
+            return Err(anyhow!(
+                "timeout waiting for durable collapse surface at height {}",
+                height
+            ));
+        }
+
+        if query_state_key_any_rpc(rpc_addrs, &collapse_key)
+            .await?
+            .is_some()
+        {
+            let outcome = if query_state_key_any_rpc(rpc_addrs, &abort_key)
+                .await?
+                .is_some()
+            {
+                AftTerminalOutcome::Abort
+            } else {
+                AftTerminalOutcome::Close
+            };
+            return Ok(AftTerminalBlock {
+                height,
+                terminal_at: Instant::now(),
+                outcome,
+            });
+        }
+
+        sleep(Duration::from_millis(200)).await;
+    }
+}
+
+async fn wait_for_sealed_terminal_block(
+    rpc_addrs: &[String],
+    height: u64,
+    timeout: Duration,
+) -> Result<AftTerminalBlock> {
+    let start = Instant::now();
+    let abort_key = aft_canonical_order_abort_key(height);
+    loop {
+        if start.elapsed() > timeout {
+            return Err(anyhow!(
+                "timeout waiting for sealed AFT terminal surface at height {}",
+                height
+            ));
+        }
+
+        if query_state_key_any_rpc(rpc_addrs, &abort_key)
+            .await?
+            .is_some()
+        {
+            return Ok(AftTerminalBlock {
+                height,
+                terminal_at: Instant::now(),
+                outcome: AftTerminalOutcome::Abort,
+            });
+        }
+
+        if let Some(block) = get_block_by_height_any_rpc(rpc_addrs, height).await? {
+            if block.header.sealed_finality_proof.is_some() {
+                return Ok(AftTerminalBlock {
+                    height,
+                    terminal_at: Instant::now(),
+                    outcome: AftTerminalOutcome::Close,
                 });
             }
         }
@@ -1042,18 +1295,22 @@ async fn collect_final_transaction_statuses(
     Ok((committed, committed_heights, status_buckets))
 }
 
-async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkResult> {
+async fn run_scenario(
+    scenario: AftBenchmarkScenario,
+    lane: AftBenchmarkLane,
+) -> Result<PaperBenchmarkResult> {
+    if !lane.supports(scenario.safety_mode) {
+        return Err(anyhow!(
+            "benchmark lane {} is not supported for {:?}",
+            lane.as_str(),
+            scenario.safety_mode
+        ));
+    }
+
     let accounts = benchmark_override_usize("IOI_AFT_BENCH_ACCOUNTS", scenario.accounts);
     let txs_per_account =
         benchmark_override_u64("IOI_AFT_BENCH_TXS_PER_ACCOUNT", scenario.txs_per_account);
-    let target_block_time_secs = benchmark_override_u64(
-        "IOI_AFT_BENCH_BLOCK_TIME_SECS",
-        scenario.target_block_time_secs,
-    );
-    let target_block_time_ms = benchmark_override_u64(
-        "IOI_AFT_BENCH_BLOCK_TIME_MS",
-        target_block_time_secs.saturating_mul(1_000),
-    );
+    let target_block_time_ms = benchmark_block_time_ms(scenario.target_block_time_ms);
     let target_block_time_secs_legacy = interval_millis_to_legacy_seconds(target_block_time_ms);
     let benchmark_tx_total = accounts.saturating_mul(txs_per_account as usize);
     let fast_probe = benchmark_fast_probe();
@@ -1083,8 +1340,9 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
     );
 
     println!(
-        "--- Running AFT paper benchmark scenario: {} ({:?}, {} validators, {} accounts x {} tx/account, gas/block {}, block_time_ms {}, state {}) ---",
+        "--- Running AFT paper benchmark scenario: {} [{}] ({:?}, {} validators, {} accounts x {} tx/account, gas/block {}, block_time_ms {}, state {}) ---",
         scenario.name,
+        lane.as_str(),
         scenario.safety_mode,
         scenario.validators,
         accounts,
@@ -1122,15 +1380,39 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
         "IOI_AFT_BENCH_VIEW_TIMEOUT_MS",
         target_block_time_ms.saturating_mul(4).clamp(500, 2_000),
     );
+    let trace_mode = benchmark_trace_enabled();
     let startup_buffer_secs = benchmark_override_u64(
         "IOI_AFT_BENCH_STARTUP_BUFFER_SECS",
-        std::cmp::max(20, scenario.validators as u64 * 5),
+        if trace_mode || fast_probe {
+            std::cmp::max(3, scenario.validators as u64)
+        } else {
+            std::cmp::max(5, scenario.validators as u64 * 2)
+        },
     );
     let bootstrap_grace_secs = benchmark_override_u64(
         "IOI_AFT_BOOTSTRAP_GRACE_SECS",
-        startup_buffer_secs.saturating_add(target_block_time_secs.saturating_mul(2)),
+        if trace_mode || fast_probe {
+            startup_buffer_secs
+                .saturating_add(target_block_time_secs_legacy.max(1))
+                .max(5)
+        } else {
+            startup_buffer_secs.saturating_add(target_block_time_secs_legacy.saturating_mul(2))
+        },
     );
     let mut benchmark_env = ScopedEnv::new();
+    if benchmark_trace_enabled() && std::env::var_os("IOI_AFT_BENCH_TRACE_DIR").is_none() {
+        let trace_dir = std::env::temp_dir().join(format!(
+            "ioi-aft-bench-trace-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|duration| duration.as_millis())
+                .unwrap_or_default()
+        ));
+        std::fs::create_dir_all(&trace_dir)?;
+        println!("--- Benchmark trace dir: {} ---", trace_dir.display());
+        benchmark_env.set("IOI_AFT_BENCH_TRACE_DIR", trace_dir.to_string_lossy().to_string());
+    }
     benchmark_env.set(
         "IOI_INGESTION_BATCH_SIZE",
         env_or_default("IOI_INGESTION_BATCH_SIZE", target_batch.to_string()),
@@ -1189,7 +1471,7 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
         "IOI_TEST_FULL_MESH_BOOTNODES",
         env_or_default(
             "IOI_TEST_FULL_MESH_BOOTNODES",
-            if scenario.validators > 1 { "1" } else { "0" },
+            "0",
         ),
     );
     benchmark_env.set(
@@ -1235,13 +1517,13 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
             .map_err(|error| anyhow!("invalid IOI_GENESIS_TIMESTAMP_SECS override: {error}"))?
             .saturating_mul(1_000)
     } else {
+        let block_time_floor = target_block_time_secs_legacy.max(1);
         let required_future_offset_secs = startup_buffer_secs
-            .saturating_add(bootstrap_grace_secs)
-            .saturating_add(target_block_time_secs.saturating_mul(4).max(4))
-            .saturating_add((scenario.validators as u64).saturating_mul(4))
+            .saturating_add(block_time_floor.saturating_mul(2))
+            .saturating_add((scenario.validators as u64).div_ceil(2))
             .max(
                 bootstrap_grace_secs
-                    .saturating_add(target_block_time_secs.max(1))
+                    .saturating_add(block_time_floor)
                     .saturating_add(1),
             );
         SystemTime::now()
@@ -1353,10 +1635,11 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
             .collect::<Vec<_>>();
         let primary_rpc_addr = rpc_addrs[0].clone();
         let primary_only = benchmark_primary_only();
+        let route_to_leaders = benchmark_route_to_leaders();
         let align_to_next_block = std::env::var("IOI_AFT_BENCH_ALIGN_TO_NEXT_BLOCK")
             .ok()
             .map(|value| !matches!(value.as_str(), "0" | "false" | "FALSE" | "False"))
-            .unwrap_or(true);
+            .unwrap_or(!(trace_mode || fast_probe));
         let submit_lead_ms =
             benchmark_override_u64_allow_zero("IOI_AFT_BENCH_SUBMIT_LEAD_MS", 0);
         if align_to_next_block {
@@ -1373,14 +1656,14 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
                         .latest_timestamp
                         .saturating_sub(now_secs)
                         .saturating_add(bootstrap_grace_secs)
-                        .saturating_add(target_block_time_secs.saturating_mul(4).max(4))
+                        .saturating_add(target_block_time_secs_legacy.saturating_mul(4).max(4))
                         .max(bootstrap_grace_secs.saturating_add(4))
                 } else {
                     current_status
                         .latest_timestamp
                         .saturating_sub(now_secs)
-                        .saturating_add(target_block_time_secs.saturating_mul(3))
-                        .max(target_block_time_secs.saturating_mul(3).max(3))
+                        .saturating_add(target_block_time_secs_legacy.saturating_mul(3))
+                        .max(target_block_time_secs_legacy.saturating_mul(3).max(3))
                 };
                 let alignment_result = wait_for_next_height(
                     &primary_rpc_addr,
@@ -1401,26 +1684,31 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
                 }
                 rpc::get_status(&primary_rpc_addr).await?
             };
-            let next_due_secs = refreshed_status
-                .latest_timestamp
-                .saturating_add(target_block_time_secs);
             if let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) {
-                let due_at = Duration::from_secs(next_due_secs);
+                let latest_timestamp_ms = if refreshed_status.height == 0 {
+                    benchmark_genesis_anchor_ms
+                } else {
+                    refreshed_status.latest_timestamp.saturating_mul(1_000)
+                };
+                let next_due_ms = latest_timestamp_ms.saturating_add(target_block_time_ms);
+                let due_at = Duration::from_millis(next_due_ms);
                 let lead = Duration::from_millis(submit_lead_ms);
                 let target_start = due_at.saturating_sub(lead);
                 let wait_for = target_start.saturating_sub(now);
                 if !wait_for.is_zero() {
                     println!(
-                        "--- Aligning submission burst to {} ms before next due block (height={}, next_due={}) ---",
+                        "--- Aligning submission burst to {} ms before next due block (height={}, next_due_ms={}) ---",
                         submit_lead_ms,
                         refreshed_status.height,
-                        next_due_secs
+                        next_due_ms
                     );
                     sleep(wait_for).await;
                 }
             }
         }
         let channel_addrs = if primary_only {
+            vec![primary_rpc_addr.clone()]
+        } else if route_to_leaders {
             let current_status = rpc::get_status(&primary_rpc_addr).await?;
             let approx_tx_capacity_per_leader =
                 usize::max((benchmark_tx_select_max_bytes / 1_024) as usize, 1);
@@ -1731,7 +2019,9 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
             .collect::<Vec<_>>();
         let commit_latency = summarize_latencies(&commit_latencies);
 
-        let sealed_latency = if matches!(scenario.safety_mode, AftSafetyMode::Asymptote) {
+        let terminal_result = if committed_heights.is_empty() || matches!(lane, AftBenchmarkLane::BaseFinal) {
+            None
+        } else {
             let mut earliest_commit_by_height = BTreeMap::new();
             for record in &committed_records {
                 earliest_commit_by_height
@@ -1744,32 +2034,72 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
                     .or_insert(record.committed_at);
             }
 
-            let sealed_blocks = stream::iter(committed_heights.iter().copied())
+            let terminal_blocks = stream::iter(committed_heights.iter().copied())
                 .map(|height| {
-                    let rpc_addr = primary_rpc_addr.clone();
-                    async move { wait_for_sealed_block(&rpc_addr, height, commit_timeout).await }
+                    let rpc_addrs = rpc_addrs.clone();
+                    let lane = lane;
+                    async move {
+                        match lane {
+                            AftBenchmarkLane::BaseFinal => unreachable!("base-final lane should not wait for terminal blocks"),
+                            AftBenchmarkLane::SealedFinal => {
+                                wait_for_sealed_terminal_block(&rpc_addrs, height, commit_timeout)
+                                    .await
+                            }
+                            AftBenchmarkLane::CanonicalOrdering => {
+                                wait_for_canonical_ordering_terminal_block(
+                                    &rpc_addrs,
+                                    height,
+                                    commit_timeout,
+                                )
+                                .await
+                            }
+                            AftBenchmarkLane::DurableCollapse => {
+                                wait_for_durable_collapse_terminal_block(
+                                    &rpc_addrs,
+                                    height,
+                                    commit_timeout,
+                                )
+                                .await
+                            }
+                        }
+                    }
                 })
                 .buffer_unordered(usize::min(committed_heights.len(), 8))
                 .try_collect::<Vec<_>>()
                 .await?;
 
-            let sealed_latencies = sealed_blocks
+            let collapse_latencies = terminal_blocks
                 .iter()
-                .filter_map(|sealed| {
+                .filter_map(|terminal| {
                     earliest_commit_by_height
-                        .get(&sealed.height)
-                        .map(|committed_at| sealed.sealed_at.duration_since(*committed_at))
+                        .get(&terminal.height)
+                        .map(|committed_at| terminal.terminal_at.duration_since(*committed_at))
                 })
                 .collect::<Vec<_>>();
-            Some(summarize_latencies(&sealed_latencies))
-        } else {
-            None
+            Some((
+                summarize_latencies(&collapse_latencies),
+                terminal_blocks
+                    .iter()
+                    .filter(|terminal| matches!(terminal.outcome, AftTerminalOutcome::Close))
+                    .count(),
+                terminal_blocks
+                    .iter()
+                    .filter(|terminal| matches!(terminal.outcome, AftTerminalOutcome::Abort))
+                    .count(),
+            ))
         };
+
+        let (terminal_latency, terminal_close_blocks, terminal_abort_blocks) = terminal_result
+            .map(|(latency, close_blocks, abort_blocks)| {
+                (Some(latency), close_blocks, abort_blocks)
+            })
+            .unwrap_or((None, 0, 0));
 
         Ok(PaperBenchmarkResult {
             scenario: scenario.name.to_string(),
             validators: scenario.validators,
             safety_mode: format!("{:?}", scenario.safety_mode),
+            lane: lane.as_str().to_string(),
             attempted: accounts.len() * txs_per_account as usize,
             accepted,
             committed,
@@ -1777,7 +2107,9 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
             injection_tps,
             sustained_tps,
             commit_latency,
-            sealed_latency,
+            terminal_latency,
+            terminal_close_blocks,
+            terminal_abort_blocks,
         })
     }
     .await;
@@ -1795,14 +2127,35 @@ async fn run_scenario(scenario: AftBenchmarkScenario) -> Result<PaperBenchmarkRe
     }
 }
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "runs the paper-grade AFT throughput benchmark matrix"]
-async fn test_aft_paper_benchmark_matrix() -> Result<()> {
+fn benchmark_lanes_for_scenario(
+    scenario: AftBenchmarkScenario,
+    lane_filter: Option<AftBenchmarkLane>,
+) -> Vec<AftBenchmarkLane> {
+    let supported = [
+        AftBenchmarkLane::BaseFinal,
+        AftBenchmarkLane::CanonicalOrdering,
+        AftBenchmarkLane::DurableCollapse,
+        AftBenchmarkLane::SealedFinal,
+    ]
+    .into_iter()
+    .filter(|lane| lane.supports(scenario.safety_mode))
+    .collect::<Vec<_>>();
+
+    match lane_filter {
+        Some(lane) if lane.supports(scenario.safety_mode) => vec![lane],
+        Some(_) => Vec::new(),
+        None => supported,
+    }
+}
+
+async fn run_benchmark_matrix(lane_filter: Option<AftBenchmarkLane>) -> Result<()> {
     if std::env::var_os("IOI_TEST_BUILD_PROFILE").is_none() {
         std::env::set_var("IOI_TEST_BUILD_PROFILE", "release");
     }
 
-    build_test_artifacts();
+    if !benchmark_skip_artifact_build() {
+        build_test_artifacts();
+    }
 
     let scenario_filter = std::env::var("IOI_AFT_BENCH_SCENARIO").ok();
     let scenarios = [
@@ -1820,13 +2173,45 @@ async fn test_aft_paper_benchmark_matrix() -> Result<()> {
     })
     .collect::<Vec<_>>();
 
-    let mut results = Vec::with_capacity(scenarios.len());
+    let mut results = Vec::new();
     for scenario in scenarios {
-        results.push(run_scenario(scenario).await?);
+        for lane in benchmark_lanes_for_scenario(scenario, lane_filter) {
+            results.push(run_scenario(scenario, lane).await?);
+        }
     }
 
     println!("\n--- AFT Paper Benchmark Matrix ---");
     println!("{}", render_markdown_table(&results));
 
     Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "runs the paper-grade AFT throughput benchmark matrix"]
+async fn test_aft_paper_benchmark_matrix() -> Result<()> {
+    run_benchmark_matrix(benchmark_lane_filter()).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "runs the base-final AFT throughput benchmark matrix"]
+async fn test_aft_base_final_benchmark_matrix() -> Result<()> {
+    run_benchmark_matrix(Some(AftBenchmarkLane::BaseFinal)).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "runs the canonical-ordering AFT throughput benchmark matrix"]
+async fn test_aft_canonical_ordering_benchmark_matrix() -> Result<()> {
+    run_benchmark_matrix(Some(AftBenchmarkLane::CanonicalOrdering)).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "runs the durable-collapse AFT throughput benchmark matrix"]
+async fn test_aft_durable_collapse_benchmark_matrix() -> Result<()> {
+    run_benchmark_matrix(Some(AftBenchmarkLane::DurableCollapse)).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "runs the sealed-final AFT throughput benchmark matrix"]
+async fn test_aft_sealed_final_benchmark_matrix() -> Result<()> {
+    run_benchmark_matrix(Some(AftBenchmarkLane::SealedFinal)).await
 }

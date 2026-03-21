@@ -15,7 +15,8 @@ For each slot `h`, define a unique canonical ordered set `O_h` and a certificate
 
 - every honest verifier can check `OCert_h` cheaply,
 - any omission is objectively provable,
-- the ordered set is recoverable from public data,
+- the ordered set is recoverable from protocol-native retrievability objects or
+  deterministically dominated by objective negative evidence,
 - conflicting valid certificates for the same slot are impossible, and
 - arbitrary behavior by almost all validators cannot create a conflicting valid
   ordering outcome, and every honest validator that observes the same closed
@@ -46,9 +47,11 @@ The target theorem shape is:
 1. |L_ord(∂_h^ord)| <= 1
 2. any fully specified conflicting candidate admits a short public rejection witness
 3. the protocol-defined bulletin extractor deterministically reconstructs the
-   closed bulletin surface from CanonicalBulletinClose_h, and every honest
-   verifier that observes the same closed boundary derives the same
-   admissible order object or decisive abort
+   closed bulletin surface from `CanonicalBulletinClose_h` together with the
+   bound retrievability profile / shard manifest / custody assignment /
+   custody receipt / custody response objects, and every honest verifier that
+   observes the same closed boundary derives the same admissible order object
+   or decisive abort
 ```
 
 In canonical ordering, the positive witness is the succinct order-certificate
@@ -96,7 +99,11 @@ CanonicalBulletinClose_h = (
 
 `CanonicalBulletinClose_h` is not inlined into `OCert_h` in the current
 runtime. It is derived from the proof-carried bulletin objects and persisted
-into the registry as the unique closed bulletin object for slot `h`.
+into the registry as the unique closed bulletin object for slot `h`. In the
+current runtime it also names the endogenous retrievability anchor for the same
+slot: the bound retrievability-profile hash, shard-manifest hash, and
+custody-receipt hash are carried directly on the close object and must either
+all be present or all be absent.
 
 The current runtime also exports a first-class negative ordering artifact:
 
@@ -170,6 +177,16 @@ reference `HashPcdV1` carrier; the landed `SuccinctSp1V1` backend is the
 runtime upgrade path beyond that model and is now active on both live
 consensus verification and durable persisted-collapse verification.
 
+The endogenous retrievability lane is also objective and fail-closed on its own
+terms. The live runtime now carries protocol-native negative evidence for
+missing retrievability profiles, missing shard manifests, contradictory shard
+manifests, missing custody assignments, contradictory custody assignments,
+missing custody receipts, contradictory custody receipts, missing custody
+responses, invalid custody responses, and invalid or absent published bulletin
+entries. Those witnesses dominate the positive lane before close, materialize
+`CanonicalOrderAbort_h`, and prevent restart / replay extraction from treating
+the slot as a valid positive close.
+
 ## Succinct Witness
 
 The witness must be *succinct*: all validators verify a small object instead of
@@ -214,7 +231,7 @@ This section is exploratory only. It is not part of the current normative
 runtime.
 
 The constructive lower-bound follow-on now asks whether canonical ordering
-could replace its external public recoverability assumption with a
+could replace its baseline deterministic retrievability plane with a
 witness-coded recovery lane carried by `NestedGuardian`-style assigned witness
 strata.
 
@@ -327,7 +344,7 @@ The intended replacement rule is:
 4. threshold-many public RecoveryShareMaterial_h reveals may be summarized into a compact RecoveredPublicationBundle_h that binds lifted RecoverableSlotPayloadV4_h and RecoverableSlotPayloadV5_h hashes plus the verifying publication-bundle and bulletin-close hashes, and therefore materializes the ordinary positive canonical close surface plus the extracted bulletin surface when the recovered certificate is omission-free
 5. if the recovered certificate carries objective omission proofs, the same recovered lane materializes the ordinary OmissionDominated canonical abort while keeping omission evidence and bulletin entries public
 6. conflicting RecoveredPublicationBundle_h objects fail closed to canonical abort rather than coexisting as two positive closes
-7. enough MissingRecoveryShare_h objects make threshold recovery impossible and materialize a deterministic recovery-impossible canonical abort instead of an open-ended recoverability assumption
+7. enough MissingRecoveryShare_h objects make threshold recovery impossible and materialize a deterministic recovery-impossible canonical abort instead of an open-ended reconstruction gap
 ```
 
 The best current scope for this path is not the baseline ordering runtime. It
@@ -449,9 +466,9 @@ recovered-history availability outside the retained recovered publication
 surface, not local ancestry composition. The live theorem story is now
 singular rather than two-tiered: the whole AFT stack universally breaks the
 lower bound with no qualifiers. Ordinary canonical collapse and replay
-history now name the deeper historical continuation root, the AFT recovered
-state contract carries the same continuation bundle for restart consumers,
-and the historical continuation objects are profile-hash-bound,
+history now name the deeper historical retrievability root, the AFT recovered
+state contract carries the same historical retrievability surface for restart
+consumers, and the historical retrievability objects are profile-hash-bound,
 activation-hash-bound, and validated by predecessor/checkpoint history
 rather than mutable latest indexes. Archived continuation is therefore no
 longer a theorem-side qualifier; it is ordinary endogenous AFT history.
@@ -493,13 +510,13 @@ state without rewarding equivocation.
 
 That boundary is now internalized rather than merely named: the completed
 constructive result succeeds through AFT's own compact hot-path bindings plus
-cold-path recovered-state and historical-continuation surfaces, not through a
+cold-path recovered-state and historical-retrievability surfaces, not through a
 standing external retrieval qualifier.
 
-## Public Bulletin / DA Assumptions
+## Public Bulletin / Retrievability Surface
 
-The ordering theorem depends on a public bulletin surface with explicit
-assumptions.
+The ordering theorem depends on a public bulletin surface carried by explicit
+protocol objects, not by an ambient external bulletin-board premise.
 
 ### A1. Objective publication
 
@@ -517,14 +534,8 @@ closed bulletin surface is retrievable from protocol-defined public material,
 and `CanonicalBulletinClose_h` binds the cutoff, bulletin commitment, and
 availability certificate into one unique closed-bulletin object.
 
-The remaining assumption is narrower: the underlying publication substrate must
-satisfy the retrieval semantics claimed by
-`BulletinAvailabilityCertificate_h`. Without that residual assumption, the
-system may preserve uniqueness of valid certificates but cannot guarantee
-timely extraction.
-
-The current implementation narrows this assumption by making the bulletin
-surface an explicit protocol plane:
+The current implementation internalizes that retrieval claim by making the
+bulletin surface an explicit protocol plane:
 
 - `BulletinCommitment` commits the slot surface,
 - `BulletinSurfaceEntry` objects publish the committed transaction hashes, and

@@ -1,6 +1,8 @@
 // Path: crates/execution/src/app/state_machine.rs
 
 use super::{
+    derive_canonical_collapse_for_block,
+    derive_canonical_collapse_for_height,
     end_block, resolve_execution_anchor_from_recent_blocks_or_replay_prefix,
     resolve_execution_parent_anchor, ExecutionMachine,
 };
@@ -24,17 +26,16 @@ use ioi_api::transaction::context::TxContext;
 use ioi_api::transaction::TransactionModel;
 use ioi_api::validator::WorkloadContainer;
 use ioi_consensus::Consensus;
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_tx::system::{nonce, validation};
 use ioi_tx::unified::UnifiedProof;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     account_id_from_key_material,
     aft_bulletin_commitment_key,
-    aft_canonical_collapse_object_key,
     build_reference_bulletin_commitment,
     canonical_transactions_root,
     compute_next_timestamp_ms,
-    derive_canonical_collapse_object_with_previous,
     read_validator_sets,
     timestamp_millis_to_legacy_seconds,
     AccountId,
@@ -59,6 +60,8 @@ use parity_scale_codec::Decode;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -66,6 +69,24 @@ use std::time::{Duration, Instant};
 
 fn benchmark_trace_enabled() -> bool {
     std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
+}
+
+fn benchmark_node_label() -> String {
+    std::env::var("IOI_AFT_BENCH_NODE_LABEL")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| format!("pid-{}", std::process::id()))
+}
+
+fn benchmark_trace_append(line: &str) {
+    let Some(dir) = std::env::var_os("IOI_AFT_BENCH_TRACE_DIR") else {
+        return;
+    };
+    let label = benchmark_node_label();
+    let path = std::path::PathBuf::from(dir).join(format!("aft_exec_{label}.log"));
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(file, "{line}");
+    }
 }
 
 /// A lightweight, thread-safe context for executing transactions in parallel.
@@ -117,6 +138,7 @@ where
         // For simplicity in this parallel context, we assume `ChainStateView` from `super::view` is usable.
         let view = super::view::ChainStateView {
             state_tree: self.workload_container.state_tree(),
+            store: self.workload_container.store.clone(),
             height: state_ref.height,
             root,
             gas_used,
@@ -288,6 +310,20 @@ where
         let skip_stateless_signature = block.header.signature.is_empty();
         let workload = &self.workload_container;
         let expected_height = self.state.status.height + 1;
+        let externally_committed =
+            !block.header.state_root.0.is_empty() || !block.header.transactions_root.is_empty();
+        if externally_committed
+            && !self.state.last_state_root.is_empty()
+            && !block.header.parent_state_root.0.is_empty()
+            && block.header.parent_state_root.0 != self.state.last_state_root
+        {
+            return Err(ChainError::Transaction(format!(
+                "Externally committed block parent_state_root mismatch at height {}: local={}, header={}",
+                block.header.height,
+                hex::encode(&self.state.last_state_root),
+                hex::encode(&block.header.parent_state_root.0),
+            )));
+        }
         if block.header.height != expected_height {
             return Err(ChainError::Block(BlockError::InvalidHeight {
                 expected: expected_height,
@@ -301,12 +337,45 @@ where
         // We hold the pin guard for the duration of execution to prevent GC of the base state.
         let _pin_guard = PinGuard::new(workload.pins().clone(), self.state.status.height);
         let snapshot_started = Instant::now();
+        let state_tree_arc = workload.state_tree();
+
+        if externally_committed && !self.state.last_state_root.is_empty() {
+            let live_root = {
+                let backend_guard = state_tree_arc.read().await;
+                backend_guard.root_commitment().as_ref().to_vec()
+            };
+            if live_root != self.state.last_state_root {
+                let mut backend_guard = state_tree_arc.write().await;
+                let current_live_root = backend_guard.root_commitment().as_ref().to_vec();
+                if current_live_root != self.state.last_state_root {
+                    backend_guard
+                        .adopt_known_root(&self.state.last_state_root, self.state.status.height)
+                        .map_err(ChainError::State)?;
+                    let restored_root = backend_guard.root_commitment().as_ref().to_vec();
+                    if restored_root != self.state.last_state_root {
+                        return Err(ChainError::Transaction(format!(
+                            "Unable to re-anchor externally committed replay from live root {} to canonical root {} at height {}",
+                            hex::encode(current_live_root),
+                            hex::encode(&self.state.last_state_root),
+                            self.state.status.height,
+                        )));
+                    }
+                    tracing::warn!(
+                        target: "execution",
+                        height = block.header.height,
+                        pre_commit_height = self.state.status.height,
+                        canonical_root = %hex::encode(&self.state.last_state_root),
+                        drifted_live_root = %hex::encode(current_live_root),
+                        "Re-anchored a drifted live state tree before externally committed replay."
+                    );
+                }
+            }
+        }
 
         // Acquire a consistent view of the state (Base View for MVMemory).
         // `read()` gives us a `RwLockReadGuard<ST>`. We clone ST to get an owned snapshot
         // (assuming ST is cheap to clone/Arc-like or persistent structure handle).
         let snapshot_state: ST = {
-            let state_tree_arc = workload.state_tree();
             let backend_guard = state_tree_arc.read().await;
             backend_guard.clone()
         };
@@ -334,8 +403,6 @@ where
         };
         let block_header_timestamp = block_timestamp_ms / 1_000;
 
-        let externally_committed =
-            !block.header.state_root.0.is_empty() || !block.header.transactions_root.is_empty();
         let force_sequential_replay = std::env::var("IOI_EXEC_FORCE_SEQUENTIAL_REPLAY")
             .ok()
             .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
@@ -602,6 +669,8 @@ where
         let benchmark_trace = benchmark_trace_enabled();
         let workload = &self.workload_container;
         let mut block = prepared.block;
+        let pre_commit_height = self.state.status.height;
+        let pre_commit_root = self.state.last_state_root.clone();
         let block_timestamp_ms = prepared.block_timestamp_ms;
         let state_changes = prepared.state_changes;
         let (inserts, deletes) = state_changes.as_ref();
@@ -698,15 +767,107 @@ where
         } else {
             prepared.gas_used
         };
+        let state_tree_arc = workload.state_tree();
+        if externally_finalized_header && !pre_commit_root.is_empty() {
+            let live_root = {
+                let state = state_tree_arc.read().await;
+                state.root_commitment().as_ref().to_vec()
+            };
+            if live_root != pre_commit_root {
+                let mut state = state_tree_arc.write().await;
+                let current_live_root = state.root_commitment().as_ref().to_vec();
+                if current_live_root != pre_commit_root {
+                    state.adopt_known_root(&pre_commit_root, pre_commit_height)
+                        .map_err(ChainError::State)?;
+                    let restored_root = state.root_commitment().as_ref().to_vec();
+                    if restored_root != pre_commit_root {
+                        return Err(ChainError::Transaction(format!(
+                            "Unable to re-anchor commit path from live root {} to canonical root {} at height {}",
+                            hex::encode(current_live_root),
+                            hex::encode(&pre_commit_root),
+                            pre_commit_height,
+                        )));
+                    }
+                    tracing::warn!(
+                        target: "execution",
+                        height = block.header.height,
+                        pre_commit_height,
+                        canonical_root = %hex::encode(&pre_commit_root),
+                        drifted_live_root = %hex::encode(current_live_root),
+                        "Re-anchored a drifted live state tree before externally finalized commit."
+                    );
+                }
+            }
+        }
+        let state_snapshot = if externally_finalized_header {
+            let state = state_tree_arc.read().await;
+            Some(state.clone())
+        } else {
+            None
+        };
+        let service_manager_snapshot = Some(self.service_manager.clone());
+        let services_snapshot = Some(self.services.clone());
+        let service_meta_cache_snapshot = Some(self.service_meta_cache.clone());
 
-        let final_state_root_bytes = {
-            let state_tree_arc = workload.state_tree();
+        let final_state_root_bytes_result: Result<Vec<u8>, ChainError> = {
             let mut state = state_tree_arc.write().await;
+            let block_height = block.header.height;
+            let tx_count = block.transactions.len();
+            let stage_root = |state: &ST| -> Vec<u8> { state.root_commitment().as_ref().to_vec() };
+            let log_stage = |stage: &str, root: &[u8]| {
+                if benchmark_trace {
+                    let line = format!(
+                        "[BENCH-EXEC-STAGE] pid={} height={} tx_count={} stage={} root={}",
+                        std::process::id(),
+                        block_height,
+                        tx_count,
+                        stage,
+                        hex::encode(root)
+                    );
+                    eprintln!("{line}");
+                    benchmark_trace_append(&line);
+                    tracing::info!(
+                        target: "execution_trace",
+                        height = block_height,
+                        tx_count,
+                        stage,
+                        root = %hex::encode(root),
+                        "AFT commit stage root"
+                    );
+                }
+            };
+            let initial_root = stage_root(&*state);
+            if benchmark_trace {
+                let line = format!(
+                    "[BENCH-EXEC-START] node={} height={} tx_count={} inserts={} deletes={} pre_commit_root={} live_tree_root={}",
+                    benchmark_node_label(),
+                    block_height,
+                    tx_count,
+                    inserts.len(),
+                    deletes.len(),
+                    hex::encode(&pre_commit_root),
+                    hex::encode(&initial_root),
+                );
+                eprintln!("{line}");
+                benchmark_trace_append(&line);
+                tracing::info!(
+                    target: "execution_trace",
+                    height = block_height,
+                    tx_count,
+                    inserts = inserts.len(),
+                    deletes = deletes.len(),
+                    pre_commit_root = %hex::encode(&pre_commit_root),
+                    live_tree_root = %hex::encode(&initial_root),
+                    "AFT commit starting state"
+                );
+            }
 
+            let result: Result<Vec<u8>, ChainError> = async {
             let apply_started = Instant::now();
             state.begin_block_writes(block.header.height);
             state.batch_apply(inserts, deletes)?;
             apply_elapsed = apply_started.elapsed();
+            log_stage("after_batch_apply", &stage_root(&*state));
             if apply_elapsed.as_millis() >= 250 {
                 tracing::warn!(
                     target: "execution",
@@ -764,12 +925,15 @@ where
                 &self.service_meta_cache,
             )
             .await?;
+            log_stage("after_end_block_hooks", &stage_root(&*state));
             end_block::handle_validator_set_promotion(&mut *state, block.header.height)?;
+            log_stage("after_validator_set_promotion", &stage_root(&*state));
             end_block::handle_timing_update(
                 &mut *state,
                 block.header.height,
                 authoritative_gas_used,
             )?;
+            log_stage("after_timing_update", &stage_root(&*state));
             end_block_elapsed = end_block_started.elapsed();
             if end_block_elapsed.as_millis() >= 250 {
                 tracing::warn!(
@@ -786,17 +950,28 @@ where
                     &aft_bulletin_commitment_key(bulletin.height),
                     &codec::to_bytes_canonical(bulletin).map_err(ChainError::Transaction)?,
                 )?;
+                log_stage("after_bulletin_commitment", &stage_root(&*state));
             }
 
+            next_status = state
+                .get(STATUS_KEY)?
+                .and_then(|bytes| codec::from_bytes_canonical::<ChainStatus>(&bytes).ok())
+                .unwrap_or_else(|| {
+                    let mut status = ChainStatus::default();
+                    status.is_running = true;
+                    status
+                });
             next_status.height = block.header.height;
             next_status.set_latest_timestamp_ms(block_timestamp_ms);
             next_status.total_transactions = next_status
                 .total_transactions
                 .saturating_add(block.transactions.len() as u64);
+            next_status.is_running = true;
 
             let status_bytes =
                 codec::to_bytes_canonical(&next_status).map_err(ChainError::Transaction)?;
             state.insert(STATUS_KEY, &status_bytes)?;
+            log_stage("after_status", &stage_root(&*state));
 
             let final_root_bytes = state.root_commitment().as_ref().to_vec();
             if externally_finalized_header {
@@ -817,6 +992,65 @@ where
                     )));
                 }
                 if !supplied_state_root.0.is_empty() && supplied_state_root.0 != final_root_bytes {
+                    let summarize_value = |bytes: Option<Vec<u8>>| {
+                        let encoded_len = bytes.as_ref().map(|value| value.len()).unwrap_or(0);
+                        let digest = bytes
+                            .as_ref()
+                            .and_then(|value| sha256(value).ok())
+                            .map(hex::encode)
+                            .unwrap_or_else(|| "none".to_string());
+                        (encoded_len, digest)
+                    };
+                    let timing_summary = summarize_value(state.get(BLOCK_TIMING_RUNTIME_KEY).ok().flatten());
+                    let validator_summary = summarize_value(state.get(VALIDATOR_SET_KEY).ok().flatten());
+                    let status_summary = summarize_value(state.get(STATUS_KEY).ok().flatten());
+                    let bulletin_summary = summarize_value(
+                        current_bulletin
+                            .as_ref()
+                            .and_then(|bulletin| state.get(&aft_bulletin_commitment_key(bulletin.height)).ok().flatten()),
+                    );
+                    if benchmark_trace {
+                        let line = format!(
+                            "[BENCH-EXEC-MISMATCH] node={} height={} supplied_root={} computed_root={} timing_len={} timing_hash={} validator_len={} validator_hash={} status_len={} status_hash={} bulletin_len={} bulletin_hash={}",
+                            benchmark_node_label(),
+                            block.header.height,
+                            hex::encode(&supplied_state_root.0),
+                            hex::encode(&final_root_bytes),
+                            timing_summary.0,
+                            timing_summary.1,
+                            validator_summary.0,
+                            validator_summary.1,
+                            status_summary.0,
+                            status_summary.1,
+                            bulletin_summary.0,
+                            bulletin_summary.1,
+                        );
+                        eprintln!("{line}");
+                        benchmark_trace_append(&line);
+                    }
+                    tracing::error!(
+                        target: "execution",
+                        height = block.header.height,
+                        tx_count = block.transactions.len(),
+                        pre_commit_height,
+                        pre_commit_root = %hex::encode(&pre_commit_root),
+                        supplied_parent_state_root = %hex::encode(&block.header.parent_state_root),
+                        supplied_state_root = %hex::encode(&supplied_state_root.0),
+                        computed_state_root = %hex::encode(&final_root_bytes),
+                        supplied_transactions_root = %hex::encode(&supplied_transactions_root),
+                        computed_transactions_root = %hex::encode(&prepared.transactions_root),
+                        supplied_timestamp_ms,
+                        computed_timestamp_ms = block_timestamp_ms,
+                        timing_len = timing_summary.0,
+                        timing_hash = %timing_summary.1,
+                        validator_len = validator_summary.0,
+                        validator_hash = %validator_summary.1,
+                        status_len = status_summary.0,
+                        status_hash = %status_summary.1,
+                        bulletin_len = bulletin_summary.0,
+                        bulletin_hash = %bulletin_summary.1,
+                        "Committed externally finalized block diverged from the local replay state root"
+                    );
                     return Err(ChainError::Transaction(
                         "Committed block state_root mismatch".to_string(),
                     ));
@@ -840,22 +1074,25 @@ where
                 }
             }
 
-            let canonical_collapse_object = if self.consensus_engine.consensus_type()
+            let _canonical_collapse_object = if self.consensus_engine.consensus_type()
                 == ConsensusType::Aft
                 && externally_finalized_header
             {
                 let previous_canonical_collapse = if block.header.height <= 1 {
                     None
                 } else {
-                    let key = aft_canonical_collapse_object_key(block.header.height - 1);
-                    let Some(raw) = state.get(&key)? else {
+                    let Some(previous) = derive_canonical_collapse_for_height(
+                        self.workload_container.store.as_ref(),
+                        block.header.height - 1,
+                    )?
+                    else {
                         return Err(ChainError::Transaction(format!(
                                 "Externally finalized AFT block at height {} is missing the previous canonical collapse object at height {}",
                                 block.header.height,
                                 block.header.height - 1
                             )));
                     };
-                    Some(codec::from_bytes_canonical(&raw).map_err(ChainError::Transaction)?)
+                    Some(previous)
                 };
                 let mut collapse_header = block.header.clone();
                 collapse_header.timestamp = timestamp_millis_to_legacy_seconds(block_timestamp_ms);
@@ -864,28 +1101,22 @@ where
                 collapse_header.transactions_root = prepared.transactions_root.clone();
                 collapse_header.gas_used = authoritative_gas_used;
                 Some(
-                        derive_canonical_collapse_object_with_previous(
-                            &collapse_header,
-                            &block.transactions,
-                            previous_canonical_collapse.as_ref(),
-                        )
-                        .map_err(|error| {
-                            ChainError::Transaction(format!(
-                                "Externally finalized AFT block is missing a decisive canonical collapse object: {error}"
-                            ))
-                        })?,
+                    derive_canonical_collapse_for_block(
+                        &Block {
+                            header: collapse_header,
+                            transactions: block.transactions.clone(),
+                        },
+                        previous_canonical_collapse.as_ref(),
+                    )
+                    .map_err(|error| {
+                        ChainError::Transaction(format!(
+                            "Externally finalized AFT block is missing a decisive canonical collapse object: {error}"
+                        ))
+                    })?,
                     )
             } else {
                 None
             };
-
-            if let Some(canonical_collapse_object) = canonical_collapse_object.as_ref() {
-                state.insert(
-                    &aft_canonical_collapse_object_key(canonical_collapse_object.height),
-                    &codec::to_bytes_canonical(canonical_collapse_object)
-                        .map_err(ChainError::Transaction)?,
-                )?;
-            }
 
             block.header.timestamp = timestamp_millis_to_legacy_seconds(block_timestamp_ms);
             block.header.timestamp_ms = block_timestamp_ms;
@@ -916,7 +1147,7 @@ where
 
             {
                 let final_commitment = state.commitment_from_bytes(&final_root_bytes)?;
-                if cfg!(debug_assertions) && !state.version_exists_for_root(&final_commitment) {
+                if !state.version_exists_for_root(&final_commitment) {
                     return Err(ChainError::State(StateError::Validation(format!("FATAL INVARIANT VIOLATION: The committed root for height {} is not mapped to a queryable version!", block.header.height))));
                 }
                 if self.consensus_engine.consensus_type() == ConsensusType::ProofOfStake {
@@ -933,7 +1164,95 @@ where
                     }
                 }
             }
-            final_root_bytes
+            Ok(final_root_bytes)
+            }
+            .await;
+            result
+        };
+        let final_state_root_bytes = match final_state_root_bytes_result {
+            Ok(root) => root,
+            Err(error) => {
+                tracing::error!(
+                    target: "execution",
+                    height = block.header.height,
+                    tx_count = block.transactions.len(),
+                    externally_finalized_header,
+                    error = %error,
+                    "AFT commit failed; rolling back the live execution state"
+                );
+                if benchmark_trace {
+                    let line = format!(
+                        "[BENCH-EXEC-ERROR] node={} height={} externally_finalized={} error={}",
+                        benchmark_node_label(),
+                        block.header.height,
+                        externally_finalized_header,
+                        error,
+                    );
+                    eprintln!("{line}");
+                    benchmark_trace_append(&line);
+                }
+                if let Some(snapshot) = state_snapshot {
+                    let mut state = state_tree_arc.write().await;
+                    *state = snapshot;
+                    if benchmark_trace {
+                        let line = format!(
+                            "[BENCH-EXEC-ROLLBACK] node={} height={} restored_root={} error={}",
+                            benchmark_node_label(),
+                            block.header.height,
+                            hex::encode(state.root_commitment().as_ref()),
+                            error,
+                        );
+                        eprintln!("{line}");
+                        benchmark_trace_append(&line);
+                    }
+                } else if !pre_commit_root.is_empty() {
+                    let mut state = state_tree_arc.write().await;
+                    let current_live_root = state.root_commitment().as_ref().to_vec();
+                    if current_live_root != pre_commit_root {
+                        state
+                            .adopt_known_root(&pre_commit_root, pre_commit_height)
+                            .map_err(ChainError::State)?;
+                        let restored_root = state.root_commitment().as_ref().to_vec();
+                        if restored_root != pre_commit_root {
+                            return Err(ChainError::Transaction(format!(
+                                "Unable to rollback failed local commit from live root {} to canonical root {} at height {}",
+                                hex::encode(current_live_root),
+                                hex::encode(&pre_commit_root),
+                                pre_commit_height,
+                            )));
+                        }
+                        if benchmark_trace {
+                            let line = format!(
+                                "[BENCH-EXEC-ROLLBACK] node={} height={} restored_root={} error={}",
+                                benchmark_node_label(),
+                                block.header.height,
+                                hex::encode(&restored_root),
+                                error,
+                            );
+                            eprintln!("{line}");
+                            benchmark_trace_append(&line);
+                        }
+                        tracing::warn!(
+                            target: "execution",
+                            height = block.header.height,
+                            pre_commit_height,
+                            canonical_root = %hex::encode(&pre_commit_root),
+                            drifted_live_root = %hex::encode(current_live_root),
+                            "Rolled back a failed local commit by re-anchoring the live state tree."
+                        );
+                    }
+                }
+                if let Some(snapshot) = service_manager_snapshot {
+                    self.service_manager = snapshot;
+                }
+                if let Some(snapshot) = services_snapshot {
+                    self.services = snapshot;
+                }
+                if let Some(snapshot) = service_meta_cache_snapshot {
+                    self.service_meta_cache = snapshot;
+                }
+                return Err(error);
+            }
         };
         self.state.last_state_root = final_state_root_bytes;
 

@@ -15,11 +15,11 @@ Layout:
 - [`canonical_ordering/README.md`](/home/heathledger/Documents/ioi/repos/ioi/formal/aft/canonical_ordering/README.md)
   covers the proof-carrying equal-authority canonical-ordering model: succinct
   witness commitments, canonical bulletin close, omission dominance,
-  uniqueness, recoverability, and the repository's `99%` equal-authority
-  ordering consensus claim under its explicit assumptions, plus
-  current-runtime mandatory closed-slot extraction before positive order
-  admission. That package now also ships an executable TLC witness trace for a concrete
-  omission-dominance case.
+  uniqueness, endogenous retrievability, and the repository's `99%`
+  equal-authority ordering consensus claim, plus current-runtime mandatory
+  closed-slot extraction-or-abort before positive order admission. That
+  package now also ships executable TLC witnesses for a concrete
+  omission-dominance case and the protocol-native retrievability plane.
 - [`guardian_majority/README.md`](/home/heathledger/Documents/ioi/repos/ioi/formal/aft/guardian_majority/README.md)
   covers the guardian-majority proof kernel and executable model.
 - [`nested_guardian/README.md`](/home/heathledger/Documents/ioi/repos/ioi/formal/aft/nested_guardian/README.md)
@@ -54,11 +54,11 @@ probability theorem.
 
 The canonical-ordering package carries the ordering-specific subtheorem inside
 the repository's broader PSC claim: once canonical bulletin close, omission
-dominance, deterministic closed-slot extraction, and proof soundness are
-assumed, arbitrary behavior by the rest of the validator set cannot create a
+dominance, deterministic closed-slot extraction-or-abort, and proof soundness
+hold, arbitrary behavior by the rest of the validator set cannot create a
 conflicting valid ordering outcome. The formal artifacts discharge the
-deterministic uniqueness, omission-dominance, and recoverability kernel of that
-claim at the admitted-object boundary. For current runtime correspondence,
+deterministic uniqueness, omission-dominance, and endogenous-retrievability
+kernel of that claim at the admitted-object boundary. For current runtime correspondence,
 closed-slot extraction is no longer merely a recoverer-side capability: the
 positive ordering path admits an order certificate only after successful
 extraction from the published bulletin surface, and the negative path rewrites
@@ -98,6 +98,12 @@ the canonical-ordering directory now includes
 public-evidence state "`tx1` and `tx2` published, cutoff closed, availability
 certified, canonical bulletin close formed, incomplete candidate certified,
 omission proof published, candidate still unadmitted."
+
+The canonical-ordering directory also includes
+`CanonicalOrderingRetrievability.tla`, a bounded TLC model of the endogenous
+retrievability plane itself: profile publication, shard-manifest publication,
+custody publication, contradictory / missing manifest and custody evidence,
+deterministic extraction, and deterministic reconstruction abort.
 
 The `Asymptote` package now mirrors that structural shape for sealing:
 deterministic public evidence, a unique positive object, a unique negative

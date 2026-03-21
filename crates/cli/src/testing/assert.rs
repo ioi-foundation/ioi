@@ -25,6 +25,13 @@ pub(crate) const LOG_CHANNEL_CAPACITY: usize = 8192;
 
 // --- Log Assertions ---
 
+fn live_process_log_echo_enabled() -> bool {
+    std::env::var("IOI_TEST_VERBOSE_PROCESS_LOGS")
+        .ok()
+        .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
+        .unwrap_or(false)
+}
+
 pub async fn assert_log_contains(
     label: &str,
     log_stream: &mut broadcast::Receiver<String>,
@@ -48,7 +55,9 @@ pub async fn assert_log_contains(
         // Use a short timeout on recv to prevent blocking forever if no new logs arrive
         match timeout(Duration::from_millis(500), log_stream.recv()).await {
             Ok(Ok(line)) => {
-                println!("[LOGS-{}] {}", label, line); // Live logging
+                if live_process_log_echo_enabled() {
+                    println!("[LOGS-{}] {}", label, line);
+                }
                 received_lines.push(line.clone());
                 if line.contains(pattern) {
                     return Ok(());
@@ -102,7 +111,9 @@ pub async fn assert_log_contains_and_return_line(
         // Use a short timeout on recv to prevent blocking forever if no new logs arrive
         match timeout(Duration::from_millis(500), log_stream.recv()).await {
             Ok(Ok(line)) => {
-                println!("[LOGS-{}] {}", label, line);
+                if live_process_log_echo_enabled() {
+                    println!("[LOGS-{}] {}", label, line);
+                }
                 let line_clone = line.clone();
                 received_lines.push(line);
                 if line_clone.contains(pattern) {

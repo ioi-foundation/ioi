@@ -1,12 +1,16 @@
 // Path: crates/execution/src/app/view.rs
 
 use super::PenaltyDelegator; // Added PenaltyDelegator to imports
-use super::{resolve_execution_anchor_from_recent_blocks_or_replay_prefix, ExecutionMachine};
+use super::{
+    load_aft_auxiliary_raw_state_value, resolve_execution_anchor_from_recent_blocks_or_replay_prefix,
+    ExecutionMachine,
+};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, RemoteStateView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::PenaltyMechanism;
 use ioi_api::state::StateManager;
+use ioi_api::storage::NodeStore;
 use ioi_api::validator::WorkloadContainer;
 use ioi_types::app::Membership;
 use ioi_types::config::ConsensusType;
@@ -16,6 +20,7 @@ use tokio::sync::RwLock;
 
 pub struct ChainStateView<ST: StateManager> {
     pub(crate) state_tree: Arc<RwLock<ST>>,
+    pub(crate) store: Arc<dyn NodeStore>,
     pub(crate) height: u64,
     pub(crate) root: Vec<u8>,
     // Added to support gas_used lookups without scanning blocks
@@ -39,17 +44,22 @@ impl<ST: StateManager + Send + Sync + 'static> RemoteStateView for ChainStateVie
         let commitment = state.commitment_from_bytes(&self.root)?;
         let (membership, _proof) = state.get_with_proof_at(&commitment, key)?;
         let present = matches!(membership, Membership::Present(_));
+        let aux_value = if present {
+            None
+        } else {
+            load_aft_auxiliary_raw_state_value(self.store.as_ref(), key)?
+        };
         tracing::info!(
             target = "state",
             event = "view_get",
             key = key_hex,
             root = hex::encode(&self.root),
-            present,
+            present = present || aux_value.is_some(),
             mode = "anchored",
         );
         Ok(match membership {
             Membership::Present(bytes) => Some(bytes),
-            _ => None,
+            _ => aux_value,
         })
     }
 }
@@ -95,6 +105,7 @@ where
 
         let view = ChainStateView {
             state_tree: self.workload_container.state_tree(),
+            store: self.workload_container.store.clone(),
             height: state_ref.height,
             root: resolved_root_bytes,
             gas_used,

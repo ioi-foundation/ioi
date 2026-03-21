@@ -274,9 +274,9 @@ recovered-history exhaustion without a theorem-relevant fixed depth bound.
 The live theorem story is now singular rather than two-tiered: the whole AFT
 stack universally breaks the lower bound with no qualifiers. Ordinary
 canonical collapse and replay history now name the deeper historical
-continuation root, the AFT recovered-state contract carries the same
-continuation bundle for restart consumers, and the historical continuation
-objects themselves are profile-hash-bound, activation-hash-bound,
+retrievability root, the AFT recovered-state contract carries the same
+historical retrievability surface for restart consumers, and the historical
+retrievability objects themselves are profile-hash-bound, activation-hash-bound,
 content-addressed, and validated by predecessor/checkpoint history rather
 than mutable latest indexes. Broader recovered history is therefore ordinary
 endogenous AFT history, not a standing theorem-side qualifier.
@@ -294,7 +294,7 @@ canonical-header extraction, bounded recovered certified-header plus
 restart-header extraction, bounded execution restart-handoff verification,
 bounded anchored-read / recovered parent-block / parent-state-root execution
 continuation, or the total absence of non-parity redundancy. The
-theorem-scope promotion and historical-continuation internalization work are
+theorem-scope promotion and historical-retrievability internalization work are
 now complete. This is not a tentative side theorem; it is the live repository
 claim that the whole AFT stack universally breaks the lower bound with no
 qualifiers plus `99% Byzantine Tolerance` inside the AFT architecture. It
@@ -486,7 +486,7 @@ canonical-ordering runtime.
 That keeps the theorem honest:
 
 - the completed recovery lane is explicit layered witness authority expressed
-  through an AFT-native recovery / historical-continuation module
+  through an AFT-native recovery / historical-retrievability module
 - the singular AFT claim already includes that lane rather than excluding it
 - any future strengthening must improve liveness, efficiency, or operational
   envelope, not reintroduce theorem-side scope qualifiers
@@ -512,8 +512,8 @@ formal package, a stronger cycle-count-parameterized recurring bridge whose
 default executable instance still uses three cycles, and one explicit remaining
 unbounded-composition liveness kernel rather than an undefined theorem gap. The
 implementation side now mirrors that bounded recurring bridge
-with a three-cycle historical-continuation restart harness under archived
-profile rotation and index-free continuation discovery, so the remaining
+with a three-cycle historical-retrievability restart harness under archived
+profile rotation and index-free retrievability discovery, so the remaining
 open step is unbounded recurrence rather than missing repeated-cycle evidence
 or a missing one-step recurrence-transfer witness. The formal side now also
 reuses the same recurring core through a second four-cycle executable wrapper,
@@ -549,7 +549,7 @@ discharged too in
 packaging the final stronger classical sentence itself as an explicit
 ordinary-history witness over that discharged totality chain. The validator
 runtime now also mirrors the recurring side with a single persistent
-historical-continuation churn/restart simulator over one evolving state. The
+historical-retrievability churn/restart simulator over one evolving state. The
 remaining work is therefore no longer collapse-proof completion or theorem
 promotion, but only cleanup, proof maintenance, and any broader runtime stress
 coverage we may want to add on top of the finished formal bridge.

@@ -179,12 +179,29 @@ where
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    let is_quarantined = {
+                    let (is_quarantined, next_due_wakeup_at_ms) = {
                         let ctx = context_arc.lock().await;
-                        ctx.is_quarantined.load(Ordering::SeqCst)
+                        (
+                            ctx.is_quarantined.load(Ordering::SeqCst),
+                            ctx.next_due_wakeup_at_ms.load(Ordering::SeqCst),
+                        )
                     };
 
                     if is_quarantined { continue; }
+
+                    if next_due_wakeup_at_ms > 0 {
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_else(|_| Duration::from_secs(0))
+                            .as_millis()
+                            .min(u128::from(u64::MAX)) as u64;
+                        if now_ms < next_due_wakeup_at_ms {
+                            continue;
+                        }
+
+                        let ctx = context_arc.lock().await;
+                        ctx.next_due_wakeup_at_ms.store(0, Ordering::SeqCst);
+                    }
 
                     last_tick = tokio::time::Instant::now();
 
@@ -198,12 +215,13 @@ where
                     let mut _count = 1;
                     while let Ok(_) = kick_rx.try_recv() { _count += 1; }
                     let cause = "kick";
-                    let (is_quarantined, kick_tx, kick_scheduled) = {
+                    let (is_quarantined, kick_tx, kick_scheduled, next_due_wakeup_at_ms) = {
                         let ctx = context_arc.lock().await;
                         (
                             ctx.is_quarantined.load(Ordering::SeqCst),
                             ctx.consensus_kick_tx.clone(),
                             ctx.consensus_kick_scheduled.clone(),
+                            ctx.next_due_wakeup_at_ms.clone(),
                         )
                     };
                     let remaining = min_block_time.saturating_sub(last_tick.elapsed());
@@ -221,6 +239,7 @@ where
                         continue;
                     }
                     last_tick = tokio::time::Instant::now();
+                    next_due_wakeup_at_ms.store(0, Ordering::SeqCst);
 
                     let result = AssertUnwindSafe(drive_consensus_tick(&context_arc, cause)).catch_unwind().await;
                      if let Err(e) = result.map_err(|e| anyhow!("Kicked consensus tick panicked: {:?}", e)).and_then(|res| res) {
@@ -673,6 +692,7 @@ where
             last_production_attempt: None,
             consensus_kick_tx: self.consensus_kick_tx.clone(),
             consensus_kick_scheduled: Arc::new(AtomicBool::new(false)),
+            next_due_wakeup_at_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             sync_progress: None,
             nonce_manager: self.nonce_manager.clone(),
             signer: self.signer.clone(),

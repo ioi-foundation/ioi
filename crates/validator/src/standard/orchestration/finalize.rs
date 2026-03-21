@@ -1895,6 +1895,9 @@ fn build_canonical_order_publication_bundle(
         bulletin_availability_certificate: execution_object
             .bulletin_availability_certificate
             .clone(),
+        bulletin_retrievability_profile: execution_object.bulletin_retrievability_profile.clone(),
+        bulletin_shard_manifest: execution_object.bulletin_shard_manifest.clone(),
+        bulletin_custody_receipt: execution_object.bulletin_custody_receipt.clone(),
         canonical_order_certificate: execution_object.canonical_order_certificate.clone(),
     }
 }
@@ -4954,6 +4957,9 @@ mod tests {
                 kind: ioi_types::app::CanonicalCollapseKind::Close,
                 bulletin_commitment_hash: [seed; 32],
                 bulletin_availability_certificate_hash: [seed.wrapping_add(1); 32],
+                bulletin_retrievability_profile_hash: [0u8; 32],
+                bulletin_shard_manifest_hash: [0u8; 32],
+                bulletin_custody_receipt_hash: [0u8; 32],
                 bulletin_close_hash: [seed.wrapping_add(2); 32],
                 canonical_order_certificate_hash: [seed.wrapping_add(3); 32],
             },
@@ -7038,14 +7044,25 @@ mod tests {
         let selected = publisher.tx_pool.select_transactions(8);
         assert_eq!(selected.len(), 5);
 
+        let mut published_bundle = None;
         let methods = selected
             .into_iter()
             .map(|tx| match tx {
                 ChainTransaction::System(system_tx) => match system_tx.payload {
                     SystemPayload::CallService {
-                        service_id, method, ..
+                        service_id,
+                        method,
+                        params,
                     } => {
                         assert_eq!(service_id, "guardian_registry");
+                        if method == "publish_aft_canonical_order_artifact_bundle@v1" {
+                            published_bundle = Some(
+                                codec::from_bytes_canonical::<CanonicalOrderPublicationBundle>(
+                                    &params,
+                                )
+                                .expect("decode published canonical-order bundle"),
+                            );
+                        }
                         method
                     }
                 },
@@ -7144,14 +7161,25 @@ mod tests {
         let selected = publisher.tx_pool.select_transactions(8);
         assert_eq!(selected.len(), 1);
 
+        let mut published_bundle = None;
         let methods = selected
             .into_iter()
             .map(|tx| match tx {
                 ChainTransaction::System(system_tx) => match system_tx.payload {
                     SystemPayload::CallService {
-                        service_id, method, ..
+                        service_id,
+                        method,
+                        params,
                     } => {
                         assert_eq!(service_id, "guardian_registry");
+                        if method == "publish_aft_canonical_order_artifact_bundle@v1" {
+                            published_bundle = Some(
+                                codec::from_bytes_canonical::<CanonicalOrderPublicationBundle>(
+                                    &params,
+                                )
+                                .expect("decode published canonical-order bundle"),
+                            );
+                        }
                         method
                     }
                 },
@@ -7162,6 +7190,26 @@ mod tests {
         assert_eq!(
             methods,
             vec!["publish_aft_canonical_order_artifact_bundle@v1".to_string()]
+        );
+        let published_bundle = published_bundle.expect("published bundle captured");
+        assert_eq!(
+            published_bundle
+                .bulletin_retrievability_profile
+                .bulletin_commitment_hash,
+            published_bundle
+                .bulletin_availability_certificate
+                .bulletin_commitment_hash
+        );
+        assert_eq!(
+            published_bundle.bulletin_shard_manifest.entry_count,
+            published_bundle.bulletin_commitment.entry_count
+        );
+        assert_eq!(
+            published_bundle.bulletin_custody_receipt.bulletin_shard_manifest_hash,
+            ioi_types::app::canonical_bulletin_shard_manifest_hash(
+                &published_bundle.bulletin_shard_manifest,
+            )
+            .expect("hash published shard manifest")
         );
 
         for _ in 0..1 {

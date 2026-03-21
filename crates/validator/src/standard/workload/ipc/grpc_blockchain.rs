@@ -1,6 +1,7 @@
 // Path: crates/validator/src/standard/workload/ipc/grpc_blockchain.rs
 
 use crate::standard::workload::ipc::RpcContext;
+use ioi_execution::app::load_aft_auxiliary_raw_state_value;
 use ioi_api::{
     chain::{ChainStateMachine, ChainView},
     commitment::CommitmentScheme,
@@ -22,10 +23,11 @@ use ioi_ipc::blockchain::{
     QueryStateAtRequest, QueryStateAtResponse, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
 };
 use ioi_types::{
-    app::{aft_canonical_collapse_object_key, Block, ChainTransaction, StateRoot},
+    app::{Block, ChainTransaction, StateRoot},
     codec,
     config::ConsensusType,
 };
+use std::mem;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -41,6 +43,24 @@ where
 {
     /// Shared RPC context containing the machine state and workload handle.
     pub ctx: Arc<RpcContext<CS, ST>>,
+}
+
+impl<CS, ST> ChainControlImpl<CS, ST>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+{
+    fn header_execution_surface_matches(
+        left: &ioi_types::app::BlockHeader,
+        right: &ioi_types::app::BlockHeader,
+    ) -> bool {
+        left.parent_hash == right.parent_hash
+            && left.parent_state_root == right.parent_state_root
+            && left.state_root == right.state_root
+            && left.transactions_root == right.transactions_root
+            && left.timestamp_ms_or_legacy() == right.timestamp_ms_or_legacy()
+            && left.gas_used == right.gas_used
+    }
 }
 
 #[tonic::async_trait]
@@ -119,12 +139,20 @@ where
         request: Request<GetBlocksRangeRequest>,
     ) -> Result<Response<GetBlocksRangeResponse>, Status> {
         let req = request.into_inner();
+        let committed_height = {
+            let machine = self.ctx.machine.lock().await;
+            machine.state.status.height
+        };
         let blocks = self
             .ctx
             .workload
             .store
             .get_blocks_range(req.since, req.max_blocks, req.max_bytes)
             .map_err(|e| Status::internal(e.to_string()))?;
+        let blocks: Vec<_> = blocks
+            .into_iter()
+            .filter(|block| block.header.height <= committed_height)
+            .collect();
 
         let mut encoded_blocks = Vec::new();
         for b in blocks {
@@ -144,33 +172,84 @@ where
         request: Request<UpdateBlockHeaderRequest>,
     ) -> Result<Response<UpdateBlockHeaderResponse>, Status> {
         let req = request.into_inner();
-        let block: Block<ChainTransaction> = codec::from_bytes_canonical(&req.block_bytes)
+        let incoming_block: Block<ChainTransaction> = codec::from_bytes_canonical(&req.block_bytes)
             .map_err(|e| Status::invalid_argument(e))?;
+        let mut machine = self.ctx.machine.lock().await;
+        let mut block = incoming_block;
+        let committed_height = machine.state.status.height;
+        let recent_committed_height = machine
+            .state
+            .recent_blocks
+            .last()
+            .map(|candidate| candidate.header.height)
+            .unwrap_or(0);
+
+        if let Some(last) = machine.state.recent_blocks.last() {
+            if last.header.height == block.header.height {
+                if !Self::header_execution_surface_matches(&last.header, &block.header) {
+                    return Err(Status::failed_precondition(format!(
+                        "refusing to enrich block {} because execution fields diverged from the local committed state",
+                        block.header.height
+                    )));
+                }
+
+                let mut merged = last.clone();
+                merged.header.signature = mem::take(&mut block.header.signature);
+                merged.header.oracle_counter = block.header.oracle_counter;
+                merged.header.oracle_trace_hash = block.header.oracle_trace_hash;
+                merged.header.guardian_certificate = block.header.guardian_certificate.take();
+                merged.header.sealed_finality_proof = block.header.sealed_finality_proof.take();
+                merged.header.canonical_order_certificate =
+                    block.header.canonical_order_certificate.take();
+                merged.header.publication_frontier = block.header.publication_frontier.take();
+                merged.header.timeout_certificate = block.header.timeout_certificate.take();
+                merged.header.canonical_collapse_extension_certificate =
+                    block.header.canonical_collapse_extension_certificate.take();
+                block = merged;
+            }
+        }
+
+        if block.header.height > committed_height && block.header.height > recent_committed_height {
+            return Err(Status::failed_precondition(format!(
+                "refusing to persist speculative header enrichment for height {} while local committed height is {}",
+                block.header.height, committed_height
+            )));
+        }
+
+        if block.header.height == machine.state.status.height
+            && !machine.state.last_state_root.is_empty()
+            && block.header.state_root.0 != machine.state.last_state_root
+        {
+            return Err(Status::failed_precondition(format!(
+                "refusing to enrich block {} because header state_root does not match the local workload state root",
+                block.header.height
+            )));
+        }
+
+        let block_bytes = codec::to_bytes_canonical(&block).map_err(Status::internal)?;
 
         self.ctx
             .workload
             .store
-            .put_block(block.header.height, &req.block_bytes)
-            .await // Add await
+            .put_block(block.header.height, &block_bytes)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        if let Some(canonical_collapse_object) =
+        // Header enrichment must not mutate the live execution state tree.
+        // Doing so can advance the in-memory root independently from the last
+        // committed block, which breaks anchored state reads for the next
+        // consensus round. AFT canonical collapse data is persisted on the
+        // committed path and published through the normal registry/state flow.
+        if let Err(error) =
             crate::standard::orchestration::aft_collapse::maybe_derive_persisted_canonical_collapse_object(&block)
-                .map_err(|e| Status::internal(e.to_string()))?
         {
-            let state_tree = self.ctx.workload.state_tree();
-            state_tree
-                .write()
-                .await
-                .insert(
-                    &aft_canonical_collapse_object_key(canonical_collapse_object.height),
-                    &codec::to_bytes_canonical(&canonical_collapse_object)
-                        .map_err(Status::internal)?,
-                )
-                .map_err(|e| Status::internal(e.to_string()))?;
+            tracing::debug!(
+                height = block.header.height,
+                error = %error,
+                "Skipping best-effort canonical collapse derivation during header enrichment."
+            );
         }
 
-        let mut machine = self.ctx.machine.lock().await;
         if let Some(last) = machine.state.recent_blocks.last_mut() {
             if last.header.height == block.header.height {
                 *last = block;
@@ -221,10 +300,18 @@ where
                 else {
                     continue;
                 };
-                let is_durable =
-                    crate::standard::orchestration::aft_collapse::maybe_derive_persisted_canonical_collapse_object(&block)
-                        .map_err(|e| Status::internal(e.to_string()))?
-                        .is_some();
+                let is_durable = match crate::standard::orchestration::aft_collapse::maybe_derive_persisted_canonical_collapse_object(&block)
+                {
+                    Ok(collapse) => collapse.is_some(),
+                    Err(error) => {
+                        tracing::debug!(
+                            height,
+                            error = %error,
+                            "Skipping non-durable AFT status candidate whose canonical collapse surface is not yet derivable."
+                        );
+                        false
+                    }
+                };
                 candidates.push(block);
                 if is_durable {
                     break;
@@ -361,9 +448,37 @@ where
         let root_commitment = state
             .commitment_from_bytes(&root.0)
             .map_err(|e| Status::internal(e.to_string()))?;
-        let (membership, proof) = state
-            .get_with_proof_at(&root_commitment, &req.key)
-            .map_err(|e| Status::internal(e.to_string()))?;
+        let current_root = state.commitment_to_bytes(&state.root_commitment());
+        let root_known_before_query = state.version_exists_for_root(&root_commitment);
+        let (membership, proof) = match state.get_with_proof_at(&root_commitment, &req.key) {
+            Ok(result) => result,
+            Err(error) => {
+                drop(state);
+                let machine = self.ctx.machine.lock().await;
+                let recent_block_root = machine
+                    .state
+                    .recent_blocks
+                    .last()
+                    .map(|block| block.header.state_root.0.clone())
+                    .unwrap_or_default();
+                tracing::error!(
+                    target: "state_query",
+                    requested_root = %hex::encode(&root.0),
+                    requested_root_len = root.0.len(),
+                    current_root = %hex::encode(&current_root),
+                    current_root_len = current_root.len(),
+                    root_known_before_query,
+                    machine_height = machine.state.status.height,
+                    machine_last_state_root = %hex::encode(&machine.state.last_state_root),
+                    recent_block_height = machine.state.recent_blocks.last().map(|block| block.header.height).unwrap_or(0),
+                    recent_block_root = %hex::encode(recent_block_root),
+                    key = %hex::encode(&req.key),
+                    error = %error,
+                    "query_state_at failed because the requested root was not resolvable by the workload state backend"
+                );
+                return Err(Status::internal(error.to_string()));
+            }
+        };
 
         let proof_bytes = codec::to_bytes_canonical(&proof).map_err(|e| Status::internal(e))?;
         let resp_struct = ioi_api::chain::QueryStateResponse {
@@ -391,10 +506,18 @@ where
                 value: val,
                 found: true,
             })),
-            Ok(None) => Ok(Response::new(QueryRawStateResponse {
-                value: vec![],
-                found: false,
-            })),
+            Ok(None) => match load_aft_auxiliary_raw_state_value(self.ctx.workload.store.as_ref(), &req.key)
+            {
+                Ok(Some(value)) => Ok(Response::new(QueryRawStateResponse {
+                    value,
+                    found: true,
+                })),
+                Ok(None) => Ok(Response::new(QueryRawStateResponse {
+                    value: vec![],
+                    found: false,
+                })),
+                Err(error) => Err(Status::internal(error.to_string())),
+            },
             Err(e) => Err(Status::internal(e.to_string())),
         }
     }

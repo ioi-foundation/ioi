@@ -223,10 +223,10 @@ FrontierContradictionDominates ==
     HasFrontierContradiction(s)
     => CertEvent(s, c) \notin admittedCerts
 
-\* Full public recoverability is outside the compact-frontier hot path modeled
-\* here. These names remain as explicit boundary markers so the existing TLC
-\* configuration continues to check the narrowed theorem surface without
-\* requiring edits outside this file.
+\* Full endogenous retrievability now lives in CanonicalOrderingRetrievability.tla.
+\* These names remain as explicit boundary markers so this compact-frontier
+\* executable model keeps checking the hot-path theorem surface without
+\* duplicating the retrievability-plane state machine here.
 RecoveredSoundness == \A s \in Slots : bulletin[s] = bulletin[s]
 Recoverability == \A s \in Slots : bulletin[s] = bulletin[s]
 WitnessBound ==
