@@ -6,12 +6,19 @@
 
 ## 1. Vision-State Product Definition
 
-**Category:** Autonomous agent orchestration platform
+**Category:** Autonomous action runtime and operator shell
 **Differentiator:** Private, sovereign, and verifiable by design
 
 Autopilot is the private and sovereign operator shell for autonomous, local-first, and verifiable software workers.
 
+Today the dominant domain is bounded software action. Over time, the same runtime model should be able to extend to broader autonomous systems, including devices or embodied workers, wherever the same guarantees can be preserved.
+
 At its end state, Autopilot is not just a private desktop assistant, a workflow builder, or a copilot. It is a zero-trust hypervisor for generative AI that lets an individual or organization run bounded digital workers across the desktop, browser, APIs, and external software systems while preserving operator control, policy enforcement, provenance, and replayable evidence.
+
+The long-term progression is:
+gen-AI hypervisor -> software worker runtime -> swarm coordinator -> embodied action runtime
+
+Autopilot should not be marketed as a robot runtime first. It should be described as the runtime and operator shell for bounded autonomous action, starting with software and extending outward only when the same policy, approval, evidence, and authority guarantees can be maintained.
 
 Within the broader IOI surface map, Autopilot is where workers are operated privately and locally. When stable local work should become a provider-facing product with deployment presets, billing, tenants, and marketplace publication, the promotion path continues into `sas.xyz`.
 
@@ -36,11 +43,11 @@ The product should start from the user’s machine and trust boundary, but grow 
 
 ### One sentence
 
-Autopilot is the private/local operator shell and orchestration platform for running sovereign, verifiable software workers across your desktop, apps, and connected systems with governed capabilities.
+Autopilot is the private/local operator shell and execution runtime for running sovereign, verifiable software workers across your desktop, apps, and connected systems with governed capabilities.
 
 ### One paragraph
 
-Autopilot is the operating layer for software workers: a zero-trust hypervisor and orchestration platform that can understand goals, decompose work, spawn and supervise worker swarms, act through a unified capability surface spanning computer use, connected systems, tools, and reusable skills, and promote stable workflows into durable service candidates. It is private by default, sovereign in control, and verifiable in execution, so every meaningful action can be gated, audited, simulated, replayed, and improved without surrendering authority to a black-box cloud agent.
+Autopilot is the operating layer for software workers: a zero-trust hypervisor and execution runtime that can understand goals, decompose work, spawn and supervise worker swarms, act through a unified capability surface spanning computer use, connected systems, tools, and reusable skills, and promote stable workflows into durable service candidates. It is private by default, sovereign in control, and verifiable in execution, so every meaningful action can be gated, audited, simulated, replayed, and improved without surrendering authority to a black-box cloud agent. Today that action is mostly software; over time the same governance model can extend to broader autonomous and embodied systems where the same guarantees can still be preserved.
 
 ---
 
@@ -767,7 +774,35 @@ The right framing is bounded operational self-improvement under sovereign contro
 
 ## 15. Trust, Security, and Hypervisor Model
 
-Autopilot should be fundamentally designed as a zero-trust hypervisor for generative AI.
+Autopilot should be fundamentally designed as a zero-trust hypervisor and governed execution runtime for bounded autonomous action, starting with software systems first.
+
+This should scale conceptually from:
+
+* hypervising generative AI
+* to software worker execution
+* to worker swarms
+* and eventually to broader autonomous or embodied runtimes
+
+without changing the higher-order model of capability bounds, policy mediation, approvals, receipts, and authority separation.
+
+### Precise cryptographic claim
+
+Autopilot should make strong claims precisely.
+
+It should not claim that it can cryptographically prove the physical world changed in the way a runtime reported unless it also controls and trusts the relevant sensor, attestation, and actuator chain.
+
+What it can cryptographically guarantee much earlier is:
+
+* the policy that governed the action
+* the identity of the actor or runtime
+* the command that was issued
+* the non-equivocation of the execution record
+* the sequence of approvals and commitments
+* the integrity of the receipt chain
+* the boundedness of the authorized action envelope
+* what evidence was observed and committed
+
+That is the right bridge from software action today to broader autonomous action later.
 
 ### Least privilege by default
 
@@ -891,7 +926,7 @@ Chat is a surface, not the product. The core UX is control, outcomes, and decisi
 
 At maturity, Autopilot should make it possible to say:
 
-> A user or company can run an entire layer of autonomous software labor under their own authority, across local and connected systems, with capabilities spanning computer use and APIs, with worker swarms coordinated under policy, with outcomes surfaced through durable review and approval queues, and with enough evidence and replayability to trust and continuously improve the system over time.
+> A user or company can run an entire layer of sovereign autonomous action under their own authority, starting with software labor across local and connected systems, with capabilities spanning computer use and APIs, with worker swarms coordinated under policy, and with enough evidence and replayability to trust and continuously improve the system over time.
 
 That is the end state.
 
@@ -910,10 +945,12 @@ Autopilot should feel like:
 
 One shell. One ontology. One control plane.
 
+Today the dominant action surface is software. Over time, the architecture should be capable of extending to devices or embodied systems without changing the higher-order governance model.
+
 ---
 
 ## 21. Final Product Statement
 
-Autopilot should strive to become the operating system for sovereign software workers: an autonomous agent orchestration platform that is private, sovereign, and verifiable by design, capable of spanning private desktop assistance, governed capabilities across computer use and connected systems, worker swarms, bounded recursive improvement, and local-to-service promotion inside a zero-trust generative AI hypervisor.
+Autopilot should strive to become the runtime and operator shell for sovereign autonomous action: private, sovereign, and verifiable by design, starting with software workers across desktop, browser, files, APIs, and connected systems, then extending over time to broader autonomous and embodied systems wherever the same capability, policy, approval, evidence, and authority guarantees can be preserved.
 
 That is the product.

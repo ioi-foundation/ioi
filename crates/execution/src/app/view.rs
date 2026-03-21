@@ -2,8 +2,8 @@
 
 use super::PenaltyDelegator; // Added PenaltyDelegator to imports
 use super::{
-    load_aft_auxiliary_raw_state_value, resolve_execution_anchor_from_recent_blocks_or_replay_prefix,
-    ExecutionMachine,
+    load_aft_auxiliary_raw_state_value,
+    resolve_execution_anchor_from_recent_blocks_or_replay_prefix, ExecutionMachine,
 };
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, RemoteStateView, StateRef};

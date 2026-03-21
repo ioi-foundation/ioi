@@ -81,7 +81,23 @@ pub(crate) async fn finalize_valid_transactions(
     current_validator_set: &[Vec<u8>],
     expected_ts: u64,
 ) -> bool {
-    let txs_to_check: Vec<ChainTransaction> = semantically_valid_indices
+    let mut ordered_check_indices = semantically_valid_indices.to_vec();
+    ordered_check_indices.sort_by(|left_idx, right_idx| {
+        let left = &processed_batch[*left_idx];
+        let right = &processed_batch[*right_idx];
+
+        match (left.account_id, right.account_id) {
+            (Some(left_account), Some(right_account)) => left_account
+                .cmp(&right_account)
+                .then_with(|| left.nonce.unwrap_or(0).cmp(&right.nonce.unwrap_or(0)))
+                .then_with(|| left_idx.cmp(right_idx)),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => left_idx.cmp(right_idx),
+        }
+    });
+
+    let txs_to_check: Vec<ChainTransaction> = ordered_check_indices
         .iter()
         .map(|&i| processed_batch[i].tx.clone())
         .collect();
@@ -129,7 +145,7 @@ pub(crate) async fn finalize_valid_transactions(
         };
 
     for (res_idx, result) in check_results.into_iter().enumerate() {
-        let original_idx = semantically_valid_indices[res_idx];
+        let original_idx = ordered_check_indices[res_idx];
         let p_tx = &processed_batch[original_idx];
 
         let is_approval_error = if let Err(e) = &result {

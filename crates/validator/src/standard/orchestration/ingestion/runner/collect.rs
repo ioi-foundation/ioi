@@ -97,7 +97,10 @@ where
                     };
 
                     if let Some(acc) = account_id {
-                        if !tx_pool.contains_account(&acc) && !nonce_cache.contains(&acc) {
+                        // Once an account drains out of the mempool, any cached committed nonce
+                        // can be stale relative to newly committed blocks. Refresh from the
+                        // anchored state whenever the pool is no longer tracking that account.
+                        if !tx_pool.contains_account(&acc) {
                             accounts_needing_nonce.insert(acc);
                         }
                     }

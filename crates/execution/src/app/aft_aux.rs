@@ -29,13 +29,11 @@ fn derive_canonical_collapse_for_block_chain(
         return Ok(Some(cached.clone()));
     }
 
-    let Some(block) = store
-        .get_block_by_height(height)
-        .map_err(|error| {
-            ChainError::ExecutionClient(format!(
-                "failed to load committed block {height} for AFT auxiliary state: {error}"
-            ))
-        })?
+    let Some(block) = store.get_block_by_height(height).map_err(|error| {
+        ChainError::ExecutionClient(format!(
+            "failed to load committed block {height} for AFT auxiliary state: {error}"
+        ))
+    })?
     else {
         return Ok(None);
     };
@@ -45,10 +43,7 @@ fn derive_canonical_collapse_for_block_chain(
     } else {
         derive_canonical_collapse_for_block_chain(store, height - 1, cache)?
     };
-    let collapse = derive_canonical_collapse_for_block(
-        &block,
-        previous.as_ref(),
-    )?;
+    let collapse = derive_canonical_collapse_for_block(&block, previous.as_ref())?;
     cache.insert(height, collapse.clone());
     Ok(Some(collapse))
 }

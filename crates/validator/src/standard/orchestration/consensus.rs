@@ -3196,7 +3196,7 @@ where
                                 timestamp_ms: reconciled_block.header.timestamp_ms_or_legacy(),
                                 gas_used: reconciled_block.header.gas_used,
                                 state_root: reconciled_block.header.state_root.0.clone(),
-                                genesis_root: ctx.genesis_hash.to_vec(),
+                                genesis_root: ctx.genesis_root.clone(),
                                 validator_set: reconciled_block.header.validator_set.clone(),
                             });
                         }

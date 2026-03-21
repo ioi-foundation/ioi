@@ -22,14 +22,28 @@ use tokio::{
 // in heavy tests (like Verkle/KZG setup) on CI runners.
 pub(crate) const LOG_ASSERT_TIMEOUT: Duration = Duration::from_secs(180);
 pub(crate) const LOG_CHANNEL_CAPACITY: usize = 8192;
+const LOG_ASSERT_CAPTURE_LIMIT: usize = 512;
 
 // --- Log Assertions ---
+
+fn benchmark_harness_mode_enabled() -> bool {
+    std::env::var_os("IOI_AFT_BENCH_SCENARIO").is_some()
+        || std::env::var_os("IOI_AFT_BENCH_LANE").is_some()
+        || std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
+}
 
 fn live_process_log_echo_enabled() -> bool {
     std::env::var("IOI_TEST_VERBOSE_PROCESS_LOGS")
         .ok()
         .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
         .unwrap_or(false)
+}
+
+fn record_received_log_line(received_lines: &mut Vec<String>, line: String) {
+    if received_lines.len() >= LOG_ASSERT_CAPTURE_LIMIT {
+        received_lines.remove(0);
+    }
+    received_lines.push(line);
 }
 
 pub async fn assert_log_contains(
@@ -58,7 +72,7 @@ pub async fn assert_log_contains(
                 if live_process_log_echo_enabled() {
                     println!("[LOGS-{}] {}", label, line);
                 }
-                received_lines.push(line.clone());
+                record_received_log_line(&mut received_lines, line.clone());
                 if line.contains(pattern) {
                     return Ok(());
                 }
@@ -68,8 +82,10 @@ pub async fn assert_log_contains(
                     "[WARN] Log assertion for '{}' may have missed {} lines.",
                     label, count
                 );
-                println!("{}", &msg);
-                received_lines.push(msg);
+                if !benchmark_harness_mode_enabled() {
+                    println!("{}", &msg);
+                }
+                record_received_log_line(&mut received_lines, msg);
             }
             Ok(Err(broadcast::error::RecvError::Closed)) => {
                 let combined_logs = received_lines.join("\n");
@@ -115,7 +131,7 @@ pub async fn assert_log_contains_and_return_line(
                     println!("[LOGS-{}] {}", label, line);
                 }
                 let line_clone = line.clone();
-                received_lines.push(line);
+                record_received_log_line(&mut received_lines, line);
                 if line_clone.contains(pattern) {
                     return Ok(line_clone);
                 }
@@ -125,8 +141,10 @@ pub async fn assert_log_contains_and_return_line(
                     "[WARN] Log assertion for '{}' may have missed {} lines.",
                     label, count
                 );
-                println!("{}", &msg);
-                received_lines.push(msg);
+                if !benchmark_harness_mode_enabled() {
+                    println!("{}", &msg);
+                }
+                record_received_log_line(&mut received_lines, msg);
             }
             Ok(Err(broadcast::error::RecvError::Closed)) => {
                 let combined_logs = received_lines.join("\n");

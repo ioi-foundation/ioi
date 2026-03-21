@@ -36,6 +36,9 @@ pub struct MVMemory {
     /// Map from Key -> List of writes (sorted by TxIndex).
     /// Using parking_lot for faster non-async locks.
     data: DashMap<StateKey, Arc<RwLock<Vec<MemoryEntry>>>>,
+    /// Tracks which keys each transaction incarnation has touched so stale writes can be
+    /// cleared before a retry re-executes with a different read view.
+    tx_write_keys: DashMap<TxIndex, Vec<StateKey>>,
     /// Reference to the base state (pre-block state).
     base_state: Arc<dyn StateAccess>,
 }
@@ -44,6 +47,7 @@ impl MVMemory {
     pub fn new(base_state: Arc<dyn StateAccess>) -> Self {
         Self {
             data: DashMap::new(),
+            tx_write_keys: DashMap::new(),
             base_state,
         }
     }
@@ -126,6 +130,10 @@ impl MVMemory {
     pub fn write(&self, key: Vec<u8>, value: Option<Vec<u8>>, tx_idx: TxIndex) -> bool {
         // Convert to Arc<[u8]> for efficient map storage
         let key_arc: StateKey = key.into();
+        self.tx_write_keys
+            .entry(tx_idx)
+            .or_insert_with(Vec::new)
+            .push(key_arc.clone());
 
         let entry = self
             .data
@@ -152,6 +160,27 @@ impl MVMemory {
         // If there are versions AFTER us, we might have invalidated their reads.
         // In a full Block-STM, this triggers validation for those indices.
         pos < versions.len() - 1
+    }
+
+    /// Clears every write recorded for a transaction incarnation so a retry starts from a clean
+    /// slate and does not leak keys written by a prior aborted attempt.
+    pub fn clear_tx_writes(&self, tx_idx: TxIndex) {
+        let Some((_, keys)) = self.tx_write_keys.remove(&tx_idx) else {
+            return;
+        };
+
+        for key in keys {
+            let mut remove_key = false;
+            if let Some(entry) = self.data.get(key.as_ref()) {
+                let mut versions = entry.write();
+                versions.retain(|version| version.version != tx_idx);
+                remove_key = versions.is_empty();
+            }
+
+            if remove_key {
+                self.data.remove(key.as_ref());
+            }
+        }
     }
 
     /// Captures the ReadSet for a transaction to allow validation later.
@@ -332,5 +361,27 @@ mod tests {
         assert_eq!(rows[0].0, b"lease::a".to_vec());
         assert_eq!(rows[0].1, b"tx2_a".to_vec());
         assert_eq!(rows[0].2, ReadVersion::Transaction(2));
+    }
+
+    #[test]
+    fn clear_tx_writes_removes_stale_keys_from_prior_incarnation() {
+        let base = MockState::default();
+        let memory = MVMemory::new(Arc::new(base));
+
+        let _ = memory.write(b"lease::a".to_vec(), Some(b"tx2_a".to_vec()), 2);
+        let _ = memory.write(b"lease::b".to_vec(), Some(b"tx2_b".to_vec()), 2);
+        memory.clear_tx_writes(2);
+        let _ = memory.write(b"lease::a".to_vec(), Some(b"tx2_retry_a".to_vec()), 2);
+
+        let mut overlay = ioi_api::state::StateOverlay::new(memory.base_state.as_ref());
+        memory
+            .apply_to_overlay(&mut overlay)
+            .expect("apply_to_overlay should succeed");
+        let (inserts, deletes) = overlay.into_ordered_batch();
+
+        assert_eq!(deletes.len(), 0);
+        assert_eq!(inserts.len(), 1);
+        assert_eq!(inserts[0].0, b"lease::a".to_vec());
+        assert_eq!(inserts[0].1, b"tx2_retry_a".to_vec());
     }
 }
