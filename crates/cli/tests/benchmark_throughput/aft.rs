@@ -348,13 +348,11 @@ fn env_or_default(name: &str, default: impl Into<String>) -> String {
 
 async fn build_channels(rpc_addrs: &[String], per_validator: usize) -> Result<Vec<Channel>> {
     let mut channels = Vec::new();
-    for rpc_addr in rpc_addrs {
-        for _ in 0..per_validator {
-            channels.push(
-                Channel::from_shared(format!("http://{}", rpc_addr))?
-                    .connect()
-                    .await?,
-            );
+    // Interleave connections across validators so small and moderate submission sets
+    // do not all land on the first RPC address in the list.
+    for _ in 0..per_validator {
+        for rpc_addr in rpc_addrs {
+            channels.push(Channel::from_shared(format!("http://{}", rpc_addr))?.connect_lazy());
         }
     }
     Ok(channels)
@@ -378,6 +376,22 @@ async fn wait_for_next_height(rpc_addr: &str, start_height: u64, timeout: Durati
         }
         sleep(Duration::from_millis(50)).await;
     }
+}
+
+async fn authoritative_tip_block_with_hint(
+    rpc_addr: &str,
+    status_hint_height: u64,
+) -> Result<Option<ioi_types::app::Block<ioi_types::app::ChainTransaction>>> {
+    let resilient_tip_height = rpc::tip_height_resilient(rpc_addr).await?;
+    for tip_height in [resilient_tip_height, status_hint_height] {
+        if tip_height == 0 {
+            continue;
+        }
+        if let Some(block) = rpc::get_block_by_height_resilient(rpc_addr, tip_height).await? {
+            return Ok(Some(block));
+        }
+    }
+    Ok(None)
 }
 
 fn benchmark_primary_only() -> bool {
@@ -540,104 +554,119 @@ async fn submit_account_sequence(
     txs: Vec<Vec<u8>>,
 ) -> Result<Vec<SubmittedTx>> {
     let mut submitted = Vec::with_capacity(txs.len());
+    for tx_bytes in txs {
+        submitted.push(
+            submit_transaction_bytes(
+                channels.as_ref(),
+                preferred_channel_index,
+                status_channel_index,
+                tx_bytes,
+            )
+            .await?,
+        );
+    }
+
+    Ok(submitted)
+}
+
+async fn submit_transaction_bytes(
+    channels: &[Channel],
+    preferred_channel_index: usize,
+    status_channel_index: usize,
+    tx_bytes: Vec<u8>,
+) -> Result<SubmittedTx> {
     let submit_timeout = Duration::from_millis(benchmark_override_u64(
         "IOI_AFT_BENCH_SUBMIT_TIMEOUT_MS",
         DEFAULT_SUBMIT_TIMEOUT_MS,
     ));
 
-    for tx_bytes in txs {
-        let chain_hash = codec::from_bytes_canonical::<ChainTransaction>(&tx_bytes)
-            .ok()
-            .and_then(|tx| tx.hash().ok())
-            .map(hex::encode)
-            .unwrap_or_default();
-        let mut retries = 0usize;
-        loop {
-            let channel_index = if channels.is_empty() {
-                0
-            } else {
-                preferred_channel_index.saturating_add(retries) % channels.len()
-            };
-            let mut client = PublicApiClient::new(
-                channels
-                    .get(channel_index)
-                    .ok_or_else(|| anyhow!("no submission channels available"))?
-                    .clone(),
-            );
-            let request = tonic::Request::new(SubmitTransactionRequest {
-                transaction_bytes: tx_bytes.clone(),
-            });
-            let submit_started = Instant::now();
+    let chain_hash = codec::from_bytes_canonical::<ChainTransaction>(&tx_bytes)
+        .ok()
+        .and_then(|tx| tx.hash().ok())
+        .map(hex::encode)
+        .unwrap_or_default();
+    let mut retries = 0usize;
+    loop {
+        let channel_index = if channels.is_empty() {
+            0
+        } else {
+            preferred_channel_index.saturating_add(retries) % channels.len()
+        };
+        let mut client = PublicApiClient::new(
+            channels
+                .get(channel_index)
+                .ok_or_else(|| anyhow!("no submission channels available"))?
+                .clone(),
+        );
+        let request = tonic::Request::new(SubmitTransactionRequest {
+            transaction_bytes: tx_bytes.clone(),
+        });
+        let submit_started = Instant::now();
 
-            match timeout(submit_timeout, client.submit_transaction(request)).await {
-                Err(_) => {
+        match timeout(submit_timeout, client.submit_transaction(request)).await {
+            Err(_) => {
+                retries += 1;
+                if retries > MAX_RETRIES {
+                    return Err(anyhow!(
+                        "submit retries exceeded after timeout waiting {} ms",
+                        submit_timeout.as_millis()
+                    ));
+                }
+                sleep(Duration::from_millis(BACKOFF_MS)).await;
+                continue;
+            }
+            Ok(Err(status)) => {
+                let message = status.message().to_string();
+                let retryable = matches!(
+                    status.code(),
+                    Code::ResourceExhausted | Code::Unavailable | Code::Internal
+                ) || (status.code() == Code::InvalidArgument
+                    && (message.contains("Nonce mismatch")
+                        || message.contains("Nonce record not found")));
+
+                if retryable {
                     retries += 1;
                     if retries > MAX_RETRIES {
                         return Err(anyhow!(
-                            "submit retries exceeded after timeout waiting {} ms",
-                            submit_timeout.as_millis()
+                            "submit retries exceeded: code={}, message={}",
+                            status.code(),
+                            message
                         ));
                     }
                     sleep(Duration::from_millis(BACKOFF_MS)).await;
                     continue;
                 }
-                Ok(Err(status)) => {
-                    let message = status.message().to_string();
-                    let retryable = matches!(
-                        status.code(),
-                        Code::ResourceExhausted | Code::Unavailable | Code::Internal
-                    ) || (status.code() == Code::InvalidArgument
-                        && (message.contains("Nonce mismatch")
-                            || message.contains("Nonce record not found")));
 
-                    if retryable {
-                        retries += 1;
-                        if retries > MAX_RETRIES {
-                            return Err(anyhow!(
-                                "submit retries exceeded: code={}, message={}",
-                                status.code(),
-                                message
-                            ));
-                        }
-                        sleep(Duration::from_millis(BACKOFF_MS)).await;
-                        continue;
-                    }
-
-                    if status.code() == Code::InvalidArgument
-                        && (message.contains("already exists")
-                            || message.contains("nonce too low")
-                            || message.contains("Mempool"))
-                    {
-                        submitted.push(SubmittedTx {
-                            tx_hash: String::new(),
-                            chain_hash: String::new(),
-                            submitted_at: submit_started,
-                            status_channel_index,
-                        });
-                        break;
-                    }
-
-                    return Err(anyhow!(
-                        "submit failed: code={}, message={}",
-                        status.code(),
-                        message
-                    ));
-                }
-                Ok(Ok(response)) => {
-                    let tx_hash = response.into_inner().tx_hash;
-                    submitted.push(SubmittedTx {
-                        tx_hash,
-                        chain_hash: chain_hash.clone(),
+                if status.code() == Code::InvalidArgument
+                    && (message.contains("already exists")
+                        || message.contains("nonce too low")
+                        || message.contains("Mempool"))
+                {
+                    return Ok(SubmittedTx {
+                        tx_hash: String::new(),
+                        chain_hash: String::new(),
                         submitted_at: submit_started,
                         status_channel_index,
                     });
-                    break;
                 }
+
+                return Err(anyhow!(
+                    "submit failed: code={}, message={}",
+                    status.code(),
+                    message
+                ));
+            }
+            Ok(Ok(response)) => {
+                let tx_hash = response.into_inner().tx_hash;
+                return Ok(SubmittedTx {
+                    tx_hash,
+                    chain_hash: chain_hash.clone(),
+                    submitted_at: submit_started,
+                    status_channel_index,
+                });
             }
         }
     }
-
-    Ok(submitted)
 }
 
 async fn poll_committed_transaction(
@@ -822,36 +851,6 @@ async fn wait_for_sealed_terminal_block(
     }
 }
 
-async fn select_highest_tip_rpc<'a>(rpc_addrs: &'a [String]) -> Result<(&'a str, u64)> {
-    let mut best: Option<(&'a str, u64)> = None;
-    let mut last_error = None;
-
-    for rpc_addr in rpc_addrs {
-        match rpc::get_status(rpc_addr).await {
-            Ok(status) => {
-                let height = status.height;
-                let rpc_addr = rpc_addr.as_str();
-                if best
-                    .map(|(_, best_height)| height > best_height)
-                    .unwrap_or(true)
-                {
-                    best = Some((rpc_addr, height));
-                }
-            }
-            Err(error) => last_error = Some(error),
-        }
-    }
-
-    best.ok_or_else(|| {
-        anyhow!(
-            "failed to fetch status from any benchmark rpc endpoint{}",
-            last_error
-                .map(|error| format!(": {error}"))
-                .unwrap_or_default()
-        )
-    })
-}
-
 async fn query_transaction_status_any(
     channels: &[Channel],
     tx_hash: &str,
@@ -964,35 +963,28 @@ async fn scan_committed_hashes_from_chain(
     let mut last_scanned_tip = initial_height;
 
     loop {
-        let (_scan_rpc_addr, tip_height) = select_highest_tip_rpc(rpc_addrs).await?;
-
-        while next_height <= tip_height {
-            match get_block_by_height_any_rpc(rpc_addrs, next_height).await? {
-                Some(block) => {
-                    let mut matched_in_block = 0usize;
-                    for tx in &block.transactions {
-                        if let Ok(hash) = tx.hash() {
-                            let hash_hex = hex::encode(hash);
-                            if expected_hashes.contains(&hash_hex) && seen_hashes.insert(hash_hex) {
-                                matched_in_block += 1;
-                            }
-                        }
+        while let Some(block) = get_block_by_height_any_rpc(rpc_addrs, next_height).await? {
+            let mut matched_in_block = 0usize;
+            for tx in &block.transactions {
+                if let Ok(hash) = tx.hash() {
+                    let hash_hex = hex::encode(hash);
+                    if expected_hashes.contains(&hash_hex) && seen_hashes.insert(hash_hex) {
+                        matched_in_block += 1;
                     }
-                    per_block_tx_counts.push((next_height, matched_in_block));
-                    if matched_in_block > 0 {
-                        committed_heights.insert(next_height);
-                    }
-                    next_height = next_height.saturating_add(1);
-                    last_scanned_tip = tip_height;
                 }
-                None => break,
             }
+            per_block_tx_counts.push((next_height, matched_in_block));
+            if matched_in_block > 0 {
+                committed_heights.insert(next_height);
+            }
+            last_scanned_tip = next_height;
+            next_height = next_height.saturating_add(1);
         }
 
         if last_progress_log.elapsed() >= Duration::from_secs(5) {
             println!(
-                "chain scan progress: tip={} committed={}/{} scanned_blocks={}",
-                tip_height,
+                "chain scan progress: scanned_tip={} committed={}/{} scanned_blocks={}",
+                last_scanned_tip,
                 seen_hashes.len(),
                 expected_hashes.len(),
                 per_block_tx_counts.len()
@@ -1003,7 +995,7 @@ async fn scan_committed_hashes_from_chain(
         if seen_hashes.len() >= expected_hashes.len() {
             return Ok(ChainCommitScan {
                 committed: seen_hashes.len() as u64,
-                scanned_tip_height: tip_height,
+                scanned_tip_height: last_scanned_tip,
                 committed_heights,
                 per_block_tx_counts,
             });
@@ -1012,7 +1004,7 @@ async fn scan_committed_hashes_from_chain(
         if Instant::now() >= deadline {
             return Ok(ChainCommitScan {
                 committed: seen_hashes.len() as u64,
-                scanned_tip_height: last_scanned_tip.max(tip_height),
+                scanned_tip_height: last_scanned_tip,
                 committed_heights,
                 per_block_tx_counts,
             });
@@ -1041,35 +1033,28 @@ async fn wait_for_committed_hashes_on_chain(
     let mut last_scanned_tip = initial_height;
 
     loop {
-        let (_scan_rpc_addr, tip_height) = select_highest_tip_rpc(rpc_addrs).await?;
-
-        while next_height <= tip_height {
-            match get_block_by_height_any_rpc(rpc_addrs, next_height).await? {
-                Some(block) => {
-                    let mut matched_in_block = 0usize;
-                    for tx in &block.transactions {
-                        if let Ok(hash) = tx.hash() {
-                            let hash_hex = hex::encode(hash);
-                            if expected_hashes.contains(&hash_hex) && seen_hashes.insert(hash_hex) {
-                                matched_in_block += 1;
-                            }
-                        }
+        while let Some(block) = get_block_by_height_any_rpc(rpc_addrs, next_height).await? {
+            let mut matched_in_block = 0usize;
+            for tx in &block.transactions {
+                if let Ok(hash) = tx.hash() {
+                    let hash_hex = hex::encode(hash);
+                    if expected_hashes.contains(&hash_hex) && seen_hashes.insert(hash_hex) {
+                        matched_in_block += 1;
                     }
-                    per_block_tx_counts.push((next_height, matched_in_block));
-                    if matched_in_block > 0 {
-                        committed_heights.insert(next_height);
-                    }
-                    next_height = next_height.saturating_add(1);
-                    last_scanned_tip = tip_height;
                 }
-                None => break,
             }
+            per_block_tx_counts.push((next_height, matched_in_block));
+            if matched_in_block > 0 {
+                committed_heights.insert(next_height);
+            }
+            last_scanned_tip = next_height;
+            next_height = next_height.saturating_add(1);
         }
 
         if last_progress_log.elapsed() >= Duration::from_secs(5) {
             println!(
-                "chain commit progress: tip={} committed={}/{} scanned_blocks={}",
-                tip_height,
+                "chain commit progress: scanned_tip={} committed={}/{} scanned_blocks={}",
+                last_scanned_tip,
                 seen_hashes.len(),
                 expected_hashes.len(),
                 per_block_tx_counts.len()
@@ -1082,7 +1067,7 @@ async fn wait_for_committed_hashes_on_chain(
                 Instant::now(),
                 ChainCommitScan {
                     committed: seen_hashes.len() as u64,
-                    scanned_tip_height: tip_height,
+                    scanned_tip_height: last_scanned_tip,
                     committed_heights,
                     per_block_tx_counts,
                 },
@@ -1091,10 +1076,9 @@ async fn wait_for_committed_hashes_on_chain(
 
         if Instant::now() >= deadline {
             return Err(anyhow!(
-                "timeout waiting for {} committed transaction hashes; observed {} before deadline (tip={} scanned_tip={})",
+                "timeout waiting for {} committed transaction hashes; observed {} before deadline (scanned_tip={})",
                 expected_hashes.len(),
                 seen_hashes.len(),
-                tip_height,
                 last_scanned_tip,
             ));
         }
@@ -1366,9 +1350,6 @@ async fn run_scenario(
     }
 
     let target_batch = benchmark_tx_total.clamp(1_024, 32_768);
-    let fast_admit_limit = benchmark_tx_total
-        .saturating_add(target_batch / 2)
-        .clamp(1_024, 65_536);
     let default_kick_debounce_ms = if benchmark_tx_total >= 8_192 {
         150
     } else if benchmark_tx_total >= 4_096 {
@@ -1378,25 +1359,28 @@ async fn run_scenario(
     };
     let adaptive_view_timeout_ms = benchmark_override_u64(
         "IOI_AFT_BENCH_VIEW_TIMEOUT_MS",
-        target_block_time_ms.saturating_mul(4).clamp(500, 2_000),
+        target_block_time_ms.saturating_mul(4).clamp(100, 2_000),
     );
     let trace_mode = benchmark_trace_enabled();
     let startup_buffer_secs = benchmark_override_u64(
         "IOI_AFT_BENCH_STARTUP_BUFFER_SECS",
         if trace_mode || fast_probe {
-            std::cmp::max(3, scenario.validators as u64)
+            // Benchmark nodes take materially longer than a few seconds to boot, especially when
+            // we wait for multiple validator/workload pairs. Keep genesis far enough in the future
+            // that submission setup still happens close to height 0.
+            std::cmp::max(45, scenario.validators as u64 * 8)
         } else {
-            std::cmp::max(5, scenario.validators as u64 * 2)
+            std::cmp::max(60, scenario.validators as u64 * 10)
         },
     );
     let bootstrap_grace_secs = benchmark_override_u64(
         "IOI_AFT_BOOTSTRAP_GRACE_SECS",
         if trace_mode || fast_probe {
             startup_buffer_secs
-                .saturating_add(target_block_time_secs_legacy.max(1))
-                .max(5)
+                .saturating_add(target_block_time_secs_legacy.saturating_mul(2).max(5))
         } else {
-            startup_buffer_secs.saturating_add(target_block_time_secs_legacy.saturating_mul(2))
+            startup_buffer_secs
+                .saturating_add(target_block_time_secs_legacy.saturating_mul(4).max(10))
         },
     );
     let mut benchmark_env = ScopedEnv::new();
@@ -1411,7 +1395,10 @@ async fn run_scenario(
         ));
         std::fs::create_dir_all(&trace_dir)?;
         println!("--- Benchmark trace dir: {} ---", trace_dir.display());
-        benchmark_env.set("IOI_AFT_BENCH_TRACE_DIR", trace_dir.to_string_lossy().to_string());
+        benchmark_env.set(
+            "IOI_AFT_BENCH_TRACE_DIR",
+            trace_dir.to_string_lossy().to_string(),
+        );
     }
     benchmark_env.set(
         "IOI_INGESTION_BATCH_SIZE",
@@ -1430,10 +1417,7 @@ async fn run_scenario(
     );
     benchmark_env.set(
         "IOI_RPC_FAST_ADMIT_MAX_MEMPOOL",
-        env_or_default(
-            "IOI_RPC_FAST_ADMIT_MAX_MEMPOOL",
-            fast_admit_limit.to_string(),
-        ),
+        env_or_default("IOI_RPC_FAST_ADMIT_MAX_MEMPOOL", "0"),
     );
     benchmark_env.set(
         "IOI_AFT_TX_RELAY_FANOUT",
@@ -1471,7 +1455,10 @@ async fn run_scenario(
         "IOI_TEST_FULL_MESH_BOOTNODES",
         env_or_default(
             "IOI_TEST_FULL_MESH_BOOTNODES",
-            "0",
+            // The AFT throughput matrix depends on successive leaders staying directly connected.
+            // A star bootnode topology can strand later leaders behind a single peer and turn
+            // dense multi-block runs into liveness artifacts instead of throughput measurements.
+            "1",
         ),
     );
     benchmark_env.set(
@@ -1558,6 +1545,31 @@ async fn run_scenario(
         bootstrap_grace_secs
     );
 
+    let keep_recent_heights = benchmark_override_u64(
+        "IOI_AFT_BENCH_KEEP_RECENT_HEIGHTS",
+        if fast_probe {
+            24
+        } else if trace_mode {
+            32
+        } else {
+            64
+        },
+    );
+    let min_finality_depth = benchmark_override_u64_allow_zero(
+        "IOI_AFT_BENCH_MIN_FINALITY_DEPTH",
+        if fast_probe {
+            12
+        } else if trace_mode {
+            16
+        } else {
+            32
+        },
+    );
+    let gc_interval_secs = benchmark_override_u64(
+        "IOI_AFT_BENCH_GC_INTERVAL_SECS",
+        if fast_probe || trace_mode { 1 } else { 2 },
+    );
+
     let cluster = TestCluster::builder()
         .with_validators(scenario.validators)
         .with_consensus_type("Aft")
@@ -1565,6 +1577,9 @@ async fn run_scenario(
         .with_chain_id(chain_id)
         .with_aft_safety_mode(scenario.safety_mode)
         .with_epoch_size(100_000)
+        .with_keep_recent_heights(keep_recent_heights)
+        .with_min_finality_depth(min_finality_depth)
+        .with_gc_interval(gc_interval_secs)
         .with_genesis_modifier(move |builder, keys| {
             let mut validators = Vec::new();
             for key in keys {
@@ -1639,67 +1654,102 @@ async fn run_scenario(
         let align_to_next_block = std::env::var("IOI_AFT_BENCH_ALIGN_TO_NEXT_BLOCK")
             .ok()
             .map(|value| !matches!(value.as_str(), "0" | "false" | "FALSE" | "False"))
-            .unwrap_or(!(trace_mode || fast_probe));
-        let submit_lead_ms =
-            benchmark_override_u64_allow_zero("IOI_AFT_BENCH_SUBMIT_LEAD_MS", 0);
+            .unwrap_or(true);
+        let default_submit_lead_ms = if fast_probe {
+            target_block_time_ms.saturating_div(8).clamp(0, 50)
+        } else if trace_mode {
+            target_block_time_ms.saturating_div(6).clamp(0, 75)
+        } else {
+            target_block_time_ms.saturating_div(4).clamp(10, 250)
+        };
+        let submit_lead_ms = benchmark_override_u64_allow_zero(
+            "IOI_AFT_BENCH_SUBMIT_LEAD_MS",
+            if align_to_next_block {
+                default_submit_lead_ms.min(target_block_time_ms.saturating_sub(1))
+            } else {
+                default_submit_lead_ms
+            },
+        );
         if align_to_next_block {
             let current_status = rpc::get_status(&primary_rpc_addr).await?;
-            let refreshed_status = if auto_future_genesis && current_status.height == 0 {
-                current_status
+            let authoritative_tip_block = if current_status.height > 0 {
+                authoritative_tip_block_with_hint(&primary_rpc_addr, current_status.height).await?
             } else {
+                None
+            };
+            let (alignment_height, latest_timestamp_ms) =
+                if let Some(tip_block) = authoritative_tip_block.as_ref() {
+                    (
+                        tip_block.header.height,
+                        tip_block.header.timestamp_ms_or_legacy(),
+                    )
+                } else if auto_future_genesis && current_status.height == 0 {
+                    (current_status.height, benchmark_genesis_anchor_ms)
+                } else if current_status.height == 0 {
                 let now_secs = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .map(|duration| duration.as_secs())
                     .unwrap_or_default();
-                let alignment_timeout_secs = if current_status.height == 0 {
-                    current_status
-                        .latest_timestamp
-                        .saturating_sub(now_secs)
-                        .saturating_add(bootstrap_grace_secs)
-                        .saturating_add(target_block_time_secs_legacy.saturating_mul(4).max(4))
-                        .max(bootstrap_grace_secs.saturating_add(4))
-                } else {
-                    current_status
-                        .latest_timestamp
-                        .saturating_sub(now_secs)
-                        .saturating_add(target_block_time_secs_legacy.saturating_mul(3))
-                        .max(target_block_time_secs_legacy.saturating_mul(3).max(3))
-                };
-                let alignment_result = wait_for_next_height(
+                let alignment_timeout_secs = current_status
+                    .latest_timestamp
+                    .saturating_sub(now_secs)
+                    .saturating_add(bootstrap_grace_secs)
+                    .saturating_add(target_block_time_secs_legacy.saturating_mul(4).max(4))
+                    .max(bootstrap_grace_secs.saturating_add(4));
+                wait_for_next_height(
                     &primary_rpc_addr,
                     current_status.height,
                     Duration::from_secs(alignment_timeout_secs),
                 )
-                .await;
-                if let Err(error) = alignment_result {
-                    if current_status.height == 0 {
-                        return Err(anyhow!(
-                            "failed to observe the first committed height before submission: {error}"
-                        ));
+                .await
+                .map_err(|error| {
+                    anyhow!(
+                        "failed to observe the first committed height before submission: {error}"
+                    )
+                })?;
+                    let refreshed_status = rpc::get_status(&primary_rpc_addr).await?;
+                    if let Some(tip_block) =
+                        authoritative_tip_block_with_hint(&primary_rpc_addr, refreshed_status.height)
+                            .await?
+                    {
+                        (
+                            tip_block.header.height,
+                            tip_block.header.timestamp_ms_or_legacy(),
+                        )
+                    } else {
+                        (
+                            refreshed_status.height,
+                            refreshed_status.latest_timestamp.saturating_mul(1_000),
+                        )
                     }
-                    println!(
-                        "alignment warning: failed to observe next height before submission (height={}, error={}); continuing benchmark",
-                        current_status.height, error
-                    );
-                }
-                rpc::get_status(&primary_rpc_addr).await?
-            };
-            if let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) {
-                let latest_timestamp_ms = if refreshed_status.height == 0 {
-                    benchmark_genesis_anchor_ms
                 } else {
-                    refreshed_status.latest_timestamp.saturating_mul(1_000)
+                    (
+                        current_status.height,
+                        current_status.latest_timestamp.saturating_mul(1_000),
+                    )
                 };
-                let next_due_ms = latest_timestamp_ms.saturating_add(target_block_time_ms);
+            if let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) {
+                let base_due_ms = latest_timestamp_ms.saturating_add(target_block_time_ms);
+                let now_ms = now.as_millis().min(u128::from(u64::MAX)) as u64;
+                let earliest_due_ms = now_ms.saturating_add(submit_lead_ms);
+                let next_due_ms = if base_due_ms >= earliest_due_ms {
+                    base_due_ms
+                } else {
+                    let skipped_due_slots =
+                        earliest_due_ms.saturating_sub(base_due_ms).div_ceil(target_block_time_ms);
+                    base_due_ms
+                        .saturating_add(skipped_due_slots.saturating_mul(target_block_time_ms))
+                };
                 let due_at = Duration::from_millis(next_due_ms);
                 let lead = Duration::from_millis(submit_lead_ms);
                 let target_start = due_at.saturating_sub(lead);
                 let wait_for = target_start.saturating_sub(now);
                 if !wait_for.is_zero() {
                     println!(
-                        "--- Aligning submission burst to {} ms before next due block (height={}, next_due_ms={}) ---",
+                        "--- Aligning submission burst to {} ms before next due block (height={}, base_due_ms={}, next_due_ms={}) ---",
                         submit_lead_ms,
-                        refreshed_status.height,
+                        alignment_height,
+                        base_due_ms,
                         next_due_ms
                     );
                     sleep(wait_for).await;
@@ -1710,6 +1760,12 @@ async fn run_scenario(
             vec![primary_rpc_addr.clone()]
         } else if route_to_leaders {
             let current_status = rpc::get_status(&primary_rpc_addr).await?;
+            let authoritative_tip_block =
+                authoritative_tip_block_with_hint(&primary_rpc_addr, current_status.height).await?;
+            let authoritative_tip_height = authoritative_tip_block
+                .as_ref()
+                .map(|tip_block| tip_block.header.height)
+                .unwrap_or(current_status.height);
             let approx_tx_capacity_per_leader =
                 usize::max((benchmark_tx_select_max_bytes / 1_024) as usize, 1);
             let default_ingress_leader_fanout = usize::min(
@@ -1723,14 +1779,11 @@ async fn run_scenario(
                 "IOI_AFT_BENCH_INGRESS_LEADER_FANOUT",
                 default_ingress_leader_fanout,
             );
-            let ingress_leader_rpcs = rpc::get_block_by_height_resilient(
-                &primary_rpc_addr,
-                current_status.height,
-            )
-            .await?
-            .map(|tip_block| {
+            let ingress_leader_rpcs = authoritative_tip_block
+                .as_ref()
+                .map(|tip_block| {
                 leader_accounts_for_upcoming_heights(
-                    current_status.height,
+                    authoritative_tip_height,
                     &tip_block.header.validator_set,
                     ingress_leader_fanout,
                 )
@@ -1770,7 +1823,18 @@ async fn run_scenario(
         } else {
             rpc_addrs.clone()
         };
+        let connections_per_addr = benchmark_override_usize(
+            "IOI_AFT_BENCH_RPC_CONNECTIONS_PER_ADDR",
+            scenario.rpc_connections_per_validator.max(1),
+        );
+        let status_channels = build_channels(&rpc_addrs, 1).await?;
+        let submission_channels = build_channels(&channel_addrs, connections_per_addr).await?;
         let pre_submission_status = rpc::get_status(&primary_rpc_addr).await?;
+        let pre_submission_tip_height =
+            authoritative_tip_block_with_hint(&primary_rpc_addr, pre_submission_status.height)
+                .await?
+                .map(|tip_block| tip_block.header.height)
+                .unwrap_or(pre_submission_status.height);
         let max_pre_submission_height = benchmark_override_u64(
             "IOI_AFT_BENCH_MAX_PRESUBMISSION_HEIGHT",
             if auto_future_genesis { 2 } else { u64::MAX },
@@ -1782,16 +1846,13 @@ async fn run_scenario(
                 max_pre_submission_height
             ));
         }
-        let connections_per_addr = scenario.rpc_connections_per_validator.max(1);
-        let status_channels = build_channels(&rpc_addrs, 1).await?;
-        let submission_channels = build_channels(&channel_addrs, connections_per_addr).await?;
         let injection_started = Instant::now();
         let submitted_records = Arc::new(Mutex::new(Vec::new()));
-        let total_accounts = signed_account_txs.len();
+        let total_expected_submissions = benchmark_tx_total;
         let submit_concurrency = benchmark_override_usize(
             "IOI_AFT_BENCH_SUBMIT_CONCURRENCY",
             usize::min(
-                total_accounts.max(1),
+                total_expected_submissions.max(1),
                 usize::max(submission_channels.len().saturating_mul(8), 128),
             ),
         );
@@ -1800,36 +1861,41 @@ async fn run_scenario(
             signed_account_txs
                 .into_iter()
                 .enumerate()
-                .map(|(index, txs)| (index, txs)),
+                .flat_map(|(account_index, txs)| {
+                    txs.into_iter()
+                        .enumerate()
+                        .map(move |(tx_index, tx_bytes)| (account_index, tx_index, tx_bytes))
+                }),
         )
-        .map(|(index, txs)| {
+        .map(|(account_index, tx_index, tx_bytes)| {
             let channels = Arc::clone(&submission_channels);
-            let preferred_channel_index = index % channels.len().max(1);
-            let status_channel_index = index % status_channels.len().max(1);
+            let preferred_channel_index =
+                account_index.saturating_add(tx_index) % channels.len().max(1);
+            let status_channel_index = account_index % status_channels.len().max(1);
             async move {
-                submit_account_sequence(
-                    channels,
+                submit_transaction_bytes(
+                    channels.as_ref(),
                     preferred_channel_index,
                     status_channel_index,
-                    txs,
+                    tx_bytes,
                 )
                 .await
             }
         })
         .buffer_unordered(submit_concurrency);
 
-        while let Some(batch) = submission_stream.next().await {
-            let mut batch = batch?;
+        while let Some(submitted) = submission_stream.next().await {
+            let submitted = submitted?;
             let accepted_so_far = {
                 let mut submitted_records = submitted_records.lock().await;
-                submitted_records.append(&mut batch);
+                submitted_records.push(submitted);
                 submitted_records.len()
             };
-            if accepted_so_far % 512 == 0 || accepted_so_far >= total_accounts {
+            if accepted_so_far % 512 == 0 || accepted_so_far >= total_expected_submissions {
                 println!(
-                    "submission progress: accepted_accounts={}/{} accepted_so_far={}",
+                    "submission progress: accepted_txs={}/{} accepted_so_far={}",
                     accepted_so_far,
-                    total_accounts,
+                    total_expected_submissions,
                     accepted_so_far
                 );
             }
@@ -1849,7 +1915,7 @@ async fn run_scenario(
         let commit_timeout = Duration::from_secs(measurement_timeout_secs);
         let rpc_addrs_for_commit = rpc_addrs.clone();
         let expected_hashes_for_commit = expected_hashes.clone();
-        let initial_height_for_commit = pre_submission_status.height;
+        let initial_height_for_commit = pre_submission_tip_height;
         let authoritative_commit_handle = tokio::spawn(async move {
             wait_for_committed_hashes_on_chain(
                 &rpc_addrs_for_commit,
@@ -1915,7 +1981,7 @@ async fn run_scenario(
                 let cluster_view = capture_cluster_commit_view(&rpc_addrs).await;
                 let chain_scan = scan_committed_hashes_from_chain(
                     &rpc_addrs,
-                    pre_submission_status.height,
+                    pre_submission_tip_height,
                     &expected_hashes,
                     Duration::from_secs(5),
                 )
@@ -1983,7 +2049,7 @@ async fn run_scenario(
                 let metrics_view = capture_cluster_metrics_view(&cluster).await;
                 let chain_scan = scan_committed_hashes_from_chain(
                     &rpc_addrs,
-                    pre_submission_status.height,
+                    pre_submission_tip_height,
                     &expected_hashes,
                     Duration::from_secs(5),
                 )
@@ -2008,8 +2074,20 @@ async fn run_scenario(
             }
         };
 
+        let measured_final_commit_instant = committed_heights
+            .iter()
+            .next_back()
+            .and_then(|highest_committed_height| {
+                committed_records
+                    .iter()
+                    .filter(|record| record.block_height == *highest_committed_height)
+                    .map(|record| record.committed_at)
+                    .max()
+            })
+            .unwrap_or(final_commit_instant);
+
         let sustained_tps = committed as f64
-            / final_commit_instant
+            / measured_final_commit_instant
                 .duration_since(injection_started)
                 .as_secs_f64()
                 .max(f64::EPSILON);

@@ -511,6 +511,17 @@ where
         }
         // ------------------------------------------
 
+        let genesis_root = match workload_client.get_genesis_status_details().await {
+            Ok(status) if status.ready && !status.root.is_empty() => status.root,
+            Ok(_) | Err(_) => workload_client
+                .get_block_by_height(0)
+                .await
+                .ok()
+                .flatten()
+                .map(|block| block.header.state_root.0)
+                .unwrap_or_default(),
+        };
+
         let tx_model = Arc::new(UnifiedTransactionModel::new(self.scheme.clone()));
         let (tx_ingest_tx, tx_ingest_rx) = mpsc::channel(50_000);
 
@@ -521,7 +532,7 @@ where
                 timestamp_ms: b.header.timestamp_ms_or_legacy(),
                 gas_used: b.header.gas_used,
                 state_root: b.header.state_root.0.clone(),
-                genesis_root: self.genesis_hash.to_vec(),
+                genesis_root: genesis_root.clone(),
                 validator_set: b.header.validator_set.clone(),
             }
         } else {
@@ -531,7 +542,7 @@ where
                 timestamp_ms: 0,
                 gas_used: 0,
                 state_root: vec![],
-                genesis_root: self.genesis_hash.to_vec(),
+                genesis_root: genesis_root.clone(),
                 validator_set: Vec::new(),
             }
         };
@@ -685,6 +696,7 @@ where
             config: self.config.clone(),
             chain_id: self.config.chain_id,
             genesis_hash: self.genesis_hash,
+            genesis_root,
             is_quarantined: self.is_quarantined.clone(),
             pending_attestations: std::collections::HashMap::new(),
             last_committed_block: initial_block,

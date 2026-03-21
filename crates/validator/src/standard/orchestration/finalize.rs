@@ -3482,7 +3482,7 @@ where
             timestamp_ms: final_block.header.timestamp_ms_or_legacy(),
             gas_used: final_block.header.gas_used,
             state_root: final_block.header.state_root.0.clone(),
-            genesis_root: ctx.genesis_hash.to_vec(),
+            genesis_root: ctx.genesis_root.clone(),
             validator_set: final_block.header.validator_set.clone(),
         });
     }
@@ -7205,7 +7205,9 @@ mod tests {
             published_bundle.bulletin_commitment.entry_count
         );
         assert_eq!(
-            published_bundle.bulletin_custody_receipt.bulletin_shard_manifest_hash,
+            published_bundle
+                .bulletin_custody_receipt
+                .bulletin_shard_manifest_hash,
             ioi_types::app::canonical_bulletin_shard_manifest_hash(
                 &published_bundle.bulletin_shard_manifest,
             )

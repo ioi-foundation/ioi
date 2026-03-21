@@ -42,6 +42,40 @@ fn benchmark_trace_component_log_path(base_port: u16, component: &str) -> Option
     Some(PathBuf::from(dir).join(format!("validator-{base_port}-{component}.log")))
 }
 
+fn benchmark_harness_mode_enabled() -> bool {
+    std::env::var_os("IOI_AFT_BENCH_SCENARIO").is_some()
+        || std::env::var_os("IOI_AFT_BENCH_LANE").is_some()
+        || std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
+}
+
+fn orchestration_rust_log() -> String {
+    if let Ok(value) = std::env::var("IOI_TEST_ORCH_RUST_LOG") {
+        return value;
+    }
+
+    if std::env::var_os("IOI_AFT_BENCH_TRACE").is_some() {
+        "warn,orchestration=info,consensus_bench=info".to_string()
+    } else if benchmark_harness_mode_enabled() {
+        "warn,orchestration=info".to_string()
+    } else {
+        "info,rpc=debug,consensus=debug".to_string()
+    }
+}
+
+fn workload_rust_log() -> Option<String> {
+    if let Ok(value) = std::env::var("IOI_TEST_WORKLOAD_RUST_LOG") {
+        return Some(value);
+    }
+
+    if std::env::var_os("IOI_AFT_BENCH_TRACE").is_some() {
+        Some("warn,workload=info,execution_bench=info".to_string())
+    } else if benchmark_harness_mode_enabled() {
+        Some("warn,workload=info".to_string())
+    } else {
+        None
+    }
+}
+
 fn append_benchmark_trace_line(path: &Path, line: &str) {
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(file, "{line}");
@@ -632,6 +666,9 @@ impl TestValidator {
                 .env("IOI_SHMEM_ID", &shmem_id) // <--- INJECT UNIQUE ID
                 .stderr(Stdio::piped())
                 .kill_on_drop(true);
+            if let Some(rust_log) = workload_rust_log() {
+                workload_cmd.env("RUST_LOG", rust_log);
+            }
             if let Some(value) = std::env::var_os("IOI_AFT_BENCH_TRACE") {
                 workload_cmd.env("IOI_AFT_BENCH_TRACE", value);
                 if let Some(dir) = std::env::var_os("IOI_AFT_BENCH_TRACE_DIR") {
@@ -640,10 +677,6 @@ impl TestValidator {
                 workload_cmd.env(
                     "IOI_AFT_BENCH_NODE_LABEL",
                     format!("validator-{}-workload", base_port),
-                );
-                workload_cmd.env(
-                    "RUST_LOG",
-                    "info,execution=info,execution_bench=info,workload=info",
                 );
             }
             if agentic_model_path.is_some() {
@@ -679,8 +712,7 @@ impl TestValidator {
             orch_cmd
                 .args(&orch_args)
                 .env("RUST_BACKTRACE", "1")
-                // FIX: Enable debug logs for consensus to troubleshoot leader election
-                .env("RUST_LOG", "info,rpc=debug,consensus=debug")
+                .env("RUST_LOG", orchestration_rust_log())
                 .env("TELEMETRY_ADDR", &orchestration_telemetry_addr)
                 .env("WORKLOAD_IPC_ADDR", &workload_ipc_addr)
                 .env("CERTS_DIR", certs_dir_path.to_string_lossy().as_ref())
@@ -696,10 +728,6 @@ impl TestValidator {
                 orch_cmd.env(
                     "IOI_AFT_BENCH_NODE_LABEL",
                     format!("validator-{}-orch", base_port),
-                );
-                orch_cmd.env(
-                    "RUST_LOG",
-                    "info,rpc=debug,consensus=debug,consensus_bench=info,orchestration=info",
                 );
             }
             if agentic_model_path.is_some() {

@@ -170,9 +170,9 @@ impl<CS: CommitmentScheme + Clone> Clone for JellyfishMerkleTree<CS> {
             nodes: Arc::new(RwLock::new(self.nodes.read().unwrap().clone())),
             kv_cache: Arc::new(RwLock::new(self.kv_cache.read().unwrap().clone())),
             proof_trie: Arc::new(RwLock::new(self.proof_trie.read().unwrap().clone())),
-            historical_snapshots: Arc::new(RwLock::new(
-                self.historical_snapshots.read().unwrap().clone(),
-            )),
+            // Historical snapshots are immutable version anchors once committed, so clones used
+            // for block execution do not need to duplicate the entire retained history.
+            historical_snapshots: Arc::clone(&self.historical_snapshots),
             scheme: self.scheme.clone(),
             current_height: self.current_height,
             delta: Arc::new(RwLock::new(self.delta.read().unwrap().clone())),
@@ -576,12 +576,37 @@ where
     CS::Proof: AsRef<[u8]> + From<HashProof>,
     CS::Witness: Default,
 {
-    fn prune(&mut self, _plan: &PrunePlan) -> Result<(), StateError> {
+    fn prune(&mut self, plan: &PrunePlan) -> Result<(), StateError> {
+        let _ = self.prune_batch(plan, usize::MAX)?;
         Ok(())
     }
-    fn prune_batch(&mut self, _plan: &PrunePlan, _limit: usize) -> Result<usize, StateError> {
-        Ok(0)
+
+    fn prune_batch(&mut self, plan: &PrunePlan, limit: usize) -> Result<usize, StateError> {
+        if plan.cutoff_height == 0 || limit == 0 {
+            return Ok(0);
+        }
+
+        let current_root = self.root_hash;
+        let mut snapshots = self.historical_snapshots.write().unwrap();
+        let mut removable = snapshots
+            .iter()
+            .filter_map(|(root, snapshot)| {
+                (*root != current_root
+                    && snapshot.height < plan.cutoff_height
+                    && !plan.excluded_heights.contains(&snapshot.height))
+                .then_some((*root, snapshot.height))
+            })
+            .collect::<Vec<_>>();
+
+        removable.sort_by_key(|(_, height)| *height);
+        let removed = removable.len().min(limit);
+        for (root, _) in removable.into_iter().take(removed) {
+            snapshots.remove(&root);
+        }
+
+        Ok(removed)
     }
+
     fn commit_version(&mut self, height: u64) -> Result<RootHash, StateError> {
         self.current_height = height;
         let snapshot = HistoricalStateSnapshot {
@@ -741,5 +766,36 @@ mod tests {
             original.root_commitment().as_ref(),
             cloned.root_commitment().as_ref()
         );
+    }
+
+    #[test]
+    fn jellyfish_prune_batch_drops_old_unpinned_snapshots() {
+        let scheme = HashCommitmentScheme::new();
+        let mut tree = JellyfishMerkleTree::new(scheme);
+
+        tree.insert(b"status", b"height-1").unwrap();
+        let root1 = tree.commit_version(1).unwrap();
+        tree.insert(b"status", b"height-2").unwrap();
+        let root2 = tree.commit_version(2).unwrap();
+        tree.insert(b"status", b"height-3").unwrap();
+        let root3 = tree.commit_version(3).unwrap();
+
+        let mut excluded = BTreeSet::new();
+        excluded.insert(2);
+        let removed = tree
+            .prune_batch(
+                &PrunePlan {
+                    cutoff_height: 3,
+                    excluded_heights: excluded,
+                },
+                16,
+            )
+            .unwrap();
+
+        assert_eq!(removed, 1);
+        let snapshots = tree.historical_snapshots.read().unwrap();
+        assert!(!snapshots.contains_key(&root1));
+        assert!(snapshots.contains_key(&root2));
+        assert!(snapshots.contains_key(&root3));
     }
 }

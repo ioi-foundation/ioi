@@ -1,12 +1,12 @@
 // Path: crates/validator/src/standard/workload/ipc/grpc_blockchain.rs
 
 use crate::standard::workload::ipc::RpcContext;
-use ioi_execution::app::load_aft_auxiliary_raw_state_value;
 use ioi_api::{
     chain::{ChainStateMachine, ChainView},
     commitment::CommitmentScheme,
-    state::StateManager,
+    state::{StateAccess, StateManager, StateScanIter},
 };
+use ioi_execution::app::load_aft_auxiliary_raw_state_value;
 use ioi_ipc::blockchain::{
     chain_control_server::ChainControl, contract_control_server::ContractControl,
     process_block_request::Payload as ProcessPayload, staking_control_server::StakingControl,
@@ -23,9 +23,10 @@ use ioi_ipc::blockchain::{
     QueryStateAtRequest, QueryStateAtResponse, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
 };
 use ioi_types::{
-    app::{Block, ChainTransaction, StateRoot},
+    app::{Block, ChainTransaction, Membership, StateRoot},
     codec,
     config::ConsensusType,
+    error::StateError,
 };
 use std::mem;
 use std::sync::Arc;
@@ -347,6 +348,113 @@ where
     pub ctx: Arc<RpcContext<CS, ST>>,
 }
 
+struct AnchoredReadState<'a, ST: StateManager> {
+    state: &'a ST,
+    anchor_commitment: ST::Commitment,
+    anchor_is_live_head: bool,
+}
+
+impl<'a, ST: StateManager> AnchoredReadState<'a, ST> {
+    fn new(
+        state: &'a ST,
+        anchor: [u8; 32],
+        fallback_roots: &[Vec<u8>],
+    ) -> Result<Self, StateError> {
+        let anchor_commitment = Self::resolve_anchor_commitment(state, anchor, fallback_roots)?;
+        let anchor_is_live_head = state.commitment_to_bytes(&anchor_commitment)
+            == state.commitment_to_bytes(&state.root_commitment());
+        Ok(Self {
+            state,
+            anchor_commitment,
+            anchor_is_live_head,
+        })
+    }
+
+    fn resolve_anchor_commitment(
+        state: &ST,
+        anchor: [u8; 32],
+        fallback_roots: &[Vec<u8>],
+    ) -> Result<ST::Commitment, StateError> {
+        if let Some(commitment) = state.commitment_from_anchor(&anchor) {
+            if state.version_exists_for_root(&commitment) {
+                return Ok(commitment);
+            }
+        }
+
+        let mut candidate_roots = Vec::with_capacity(fallback_roots.len() + 1);
+        candidate_roots.push(state.commitment_to_bytes(&state.root_commitment()));
+        for root in fallback_roots {
+            if !root.is_empty() && !candidate_roots.iter().any(|candidate| candidate == root) {
+                candidate_roots.push(root.clone());
+            }
+        }
+
+        for root in candidate_roots {
+            let root_anchor = StateRoot(root.clone()).to_anchor().map_err(|error| {
+                StateError::Validation(format!("failed to derive fallback state anchor: {error}"))
+            })?;
+            if root_anchor.0 != anchor {
+                continue;
+            }
+
+            let commitment = state.commitment_from_bytes(&root)?;
+            if state.version_exists_for_root(&commitment) {
+                return Ok(commitment);
+            }
+        }
+
+        Err(StateError::UnknownAnchor(hex::encode(anchor)))
+    }
+
+    fn read_only_write_error() -> StateError {
+        StateError::WriteError("anchored transaction precheck state is read-only".into())
+    }
+}
+
+impl<ST: StateManager> StateAccess for AnchoredReadState<'_, ST> {
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+        let (membership, _proof) = self.state.get_with_proof_at(&self.anchor_commitment, key)?;
+        Ok(match membership {
+            Membership::Present(value) => Some(value),
+            Membership::Absent => None,
+        })
+    }
+
+    fn insert(&mut self, _key: &[u8], _value: &[u8]) -> Result<(), StateError> {
+        Err(Self::read_only_write_error())
+    }
+
+    fn delete(&mut self, _key: &[u8]) -> Result<(), StateError> {
+        Err(Self::read_only_write_error())
+    }
+
+    fn batch_set(&mut self, _updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+        Err(Self::read_only_write_error())
+    }
+
+    fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+        keys.iter().map(|key| self.get(key)).collect()
+    }
+
+    fn batch_apply(
+        &mut self,
+        _inserts: &[(Vec<u8>, Vec<u8>)],
+        _deletes: &[Vec<u8>],
+    ) -> Result<(), StateError> {
+        Err(Self::read_only_write_error())
+    }
+
+    fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+        if self.anchor_is_live_head {
+            self.state.prefix_scan(prefix)
+        } else {
+            Err(StateError::Validation(
+                "anchored prefix scans are unavailable for historical precheck roots".into(),
+            ))
+        }
+    }
+}
+
 #[tonic::async_trait]
 impl<CS, ST> StateQuery for StateQueryImpl<CS, ST>
 where
@@ -373,13 +481,31 @@ where
         request: Request<CheckTransactionsRequest>,
     ) -> Result<Response<CheckTransactionsResponse>, Status> {
         let req = request.into_inner();
+        let anchor: [u8; 32] = req
+            .anchor
+            .as_slice()
+            .try_into()
+            .map_err(|_| Status::invalid_argument("expected 32-byte state anchor"))?;
 
-        let (services, chain_id, height) = {
+        let (services, chain_id, height, fallback_roots) = {
             let chain_guard = self.ctx.machine.lock().await;
+            let mut roots = Vec::new();
+            if let ioi_execution::app::GenesisState::Ready { root, .. } =
+                &chain_guard.state.genesis_state
+            {
+                roots.push(root.clone());
+            }
+            for block in chain_guard.state.recent_blocks.iter().rev() {
+                let root = block.header.state_root.0.clone();
+                if !root.is_empty() && !roots.iter().any(|candidate| candidate == &root) {
+                    roots.push(root);
+                }
+            }
             (
                 chain_guard.services.clone(),
                 chain_guard.state.chain_id,
                 chain_guard.status().height,
+                roots,
             )
         };
 
@@ -393,9 +519,8 @@ where
 
         let base_state_tree = self.ctx.workload.state_tree();
         let base_state = base_state_tree.read().await;
-        // [FIX] Removed mut keyword here
-        let overlay = ioi_api::state::StateOverlay::new(&*base_state);
-
+        let anchored_state = AnchoredReadState::new(&*base_state, anchor, &fallback_roots)
+            .map_err(|e| Status::failed_precondition(e.to_string()))?;
         let mut results = Vec::with_capacity(txs.len());
         for tx in txs {
             // [FIX] Removed mut keyword here
@@ -415,8 +540,10 @@ where
 
             let check_result = (|| -> Result<(), ioi_types::error::TransactionError> {
                 validation::verify_stateless_signature(&tx)?;
-                validation::verify_stateful_authorization(&overlay, &services, &tx, &ctx)?;
-                nonce::assert_next_nonce(&overlay, &tx)?;
+                validation::verify_stateful_authorization(&anchored_state, &services, &tx, &ctx)?;
+                // Admission only needs to reject stale nonces. The mempool already
+                // handles exact ordering by placing nonce gaps into the Future queue.
+                nonce::assert_nonce_at_least(&anchored_state, &tx)?;
                 Ok(())
             })();
 
@@ -506,18 +633,19 @@ where
                 value: val,
                 found: true,
             })),
-            Ok(None) => match load_aft_auxiliary_raw_state_value(self.ctx.workload.store.as_ref(), &req.key)
-            {
-                Ok(Some(value)) => Ok(Response::new(QueryRawStateResponse {
-                    value,
-                    found: true,
-                })),
-                Ok(None) => Ok(Response::new(QueryRawStateResponse {
-                    value: vec![],
-                    found: false,
-                })),
-                Err(error) => Err(Status::internal(error.to_string())),
-            },
+            Ok(None) => {
+                match load_aft_auxiliary_raw_state_value(self.ctx.workload.store.as_ref(), &req.key)
+                {
+                    Ok(Some(value)) => {
+                        Ok(Response::new(QueryRawStateResponse { value, found: true }))
+                    }
+                    Ok(None) => Ok(Response::new(QueryRawStateResponse {
+                        value: vec![],
+                        found: false,
+                    })),
+                    Err(error) => Err(Status::internal(error.to_string())),
+                }
+            }
             Err(e) => Err(Status::internal(e.to_string())),
         }
     }

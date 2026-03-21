@@ -863,6 +863,13 @@ impl TestClusterBuilder {
 
         let mut validators: Vec<ValidatorGuard> = Vec::new();
         let mut bootnode_addrs: Vec<Multiaddr> = Vec::new();
+        let benchmark_harness_mode = std::env::var_os("IOI_AFT_BENCH_SCENARIO").is_some()
+            || std::env::var_os("IOI_AFT_BENCH_LANE").is_some()
+            || std::env::var_os("IOI_AFT_BENCH_TRACE").is_some();
+        let ready_height_lag_max = std::env::var("IOI_TEST_READY_HEIGHT_LAG_MAX")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or_else(|| if benchmark_harness_mode { 16 } else { 1 });
 
         let full_mesh_bootnodes = std::env::var("IOI_TEST_FULL_MESH_BOOTNODES")
             .ok()
@@ -957,7 +964,7 @@ impl TestClusterBuilder {
                         captured_use_docker,
                         captured_services,
                         captured_malicious,
-                        false,
+                        benchmark_harness_mode,
                         &captured_extra_features,
                         captured_epoch_size,
                         captured_keep_recent,
@@ -1038,7 +1045,7 @@ impl TestClusterBuilder {
                         captured_use_docker,
                         captured_services,
                         captured_malicious,
-                        false,
+                        benchmark_harness_mode,
                         &captured_extra_features,
                         captured_epoch_size,
                         captured_keep_recent,
@@ -1079,172 +1086,180 @@ impl TestClusterBuilder {
             id_a.cmp(&id_b)
         });
 
+        let skip_shared_tip_wait = std::env::var("IOI_TEST_SKIP_SHARED_TIP_WAIT")
+            .ok()
+            .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
+            .unwrap_or(false);
+
         if validators.len() > 1 {
-            println!("--- Waiting for cluster to converge on a shared tip ---");
-            let allow_zero_height_ready = std::env::var("IOI_TEST_ALLOW_ZERO_HEIGHT_READY")
-                .ok()
-                .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
-                .unwrap_or(false);
+            if skip_shared_tip_wait {
+                println!("--- Skipping cluster shared-tip convergence wait by override ---");
+            } else {
+                println!("--- Waiting for cluster to converge on a shared tip ---");
+                let allow_zero_height_ready = std::env::var("IOI_TEST_ALLOW_ZERO_HEIGHT_READY")
+                    .ok()
+                    .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
+                    .unwrap_or(false);
 
-            // [DEBUG] Parallel wait with status logging
-            let timeout = Duration::from_secs(180); // Increased for 4-node
-            let start = std::time::Instant::now();
-            let mut ticker = tokio::time::interval(Duration::from_secs(2));
-            let mut sync_success = false;
+                // [DEBUG] Parallel wait with status logging
+                let timeout = Duration::from_secs(180); // Increased for 4-node
+                let start = std::time::Instant::now();
+                let mut ticker = tokio::time::interval(Duration::from_secs(2));
+                let mut sync_success = false;
 
-            loop {
-                ticker.tick().await;
+                loop {
+                    ticker.tick().await;
 
-                if start.elapsed() > timeout {
-                    break;
-                }
+                    if start.elapsed() > timeout {
+                        break;
+                    }
 
-                let now_secs = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|duration| duration.as_secs())
-                    .unwrap_or_default();
-                let mut all_reached = true;
-                let mut status_lines = Vec::new();
-                let mut observed_heights = Vec::new();
-                let mut observed_timestamps = Vec::new();
-                let mut observed_peer_counts = Vec::new();
-                let mut zero_height_indices = Vec::new();
+                    let now_secs = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|duration| duration.as_secs())
+                        .unwrap_or_default();
+                    let mut all_reached = true;
+                    let mut status_lines = Vec::new();
+                    let mut observed_heights = Vec::new();
+                    let mut observed_timestamps = Vec::new();
+                    let mut observed_peer_counts = Vec::new();
+                    let mut zero_height_indices = Vec::new();
 
-                for (i, v_guard) in validators.iter().enumerate() {
-                    let rpc_addr = &v_guard.validator().rpc_addr;
-                    let metrics_addr = &v_guard.validator().orchestration_telemetry_addr;
+                    for (i, v_guard) in validators.iter().enumerate() {
+                        let rpc_addr = &v_guard.validator().rpc_addr;
+                        let metrics_addr = &v_guard.validator().orchestration_telemetry_addr;
 
-                    let peers = fetch_peer_count(metrics_addr).await;
+                        let peers = fetch_peer_count(metrics_addr).await;
 
-                    // Use the existing rpc helper
-                    match crate::testing::rpc::get_status(rpc_addr).await {
-                        Ok(status) => {
-                            let peer_count = peers.parse::<usize>().unwrap_or_default();
-                            observed_heights.push(status.height);
-                            observed_timestamps.push(status.latest_timestamp);
-                            observed_peer_counts.push(peer_count);
-                            status_lines.push(format!(
-                                "Node {}: Height={} Peers={} Ts={}",
-                                i, status.height, peers, status.latest_timestamp
-                            ));
-                            if status.height == 0 {
-                                zero_height_indices.push(i);
-                            } else if status.height < 1 && !allow_zero_height_ready {
+                        // Use the existing rpc helper
+                        match crate::testing::rpc::get_status(rpc_addr).await {
+                            Ok(status) => {
+                                let peer_count = peers.parse::<usize>().unwrap_or_default();
+                                observed_heights.push(status.height);
+                                observed_timestamps.push(status.latest_timestamp);
+                                observed_peer_counts.push(peer_count);
+                                status_lines.push(format!(
+                                    "Node {}: Height={} Peers={} Ts={}",
+                                    i, status.height, peers, status.latest_timestamp
+                                ));
+                                if status.height == 0 {
+                                    zero_height_indices.push(i);
+                                } else if status.height < 1 && !allow_zero_height_ready {
+                                    all_reached = false;
+                                }
+                            }
+                            Err(e) => {
+                                status_lines
+                                    .push(format!("Node {}: RPC Error {} (Peers={})", i, e, peers));
                                 all_reached = false;
                             }
                         }
-                        Err(e) => {
-                            status_lines
-                                .push(format!("Node {}: RPC Error {} (Peers={})", i, e, peers));
-                            all_reached = false;
-                        }
                     }
-                }
 
-                if all_reached
-                    && !zero_height_indices.is_empty()
-                    && observed_heights.iter().copied().any(|height| height > 0)
-                {
-                    for index in zero_height_indices.iter().copied() {
-                        let rpc_addr = &validators[index].validator().rpc_addr;
-                        match crate::testing::rpc::tip_height_resilient(rpc_addr).await {
-                            Ok(probed_height) if probed_height > 0 => {
-                                observed_heights[index] = probed_height;
-                                status_lines.push(format!(
+                    if all_reached
+                        && !zero_height_indices.is_empty()
+                        && observed_heights.iter().copied().any(|height| height > 0)
+                    {
+                        for index in zero_height_indices.iter().copied() {
+                            let rpc_addr = &validators[index].validator().rpc_addr;
+                            match crate::testing::rpc::tip_height_resilient(rpc_addr).await {
+                                Ok(probed_height) if probed_height > 0 => {
+                                    observed_heights[index] = probed_height;
+                                    status_lines.push(format!(
                                     "Node {}: get_status.height=0 looked stale; resilient tip probe found height {}",
                                     index, probed_height
                                 ));
-                            }
-                            Ok(_) => {
-                                status_lines.push(format!(
+                                }
+                                Ok(_) => {
+                                    status_lines.push(format!(
                                     "Node {}: get_status.height=0 and resilient tip probe also found no committed blocks yet",
                                     index
                                 ));
-                            }
-                            Err(error) => {
-                                status_lines.push(format!(
+                                }
+                                Err(error) => {
+                                    status_lines.push(format!(
                                     "Node {}: get_status.height=0 and resilient tip probe failed: {}",
                                     index, error
+                                ));
+                                }
+                            }
+                        }
+                    }
+
+                    if all_reached
+                        && !allow_zero_height_ready
+                        && observed_heights.iter().copied().any(|height| height < 1)
+                    {
+                        all_reached = false;
+                    }
+
+                    if all_reached {
+                        if full_mesh_bootnodes && validators.len() > 1 {
+                            let expected_peer_count = validators.len().saturating_sub(1);
+                            let min_peers = observed_peer_counts.iter().copied().min().unwrap_or(0);
+                            if min_peers < expected_peer_count {
+                                all_reached = false;
+                                status_lines.push(format!(
+                                    "Mesh not converged yet: min_peers={} expected={}",
+                                    min_peers, expected_peer_count
                                 ));
                             }
                         }
                     }
-                }
 
-                if all_reached
-                    && !allow_zero_height_ready
-                    && observed_heights.iter().copied().any(|height| height < 1)
-                {
-                    all_reached = false;
-                }
-
-                if all_reached {
-                    if full_mesh_bootnodes && validators.len() > 1 {
-                        let expected_peer_count = validators.len().saturating_sub(1);
-                        let min_peers = observed_peer_counts.iter().copied().min().unwrap_or(0);
-                        if min_peers < expected_peer_count {
+                    if all_reached {
+                        let min_height = observed_heights.iter().copied().min().unwrap_or(0);
+                        let max_height = observed_heights.iter().copied().max().unwrap_or(0);
+                        let height_lag = max_height.saturating_sub(min_height);
+                        if height_lag > ready_height_lag_max {
                             all_reached = false;
                             status_lines.push(format!(
-                                "Mesh not converged yet: min_peers={} expected={}",
-                                min_peers, expected_peer_count
+                            "Heights diverged beyond readiness lag: min={} max={} lag={} allowed={}",
+                            min_height, max_height, height_lag, ready_height_lag_max
+                        ));
+                        } else if min_height == 0 && max_height > 0 {
+                            all_reached = false;
+                            status_lines.push(format!(
+                                "Mixed zero/non-zero heights are not readiness-safe: min={} max={}",
+                                min_height, max_height
                             ));
-                        }
-                    }
-                }
-
-                if all_reached {
-                    let min_height = observed_heights.iter().copied().min().unwrap_or(0);
-                    let max_height = observed_heights.iter().copied().max().unwrap_or(0);
-                    let height_lag = max_height.saturating_sub(min_height);
-                    if height_lag > 1 {
-                        all_reached = false;
-                        status_lines.push(format!(
-                            "Heights diverged beyond readiness lag: min={} max={} lag={}",
-                            min_height, max_height, height_lag
-                        ));
-                    } else if min_height == 0 && max_height > 0 {
-                        all_reached = false;
-                        status_lines.push(format!(
-                            "Mixed zero/non-zero heights are not readiness-safe: min={} max={}",
-                            min_height, max_height
-                        ));
-                    } else if max_height == 0
-                        && (allow_zero_height_ready
-                            || observed_timestamps
-                                .iter()
-                                .copied()
-                                .min()
-                                .map(|timestamp| timestamp > now_secs)
-                                .unwrap_or(false))
-                    {
-                        status_lines.push(
+                        } else if max_height == 0
+                            && (allow_zero_height_ready
+                                || observed_timestamps
+                                    .iter()
+                                    .copied()
+                                    .min()
+                                    .map(|timestamp| timestamp > now_secs)
+                                    .unwrap_or(false))
+                        {
+                            status_lines.push(
                             "Canonical shared floor at height 0 => future-genesis benchmark cluster is synchronized"
                                 .to_string(),
                         );
-                    } else {
-                        let shared_height = min_height;
-                        let mut shared_tip_hash: Option<Vec<u8>> = None;
-                        for (i, v_guard) in validators.iter().enumerate() {
-                            let rpc_addr = &v_guard.validator().rpc_addr;
-                            match crate::testing::rpc::get_block_by_height_resilient(
-                                rpc_addr,
-                                shared_height,
-                            )
-                            .await
-                            {
-                                Ok(Some(block)) => {
-                                    let Ok(hash) = block.header.hash() else {
-                                        all_reached = false;
-                                        status_lines.push(format!(
-                                            "Node {}: failed to hash block {}",
-                                            i, shared_height
-                                        ));
-                                        continue;
-                                    };
-                                    match &shared_tip_hash {
-                                        Some(expected) if expected != &hash => {
+                        } else {
+                            let shared_height = min_height;
+                            let mut shared_tip_hash: Option<Vec<u8>> = None;
+                            for (i, v_guard) in validators.iter().enumerate() {
+                                let rpc_addr = &v_guard.validator().rpc_addr;
+                                match crate::testing::rpc::get_block_by_height_resilient(
+                                    rpc_addr,
+                                    shared_height,
+                                )
+                                .await
+                                {
+                                    Ok(Some(block)) => {
+                                        let Ok(hash) = block.header.hash() else {
                                             all_reached = false;
                                             status_lines.push(format!(
+                                                "Node {}: failed to hash block {}",
+                                                i, shared_height
+                                            ));
+                                            continue;
+                                        };
+                                        match &shared_tip_hash {
+                                            Some(expected) if expected != &hash => {
+                                                all_reached = false;
+                                                status_lines.push(format!(
                                                 "Node {}: block hash mismatch at height {} | got={} expected={} producer=0x{} view={}",
                                                 i,
                                                 shared_height,
@@ -1253,9 +1268,9 @@ impl TestClusterBuilder {
                                                 hex::encode(&block.header.producer_account_id.0[..4]),
                                                 block.header.view
                                             ));
-                                        }
-                                        None => {
-                                            status_lines.push(format!(
+                                            }
+                                            None => {
+                                                status_lines.push(format!(
                                                 "Canonical shared floor at height {} => hash={} producer=0x{} view={} lag={}",
                                                 shared_height,
                                                 hex::encode(&hash[..4]),
@@ -1263,51 +1278,52 @@ impl TestClusterBuilder {
                                                 block.header.view,
                                                 height_lag
                                             ));
-                                            shared_tip_hash = Some(hash);
+                                                shared_tip_hash = Some(hash);
+                                            }
+                                            _ => {}
                                         }
-                                        _ => {}
                                     }
-                                }
-                                Ok(None) => {
-                                    all_reached = false;
-                                    status_lines.push(format!(
-                                        "Node {}: missing block {} during convergence check",
-                                        i, shared_height
-                                    ));
-                                }
-                                Err(error) => {
-                                    all_reached = false;
-                                    status_lines.push(format!(
+                                    Ok(None) => {
+                                        all_reached = false;
+                                        status_lines.push(format!(
+                                            "Node {}: missing block {} during convergence check",
+                                            i, shared_height
+                                        ));
+                                    }
+                                    Err(error) => {
+                                        all_reached = false;
+                                        status_lines.push(format!(
                                         "Node {}: failed to fetch block {} during convergence check: {}",
                                         i, shared_height, error
                                     ));
+                                    }
                                 }
                             }
                         }
                     }
+
+                    if all_reached {
+                        sync_success = true;
+                        break;
+                    }
+
+                    println!(
+                        "[Sync Wait {:?}] Status:\n{}",
+                        start.elapsed(),
+                        status_lines.join("\n")
+                    );
                 }
 
-                if all_reached {
-                    sync_success = true;
-                    break;
+                if !sync_success {
+                    for guard in validators {
+                        let _ = guard.shutdown().await;
+                    }
+                    let _ = fs::remove_file(&validator_port_lock_path);
+                    return Err(anyhow::anyhow!("Timeout waiting for cluster sync"));
                 }
 
-                println!(
-                    "[Sync Wait {:?}] Status:\n{}",
-                    start.elapsed(),
-                    status_lines.join("\n")
-                );
+                println!("--- All nodes synced. Cluster is ready. ---");
             }
-
-            if !sync_success {
-                for guard in validators {
-                    let _ = guard.shutdown().await;
-                }
-                let _ = fs::remove_file(&validator_port_lock_path);
-                return Err(anyhow::anyhow!("Timeout waiting for cluster sync"));
-            }
-
-            println!("--- All nodes synced. Cluster is ready. ---");
         }
 
         Ok(TestCluster {

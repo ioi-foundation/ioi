@@ -1,10 +1,9 @@
 // Path: crates/execution/src/app/state_machine.rs
 
 use super::{
-    derive_canonical_collapse_for_block,
-    derive_canonical_collapse_for_height,
-    end_block, resolve_execution_anchor_from_recent_blocks_or_replay_prefix,
-    resolve_execution_parent_anchor, ExecutionMachine,
+    derive_canonical_collapse_for_block, derive_canonical_collapse_for_height, end_block,
+    resolve_execution_anchor_from_recent_blocks_or_replay_prefix, resolve_execution_parent_anchor,
+    ExecutionMachine,
 };
 use crate::app::parallel_state::ParallelStateAccess;
 use crate::mv_memory::MVMemory;
@@ -58,7 +57,7 @@ use ioi_types::service_configs::ActiveServiceMeta;
 use libp2p::identity::Keypair;
 use parity_scale_codec::Decode;
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -87,6 +86,29 @@ fn benchmark_trace_append(line: &str) {
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(file, "{line}");
     }
+}
+
+fn nonce_scoped_account_id(tx: &ChainTransaction) -> Option<AccountId> {
+    match tx {
+        ChainTransaction::System(s) => Some(s.header.account_id),
+        ChainTransaction::Settlement(s) => Some(s.header.account_id),
+        ChainTransaction::Application(a) => match a {
+            ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
+            | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+                Some(header.account_id)
+            }
+        },
+        ChainTransaction::Semantic { .. } => None,
+    }
+}
+
+fn block_has_nonce_chains(block: &Block<ChainTransaction>) -> bool {
+    let mut seen = HashSet::new();
+    block
+        .transactions
+        .iter()
+        .filter_map(nonce_scoped_account_id)
+        .any(|account_id| !seen.insert(account_id))
 }
 
 /// A lightweight, thread-safe context for executing transactions in parallel.
@@ -372,25 +394,19 @@ where
             }
         }
 
-        // Acquire a consistent view of the state (Base View for MVMemory).
-        // `read()` gives us a `RwLockReadGuard<ST>`. We clone ST to get an owned snapshot
-        // (assuming ST is cheap to clone/Arc-like or persistent structure handle).
-        let snapshot_state: ST = {
-            let backend_guard = state_tree_arc.read().await;
-            backend_guard.clone()
+        let snapshot_arc: Option<Arc<dyn StateAccess>> = if num_txs == 0 {
+            None
+        } else {
+            // Acquire a consistent base view for transaction execution only when we actually
+            // need to read it through an overlay or MV memory.
+            let snapshot_state: ST = {
+                let backend_guard = state_tree_arc.read().await;
+                backend_guard.clone()
+            };
+            Some(Arc::new(snapshot_state))
         };
         let snapshot_elapsed = snapshot_started.elapsed();
 
-        // Wrap as Arc<dyn StateAccess> for MVMemory
-        let snapshot_arc: Arc<dyn StateAccess> = Arc::new(snapshot_state);
-        let mv_memory = Arc::new(MVMemory::new(snapshot_arc.clone()));
-
-        // 2. Initialize Scheduler and Result Storage
-        let scheduler = Arc::new(Scheduler::new(num_txs));
-        let read_sets = Arc::new(DashMap::new());
-        let results = Arc::new(DashMap::new());
-
-        let transactions = block.transactions.clone();
         let block_header_height = block.header.height;
         let block_timestamp_ms = if block.header.timestamp_ms > 0 {
             block.header.timestamp_ms
@@ -398,8 +414,16 @@ where
             || !block.header.transactions_root.is_empty()
         {
             block.header.timestamp_ms_or_legacy()
+        } else if num_txs == 0 {
+            let backend_guard = state_tree_arc.read().await;
+            self.resolve_next_block_timestamp_ms(&*backend_guard, block.header.height)?
         } else {
-            self.resolve_next_block_timestamp_ms(&*snapshot_arc, block.header.height)?
+            self.resolve_next_block_timestamp_ms(
+                snapshot_arc
+                    .as_deref()
+                    .expect("non-empty blocks require a snapshot state"),
+                block.header.height,
+            )?
         };
         let block_header_timestamp = block_timestamp_ms / 1_000;
 
@@ -407,7 +431,9 @@ where
             .ok()
             .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
-        let replay_sequentially = num_txs <= 1 || externally_committed || force_sequential_replay;
+        let has_nonce_chains = num_txs > 1 && block_has_nonce_chains(&block);
+        let replay_sequentially =
+            num_txs <= 1 || externally_committed || force_sequential_replay || has_nonce_chains;
 
         let (
             state_changes,
@@ -416,9 +442,22 @@ where
             parallel_exec_elapsed,
             overlay_elapsed,
             collect_results_elapsed,
-        ) = if replay_sequentially {
+        ) = if num_txs == 0 {
+            (
+                (Vec::<(Vec<u8>, Vec<u8>)>::new(), Vec::<Vec<u8>>::new()),
+                Vec::new(),
+                0,
+                Duration::ZERO,
+                Duration::ZERO,
+                Duration::ZERO,
+            )
+        } else if replay_sequentially {
             let sequential_exec_started = Instant::now();
-            let mut final_overlay = StateOverlay::new(&*snapshot_arc);
+            let mut final_overlay = StateOverlay::new(
+                snapshot_arc
+                    .as_deref()
+                    .expect("sequential replay requires a snapshot state"),
+            );
             let mut proofs_out = Vec::with_capacity(num_txs);
             let mut block_gas_used = 0;
 
@@ -442,6 +481,7 @@ where
                 height = block.header.height,
                 tx_count = num_txs,
                 externally_committed,
+                has_nonce_chains,
                 force_sequential_replay,
                 "Prepared block via sequential replay"
             );
@@ -455,6 +495,16 @@ where
                 Duration::ZERO,
             )
         } else {
+            let snapshot_arc = snapshot_arc
+                .clone()
+                .expect("parallel replay requires a snapshot state");
+            let mv_memory = Arc::new(MVMemory::new(snapshot_arc.clone()));
+
+            // 2. Initialize Scheduler and Result Storage
+            let scheduler = Arc::new(Scheduler::new(num_txs));
+            let read_sets = Arc::new(DashMap::new());
+            let results = Arc::new(DashMap::new());
+
             // 3. Prepare Parallel Executor Context
             let executor = Arc::new(ParallelExecutor {
                 chain_id: self.state.chain_id,
@@ -468,6 +518,7 @@ where
                 last_state_root: self.state.last_state_root.clone(),
                 consensus_engine: self.consensus_engine.clone(),
             });
+            let transactions = block.transactions.clone();
 
             // 4. Thread Pool Execution
             let num_threads = std::cmp::min(
@@ -509,6 +560,14 @@ where
                             loop {
                                 match scheduler.next_task() {
                                     Task::Execute(idx) => {
+                                        // Retries must start from a clean MV slate or stale keys
+                                        // from a prior incarnation can survive into the final
+                                        // overlay even when the retried execution no longer
+                                        // touches them.
+                                        mv_memory.clear_tx_writes(idx);
+                                        read_sets.remove(&idx);
+                                        results.remove(&idx);
+
                                         let tx = &txs[idx];
                                         let mut state_proxy =
                                             ParallelStateAccess::new(&mv_memory, idx);
@@ -530,6 +589,7 @@ where
                                                 scheduler.finish_execution(idx);
                                             }
                                             Err(e) => {
+                                                mv_memory.clear_tx_writes(idx);
                                                 tracing::error!(
                                                     target: "execution",
                                                     tx_index = idx,
@@ -777,7 +837,8 @@ where
                 let mut state = state_tree_arc.write().await;
                 let current_live_root = state.root_commitment().as_ref().to_vec();
                 if current_live_root != pre_commit_root {
-                    state.adopt_known_root(&pre_commit_root, pre_commit_height)
+                    state
+                        .adopt_known_root(&pre_commit_root, pre_commit_height)
                         .map_err(ChainError::State)?;
                     let restored_root = state.root_commitment().as_ref().to_vec();
                     if restored_root != pre_commit_root {

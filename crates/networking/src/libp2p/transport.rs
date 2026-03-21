@@ -35,6 +35,14 @@ fn aft_request_timeout() -> Duration {
     )
 }
 
+fn aft_request_max_concurrent_streams() -> usize {
+    std::env::var("IOI_AFT_REQUEST_MAX_CONCURRENT_STREAMS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value >= 100)
+        .unwrap_or(2_048)
+}
+
 fn yamux_max_num_streams() -> usize {
     std::env::var("IOI_YAMUX_MAX_STREAMS")
         .ok()
@@ -82,8 +90,9 @@ pub fn build_swarm(local_key: identity::Keypair) -> Result<Swarm<SyncBehaviour>>
                 gossipsub_config,
             )?;
 
-            let cfg =
-                request_response::Config::default().with_request_timeout(aft_request_timeout());
+            let cfg = request_response::Config::default()
+                .with_request_timeout(aft_request_timeout())
+                .with_max_concurrent_streams(aft_request_max_concurrent_streams());
 
             let request_response = request_response::Behaviour::new(
                 iter::once(("/ioi/sync/2", request_response::ProtocolSupport::Full)),

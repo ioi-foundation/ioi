@@ -97,6 +97,8 @@ where
     pub chain_id: ioi_types::app::ChainId,
     /// The hash of the genesis block.
     pub genesis_hash: [u8; 32],
+    /// The committed genesis state root used for anchored prechecks before a live tip exists.
+    pub genesis_root: Vec<u8>,
     /// Reference to the chain state machine.
     pub chain_ref: ChainFor<CS, ST>,
     /// Resolver for creating state views.

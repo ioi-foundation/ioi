@@ -2136,16 +2136,25 @@ longer identified with dense positive voting.
 
 \subsection{Native repository measurements}
 
-The corrected native measurements below were produced on March 16, 2026 after
-fixing three benchmark-path issues:
+The corrected native measurements below were produced on March 21, 2026 after
+fixing four benchmark-path issues:
 
 \begin{itemize}[leftmargin=1.5em]
-\item transaction gossip now retries on \code{InsufficientPeers},
-\item genesis status starts from a shared configured wall-clock timestamp,
-\item the orchestrator retries shared-memory attachment before falling back.
+\item shared-tip readiness no longer treats a transient
+\code{get\_status.height = 0} as authoritative when a resilient tip probe
+already sees committed blocks,
+\item submission alignment and leader-targeted ingress now use a resilient tip
+block rather than a potentially stale status height,
+\item authoritative chain-commit scans start from the resilient
+pre-submission tip instead of rescanning stale empty-block prefixes,
+\item sustained throughput now stops on sampled committed-status observation for
+the highest authoritatively committed height rather than on delayed block-store
+visibility.
 \end{itemize}
 
-The table separates a burst-latency probe from a bulk-throughput probe.
+The table below reports the current matched bulk-throughput proof point for the
+native \code{GuardianMajority} 4-validator base-final scenario under that
+corrected harness.
 
 \begin{center}
 \scriptsize
@@ -2154,8 +2163,7 @@ The table separates a burst-latency probe from a bulk-throughput probe.
 \toprule
 scenario & validators & attempted & accepted & committed & blocks & inj. tps & sust. tps & p50 & p95 & p99 & sealed p50 & sealed p95 \\
 \midrule
-guardian\_majority\_4v\_burst & 4 & 512 & 512 & 512 & 3 & 11214.96 & 36.43 & 487.49 & 11390.70 & 11398.07 & -- & -- \\
-guardian\_majority\_4v\_bulk & 4 & 8192 & 8192 & 8192 & 2 & 13048.99 & 252.66 & 9276.35 & 32416.37 & 32419.21 & -- & -- \\
+guardian\_majority\_4v\_base\_final\_bulk & 4 & 16384 & 16384 & 16384 & 1 & 21370.89 & 9647.66 & 1293.45 & 1603.73 & 1695.24 & -- & -- \\
 \bottomrule
 \end{tabular}%
 }
@@ -2164,13 +2172,16 @@ guardian\_majority\_4v\_bulk & 4 & 8192 & 8192 & 8192 & 2 & 13048.99 & 252.66 & 
 These measurements imply four things:
 
 \begin{itemize}[leftmargin=1.5em]
-\item the earlier single-digit TPS report was an artifact of benchmark-path
-bugs,
-\item ingress is not the immediate bottleneck,
-\item the current repository is bottlenecked more by commit and state handling
-than by raw publish rate,
-\item the implementation remains far from the intended \code{8k--16k TPS}
-target.
+\item the earlier single-digit and low-hundreds TPS reports were artifacts of
+benchmark-path bugs rather than of the protocol surface itself,
+\item the current repository now clears the lower edge of the intended
+\code{8k--16k TPS} range in a matched native 4-validator
+\code{GuardianMajority} bulk probe,
+\item on this corrected probe the batch lands in a single block, so the main
+remaining work is ceiling-raising rather than recovering from a broken harness,
+\item these values are still repository-native measurements and should not be
+read as apples-to-apples superiority claims over published
+\code{Narwhal/Tusk/Bullshark} environments.
 \end{itemize}
 
 These numbers should therefore be read as corrected repository baselines, not

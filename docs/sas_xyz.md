@@ -114,7 +114,7 @@ The ecosystem works only if each surface has a crisp job.
 
 **Operate workers**
 
-Autopilot is the private/local operator shell and worker runtime. It is where people:
+Autopilot is the private/local operator shell and worker runtime, software-first today and capable of extending to broader bounded autonomous action over time. It is where people:
 
 * run workers inside their own trust boundary,
 * use local GPU, desktop, browser, apps, files, and terminals,
