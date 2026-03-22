@@ -14,8 +14,11 @@ pub enum Task {
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum TxStatus {
     Ready,
+    Executing,
     Executed,
+    Validating,
     Validated,
+    PendingReexecute,
 }
 
 pub struct Scheduler {
@@ -27,8 +30,6 @@ pub struct Scheduler {
     // Simple status tracking. In production, this would be more complex to handle dependency graphs.
     // Using Mutex for status vector for simplicity in this implementation phase.
     status: Mutex<Vec<TxStatus>>,
-    // Track how many times a tx has been aborted (incarnation)
-    incarnations: Mutex<Vec<usize>>,
 }
 
 impl Scheduler {
@@ -39,7 +40,6 @@ impl Scheduler {
             validation_idx: AtomicUsize::new(0),
             completed_validations: AtomicUsize::new(0),
             status: Mutex::new(vec![TxStatus::Ready; num_txs]),
-            incarnations: Mutex::new(vec![0; num_txs]),
         }
     }
 
@@ -62,16 +62,20 @@ impl Scheduler {
 
                 match validation_ready {
                     Some(TxStatus::Executed) => {
-                        if self
-                            .validation_idx
-                            .compare_exchange(
-                                val_idx,
-                                val_idx + 1,
-                                Ordering::SeqCst,
-                                Ordering::Relaxed,
-                            )
-                            .is_ok()
+                        let mut status =
+                            self.status.lock().expect("Scheduler status lock poisoned");
+                        if status.get(val_idx) == Some(&TxStatus::Executed)
+                            && self
+                                .validation_idx
+                                .compare_exchange(
+                                    val_idx,
+                                    val_idx + 1,
+                                    Ordering::SeqCst,
+                                    Ordering::Relaxed,
+                                )
+                                .is_ok()
                         {
+                            status[val_idx] = TxStatus::Validating;
                             return Task::Validate(val_idx);
                         }
                         continue;
@@ -98,16 +102,20 @@ impl Scheduler {
 
                 match exec_status {
                     Some(TxStatus::Ready) => {
-                        if self
-                            .execution_idx
-                            .compare_exchange(
-                                exec_idx,
-                                exec_idx + 1,
-                                Ordering::SeqCst,
-                                Ordering::Relaxed,
-                            )
-                            .is_ok()
+                        let mut status =
+                            self.status.lock().expect("Scheduler status lock poisoned");
+                        if status.get(exec_idx) == Some(&TxStatus::Ready)
+                            && self
+                                .execution_idx
+                                .compare_exchange(
+                                    exec_idx,
+                                    exec_idx + 1,
+                                    Ordering::SeqCst,
+                                    Ordering::Relaxed,
+                                )
+                                .is_ok()
                         {
+                            status[exec_idx] = TxStatus::Executing;
                             return Task::Execute(exec_idx);
                         }
                         continue;
@@ -121,6 +129,9 @@ impl Scheduler {
                         );
                         continue;
                     }
+                    Some(
+                        TxStatus::Executing | TxStatus::Validating | TxStatus::PendingReexecute,
+                    ) => {}
                     None => {}
                 }
             }
@@ -133,7 +144,11 @@ impl Scheduler {
     /// Mark a transaction as executed.
     pub fn finish_execution(&self, tx_idx: TxIndex) {
         let mut status = self.status.lock().expect("Scheduler status lock poisoned");
-        status[tx_idx] = TxStatus::Executed;
+        status[tx_idx] = match status[tx_idx] {
+            TxStatus::Executing => TxStatus::Executed,
+            TxStatus::PendingReexecute => TxStatus::Ready,
+            current => current,
+        };
     }
 
     /// Mark a transaction as validated. This is the condition for block completion.
@@ -141,9 +156,15 @@ impl Scheduler {
         let mut newly_validated = false;
         {
             let mut status = self.status.lock().expect("Scheduler status lock poisoned");
-            if status[tx_idx] != TxStatus::Validated {
-                status[tx_idx] = TxStatus::Validated;
-                newly_validated = true;
+            match status[tx_idx] {
+                TxStatus::Validating => {
+                    status[tx_idx] = TxStatus::Validated;
+                    newly_validated = true;
+                }
+                TxStatus::PendingReexecute => {
+                    status[tx_idx] = TxStatus::Ready;
+                }
+                _ => {}
             }
         }
         if newly_validated {
@@ -156,11 +177,19 @@ impl Scheduler {
     pub fn abort_tx(&self, tx_idx: TxIndex) {
         let mut status = self.status.lock().expect("Scheduler status lock poisoned");
         let mut revoked_validations = 0usize;
-        for entry in status.iter_mut().skip(tx_idx) {
-            if *entry == TxStatus::Validated {
-                revoked_validations += 1;
-            }
-            *entry = TxStatus::Ready;
+        for (idx, entry) in status.iter_mut().enumerate().skip(tx_idx) {
+            let next_status = match *entry {
+                TxStatus::Validated => {
+                    revoked_validations += 1;
+                    TxStatus::Ready
+                }
+                TxStatus::Executing | TxStatus::Validating if idx > tx_idx => {
+                    TxStatus::PendingReexecute
+                }
+                TxStatus::PendingReexecute => TxStatus::PendingReexecute,
+                _ => TxStatus::Ready,
+            };
+            *entry = next_status;
         }
 
         if revoked_validations > 0 {
@@ -168,18 +197,59 @@ impl Scheduler {
                 .fetch_sub(revoked_validations, Ordering::SeqCst);
         }
 
-        drop(status);
-
-        let mut incarnations = self
-            .incarnations
-            .lock()
-            .expect("Scheduler incarnations lock poisoned");
-        for entry in incarnations.iter_mut().skip(tx_idx) {
-            *entry += 1;
-        }
-
         // CRITICAL: Reset indices to force re-execution and re-validation from the aborted point.
         self.execution_idx.fetch_min(tx_idx, Ordering::SeqCst);
         self.validation_idx.fetch_min(tx_idx, Ordering::SeqCst);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Scheduler, Task};
+
+    #[test]
+    fn abort_keeps_inflight_higher_tx_from_being_reissued() {
+        let scheduler = Scheduler::new(3);
+
+        assert_eq!(scheduler.next_task(), Task::Execute(0));
+        assert_eq!(scheduler.next_task(), Task::Execute(1));
+
+        scheduler.finish_execution(0);
+        assert_eq!(scheduler.next_task(), Task::Validate(0));
+
+        scheduler.abort_tx(0);
+
+        // The aborted transaction should restart first, but tx 1 must not be handed out again
+        // until its in-flight execution completes and transitions back to Ready.
+        assert_eq!(scheduler.next_task(), Task::Execute(0));
+        assert_eq!(scheduler.next_task(), Task::RetryLater);
+
+        scheduler.finish_execution(1);
+        scheduler.finish_execution(0);
+
+        assert_eq!(scheduler.next_task(), Task::Validate(0));
+        scheduler.finish_validation(0);
+        assert_eq!(scheduler.next_task(), Task::Execute(1));
+    }
+
+    #[test]
+    fn stale_validation_completion_requeues_pending_tx() {
+        let scheduler = Scheduler::new(2);
+
+        assert_eq!(scheduler.next_task(), Task::Execute(0));
+        assert_eq!(scheduler.next_task(), Task::Execute(1));
+        scheduler.finish_execution(0);
+        scheduler.finish_execution(1);
+
+        assert_eq!(scheduler.next_task(), Task::Validate(0));
+        scheduler.finish_validation(0);
+        assert_eq!(scheduler.next_task(), Task::Validate(1));
+
+        scheduler.abort_tx(0);
+        scheduler.finish_validation(1);
+
+        assert_eq!(scheduler.next_task(), Task::Execute(0));
+        scheduler.finish_execution(0);
+        assert_eq!(scheduler.next_task(), Task::Validate(0));
     }
 }

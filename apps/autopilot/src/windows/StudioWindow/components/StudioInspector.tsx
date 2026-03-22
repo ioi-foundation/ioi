@@ -19,7 +19,6 @@ interface StudioInspectorProps {
   operatorPaneOpen: boolean;
   workflowSurface: "canvas" | "agents" | "catalog";
   runsSurface: "runtime" | "evidence";
-  interfaceMode: "GHOST" | "COMPOSE";
   notificationCount: number;
   shieldPolicy: ShieldPolicyState;
   profile: AssistantUserProfile;
@@ -106,7 +105,6 @@ function summaryForView(props: StudioInspectorProps): {
     workflowSurface,
     runsSurface,
     notificationCount,
-    interfaceMode,
     shieldPolicy,
     assistantWorkbench,
     editingAgentName,
@@ -142,9 +140,6 @@ function summaryForView(props: StudioInspectorProps): {
                   : chatSurface.replace(/-/g, " ")
               }`
             : "Operator pane: hidden",
-          interfaceMode === "GHOST"
-            ? "Ghost mode: recording"
-            : "Ghost mode: idle",
           editingAgentName
             ? `Builder open: ${editingAgentName}`
             : workflowSurface === "catalog"

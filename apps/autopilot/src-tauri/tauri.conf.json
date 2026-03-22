@@ -24,7 +24,7 @@
         "title": "Autopilot Studio",
         "url": "/studio",
         "visible": false,
-        "decorations": true,
+        "decorations": false,
         "resizable": true,
         "width": 1400,
         "height": 900,

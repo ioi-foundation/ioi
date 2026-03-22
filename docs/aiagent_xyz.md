@@ -24,6 +24,7 @@ That means:
 
 * providers package and operate services in `sas.xyz`
 * operators run workers privately in `Autopilot`
+* domain authors instantiate sovereign domains in `Forge`
 * end users express intent in `ioi.ai`
 * buyers discover or procure in `aiagent.xyz`
 
@@ -87,22 +88,29 @@ Private/local operator shell and worker runtime.
 
 Provider OS for packaging, deploying, billing, and operating services.
 
-## 3.3 `aiagent.xyz`
+## 3.3 `Forge`
+
+**Instantiate sovereign domains**
+
+Kernel-adjacent L0 surface for intelligent blockchains and sovereign autonomous domains.
+
+## 3.4 `aiagent.xyz`
 
 **Discover or procure workers**
 
 Marketplace, comparison, and procurement layer.
 
-## 3.4 `ioi.ai`
+## 3.5 `ioi.ai`
 
 **Use workers**
 
 Intent ingress and hosted demand UX.
 
-## 3.5 Boundary rules
+## 3.6 Boundary rules
 
 * `aiagent.xyz` should not become the provider deployment dashboard.
 * `aiagent.xyz` should not become the private/local runtime.
+* `aiagent.xyz` should not become the L0 domain instantiation surface.
 * `aiagent.xyz` should not become the main hosted execution UX.
 * `aiagent.xyz` should route demand, not absorb every downstream responsibility.
 

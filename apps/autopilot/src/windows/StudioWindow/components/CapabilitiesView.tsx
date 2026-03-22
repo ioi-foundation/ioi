@@ -178,6 +178,40 @@ function ChevronRightIcon({ className }: { className?: string }) {
   );
 }
 
+function ArrowLeftIcon() {
+  return (
+    <IconBase>
+      <path d="m15 18-6-6 6-6" />
+      <path d="M9 12h10" />
+    </IconBase>
+  );
+}
+
+function DetailDocument({
+  title,
+  summary,
+  meta,
+  children,
+}: {
+  title: string;
+  summary: string;
+  meta?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="capabilities-detail-document">
+      <div className="capabilities-detail-document-toolbar">
+        <div className="capabilities-detail-document-title">
+          <strong>{title}</strong>
+          <span>{summary}</span>
+        </div>
+        {meta ? <div className="capabilities-detail-document-meta">{meta}</div> : null}
+      </div>
+      <div className="capabilities-detail-document-body">{children}</div>
+    </section>
+  );
+}
+
 const MarkdownRenderer = ReactMarkdown as any;
 
 function humanize(value: string): string {
@@ -387,21 +421,21 @@ function connectorFromDraft(draft: StoredConnectionDraft): ConnectorSummary {
 function providerAccent(provider: string): string {
   switch (provider.toLowerCase()) {
     case "google":
-      return "var(--accent-cyan)";
+      return "var(--studio-accent-soft)";
     case "github":
       return "var(--text-secondary)";
     case "slack":
-      return "var(--accent-blue)";
+      return "var(--studio-accent-soft)";
     case "notion":
       return "var(--text-primary)";
     case "linear":
-      return "var(--accent-violet)";
+      return "var(--studio-accent-soft)";
     case "figma":
-      return "var(--accent-orange)";
+      return "var(--text-secondary)";
     case "wallet.network":
-      return "var(--accent-cyan)";
+      return "var(--studio-accent-soft)";
     case "mcp":
-      return "var(--accent-orange)";
+      return "var(--text-secondary)";
     default:
       return "var(--text-tertiary)";
   }
@@ -435,13 +469,11 @@ function MenuButton({
   active,
   icon,
   label,
-  count,
   onClick,
 }: {
   active: boolean;
   icon: ReactNode;
   label: string;
-  count: string;
   onClick: () => void;
 }) {
   return (
@@ -451,10 +483,7 @@ function MenuButton({
       onClick={onClick}
     >
       <span className="capabilities-nav-icon">{icon}</span>
-      <span className="capabilities-nav-copy">
-        <strong>{label}</strong>
-        <small>{count}</small>
-      </span>
+      <span className="capabilities-nav-label">{label}</span>
     </button>
   );
 }
@@ -465,7 +494,7 @@ export function CapabilitiesView({
   onOpenPolicyCenter,
 }: CapabilitiesViewProps) {
   const connectionsMenuRef = useRef<HTMLDivElement | null>(null);
-  const [surface, setSurface] = useState<CapabilitySurface>("skills");
+  const [surface, setSurface] = useState<CapabilitySurface | null>(null);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [runtimeConnectors, setRuntimeConnectors] = useState<
@@ -781,6 +810,16 @@ export function CapabilitiesView({
   const connectedConnectionCount = workspaceConnections.filter(
     ({ connector }) => connector.status === "connected",
   ).length;
+
+  const openSurface = (nextSurface: CapabilitySurface) => {
+    setSurface(nextSurface);
+  };
+
+  const returnToHome = () => {
+    setSurface(null);
+    setQuery("");
+    setConnectionsMenuOpen(false);
+  };
 
   useEffect(() => {
     if (surface !== "skills") return;
@@ -1309,15 +1348,21 @@ export function CapabilitiesView({
         : skillDetailSection === "procedure"
           ? "Observed or published execution flow for this reusable behavior."
           : "Primary markdown instructions used when the worker invokes this skill.";
+    const sectionMeta =
+      skillDetailSection === "guide"
+        ? "Markdown"
+        : skillDetailSection === "procedure"
+          ? `${selectedSkill.detail.steps.length || 1} steps`
+          : `${selectedSkill.detail.used_tools.length} tools`;
 
     return (
       <div className="capabilities-detail-scroll">
         <header className="capabilities-detail-header">
           <div>
             <span className="capabilities-kicker">
-              {selectedSkill.catalog.name}
+              {selectedSkill.origin === "starter" ? "Starter skill" : "Runtime skill"}
             </span>
-            <h2>{sectionTitle}</h2>
+            <h2>{selectedSkill.catalog.name}</h2>
           </div>
           <label className="capabilities-switch">
             <input
@@ -1355,83 +1400,91 @@ export function CapabilitiesView({
           </span>
         </div>
 
-        <p className="capabilities-detail-summary">{sectionSummary}</p>
+        <p className="capabilities-detail-summary">
+          {selectedSkill.catalog.description}
+        </p>
 
-        {skillDetailSection === "overview" ? (
-          <section className="capabilities-detail-card">
-            <div className="capabilities-detail-card-head">
-              <h3>Overview</h3>
-              <span>{selectedSkill.detail.used_tools.length} tools</span>
-            </div>
-            <div className="capabilities-detail-meta-grid capabilities-detail-meta-grid-compact">
-              <article>
-                <span>Sample size</span>
-                <strong>{selectedSkill.detail.benchmark.sample_size}</strong>
-              </article>
-              <article>
-                <span>Avg latency</span>
-                <strong>
-                  {selectedSkill.detail.benchmark.avg_latency_ms} ms
-                </strong>
-              </article>
-              <article>
-                <span>Policy incidents</span>
-                <strong>
-                  {selectedSkill.detail.benchmark.policy_incident_rate_bps} bps
-                </strong>
-              </article>
-            </div>
-            <div className="capabilities-chip-row">
-              {selectedSkill.detail.used_tools.map((toolName) => (
-                <span key={toolName} className="capabilities-chip">
-                  {toolName}
-                </span>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {skillDetailSection === "procedure" ? (
-          <section className="capabilities-detail-card">
-            <div className="capabilities-detail-card-head">
-              <h3>Procedure</h3>
-              <span>{selectedSkill.detail.steps.length} steps</span>
-            </div>
-            <ol className="capabilities-step-list">
-              {selectedSkill.detail.steps.length > 0 ? (
-                selectedSkill.detail.steps.map((step) => (
-                  <li key={`${step.tool_name}-${step.index}`}>
-                    <strong>{step.tool_name}</strong>
-                    <span>{step.target}</span>
-                  </li>
-                ))
-              ) : (
-                <li>
-                  <strong>Published macro</strong>
-                  <span>
-                    This skill ships without a step-by-step trace in the local
-                    runtime.
+        <DetailDocument
+          title={sectionTitle}
+          summary={sectionSummary}
+          meta={<span className="capabilities-pill">{sectionMeta}</span>}
+        >
+          {skillDetailSection === "overview" ? (
+            <section className="capabilities-detail-card">
+              <div className="capabilities-detail-card-head">
+                <h3>Overview</h3>
+                <span>{selectedSkill.detail.used_tools.length} tools</span>
+              </div>
+              <div className="capabilities-detail-meta-grid capabilities-detail-meta-grid-compact">
+                <article>
+                  <span>Sample size</span>
+                  <strong>{selectedSkill.detail.benchmark.sample_size}</strong>
+                </article>
+                <article>
+                  <span>Avg latency</span>
+                  <strong>
+                    {selectedSkill.detail.benchmark.avg_latency_ms} ms
+                  </strong>
+                </article>
+                <article>
+                  <span>Policy incidents</span>
+                  <strong>
+                    {selectedSkill.detail.benchmark.policy_incident_rate_bps} bps
+                  </strong>
+                </article>
+              </div>
+              <div className="capabilities-chip-row">
+                {selectedSkill.detail.used_tools.map((toolName) => (
+                  <span key={toolName} className="capabilities-chip">
+                    {toolName}
                   </span>
-                </li>
-              )}
-            </ol>
-          </section>
-        ) : null}
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-        {skillDetailSection === "guide" ? (
-          <section className="capabilities-detail-card">
-            <div className="capabilities-detail-card-head">
-              <h3>Guide</h3>
-              <span>Spec-aligned reusable behavior</span>
-            </div>
-            <div className="capabilities-markdown">
-              <MarkdownRenderer remarkPlugins={[remarkGfm]}>
-                {selectedSkill.detail.markdown ||
-                  `# ${selectedSkill.catalog.name}\n\n${selectedSkill.catalog.description}`}
-              </MarkdownRenderer>
-            </div>
-          </section>
-        ) : null}
+          {skillDetailSection === "procedure" ? (
+            <section className="capabilities-detail-card">
+              <div className="capabilities-detail-card-head">
+                <h3>Procedure</h3>
+                <span>{selectedSkill.detail.steps.length} steps</span>
+              </div>
+              <ol className="capabilities-step-list">
+                {selectedSkill.detail.steps.length > 0 ? (
+                  selectedSkill.detail.steps.map((step) => (
+                    <li key={`${step.tool_name}-${step.index}`}>
+                      <strong>{step.tool_name}</strong>
+                      <span>{step.target}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li>
+                    <strong>Published macro</strong>
+                    <span>
+                      This skill ships without a step-by-step trace in the local
+                      runtime.
+                    </span>
+                  </li>
+                )}
+              </ol>
+            </section>
+          ) : null}
+
+          {skillDetailSection === "guide" ? (
+            <section className="capabilities-detail-card">
+              <div className="capabilities-detail-card-head">
+                <h3>Guide</h3>
+                <span>Spec-aligned reusable behavior</span>
+              </div>
+              <div className="capabilities-markdown">
+                <MarkdownRenderer remarkPlugins={[remarkGfm]}>
+                  {selectedSkill.detail.markdown ||
+                    `# ${selectedSkill.catalog.name}\n\n${selectedSkill.catalog.description}`}
+                </MarkdownRenderer>
+              </div>
+            </section>
+          ) : null}
+        </DetailDocument>
       </div>
     );
   };
@@ -1455,13 +1508,21 @@ export function CapabilitiesView({
         : connectionDetailSection === "setup"
           ? "Attach auth, finish adapter wiring, or stage the connector for runtime use."
           : "Governance and approval controls applied to this connection.";
+    const sectionMeta =
+      connectionDetailSection === "overview"
+        ? `${connector.scopes.length} scopes`
+        : connectionDetailSection === "setup"
+          ? origin === "workspace"
+            ? "Planned"
+            : "Live"
+          : "Guardrails";
 
     return (
       <div className="capabilities-detail-scroll">
         <header className="capabilities-detail-header">
           <div>
-            <span className="capabilities-kicker">{connector.name}</span>
-            <h2>{sectionTitle}</h2>
+            <span className="capabilities-kicker">{humanize(connector.category)}</span>
+            <h2>{connector.name}</h2>
           </div>
           <span className={`capabilities-pill status-${connector.status}`}>
             {origin === "workspace"
@@ -1485,109 +1546,115 @@ export function CapabilitiesView({
           </span>
         </div>
 
-        <p className="capabilities-detail-summary">{sectionSummary}</p>
+        <p className="capabilities-detail-summary">{connector.description}</p>
 
-        {connectionDetailSection === "overview" ? (
-          <section className="capabilities-detail-card">
-            <div className="capabilities-detail-card-head">
-              <h3>Overview</h3>
-              <span>{connector.scopes.length} scopes</span>
-            </div>
-            <div className="capabilities-chip-row">
-              {connector.scopes.map((scope) => (
-                <span key={scope} className="capabilities-chip">
-                  {humanize(scope)}
-                </span>
-              ))}
-            </div>
-            {connector.notes ? (
-              <p className="capabilities-inline-note">{connector.notes}</p>
-            ) : null}
-          </section>
-        ) : null}
-
-        {connectionDetailSection === "policy" ? (
-          policySummary ? (
-            <section className="capabilities-detail-card capabilities-policy-card">
-              <div className="capabilities-detail-card-head">
-                <h3>Policy</h3>
-                <button
-                  type="button"
-                  className="capabilities-inline-button"
-                  onClick={() => onOpenPolicyCenter?.(connector)}
-                >
-                  Open policy
-                </button>
-              </div>
-              <strong>{policySummary.headline}</strong>
-              <p>{policySummary.detail}</p>
-            </section>
-          ) : (
+        <DetailDocument
+          title={sectionTitle}
+          summary={sectionSummary}
+          meta={<span className="capabilities-pill">{sectionMeta}</span>}
+        >
+          {connectionDetailSection === "overview" ? (
             <section className="capabilities-detail-card">
               <div className="capabilities-detail-card-head">
-                <h3>Policy</h3>
+                <h3>Overview</h3>
+                <span>{connector.scopes.length} scopes</span>
               </div>
-              <p>
-                No connection-specific policy summary is available yet for this
-                surface.
-              </p>
-            </section>
-          )
-        ) : null}
-
-        {connectionDetailSection === "setup" ? (
-          origin === "runtime" && connector.pluginId === "google_workspace" ? (
-            <GoogleWorkspaceConnectorPanel
-              runtime={runtime}
-              connector={connector}
-              onConfigured={(result) =>
-                setRuntimeConnectors((current) =>
-                  patchConnectorFromConfigurationResult(current, result),
-                )
-              }
-              onOpenPolicyCenter={onOpenPolicyCenter}
-              policySummary={policySummary ?? undefined}
-            />
-          ) : origin === "runtime" && connector.id === "mail.primary" ? (
-            <MailConnectorPanel mail={mail} />
-          ) : (
-            <section className="capabilities-detail-card">
-              <div className="capabilities-detail-card-head">
-                <h3>Setup</h3>
-                <span>{origin === "workspace" ? "Planned" : "Available"}</span>
+              <div className="capabilities-chip-row">
+                {connector.scopes.map((scope) => (
+                  <span key={scope} className="capabilities-chip">
+                    {humanize(scope)}
+                  </span>
+                ))}
               </div>
-              <p>
-                {origin === "workspace"
-                  ? "This connection is staged in the workspace shell so teams can design around it before the adapter ships."
-                  : "This connection exposes a generic runtime surface. Configure it to attach auth and unlock its callable actions."}
-              </p>
-              <div className="capabilities-action-row">
-                {origin === "runtime" ? (
-                  <button
-                    type="button"
-                    className="capabilities-primary-button"
-                    disabled={genericConnectorBusy}
-                    onClick={() => void runGenericConnectorSetup(connector)}
-                  >
-                    {genericConnectorBusy ? "Connecting..." : "Connect"}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="capabilities-secondary-button"
-                  onClick={() => onOpenPolicyCenter?.(connector)}
-                >
-                  Open policy
-                </button>
-              </div>
-              {genericConnectorMessage ? (
-                <p className="capabilities-inline-note">
-                  {genericConnectorMessage}
-                </p>
+              {connector.notes ? (
+                <p className="capabilities-inline-note">{connector.notes}</p>
               ) : null}
             </section>
-          )
-        ) : null}
+          ) : null}
+
+          {connectionDetailSection === "policy" ? (
+            policySummary ? (
+              <section className="capabilities-detail-card capabilities-policy-card">
+                <div className="capabilities-detail-card-head">
+                  <h3>Policy</h3>
+                  <button
+                    type="button"
+                    className="capabilities-inline-button"
+                    onClick={() => onOpenPolicyCenter?.(connector)}
+                  >
+                    Open policy
+                  </button>
+                </div>
+                <strong>{policySummary.headline}</strong>
+                <p>{policySummary.detail}</p>
+              </section>
+            ) : (
+              <section className="capabilities-detail-card">
+                <div className="capabilities-detail-card-head">
+                  <h3>Policy</h3>
+                </div>
+                <p>
+                  No connection-specific policy summary is available yet for this
+                  surface.
+                </p>
+              </section>
+            )
+          ) : null}
+
+          {connectionDetailSection === "setup" ? (
+            origin === "runtime" && connector.pluginId === "google_workspace" ? (
+              <GoogleWorkspaceConnectorPanel
+                runtime={runtime}
+                connector={connector}
+                onConfigured={(result) =>
+                  setRuntimeConnectors((current) =>
+                    patchConnectorFromConfigurationResult(current, result),
+                  )
+                }
+                onOpenPolicyCenter={onOpenPolicyCenter}
+                policySummary={policySummary ?? undefined}
+              />
+            ) : origin === "runtime" && connector.id === "mail.primary" ? (
+              <MailConnectorPanel mail={mail} />
+            ) : (
+              <section className="capabilities-detail-card">
+                <div className="capabilities-detail-card-head">
+                  <h3>Setup</h3>
+                  <span>{origin === "workspace" ? "Planned" : "Available"}</span>
+                </div>
+                <p>
+                  {origin === "workspace"
+                    ? "This connection is staged in the workspace shell so teams can design around it before the adapter ships."
+                    : "This connection exposes a generic runtime surface. Configure it to attach auth and unlock its callable actions."}
+                </p>
+                <div className="capabilities-action-row">
+                  {origin === "runtime" ? (
+                    <button
+                      type="button"
+                      className="capabilities-primary-button"
+                      disabled={genericConnectorBusy}
+                      onClick={() => void runGenericConnectorSetup(connector)}
+                    >
+                      {genericConnectorBusy ? "Connecting..." : "Connect"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="capabilities-secondary-button"
+                    onClick={() => onOpenPolicyCenter?.(connector)}
+                  >
+                    Open policy
+                  </button>
+                </div>
+                {genericConnectorMessage ? (
+                  <p className="capabilities-inline-note">
+                    {genericConnectorMessage}
+                  </p>
+                ) : null}
+              </section>
+            )
+          ) : null}
+        </DetailDocument>
       </div>
     );
   };
@@ -1607,15 +1674,19 @@ export function CapabilitiesView({
       extensionDetailSection === "surface"
         ? "Capability surfaces currently contributed by this extension package."
         : "How this extension fits into the broader worker capability model.";
+    const sectionMeta =
+      extensionDetailSection === "surface"
+        ? `${selectedExtension.surfaces.length} items`
+        : selectedExtension.status;
 
     return (
       <div className="capabilities-detail-scroll">
         <header className="capabilities-detail-header">
           <div>
             <span className="capabilities-kicker">
-              {selectedExtension.name}
+              {selectedExtension.meta}
             </span>
-            <h2>{sectionTitle}</h2>
+            <h2>{selectedExtension.name}</h2>
           </div>
           <span className="capabilities-pill">{selectedExtension.status}</span>
         </header>
@@ -1632,51 +1703,93 @@ export function CapabilitiesView({
           </span>
         </div>
 
-        <p className="capabilities-detail-summary">{sectionSummary}</p>
+        <p className="capabilities-detail-summary">
+          {selectedExtension.description}
+        </p>
 
-        {extensionDetailSection === "surface" ? (
-          <section className="capabilities-detail-card">
-            <div className="capabilities-detail-card-head">
-              <h3>Surfaces</h3>
-              <span>{selectedExtension.meta}</span>
-            </div>
-            <div className="capabilities-chip-row">
-              {selectedExtension.surfaces.map((surfaceName) => (
-                <span key={surfaceName} className="capabilities-chip">
-                  {surfaceName}
-                </span>
-              ))}
-            </div>
-          </section>
-        ) : null}
+        <DetailDocument
+          title={sectionTitle}
+          summary={sectionSummary}
+          meta={<span className="capabilities-pill">{sectionMeta}</span>}
+        >
+          {extensionDetailSection === "surface" ? (
+            <section className="capabilities-detail-card">
+              <div className="capabilities-detail-card-head">
+                <h3>Surfaces</h3>
+                <span>{selectedExtension.meta}</span>
+              </div>
+              <div className="capabilities-chip-row">
+                {selectedExtension.surfaces.map((surfaceName) => (
+                  <span key={surfaceName} className="capabilities-chip">
+                    {surfaceName}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-        {extensionDetailSection === "overview" ? (
-          <section className="capabilities-detail-card">
-            <div className="capabilities-detail-card-head">
-              <h3>Overview</h3>
-            </div>
-            <p>
-              Extensions package one or more capability surfaces into something
-              the worker can reliably use. They can contribute connections,
-              tools, wrappers, or local adapters without fragmenting the
-              top-level model.
-            </p>
-          </section>
-        ) : null}
+          {extensionDetailSection === "overview" ? (
+            <section className="capabilities-detail-card">
+              <div className="capabilities-detail-card-head">
+                <h3>Overview</h3>
+              </div>
+              <p>
+                Extensions package one or more capability surfaces into something
+                the worker can reliably use. They can contribute connections,
+                tools, wrappers, or local adapters without fragmenting the
+                top-level model.
+              </p>
+            </section>
+          ) : null}
+        </DetailDocument>
       </div>
     );
   };
 
+  const renderHomeLanding = () => {
+    return (
+      <section className="capabilities-home-pane">
+        <div className="capabilities-home-shell">
+          <div className="capabilities-home-hero">
+            <div className="capabilities-home-icon">
+              <BlocksIcon />
+            </div>
+            <h2>Manage capabilities</h2>
+            <p>
+              Choose one top-level surface from the left, then drill into the
+              nested browser only when you need the deeper controls.
+            </p>
+            <div className="capabilities-home-meta" aria-label="Capability summary">
+              <span>{workspaceSkills.length} skills available</span>
+              <span>
+                {connectedConnectionCount}/{workspaceConnections.length} connections
+                active
+              </span>
+              <span>{extensions.length} extensions installed</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
   return (
-    <div className="capabilities-workbench">
+    <div className={`capabilities-workbench ${surface === null ? "is-home" : ""}`}>
       <aside className="capabilities-sidebar">
         <div className="capabilities-sidebar-head">
-          <span>Capabilities</span>
-          <h1>Customize</h1>
-          <p>
-            Equip workers with reusable skills, authenticated systems, and
-            installable surfaces.
-          </p>
+          <div className="capabilities-sidebar-titlebar">
+            <button
+              type="button"
+              className="capabilities-sidebar-backdrop"
+              onClick={returnToHome}
+              disabled={surface === null}
+              aria-label="Back to capabilities home"
+              title="Back to capabilities home"
+            >
+              <ArrowLeftIcon />
+            </button>
+            <span>Capabilities</span>
+          </div>
         </div>
 
         <nav className="capabilities-nav">
@@ -1684,127 +1797,123 @@ export function CapabilitiesView({
             active={surface === "skills"}
             icon={<SparklesIcon />}
             label="Skills"
-            count={`${workspaceSkills.length} total`}
-            onClick={() => setSurface("skills")}
+            onClick={() => openSurface("skills")}
           />
           <MenuButton
             active={surface === "connections"}
             icon={<CableIcon />}
             label="Connections"
-            count={`${connectedConnectionCount} connected`}
-            onClick={() => setSurface("connections")}
+            onClick={() => openSurface("connections")}
           />
           <MenuButton
             active={surface === "extensions"}
             icon={<BlocksIcon />}
             label="Extensions"
-            count={`${extensions.length} installed`}
-            onClick={() => setSurface("extensions")}
+            onClick={() => openSurface("extensions")}
           />
         </nav>
-
-        <div className="capabilities-sidebar-foot">
-          <span>{workspaceSkills.length} skills</span>
-          <span>
-            {connectedConnectionCount}/{workspaceConnections.length} connected
-          </span>
-          <span>{extensions.length} extensions</span>
-        </div>
       </aside>
 
-      <section className="capabilities-list-pane">
-        <header className="capabilities-pane-header">
-          <div className="capabilities-pane-title">
-            <h2>{humanize(surface)}</h2>
-            <span className="capabilities-pane-count">
-              {surface === "skills"
-                ? `${workspaceSkills.length} available`
-                : surface === "connections"
-                  ? `${workspaceConnections.length} total`
-                  : `${extensions.length} installed`}
-            </span>
-          </div>
-          <div className="capabilities-pane-controls">
-            <label className="capabilities-search">
-              <SearchIcon />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={`Search ${surface}...`}
-                aria-label={`Search ${surface}`}
-              />
-            </label>
-            {surface === "connections" ? (
-              <div ref={connectionsMenuRef} className="capabilities-popover">
-                <button
-                  type="button"
-                  className="capabilities-icon-button"
-                  onClick={() => setConnectionsMenuOpen((current) => !current)}
-                  aria-label="Browse connections"
-                  aria-expanded={connectionsMenuOpen}
-                  aria-haspopup="menu"
-                >
-                  <PlusIcon />
-                </button>
-                {connectionsMenuOpen ? (
-                  <div className="capabilities-popover-menu" role="menu">
+      {surface === null ? (
+        renderHomeLanding()
+      ) : (
+        <>
+          <section className="capabilities-list-pane">
+            <header className="capabilities-pane-header">
+              <div className="capabilities-pane-title">
+                <span className="capabilities-pane-kicker">Workspace</span>
+                <h2>{humanize(surface)}</h2>
+                <span className="capabilities-pane-count">
+                  {surface === "skills"
+                    ? `${workspaceSkills.length} available`
+                    : surface === "connections"
+                      ? `${workspaceConnections.length} total`
+                      : `${extensions.length} installed`}
+                </span>
+              </div>
+              <div className="capabilities-pane-controls">
+                <label className="capabilities-search">
+                  <SearchIcon />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder={`Search ${surface}...`}
+                    aria-label={`Search ${surface}`}
+                  />
+                </label>
+                {surface === "connections" ? (
+                  <div ref={connectionsMenuRef} className="capabilities-popover">
                     <button
                       type="button"
-                      className="capabilities-popover-item"
-                      role="menuitem"
-                      onClick={() => {
-                        setConnectionsMenuOpen(false);
-                        setCatalogModalOpen(true);
-                      }}
+                      className="capabilities-icon-button"
+                      onClick={() => setConnectionsMenuOpen((current) => !current)}
+                      aria-label="Browse connections"
+                      aria-expanded={connectionsMenuOpen}
+                      aria-haspopup="menu"
                     >
-                      <strong>Browse connections</strong>
-                      <span>Choose from the starter catalog</span>
+                      <PlusIcon />
                     </button>
-                    <button
-                      type="button"
-                      className="capabilities-popover-item"
-                      role="menuitem"
-                      onClick={() => {
-                        setConnectionsMenuOpen(false);
-                        setCustomModalOpen(true);
-                      }}
-                    >
-                      <strong>Add custom connection</strong>
-                      <span>Register a remote MCP surface</span>
-                    </button>
+                    {connectionsMenuOpen ? (
+                      <div className="capabilities-popover-menu" role="menu">
+                        <button
+                          type="button"
+                          className="capabilities-popover-item"
+                          role="menuitem"
+                          onClick={() => {
+                            setConnectionsMenuOpen(false);
+                            setCatalogModalOpen(true);
+                          }}
+                        >
+                          <strong>Browse connections</strong>
+                          <span>Choose from the starter catalog</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="capabilities-popover-item"
+                          role="menuitem"
+                          onClick={() => {
+                            setConnectionsMenuOpen(false);
+                            setCustomModalOpen(true);
+                          }}
+                        >
+                          <strong>Add custom connection</strong>
+                          <span>Register a remote MCP surface</span>
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
+            </header>
+
+            {customNotice ? (
+              <div className="capabilities-pane-flash">
+                <CheckCircleIcon />
+                <span>{customNotice}</span>
+                <button
+                  type="button"
+                  aria-label="Dismiss notice"
+                  onClick={() => setCustomNotice(null)}
+                >
+                  <XIcon />
+                </button>
+              </div>
             ) : null}
-          </div>
-        </header>
 
-        {customNotice ? (
-          <div className="capabilities-pane-flash">
-            <CheckCircleIcon />
-            <span>{customNotice}</span>
-            <button
-              type="button"
-              aria-label="Dismiss notice"
-              onClick={() => setCustomNotice(null)}
-            >
-              <XIcon />
-            </button>
-          </div>
-        ) : null}
+            <div className="capabilities-list-scroll">
+              {surface === "skills" ? renderSkillList() : null}
+              {surface === "connections" ? renderConnectionList() : null}
+              {surface === "extensions" ? renderExtensionList() : null}
+            </div>
+          </section>
 
-        <div className="capabilities-list-scroll">
-          {surface === "skills" ? renderSkillList() : null}
-          {surface === "connections" ? renderConnectionList() : null}
-          {surface === "extensions" ? renderExtensionList() : null}
-        </div>
-      </section>
-
-      <section className="capabilities-detail-pane">
-        {surface === "skills" ? renderSkillDetail() : null}
-        {surface === "connections" ? renderConnectionDetail() : null}
-        {surface === "extensions" ? renderExtensionDetail() : null}
-      </section>
+          <section className="capabilities-detail-pane">
+            {surface === "skills" ? renderSkillDetail() : null}
+            {surface === "connections" ? renderConnectionDetail() : null}
+            {surface === "extensions" ? renderExtensionDetail() : null}
+          </section>
+        </>
+      )}
 
       {catalogModalOpen ? (
         <div className="capabilities-modal-backdrop" role="presentation">

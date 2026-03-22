@@ -20,8 +20,10 @@ import { MissionControlWorkflowsView } from "./components/MissionControlWorkflow
 import { MissionControlRunsView } from "./components/MissionControlRunsView";
 import { MissionControlControlView } from "./components/MissionControlControlView";
 import { NotificationsView } from "./components/NotificationsView";
+import { StudioIdeHeader } from "./components/StudioIdeHeader";
 import { StudioLeftUtilityPane } from "./components/StudioLeftUtilityPane";
-import { StudioInspector } from "./components/StudioInspector";
+import { StudioExplorerPane } from "./components/StudioExplorerPane";
+import { type StudioEditorTab } from "./components/StudioCodeWorkbench";
 import { StudioUtilityDrawer } from "./components/StudioUtilityDrawer";
 import { listenForAutopilotDataReset } from "../../services/autopilotReset";
 import {
@@ -65,6 +67,18 @@ interface ProjectScope {
   rootPath: string;
 }
 
+interface ProjectFileDocument {
+  name: string;
+  path: string;
+  language_hint: string | null;
+  content: string;
+  size_bytes: number;
+  modified_at_ms: number | null;
+  is_binary: boolean;
+  is_too_large: boolean;
+  read_only: boolean;
+}
+
 const DEFAULT_PROFILE: AssistantUserProfile = {
   version: 1,
   displayName: "Operator",
@@ -102,6 +116,17 @@ const PROJECT_SCOPES: ProjectScope[] = [
   },
 ];
 
+function isEditableElement(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return (
+    target.isContentEditable ||
+    tag === "input" ||
+    tag === "textarea" ||
+    tag === "select"
+  );
+}
+
 async function sendNativeAutopilotNotification(
   candidate: ToastCandidate,
 ): Promise<void> {
@@ -134,16 +159,11 @@ export function StudioWindow() {
   const [chatSurface, setChatSurface] = useState<
     "chat" | "reply-composer" | "meeting-prep"
   >("chat");
-  const [utilityPaneOpen, setUtilityPaneOpen] = useState(true);
-  const [leftUtilityTab, setLeftUtilityTab] = useState<
-    "operator" | "explorer" | "artifacts"
-  >("operator");
+  const [chatPaneVisible, setChatPaneVisible] = useState(true);
+  const [chatPaneMaximized, setChatPaneMaximized] = useState(false);
   const [workflowSurface, setWorkflowSurface] = useState<
-    "canvas" | "agents" | "catalog"
-  >("canvas");
-  const [interfaceMode, setInterfaceMode] = useState<"GHOST" | "COMPOSE">(
-    "COMPOSE",
-  );
+    "home" | "code" | "canvas" | "agents" | "catalog"
+  >("home");
   const [focusedPolicyConnectorId, setFocusedPolicyConnectorId] = useState<
     string | null
   >(null);
@@ -165,6 +185,8 @@ export function StudioWindow() {
   const [currentProjectId, setCurrentProjectId] = useState(
     PROJECT_SCOPES[0]?.id ?? "autopilot-core",
   );
+  const [editorTabs, setEditorTabs] = useState<StudioEditorTab[]>([]);
+  const [activeEditorPath, setActiveEditorPath] = useState<string | null>(null);
   const lastPersistedShieldPolicyRef = useRef<string>(
     JSON.stringify(loadShieldPolicyState()),
   );
@@ -177,23 +199,33 @@ export function StudioWindow() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [installModalOpen, setInstallModalOpen] = useState(false);
 
+  const hideChatPane = () => {
+    setChatPaneVisible(false);
+    setChatPaneMaximized(false);
+  };
+
+  const toggleChatPaneVisibility = () => {
+    if (chatPaneVisible) {
+      hideChatPane();
+      return;
+    }
+    setChatPaneVisible(true);
+  };
+
   const openLegacyView = (view: string) => {
     switch (view) {
       case "copilot":
       case "autopilot":
         setChatSurface("chat");
-        setLeftUtilityTab("operator");
-        setUtilityPaneOpen(true);
+        setChatPaneVisible(true);
         return;
       case "reply-composer":
         setChatSurface("reply-composer");
-        setLeftUtilityTab("operator");
-        setUtilityPaneOpen(true);
+        setChatPaneVisible(true);
         return;
       case "meeting-prep":
         setChatSurface("meeting-prep");
-        setLeftUtilityTab("operator");
-        setUtilityPaneOpen(true);
+        setChatPaneVisible(true);
         return;
       case "compose":
         setWorkflowSurface("canvas");
@@ -228,8 +260,6 @@ export function StudioWindow() {
         return;
       default:
         setChatSurface("chat");
-        setLeftUtilityTab("operator");
-        setUtilityPaneOpen(true);
     }
   };
 
@@ -279,6 +309,31 @@ export function StudioWindow() {
       resetUnlistenPromise.then((unlisten) => unlisten());
     };
   }, []);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (isEditableElement(event.target)) return;
+      if (!event.metaKey && !event.ctrlKey) return;
+      if (event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      setCommandPaletteOpen(true);
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
+    setEditorTabs([]);
+    setActiveEditorPath(null);
+    setWorkflowSurface((surface) => (surface === "code" ? "home" : surface));
+  }, [currentProjectId]);
+
+  useEffect(() => {
+    if (editorTabs.length === 0 && workflowSurface === "code") {
+      setWorkflowSurface("home");
+    }
+  }, [editorTabs.length, workflowSurface]);
 
   useEffect(() => {
     let cancelled = false;
@@ -385,13 +440,205 @@ export function StudioWindow() {
     setActiveView(view);
   };
 
+  const loadEditorDocument = async (relativePath: string) => {
+    setEditorTabs((current) =>
+      current.map((tab) =>
+        tab.path === relativePath
+          ? {
+              ...tab,
+              loading: true,
+              error: null,
+            }
+          : tab,
+      ),
+    );
+
+    try {
+      const document = await invoke<ProjectFileDocument>("project_read_file", {
+        root: currentProject.rootPath,
+        relativePath,
+      });
+
+      setEditorTabs((current) =>
+        current.map((tab) =>
+          tab.path === relativePath
+            ? {
+                ...tab,
+                name: document.name,
+                content: document.content,
+                savedContent: document.content,
+                loading: false,
+                saving: false,
+                error: null,
+                languageHint: document.language_hint,
+                sizeBytes: document.size_bytes,
+                modifiedAtMs: document.modified_at_ms,
+                isBinary: document.is_binary,
+                isTooLarge: document.is_too_large,
+                readOnly: document.read_only,
+              }
+            : tab,
+        ),
+      );
+    } catch (error) {
+      setEditorTabs((current) =>
+        current.map((tab) =>
+          tab.path === relativePath
+            ? {
+                ...tab,
+                loading: false,
+                saving: false,
+                error: String(error),
+              }
+            : tab,
+        ),
+      );
+    }
+  };
+
+  const openProjectFile = (relativePath: string) => {
+    const existing = editorTabs.find((tab) => tab.path === relativePath);
+    if (!existing) {
+      const name = relativePath.split("/").pop() || relativePath;
+      setEditorTabs((current) => [
+        ...current,
+        {
+          path: relativePath,
+          name,
+          content: "",
+          savedContent: "",
+          loading: true,
+          saving: false,
+          error: null,
+          languageHint: null,
+          sizeBytes: 0,
+          modifiedAtMs: null,
+          isBinary: false,
+          isTooLarge: false,
+          readOnly: false,
+        },
+      ]);
+      void loadEditorDocument(relativePath);
+    } else if (existing.error) {
+      void loadEditorDocument(relativePath);
+    }
+
+    setActiveEditorPath(relativePath);
+    setActiveView("workflows");
+    setWorkflowSurface("code");
+  };
+
+  const closeEditorTab = (relativePath: string) => {
+    const closingTab = editorTabs.find((tab) => tab.path === relativePath);
+    if (
+      closingTab &&
+      closingTab.content !== closingTab.savedContent &&
+      !window.confirm(`Close ${closingTab.name} without saving changes?`)
+    ) {
+      return;
+    }
+
+    const closingIndex = editorTabs.findIndex((tab) => tab.path === relativePath);
+    const nextTabs = editorTabs.filter((tab) => tab.path !== relativePath);
+    setEditorTabs(nextTabs);
+
+    if (activeEditorPath === relativePath) {
+      const fallbackTab =
+        nextTabs[closingIndex] ?? nextTabs[closingIndex - 1] ?? nextTabs[0] ?? null;
+      setActiveEditorPath(fallbackTab?.path ?? null);
+    }
+
+    if (nextTabs.length === 0 && workflowSurface === "code") {
+      setWorkflowSurface("home");
+    }
+  };
+
+  const updateEditorTabContent = (relativePath: string, content: string) => {
+    setEditorTabs((current) =>
+      current.map((tab) =>
+        tab.path === relativePath
+          ? {
+              ...tab,
+              content,
+            }
+          : tab,
+      ),
+    );
+  };
+
+  const saveEditorTab = async (relativePath: string) => {
+    const targetTab = editorTabs.find((tab) => tab.path === relativePath);
+    if (
+      !targetTab ||
+      targetTab.loading ||
+      targetTab.saving ||
+      targetTab.readOnly ||
+      targetTab.content === targetTab.savedContent
+    ) {
+      return;
+    }
+
+    setEditorTabs((current) =>
+      current.map((tab) =>
+        tab.path === relativePath
+          ? {
+              ...tab,
+              saving: true,
+              error: null,
+            }
+          : tab,
+      ),
+    );
+
+    try {
+      const document = await invoke<ProjectFileDocument>("project_write_file", {
+        root: currentProject.rootPath,
+        relativePath,
+        content: targetTab.content,
+      });
+
+      setEditorTabs((current) =>
+        current.map((tab) =>
+          tab.path === relativePath
+            ? {
+                ...tab,
+                name: document.name,
+                content: document.content,
+                savedContent: document.content,
+                loading: false,
+                saving: false,
+                error: null,
+                languageHint: document.language_hint,
+                sizeBytes: document.size_bytes,
+                modifiedAtMs: document.modified_at_ms,
+                isBinary: document.is_binary,
+                isTooLarge: document.is_too_large,
+                readOnly: document.read_only,
+              }
+            : tab,
+        ),
+      );
+    } catch (error) {
+      setEditorTabs((current) =>
+        current.map((tab) =>
+          tab.path === relativePath
+            ? {
+                ...tab,
+                saving: false,
+                error: String(error),
+              }
+            : tab,
+        ),
+      );
+    }
+  };
+
   const openReplyComposer = (
     session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
   ) => {
     setAssistantWorkbench(session);
     setChatSurface("reply-composer");
-    setLeftUtilityTab("operator");
-    setUtilityPaneOpen(true);
+    setChatPaneVisible(true);
   };
 
   const openMeetingPrep = (
@@ -399,15 +646,13 @@ export function StudioWindow() {
   ) => {
     setAssistantWorkbench(session);
     setChatSurface("meeting-prep");
-    setLeftUtilityTab("operator");
-    setUtilityPaneOpen(true);
+    setChatPaneVisible(true);
   };
 
   const openAutopilotWithIntent = (intent: string) => {
     setAutopilotSeedIntent(intent);
     setChatSurface("chat");
-    setLeftUtilityTab("operator");
-    setUtilityPaneOpen(true);
+    setChatPaneVisible(true);
   };
 
   const updateProfileDraft = <K extends keyof AssistantUserProfile>(
@@ -448,12 +693,13 @@ export function StudioWindow() {
     }
   };
 
+  const chatFullscreen = chatPaneVisible && chatPaneMaximized;
   const showStatusBar =
-    interfaceMode === "GHOST" ||
-    activeView === "workflows" ||
-    activeView === "runs" ||
-    activeView === "policy" ||
-    activeView === "settings";
+    !chatFullscreen &&
+    (activeView === "workflows" ||
+      activeView === "runs" ||
+      activeView === "policy" ||
+      activeView === "settings");
   const currentProject =
     PROJECT_SCOPES.find((project) => project.id === currentProjectId) ??
     PROJECT_SCOPES[0];
@@ -464,32 +710,154 @@ export function StudioWindow() {
         activeView={activeView}
         onViewChange={handleViewChange}
         notificationCount={notificationBadgeCount}
-        ghostMode={interfaceMode === "GHOST"}
-        onToggleGhost={() =>
-          setInterfaceMode((prev) => (prev === "GHOST" ? "COMPOSE" : "GHOST"))
-        }
-        utilityPaneOpen={utilityPaneOpen}
-        activeUtilityTab={leftUtilityTab}
-        onToggleUtilityPane={() => setUtilityPaneOpen((open) => !open)}
-        workspaceName={WORKSPACE_NAME}
         currentProject={currentProject}
-        projects={PROJECT_SCOPES}
-        onSelectProject={setCurrentProjectId}
       />
 
       <div className="studio-main">
-        <div className="studio-content">
-          {utilityPaneOpen ? (
-            <StudioLeftUtilityPane
+        <StudioIdeHeader
+          workspaceName={WORKSPACE_NAME}
+          currentProject={currentProject}
+          projects={PROJECT_SCOPES}
+          activeView={activeView}
+          workflowSurface={workflowSurface}
+          chatVisible={chatPaneVisible}
+          notificationCount={notificationBadgeCount}
+          onSelectProject={setCurrentProjectId}
+          onToggleChat={toggleChatPaneVisibility}
+          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        />
+
+        <div
+          className={`studio-content ${chatFullscreen ? "is-chat-fullscreen" : ""}`}
+        >
+          <StudioExplorerPane
+            currentProject={currentProject}
+            activeFilePath={activeEditorPath}
+            onOpenFile={openProjectFile}
+          />
+
+          <div className="studio-center-area">
+            <div className="studio-content-main">
+              {activeView === "workflows" ? (
+                <MissionControlWorkflowsView
+                  runtime={runtime}
+                  surface={workflowSurface}
+                  currentProject={currentProject}
+                  projects={PROJECT_SCOPES}
+                  notificationCount={notificationBadgeCount}
+                  editingAgent={editingAgent}
+                  editorTabs={editorTabs}
+                  activeEditorPath={activeEditorPath}
+                  onSurfaceChange={setWorkflowSurface}
+                  onSelectProject={setCurrentProjectId}
+                  onOpenInbox={() => handleViewChange("inbox")}
+                  onOpenCapabilities={() => handleViewChange("capabilities")}
+                  onOpenPolicy={() => openPolicyCenter(null)}
+                  onSelectEditorTab={setActiveEditorPath}
+                  onCloseEditorTab={closeEditorTab}
+                  onChangeEditorTabContent={updateEditorTabContent}
+                  onSaveEditorTab={saveEditorTab}
+                  onReloadEditorTab={(path) => {
+                    void loadEditorDocument(path);
+                  }}
+                  onOpenAgent={handleOpenAgent}
+                  onCloseAgent={() => setEditingAgent(null)}
+                  onInstallAgent={(agent) => {
+                    setSelectedAgent(agent);
+                    setInstallModalOpen(true);
+                  }}
+                  onAddBuilderConfigToCanvas={(config) => {
+                    void runtime
+                      .loadBuilderConfigToCompose(config)
+                      .catch((error) => {
+                        console.error(
+                          "Builder->Compose handoff unavailable:",
+                          error,
+                        );
+                      });
+                  }}
+                />
+              ) : null}
+
+              {activeView === "runs" ? (
+                <MissionControlRunsView runtime={runtime} />
+              ) : null}
+
+              {activeView === "inbox" ? (
+                <NotificationsView
+                  onOpenAutopilot={() => {
+                    setChatSurface("chat");
+                    setChatPaneVisible(true);
+                  }}
+                  onOpenIntegrations={() => handleViewChange("capabilities")}
+                  onOpenShield={(connectorId) => openPolicyCenter(connectorId)}
+                  onOpenSettings={() => handleViewChange("settings")}
+                  onOpenReplyComposer={openReplyComposer}
+                  onOpenMeetingPrep={openMeetingPrep}
+                />
+              ) : null}
+
+              {activeView === "capabilities" ? (
+                <CapabilitiesView
+                  runtime={runtime}
+                  getConnectorPolicySummary={(connector) =>
+                    buildConnectorPolicySummary(shieldPolicy, connector.id)
+                  }
+                  onOpenPolicyCenter={(connector) =>
+                    openPolicyCenter(connector.id)
+                  }
+                />
+              ) : null}
+
+              {activeView === "policy" || activeView === "settings" ? (
+                <MissionControlControlView
+                  runtime={runtime}
+                  surface={activeView === "settings" ? "system" : "policy"}
+                  policyState={shieldPolicy}
+                  profile={profile}
+                  profileDraft={profileDraft}
+                  profileSaving={profileSaving}
+                  profileError={profileError}
+                  focusedConnectorId={focusedPolicyConnectorId}
+                  onSurfaceChange={(surface) =>
+                    handleViewChange(surface === "policy" ? "policy" : "settings")
+                  }
+                  onPolicyChange={setShieldPolicy}
+                  onProfileDraftChange={updateProfileDraft}
+                  onResetProfileDraft={resetProfileDraft}
+                  onSaveProfile={saveProfileDraft}
+                  onFocusConnector={setFocusedPolicyConnectorId}
+                  onOpenConnections={() => handleViewChange("capabilities")}
+                />
+              ) : null}
+            </div>
+
+            <StudioUtilityDrawer
+              activeView={activeView}
+              chatSurface={chatSurface}
+              operatorPaneOpen={chatPaneVisible}
+              workflowSurface={workflowSurface}
+              notificationCount={notificationBadgeCount}
+              shieldPolicy={shieldPolicy}
               currentProject={currentProject}
-              activeTab={leftUtilityTab}
-              onTabChange={setLeftUtilityTab}
-              onClose={() => setUtilityPaneOpen(false)}
+              focusedPolicyConnectorId={focusedPolicyConnectorId}
+              assistantWorkbench={assistantWorkbench}
+              profile={profile}
+            />
+          </div>
+
+          {chatPaneVisible ? (
+            <StudioLeftUtilityPane
               surface={chatSurface}
               session={assistantWorkbench}
               runtime={runtime}
+              maximized={chatPaneMaximized}
               seedIntent={autopilotSeedIntent}
               onConsumeSeedIntent={() => setAutopilotSeedIntent(null)}
+              onClose={hideChatPane}
+              onToggleMaximize={() =>
+                setChatPaneMaximized((maximized) => !maximized)
+              }
               onBackToInbox={() => {
                 setChatSurface("chat");
                 handleViewChange("inbox");
@@ -498,123 +866,12 @@ export function StudioWindow() {
               onOpenAutopilot={openAutopilotWithIntent}
             />
           ) : null}
-
-          <div className="studio-content-main">
-            {activeView === "workflows" ? (
-              <MissionControlWorkflowsView
-                runtime={runtime}
-                interfaceMode={interfaceMode}
-                surface={workflowSurface}
-                editingAgent={editingAgent}
-                onSurfaceChange={setWorkflowSurface}
-                onOpenAgent={handleOpenAgent}
-                onCloseAgent={() => setEditingAgent(null)}
-                onInstallAgent={(agent) => {
-                  setSelectedAgent(agent);
-                  setInstallModalOpen(true);
-                }}
-                onAddBuilderConfigToCanvas={(config) => {
-                  void runtime
-                    .loadBuilderConfigToCompose(config)
-                    .catch((error) => {
-                      console.error(
-                        "Builder->Compose handoff unavailable:",
-                        error,
-                      );
-                    });
-                }}
-              />
-            ) : null}
-
-            {activeView === "runs" ? (
-              <MissionControlRunsView runtime={runtime} />
-            ) : null}
-
-            {activeView === "inbox" ? (
-              <NotificationsView
-                onOpenAutopilot={() => {
-                  setChatSurface("chat");
-                  setLeftUtilityTab("operator");
-                  setUtilityPaneOpen(true);
-                }}
-                onOpenIntegrations={() => handleViewChange("capabilities")}
-                onOpenShield={(connectorId) => openPolicyCenter(connectorId)}
-                onOpenSettings={() => handleViewChange("settings")}
-                onOpenReplyComposer={openReplyComposer}
-                onOpenMeetingPrep={openMeetingPrep}
-              />
-            ) : null}
-
-            {activeView === "capabilities" ? (
-              <CapabilitiesView
-                runtime={runtime}
-                getConnectorPolicySummary={(connector) =>
-                  buildConnectorPolicySummary(shieldPolicy, connector.id)
-                }
-                onOpenPolicyCenter={(connector) =>
-                  openPolicyCenter(connector.id)
-                }
-              />
-            ) : null}
-
-            {activeView === "policy" || activeView === "settings" ? (
-              <MissionControlControlView
-                runtime={runtime}
-                surface={activeView === "settings" ? "system" : "policy"}
-                policyState={shieldPolicy}
-                profile={profile}
-                profileDraft={profileDraft}
-                profileSaving={profileSaving}
-                profileError={profileError}
-                focusedConnectorId={focusedPolicyConnectorId}
-                onSurfaceChange={(surface) =>
-                  handleViewChange(surface === "policy" ? "policy" : "settings")
-                }
-                onPolicyChange={setShieldPolicy}
-                onProfileDraftChange={updateProfileDraft}
-                onResetProfileDraft={resetProfileDraft}
-                onSaveProfile={saveProfileDraft}
-                onFocusConnector={setFocusedPolicyConnectorId}
-                onOpenConnections={() => handleViewChange("capabilities")}
-              />
-            ) : null}
-          </div>
-
-          <StudioInspector
-            activeView={activeView}
-            chatSurface={chatSurface}
-            operatorPaneOpen={utilityPaneOpen && leftUtilityTab === "operator"}
-            workflowSurface={workflowSurface}
-            runsSurface="runtime"
-            interfaceMode={interfaceMode}
-            notificationCount={notificationBadgeCount}
-            shieldPolicy={shieldPolicy}
-            profile={profile}
-            assistantWorkbench={assistantWorkbench}
-            editingAgentName={editingAgent?.name ?? null}
-            focusedPolicyConnectorId={focusedPolicyConnectorId}
-            onOpenControl={() => openPolicyCenter(focusedPolicyConnectorId)}
-          />
         </div>
-
-        <StudioUtilityDrawer
-          activeView={activeView}
-          chatSurface={chatSurface}
-          operatorPaneOpen={utilityPaneOpen && leftUtilityTab === "operator"}
-          workflowSurface={workflowSurface}
-          interfaceMode={interfaceMode}
-          notificationCount={notificationBadgeCount}
-          shieldPolicy={shieldPolicy}
-          currentProject={currentProject}
-          focusedPolicyConnectorId={focusedPolicyConnectorId}
-          assistantWorkbench={assistantWorkbench}
-          profile={profile}
-        />
 
         {showStatusBar ? (
           <StatusBar
             metrics={{ cost: 0.0, privacy: 0.0, risk: 0.0 }}
-            status={interfaceMode === "GHOST" ? "Recording" : "Ready"}
+            status="Ready"
             onOpenShield={() => openPolicyCenter(focusedPolicyConnectorId)}
           />
         ) : null}

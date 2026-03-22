@@ -1,9 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import {
-  AutopilotIcon,
   ComposeIcon,
   FleetIcon,
-  GhostIcon,
   IntegrationsIcon,
   NotificationsIcon,
   SettingsIcon,
@@ -29,15 +27,7 @@ interface ActivityBarProps {
   activeView: ActivityView;
   onViewChange: (view: ActivityView) => void;
   notificationCount: number;
-  ghostMode: boolean;
-  onToggleGhost: () => void;
-  utilityPaneOpen: boolean;
-  activeUtilityTab: "operator" | "explorer" | "artifacts";
-  onToggleUtilityPane: () => void;
-  workspaceName: string;
   currentProject: ProjectScope;
-  projects: ProjectScope[];
-  onSelectProject: (projectId: string) => void;
 }
 
 interface NavItem {
@@ -94,18 +84,6 @@ const NAV_ITEMS: Array<NavItem & { id: ActivityView }> = [
   },
 ];
 
-function utilityTabLabel(
-  tab: ActivityBarProps["activeUtilityTab"],
-): string {
-  if (tab === "explorer") {
-    return "Explorer";
-  }
-  if (tab === "artifacts") {
-    return "Artifacts";
-  }
-  return "Operator";
-}
-
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName.toLowerCase();
@@ -121,15 +99,7 @@ export function LocalActivityBar({
   activeView,
   onViewChange,
   notificationCount,
-  ghostMode,
-  onToggleGhost,
-  utilityPaneOpen,
-  activeUtilityTab,
-  onToggleUtilityPane,
-  workspaceName,
   currentProject,
-  projects,
-  onSelectProject,
 }: ActivityBarProps) {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -140,96 +110,76 @@ export function LocalActivityBar({
       if (num >= 1 && num <= NAV_ITEMS.length) {
         event.preventDefault();
         onViewChange(NAV_ITEMS[num - 1].id);
-        return;
-      }
-
-      if (event.key === "0") {
-        event.preventDefault();
-        onToggleUtilityPane();
-        return;
-      }
-
-      if (event.key.toLowerCase() === "g") {
-        event.preventDefault();
-        onToggleGhost();
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onToggleGhost, onToggleUtilityPane, onViewChange]);
+  }, [onViewChange]);
+
+  const topNavItems = NAV_ITEMS.filter((item) => item.id !== "settings");
+  const bottomNavItems = NAV_ITEMS.filter((item) => item.id === "settings");
+  const projectInitials = currentProject.name
+    .split(/\s+/)
+    .map((segment) => segment[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <aside
-      className="studio-shell-nav"
+      className="studio-activity-bar"
       role="navigation"
       aria-label="Studio navigation"
     >
-      <div className="studio-shell-brand">
-        <span className="studio-shell-brand-mark">
-          <AutopilotIcon />
-        </span>
-        <div className="studio-shell-brand-copy">
-          <strong>Autopilot</strong>
-          <span>{workspaceName}</span>
-        </div>
+      <div className="studio-activity-group" aria-label="Surface navigation">
+        {topNavItems.map((item) => {
+          const isCapabilitiesItem = item.id === "capabilities";
+          const icon = isCapabilitiesItem ? (
+            <IntegrationsIcon
+              disableHoverAnimation={activeView === "capabilities"}
+            />
+          ) : (
+            item.icon
+          );
+          const badgeCount =
+            item.id === "inbox" ? notificationCount : item.badgeCount;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`studio-activity-button ${
+                activeView === item.id ? "is-active" : ""
+              }`}
+              onClick={() => onViewChange(item.id)}
+              aria-current={activeView === item.id ? "page" : undefined}
+              aria-label={item.label}
+              title={`${item.label} ${item.shortcut ? `(${item.shortcut})` : ""}`}
+            >
+              <span className="studio-activity-button-icon">{icon}</span>
+              {badgeCount && badgeCount > 0 ? (
+                <span className="studio-activity-button-badge">
+                  {badgeCount > 9 ? "9+" : badgeCount}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
-      <section className="studio-shell-scope-card" aria-label="Current scope">
-        <div className="studio-shell-section-head">
-          <span>Scope</span>
-          <span>{currentProject.environment}</span>
-        </div>
-        <div className="studio-shell-scope-block">
-          <span className="studio-shell-scope-label">Workspace</span>
-          <div className="studio-shell-scope-chip">
-            <strong>{workspaceName}</strong>
-            <span>Organization boundary</span>
-          </div>
-        </div>
-        <div className="studio-shell-scope-block">
-          <span className="studio-shell-scope-label">Project</span>
-          <div className="studio-shell-scope-chip studio-shell-scope-chip--project">
-            <div className="studio-shell-scope-copy">
-              <strong>{currentProject.name}</strong>
-              <span>{currentProject.description}</span>
-            </div>
-            <span className="studio-shell-scope-badge">
-              {currentProject.environment}
-            </span>
-          </div>
-        </div>
-      </section>
+      <div className="studio-activity-spacer" />
 
-      <section className="studio-shell-section" aria-label="Projects">
-        <div className="studio-shell-section-head">
-          <span>Projects</span>
-          <span>{projects.length}</span>
+      <div className="studio-activity-group studio-activity-group--bottom">
+        <div
+          className="studio-activity-project-indicator"
+          title={`${currentProject.name} · ${currentProject.environment}`}
+          aria-label={`${currentProject.name} project scope`}
+        >
+          <span>{projectInitials}</span>
         </div>
-        <div className="studio-shell-project-list">
-          {projects.map((project) => (
-            <button
-              key={project.id}
-              type="button"
-              className={`studio-shell-project-button ${
-                project.id === currentProject.id ? "is-active" : ""
-              }`}
-              onClick={() => onSelectProject(project.id)}
-            >
-              <strong>{project.name}</strong>
-              <span>{project.description}</span>
-            </button>
-          ))}
-        </div>
-      </section>
 
-      <section className="studio-shell-section" aria-label="Surface navigation">
-        <div className="studio-shell-section-head">
-          <span>Surfaces</span>
-          <span>Project</span>
-        </div>
-        <div className="studio-shell-nav-list">
-          {NAV_ITEMS.map((item) => {
+        {bottomNavItems.map((item) => {
             const isCapabilitiesItem = item.id === "capabilities";
             const icon = isCapabilitiesItem ? (
               <IntegrationsIcon
@@ -241,78 +191,28 @@ export function LocalActivityBar({
             const badgeCount =
               item.id === "inbox" ? notificationCount : item.badgeCount;
 
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`studio-shell-nav-button ${
-                  activeView === item.id ? "is-active" : ""
-                }`}
-                onClick={() => onViewChange(item.id)}
-                aria-current={activeView === item.id ? "page" : undefined}
-              >
-                <span className="studio-shell-nav-icon">{icon}</span>
-                <span className="studio-shell-nav-copy">
-                  <strong>{item.label}</strong>
-                  <span>{item.description}</span>
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`studio-activity-button ${
+                activeView === item.id ? "is-active" : ""
+              }`}
+              onClick={() => onViewChange(item.id)}
+              aria-current={activeView === item.id ? "page" : undefined}
+              aria-label={item.label}
+              title={`${item.label} ${item.shortcut ? `(${item.shortcut})` : ""}`}
+            >
+              <span className="studio-activity-button-icon">{icon}</span>
+              {badgeCount && badgeCount > 0 ? (
+                <span className="studio-activity-button-badge">
+                  {badgeCount > 9 ? "9+" : badgeCount}
                 </span>
-                {badgeCount && badgeCount > 0 ? (
-                  <span className="studio-shell-nav-badge">
-                    {badgeCount > 9 ? "9+" : badgeCount}
-                  </span>
-                ) : (
-                  <span className="studio-shell-nav-shortcut">
-                    {item.shortcut}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <div className="studio-shell-spacer" />
-
-      <section className="studio-shell-section" aria-label="Shell utilities">
-        <div className="studio-shell-section-head">
-          <span>Utilities</span>
-          <span>{utilityPaneOpen ? "Open" : "Hidden"}</span>
-        </div>
-        <button
-          type="button"
-          className={`studio-shell-nav-button studio-shell-nav-button--utility ${
-            utilityPaneOpen ? "is-active" : ""
-          }`}
-          onClick={onToggleUtilityPane}
-        >
-          <span className="studio-shell-nav-icon">
-            <AutopilotIcon />
-          </span>
-          <span className="studio-shell-nav-copy">
-            <strong>Utility pane</strong>
-            <span>{utilityTabLabel(activeUtilityTab)}</span>
-          </span>
-          <span className="studio-shell-nav-shortcut">⌘0</span>
-        </button>
-        <button
-          type="button"
-          className={`studio-shell-nav-button studio-shell-nav-button--ghost ${
-            ghostMode ? "is-active" : ""
-          }`}
-          onClick={onToggleGhost}
-        >
-          <span className="studio-shell-nav-icon">
-            <GhostIcon />
-          </span>
-          <span className="studio-shell-nav-copy">
-            <strong>Ghost mode</strong>
-            <span>
-              {ghostMode ? "Recording interaction context" : "Ready to record"}
-            </span>
-          </span>
-          <span className="studio-shell-nav-shortcut">⌘G</span>
-        </button>
-      </section>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
     </aside>
   );
 }

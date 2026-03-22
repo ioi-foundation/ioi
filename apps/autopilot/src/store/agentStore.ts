@@ -118,21 +118,12 @@ export interface AgentTask {
   fitness_score: number; // 0.0 - 1.0 score of the agent's performance
 }
 
-// Ghost Mode Trace Step
-export interface GhostStep {
-  device: string;
-  description: string;
-  timestamp: number;
-}
-
 interface AgentStore {
   task: AgentTask | null;
   receipts: Receipt[];
   events: AgentEvent[];
   artifacts: Artifact[];
   selectedArtifactId: string | null;
-  // Ghost Mode Trace
-  ghostTrace: GhostStep[];
 
   // [MODIFIED] Removed 'mode' argument
   startTask: (intent: string) => Promise<AgentTask | null>;
@@ -142,10 +133,6 @@ interface AgentStore {
   showSpotlight: () => Promise<void>;
   hideSpotlight: () => Promise<void>;
   showStudio: () => Promise<void>;
-
-  // Ghost Mode Actions
-  addGhostStep: (step: GhostStep) => void;
-  clearGhostTrace: () => void;
 
   // [NEW] Continue existing session
   continueTask: (sessionId: string, input: string) => Promise<void>;
@@ -192,7 +179,6 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   events: [],
   artifacts: [],
   selectedArtifactId: null,
-  ghostTrace: [],
 
   // [MODIFIED] Removed mode param. Defaults to "Agent" internally in backend.
   startTask: async (intent: string): Promise<AgentTask | null> => {
@@ -220,11 +206,6 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   hideSpotlight: async () => invoke("hide_spotlight"),
 
   showStudio: async () => invoke("show_studio"),
-
-  // Ghost Mode Implementation
-  addGhostStep: (step) =>
-    set((state) => ({ ghostTrace: [...state.ghostTrace, step] })),
-  clearGhostTrace: () => set({ ghostTrace: [] }),
 
   // [NEW] Continue existing session
   continueTask: async (sessionId: string, input: string) => {
@@ -271,7 +252,6 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     set({
       task: null,
       receipts: [],
-      ghostTrace: [],
       events: [],
       artifacts: [],
       selectedArtifactId: null,
@@ -361,15 +341,6 @@ export async function initEventListeners() {
           }
         : state.task;
       return { artifacts, task };
-    });
-  });
-
-  // Listen for Ghost Inputs
-  await listen<{ device: string; description: string }>("ghost-input", (e) => {
-    useAgentStore.getState().addGhostStep({
-      device: e.payload.device,
-      description: e.payload.description,
-      timestamp: Date.now(),
     });
   });
 

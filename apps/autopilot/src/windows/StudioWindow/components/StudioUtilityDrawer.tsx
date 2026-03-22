@@ -29,8 +29,7 @@ interface StudioUtilityDrawerProps {
   activeView: PrimaryView;
   chatSurface: "chat" | "reply-composer" | "meeting-prep";
   operatorPaneOpen: boolean;
-  workflowSurface: "canvas" | "agents" | "catalog";
-  interfaceMode: "GHOST" | "COMPOSE";
+  workflowSurface: "home" | "code" | "canvas" | "agents" | "catalog";
   notificationCount: number;
   shieldPolicy: ShieldPolicyState;
   currentProject: ProjectScope;
@@ -65,6 +64,10 @@ const TABS: Array<{ id: UtilityTab; label: string }> = [
   { id: "receipts", label: "Receipts" },
 ];
 
+function utilityTabLabel(tab: UtilityTab): string {
+  return TABS.find((item) => item.id === tab)?.label ?? "Panel";
+}
+
 function prettySurfaceLabel(view: PrimaryView): string {
   return view[0].toUpperCase() + view.slice(1);
 }
@@ -72,6 +75,8 @@ function prettySurfaceLabel(view: PrimaryView): string {
 function prettyWorkflowSurface(
   surface: StudioUtilityDrawerProps["workflowSurface"],
 ): string {
+  if (surface === "home") return "home";
+  if (surface === "code") return "code";
   if (surface === "agents") return "agents";
   if (surface === "catalog") return "catalog";
   return "canvas";
@@ -116,7 +121,6 @@ export function StudioUtilityDrawer({
   chatSurface,
   operatorPaneOpen,
   workflowSurface,
-  interfaceMode,
   notificationCount,
   shieldPolicy,
   currentProject,
@@ -128,6 +132,7 @@ export function StudioUtilityDrawer({
   const [activeTab, setActiveTab] = useState<UtilityTab>(
     initialTabForView(activeView),
   );
+  const activeTabName = utilityTabLabel(activeTab);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -164,7 +169,6 @@ export function StudioUtilityDrawer({
 
     lines.push(
       `$ autopilot profile locale ${profile.locale.toLowerCase()}`,
-      `$ autopilot mode ${interfaceMode.toLowerCase()}`,
     );
 
     return lines;
@@ -173,7 +177,6 @@ export function StudioUtilityDrawer({
     assistantWorkbench,
     chatSurface,
     currentProject.id,
-    interfaceMode,
     operatorPaneOpen,
     profile.locale,
     shieldPolicy,
@@ -342,12 +345,6 @@ export function StudioUtilityDrawer({
       aria-label="Utility drawer"
     >
       <div className="studio-utility-header">
-        <div className="studio-utility-meta">
-          <span className="studio-utility-kicker">Utilities</span>
-          <strong>
-            {currentProject.name} · {prettySurfaceLabel(activeView)}
-          </strong>
-        </div>
         <div className="studio-utility-tabs" role="tablist" aria-label="Utility tabs">
           {TABS.map((tab) => (
             <button
@@ -366,6 +363,13 @@ export function StudioUtilityDrawer({
               {tab.label}
             </button>
           ))}
+        </div>
+        <div className="studio-utility-meta">
+          <span className="studio-utility-kicker">Panel</span>
+          <strong>{activeTabName}</strong>
+          <span className="studio-utility-context">
+            {currentProject.name} · {prettySurfaceLabel(activeView)}
+          </span>
         </div>
         <button
           type="button"

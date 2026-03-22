@@ -14,6 +14,7 @@ It is the provider-side surface where a team takes:
 * an OSS model pipeline,
 * a BYOK-enabled service,
 * a proprietary hosted product,
+* a Forge-instantiated sovereign domain that now needs provider serving or commercialization,
 * or a hybrid human+worker delivery flow ready to be bounded into software delivery
 
 and turns it into a **service package** with:
@@ -68,6 +69,7 @@ More concretely, it is the provider-side system for:
 * managing tenants and customer operations,
 * billing and monetization,
 * exporting receipts and evidence,
+* serving intelligent-blockchain-backed services when those domains need provider exposure,
 * and operating provider-side delivery at scale.
 
 The primary wedge is explicit:
@@ -94,6 +96,7 @@ It is not:
 
 * the end-user intent ingress,
 * the private local runtime,
+* the L0 domain instantiation surface,
 * the demand-side marketplace,
 * the freelance procurement board,
 * or a generic infra dashboard marketed before the service story is clear.
@@ -102,6 +105,7 @@ Those roles belong to:
 
 * `ioi.ai` for intent ingress and hosted demand UX,
 * `Autopilot` for private/local operator execution,
+* `Forge` for sovereign domain and intelligent blockchain instantiation,
 * `aiagent.xyz` for discovery and procurement.
 
 ---
@@ -125,7 +129,22 @@ Autopilot is the private/local operator shell and worker runtime, software-first
 
 Autopilot is the source surface for many future services and overlaps with `sas.xyz` in the shared authoring layer, but it is not the primary provider monetization, tenant-ops, or deployment source-of-truth surface.
 
-## 3.2 `sas.xyz`
+## 3.2 `Forge`
+
+**Instantiate sovereign domains**
+
+`Forge` is the kernel-adjacent L0 surface where developers and operators:
+
+* scaffold intelligent blockchains,
+* define policy roots,
+* define authority and delegation rules,
+* define worker/service topology for a sovereign domain,
+* define publication and upgrade semantics,
+* and publish or inspect kernel-native domain objects.
+
+`Forge` owns sovereign domain instantiation and lifecycle. It does not replace `Autopilot` as the private shell or `sas.xyz` as the provider-serving surface.
+
+## 3.3 `sas.xyz`
 
 **Productize workers**
 
@@ -140,7 +159,9 @@ Providers use `sas.xyz` to:
 * publish, version, and distribute worker services,
 * and export evidence, observability, and compliance artifacts.
 
-## 3.3 `aiagent.xyz`
+`sas.xyz` is also the provider-serving and commercial surface for intelligent-blockchain-backed services when those domains are exposed as provider products.
+
+## 3.4 `aiagent.xyz`
 
 **Discover or procure workers**
 
@@ -161,7 +182,7 @@ Important distinction:
 
 `aiagent.xyz` owns discovery and procurement, not provider operations.
 
-## 3.4 `ioi.ai`
+## 3.5 `ioi.ai`
 
 **Use workers**
 
@@ -174,9 +195,10 @@ Important distinction:
 
 It is the user-facing demand ingress, not the provider operating surface.
 
-## 3.5 Boundary rules
+## 3.6 Boundary rules
 
 * `Autopilot` is for private/local operation and promotion source material.
+* `Forge` is for sovereign domain and intelligent blockchain instantiation.
 * `sas.xyz` is for provider-side productization and service operations.
 * `aiagent.xyz` is for discovery, comparison, and procurement.
 * `ioi.ai` is for user-facing demand and hosted execution UX.
@@ -184,14 +206,18 @@ It is the user-facing demand ingress, not the provider operating surface.
 More concretely:
 
 * `Autopilot` owns local/operator policy: local worker authority, local capability leases, local approvals, local egress rules, and trust boundary controls.
+* `Forge` owns domain-instantiation concerns: policy roots, delegation model, publication semantics, domain continuity, and upgrade lifecycle.
 * `sas.xyz` owns provider/service policy: service operating envelope, tenant-facing approvals, hosted execution restrictions, deployment-specific profiles, exposure limits, and billing-related enforcement.
 * `Autopilot` may preview or suggest deployment characteristics during promotion.
-* `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenancy, billing, and publication.
+* `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenancy, billing, and publication when a system is exposed as a provider service.
+* Not every `Forge` domain needs `sas.xyz`, but `sas.xyz` is the right surface when a `Forge` domain becomes a provider-grade service product.
 
 If those jobs blur, the ecosystem becomes confusing.
 
 **Doctrine:** `Autopilot` stabilizes work; `sas.xyz` productizes it.
+**Doctrine:** `Forge` instantiates sovereign domains.
 **Doctrine:** `sas.xyz` does not replace `Autopilot` as the private operating shell; it extends stabilized worker systems into provider-grade products, deployment presets, and distribution surfaces.
+**Doctrine:** `Forge` creates the sovereign execution object. `Autopilot` refines the worker system. `sas.xyz` serves and commercializes it when it becomes a provider product.
 
 ---
 
@@ -588,6 +614,9 @@ The canonical productization flow is:
 
 This is the intended path from power user to service provider.
 `Autopilot` may preview or suggest deployment characteristics during promotion, but `sas.xyz` is the source of truth for actual deployment presets, readiness posture, hosted configuration, tenant setup, billing, and publication.
+
+Heavier L0 branch:
+when a stabilized system needs durable sovereign state, policy roots, participant or delegation logic, or protocolized continuity, export it into `Forge` to instantiate a sovereign domain or intelligent blockchain. If that domain later needs provider exposure, `sas.xyz` becomes the serving and commercialization surface for it.
 
 ---
 
