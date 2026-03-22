@@ -1,0 +1,78 @@
+import type { AssistantUserProfile } from "../../types";
+
+export type PrimaryView =
+  | "workflows"
+  | "runs"
+  | "inbox"
+  | "capabilities"
+  | "policy"
+  | "settings";
+
+export interface ProjectScope {
+  id: string;
+  name: string;
+  description: string;
+  environment: string;
+  rootPath: string;
+}
+
+export interface ProjectFileDocument {
+  name: string;
+  path: string;
+  language_hint: string | null;
+  content: string;
+  size_bytes: number;
+  modified_at_ms: number | null;
+  is_binary: boolean;
+  is_too_large: boolean;
+  read_only: boolean;
+}
+
+export const DEFAULT_PROFILE: AssistantUserProfile = {
+  version: 1,
+  displayName: "Operator",
+  preferredName: null,
+  roleLabel: "Private Operator",
+  timezone: "UTC",
+  locale: "en-US",
+  primaryEmail: null,
+  avatarSeed: "OP",
+  groundingAllowed: false,
+};
+
+export const WORKSPACE_NAME = "IOI Workspace";
+
+export const PROJECT_SCOPES: ProjectScope[] = [
+  {
+    id: "autopilot-core",
+    name: "Autopilot Core",
+    description: "Worker control plane and operator shell.",
+    environment: "Production",
+    rootPath: ".",
+  },
+  {
+    id: "nested-guardian",
+    name: "Nested Guardian",
+    description: "Consensus verification and safety protocols.",
+    environment: "Research",
+    rootPath: "docs/consensus/aft",
+  },
+  {
+    id: "capability-lab",
+    name: "Capability Lab",
+    description: "Connections, skills, and policy experiments.",
+    environment: "Staging",
+    rootPath: "apps/autopilot",
+  },
+];
+
+export function isEditableElement(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return (
+    target.isContentEditable ||
+    tag === "input" ||
+    tag === "textarea" ||
+    tag === "select"
+  );
+}
