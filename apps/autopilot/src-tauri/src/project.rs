@@ -5,14 +5,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
+use std::time::UNIX_EPOCH;
 
 const EXPLORER_MAX_DEPTH: usize = 2;
 const EXPLORER_MAX_CHILDREN: usize = 10;
 const ARTIFACT_SCAN_MAX_DEPTH: usize = 3;
 const ARTIFACT_SCAN_LIMIT: usize = 12;
 const SKIPPED_DIRS: &[&str] = &[".git", "node_modules", "target", "dist", "build"];
+const EDITOR_MAX_BYTES: usize = 512 * 1024;
 
 // Define the file format structure
 #[derive(Debug, Serialize, Deserialize)]
@@ -46,6 +48,7 @@ pub struct ProjectExplorerNode {
     pub name: String,
     pub path: String,
     pub kind: String,
+    pub has_children: bool,
     pub children: Vec<ProjectExplorerNode>,
 }
 
@@ -62,6 +65,19 @@ pub struct ProjectShellSnapshot {
     pub git: ProjectGitStatus,
     pub tree: Vec<ProjectExplorerNode>,
     pub artifacts: Vec<ProjectArtifactCandidate>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProjectFileDocument {
+    pub name: String,
+    pub path: String,
+    pub language_hint: Option<String>,
+    pub content: String,
+    pub size_bytes: usize,
+    pub modified_at_ms: Option<u64>,
+    pub is_binary: bool,
+    pub is_too_large: bool,
+    pub read_only: bool,
 }
 
 fn resolve_root_path(root: &str, create_if_missing: bool) -> Result<PathBuf, String> {
@@ -114,6 +130,13 @@ fn should_skip_dir(name: &str) -> bool {
     SKIPPED_DIRS.iter().any(|value| value == &name)
 }
 
+fn file_name_for_path(path: &Path) -> String {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("unknown")
+        .to_string()
+}
+
 fn sort_paths(a: &PathBuf, b: &PathBuf) -> std::cmp::Ordering {
     match (a.is_dir(), b.is_dir()) {
         (true, false) => std::cmp::Ordering::Less,
@@ -130,12 +153,12 @@ fn sort_paths(a: &PathBuf, b: &PathBuf) -> std::cmp::Ordering {
     }
 }
 
-fn build_tree(root: &PathBuf, current: &PathBuf, depth: usize) -> Vec<ProjectExplorerNode> {
+fn visible_entries(current: &PathBuf) -> std::vec::IntoIter<PathBuf> {
     let mut entries = match fs::read_dir(current) {
         Ok(read_dir) => read_dir
             .filter_map(|entry| entry.ok().map(|value| value.path()))
             .collect::<Vec<_>>(),
-        Err(_) => return Vec::new(),
+        Err(_) => return Vec::new().into_iter(),
     };
 
     entries.sort_by(sort_paths);
@@ -148,6 +171,42 @@ fn build_tree(root: &PathBuf, current: &PathBuf, depth: usize) -> Vec<ProjectExp
                 .map(|name| !should_skip_dir(name))
                 .unwrap_or(true)
         })
+        .collect::<Vec<_>>()
+        .into_iter()
+}
+
+fn directory_has_visible_children(path: &Path) -> bool {
+    fs::read_dir(path)
+        .ok()
+        .into_iter()
+        .flat_map(|entries| entries.filter_map(|entry| entry.ok()))
+        .map(|entry| entry.path())
+        .any(|child| {
+            child.file_name()
+                .and_then(|value| value.to_str())
+                .map(|name| !should_skip_dir(name))
+                .unwrap_or(true)
+        })
+}
+
+fn build_directory_listing(root: &PathBuf, current: &PathBuf) -> Vec<ProjectExplorerNode> {
+    visible_entries(current)
+        .take(EXPLORER_MAX_CHILDREN)
+        .map(|path| {
+            let is_dir = path.is_dir();
+            ProjectExplorerNode {
+                name: file_name_for_path(&path),
+                path: relative_path(root, &path),
+                kind: if is_dir { "directory" } else { "file" }.to_string(),
+                has_children: is_dir && directory_has_visible_children(&path),
+                children: Vec::new(),
+            }
+        })
+        .collect()
+}
+
+fn build_tree(root: &PathBuf, current: &PathBuf, depth: usize) -> Vec<ProjectExplorerNode> {
+    visible_entries(current)
         .take(EXPLORER_MAX_CHILDREN)
         .map(|path| {
             let is_dir = path.is_dir();
@@ -158,17 +217,119 @@ fn build_tree(root: &PathBuf, current: &PathBuf, depth: usize) -> Vec<ProjectExp
             };
 
             ProjectExplorerNode {
-                name: path
-                    .file_name()
-                    .and_then(|value| value.to_str())
-                    .unwrap_or("unknown")
-                    .to_string(),
+                name: file_name_for_path(&path),
                 path: relative_path(root, &path),
                 kind: if is_dir { "directory" } else { "file" }.to_string(),
+                has_children: is_dir && directory_has_visible_children(&path),
                 children,
             }
         })
         .collect()
+}
+
+fn safe_relative_input(relative_path: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(relative_path);
+    if path.as_os_str().is_empty() || relative_path == "." {
+        return Ok(PathBuf::new());
+    }
+    if path.is_absolute() {
+        return Err("Absolute paths are not allowed in the project shell.".to_string());
+    }
+    if path
+        .components()
+        .any(|component| matches!(component, Component::ParentDir | Component::RootDir | Component::Prefix(_)))
+    {
+        return Err("Path traversal is not allowed in the project shell.".to_string());
+    }
+    Ok(path)
+}
+
+fn resolve_scoped_existing_path(
+    root: &PathBuf,
+    relative_path: &str,
+) -> Result<PathBuf, String> {
+    let safe_relative = safe_relative_input(relative_path)?;
+    let candidate = root.join(&safe_relative);
+    let canonical = candidate.canonicalize().map_err(|error| {
+        format!(
+            "Failed to resolve project path '{}': {}",
+            candidate.display(),
+            error
+        )
+    })?;
+
+    if !canonical.starts_with(root) {
+        return Err("Resolved path falls outside the project boundary.".to_string());
+    }
+
+    Ok(canonical)
+}
+
+fn modified_time_ms(path: &Path) -> Option<u64> {
+    fs::metadata(path)
+        .ok()
+        .and_then(|metadata| metadata.modified().ok())
+        .and_then(|timestamp| timestamp.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as u64)
+}
+
+fn language_hint_for_path(path: &Path) -> Option<String> {
+    match path.extension().and_then(|value| value.to_str()) {
+        Some("ts") => Some("typescript".to_string()),
+        Some("tsx") => Some("tsx".to_string()),
+        Some("js") => Some("javascript".to_string()),
+        Some("jsx") => Some("jsx".to_string()),
+        Some("json") => Some("json".to_string()),
+        Some("md") => Some("markdown".to_string()),
+        Some("rs") => Some("rust".to_string()),
+        Some("css") => Some("css".to_string()),
+        Some("html") | Some("htm") => Some("html".to_string()),
+        Some("yaml") | Some("yml") => Some("yaml".to_string()),
+        Some("sh") | Some("bash") => Some("shell".to_string()),
+        Some("toml") => Some("toml".to_string()),
+        Some("xml") | Some("svg") => Some("xml".to_string()),
+        _ => None,
+    }
+}
+
+fn read_project_file_document(root: &PathBuf, relative_file_path: &str) -> Result<ProjectFileDocument, String> {
+    let file_path = resolve_scoped_existing_path(root, relative_file_path)?;
+    if file_path.is_dir() {
+        return Err(format!(
+            "'{}' is a directory, not an editable file.",
+            file_path.display()
+        ));
+    }
+
+    let bytes = fs::read(&file_path).map_err(|error| {
+        format!("Failed to read '{}': {}", file_path.display(), error)
+    })?;
+    let size_bytes = bytes.len();
+    let is_too_large = size_bytes > EDITOR_MAX_BYTES;
+    let is_binary = bytes.iter().any(|byte| *byte == 0);
+
+    let content = if is_too_large || is_binary {
+        String::new()
+    } else {
+        String::from_utf8(bytes).map_err(|_| {
+            format!(
+                "'{}' is not valid UTF-8 and cannot be edited in the embedded editor.",
+                file_path.display()
+            )
+        })?
+    };
+
+    Ok(ProjectFileDocument {
+        name: file_name_for_path(&file_path),
+        path: relative_path(root, &file_path),
+        language_hint: language_hint_for_path(&file_path),
+        content,
+        size_bytes,
+        modified_at_ms: modified_time_ms(&file_path),
+        is_binary,
+        is_too_large,
+        read_only: is_binary || is_too_large,
+    })
 }
 
 fn artifact_type_for_path(path: &PathBuf) -> Option<&'static str> {
@@ -395,4 +556,58 @@ pub fn project_initialize_repository(root: String) -> Result<ProjectShellSnapsho
     }
 
     Ok(inspect_project_root(&root_path))
+}
+
+#[tauri::command]
+pub fn project_shell_list_directory(
+    root: String,
+    directory: String,
+) -> Result<Vec<ProjectExplorerNode>, String> {
+    let root_path = resolve_root_path(&root, false)?;
+    let directory_path = if directory.is_empty() || directory == "." {
+        root_path.clone()
+    } else {
+        resolve_scoped_existing_path(&root_path, &directory)?
+    };
+
+    if !directory_path.is_dir() {
+        return Err(format!(
+            "'{}' is not a directory inside the project boundary.",
+            directory_path.display()
+        ));
+    }
+
+    Ok(build_directory_listing(&root_path, &directory_path))
+}
+
+#[tauri::command]
+pub fn project_read_file(
+    root: String,
+    relative_path: String,
+) -> Result<ProjectFileDocument, String> {
+    let root_path = resolve_root_path(&root, false)?;
+    read_project_file_document(&root_path, &relative_path)
+}
+
+#[tauri::command]
+pub fn project_write_file(
+    root: String,
+    relative_path: String,
+    content: String,
+) -> Result<ProjectFileDocument, String> {
+    let root_path = resolve_root_path(&root, false)?;
+    let file_path = resolve_scoped_existing_path(&root_path, &relative_path)?;
+
+    if file_path.is_dir() {
+        return Err(format!(
+            "'{}' is a directory, not an editable file.",
+            file_path.display()
+        ));
+    }
+
+    fs::write(&file_path, content.as_bytes()).map_err(|error| {
+        format!("Failed to save '{}': {}", file_path.display(), error)
+    })?;
+
+    read_project_file_document(&root_path, &relative_path)
 }

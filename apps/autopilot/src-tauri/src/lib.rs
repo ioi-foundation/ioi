@@ -425,7 +425,10 @@ pub fn run() {
             project::save_project,
             project::load_project,
             project::project_shell_inspect,
-            project::project_initialize_repository
+            project::project_initialize_repository,
+            project::project_shell_list_directory,
+            project::project_read_file,
+            project::project_write_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

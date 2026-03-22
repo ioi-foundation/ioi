@@ -2137,7 +2137,8 @@ longer identified with dense positive voting.
 \subsection{Native repository measurements}
 
 The corrected native measurements below were produced on March 21, 2026 after
-fixing four benchmark-path issues:
+bringing the repository's native AFT benchmark path back into sync with the
+current \code{GuardianMajority} / \code{base\_final} harness semantics:
 
 \begin{itemize}[leftmargin=1.5em]
 \item shared-tip readiness no longer treats a transient
@@ -2147,14 +2148,19 @@ already sees committed blocks,
 block rather than a potentially stale status height,
 \item authoritative chain-commit scans start from the resilient
 pre-submission tip instead of rescanning stale empty-block prefixes,
-\item sustained throughput now stops on sampled committed-status observation for
-the highest authoritatively committed height rather than on delayed block-store
-visibility.
+\item sustained throughput for fast probes now stops on the authoritative
+full-chain commit scan for the highest committed height; sampled committed-status
+visibility is retained only as an auxiliary lag diagnostic,
+\item the benchmark surface now exposes alignment, spill, and replay
+diagnostics explicitly so missed due blocks or replay churn are not hidden
+behind a single TPS number.
 \end{itemize}
 
 The table below reports the current matched bulk-throughput proof point for the
-native \code{GuardianMajority} 4-validator base-final scenario under that
-corrected harness.
+native \code{GuardianMajority} 4-validator \code{base\_final} scenario under
+that corrected harness. This is a repository-native AFT proof point on the
+Jellyfish state path with a `1 s` block interval, not an apples-to-apples claim
+against published Narwhal/Tusk/Bullshark environments.
 
 \begin{center}
 \scriptsize
@@ -2178,15 +2184,12 @@ benchmark-path bugs rather than of the protocol surface itself,
 \code{8k--16k TPS} range in a matched native 4-validator
 \code{GuardianMajority} bulk probe,
 \item on this corrected probe the batch lands in a single block, so the main
-remaining work is ceiling-raising rather than recovering from a broken harness,
-\item these values are still repository-native measurements and should not be
-read as apples-to-apples superiority claims over published
-\code{Narwhal/Tusk/Bullshark} environments.
+remaining AFT work is ceiling-raising and aggregate-domain multiplication rather
+than recovering from a broken harness,
+\item these values should be read as corrected repository baselines, not as
+optimized ceilings and not as apples-to-apples superiority claims over
+published \code{Narwhal/Tusk/Bullshark} environments.
 \end{itemize}
-
-These numbers should therefore be read as corrected repository baselines, not
-as optimized ceilings and not as apples-to-apples claims against the published
-Narwhal/Bullshark environments.
 
 \section{Related Work}
 

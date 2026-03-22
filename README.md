@@ -19,10 +19,13 @@ In one sentence:
 This repository already contains substantial pieces of that stack:
 
 - the fractal kernel: consensus, execution, state, storage, validator/runtime machinery
+- `Forge`: the kernel-adjacent, CLI-first surface for scaffolding and instantiating intelligent blockchains and sovereign domains (currently rooted in `crates/cli`)
 - `SCS`: the Sovereign Context Substrate for verifiable memory and context
 - `wallet.network`: the authority and capability-control plane for sessions, approvals, and delegated execution
 - `Autopilot`: the native desktop runtime with Spotlight, Studio, gates, receipts, and Context Atlas
-- `agent-ide`: the shared IDE/canvas substrate for provider and orchestration surfaces
+- `sas.xyz`: the provider OS for packaging, deploying, serving, and commercializing worker services
+- `aiagent.xyz`: the discovery and procurement layer for worker services
+- `agent-ide`: the shared builder/canvas substrate for provider and orchestration surfaces
 - the active `FQF` and `ai://` direction for canonical app state, projection-native serving, and rooted resolution
 
 ## Why This Exists
@@ -79,7 +82,7 @@ IOI is called fractal because the same core ideas are meant to work:
 graph TD
     L0[IOI Mainnet - L0<br/>ai:// registry, trust anchors, publication, settlement]
     L1[Sovereign Agentic Runtime - L1<br/>kernel + FQF + SCS + wallet.network]
-    UI[Local-first Apps<br/>Autopilot, sas.xyz, aiagent.xyz, ai:// apps]
+    UI[Product Surfaces<br/>Forge CLI, Autopilot, sas.xyz, aiagent.xyz, ioi.ai, ai:// apps]
 
     L0 --> L1
     L1 --> UI
@@ -242,13 +245,13 @@ See:
 
 - [`docs/wallet_network.md`](docs/wallet_network.md)
 
-### 6. Service-as-a-Software
+### 6. Service-as-Software
 
 IOI aims to make agents distributable as portable software artifacts rather than opaque cloud endpoints.
 
-The long-term idea behind **Service-as-a-Software** is:
+The long-term idea behind **Service-as-Software** is:
 
-- agent logic is portable
+- worker logic is portable
 - UI can be bundled with the service
 - policy and capability boundaries travel with the artifact
 - publication can anchor into `ai://`
@@ -260,21 +263,22 @@ This is part of why the repo contains both runtime systems and product-surface w
 
 The intended product topology remains multi-surface and intentionally separated.
 
-1. **Private AI (`ioi.ai`)**  
-   The low-friction demand surface. A web ingress for private research, chat, and fast execution using warm decentralized inference pools.
+1. **Forge (`crates/cli` today)**: The Web4 L0 surface. A CLI-first, kernel-adjacent builder for scaffolding, instantiating, publishing, upgrading, and inspecting intelligent blockchains and other sovereign domains.
 
-2. **Native Autopilot**  
-   The sovereign desktop runtime. When an intent needs local filesystem, wallet, browser, desktop GUI, or other high-trust capabilities, execution escalates to the local runtime.
+2. **`ioi.ai`**: The hosted demand ingress and execution UX. A user-facing surface for expressing intent, being routed to the right worker or service, approving actions when needed, and receiving outcomes plus receipts.
 
-3. **`sas.xyz` and the shared Agent IDE substrate**  
-   The provider operating system and builder environment. The long-term durable abstraction here is the shared `agent-ide` package, which can be embedded into multiple product surfaces with different lenses.
+3. **Native Autopilot**: The private/local operator shell. When an intent needs local filesystem, wallet, browser, desktop GUI, or other high-trust capabilities, execution escalates to the local runtime.
 
-4. **`aiagent.xyz`**  
-   The marketplace and demand-routing layer where users discover, hire, and route work toward bonded or trusted agentic supply.
+4. **`sas.xyz` and the shared builder substrate**: The provider operating system and builder environment. `sas.xyz` packages, deploys, serves, and commercializes worker services, including intelligent-blockchain-backed services when those domains are exposed as provider products.
+
+5. **`aiagent.xyz`**: The discovery and procurement layer where buyers discover, compare, install, run, or procure worker services.
 
 The repo currently includes:
 
+- [`crates/cli`](crates/cli) as the current kernel-adjacent CLI surface that is expected to evolve into Forge
 - [`apps/autopilot`](apps/autopilot)
+- [`apps/sas-xyz`](apps/sas-xyz)
+- [`apps/aiagent-xyz`](apps/aiagent-xyz)
 - [`packages/agent-ide`](packages/agent-ide)
 - [`apps/agent-studio`](apps/agent-studio) as the current standalone web shell around `agent-ide`
 
@@ -286,8 +290,11 @@ The codebase is a Rust workspace with a TS/React application layer on top.
 
 | Path | Role |
 | :--- | :--- |
-| [`apps/autopilot`](apps/autopilot) | Native desktop assistant runtime with Spotlight, Studio, policy gates, receipts, and Context Atlas. |
-| [`packages/agent-ide`](packages/agent-ide) | Shared IDE/canvas package intended to be embedded into Autopilot and future apps such as `sas.xyz`. |
+| [`crates/cli`](crates/cli) | Current kernel-adjacent CLI surface expected to evolve into Forge for scaffolding, instantiating, publishing, and inspecting intelligent blockchains and sovereign domains. |
+| [`apps/autopilot`](apps/autopilot) | Private/local operator shell and desktop runtime with Spotlight, Studio, policy gates, receipts, and Context Atlas. |
+| [`apps/sas-xyz`](apps/sas-xyz) | Provider OS surface for packaging, deploying, serving, and commercializing worker services. |
+| [`apps/aiagent-xyz`](apps/aiagent-xyz) | Discovery and procurement surface for worker services and bespoke demand. |
+| [`packages/agent-ide`](packages/agent-ide) | Shared builder/canvas package intended to be embedded into Autopilot and future apps such as `sas.xyz`. |
 | [`apps/agent-studio`](apps/agent-studio) | Current standalone browser shell for `agent-ide`. |
 
 ### Kernel and Runtime
@@ -318,12 +325,13 @@ The codebase is a Rust workspace with a TS/React application layer on top.
 
 If you want the fastest path to understanding the current repo, read in this order:
 
-1. [`docs/consensus/aft/specs/yellow_paper.tex`](docs/consensus/aft/specs/yellow_paper.tex)
-2. [`apps/autopilot/README.md`](apps/autopilot/README.md)
-3. [`docs/commitment/tree/mhnsw/README.md`](docs/commitment/tree/mhnsw/README.md)
-4. [`docs/wallet_network.md`](docs/wallet_network.md)
-5. [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
-6. [`docs/fractal-query-fabric-spec.md`](docs/fractal-query-fabric-spec.md)
+1. [`docs/forge.md`](docs/forge.md)
+2. [`docs/consensus/aft/specs/yellow_paper.tex`](docs/consensus/aft/specs/yellow_paper.tex)
+3. [`crates/cli/src/lib.rs`](crates/cli/src/lib.rs)
+4. [`apps/autopilot/README.md`](apps/autopilot/README.md)
+5. [`docs/wallet_network.md`](docs/wallet_network.md)
+6. [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
+7. [`docs/fractal-query-fabric-spec.md`](docs/fractal-query-fabric-spec.md)
 
 ## Getting Started
 
@@ -421,7 +429,7 @@ cargo check
 npm run build:all
 ```
 
-Focused CLI harness tests:
+Focused kernel / Forge harness tests:
 
 ```bash
 # Infrastructure E2E: P2P sync and block production

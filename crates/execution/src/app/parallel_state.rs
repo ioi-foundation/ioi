@@ -2,6 +2,7 @@
 use crate::mv_memory::{MVMemory, ReadVersion, TxIndex};
 use ioi_api::state::{StateAccess, StateScanIter};
 use ioi_types::error::StateError;
+use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
 use std::sync::{Arc, Mutex};
 
 /// A StateAccess implementation that records reads and writes to MVMemory
@@ -21,11 +22,29 @@ impl<'a> ParallelStateAccess<'a> {
             read_set: Arc::new(Mutex::new(Vec::new())),
         }
     }
+
+    fn trace_nonce_key_event(&self, op: &'static str, key: &[u8], version: Option<&ReadVersion>) {
+        if std::env::var_os("IOI_EXEC_TRACE_NONCE_KEYS").is_none()
+            || !key.starts_with(ACCOUNT_NONCE_PREFIX)
+        {
+            return;
+        }
+
+        tracing::info!(
+            target: "execution",
+            tx_index = self.tx_idx,
+            nonce_key = %hex::encode(key),
+            read_version = ?version,
+            op,
+            "Parallel nonce key trace"
+        );
+    }
 }
 
 impl<'a> StateAccess for ParallelStateAccess<'a> {
     fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
         let (val, version) = self.mv_memory.read(key, self.tx_idx)?;
+        self.trace_nonce_key_event("read", key, Some(&version));
         self.read_set.lock().unwrap().push((key.to_vec(), version));
         Ok(val)
     }
@@ -33,11 +52,13 @@ impl<'a> StateAccess for ParallelStateAccess<'a> {
     fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
         self.mv_memory
             .write(key.to_vec(), Some(value.to_vec()), self.tx_idx);
+        self.trace_nonce_key_event("write", key, None);
         Ok(())
     }
 
     fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
         self.mv_memory.write(key.to_vec(), None, self.tx_idx);
+        self.trace_nonce_key_event("delete", key, None);
         Ok(())
     }
 

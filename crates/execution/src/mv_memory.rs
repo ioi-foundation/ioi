@@ -2,6 +2,7 @@
 use dashmap::DashMap;
 use ioi_api::state::StateAccess;
 use ioi_types::error::StateError;
+use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -59,15 +60,38 @@ impl MVMemory {
         key: &[u8],
         tx_idx: TxIndex,
     ) -> Result<(Option<Vec<u8>>, ReadVersion), StateError> {
+        self.read_version_with_bound(key, tx_idx, true)
+    }
+
+    fn read_prior_to_tx(
+        &self,
+        key: &[u8],
+        tx_idx: TxIndex,
+    ) -> Result<(Option<Vec<u8>>, ReadVersion), StateError> {
+        self.read_version_with_bound(key, tx_idx, false)
+    }
+
+    fn read_version_with_bound(
+        &self,
+        key: &[u8],
+        tx_idx: TxIndex,
+        include_tx_idx: bool,
+    ) -> Result<(Option<Vec<u8>>, ReadVersion), StateError> {
         if let Some(entry) = self.data.get(key) {
             // Explicitly annotate type for parking_lot::RwLockReadGuard
             let versions: parking_lot::RwLockReadGuard<Vec<MemoryEntry>> = entry.read();
 
-            // Find the highest version <= tx_idx so a transaction can observe
-            // its own writes within the same execution attempt.
-            // Versions are inserted in sorted order; iterate reversed for simplicity.
+            // Find the highest version visible to this read. Execution reads must include the
+            // current tx index so a transaction can observe its own writes. Validation sometimes
+            // needs the pre-self view to distinguish "I changed this key" from "someone else
+            // changed what I observed".
             for ver in versions.iter().rev() {
-                if ver.version <= tx_idx {
+                let visible = if include_tx_idx {
+                    ver.version <= tx_idx
+                } else {
+                    ver.version < tx_idx
+                };
+                if visible {
                     return Ok((ver.value.clone(), ReadVersion::Transaction(ver.version)));
                 }
             }
@@ -76,6 +100,31 @@ impl MVMemory {
         // Fallback to storage
         let val = self.base_state.get(key)?;
         Ok((val, ReadVersion::Storage))
+    }
+
+    fn trace_nonce_validation_mismatch(
+        &self,
+        key: &[u8],
+        tx_idx: TxIndex,
+        recorded_version: &ReadVersion,
+        current_version: &ReadVersion,
+        prior_version: Option<&ReadVersion>,
+    ) {
+        if std::env::var_os("IOI_EXEC_TRACE_NONCE_KEYS").is_none()
+            || !key.starts_with(ACCOUNT_NONCE_PREFIX)
+        {
+            return;
+        }
+
+        tracing::info!(
+            target: "execution",
+            tx_index = tx_idx,
+            nonce_key = %hex::encode(key),
+            recorded_version = ?recorded_version,
+            current_version = ?current_version,
+            prior_version = ?prior_version,
+            "Parallel nonce validation mismatch"
+        );
     }
 
     /// Returns a merged prefix view visible to `tx_idx`.
@@ -192,9 +241,39 @@ impl MVMemory {
     ) -> Result<bool, StateError> {
         for (key, recorded_version) in read_set {
             let (_, current_version) = self.read(key, tx_idx)?;
-            if &current_version != recorded_version {
-                return Ok(false);
+            if &current_version == recorded_version {
+                continue;
             }
+
+            // If validation sees the current tx's own write, compare the previously visible
+            // version as well. Transactions that read a key and then mutate it should not abort
+            // just because their own write is now the newest visible version.
+            if current_version == ReadVersion::Transaction(tx_idx)
+                && *recorded_version != ReadVersion::Transaction(tx_idx)
+            {
+                let (_, prior_version) = self.read_prior_to_tx(key, tx_idx)?;
+                if &prior_version == recorded_version {
+                    continue;
+                }
+
+                self.trace_nonce_validation_mismatch(
+                    key,
+                    tx_idx,
+                    recorded_version,
+                    &current_version,
+                    Some(&prior_version),
+                );
+            } else {
+                self.trace_nonce_validation_mismatch(
+                    key,
+                    tx_idx,
+                    recorded_version,
+                    &current_version,
+                    None,
+                );
+            }
+
+            return Ok(false);
         }
         Ok(true)
     }
@@ -383,5 +462,76 @@ mod tests {
         assert_eq!(inserts.len(), 1);
         assert_eq!(inserts[0].0, b"lease::a".to_vec());
         assert_eq!(inserts[0].1, b"tx2_retry_a".to_vec());
+    }
+
+    #[test]
+    fn validate_read_set_allows_read_then_own_write() {
+        let mut base = MockState::default();
+        base.insert(b"account::nonce::a", &0u64.to_le_bytes())
+            .expect("insert nonce");
+
+        let memory = MVMemory::new(Arc::new(base));
+        let (_, version) = memory
+            .read(b"account::nonce::a", 2)
+            .expect("read should succeed");
+        let _ = memory.write(
+            b"account::nonce::a".to_vec(),
+            Some(1u64.to_le_bytes().to_vec()),
+            2,
+        );
+
+        assert!(
+            memory
+                .validate_read_set(&[(b"account::nonce::a".to_vec(), version)], 2)
+                .expect("validation should succeed"),
+            "own nonce bump must not invalidate the read that preceded it"
+        );
+    }
+
+    #[test]
+    fn validate_read_set_still_detects_prior_tx_changes() {
+        let mut base = MockState::default();
+        base.insert(b"account::nonce::a", &0u64.to_le_bytes())
+            .expect("insert nonce");
+
+        let memory = MVMemory::new(Arc::new(base));
+        let (_, version) = memory
+            .read(b"account::nonce::a", 2)
+            .expect("read should succeed");
+        let _ = memory.write(
+            b"account::nonce::a".to_vec(),
+            Some(7u64.to_le_bytes().to_vec()),
+            1,
+        );
+        let _ = memory.write(
+            b"account::nonce::a".to_vec(),
+            Some(1u64.to_le_bytes().to_vec()),
+            2,
+        );
+
+        assert!(
+            !memory
+                .validate_read_set(&[(b"account::nonce::a".to_vec(), version)], 2)
+                .expect("validation should succeed"),
+            "a lower transaction changing the recorded version must still invalidate the read"
+        );
+    }
+
+    #[test]
+    fn validate_read_set_preserves_reads_of_own_write() {
+        let mut base = MockState::default();
+        base.insert(b"lease::a", b"base_a").expect("insert base");
+
+        let memory = MVMemory::new(Arc::new(base));
+        let _ = memory.write(b"lease::a".to_vec(), Some(b"tx2_a".to_vec()), 2);
+        let (_, version) = memory.read(b"lease::a", 2).expect("read should succeed");
+
+        assert_eq!(version, ReadVersion::Transaction(2));
+        assert!(
+            memory
+                .validate_read_set(&[(b"lease::a".to_vec(), version)], 2)
+                .expect("validation should succeed"),
+            "reads that already observed the tx's own write must remain valid"
+        );
     }
 }

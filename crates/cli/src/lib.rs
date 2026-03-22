@@ -11,17 +11,23 @@
     )
 )]
 
-//! # IOI Kernel CLI Library
+//! # IOI Kernel / Forge CLI Library
 //!
 //! This library provides high-level APIs and helper functions to facilitate
 //! testing and interaction with chains built on the IOI Kernel.
 //!
+//! It is also the current kernel-adjacent CLI surface that is expected to
+//! evolve into `Forge`: the Web4 L0 developer/operator interface for
+//! scaffolding, instantiating, publishing, upgrading, and inspecting
+//! intelligent blockchains and other sovereign domains on IOI.
+//!
 //! ## Architectural Boundary and Purpose
 //!
-//! **`cli` is designed to be the primary *external consumer* of the IOI Kernel.**
+//! **`cli` is designed to be the primary external consumer of the IOI Kernel.**
 //! Its purpose is to simulate the developer experience of someone building on,
-//! or with, the SDK. To maintain this crucial role, this crate must adhere
-//! to a strict architectural boundary:
+//! or with, the SDK while preserving the right architectural boundary for a
+//! future standalone `Forge` surface. To maintain this role, this crate must
+//! adhere to a strict boundary:
 //!
 //! 1.  **Public API Only:** `cli` must **only** depend on the public APIs
 //!     exposed by the other `ioi-*` library crates (e.g., `ioi-api`,
@@ -37,13 +43,14 @@
 //!     user or developer would perform. This makes `cli` the first and most
 //!     important user of the SDK, ensuring the public APIs are ergonomic and complete.
 //!
-//! By maintaining this boundary, we ensure that `cli` can one day be moved
-//! into its own repository and depend on the SDK via `crates.io`, perfectly
-//! mirroring the external developer's setup without requiring code changes.
+//! By maintaining this boundary, we ensure that the current CLI surface can
+//! one day be moved into its own repository and depend on the SDK via
+//! `crates.io`, perfectly mirroring the external developer's setup without
+//! requiring code changes.
 //!
 //! This crate contains modules for:
 //! - `testing`: Helpers for writing integration and E2E tests.
-//! - `builder`: (Future) Builder patterns for constructing nodes and chains in test environments.
+//! - `builder`: (Future) Builder patterns for constructing nodes, chains, and sovereign domains in test environments.
 //! - `client`: (Future) A lightweight client for interacting with a running node's RPC.
 
 pub mod testing;

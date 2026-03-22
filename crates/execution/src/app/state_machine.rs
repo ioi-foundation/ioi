@@ -61,6 +61,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -102,13 +103,83 @@ fn nonce_scoped_account_id(tx: &ChainTransaction) -> Option<AccountId> {
     }
 }
 
-fn block_has_nonce_chains(block: &Block<ChainTransaction>) -> bool {
+fn nonce_chain_edge_count(block: &Block<ChainTransaction>) -> usize {
     let mut seen = HashSet::new();
-    block
+    let mut edges = 0usize;
+    for account_id in block
         .transactions
         .iter()
         .filter_map(nonce_scoped_account_id)
-        .any(|account_id| !seen.insert(account_id))
+    {
+        if !seen.insert(account_id) {
+            edges += 1;
+        }
+    }
+    edges
+}
+
+fn replay_gate_label(
+    num_txs: usize,
+    externally_committed: bool,
+    force_sequential_replay: bool,
+    has_nonce_chains: bool,
+) -> &'static str {
+    if num_txs == 0 {
+        "empty"
+    } else if num_txs == 1 {
+        "single_tx"
+    } else if externally_committed {
+        "externally_committed"
+    } else if force_sequential_replay {
+        "forced_sequential"
+    } else if has_nonce_chains {
+        "nonce_chains"
+    } else {
+        "parallel"
+    }
+}
+
+#[derive(Debug, Default)]
+struct ParallelReplayStats {
+    validation_aborts: AtomicUsize,
+    validation_errors: AtomicUsize,
+    validation_rewinds: AtomicUsize,
+    execution_errors: AtomicUsize,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct ParallelReplayStatsSnapshot {
+    validation_aborts: usize,
+    validation_errors: usize,
+    validation_rewinds: usize,
+    execution_errors: usize,
+}
+
+impl ParallelReplayStats {
+    fn snapshot(&self) -> ParallelReplayStatsSnapshot {
+        ParallelReplayStatsSnapshot {
+            validation_aborts: self.validation_aborts.load(Ordering::Relaxed),
+            validation_errors: self.validation_errors.load(Ordering::Relaxed),
+            validation_rewinds: self.validation_rewinds.load(Ordering::Relaxed),
+            execution_errors: self.execution_errors.load(Ordering::Relaxed),
+        }
+    }
+}
+
+impl ParallelReplayStatsSnapshot {
+    fn replay_debt(self) -> usize {
+        self.validation_aborts + self.validation_errors + self.validation_rewinds
+    }
+
+    fn fallback_gate(self) -> Option<&'static str> {
+        if self.execution_errors > 0 {
+            Some("parallel_execution_error_fallback")
+        } else if self.validation_errors > 0 {
+            Some("parallel_validation_error_fallback")
+        } else {
+            None
+        }
+    }
 }
 
 /// A lightweight, thread-safe context for executing transactions in parallel.
@@ -431,17 +502,34 @@ where
             .ok()
             .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
             .unwrap_or(false);
-        let has_nonce_chains = num_txs > 1 && block_has_nonce_chains(&block);
-        let replay_sequentially =
-            num_txs <= 1 || externally_committed || force_sequential_replay || has_nonce_chains;
+        let nonce_chain_edges = if num_txs > 1 {
+            nonce_chain_edge_count(&block)
+        } else {
+            0
+        };
+        let has_nonce_chains = nonce_chain_edges > 0;
+        let mut replay_gate = replay_gate_label(
+            num_txs,
+            externally_committed,
+            force_sequential_replay,
+            has_nonce_chains,
+        );
+        let replay_sequentially = replay_gate != "parallel";
+        let mut replay_mode = if replay_sequentially {
+            "sequential"
+        } else {
+            "parallel"
+        };
 
         let (
             state_changes,
             proofs_out,
             block_gas_used,
             parallel_exec_elapsed,
+            fallback_exec_elapsed,
             overlay_elapsed,
             collect_results_elapsed,
+            replay_stats,
         ) = if num_txs == 0 {
             (
                 (Vec::<(Vec<u8>, Vec<u8>)>::new(), Vec::<Vec<u8>>::new()),
@@ -450,31 +538,20 @@ where
                 Duration::ZERO,
                 Duration::ZERO,
                 Duration::ZERO,
+                Duration::ZERO,
+                ParallelReplayStatsSnapshot::default(),
             )
         } else if replay_sequentially {
-            let sequential_exec_started = Instant::now();
-            let mut final_overlay = StateOverlay::new(
-                snapshot_arc
-                    .as_deref()
-                    .expect("sequential replay requires a snapshot state"),
-            );
-            let mut proofs_out = Vec::with_capacity(num_txs);
-            let mut block_gas_used = 0;
-
-            for tx in &block.transactions {
-                block_gas_used += self
-                    .process_transaction(
-                        tx,
-                        &mut final_overlay,
-                        block_header_height,
-                        block_header_timestamp,
-                        &mut proofs_out,
-                    )
-                    .await?;
-            }
-
-            let state_changes = final_overlay.into_ordered_batch();
-            let sequential_exec_elapsed = sequential_exec_started.elapsed();
+            let (state_changes, proofs_out, block_gas_used, sequential_exec_elapsed) = self
+                .replay_block_sequentially(
+                    &block.transactions,
+                    snapshot_arc
+                        .as_deref()
+                        .expect("sequential replay requires a snapshot state"),
+                    block_header_height,
+                    block_header_timestamp,
+                )
+                .await?;
 
             tracing::debug!(
                 target: "execution",
@@ -482,7 +559,9 @@ where
                 tx_count = num_txs,
                 externally_committed,
                 has_nonce_chains,
+                nonce_chain_edges,
                 force_sequential_replay,
+                replay_gate,
                 "Prepared block via sequential replay"
             );
 
@@ -493,6 +572,8 @@ where
                 sequential_exec_elapsed,
                 Duration::ZERO,
                 Duration::ZERO,
+                Duration::ZERO,
+                ParallelReplayStatsSnapshot::default(),
             )
         } else {
             let snapshot_arc = snapshot_arc
@@ -504,6 +585,8 @@ where
             let scheduler = Arc::new(Scheduler::new(num_txs));
             let read_sets = Arc::new(DashMap::new());
             let results = Arc::new(DashMap::new());
+            let replay_stats = Arc::new(ParallelReplayStats::default());
+            let abort_parallel = Arc::new(AtomicBool::new(false));
 
             // 3. Prepare Parallel Executor Context
             let executor = Arc::new(ParallelExecutor {
@@ -531,6 +614,7 @@ where
 
             tracing::debug!(
                 target: "execution",
+                nonce_chain_edges,
                 "Starting parallel execution with {} threads for {} txs",
                 num_threads,
                 num_txs
@@ -540,6 +624,8 @@ where
             let mv_memory_clone = mv_memory.clone();
             let read_sets_clone = read_sets.clone();
             let results_clone = results.clone();
+            let replay_stats_clone = replay_stats.clone();
+            let abort_parallel_clone = abort_parallel.clone();
 
             let parallel_exec_started = Instant::now();
             tokio::task::spawn_blocking(move || {
@@ -549,6 +635,8 @@ where
                         let mv_memory = mv_memory_clone.clone();
                         let read_sets = read_sets_clone.clone();
                         let results = results_clone.clone();
+                        let replay_stats = replay_stats_clone.clone();
+                        let abort_parallel = abort_parallel_clone.clone();
                         let txs = &transactions;
                         let executor = executor.clone();
 
@@ -558,6 +646,9 @@ where
                                 .build()
                                 .expect("Failed to build Tokio runtime for execution worker");
                             loop {
+                                if abort_parallel.load(Ordering::Relaxed) {
+                                    break;
+                                }
                                 match scheduler.next_task() {
                                     Task::Execute(idx) => {
                                         // Retries must start from a clean MV slate or stale keys
@@ -590,6 +681,10 @@ where
                                             }
                                             Err(e) => {
                                                 mv_memory.clear_tx_writes(idx);
+                                                replay_stats
+                                                    .execution_errors
+                                                    .fetch_add(1, Ordering::Relaxed);
+                                                abort_parallel.store(true, Ordering::Relaxed);
                                                 tracing::error!(
                                                     target: "execution",
                                                     tx_index = idx,
@@ -606,16 +701,26 @@ where
                                             match mv_memory.validate_read_set(&rs, idx) {
                                                 Ok(valid) => {
                                                     if !valid {
+                                                        replay_stats
+                                                            .validation_aborts
+                                                            .fetch_add(1, Ordering::Relaxed);
                                                         scheduler.abort_tx(idx);
                                                     } else {
                                                         scheduler.finish_validation(idx);
                                                     }
                                                 }
                                                 Err(_) => {
+                                                    replay_stats
+                                                        .validation_errors
+                                                        .fetch_add(1, Ordering::Relaxed);
+                                                    abort_parallel.store(true, Ordering::Relaxed);
                                                     scheduler.abort_tx(idx);
                                                 }
                                             }
                                         } else {
+                                            replay_stats
+                                                .validation_rewinds
+                                                .fetch_add(1, Ordering::Relaxed);
                                             tracing::warn!(
                                                 target: "execution",
                                                 tx_index = idx,
@@ -636,43 +741,87 @@ where
             .await
             .map_err(|e| ChainError::Transaction(format!("Parallel execution panicked: {}", e)))?;
             let parallel_exec_elapsed = parallel_exec_started.elapsed();
+            let replay_stats = replay_stats.snapshot();
 
-            let overlay_started = Instant::now();
-            let mut final_overlay = StateOverlay::new(&*snapshot_arc);
-            mv_memory
-                .apply_to_overlay(&mut final_overlay)
-                .map_err(ChainError::State)?;
-            let state_changes = final_overlay.into_ordered_batch();
-            let overlay_elapsed = overlay_started.elapsed();
+            if let Some(fallback_gate) = replay_stats.fallback_gate() {
+                let (state_changes, proofs_out, block_gas_used, fallback_exec_elapsed) = self
+                    .replay_block_sequentially(
+                        &block.transactions,
+                        &*snapshot_arc,
+                        block_header_height,
+                        block_header_timestamp,
+                    )
+                    .await?;
+                replay_gate = fallback_gate;
+                replay_mode = "fallback_sequential";
 
-            let collect_results_started = Instant::now();
-            let mut proofs_out = Vec::with_capacity(num_txs);
-            let mut block_gas_used = 0;
+                tracing::warn!(
+                    target: "execution",
+                    height = block.header.height,
+                    tx_count = num_txs,
+                    nonce_chain_edges,
+                    attempted_replay_gate = "parallel",
+                    replay_gate,
+                    validation_aborts = replay_stats.validation_aborts,
+                    validation_errors = replay_stats.validation_errors,
+                    validation_rewinds = replay_stats.validation_rewinds,
+                    execution_errors = replay_stats.execution_errors,
+                    parallel_exec_ms = parallel_exec_elapsed.as_millis(),
+                    fallback_exec_ms = fallback_exec_elapsed.as_millis(),
+                    "Parallel replay reported internal errors; recomputing block sequentially"
+                );
 
-            for i in 0..num_txs {
-                if let Some((_, (p, gas))) = results.remove(&i) {
-                    proofs_out.push(p);
-                    block_gas_used += gas;
-                } else {
-                    tracing::warn!(
-                        target: "execution",
-                        tx_index = i,
-                        "Missing execution result, using empty."
-                    );
-                    proofs_out.push(vec![]);
+                (
+                    state_changes,
+                    proofs_out,
+                    block_gas_used,
+                    parallel_exec_elapsed,
+                    fallback_exec_elapsed,
+                    Duration::ZERO,
+                    Duration::ZERO,
+                    replay_stats,
+                )
+            } else {
+                let overlay_started = Instant::now();
+                let mut final_overlay = StateOverlay::new(&*snapshot_arc);
+                mv_memory
+                    .apply_to_overlay(&mut final_overlay)
+                    .map_err(ChainError::State)?;
+                let state_changes = final_overlay.into_ordered_batch();
+                let overlay_elapsed = overlay_started.elapsed();
+
+                let collect_results_started = Instant::now();
+                let mut proofs_out = Vec::with_capacity(num_txs);
+                let mut block_gas_used = 0;
+
+                for i in 0..num_txs {
+                    if let Some((_, (p, gas))) = results.remove(&i) {
+                        proofs_out.push(p);
+                        block_gas_used += gas;
+                    } else {
+                        tracing::warn!(
+                            target: "execution",
+                            tx_index = i,
+                            "Missing execution result, using empty."
+                        );
+                        proofs_out.push(vec![]);
+                    }
                 }
-            }
-            let collect_results_elapsed = collect_results_started.elapsed();
+                let collect_results_elapsed = collect_results_started.elapsed();
 
-            (
-                state_changes,
-                proofs_out,
-                block_gas_used,
-                parallel_exec_elapsed,
-                overlay_elapsed,
-                collect_results_elapsed,
-            )
+                (
+                    state_changes,
+                    proofs_out,
+                    block_gas_used,
+                    parallel_exec_elapsed,
+                    Duration::ZERO,
+                    overlay_elapsed,
+                    collect_results_elapsed,
+                    replay_stats,
+                )
+            }
         };
+        let replay_debt = replay_stats.replay_debt();
 
         // 7. Compute Roots
         let roots_started = Instant::now();
@@ -685,11 +834,20 @@ where
 
         if benchmark_trace {
             eprintln!(
-                "[BENCH-EXEC] prepare_block height={} tx_count={} snapshot_ms={} parallel_exec_ms={} overlay_ms={} collect_results_ms={} roots_ms={} total_ms={}",
+                "[BENCH-EXEC] prepare_block height={} tx_count={} replay_mode={} replay_gate={} nonce_chain_edges={} replay_debt={} validation_aborts={} validation_errors={} validation_rewinds={} execution_errors={} snapshot_ms={} parallel_exec_ms={} fallback_exec_ms={} overlay_ms={} collect_results_ms={} roots_ms={} total_ms={}",
                 block.header.height,
                 num_txs,
+                replay_mode,
+                replay_gate,
+                nonce_chain_edges,
+                replay_debt,
+                replay_stats.validation_aborts,
+                replay_stats.validation_errors,
+                replay_stats.validation_rewinds,
+                replay_stats.execution_errors,
                 snapshot_elapsed.as_millis(),
                 parallel_exec_elapsed.as_millis(),
+                fallback_exec_elapsed.as_millis(),
                 overlay_elapsed.as_millis(),
                 collect_results_elapsed.as_millis(),
                 roots_elapsed.as_millis(),
@@ -699,8 +857,17 @@ where
                 target: "execution_bench",
                 height = block.header.height,
                 tx_count = num_txs,
+                replay_mode,
+                replay_gate,
+                nonce_chain_edges,
+                replay_debt,
+                validation_aborts = replay_stats.validation_aborts,
+                validation_errors = replay_stats.validation_errors,
+                validation_rewinds = replay_stats.validation_rewinds,
+                execution_errors = replay_stats.execution_errors,
                 snapshot_ms = snapshot_elapsed.as_millis(),
                 parallel_exec_ms = parallel_exec_elapsed.as_millis(),
+                fallback_exec_ms = fallback_exec_elapsed.as_millis(),
                 overlay_ms = overlay_elapsed.as_millis(),
                 collect_results_ms = collect_results_elapsed.as_millis(),
                 roots_ms = roots_elapsed.as_millis(),
@@ -1551,5 +1718,84 @@ where
             parent_gas_used,
         )
         .ok_or_else(|| ChainError::Transaction("Timestamp overflow".into()))
+    }
+
+    async fn replay_block_sequentially(
+        &self,
+        transactions: &[ChainTransaction],
+        snapshot: &dyn StateAccess,
+        block_height: u64,
+        block_timestamp: u64,
+    ) -> Result<
+        (
+            (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>),
+            Vec<Vec<u8>>,
+            u64,
+            Duration,
+        ),
+        ChainError,
+    > {
+        let sequential_exec_started = Instant::now();
+        let mut final_overlay = StateOverlay::new(snapshot);
+        let mut proofs_out = Vec::with_capacity(transactions.len());
+        let mut block_gas_used = 0;
+
+        for tx in transactions {
+            block_gas_used += self
+                .process_transaction(
+                    tx,
+                    &mut final_overlay,
+                    block_height,
+                    block_timestamp,
+                    &mut proofs_out,
+                )
+                .await?;
+        }
+
+        Ok((
+            final_overlay.into_ordered_batch(),
+            proofs_out,
+            block_gas_used,
+            sequential_exec_started.elapsed(),
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ParallelReplayStatsSnapshot;
+
+    #[test]
+    fn replay_stats_only_fallback_on_internal_errors() {
+        assert_eq!(
+            ParallelReplayStatsSnapshot {
+                validation_aborts: 7,
+                validation_errors: 0,
+                validation_rewinds: 3,
+                execution_errors: 0,
+            }
+            .fallback_gate(),
+            None
+        );
+        assert_eq!(
+            ParallelReplayStatsSnapshot {
+                validation_aborts: 0,
+                validation_errors: 1,
+                validation_rewinds: 0,
+                execution_errors: 0,
+            }
+            .fallback_gate(),
+            Some("parallel_validation_error_fallback")
+        );
+        assert_eq!(
+            ParallelReplayStatsSnapshot {
+                validation_aborts: 4,
+                validation_errors: 2,
+                validation_rewinds: 1,
+                execution_errors: 9,
+            }
+            .fallback_gate(),
+            Some("parallel_execution_error_fallback")
+        );
     }
 }
