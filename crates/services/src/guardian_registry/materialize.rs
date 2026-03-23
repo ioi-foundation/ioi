@@ -764,7 +764,9 @@ impl GuardianRegistry {
             })
     }
 
-    pub(super) fn accountable_challenge_offender(challenge: &AsymptoteObserverChallenge) -> Option<AccountId> {
+    pub(super) fn accountable_challenge_offender(
+        challenge: &AsymptoteObserverChallenge,
+    ) -> Option<AccountId> {
         match challenge.kind {
             AsymptoteObserverChallengeKind::MissingTranscript
             | AsymptoteObserverChallengeKind::ConflictingTranscript => {

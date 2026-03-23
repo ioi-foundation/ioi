@@ -23,24 +23,22 @@ mod signals;
 #[path = "history/tests.rs"]
 mod tests;
 
+pub(super) use self::signals::{
+    build_browser_observation_context_from_snapshot,
+    build_browser_observation_context_from_snapshot_with_history,
+    build_browser_snapshot_success_signal_context, build_recent_browser_observation_context,
+    build_recent_command_history_context, build_recent_session_events_context,
+    build_recent_success_signal_context_with_snapshot,
+};
+#[cfg(test)]
+pub(super) use self::signals::{
+    build_browser_snapshot_pending_state_context, build_recent_success_signal_context,
+};
 pub(crate) use self::signals::{
     build_browser_snapshot_pending_state_context_with_history,
     build_recent_pending_browser_state_context,
     build_recent_pending_browser_state_context_with_current_snapshot,
     build_recent_pending_browser_state_context_with_snapshot,
     latest_recent_pending_browser_state_context,
-};
-pub(super) use self::signals::{
-    build_browser_observation_context_from_snapshot,
-    build_browser_snapshot_success_signal_context,
-    build_recent_browser_observation_context,
-    build_recent_command_history_context,
-    build_recent_session_events_context,
-    build_recent_success_signal_context_with_snapshot,
-};
-#[cfg(test)]
-pub(super) use self::signals::{
-    build_browser_snapshot_pending_state_context,
-    build_recent_success_signal_context,
 };
 use self::{browser_snapshot::*, filters::*, history_page::*, navigation::*, signals::*};

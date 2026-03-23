@@ -180,5 +180,4 @@ impl GuardianMajorityEngine {
             self.pending_qc_broadcasts.push_back(qc.clone());
         }
     }
-
 }

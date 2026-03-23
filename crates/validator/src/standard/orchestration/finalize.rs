@@ -113,7 +113,7 @@ mod publication;
 #[cfg(test)]
 mod tests;
 
+use self::archived_history::*;
 pub use self::post_commit::finalize_and_broadcast_block;
 pub(crate) use self::post_commit::schedule_committed_block_vote_replays;
-use self::archived_history::*;
 use self::publication::*;

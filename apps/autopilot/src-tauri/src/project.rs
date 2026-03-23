@@ -182,7 +182,8 @@ fn directory_has_visible_children(path: &Path) -> bool {
         .flat_map(|entries| entries.filter_map(|entry| entry.ok()))
         .map(|entry| entry.path())
         .any(|child| {
-            child.file_name()
+            child
+                .file_name()
                 .and_then(|value| value.to_str())
                 .map(|name| !should_skip_dir(name))
                 .unwrap_or(true)
@@ -235,19 +236,18 @@ fn safe_relative_input(relative_path: &str) -> Result<PathBuf, String> {
     if path.is_absolute() {
         return Err("Absolute paths are not allowed in the project shell.".to_string());
     }
-    if path
-        .components()
-        .any(|component| matches!(component, Component::ParentDir | Component::RootDir | Component::Prefix(_)))
-    {
+    if path.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    }) {
         return Err("Path traversal is not allowed in the project shell.".to_string());
     }
     Ok(path)
 }
 
-fn resolve_scoped_existing_path(
-    root: &PathBuf,
-    relative_path: &str,
-) -> Result<PathBuf, String> {
+fn resolve_scoped_existing_path(root: &PathBuf, relative_path: &str) -> Result<PathBuf, String> {
     let safe_relative = safe_relative_input(relative_path)?;
     let candidate = root.join(&safe_relative);
     let canonical = candidate.canonicalize().map_err(|error| {
@@ -292,7 +292,10 @@ fn language_hint_for_path(path: &Path) -> Option<String> {
     }
 }
 
-fn read_project_file_document(root: &PathBuf, relative_file_path: &str) -> Result<ProjectFileDocument, String> {
+fn read_project_file_document(
+    root: &PathBuf,
+    relative_file_path: &str,
+) -> Result<ProjectFileDocument, String> {
     let file_path = resolve_scoped_existing_path(root, relative_file_path)?;
     if file_path.is_dir() {
         return Err(format!(
@@ -301,9 +304,8 @@ fn read_project_file_document(root: &PathBuf, relative_file_path: &str) -> Resul
         ));
     }
 
-    let bytes = fs::read(&file_path).map_err(|error| {
-        format!("Failed to read '{}': {}", file_path.display(), error)
-    })?;
+    let bytes = fs::read(&file_path)
+        .map_err(|error| format!("Failed to read '{}': {}", file_path.display(), error))?;
     let size_bytes = bytes.len();
     let is_too_large = size_bytes > EDITOR_MAX_BYTES;
     let is_binary = bytes.iter().any(|byte| *byte == 0);
@@ -605,9 +607,8 @@ pub fn project_write_file(
         ));
     }
 
-    fs::write(&file_path, content.as_bytes()).map_err(|error| {
-        format!("Failed to save '{}': {}", file_path.display(), error)
-    })?;
+    fs::write(&file_path, content.as_bytes())
+        .map_err(|error| format!("Failed to save '{}': {}", file_path.display(), error))?;
 
     read_project_file_document(&root_path, &relative_path)
 }

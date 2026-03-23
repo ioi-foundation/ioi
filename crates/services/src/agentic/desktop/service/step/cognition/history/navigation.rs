@@ -50,7 +50,10 @@ pub(super) fn recent_goal_item_sequence(history: &[ChatMessage]) -> Vec<String> 
         .unwrap_or_default()
 }
 
-pub(super) fn recent_successful_tab_click_ids(history: &[ChatMessage], snapshot: &str) -> Vec<String> {
+pub(super) fn recent_successful_tab_click_ids(
+    history: &[ChatMessage],
+    snapshot: &str,
+) -> Vec<String> {
     let valid_ids = snapshot_tab_states(snapshot)
         .into_iter()
         .map(|tab| tab.semantic_id)
@@ -83,7 +86,10 @@ pub(super) fn recent_successful_tab_click_ids(history: &[ChatMessage], snapshot:
     tab_ids
 }
 
-pub(super) fn snapshot_ticket_link_for_item(snapshot: &str, item_id: &str) -> Option<SnapshotLinkState> {
+pub(super) fn snapshot_ticket_link_for_item(
+    snapshot: &str,
+    item_id: &str,
+) -> Option<SnapshotLinkState> {
     snapshot_link_states(snapshot).into_iter().find(|link| {
         !is_history_like_link(link)
             && snapshot_link_item_id(link)
@@ -92,7 +98,10 @@ pub(super) fn snapshot_ticket_link_for_item(snapshot: &str, item_id: &str) -> Op
     })
 }
 
-pub(super) fn snapshot_history_link_for_item(snapshot: &str, item_id: &str) -> Option<SnapshotLinkState> {
+pub(super) fn snapshot_history_link_for_item(
+    snapshot: &str,
+    item_id: &str,
+) -> Option<SnapshotLinkState> {
     snapshot_link_states(snapshot).into_iter().find(|link| {
         is_history_like_link(link)
             && snapshot_link_item_id(link)
@@ -216,7 +225,10 @@ pub(super) fn snapshot_visible_pagination_links(snapshot: &str) -> Vec<SnapshotL
         .collect()
 }
 
-pub(super) fn snapshot_pagination_link_for_page(snapshot: &str, page: usize) -> Option<SnapshotLinkState> {
+pub(super) fn snapshot_pagination_link_for_page(
+    snapshot: &str,
+    page: usize,
+) -> Option<SnapshotLinkState> {
     let page_label = page.to_string();
     snapshot_visible_pagination_links(snapshot)
         .into_iter()
@@ -337,7 +349,10 @@ pub(super) fn tool_output_click_semantic_id(message: &ChatMessage) -> Option<Str
     })
 }
 
-pub(super) fn recent_clicked_pagination_page_number(history: &[ChatMessage], snapshot: &str) -> Option<usize> {
+pub(super) fn recent_clicked_pagination_page_number(
+    history: &[ChatMessage],
+    snapshot: &str,
+) -> Option<usize> {
     if let Some(current_page) = snapshot_current_pagination_page(snapshot) {
         return Some(current_page);
     }
@@ -431,6 +446,7 @@ pub(super) fn snapshot_visible_instruction_query_target(
             semantic_id,
             name: name.clone(),
             semantic_role: semantic_role.clone(),
+            already_active: false,
         };
         let candidate_score = visible_target_role_priority(&semantic_role);
         let candidate_name_len = name.chars().count();
@@ -449,7 +465,9 @@ pub(super) fn snapshot_visible_instruction_query_target(
     best_match.map(|(_, _, candidate)| candidate)
 }
 
-pub(super) fn snapshot_primary_visible_heading(snapshot: &str) -> Option<SnapshotVisibleTargetState> {
+pub(super) fn snapshot_primary_visible_heading(
+    snapshot: &str,
+) -> Option<SnapshotVisibleTargetState> {
     snapshot.split('<').find_map(|fragment| {
         if !fragment.trim_start().starts_with("heading ")
             || fragment.contains(r#" omitted="true""#)
@@ -469,6 +487,7 @@ pub(super) fn snapshot_primary_visible_heading(snapshot: &str) -> Option<Snapsho
             semantic_id,
             name,
             semantic_role: "heading".to_string(),
+            already_active: false,
         })
     })
 }
@@ -572,4 +591,3 @@ pub(super) fn history_verification_tokens(text: &str) -> HashSet<String> {
         })
         .collect()
 }
-

@@ -4,10 +4,11 @@ use serde_json::{json, Value};
 
 use super::builtins::{canonical_deterministic_tool_name, is_deterministic_tool_name};
 use super::coercion::{
-    lower_edit_line_to_fs_write, normalize_install_package_arguments,
-    normalize_net_fetch_arguments, normalize_ui_click_arguments,
-    normalize_ui_click_component_arguments, normalize_ui_scroll_arguments,
-    normalize_ui_type_arguments,
+    lower_edit_line_to_fs_write, normalize_browser_click_element_arguments,
+    normalize_browser_synthetic_click_arguments, normalize_browser_wait_arguments,
+    normalize_install_package_arguments, normalize_net_fetch_arguments,
+    normalize_ui_click_arguments, normalize_ui_click_component_arguments,
+    normalize_ui_scroll_arguments, normalize_ui_type_arguments,
 };
 use super::envelope::{sanitize_json, unwrap_tool_envelope};
 use super::ToolNormalizer;
@@ -41,6 +42,8 @@ impl ToolNormalizer {
         let mut needs_wrap_nav = false;
         let mut needs_wrap_complete = false;
         let mut completion_result: Option<String> = None;
+        let mut browser_synthetic_click_present = false;
+        let mut browser_synthetic_click_args: Option<Value> = None;
 
         if let Some(map) = raw_val.as_object_mut() {
             // [FIX] Handle "recipient_name" hallucination (common in some fine-tunes)
@@ -136,6 +139,10 @@ impl ToolNormalizer {
 
             let mut net_fetch_args: Option<Value> = None;
             let mut net_fetch_present = false;
+            let mut browser_click_element_args: Option<Value> = None;
+            let mut browser_click_element_present = false;
+            let mut browser_wait_args: Option<Value> = None;
+            let mut browser_wait_present = false;
             if let Some(map_mut) = raw_val.as_object_mut() {
                 if let Some(params) = map_mut.get("parameters").cloned() {
                     map_mut.insert("arguments".to_string(), params);
@@ -244,21 +251,38 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
+                    if name == "browser__click_element" {
+                        browser_click_element_present = true;
+                        browser_click_element_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
+                    if name == "browser__wait" {
+                        browser_wait_present = true;
+                        browser_wait_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
+                    if name == "browser__synthetic_click" {
+                        browser_synthetic_click_present = true;
+                        browser_synthetic_click_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
                 }
 
                 // [NEW] Handle synthetic click aliases if LLM gets lazy
                 if let Some(name) = map_mut.get("name").and_then(|n| n.as_str()) {
-                    if name == "browser__synthetic_click" {
-                        // Ensure arguments are numbers (LLM might pass strings)
-                        if let Some(args) = map_mut.get_mut("arguments") {
-                            if let Some(x) = args.get("x").and_then(|v| v.as_f64()) {
-                                args["x"] = json!(x);
-                            }
-                            if let Some(y) = args.get("y").and_then(|v| v.as_f64()) {
-                                args["y"] = json!(y);
-                            }
-                        }
-                    } else if name == "browser__move_mouse" {
+                    if name == "browser__move_mouse" {
                         if let Some(args) = map_mut.get_mut("arguments") {
                             if let Some(x) = args.get("x").and_then(|v| v.as_f64()) {
                                 args["x"] = json!(x);
@@ -325,6 +349,27 @@ impl ToolNormalizer {
                 let normalized = normalize_net_fetch_arguments(&args)?;
                 raw_val = json!({
                     "name": "net__fetch",
+                    "arguments": normalized,
+                });
+            } else if browser_click_element_present {
+                let args = browser_click_element_args.unwrap_or_else(|| json!({}));
+                let normalized = normalize_browser_click_element_arguments(&args)?;
+                raw_val = json!({
+                    "name": "browser__click_element",
+                    "arguments": normalized,
+                });
+            } else if browser_wait_present {
+                let args = browser_wait_args.unwrap_or_else(|| json!({}));
+                let normalized = normalize_browser_wait_arguments(&args)?;
+                raw_val = json!({
+                    "name": "browser__wait",
+                    "arguments": normalized,
+                });
+            } else if browser_synthetic_click_present {
+                let args = browser_synthetic_click_args.unwrap_or_else(|| json!({}));
+                let normalized = normalize_browser_synthetic_click_arguments(&args)?;
+                raw_val = json!({
+                    "name": "browser__synthetic_click",
                     "arguments": normalized,
                 });
             }

@@ -263,7 +263,8 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
             .enumerate()
             .filter_map(|(idx, child)| (!selected_set.contains(&idx)).then_some(child))
             .collect::<Vec<_>>();
-        for omitted in collect_omitted_high_priority_nodes(&omitted_children, 6) {
+        let omitted_limit = if node_is_calendar_like(node) { 31 } else { 6 };
+        for omitted in collect_omitted_high_priority_nodes(&omitted_children, omitted_limit) {
             children_xml.push_str(&render_omitted_high_priority_node(&omitted, depth + 1));
         }
         children_xml.push_str(&format!(
@@ -327,6 +328,9 @@ pub fn serialize_tree_to_xml(node: &AccessibilityNode, depth: usize) -> String {
     }
     if node.attributes.contains_key("expanded") {
         state_attrs.push_str(" expanded=\"true\"");
+    }
+    if node.attributes.contains_key("readonly") {
+        state_attrs.push_str(" readonly=\"true\"");
     }
     if !node.is_visible {
         state_attrs.push_str(" visible=\"false\"");
@@ -447,6 +451,45 @@ fn compact_text_for_attr(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+fn compact_numeric_day_name(text: &str) -> Option<u8> {
+    let compact = compact_text_for_attr(text);
+    let day = compact.trim().parse::<u8>().ok()?;
+    (1..=31).contains(&day).then_some(day)
+}
+
+fn node_is_calendar_like(node: &AccessibilityNode) -> bool {
+    if node
+        .attributes
+        .get("class_name")
+        .map(|value| value.to_ascii_lowercase())
+        .is_some_and(|value| value.contains("calendar") || value.contains("datepicker"))
+    {
+        return true;
+    }
+
+    let mut day_like_children = 0usize;
+    let mut navigation_children = 0usize;
+    for child in &node.children {
+        let Some(name) = child.name.as_deref() else {
+            continue;
+        };
+
+        if child.is_interactive() && compact_numeric_day_name(name).is_some() {
+            day_like_children += 1;
+            continue;
+        }
+
+        if child.is_interactive() {
+            let lowered = compact_text_for_attr(name).to_ascii_lowercase();
+            if matches!(lowered.as_str(), "prev" | "next") {
+                navigation_children += 1;
+            }
+        }
+    }
+
+    day_like_children >= 14 && navigation_children >= 1
+}
+
 fn vertical_overlap(a: &Rect, b: &Rect) -> i32 {
     let top = a.y.max(b.y);
     let bottom = (a.y.saturating_add(a.height)).min(b.y.saturating_add(b.height));
@@ -460,6 +503,78 @@ fn omitted_context_text(node: &AccessibilityNode) -> Option<String> {
         .or(node.value.as_deref())
         .map(compact_text_for_attr)?;
     (!text.is_empty()).then_some(text)
+}
+
+fn text_contains_compact_measurement(text: &str) -> bool {
+    let compact = compact_text_for_attr(text);
+    if compact.is_empty() {
+        return false;
+    }
+
+    if compact.contains('$') || compact.contains('%') {
+        return true;
+    }
+
+    let lower = compact.to_ascii_lowercase();
+    if lower.contains("duration") && lower.chars().any(|ch| ch.is_ascii_digit()) {
+        return true;
+    }
+
+    let tokens = lower
+        .split_whitespace()
+        .map(|token| {
+            token
+                .trim_matches(|ch: char| !ch.is_ascii_alphanumeric())
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+
+    for idx in 0..tokens.len() {
+        let token = &tokens[idx];
+        if token
+            .strip_suffix('h')
+            .is_some_and(|value| value.parse::<u32>().is_ok())
+            && tokens
+                .get(idx + 1)
+                .and_then(|next| next.strip_suffix('m'))
+                .is_some_and(|value| value.parse::<u32>().is_ok())
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn omitted_context_priority_bonus(
+    target: &AccessibilityNode,
+    candidate: &AccessibilityNode,
+    text: &str,
+) -> i16 {
+    let text_len = text.chars().count();
+    let mut score = 0i16;
+
+    if text_len <= 16 {
+        score += 6;
+    } else if text_len <= 32 {
+        score += 4;
+    } else if text_len <= 48 {
+        score += 2;
+    }
+
+    if text_contains_compact_measurement(text) {
+        score += 8;
+    }
+
+    let target_height = target.rect.height.max(1);
+    if candidate.rect.height > target_height.saturating_mul(2) && text_len > 48 {
+        score -= 8;
+    }
+    if candidate.rect.width > target.rect.width.saturating_mul(4) && text_len > 48 {
+        score -= 4;
+    }
+
+    score
 }
 
 fn omitted_row_context(
@@ -509,7 +624,7 @@ fn omitted_row_context(
             continue;
         }
 
-        let mut score = 0u8;
+        let mut score = 0i16;
         if overlap > 0 {
             score = score.saturating_add(8);
         }
@@ -519,8 +634,9 @@ fn omitted_row_context(
         if candidate.rect.width > 0 && candidate.rect.height > 0 {
             score = score.saturating_add(1);
         }
+        score += omitted_context_priority_bonus(node, candidate, &text);
 
-        ranked.push((score, order, candidate.rect.x, text));
+        ranked.push((score, order, text.chars().count(), candidate.rect.x, text));
     }
 
     ranked.sort_by(|left, right| {
@@ -528,12 +644,13 @@ fn omitted_row_context(
             .0
             .cmp(&left.0)
             .then(left.2.cmp(&right.2))
+            .then(left.3.cmp(&right.3))
             .then(left.1.cmp(&right.1))
     });
 
     let mut chosen = Vec::new();
     let mut total_chars = 0usize;
-    for (_, _, _, text) in ranked {
+    for (_, _, _, _, text) in ranked {
         let next_len = total_chars + text.chars().count();
         if !chosen.is_empty() && next_len > 96 {
             break;
@@ -641,6 +758,9 @@ fn render_omitted_high_priority_node(node: &OmittedHighPriorityNode<'_>, depth: 
     }
     if node.node.attributes.contains_key("selected") {
         state_attrs.push_str(" selected=\"true\"");
+    }
+    if node.node.attributes.contains_key("readonly") {
+        state_attrs.push_str(" readonly=\"true\"");
     }
     state_attrs.push_str(&browser_locator_attrs(node.node, 48));
 
@@ -967,7 +1087,29 @@ fn browser_locator_attrs(node: &AccessibilityNode, max_len: usize) -> String {
         ));
     }
 
-    for key in ["shape_kind", "shape_size", "shape_color", "data_index"] {
+    for key in [
+        "shape_kind",
+        "shape_size",
+        "shape_color",
+        "geometry_role",
+        "connected_lines",
+        "connected_points",
+        "connected_points_precise",
+        "connected_line_angles_deg",
+        "connected_line_angles_deg_precise",
+        "angle_mid_deg",
+        "angle_span_deg",
+        "data_index",
+        "radius",
+        "center_x_precise",
+        "center_y_precise",
+        "line_x1",
+        "line_y1",
+        "line_x2",
+        "line_y2",
+        "line_length",
+        "line_angle_deg",
+    ] {
         if let Some(value) = node
             .attributes
             .get(key)
@@ -1066,6 +1208,7 @@ mod tests {
                 ("dom_id".to_string(), "options".to_string()),
                 ("tag_name".to_string(), "select".to_string()),
                 ("focused".to_string(), "true".to_string()),
+                ("readonly".to_string(), "true".to_string()),
             ]),
             som_id: None,
         };
@@ -1078,6 +1221,7 @@ mod tests {
             "{xml}"
         );
         assert!(xml.contains(r#"focused="true""#), "{xml}");
+        assert!(xml.contains(r#"readonly="true""#), "{xml}");
     }
 
     #[test]
@@ -1247,7 +1391,26 @@ mod tests {
                 ("tag_name".to_string(), "rect".to_string()),
                 ("shape_kind".to_string(), "rectangle".to_string()),
                 ("shape_size".to_string(), "large".to_string()),
+                ("geometry_role".to_string(), "vertex".to_string()),
+                ("connected_lines".to_string(), "2".to_string()),
+                ("connected_points".to_string(), "71,125|91,81".to_string()),
+                (
+                    "connected_points_precise".to_string(),
+                    "71.125,125.5|91.375,81.25".to_string(),
+                ),
+                (
+                    "connected_line_angles_deg".to_string(),
+                    "-24|23".to_string(),
+                ),
+                (
+                    "connected_line_angles_deg_precise".to_string(),
+                    "-24.228|23.025".to_string(),
+                ),
+                ("angle_mid_deg".to_string(), "0".to_string()),
+                ("angle_span_deg".to_string(), "47".to_string()),
                 ("data_index".to_string(), "2".to_string()),
+                ("center_x_precise".to_string(), "40.25".to_string()),
+                ("center_y_precise".to_string(), "110.75".to_string()),
             ]),
             som_id: None,
         };
@@ -1256,9 +1419,68 @@ mod tests {
         assert!(xml.contains(r#"tag_name="rect""#), "{xml}");
         assert!(xml.contains(r#"shape_kind="rectangle""#), "{xml}");
         assert!(xml.contains(r#"shape_size="large""#), "{xml}");
+        assert!(xml.contains(r#"geometry_role="vertex""#), "{xml}");
+        assert!(xml.contains(r#"connected_lines="2""#), "{xml}");
+        assert!(xml.contains(r#"connected_points="71,125|91,81""#), "{xml}");
+        assert!(
+            xml.contains(r#"connected_points_precise="71.125,125.5|91.375,81.25""#),
+            "{xml}"
+        );
+        assert!(
+            xml.contains(r#"connected_line_angles_deg="-24|23""#),
+            "{xml}"
+        );
+        assert!(
+            xml.contains(r#"connected_line_angles_deg_precise="-24.228|23.025""#),
+            "{xml}"
+        );
+        assert!(xml.contains(r#"angle_mid_deg="0""#), "{xml}");
+        assert!(xml.contains(r#"angle_span_deg="47""#), "{xml}");
         assert!(xml.contains(r#"data_index="2""#), "{xml}");
+        assert!(xml.contains(r#"center_x_precise="40.25""#), "{xml}");
+        assert!(xml.contains(r#"center_y_precise="110.75""#), "{xml}");
         assert!(xml.contains(r#"center_x="40""#), "{xml}");
         assert!(xml.contains(r#"center_y="110""#), "{xml}");
+    }
+
+    #[test]
+    fn serialize_tree_to_xml_includes_svg_line_geometry_attrs() {
+        let node = AccessibilityNode {
+            id: "grp_line".to_string(),
+            role: "generic".to_string(),
+            name: Some("line from 31,108 to 71,125".to_string()),
+            value: None,
+            rect: Rect {
+                x: 31,
+                y: 108,
+                width: 40,
+                height: 17,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([
+                ("tag_name".to_string(), "line".to_string()),
+                ("shape_kind".to_string(), "line".to_string()),
+                ("line_x1".to_string(), "31".to_string()),
+                ("line_y1".to_string(), "108".to_string()),
+                ("line_x2".to_string(), "71".to_string()),
+                ("line_y2".to_string(), "125".to_string()),
+                ("line_length".to_string(), "43".to_string()),
+                ("line_angle_deg".to_string(), "23".to_string()),
+            ]),
+            som_id: None,
+        };
+
+        let xml = serialize_tree_to_xml(&node, 0);
+        assert!(xml.contains(r#"shape_kind="line""#), "{xml}");
+        assert!(xml.contains(r#"line_x1="31""#), "{xml}");
+        assert!(xml.contains(r#"line_y1="108""#), "{xml}");
+        assert!(xml.contains(r#"line_x2="71""#), "{xml}");
+        assert!(xml.contains(r#"line_y2="125""#), "{xml}");
+        assert!(xml.contains(r#"line_length="43""#), "{xml}");
+        assert!(xml.contains(r#"line_angle_deg="23""#), "{xml}");
+        assert!(xml.contains(r#"center_x="51""#), "{xml}");
+        assert!(xml.contains(r#"center_y="116""#), "{xml}");
     }
 
     #[test]
@@ -1608,6 +1830,199 @@ mod tests {
             xml.contains(r#"context="Unassigned / Awaiting Dispatch""#),
             "{xml}"
         );
+    }
+
+    #[test]
+    fn serialize_tree_to_xml_prefers_compact_metric_context_for_omitted_actionable_targets() {
+        let mut children = (0..25)
+            .map(|idx| AccessibilityNode {
+                id: format!("btn_{idx}"),
+                role: "button".to_string(),
+                name: Some(format!("Action {idx}")),
+                value: None,
+                rect: Rect {
+                    x: 0,
+                    y: idx * 14,
+                    width: 80,
+                    height: 12,
+                },
+                children: vec![],
+                is_visible: true,
+                attributes: HashMap::from([("dom_id".to_string(), format!("action-{idx}"))]),
+                som_id: None,
+            })
+            .collect::<Vec<_>>();
+        children.push(AccessibilityNode {
+            id: "grp_flight_row".to_string(),
+            role: "generic".to_string(),
+            name: Some(
+                "Depart: 1:13 AM Fri Oct 07 2016 Kiana, AK (IAN) Arrives: 5:09 AM Fri Oct 07 2016 Augusta, GA Duration: 3h 56m Book flight for $944"
+                    .to_string(),
+            ),
+            value: None,
+            rect: Rect {
+                x: 3,
+                y: 473,
+                width: 144,
+                height: 125,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([("tag_name".to_string(), "div".to_string())]),
+            som_id: None,
+        });
+        children.push(AccessibilityNode {
+            id: "grp_duration_row".to_string(),
+            role: "generic".to_string(),
+            name: Some("Duration: 3h 56m".to_string()),
+            value: None,
+            rect: Rect {
+                x: 5,
+                y: 545,
+                width: 140,
+                height: 13,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([("tag_name".to_string(), "div".to_string())]),
+            som_id: None,
+        });
+        children.push(AccessibilityNode {
+            id: "grp_duration_value".to_string(),
+            role: "generic".to_string(),
+            name: Some("3h 56m".to_string()),
+            value: None,
+            rect: Rect {
+                x: 48,
+                y: 546,
+                width: 97,
+                height: 11,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([("tag_name".to_string(), "div".to_string())]),
+            som_id: None,
+        });
+        children.push(AccessibilityNode {
+            id: "btn_book_flight_for_944".to_string(),
+            role: "button".to_string(),
+            name: Some("Book flight for $944".to_string()),
+            value: None,
+            rect: Rect {
+                x: 12,
+                y: 560,
+                width: 126,
+                height: 34,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([
+                ("dom_id".to_string(), "book-flight-944".to_string()),
+                ("class_name".to_string(), "flight-price".to_string()),
+            ]),
+            som_id: None,
+        });
+        let root = AccessibilityNode {
+            id: "root_dom_fallback_tree".to_string(),
+            role: "root".to_string(),
+            name: Some("DOM fallback tree".to_string()),
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 600,
+            },
+            children,
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let xml = serialize_tree_to_xml(&root, 0);
+        assert!(xml.contains(r#"id="btn_book_flight_for_944""#), "{xml}");
+        assert!(
+            xml.contains(r#"context="3h 56m / Duration: 3h 56m""#),
+            "{xml}"
+        );
+        assert!(!xml.contains(r#"context="Depart: 1:13 AM"#), "{xml}");
+    }
+
+    #[test]
+    fn serialize_tree_to_xml_keeps_omitted_calendar_days_available() {
+        let mut calendar_children = (0..25)
+            .map(|idx| AccessibilityNode {
+                id: format!("grp_header_{idx}"),
+                role: "generic".to_string(),
+                name: Some(format!("Header {idx}")),
+                value: None,
+                rect: Rect {
+                    x: 0,
+                    y: idx,
+                    width: 10,
+                    height: 10,
+                },
+                children: vec![],
+                is_visible: true,
+                attributes: HashMap::new(),
+                som_id: None,
+            })
+            .collect::<Vec<_>>();
+        calendar_children.extend((1..=31).map(|day| AccessibilityNode {
+            id: format!("lnk_{day}"),
+            role: "link".to_string(),
+            name: Some(day.to_string()),
+            value: None,
+            rect: Rect {
+                x: day as i32,
+                y: 60 + day as i32,
+                width: 10,
+                height: 10,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([("class_name".to_string(), "ui-state-default".to_string())]),
+            som_id: None,
+        }));
+        let root = AccessibilityNode {
+            id: "root_dom_fallback_tree".to_string(),
+            role: "root".to_string(),
+            name: Some("DOM fallback tree".to_string()),
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 600,
+            },
+            children: vec![AccessibilityNode {
+                id: "grp_calendar".to_string(),
+                role: "generic".to_string(),
+                name: Some("Calendar".to_string()),
+                value: None,
+                rect: Rect {
+                    x: 0,
+                    y: 0,
+                    width: 200,
+                    height: 200,
+                },
+                children: calendar_children,
+                is_visible: true,
+                attributes: HashMap::from([(
+                    "class_name".to_string(),
+                    "ui-datepicker-calendar".to_string(),
+                )]),
+                som_id: None,
+            }],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let xml = serialize_tree_to_xml(&root, 0);
+        assert!(xml.contains(r#"id="lnk_20""#), "{xml}");
+        assert!(xml.contains(r#"id="lnk_31""#), "{xml}");
+        assert!(xml.contains(r#"omitted="true""#), "{xml}");
     }
 }
 

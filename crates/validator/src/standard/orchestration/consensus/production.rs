@@ -72,7 +72,10 @@ pub(super) fn trim_candidate_transactions_to_byte_budget(
     Ok(selected)
 }
 
-pub(super) fn dispatch_swarm_command(sender: &tokio::sync::mpsc::Sender<SwarmCommand>, command: SwarmCommand) {
+pub(super) fn dispatch_swarm_command(
+    sender: &tokio::sync::mpsc::Sender<SwarmCommand>,
+    command: SwarmCommand,
+) {
     match sender.try_send(command) {
         Ok(()) => {}
         Err(tokio::sync::mpsc::error::TrySendError::Full(command)) => {
@@ -258,7 +261,6 @@ where
 
     Ok(())
 }
-
 
 pub(super) fn parent_ref_from_last_committed_or_recovered_tip(
     last_committed_block_opt: &Option<Block<ChainTransaction>>,
@@ -1807,4 +1809,3 @@ pub(super) fn verify_batch_and_filter(
     }
     Ok(valid_txs)
 }
-

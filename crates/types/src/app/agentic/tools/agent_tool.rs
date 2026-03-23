@@ -9,6 +9,15 @@ fn default_true() -> bool {
     true
 }
 
+/// A typed nested tool invocation payload used by higher-level primitives.
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
+pub struct AgentToolCall {
+    /// The nested tool name, for example `browser__click_element`.
+    pub name: String,
+    /// The nested tool arguments payload.
+    pub arguments: serde_json::Value,
+}
+
 /// The single source of truth for all Agent Capabilities.
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 #[serde(tag = "name", content = "arguments", rename_all = "snake_case")]
@@ -211,8 +220,24 @@ pub enum AgentTool {
     /// Clicks an element in the browser by semantic ID from `browser__snapshot`.
     #[serde(rename = "browser__click_element")]
     BrowserClickElement {
-        /// Stable semantic ID of element (e.g. "btn_submit").
-        id: String,
+        /// Stable semantic ID of a single element (e.g. "btn_submit").
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        /// Ordered semantic IDs from `browser__snapshot` to click in sequence.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        ids: Vec<String>,
+        /// Optional fixed delay inserted between consecutive `ids` clicks.
+        ///
+        /// Use this only with ordered `ids` when a precise delay matters enough that another
+        /// inference round would introduce avoidable timing drift.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        delay_ms_between_ids: Option<u64>,
+        /// Optional immediate follow-up browser action to execute after the click succeeds.
+        ///
+        /// This is useful when a visible gate or commit click should hand off immediately to a
+        /// grounded browser action without another inference turn.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        continue_with: Option<AgentToolCall>,
     },
 
     /// Move the browser pointer onto a target without clicking.
@@ -224,14 +249,24 @@ pub enum AgentTool {
         /// Optional semantic ID from `browser__snapshot`. Provide this or `selector`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
+        /// Optional duration to keep reacquiring the target without another inference turn.
+        ///
+        /// Use this when the target moves or when hover must be maintained over time.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u64>,
+        /// Optional refresh interval used while `duration_ms` tracking is active.
+        ///
+        /// Smaller values follow moving targets more closely but spend more runtime budget.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resample_interval_ms: Option<u64>,
     },
 
     /// Move the browser pointer to raw viewport coordinates.
     #[serde(rename = "browser__move_mouse")]
     BrowserMoveMouse {
-        /// X coordinate relative to viewport.
+        /// Absolute X coordinate in viewport CSS pixels.
         x: f64,
-        /// Y coordinate relative to viewport.
+        /// Absolute Y coordinate in viewport CSS pixels.
         y: f64,
     },
 
@@ -254,10 +289,16 @@ pub enum AgentTool {
     /// Synthetic click for background execution.
     #[serde(rename = "browser__synthetic_click")]
     BrowserSyntheticClick {
-        /// X coordinate relative to viewport.
+        /// Absolute X coordinate in viewport CSS pixels.
         x: f64,
-        /// Y coordinate relative to viewport.
+        /// Absolute Y coordinate in viewport CSS pixels.
         y: f64,
+        /// Optional immediate follow-up browser action to execute after the click succeeds.
+        ///
+        /// Use this when the coordinate action and the next browser action are already
+        /// grounded and another inference turn would introduce avoidable delay.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        continue_with: Option<AgentToolCall>,
     },
 
     /// Scroll the browser viewport (headless-compatible).
@@ -369,6 +410,12 @@ pub enum AgentTool {
         /// Optional timeout in milliseconds for condition waits.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         timeout_ms: Option<u64>,
+        /// Optional immediate follow-up browser action to execute as soon as the wait completes.
+        ///
+        /// Use this when the next browser action is already grounded and timing matters enough
+        /// that another inference round would introduce avoidable delay.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        continue_with: Option<AgentToolCall>,
     },
 
     /// Attach one or more local files to a browser file input.

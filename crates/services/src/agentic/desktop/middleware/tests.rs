@@ -1,5 +1,6 @@
 use super::*;
 use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use serde_json::json;
 
 #[test]
 fn test_normalize_clean_json() {
@@ -172,6 +173,91 @@ fn test_schema_violation_for_builtin_tool_is_rejected() {
     let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
     assert!(err.to_string().contains("Schema Validation Error"));
     assert!(err.to_string().contains("browser__navigate"));
+}
+
+#[test]
+fn test_normalize_browser_wait_with_follow_up_click_element() {
+    let input = r#"{
+        "name": "browser__wait",
+        "arguments": {
+            "ms": 2000,
+            "continue_with": {
+                "name": "browser__click_element",
+                "arguments": { "id": "btn_two" }
+            }
+        }
+    }"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserWait {
+            ms, continue_with, ..
+        } => {
+            assert_eq!(ms, Some(2000));
+            let continue_with = continue_with.expect("follow-up should be present");
+            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(continue_with.arguments["id"], "btn_two");
+        }
+        other => panic!("Expected BrowserWait, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_normalize_browser_wait_with_follow_up_shorthand_arguments() {
+    let input = r#"{
+        "name": "browser__wait",
+        "arguments": {
+            "ms": 2000,
+            "continue_with": {
+                "name": "browser__click_element",
+                "id": "btn_two"
+            }
+        }
+    }"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserWait {
+            ms, continue_with, ..
+        } => {
+            assert_eq!(ms, Some(2000));
+            let continue_with = continue_with.expect("follow-up should be present");
+            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(continue_with.arguments, json!({ "id": "btn_two" }));
+        }
+        other => panic!("Expected BrowserWait, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_normalize_browser_click_element_with_follow_up_shorthand_arguments() {
+    let input = r#"{
+        "name": "browser__click_element",
+        "arguments": {
+            "id": "grp_start",
+            "continue_with": {
+                "name": "browser__click_element",
+                "ids": ["btn_one", "btn_two"],
+                "delay_ms_between_ids": 2000
+            }
+        }
+    }"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserClickElement {
+            id, continue_with, ..
+        } => {
+            assert_eq!(id.as_deref(), Some("grp_start"));
+            let continue_with = continue_with.expect("follow-up should be present");
+            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(
+                continue_with.arguments,
+                json!({
+                    "ids": ["btn_one", "btn_two"],
+                    "delay_ms_between_ids": 2000
+                })
+            );
+        }
+        other => panic!("Expected BrowserClickElement, got {:?}", other),
+    }
 }
 
 #[test]
@@ -355,12 +441,67 @@ fn test_normalize_synthetic_click() {
     let input = r#"{"name": "browser__synthetic_click", "arguments": {"x": 100.5, "y": 200.1}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
-        AgentTool::BrowserSyntheticClick { x, y } => {
+        AgentTool::BrowserSyntheticClick {
+            x,
+            y,
+            continue_with,
+        } => {
             assert!((x - 100.5).abs() < f64::EPSILON);
             assert!((y - 200.1).abs() < f64::EPSILON);
+            assert!(continue_with.is_none());
         }
         _ => panic!("Wrong tool type"),
     }
+}
+
+#[test]
+fn test_normalize_synthetic_click_with_follow_up_shorthand_arguments() {
+    let input = r#"{
+        "name": "browser__synthetic_click",
+        "arguments": {
+            "x": "85.012",
+            "y": "105.824",
+            "continue_with": {
+                "name": "browser__click_element",
+                "id": "btn_submit"
+            }
+        }
+    }"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserSyntheticClick {
+            x,
+            y,
+            continue_with,
+        } => {
+            assert!((x - 85.012).abs() < f64::EPSILON);
+            assert!((y - 105.824).abs() < f64::EPSILON);
+            let continue_with = continue_with.expect("follow-up should be present");
+            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(continue_with.arguments, json!({ "id": "btn_submit" }));
+        }
+        other => panic!("Expected BrowserSyntheticClick, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_normalize_synthetic_click_rejects_pointer_state_follow_up() {
+    let input = r#"{
+        "name": "browser__synthetic_click",
+        "arguments": {
+            "x": 85,
+            "y": 107,
+            "continue_with": {
+                "name": "browser__mouse_down",
+                "arguments": {}
+            }
+        }
+    }"#;
+    let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+    assert!(err.to_string().contains("Schema Validation Error"));
+    assert!(err.to_string().contains(
+        "browser__synthetic_click continue_with does not allow pointer button state changes"
+    ));
 }
 
 #[test]

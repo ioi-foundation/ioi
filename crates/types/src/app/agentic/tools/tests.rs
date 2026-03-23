@@ -1,4 +1,6 @@
 use super::*;
+use crate::app::agentic::AgentToolCall;
+use serde_json::json;
 
 fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
     match tool {
@@ -255,9 +257,59 @@ fn filesystem_create_zip_target_maps_to_custom_scope() {
 #[test]
 fn browser_click_element_target_maps_to_browser_click_element_scope() {
     let tool = AgentTool::BrowserClickElement {
-        id: "btn_submit".to_string(),
+        id: Some("btn_submit".to_string()),
+        ids: Vec::new(),
+        delay_ms_between_ids: None,
+        continue_with: None,
     };
     assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_click_element_serializes_timed_sequence() {
+    let tool = AgentTool::BrowserClickElement {
+        id: None,
+        ids: vec!["btn_one".to_string(), "btn_two".to_string()],
+        delay_ms_between_ids: Some(2_000),
+        continue_with: None,
+    };
+
+    let payload = serde_json::to_value(&tool).expect("serialize tool");
+    assert_eq!(payload["name"], "browser__click_element");
+    assert_eq!(payload["arguments"]["ids"], json!(["btn_one", "btn_two"]));
+    assert_eq!(payload["arguments"]["delay_ms_between_ids"], 2_000);
+}
+
+#[test]
+fn browser_click_element_serializes_follow_up_browser_action() {
+    let tool = AgentTool::BrowserClickElement {
+        id: Some("grp_start".to_string()),
+        ids: Vec::new(),
+        delay_ms_between_ids: None,
+        continue_with: Some(AgentToolCall {
+            name: "browser__click_element".to_string(),
+            arguments: json!({
+                "ids": ["btn_one", "btn_two"],
+                "delay_ms_between_ids": 2_000
+            }),
+        }),
+    };
+
+    let payload = serde_json::to_value(&tool).expect("serialize tool");
+    assert_eq!(payload["name"], "browser__click_element");
+    assert_eq!(payload["arguments"]["id"], "grp_start");
+    assert_eq!(
+        payload["arguments"]["continue_with"]["name"],
+        "browser__click_element"
+    );
+    assert_eq!(
+        payload["arguments"]["continue_with"]["arguments"]["ids"],
+        json!(["btn_one", "btn_two"])
+    );
+    assert_eq!(
+        payload["arguments"]["continue_with"]["arguments"]["delay_ms_between_ids"],
+        2_000
+    );
 }
 
 #[test]
@@ -265,6 +317,8 @@ fn browser_pointer_primitives_target_map_to_browser_interact_scope() {
     let hover_tool = AgentTool::BrowserHover {
         selector: Some("#highlight".to_string()),
         id: None,
+        duration_ms: None,
+        resample_interval_ms: None,
     };
     let move_tool = AgentTool::BrowserMoveMouse { x: 120.0, y: 80.0 };
     let down_tool = AgentTool::BrowserMouseDown {
@@ -287,6 +341,22 @@ fn browser_pointer_primitives_target_map_to_browser_interact_scope() {
         crate::app::ActionTarget::BrowserInteract
     );
     assert_eq!(up_tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_hover_serializes_tracking_window() {
+    let tool = AgentTool::BrowserHover {
+        selector: None,
+        id: Some("grp_circ".to_string()),
+        duration_ms: Some(3_000),
+        resample_interval_ms: Some(75),
+    };
+
+    let payload = serde_json::to_value(&tool).expect("serialize tool");
+    assert_eq!(payload["name"], "browser__hover");
+    assert_eq!(payload["arguments"]["id"], "grp_circ");
+    assert_eq!(payload["arguments"]["duration_ms"], 3_000);
+    assert_eq!(payload["arguments"]["resample_interval_ms"], 75);
 }
 
 #[test]
@@ -375,8 +445,59 @@ fn browser_wait_target_maps_to_browser_interact_scope() {
         query: None,
         scope: None,
         timeout_ms: None,
+        continue_with: None,
     };
     assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_wait_serializes_follow_up_browser_action() {
+    let tool = AgentTool::BrowserWait {
+        ms: Some(2000),
+        condition: None,
+        selector: None,
+        query: None,
+        scope: None,
+        timeout_ms: None,
+        continue_with: Some(AgentToolCall {
+            name: "browser__click_element".to_string(),
+            arguments: json!({ "id": "btn_two" }),
+        }),
+    };
+
+    let payload = serde_json::to_value(&tool).expect("serialize tool");
+    assert_eq!(payload["name"], "browser__wait");
+    assert_eq!(
+        payload["arguments"]["continue_with"]["name"],
+        "browser__click_element"
+    );
+    assert_eq!(
+        payload["arguments"]["continue_with"]["arguments"]["id"],
+        "btn_two"
+    );
+}
+
+#[test]
+fn browser_synthetic_click_serializes_follow_up_browser_action() {
+    let tool = AgentTool::BrowserSyntheticClick {
+        x: 85.012,
+        y: 105.824,
+        continue_with: Some(AgentToolCall {
+            name: "browser__click_element".to_string(),
+            arguments: json!({ "id": "btn_submit" }),
+        }),
+    };
+
+    let payload = serde_json::to_value(&tool).expect("serialize tool");
+    assert_eq!(payload["name"], "browser__synthetic_click");
+    assert_eq!(
+        payload["arguments"]["continue_with"]["name"],
+        "browser__click_element"
+    );
+    assert_eq!(
+        payload["arguments"]["continue_with"]["arguments"]["id"],
+        "btn_submit"
+    );
 }
 
 #[test]

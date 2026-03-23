@@ -54,7 +54,9 @@ pub(super) struct DispatchUpdateExpectation {
     pub(super) note: Option<String>,
 }
 
-pub(super) fn recent_dispatch_update_expectation(history: &[ChatMessage]) -> DispatchUpdateExpectation {
+pub(super) fn recent_dispatch_update_expectation(
+    history: &[ChatMessage],
+) -> DispatchUpdateExpectation {
     let mut expectation = DispatchUpdateExpectation::default();
 
     for message in history.iter().rev() {
@@ -98,10 +100,14 @@ pub(super) fn snapshot_mentions_dropdown_locator(snapshot: &str, locator: &str) 
     let semantic_id_marker = format!(r#"id="{}""#, locator);
     let selector_marker = format!(r#"selector="{}""#, locator);
     let compact_summary_marker = format!("#{locator}");
+    let compact_summary_raw = format!("{locator} tag=");
+    let compact_summary_attr = format!("id={locator}");
 
     snapshot.contains(&semantic_id_marker)
         || snapshot.contains(&selector_marker)
         || snapshot.contains(&compact_summary_marker)
+        || snapshot.contains(&compact_summary_raw)
+        || snapshot.contains(&compact_summary_attr)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

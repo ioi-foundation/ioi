@@ -67,7 +67,9 @@ pub(super) struct GuardianRegistryPublisher {
     pub(super) chain_id: ioi_types::app::ChainId,
 }
 
-pub(super) fn local_account_id_from_keypair(local_keypair: &libp2p::identity::Keypair) -> Result<AccountId> {
+pub(super) fn local_account_id_from_keypair(
+    local_keypair: &libp2p::identity::Keypair,
+) -> Result<AccountId> {
     Ok(AccountId(account_id_from_key_material(
         SignatureSuite::ED25519,
         &local_keypair.public().encode_protobuf(),
@@ -135,7 +137,9 @@ pub(super) fn experimental_multi_witness_parity_threshold(share_count: u16) -> O
     (share_count >= EXPERIMENTAL_SYSTEMATIC_XOR_MIN_SHARE_COUNT).then_some(share_count - 1)
 }
 
-pub(super) fn experimental_multi_witness_parity_threshold_for_len(share_count: usize) -> Option<u16> {
+pub(super) fn experimental_multi_witness_parity_threshold_for_len(
+    share_count: usize,
+) -> Option<u16> {
     u16::try_from(share_count)
         .ok()
         .and_then(experimental_multi_witness_parity_threshold)

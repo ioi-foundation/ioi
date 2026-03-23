@@ -1705,5 +1705,4 @@ impl GuardianRegistry {
         let slices = extracted.iter().map(Vec::as_slice).collect::<Vec<_>>();
         stitch_recovered_restart_block_header_segments(&slices).map_err(StateError::Validation)
     }
-
 }

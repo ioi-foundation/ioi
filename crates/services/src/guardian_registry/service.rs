@@ -1945,4 +1945,3 @@ impl UpgradableService for GuardianRegistry {
         Ok(())
     }
 }
-

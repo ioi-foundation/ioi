@@ -9,7 +9,8 @@ const SOURCE_ENV_KEYS: &[&str] = &[
     "COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR",
     "MINIWOB_SOURCE_DIR",
 ];
-const DEFAULT_CATALOG_SURVEY_MAX_STEPS: u32 = 8;
+const DEFAULT_CATALOG_SURVEY_MAX_STEPS: u32 = 14;
+const DEFAULT_CATALOG_SURVEY_TIMEOUT_SECONDS: u64 = 20;
 
 pub fn cases(source_dir: Option<&Path>) -> Result<Vec<ComputerUseCase>> {
     let html_root = discover_html_root(source_dir)?;
@@ -93,7 +94,7 @@ fn case_for_env_id(env_id: &str) -> ComputerUseCase {
         seed: survey_seed(env_id),
         task_set: TaskSet::Catalog,
         max_steps: DEFAULT_CATALOG_SURVEY_MAX_STEPS,
-        timeout_seconds: 12,
+        timeout_seconds: DEFAULT_CATALOG_SURVEY_TIMEOUT_SECONDS,
         allowed_tool_profile: AllowedToolProfile::BrowserCore,
         expected_reward_floor: 1.0,
         expected_pass: true,

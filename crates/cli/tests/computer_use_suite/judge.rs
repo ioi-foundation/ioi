@@ -1,3 +1,4 @@
+use super::reward_meets_floor;
 use super::types::{
     AllowedToolProfile, BenchmarkSupportState, ComputerUseCase, ComputerUseCaseResult,
     ComputerUseMode, GapClass, KernelBehaviorObservation, LocalJudge, RecipeId, ValidationSummary,
@@ -96,7 +97,7 @@ pub fn judge_case(
                 .info
                 .raw_reward
                 .unwrap_or(result.final_reward);
-            let reward_floor_met = effective_reward >= case.expected_reward_floor;
+            let reward_floor_met = reward_meets_floor(effective_reward, case.expected_reward_floor);
             let mut notes = Vec::new();
             if effective_reward != result.final_reward {
                 notes.push(format!(
@@ -588,6 +589,37 @@ mod tests {
         assert!(judged.validation.task_success);
         assert!(judged.validation.reward_floor_met);
         assert!(judged.failure_class.is_none());
+    }
+
+    #[test]
+    fn miniwob_reward_judge_tolerates_float_noise_at_reward_floor() {
+        let case = ComputerUseCase {
+            id: "bisect".to_string(),
+            env_id: "bisect-angle".to_string(),
+            seed: 1,
+            task_set: TaskSet::Catalog,
+            max_steps: 8,
+            timeout_seconds: 20,
+            allowed_tool_profile: AllowedToolProfile::BrowserCore,
+            expected_reward_floor: 1.0,
+            expected_pass: true,
+            local_judge: LocalJudge::MiniwobReward,
+            recipe: RecipeId::SurveyOnly,
+        };
+
+        let mut result = base_result();
+        result.mode = ComputerUseMode::Agent;
+        result.terminated = true;
+        result.final_reward = 0.0633;
+        result.bridge_state.reward = 0.0633;
+        result.bridge_state.info.raw_reward = Some(0.999_999_94);
+        result.kernel_behavior.executed_tools = vec!["browser__synthetic_click".to_string()];
+        result.failure_class = None;
+
+        let judged = judge_case(&case, result);
+        assert!(judged.overall_pass);
+        assert!(judged.validation.task_success);
+        assert!(judged.validation.reward_floor_met);
     }
 
     #[test]

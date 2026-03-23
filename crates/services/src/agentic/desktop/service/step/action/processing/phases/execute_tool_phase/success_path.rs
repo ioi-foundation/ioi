@@ -16,6 +16,7 @@ use std::collections::HashSet;
 
 const TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT: usize = 3_200;
 const TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT: usize = 1_800;
+const TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT: usize = 520;
 const MEDIA_TRANSCRIPT_CONTEXT_EXCERPT_LIMIT: usize = 6;
 const MEDIA_TRANSCRIPT_CONTEXT_EXCERPT_CHARS: usize = 220;
 const MEDIA_VISUAL_CONTEXT_FRAME_LIMIT: usize = 6;
@@ -376,6 +377,15 @@ fn browser_fragment_priority_score_for_chat(fragment: &str, tag_name: &str) -> O
     }
 
     let mut score = 0u8;
+    let normalized_name = extract_browser_xml_attr_for_chat(fragment, "name")
+        .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_ascii_lowercase());
+    let has_direct_locator = fragment.contains(" dom_id=\"")
+        || fragment.contains(" selector=\"")
+        || fragment.contains(" dom_clickable=\"true\"");
+    let has_grounded_geometry = fragment.contains(" shape_kind=\"")
+        && (fragment.contains(" center_x=\"") || fragment.contains(" line_x1=\""));
 
     if fragment.contains(" dom_id=\"") {
         score = score.saturating_add(8);
@@ -385,6 +395,33 @@ fn browser_fragment_priority_score_for_chat(fragment: &str, tag_name: &str) -> O
     }
     if fragment.contains(" dom_clickable=\"true\"") {
         score = score.saturating_add(6);
+    }
+    if fragment.contains(" shape_kind=\"") {
+        score = score.saturating_add(5);
+    }
+    if fragment.contains(" center_x=\"") || fragment.contains(" line_x1=\"") {
+        score = score.saturating_add(2);
+    }
+    if fragment.contains(" geometry_role=\"vertex\"") {
+        score = score.saturating_add(2);
+    }
+    if fragment.contains(" line_angle_deg=\"") {
+        score = score.saturating_add(1);
+    }
+    if has_grounded_geometry && !has_direct_locator {
+        score = score.saturating_add(4);
+    }
+    if normalized_name
+        .as_deref()
+        .is_some_and(browser_name_looks_like_navigation_control_for_chat)
+    {
+        score = score.saturating_add(5);
+    }
+    if normalized_name
+        .as_deref()
+        .is_some_and(browser_name_looks_like_month_year_label_for_chat)
+    {
+        score = score.saturating_add(8);
     }
     if matches!(
         tag_name,
@@ -418,6 +455,83 @@ fn browser_fragment_priority_score_for_chat(fragment: &str, tag_name: &str) -> O
     (score > 0).then_some(score)
 }
 
+fn browser_name_looks_like_navigation_control_for_chat(name: &str) -> bool {
+    matches!(
+        name.trim(),
+        "<" | ">" | "<<" | ">>" | "prev" | "previous" | "previous month" | "next" | "next month"
+    )
+}
+
+fn browser_name_looks_like_month_year_label_for_chat(name: &str) -> bool {
+    const MONTH_NAMES: [&str; 12] = [
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+    ];
+
+    let has_month = MONTH_NAMES.iter().any(|month| name.contains(month));
+    let has_year = name
+        .split_whitespace()
+        .any(|token| token.len() == 4 && token.chars().all(|ch| ch.is_ascii_digit()));
+    has_month && has_year
+}
+
+fn browser_context_looks_like_dense_numeric_noise_for_chat(context: &str) -> bool {
+    let mut numeric_tokens = 0usize;
+    let mut alphabetic_tokens = 0usize;
+    let mut total_tokens = 0usize;
+
+    for token in context.split_whitespace() {
+        let normalized = token.trim_matches(|ch: char| !ch.is_ascii_alphanumeric());
+        if normalized.is_empty() {
+            continue;
+        }
+        total_tokens += 1;
+        if normalized.chars().all(|ch| ch.is_ascii_digit()) {
+            numeric_tokens += 1;
+        }
+        if normalized.chars().any(|ch| ch.is_ascii_alphabetic()) {
+            alphabetic_tokens += 1;
+        }
+    }
+
+    total_tokens >= 8 && numeric_tokens >= 6 && alphabetic_tokens <= 2
+}
+
+fn summarized_browser_fragment_context_for_chat(
+    name: Option<&str>,
+    context: &str,
+) -> Option<String> {
+    let compact = compact_ws_for_chat_context(context);
+    if compact.is_empty() {
+        return None;
+    }
+
+    let short_numeric_name = name.is_some_and(|value| {
+        let trimmed = value.trim();
+        !trimmed.is_empty()
+            && trimmed.chars().count() <= 2
+            && trimmed.chars().all(|ch| ch.is_ascii_digit())
+    });
+    if short_numeric_name
+        && (compact.contains("<REDACTED:")
+            || browser_context_looks_like_dense_numeric_noise_for_chat(&compact))
+    {
+        return None;
+    }
+
+    Some(truncate_chars_for_chat_context(&compact, 72))
+}
+
 fn browser_fragment_priority_summary_for_chat(fragment: &str) -> Option<(String, u8, String)> {
     let id = extract_browser_xml_attr_for_chat(fragment, "id")?;
     let tag_name = browser_fragment_tag_name_for_chat(fragment)?;
@@ -437,7 +551,24 @@ fn browser_fragment_priority_summary_for_chat(fragment: &str) -> Option<(String,
         .filter(|value| !value.is_empty());
     let context = extract_browser_xml_attr_for_chat(fragment, "context")
         .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
+        .filter(|value| !value.is_empty())
+        .and_then(|value| summarized_browser_fragment_context_for_chat(name.as_deref(), &value));
+    let shape_kind = extract_browser_xml_attr_for_chat(fragment, "shape_kind")
+        .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
         .filter(|value| !value.is_empty());
+    let geometry_role = extract_browser_xml_attr_for_chat(fragment, "geometry_role")
+        .map(|value| compact_ws_for_chat_context(&decode_browser_xml_text_for_chat(&value)))
+        .filter(|value| !value.is_empty());
+    let connected_lines = extract_browser_xml_attr_for_chat(fragment, "connected_lines");
+    let center_x = extract_browser_xml_attr_for_chat(fragment, "center_x");
+    let center_y = extract_browser_xml_attr_for_chat(fragment, "center_y");
+    let radius = extract_browser_xml_attr_for_chat(fragment, "radius");
+    let line_x1 = extract_browser_xml_attr_for_chat(fragment, "line_x1");
+    let line_y1 = extract_browser_xml_attr_for_chat(fragment, "line_y1");
+    let line_x2 = extract_browser_xml_attr_for_chat(fragment, "line_x2");
+    let line_y2 = extract_browser_xml_attr_for_chat(fragment, "line_y2");
+    let line_length = extract_browser_xml_attr_for_chat(fragment, "line_length");
+    let line_angle_deg = extract_browser_xml_attr_for_chat(fragment, "line_angle_deg");
 
     let mut summary = format!("{id} tag={tag_name}");
     if let Some(name) = name {
@@ -454,6 +585,34 @@ fn browser_fragment_priority_summary_for_chat(fragment: &str) -> Option<(String,
     }
     if let Some(context) = context {
         summary.push_str(&format!(" context={}", context));
+    }
+    if let Some(ref shape_kind) = shape_kind {
+        summary.push_str(&format!(" shape_kind={shape_kind}"));
+    }
+    if let Some(geometry_role) = geometry_role {
+        summary.push_str(&format!(" geometry_role={geometry_role}"));
+    }
+    if let Some(connected_lines) = connected_lines {
+        summary.push_str(&format!(" connected_lines={connected_lines}"));
+    }
+    if shape_kind.as_deref() != Some("line") {
+        if let (Some(center_x), Some(center_y)) = (center_x, center_y) {
+            summary.push_str(&format!(" center={center_x},{center_y}"));
+        }
+    }
+    if let Some(radius) = radius {
+        summary.push_str(&format!(" radius={radius}"));
+    }
+    if let (Some(line_x1), Some(line_y1), Some(line_x2), Some(line_y2)) =
+        (line_x1, line_y1, line_x2, line_y2)
+    {
+        summary.push_str(&format!(" line={line_x1},{line_y1}->{line_x2},{line_y2}"));
+    }
+    if let Some(line_length) = line_length {
+        summary.push_str(&format!(" line_length={line_length}"));
+    }
+    if let Some(line_angle_deg) = line_angle_deg {
+        summary.push_str(&format!(" line_angle={line_angle_deg}deg"));
     }
     if fragment.contains(" dom_clickable=\"true\"") {
         summary.push_str(" dom_clickable=true");
@@ -506,7 +665,7 @@ fn compact_browser_snapshot_history_entry(snapshot: &str) -> String {
         return compact;
     }
 
-    let priority_targets = extract_priority_browser_targets_for_chat(snapshot, 6);
+    let priority_targets = extract_priority_browser_targets_for_chat(snapshot, 8);
     if priority_targets.is_empty() {
         return truncate_chars_for_chat_context(
             snapshot,
@@ -526,6 +685,143 @@ fn compact_browser_snapshot_history_entry(snapshot: &str) -> String {
     let suffix = truncate_chars_for_chat_context(&priority_targets.join(" | "), suffix_budget);
 
     format!("{root_summary}{suffix_prefix}{suffix}{closing}")
+}
+
+fn compact_browser_click_history_entry(entry: &str) -> String {
+    let compact = compact_ws_for_chat_context(entry.trim());
+    if compact.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT {
+        return compact;
+    }
+
+    let Some(verify_idx) = compact.find(" verify=") else {
+        return truncate_chars_for_chat_context(
+            &compact,
+            TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT,
+        );
+    };
+    let prefix = compact[..verify_idx].trim_end();
+    let verify_raw = compact[verify_idx + " verify=".len()..].trim();
+    let Ok(verify_value) = serde_json::from_str::<serde_json::Value>(verify_raw) else {
+        return truncate_chars_for_chat_context(
+            &compact,
+            TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT,
+        );
+    };
+
+    let mut verify_summary = serde_json::Map::new();
+    for key in ["method", "center_point", "settle_ms", "pre_url", "post_url"] {
+        if let Some(value) = verify_value.get(key) {
+            verify_summary.insert(key.to_string(), value.clone());
+        }
+    }
+
+    if let Some(postcondition) = verify_value
+        .get("postcondition")
+        .and_then(|value| value.as_object())
+    {
+        let mut postcondition_summary = serde_json::Map::new();
+        for key in [
+            "met",
+            "target_disappeared",
+            "editable_focus_transition",
+            "tree_changed",
+            "url_changed",
+            "material_semantic_change",
+            "semantic_change_delta",
+        ] {
+            if let Some(value) = postcondition.get(key) {
+                postcondition_summary.insert(key.to_string(), value.clone());
+            }
+        }
+        if !postcondition_summary.is_empty() {
+            verify_summary.insert(
+                "postcondition".to_string(),
+                serde_json::Value::Object(postcondition_summary),
+            );
+        }
+    }
+
+    for (field_name, summary_keys) in [
+        (
+            "post_target",
+            ["semantic_id", "dom_id", "selector", "tag_name"],
+        ),
+        (
+            "focused_control",
+            ["semantic_id", "dom_id", "selector", "tag_name"],
+        ),
+    ] {
+        if let Some(target) = verify_value
+            .get(field_name)
+            .and_then(|value| value.as_object())
+        {
+            let mut target_summary = serde_json::Map::new();
+            for key in summary_keys {
+                if let Some(value) = target.get(key).filter(|value| !value.is_null()) {
+                    target_summary.insert(key.to_string(), value.clone());
+                }
+            }
+            if !target_summary.is_empty() {
+                verify_summary.insert(
+                    field_name.to_string(),
+                    serde_json::Value::Object(target_summary),
+                );
+            }
+        }
+    }
+
+    let summarized = format!(
+        "{} verify={}",
+        prefix,
+        serde_json::Value::Object(verify_summary)
+    );
+    truncate_chars_for_chat_context(&summarized, TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT)
+}
+
+fn compact_browser_synthetic_click_history_entry(entry: &str) -> String {
+    let trimmed = entry.trim();
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) else {
+        return truncate_chars_for_chat_context(
+            trimmed,
+            TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT,
+        );
+    };
+
+    let Some(click) = value
+        .get("synthetic_click")
+        .and_then(|value| value.as_object())
+    else {
+        return truncate_chars_for_chat_context(
+            trimmed,
+            TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT,
+        );
+    };
+
+    let x = click.get("x").cloned().unwrap_or(serde_json::Value::Null);
+    let y = click.get("y").cloned().unwrap_or(serde_json::Value::Null);
+    let mut summary = format!("Synthetic click at ({x}, {y})");
+
+    if let Some(postcondition) = value
+        .get("postcondition")
+        .and_then(|value| value.as_object())
+    {
+        let mut postcondition_summary = serde_json::Map::new();
+        for key in ["met", "tree_changed", "url_changed"] {
+            if let Some(field_value) = postcondition.get(key) {
+                postcondition_summary.insert(key.to_string(), field_value.clone());
+            }
+        }
+        if !postcondition_summary.is_empty() {
+            summary.push_str(&format!(
+                " verify={}",
+                serde_json::json!({
+                    "postcondition": postcondition_summary,
+                })
+            ));
+        }
+    }
+
+    truncate_chars_for_chat_context(&summary, TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT)
 }
 
 fn compact_tool_history_entry_for_chat(current_tool_name: &str, history_entry: &str) -> String {
@@ -554,6 +850,8 @@ fn compact_tool_history_entry_for_chat(current_tool_name: &str, history_entry: &
                 truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
             }
         }
+        "browser__click_element" => compact_browser_click_history_entry(trimmed),
+        "browser__synthetic_click" => compact_browser_synthetic_click_history_entry(trimmed),
         _ => truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT),
     }
 }
@@ -2091,5 +2389,136 @@ mod tests {
             !compact.contains("grp_lonna tag=generic name=Lonna"),
             "{compact}"
         );
+    }
+
+    #[test]
+    fn compact_browser_snapshot_history_entry_preserves_svg_geometry_targets() {
+        let snapshot = format!(
+            concat!(
+                "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+                "{}",
+                "<generic id=\"grp_svg_grid_object\" name=\"svg grid object\" dom_id=\"svg-grid\" selector=\"[id=&quot;svg-grid&quot;]\" tag_name=\"svg\" rect=\"2,52,150,130\" />",
+                "<generic id=\"grp_small_blue_circle\" name=\"small blue circle at 29,56 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"blue\" geometry_role=\"vertex\" connected_lines=\"2\" radius=\"4\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
+                "<generic id=\"grp_small_black_circle\" name=\"small black circle at 69,73 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"black\" radius=\"4\" center_x=\"71\" center_y=\"125\" rect=\"68,122,7,7\" />",
+                "<generic id=\"grp_small_black_circle_2\" name=\"small black circle at 89,29 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"black\" radius=\"4\" center_x=\"91\" center_y=\"81\" rect=\"88,78,7,7\" />",
+                "<generic id=\"grp_large_line_from_2956_to_6973\" name=\"large line from 29,56 to 69,73\" tag_name=\"line\" shape_kind=\"line\" shape_size=\"large\" line_x1=\"29\" line_y1=\"56\" line_x2=\"69\" line_y2=\"73\" line_length=\"43\" line_angle_deg=\"23\" center_x=\"51\" center_y=\"116\" rect=\"31,108,40,17\" />",
+                "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+                "<generic id=\"grp_click_canvas\" name=\"click canvas\" dom_id=\"click-canvas\" selector=\"[id=&quot;click-canvas&quot;]\" tag_name=\"canvas\" rect=\"165,0,160,210\" />",
+                "<generic id=\"grp_last_reward_last_10_average_ti\" name=\"Last reward: - Last 10 average: - Time left: 9 / 10sec\" dom_id=\"reward-display\" selector=\"[id=&quot;reward-display&quot;]\" tag_name=\"div\" rect=\"165,0,160,210\" />",
+                "<generic id=\"grp_minus\" name=\"-\" dom_id=\"reward-last\" selector=\"[id=&quot;reward-last&quot;]\" tag_name=\"span\" rect=\"251,10,5,16\" />",
+                "<generic id=\"grp_minus_2\" name=\"-\" dom_id=\"reward-avg\" selector=\"[id=&quot;reward-avg&quot;]\" tag_name=\"span\" rect=\"278,36,5,16\" />",
+                "<generic id=\"grp_9_divide_10sec\" name=\"9 / 10sec\" dom_id=\"timer-countdown\" selector=\"[id=&quot;timer-countdown&quot;]\" tag_name=\"span\" rect=\"231,62,58,16\" />",
+                "<generic id=\"grp_0\" name=\"0\" dom_id=\"episode-id\" selector=\"[id=&quot;episode-id&quot;]\" tag_name=\"span\" rect=\"270,88,8,16\" />",
+                "</root>"
+            ),
+            "<generic id=\"grp_noise\" name=\"padding\" rect=\"0,0,1,1\" /> ".repeat(200),
+        );
+
+        let compact = compact_tool_history_entry_for_chat("browser__snapshot", &snapshot);
+
+        assert!(
+            compact.contains("grp_small_blue_circle tag=generic"),
+            "{compact}"
+        );
+        assert!(compact.contains("shape_kind=circle"), "{compact}");
+        assert!(compact.contains("geometry_role=vertex"), "{compact}");
+        assert!(compact.contains("connected_lines=2"), "{compact}");
+        assert!(compact.contains("center=31,108"), "{compact}");
+        assert!(compact.contains("radius=4"), "{compact}");
+        assert!(
+            compact.contains("grp_large_line_from_2956_to_6973 tag=generic"),
+            "{compact}"
+        );
+        assert!(compact.contains("line=29,56->69,73"), "{compact}");
+        assert!(compact.contains("line_length=43"), "{compact}");
+        assert!(compact.contains("line_angle=23deg"), "{compact}");
+        assert!(
+            !compact.contains("grp_large_line_from_2956_to_6973 tag=generic name=large line from 29,56 to 69,73 center="),
+            "{compact}"
+        );
+        assert!(compact.contains("btn_submit tag=button"), "{compact}");
+    }
+
+    #[test]
+    fn compact_browser_snapshot_history_entry_surfaces_calendar_navigation_state() {
+        let snapshot = format!(
+            concat!(
+                "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+                "{}",
+                "<textbox id=\"inp_datepicker\" name=\"datepicker\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" class_name=\"hasDatepicker\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
+                "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"27,84,95,31\" />",
+                "<link id=\"lnk_prev\" name=\"Prev\" omitted=\"true\" tag_name=\"a\" rect=\"38,86,14,14\" />",
+                "<generic id=\"grp_december_2016\" name=\"December 2016\" tag_name=\"div\" rect=\"54,86,48,14\" />",
+                "<link id=\"lnk_1\" name=\"1\" omitted=\"true\" context=\"1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 <REDACTED:card_pan> 26 27 28 29 30 31\" tag_name=\"a\" rect=\"40,108,8,12\" />",
+                "<link id=\"lnk_2\" name=\"2\" omitted=\"true\" context=\"1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 <REDACTED:card_pan> 26 27 28 29 30 31\" tag_name=\"a\" rect=\"52,108,8,12\" />",
+                "<link id=\"lnk_3\" name=\"3\" omitted=\"true\" context=\"1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 <REDACTED:card_pan> 26 27 28 29 30 31\" tag_name=\"a\" rect=\"64,108,8,12\" />",
+                "<link id=\"lnk_4\" name=\"4\" omitted=\"true\" context=\"1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 <REDACTED:card_pan> 26 27 28 29 30 31\" tag_name=\"a\" rect=\"76,108,8,12\" />",
+                "<link id=\"lnk_5\" name=\"5\" omitted=\"true\" context=\"1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 <REDACTED:card_pan> 26 27 28 29 30 31\" tag_name=\"a\" rect=\"88,108,8,12\" />",
+                "<link id=\"lnk_6\" name=\"6\" omitted=\"true\" context=\"1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 <REDACTED:card_pan> 26 27 28 29 30 31\" tag_name=\"a\" rect=\"100,108,8,12\" />",
+                "</root>"
+            ),
+            "<generic id=\"grp_noise\" name=\"padding\" rect=\"0,0,1,1\" /> ".repeat(200),
+        );
+
+        let compact = compact_tool_history_entry_for_chat("browser__snapshot", &snapshot);
+
+        assert!(compact.contains("lnk_prev tag=link name=Prev"), "{compact}");
+        assert!(
+            compact.contains("grp_december_2016 tag=generic name=December 2016"),
+            "{compact}"
+        );
+        assert!(!compact.contains("<REDACTED:card_pan>"), "{compact}");
+        assert!(!compact.contains("context=1 2 3 4 5 6"), "{compact}");
+    }
+
+    #[test]
+    fn compact_browser_click_history_entry_summarizes_verbose_verify_payload() {
+        let raw = concat!(
+            "Clicked element 'grp_4' via geometry fallback. verify=",
+            "{\"center_point\":[52.0,69.0],\"dispatch_succeeded\":true,",
+            "\"focused_control\":null,\"method\":\"geometry_center\",",
+            "\"post_target\":{\"semantic_id\":\"grp_5\",\"dom_id\":null,",
+            "\"selector\":\"#area_svg > rect:nth-of-type(1)\",\"tag_name\":\"rect\",",
+            "\"backend_dom_node_id\":null},",
+            "\"post_url\":\"file:///tmp/ioi-miniwob-bridge/demo/miniwob/ascending-numbers.1.html\",",
+            "\"postcondition\":{\"editable_focus_transition\":false,",
+            "\"material_semantic_change\":true,\"met\":true,",
+            "\"semantic_change_delta\":6,\"target_disappeared\":false,",
+            "\"tree_changed\":true,\"url_changed\":false},",
+            "\"pre_target\":{\"semantic_id\":\"grp_4\",\"selector\":\"#area_svg > rect:nth-of-type(1)\",",
+            "\"tag_name\":\"rect\",\"center_point\":[52.0,69.0]},",
+            "\"pre_url\":\"file:///tmp/ioi-miniwob-bridge/demo/miniwob/ascending-numbers.1.html\",",
+            "\"settle_ms\":360}"
+        );
+
+        let compact = compact_tool_history_entry_for_chat("browser__click_element", raw);
+
+        assert!(
+            compact.contains("Clicked element 'grp_4' via geometry fallback."),
+            "{compact}"
+        );
+        assert!(
+            compact.contains("\"method\":\"geometry_center\""),
+            "{compact}"
+        );
+        assert!(compact.contains("\"semantic_change_delta\":6"), "{compact}");
+        assert!(compact.contains("\"post_target\""), "{compact}");
+        assert!(!compact.contains("\"pre_target\""), "{compact}");
+        assert!(!compact.contains("\"dispatch_succeeded\""), "{compact}");
+        assert!(compact.chars().count() <= super::TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT + 1);
+    }
+
+    #[test]
+    fn compact_browser_synthetic_click_history_entry_summarizes_postcondition() {
+        let raw = r#"{"synthetic_click":{"x":60,"y":107},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#;
+
+        let compact = compact_tool_history_entry_for_chat("browser__synthetic_click", raw);
+
+        assert!(
+            compact.contains("Synthetic click at (60, 107)"),
+            "{compact}"
+        );
+        assert!(compact.contains(r#""met":true"#), "{compact}");
+        assert!(compact.contains(r#""tree_changed":true"#), "{compact}");
     }
 }

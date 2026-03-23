@@ -1347,6 +1347,7 @@ mod tests {
             query: None,
             scope: None,
             timeout_ms: None,
+            continue_with: None,
         };
 
         assert_eq!(
