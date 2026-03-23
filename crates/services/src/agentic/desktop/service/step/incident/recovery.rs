@@ -544,7 +544,10 @@ mod tests {
     #[test]
     fn browser_targets_embed_tool_name_metadata() {
         let value = queued_params(AgentTool::BrowserClickElement {
-            id: "submit_button".to_string(),
+            id: Some("submit_button".to_string()),
+            ids: Vec::new(),
+            delay_ms_between_ids: None,
+            continue_with: None,
         });
         assert!(
             value.get(QUEUE_TOOL_NAME_KEY).is_some(),

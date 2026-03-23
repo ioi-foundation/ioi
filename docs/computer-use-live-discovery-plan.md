@@ -4,17 +4,25 @@ This file is the single authoritative living spec for benchmark-driven
 computer-use improvement in this repo. It is intentionally a rolling window,
 not a changelog.
 
+For the stable doctrine, benchmark registry, and cross-benchmark status across
+MiniWoB++, OSWorld, BrowserGym, WebArena, and WorkArena, see
+`docs/computer-use-playbook-spec.md`.
+
 ## Scope
 
 - active family: `crates/cli/tests/computer_use_suite`
 - active objective: improve generic computer-use capability through
   provider-backed live runs on the repo-real suite
-- current frontier: built-in MiniWoB `catalog` is honestly plateaued on a
-  geometry planner gap, so active discovery has moved to a post-plateau
-  product-relevant `catalog` subfamily using exact case filters
-- downstream objective: probe new reusable read / lookup / transfer surfaces
-  without reopening the plateaued geometry slice unless a shared planner
-  improvement emerges from broader evidence
+- current frontier: fresh exact live evidence on 2026-03-23 now centers the
+  MiniWoB `catalog` frontier on `miniwob_catalog_chase_circle`; best
+  authoritative red `run-1774281832` used one provider-backed
+  `browser__hover {"id":"grp_circ","duration_ms":10000}` and still graded
+  `reward=0.8367`, while revalidation `run-1774283163` stayed red at
+  `reward=0.7948` after reverting a losing harness timing experiment
+- downstream objective: record the timed-hover plateau honestly, then widen
+  back to a full `catalog` audit to find the next exact red on the current
+  code; OSWorld stays queued behind MiniWoB until the integrated suite is
+  honestly exhausted again
 
 ## Method Invariants
 
@@ -75,59 +83,137 @@ Current benchmark position:
   on `run-1773542003` after shared browser recovery, browser observation, and
   browser queue-timeout fixes moved the failure to a buyable live page state
   that still lacked a usable post-wait semantic snapshot
-- rung 5 next exact widening slice is `miniwob_catalog_social_media`
+- rung 5 exact slice `miniwob_catalog_social_media` is now closed live on
+  `run-1774201441` after shared DOM-fallback row-action surfacing and
+  actionable exact-target ranking fixes exposed the real Reply control
+- workspace `.env` is again producing provider-backed MiniWoB calls on
+  2026-03-23, so authoritative live reruns are unblocked
+- shared follow-up fixes are now landed locally:
+  `browser__click_element` supports timed ordered `ids` via
+  `delay_ms_between_ids`, the executor measures that delay at click dispatch
+  time, and prompt grounding now emits a dedicated pending signal for already
+  grounded timed click sequences
+- the direct bridge regressions
+  `computer_use_suite::harness::tests::timed_ordered_click_sequence_solves_button_delay_directly`
+  and
+  `computer_use_suite::harness::tests::ordered_click_batch_solves_click_button_sequence_directly`
+  now pass against MiniWoB itself, so both the timed and undelayed ordered
+  two-click executor paths are locally verified independent of the current
+  exact frontier
+- fresh authoritative exact rerun `run-1774288656` now closes
+  `miniwob_catalog_button_delay` live with `1` provider call on `gpt-4o`; the
+  model chose one grounded ordered `browser__click_element` on `btn_one` then
+  `btn_two` with `delay_ms_between_ids=2000`, proving the shared timed-sequence
+  path end to end
+- fresh authoritative exact rerun `run-1774290416` now closes
+  `miniwob_catalog_click_button_sequence` live with `1` provider call on
+  `gpt-4o`; the model chose a grounded start-gate
+  `browser__click_element {"id":"grp_start","continue_with":{"name":"browser__click_element","ids":["btn_one","btn_two"],"delay_ms_between_ids":100}}`,
+  and the generalized ordered-click executor closed the slice at
+  `raw_reward=1.0`
+- fresh exact live reruns on 2026-03-23 now center the active red on
+  `miniwob_catalog_chase_circle`
+- canonical best red `run-1774281832` is provider-backed with full artifacts
+  and `1` provider call on `gpt-4o`; the model chose
+  `browser__hover {"id":"grp_circ","duration_ms":10000}` immediately, tracked
+  selector `#circ` for the full hover, and still finished at `reward=0.8367`
+- revalidation `run-1774283163` reverted a losing harness timing experiment and
+  still stayed red at `reward=0.7948` with the same one-turn hover plan,
+  confirming the slice is a startup-budget plateau rather than a planner-intent
+  miss
+- fresh live reruns on `miniwob_catalog_bisect_angle`
+  (`run-1774227028`, `run-1774227554`, `run-1774227660`, `run-1774227847`)
+  kept the slice red while materially sharpening the plateau:
+  - `run-1774227028` confirmed the farther first probe still improves the raw
+    geometry to `raw_reward=0.9312573`, but the planner still submitted early
+  - `run-1774227554` proved the new offset-aware correction signal changed
+    behavior, but the compacted tail still dropped the corrective coordinates
+    and the planner guessed a bad second click
+  - `run-1774227660` proved the corrective coordinates survived truncation, but
+    the planner still ignored them and wandered into extra synthetic clicks
+  - `run-1774227847` proved the stronger exact-JSON next-step contract still
+    did not move the live planner off the premature submit path
+- the net effect is a cleaner honest plateau on `bisect_angle`: shared SVG
+  observation, decimal probe precision, post-click geometry verification, and
+  offset-aware correction surfaces are all better, but the remaining red is
+  planner compliance rather than a missing primitive or bridge gap
 
 Current frontier:
 
 - rung 4 MiniWoB `catalog` is plateaued at exact red slice
   `miniwob_catalog_bisect_angle` on `run-1773528931`
-- active rung is rung 5: post-plateau `catalog` information extraction /
-  lookup / transfer
+- active rung is rung 5, with fresh exact red slice
+  `miniwob_catalog_chase_circle`
 - exact sentinel `miniwob_catalog_read_table` is now closed on
   `run-1773530273`
 - exact widening slice `miniwob_catalog_read_table_2` is now closed on
   `run-1773530865`
+- exact `miniwob_catalog_chase_circle` is now the active MiniWoB red on
+  authoritative run `run-1774281832`
 - exact `miniwob_catalog_phone_book` is now parked as a second honest planner
   plateau inside the post-geometry frontier
 - exact `miniwob_catalog_email_inbox` is now parked as a third honest planner
   plateau inside the post-geometry frontier
 - exact `miniwob_catalog_stock_market` is now parked as an honest dynamic-page
   plateau inside the post-geometry frontier
-- active exact slice is `miniwob_catalog_social_media`
-- reason: `run-1773542003` showed the live page reach the success condition
-  (`$59.00 < $59.60`) while the agent still failed to obtain a usable
-  post-wait semantic snapshot after multiple shared browser-runtime fixes, so
-  the next product-relevant exact frontier should move to a different static
-  browser list / action surface instead of looping further on the same timer
-  page
+- exact `miniwob_catalog_social_media` is now closed on `run-1774201441`
+- `miniwob_catalog_button_delay` is now a retained shared-fix validation target
+  with a green direct bridge regression, not the current exact live frontier
+- next benchmark move is to widen back to the full `catalog` audit after
+  recording the `chase_circle` plateau
+- reason: fresh authoritative exact reruns show the model already selects the
+  right first hover on `chase_circle`, so further looping on the same slice
+  would only repeat the same startup-budget ceiling instead of advancing MiniWoB
+  coverage
 
 Current blocker:
 
-- active exact red slice:
-  - `miniwob_catalog_social_media` is newly red on `run-1773542399`; the
-    semantic snapshot exposed the instruction token `grp_reply` and the target
-    row `@olin`, but did not expose the per-row actionable `.more` / menu
-    control needed to reach the real Reply action, so the agent repeatedly
-    clicked the non-actionable instruction token instead
-- smallest honest gap:
-  - active class is now `observation_gap`: `run-1773542399` on
-    `miniwob_catalog_social_media` surfaced the target row text and the
-    instruction token `Reply`, but not the real per-row action trigger, so the
-    planner had no grounded action control to use
+- active integrated-live state:
+  - `run-1774281832` is the current canonical red for
+    `miniwob_catalog_chase_circle`: `inference_calls.json` shows exactly one
+    provider-backed tool call,
+    `browser__hover {"id":"grp_circ","duration_ms":10000}`, and
+    `bridge_state.json` recorded `reward=0.8367`
+  - `run-1774283163` is the latest exact rerun on the reverted harness path:
+    it kept the same one-turn hover plan and stayed red at `reward=0.7948`
+- smallest honest remaining integrated gap:
+  - `infra_or_bridge_gap` is now active on `miniwob_catalog_chase_circle`:
+    the live model already chooses the correct first action, but immediate
+    episode start plus first-step startup budget leave the full-duration hover
+    short of the pass floor
+- retained shared fix:
+  - `miniwob_catalog_button_delay` is now a closed retained timed-sequence
+    validation target: `run-1774288656` proved the shared ordered-click
+    primitive, timed pending signal, and widened click-follow-up contract live
+    with `reward=1.0`, while the direct MiniWoB bridge regression remains green
 - retained plateau:
-  - `miniwob_catalog_bisect_angle` stays classified as `planner_gap`
-    after `run-1773528931`; reopening it now would require geometry-specific
-    planner heuristics rather than a shared product-facing fix
+  - `miniwob_catalog_bisect_angle` stays classified as `planner_gap` after the
+    older canonical run `run-1773528931` and the fresh 2026-03-22 reruns
+    `run-1774227028`, `run-1774227554`, `run-1774227660`, and
+    `run-1774227847`; reopening it again now would require a broader planner
+    compliance improvement rather than more slice-local geometry tweaks
+- retained plateau:
+  - `miniwob_catalog_phone_book` and `miniwob_catalog_email_inbox` stay parked
+    as broader planner plateaus after their latest authoritative live reds
+- retained plateau:
+  - `miniwob_catalog_stock_market` stays parked as a dynamic-page
+    observation / recovery plateau after `run-1773542003`
 - next required proof:
-  - authoritative exact live rerun of `miniwob_catalog_social_media` after any
-    shared observation-surface fix for row action controls / overflow menus
+  - rerun the full MiniWoB `catalog` audit with
+    `COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture`
+  - collapse back to the next exact red from fresh widened provider-backed
+    evidence before switching benchmarks
 
 Decision rule:
 
 - keep rung 4 recorded as honestly plateaued unless new non-benchmark evidence
   exposes a shared planner improvement candidate
-- keep rung 5 exact-first; after recording `miniwob_catalog_email_inbox` as an
-  honest plateau, move to exact `miniwob_catalog_stock_market`
+- keep the parked MiniWoB plateaus parked unless a broader shared planner or
+  observation hypothesis appears
+- keep `miniwob_catalog_chase_circle` recorded as a timed-hover plateau unless a
+  broader startup-budget fix emerges from widened MiniWoB evidence
+- only after the MiniWoB integrated suite is honestly exhausted again should
+  the next benchmark iteration move to OSWorld preflight
 
 ## Rolling Window
 
@@ -164,10 +250,39 @@ Latest authoritative closures:
   state that reached `Stock price: $59.00` against target `$59.60` while the
   agent still failed on a post-wait `browser__snapshot`, leaving a shared
   dynamic-page observation / recovery plateau rather than a planner-only miss
-- `run-1773542399` is the current exact red on `social_media`: provider-backed
-  inference, full artifacts, `5` provider calls on `gpt-4o`, and repeated
-  no-effect clicks on the instruction token `grp_reply` because the snapshot
-  did not expose the target row's actionable menu control
+- `run-1774201441` is the canonical social-media closure: provider-backed
+  inference, full artifacts, `1` provider call on `gpt-4o`, and a direct
+  `browser__click_element` on surfaced control `btn_reply_a774a6`, which
+  verified through selector `#area > div:nth-of-type(3) > div:nth-of-type(3) >
+  span:nth-of-type(1)` for the target `@olin` row
+- `run-1774281832` is the current canonical `chase_circle` red:
+  provider-backed inference, full artifacts, `1` provider call on `gpt-4o`,
+  and the right one-turn action
+  `browser__hover {"id":"grp_circ","duration_ms":10000}`. The executor tracked
+  selector `#circ` for the full hover and still finished at `reward=0.8367`,
+  leaving a startup-budget plateau instead of a planner miss
+- `run-1774283163` is the latest exact revalidation on the reverted harness
+  path: provider-backed inference, full artifacts, `1` provider call on
+  `gpt-4o`, the same one-turn hover plan, and a lower `reward=0.7948`, which
+  strengthens the plateau classification
+- `computer_use_suite::harness::tests::timed_ordered_click_sequence_solves_button_delay_directly`
+  now passes locally against `/tmp/miniwob-plusplus`, proving the timed
+  ordered-click primitive solves `button-delay` at the bridge/runtime layer
+- `computer_use_suite::harness::tests::ordered_click_batch_solves_click_button_sequence_directly`
+  now passes locally against `/tmp/miniwob-plusplus`, proving the generalized
+  low-latency ordered-click executor also solves `click-button-sequence` at the
+  bridge/runtime layer
+- `run-1774290416` is the canonical `click_button_sequence` closure:
+  provider-backed inference, full artifacts, `1` provider call on `gpt-4o`,
+  and a one-turn grounded start-gate click whose nested ordered click batch
+  closed the slice at `raw_reward=1.0`
+- `run-1774227028`, `run-1774227554`, `run-1774227660`, and `run-1774227847`
+  are the current `bisect_angle` revalidation evidence on today’s code:
+  provider-backed inference with full artifacts kept the slice red even after
+  shared screenshot grounding, decimal SVG probes, synthetic-click geometry
+  reverification, offset-aware correction, and explicit correction-call
+  prompting. Those runs sharpen the slice into an honest planner-compliance
+  plateau rather than a missing bridge primitive.
 
 Retained shared fixes that matter for future regressions:
 
@@ -257,6 +372,25 @@ Retained shared fixes that matter for future regressions:
   current-browser observation fetches, browser queue-tool timeouts, and fixed
   `browser__wait {ms}` without pre-wait page reacquisition together moved the
   slice to a buyable live page state on `run-1773542003`
+- DOM-fallback row-action strips now surface semantic names, button roles, and
+  selectors for icon-only controls, and pending exact-text targeting now
+  prefers actionable controls over instruction-copy tokens; `run-1774201441`
+  proved the shared fix by closing `miniwob_catalog_social_media` in one live
+  provider-backed step
+- browser click verification now starts probing immediately after dispatch,
+  uses a shorter settle schedule, and compacts verbose
+  `browser__click_element` receipts before they return to model context
+- timed ordered-click execution plus dedicated timed-sequence pending guidance
+  now solve `miniwob_catalog_button_delay` directly in the MiniWoB bridge
+  regression without introducing benchmark-local routing
+- ordered `browser__click_element` batches without explicit delay now reuse the
+  same low-latency intermediate dispatch path as timed sequences, and direct
+  bridge coverage proves that shared executor also closes
+  `miniwob_catalog_click_button_sequence`
+- OSWorld bridge preflight now distinguishes a truly missing `desktop_env`
+  source/package from a discoverable source tree whose import is only blocked
+  by a transitive dependency like `gymnasium`, so the blocker chain no longer
+  duplicates the same missing Python requirement under two separate headings
 - interrupted widened family runs can leave an orphaned Chromium runner profile
   that causes zero-call launch failures on exact reruns; `run-1773528640` and
   `run-1773528708` are non-authoritative infra-blocked reruns and must not be
@@ -268,7 +402,9 @@ Retention policy:
 - keep the latest authoritative closure for each closed family
 - keep only dormant gap notes that could plausibly reopen on the next rung
 - remove date logs, narrative iteration history, and superseded local notes
-- current in-flight rung is exact `miniwob_catalog_stock_market`
+- current in-flight handoff target is the widened MiniWoB `catalog` audit;
+  `miniwob_catalog_chase_circle` is recorded as the current exact plateau, and
+  OSWorld stays queued behind the integrated MiniWoB suite
 
 ## Benchmark Snapshot
 
@@ -284,14 +420,16 @@ Retention policy:
 | full `stress` audit | passed | `run-1773498002`: judged live `19/19` with provider-backed inference and full artifacts | `... MODE=agent AGENT_BACKEND=live_http TASK_SET=stress ...` | `run-1773498002/agent` |
 | catalog sentinel: `miniwob_catalog_copy_paste` | passed | `run-1773525481`: judged live `1/1` with provider-backed inference, `4` provider calls, and full artifacts | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_copy_paste cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773525481/agent` |
 | full `catalog` audit | red, collapsed | `run-1773527869`: widened live audit reached the next post-closure family red in order, `miniwob_catalog_bisect_angle`; `miniwob_catalog_ascending_numbers` had already stayed green and the red slice had non-zero provider calls plus authoritative artifacts before collapsing back to exact-first | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773527869/agent` |
-| catalog exact red slice: `miniwob_catalog_ascending_numbers` | passed | `run-1773527672`: judged live `1/1` with provider-backed inference, full artifacts, and `5` provider calls for `browser__click_element` on `grp_1` through `grp_5` after shared SVG observation and generic survey-budget fixes | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_ascending_numbers cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773527672/agent/miniwob_catalog_ascending_numbers` |
+| catalog exact frontier: `miniwob_catalog_chase_circle` | red, plateaued | `run-1774281832`: case-level live red with provider-backed inference, full artifacts, and `1` provider call on `gpt-4o`; the model chose `browser__hover {"id":"grp_circ","duration_ms":10000}` immediately, tracked selector `#circ` for the full hover, and still graded `reward=0.8367`. Revalidation `run-1774283163` kept the same one-turn hover path red at `reward=0.7948` after reverting a losing harness timing experiment, leaving an honest startup-budget plateau. | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_chase_circle cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1774281832/agent/miniwob_catalog_chase_circle` |
 | catalog exact red slice: `miniwob_catalog_bisect_angle` | red, plateaued | `run-1773528931`: judged live red with provider-backed inference, full artifacts, and `3` provider calls; after shared headless coordinate-click and SVG-center surfacing, the agent clicked visible point centers then `btn_submit` for `raw_reward=-1.0`, leaving an honest planner gap | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_bisect_angle cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773528931/agent/miniwob_catalog_bisect_angle` |
 | rung 5 sentinel: `miniwob_catalog_read_table` | passed | `run-1773530273`: judged live `1/1` with provider-backed inference, full artifacts, and `2` provider calls on `gpt-4o`; the agent read `Language -> French`, typed the grounded value, and clicked submit for `reward=0.522` | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_read_table cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773530273/agent/miniwob_catalog_read_table` |
 | rung 5 exact widening slice: `miniwob_catalog_read_table_2` | passed | `run-1773530865`: judged live `1/1` with provider-backed inference, full artifacts, and `4` provider calls on `gpt-4o`; the agent read both requested mappings, typed `Alvinia` and `Faroe Islands`, then clicked submit for `reward=0.621` | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_read_table_2 cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773530865/agent/miniwob_catalog_read_table_2` |
 | rung 5 exact slice: `miniwob_catalog_phone_book` | red, plateaued | `run-1773537614`: judged live red with provider-backed inference, full artifacts, and `12` provider calls on `gpt-4o`; after shared duplicate-snapshot, pending-state, click-postcondition, blocked-completion, and grounding-prompt fixes, the agent still invented nonexistent ids like `lnk_deena_address` and never acted on visible paginator `lnk_443422`, leaving an honest planner plateau | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_phone_book cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773537614/agent/miniwob_catalog_phone_book` |
 | rung 5 exact slice: `miniwob_catalog_email_inbox` | red, plateaued | `run-1773539581`: judged live red with provider-backed inference, full artifacts, and `27` provider calls on `gpt-4o`; after shared mailbox-intent suppression, icon-control observation surfacing, raw-id prompt compaction, and action-label disambiguation, the planner still oscillated between the broad inbox container, `close email`, and text-search retries instead of completing the requested `trash` action | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_email_inbox cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773539581/agent/miniwob_catalog_email_inbox` |
 | rung 5 exact slice: `miniwob_catalog_stock_market` | red, plateaued | `run-1773542003`: judged live red with provider-backed inference, full artifacts, and `4` provider calls on `gpt-4o`; after shared browser recovery and wait/runtime fixes, the bridge reached `Stock price: $59.00` against target `$59.60`, but the agent still failed on the post-wait `browser__snapshot`, leaving an honest dynamic-page observation / recovery plateau | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_stock_market cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773542003/agent/miniwob_catalog_stock_market` |
-| rung 5 exact slice: `miniwob_catalog_social_media` | red, active | `run-1773542399`: judged live red with provider-backed inference, full artifacts, and `5` provider calls on `gpt-4o`; the snapshot exposed the instruction token `grp_reply` and the row for `@olin` but not the real row action trigger, so the planner repeatedly clicked the non-actionable instruction token and timed out | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_social_media cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1773542399/agent/miniwob_catalog_social_media` |
+| rung 5 exact slice: `miniwob_catalog_social_media` | passed | `run-1774201441`: judged live `1/1` with provider-backed inference, full artifacts, and `1` provider call on `gpt-4o`; after shared DOM-fallback row-action surfacing and actionable-target ranking fixes, the agent clicked grounded control `btn_reply_a774a6` for the `@olin` row and closed the slice | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_social_media cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1774201441/agent/miniwob_catalog_social_media` |
+| retained validation target: `miniwob_catalog_button_delay` | passed | `run-1774288656`: judged live `1/1` with provider-backed inference, full artifacts, and `1` provider call on `gpt-4o`; after widening generic click follow-ups to admit nested `browser__wait`, the model emitted one ordered `browser__click_element` on `btn_one` then `btn_two` with `delay_ms_between_ids=2000` and closed the slice at `reward=1.0` | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_button_delay cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1774288656/agent/miniwob_catalog_button_delay` |
+| retained validation target: `miniwob_catalog_click_button_sequence` | passed | `run-1774290416`: judged live `1/1` with provider-backed inference, full artifacts, and `1` provider call on `gpt-4o`; the model clicked `grp_start` and nested an ordered `browser__click_element` batch on `btn_one` then `btn_two` with `delay_ms_between_ids=100`, and the generalized low-latency ordered-click executor closed the slice at `raw_reward=1.0` | `OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_click_button_sequence cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture` | `run-1774290416/agent/miniwob_catalog_click_button_sequence` |
 
 ## Capability Gap Matrix
 
@@ -303,11 +441,11 @@ Only gaps exposed by live suite runs are active.
 | `missing_selection_primitive` | dormant | next rung is designed to probe this honestly via `catalog`; reopen only on fresh live evidence |
 | `missing_keyboard_primitive` | dormant | reopen only on fresh live evidence |
 | `missing_clipboard_primitive` | dormant | next rung is designed to probe this honestly via `catalog`; reopen only on fresh live evidence |
-| `observation_gap` | active | `run-1773542003` left `miniwob_catalog_stock_market` unable to surface a usable post-wait semantic view even after shared browser recovery hardening, and `run-1773542399` left `miniwob_catalog_social_media` without the grounded per-row action trigger for the target user's Reply flow |
-| `verification_gap` | dormant | `run-1773536893` exposed a stable-link click verification failure on `miniwob_catalog_phone_book`; the shared click-postcondition fix landed, and later exact reruns moved on to planner-only reds |
+| `observation_gap` | plateaued | `run-1773542003` still leaves `miniwob_catalog_stock_market` without a usable post-wait semantic view even after shared browser recovery hardening; `run-1774201441` closed the former `social_media` observation slice after shared DOM-fallback row-action surfacing and actionable-target ranking fixes |
+| `verification_gap` | dormant | `run-1774288656` closed the former `miniwob_catalog_button_delay` timing / sequencing gap live after widening generic click follow-ups to admit grounded `browser__wait`, and `run-1774290416` closed `miniwob_catalog_click_button_sequence` after generalizing the same low-latency ordered-click executor to undelayed batches; both direct ordered-click regressions stay green, so reopen only on fresh live evidence. |
 | `planner_gap` | plateaued | `run-1773528931` leaves `miniwob_catalog_bisect_angle` red after shared pointer and SVG-center fixes, `run-1773537614` leaves `miniwob_catalog_phone_book` red after shared verification and planner-prompt fixes, and `run-1773539581` leaves `miniwob_catalog_email_inbox` red after shared mailbox-intent, icon observation, raw-id prompt, and action-label fixes; all three slices now require a broader planner improvement rather than more slice-local iteration |
 | `recovery_gap` | dormant | workflow mutation and reorder closures keep the last recovery reductions green |
-| `infra_or_bridge_gap` | dormant | launch instability and MiniWoB turnover-accounting branches remain closed, `run-1773527672` closed the generic unknown-task `catalog` survey-step budget regression, and the zero-call reruns `run-1773528640` / `run-1773528708` were stale-browser cleanup noise rather than new benchmark evidence |
+| `infra_or_bridge_gap` | active | `run-1774281832` and `run-1774283163` make `miniwob_catalog_chase_circle` the current startup-budget / bridge-timing gap: the live model already chooses the correct one-turn hover, but immediate episode start plus first-step latency cap reward below the pass floor even with full-duration tracking. |
 
 ## Benchmark Escalation Ladder
 
@@ -372,9 +510,9 @@ Only gaps exposed by live suite runs are active.
    Immediate widening order:
    - exact `miniwob_catalog_copy_paste`
    - widened `catalog` audit
-   - collapsed exact red slice `miniwob_catalog_ascending_numbers`
-   - rerun exact `miniwob_catalog_ascending_numbers` after shared observation
-     and survey-budget fixes
+   - collapsed exact red slice `miniwob_catalog_chase_circle`
+   - rerun exact `miniwob_catalog_chase_circle` after shared startup-budget
+     observations and prompt-observation warmup work
    - widen back to full `catalog`
    - collapse to exact `miniwob_catalog_bisect_angle`
    - rerun exact `miniwob_catalog_bisect_angle` after shared headless
@@ -389,39 +527,32 @@ Only gaps exposed by live suite runs are active.
    - plateau reached and recorded
 
 5. Post-catalog frontier choice
-   Status: in progress.
+   Status: exact plateau recorded; widen back to audit.
    Objective:
-   - after the rung-4 plateau, probe the most product-relevant unproven
-     MiniWoB `catalog` subfamily: information extraction / lookup / transfer
-     tasks that require reading grounded page content and acting on it
-   Exact sentinel:
-   - `miniwob_catalog_read_table`
-   Canonical closure so far:
-   - `run-1773530273`: closed exact `miniwob_catalog_read_table` live with
-     provider-backed inference, full artifacts, and `2` provider calls on
-     `gpt-4o`
-   - `run-1773530865`: closed exact `miniwob_catalog_read_table_2` live with
-     provider-backed inference, full artifacts, and `4` provider calls on
-     `gpt-4o`
-   Recorded plateau:
-   - `run-1773537614`: `miniwob_catalog_phone_book` is parked as an honest
-     planner plateau after shared verification and browser grounding fixes;
-     the agent still hallucinated nonexistent ids instead of using visible
-     navigation controls
-   - `run-1773542003`: `miniwob_catalog_stock_market` is parked as an honest
-     dynamic-page plateau after shared browser recovery and queue/runtime
-     fixes; the live page reached the success threshold, but the agent still
-     failed on the post-wait semantic snapshot
-   Widening order after a plateau or exact green:
-   - `miniwob_catalog_read_table`
-   - `miniwob_catalog_read_table_2`
-   - `miniwob_catalog_phone_book`
-   - `miniwob_catalog_email_inbox`
-   - `miniwob_catalog_stock_market`
-   - `miniwob_catalog_social_media`
-   Decision standard:
-   - prefer new reusable read / lookup / transfer surfaces over reopening the
-     plateaued geometry-construction slice
+   - exhaust MiniWoB before switching benchmarks by recording the current
+     `chase_circle` plateau honestly, then rerunning the full `catalog` audit
+   Active exact slice:
+   - `miniwob_catalog_chase_circle`
+   Fresh canonical red:
+   - `run-1774281832`: provider-backed inference, full artifacts, and `1`
+     provider call; the live model immediately chose
+     `browser__hover {"id":"grp_circ","duration_ms":10000}`, tracked
+     selector `#circ` for the full hover, and still graded `reward=0.8367`
+   Revalidation:
+   - `run-1774283163`: after reverting a losing harness timing experiment, the
+     same one-turn hover path stayed red at `reward=0.7948`, confirming the
+     slice is a startup-budget plateau rather than a planner-intent miss
+   Landed shared follow-up:
+   - prompt-observation warmup can now cache grounded targets that coexist with
+     the MiniWoB start gate
+   - losing harness timing reorder was reverted after `run-1774282952` made the
+     exact slice worse
+   - timed ordered-click execution and timed pending guidance remain retained
+     shared fixes from the earlier `button_delay` frontier
+   Exit criterion:
+   - rerun full `catalog`, collapse the next exact red from fresh widened
+     evidence, and only then move the next benchmark loop to bridge-alpha
+     readiness
 
 ## Iteration Update Protocol
 
@@ -456,8 +587,14 @@ For every iteration:
 
 ## Current Next Move
 
-Run the active rung-5 exact red slice:
+MiniWoB is still the active integrated suite. The next honest benchmark move is
+to widen back to the full `catalog` audit on the current code:
 
 ```bash
-OPENAI_API_KEY=... OPENAI_MODEL=... COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus COMPUTER_USE_SUITE_MODE=agent COMPUTER_USE_SUITE_AGENT_BACKEND=live_http COMPUTER_USE_SUITE_TASK_SET=catalog COMPUTER_USE_SUITE_CASES=miniwob_catalog_social_media cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture
+COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/tmp/miniwob-plusplus \
+COMPUTER_USE_SUITE_MODE=agent \
+COMPUTER_USE_SUITE_AGENT_BACKEND=live_http \
+COMPUTER_USE_SUITE_TASK_SET=catalog \
+cargo test -p ioi-cli --test computer_use_suite_e2e \
+  computer_use_suite_from_env -- --ignored --exact --nocapture
 ```

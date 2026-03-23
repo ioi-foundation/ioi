@@ -37,6 +37,17 @@ pub struct BrowserTypeOutcome {
     pub autocomplete: Option<BrowserAutocompleteState>,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct BrowserHoverTrackOutcome {
+    pub dispatched: bool,
+    pub samples: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_x: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_y: Option<f64>,
+    pub used_animation_frame: bool,
+}
+
 const SCROLL_EDGE_SETTLE_TOLERANCE: i32 = 4;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -44,6 +55,14 @@ struct BrowserScrollProbe {
     page: BrowserScrollPosition,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     target: Option<BrowserScrollTargetState>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+struct BrowserFractionalSyntheticClickDispatch {
+    found: bool,
+    dispatched: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
 }
 
 impl BrowserDriver {
@@ -82,6 +101,340 @@ impl BrowserDriver {
         } else {
             None
         }
+    }
+
+    fn has_fractional_pointer_component(value: f64) -> bool {
+        value.is_finite() && (value.round() - value).abs() > 1e-6
+    }
+
+    fn needs_fractional_pointer_bridge(x: f64, y: f64) -> bool {
+        Self::has_fractional_pointer_component(x) || Self::has_fractional_pointer_component(y)
+    }
+
+    fn mouse_button_code(button: &MouseButton) -> i64 {
+        match button {
+            MouseButton::Left => 0,
+            MouseButton::Middle => 1,
+            MouseButton::Right => 2,
+            MouseButton::Back => 3,
+            MouseButton::Forward => 4,
+            MouseButton::None => -1,
+        }
+    }
+
+    fn fractional_synthetic_click_terminal_event(button: &MouseButton) -> Option<&'static str> {
+        match button {
+            MouseButton::Left => Some("click"),
+            MouseButton::Middle => Some("auxclick"),
+            MouseButton::Right => Some("contextmenu"),
+            MouseButton::Back | MouseButton::Forward | MouseButton::None => None,
+        }
+    }
+
+    fn fractional_synthetic_click_script(
+        x: f64,
+        y: f64,
+        button: &MouseButton,
+        initial_buttons: i64,
+    ) -> std::result::Result<String, BrowserError> {
+        let x_json = serde_json::to_string(&x)
+            .map_err(|e| BrowserError::Internal(format!("Coordinate encode failed: {}", e)))?;
+        let y_json = serde_json::to_string(&y)
+            .map_err(|e| BrowserError::Internal(format!("Coordinate encode failed: {}", e)))?;
+        let button_name_json = serde_json::to_string(button.as_ref())
+            .map_err(|e| BrowserError::Internal(format!("Button encode failed: {}", e)))?;
+        let button_code = Self::mouse_button_code(button);
+        let initial_buttons_json = serde_json::to_string(&initial_buttons)
+            .map_err(|e| BrowserError::Internal(format!("Buttons encode failed: {}", e)))?;
+        let press_buttons_json =
+            serde_json::to_string(&(initial_buttons | Self::mouse_button_mask(button)))
+                .map_err(|e| BrowserError::Internal(format!("Buttons encode failed: {}", e)))?;
+        let release_buttons_json =
+            serde_json::to_string(&(initial_buttons & !Self::mouse_button_mask(button)))
+                .map_err(|e| BrowserError::Internal(format!("Buttons encode failed: {}", e)))?;
+        let final_event_json =
+            serde_json::to_string(&Self::fractional_synthetic_click_terminal_event(button))
+                .map_err(|e| BrowserError::Internal(format!("Event encode failed: {}", e)))?;
+        let helpers = Self::deep_dom_helper_js();
+        let mut script = r#"(() => {
+                const topX = __X_JSON__;
+                const topY = __Y_JSON__;
+                const buttonName = __BUTTON_NAME_JSON__;
+                const buttonCode = __BUTTON_CODE__;
+                const initialButtons = __INITIAL_BUTTONS_JSON__;
+                const pressButtons = __PRESS_BUTTONS_JSON__;
+                const releaseButtons = __RELEASE_BUTTONS_JSON__;
+                const finalEventType = __FINAL_EVENT_JSON__;
+                __HELPERS__
+
+                if (!Number.isFinite(topX) || !Number.isFinite(topY)) {
+                    return {
+                        found: false,
+                        dispatched: false,
+                        reason: "non_finite_coordinates",
+                    };
+                }
+
+                const target = deepElementFromPoint(topX, topY);
+                if (!target) {
+                    return {
+                        found: false,
+                        dispatched: false,
+                        reason: "no_target_at_point",
+                    };
+                }
+
+                const ownerDoc = target.ownerDocument || document;
+                const ownerWin = ownerDoc && ownerDoc.defaultView ? ownerDoc.defaultView : window;
+                if (typeof ownerWin.MouseEvent !== "function") {
+                    return {
+                        found: true,
+                        dispatched: false,
+                        reason: "mouse_event_constructor_unavailable",
+                    };
+                }
+
+                let localX = topX;
+                let localY = topY;
+                let currentDoc = ownerDoc;
+                let guard = 0;
+                while (currentDoc && guard < 32) {
+                    const frameEl =
+                        currentDoc.defaultView && currentDoc.defaultView.frameElement
+                            ? currentDoc.defaultView.frameElement
+                            : null;
+                    if (!frameEl) {
+                        break;
+                    }
+                    const frameRect = frameEl.getBoundingClientRect();
+                    localX -= frameRect.left;
+                    localY -= frameRect.top;
+                    currentDoc = frameEl.ownerDocument;
+                    guard += 1;
+                }
+
+                const screenBaseX = Number.isFinite(ownerWin.screenX)
+                    ? ownerWin.screenX
+                    : (Number.isFinite(window.screenX) ? window.screenX : 0);
+                const screenBaseY = Number.isFinite(ownerWin.screenY)
+                    ? ownerWin.screenY
+                    : (Number.isFinite(window.screenY) ? window.screenY : 0);
+                const screenX = screenBaseX + localX;
+                const screenY = screenBaseY + localY;
+                const pageX = localX + (Number.isFinite(ownerWin.scrollX) ? ownerWin.scrollX : 0);
+                const pageY = localY + (Number.isFinite(ownerWin.scrollY) ? ownerWin.scrollY : 0);
+                const targetRect =
+                    typeof target.getBoundingClientRect === "function"
+                        ? target.getBoundingClientRect()
+                        : null;
+                const offsetX =
+                    targetRect && Number.isFinite(targetRect.left) ? localX - targetRect.left : localX;
+                const offsetY =
+                    targetRect && Number.isFinite(targetRect.top) ? localY - targetRect.top : localY;
+                const mouseEventInit = (buttons, detail) => ({
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    view: ownerWin,
+                    button: buttonCode,
+                    buttons,
+                    clientX: localX,
+                    clientY: localY,
+                    screenX,
+                    screenY,
+                    detail,
+                });
+                const pointerEventInit = (buttons, detail) => ({
+                    ...mouseEventInit(buttons, detail),
+                    pointerId: 1,
+                    pointerType: "mouse",
+                    isPrimary: true,
+                    width: 1,
+                    height: 1,
+                    pressure: buttons === 0 ? 0 : 0.5,
+                });
+
+                const dispatch = (ctor, type, init) => {
+                    try {
+                        const event = new ctor(type, init);
+                        for (const [key, value] of Object.entries({
+                            clientX: localX,
+                            clientY: localY,
+                            pageX,
+                            pageY,
+                            screenX,
+                            screenY,
+                            x: localX,
+                            y: localY,
+                            offsetX,
+                            offsetY,
+                        })) {
+                            try {
+                                Object.defineProperty(event, key, {
+                                    configurable: true,
+                                    enumerable: true,
+                                    get: () => value,
+                                });
+                            } catch (_e) {}
+                        }
+                        target.dispatchEvent(event);
+                        return true;
+                    } catch (error) {
+                        return String(error);
+                    }
+                };
+
+                const movePointerResult =
+                    typeof ownerWin.PointerEvent === "function"
+                        ? dispatch(ownerWin.PointerEvent, "pointermove", pointerEventInit(initialButtons, 0))
+                        : true;
+                if (movePointerResult !== true) {
+                    return {
+                        found: true,
+                        dispatched: false,
+                        reason: `pointermove:${movePointerResult}`,
+                    };
+                }
+                const moveMouseResult = dispatch(
+                    ownerWin.MouseEvent,
+                    "mousemove",
+                    mouseEventInit(initialButtons, 0)
+                );
+                if (moveMouseResult !== true) {
+                    return {
+                        found: true,
+                        dispatched: false,
+                        reason: `mousemove:${moveMouseResult}`,
+                    };
+                }
+
+                const pointerDownResult =
+                    typeof ownerWin.PointerEvent === "function"
+                        ? dispatch(ownerWin.PointerEvent, "pointerdown", pointerEventInit(pressButtons, 1))
+                        : true;
+                if (pointerDownResult !== true) {
+                    return {
+                        found: true,
+                        dispatched: false,
+                        reason: `pointerdown:${pointerDownResult}`,
+                    };
+                }
+                const mouseDownResult = dispatch(
+                    ownerWin.MouseEvent,
+                    "mousedown",
+                    mouseEventInit(pressButtons, 1)
+                );
+                if (mouseDownResult !== true) {
+                    return {
+                        found: true,
+                        dispatched: false,
+                        reason: `mousedown:${mouseDownResult}`,
+                    };
+                }
+
+                if (buttonCode === 0 && typeof target.focus === "function") {
+                    try {
+                        target.focus({ preventScroll: true });
+                    } catch (_e) {}
+                }
+
+                const pointerUpResult =
+                    typeof ownerWin.PointerEvent === "function"
+                        ? dispatch(ownerWin.PointerEvent, "pointerup", pointerEventInit(releaseButtons, 1))
+                        : true;
+                if (pointerUpResult !== true) {
+                    return {
+                        found: true,
+                        dispatched: false,
+                        reason: `pointerup:${pointerUpResult}`,
+                    };
+                }
+                const mouseUpResult = dispatch(
+                    ownerWin.MouseEvent,
+                    "mouseup",
+                    mouseEventInit(releaseButtons, 1)
+                );
+                if (mouseUpResult !== true) {
+                    return {
+                        found: true,
+                        dispatched: false,
+                        reason: `mouseup:${mouseUpResult}`,
+                    };
+                }
+
+                if (finalEventType) {
+                    const finalEventResult = dispatch(
+                        ownerWin.MouseEvent,
+                        finalEventType,
+                        mouseEventInit(releaseButtons, 1)
+                    );
+                    if (finalEventResult !== true) {
+                        return {
+                            found: true,
+                            dispatched: false,
+                            reason: `${finalEventType}:${finalEventResult}`,
+                        };
+                    }
+                }
+
+                return {
+                    found: true,
+                    dispatched: true,
+                    reason: null,
+                };
+            })()"#
+            .to_string();
+        for (needle, value) in [
+            ("__X_JSON__", x_json.as_str()),
+            ("__Y_JSON__", y_json.as_str()),
+            ("__BUTTON_NAME_JSON__", button_name_json.as_str()),
+            ("__BUTTON_CODE__", &button_code.to_string()),
+            ("__INITIAL_BUTTONS_JSON__", initial_buttons_json.as_str()),
+            ("__PRESS_BUTTONS_JSON__", press_buttons_json.as_str()),
+            ("__RELEASE_BUTTONS_JSON__", release_buttons_json.as_str()),
+            ("__FINAL_EVENT_JSON__", final_event_json.as_str()),
+            ("__HELPERS__", helpers),
+        ] {
+            script = script.replace(needle, value);
+        }
+        Ok(script)
+    }
+
+    async fn dispatch_fractional_synthetic_click_with_button(
+        &self,
+        x: f64,
+        y: f64,
+        button: MouseButton,
+    ) -> std::result::Result<(), BrowserError> {
+        let initial_buttons = self.pointer_state().await.buttons;
+        let script = Self::fractional_synthetic_click_script(x, y, &button, initial_buttons)?;
+        let outcome: BrowserFractionalSyntheticClickDispatch = self.evaluate_js(&script).await?;
+        if !outcome.found {
+            return Err(BrowserError::Internal(format!(
+                "Fractional synthetic click failed at ({:.3}, {:.3}): {}",
+                x,
+                y,
+                outcome
+                    .reason
+                    .unwrap_or_else(|| "no_target_at_point".to_string())
+            )));
+        }
+        if !outcome.dispatched {
+            return Err(BrowserError::Internal(format!(
+                "Fractional synthetic click dispatch failed at ({:.3}, {:.3}): {}",
+                x,
+                y,
+                outcome
+                    .reason
+                    .unwrap_or_else(|| "unknown_dispatch_failure".to_string())
+            )));
+        }
+
+        let mut state = self.pointer_state.lock().await;
+        state.x = x;
+        state.y = y;
+        state.buttons = initial_buttons & !Self::mouse_button_mask(&button);
+        Ok(())
     }
 
     fn parse_mouse_button(button: &str) -> std::result::Result<MouseButton, BrowserError> {
@@ -139,8 +492,7 @@ impl BrowserDriver {
 
     fn is_bottom_edge_jump_chord(key: &str, modifiers: &[String]) -> bool {
         (key.eq_ignore_ascii_case("End") && Self::modifiers_include(modifiers, "Control"))
-            || (key.eq_ignore_ascii_case("ArrowDown")
-                && Self::modifiers_include(modifiers, "Meta"))
+            || (key.eq_ignore_ascii_case("ArrowDown") && Self::modifiers_include(modifiers, "Meta"))
     }
 
     fn edge_jump_settle_key(
@@ -161,15 +513,16 @@ impl BrowserDriver {
             return Some("PageUp");
         }
 
-        if Self::is_bottom_edge_jump_chord(key, modifiers)
-            && outcome.can_scroll_down == Some(true)
+        if Self::is_bottom_edge_jump_chord(key, modifiers) && outcome.can_scroll_down == Some(true)
         {
             let remaining_distance = outcome
                 .scroll_height
                 .zip(outcome.client_height)
                 .zip(outcome.scroll_top)
                 .map(|((scroll_height, client_height), scroll_top)| {
-                    scroll_height.saturating_sub(client_height).saturating_sub(scroll_top)
+                    scroll_height
+                        .saturating_sub(client_height)
+                        .saturating_sub(scroll_top)
                 });
             if remaining_distance
                 .is_some_and(|distance| (0..=SCROLL_EDGE_SETTLE_TOLERANCE).contains(&distance))
@@ -291,6 +644,7 @@ impl BrowserDriver {
             modifier_mask &= !mask;
         }
 
+        self.invalidate_accessibility_snapshot().await;
         tokio::time::sleep(Duration::from_millis(40)).await;
         self.wait_for_typed_text_state(None).await
     }
@@ -529,6 +883,150 @@ impl BrowserDriver {
         Ok(last)
     }
 
+    async fn set_text_value_with_events(
+        &self,
+        selector: Option<&str>,
+        text: &str,
+    ) -> std::result::Result<bool, BrowserError> {
+        let selector_json = serde_json::to_string(&selector)
+            .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
+        let text_json = serde_json::to_string(&text)
+            .map_err(|e| BrowserError::Internal(format!("Text encode failed: {}", e)))?;
+        let helpers = Self::deep_dom_helper_js();
+        let script = format!(
+            r#"(() => {{
+                const selector = {selector_json};
+                const nextValue = {text_json};
+                {helpers}
+                const el = selector ? deepQuerySelector(selector) : deepActiveElement();
+                if (!el) {{
+                    return false;
+                }}
+
+                const tag = (el.tagName || "").toLowerCase();
+                const role =
+                    (typeof el.getAttribute === "function"
+                        ? String(el.getAttribute("role") || "").toLowerCase()
+                        : "");
+                const contentEditableValue =
+                    (typeof el.getAttribute === "function"
+                        ? String(el.getAttribute("contenteditable") || "").toLowerCase()
+                        : "");
+                const hasContentEditableAttr =
+                    !!(el.hasAttribute && el.hasAttribute("contenteditable"));
+                const contentEditableEnabled =
+                    !!(el.isContentEditable
+                        || (hasContentEditableAttr && contentEditableValue !== "false"));
+
+                if (tag === "input") {{
+                    const type = String(el.getAttribute("type") || "text").toLowerCase();
+                    const nonEditableTypes = [
+                        "button",
+                        "submit",
+                        "checkbox",
+                        "radio",
+                        "range",
+                        "color",
+                        "file",
+                        "image",
+                        "reset",
+                        "hidden",
+                    ];
+                    if (nonEditableTypes.includes(type)) {{
+                        return false;
+                    }}
+                }} else if (tag !== "textarea" && !contentEditableEnabled) {{
+                    if (!["textbox", "searchbox", "combobox"].includes(role) || !("value" in el)) {{
+                        return false;
+                    }}
+                }}
+
+                try {{
+                    if (typeof el.focus === "function") {{
+                        el.focus({{ preventScroll: true }});
+                    }}
+                }} catch (_e) {{}}
+
+                const setNativeValue = (prototype) => {{
+                    if (!prototype) {{
+                        return false;
+                    }}
+                    try {{
+                        const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+                        if (descriptor && typeof descriptor.set === "function") {{
+                            descriptor.set.call(el, nextValue);
+                            return true;
+                        }}
+                    }} catch (_e) {{}}
+                    return false;
+                }};
+
+                let applied = false;
+                try {{
+                    if (contentEditableEnabled) {{
+                        if ("innerText" in el) {{
+                            el.innerText = nextValue;
+                        }} else {{
+                            el.textContent = nextValue;
+                        }}
+                        applied = true;
+                    }} else if ("value" in el) {{
+                        applied =
+                            setNativeValue(window.HTMLInputElement && window.HTMLInputElement.prototype)
+                            || setNativeValue(window.HTMLTextAreaElement && window.HTMLTextAreaElement.prototype);
+                        if (!applied) {{
+                            el.value = nextValue;
+                            applied = String(el.value || "") === String(nextValue);
+                        }}
+                    }}
+                }} catch (_e) {{
+                    return false;
+                }}
+
+                if (!applied) {{
+                    return false;
+                }}
+
+                const dispatchPlainEvent = (type) => {{
+                    try {{
+                        el.dispatchEvent(
+                            new Event(type, {{
+                                bubbles: true,
+                                cancelable: false,
+                                composed: true,
+                            }})
+                        );
+                    }} catch (_e) {{}}
+                }};
+
+                try {{
+                    if (typeof InputEvent === "function") {{
+                        el.dispatchEvent(
+                            new InputEvent("input", {{
+                                bubbles: true,
+                                cancelable: false,
+                                composed: true,
+                                data: nextValue,
+                                inputType: "insertText",
+                            }})
+                        );
+                    }} else {{
+                        dispatchPlainEvent("input");
+                    }}
+                }} catch (_e) {{
+                    dispatchPlainEvent("input");
+                }}
+                dispatchPlainEvent("change");
+                return true;
+            }})()"#,
+            selector_json = selector_json,
+            text_json = text_json,
+            helpers = helpers
+        );
+
+        self.evaluate_js(&script).await
+    }
+
     fn scroll_target_changed(
         before: Option<&BrowserScrollTargetState>,
         after: Option<&BrowserScrollTargetState>,
@@ -741,6 +1239,372 @@ impl BrowserDriver {
         Ok(())
     }
 
+    pub async fn dispatch_synthetic_hover_refresh(
+        &self,
+        selector: &str,
+        x: f64,
+        y: f64,
+        force_reenter: bool,
+    ) -> std::result::Result<bool, BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        let selector_json = serde_json::to_string(selector)
+            .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
+        let force_reenter_json = if force_reenter { "true" } else { "false" };
+        let helpers = Self::deep_dom_helper_js();
+        let script = format!(
+            r#"(() => {{
+                const selector = {selector_json};
+                const topX = {x};
+                const topY = {y};
+                const forceReenter = {force_reenter};
+                {helpers}
+
+                const target = deepQuerySelector(selector);
+                if (!target || !Number.isFinite(topX) || !Number.isFinite(topY)) {{
+                    return false;
+                }}
+
+                const ownerDoc = target.ownerDocument || document;
+                const ownerWin = ownerDoc && ownerDoc.defaultView ? ownerDoc.defaultView : window;
+                if (typeof ownerWin.MouseEvent !== "function") {{
+                    return false;
+                }}
+
+                let localX = topX;
+                let localY = topY;
+                let currentDoc = ownerDoc;
+                let guard = 0;
+                while (currentDoc && guard < 32) {{
+                    const frameEl =
+                        currentDoc.defaultView && currentDoc.defaultView.frameElement
+                            ? currentDoc.defaultView.frameElement
+                            : null;
+                    if (!frameEl) {{
+                        break;
+                    }}
+                    const frameRect = frameEl.getBoundingClientRect();
+                    localX -= frameRect.left;
+                    localY -= frameRect.top;
+                    currentDoc = frameEl.ownerDocument;
+                    guard += 1;
+                }}
+
+                const screenBaseX = Number.isFinite(ownerWin.screenX)
+                    ? ownerWin.screenX
+                    : (Number.isFinite(window.screenX) ? window.screenX : 0);
+                const screenBaseY = Number.isFinite(ownerWin.screenY)
+                    ? ownerWin.screenY
+                    : (Number.isFinite(window.screenY) ? window.screenY : 0);
+                const screenX = screenBaseX + localX;
+                const screenY = screenBaseY + localY;
+                const pageX = localX + (Number.isFinite(ownerWin.scrollX) ? ownerWin.scrollX : 0);
+                const pageY = localY + (Number.isFinite(ownerWin.scrollY) ? ownerWin.scrollY : 0);
+                const targetRect =
+                    typeof target.getBoundingClientRect === "function"
+                        ? target.getBoundingClientRect()
+                        : null;
+                const offsetX =
+                    targetRect && Number.isFinite(targetRect.left) ? localX - targetRect.left : localX;
+                const offsetY =
+                    targetRect && Number.isFinite(targetRect.top) ? localY - targetRect.top : localY;
+
+                const mouseEventInit = (bubbles) => ({{
+                    bubbles,
+                    cancelable: true,
+                    composed: true,
+                    view: ownerWin,
+                    button: 0,
+                    buttons: 0,
+                    clientX: localX,
+                    clientY: localY,
+                    screenX,
+                    screenY,
+                    detail: 0,
+                }});
+                const pointerEventInit = (bubbles) => ({{
+                    ...mouseEventInit(bubbles),
+                    pointerId: 1,
+                    pointerType: "mouse",
+                    isPrimary: true,
+                    width: 1,
+                    height: 1,
+                    pressure: 0,
+                }});
+
+                const dispatch = (ctor, type, init) => {{
+                    try {{
+                        const event = new ctor(type, init);
+                        for (const [key, value] of Object.entries({{
+                            clientX: localX,
+                            clientY: localY,
+                            pageX,
+                            pageY,
+                            screenX,
+                            screenY,
+                            x: localX,
+                            y: localY,
+                            offsetX,
+                            offsetY,
+                        }})) {{
+                            try {{
+                                Object.defineProperty(event, key, {{
+                                    configurable: true,
+                                    enumerable: true,
+                                    get: () => value,
+                                }});
+                            }} catch (_e) {{}}
+                        }}
+                        target.dispatchEvent(event);
+                        return true;
+                    }} catch (_e) {{
+                        return false;
+                    }}
+                }};
+
+                if (forceReenter) {{
+                    if (typeof ownerWin.PointerEvent === "function") {{
+                        dispatch(ownerWin.PointerEvent, "pointerout", pointerEventInit(true));
+                        dispatch(ownerWin.PointerEvent, "pointerleave", pointerEventInit(false));
+                    }}
+                    dispatch(ownerWin.MouseEvent, "mouseout", mouseEventInit(true));
+                    dispatch(ownerWin.MouseEvent, "mouseleave", mouseEventInit(false));
+                }}
+
+                if (typeof ownerWin.PointerEvent === "function") {{
+                    dispatch(ownerWin.PointerEvent, "pointerover", pointerEventInit(true));
+                    dispatch(ownerWin.PointerEvent, "pointerenter", pointerEventInit(false));
+                    dispatch(ownerWin.PointerEvent, "pointermove", pointerEventInit(true));
+                }}
+                dispatch(ownerWin.MouseEvent, "mouseover", mouseEventInit(true));
+                dispatch(ownerWin.MouseEvent, "mouseenter", mouseEventInit(false));
+                dispatch(ownerWin.MouseEvent, "mousemove", mouseEventInit(true));
+                return true;
+            }})()"#,
+            selector_json = selector_json,
+            x = x,
+            y = y,
+            force_reenter = force_reenter_json,
+            helpers = helpers
+        );
+        self.evaluate_js(&script).await
+    }
+
+    pub async fn track_selector_hover(
+        &self,
+        selector: &str,
+        duration_ms: u64,
+        force_reenter_each_frame: bool,
+    ) -> std::result::Result<BrowserHoverTrackOutcome, BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        let selector_json = serde_json::to_string(selector)
+            .map_err(|e| BrowserError::Internal(format!("Selector encode failed: {}", e)))?;
+        let force_reenter_json = if force_reenter_each_frame {
+            "true"
+        } else {
+            "false"
+        };
+        let helpers = Self::deep_dom_helper_js();
+        let script_template = r#"(async () => {
+                const selector = __SELECTOR_JSON__;
+                const durationMs = __DURATION_MS__;
+                const forceReenterEachFrame = __FORCE_REENTER__;
+                __HELPERS__
+
+                const initialTarget = deepQuerySelector(selector);
+                if (!initialTarget) {
+                    return {
+                        dispatched: false,
+                        samples: 0,
+                        last_x: null,
+                        last_y: null,
+                        used_animation_frame: false,
+                    };
+                }
+
+                const ownerDoc = initialTarget.ownerDocument || document;
+                const ownerWin = ownerDoc && ownerDoc.defaultView ? ownerDoc.defaultView : window;
+                if (typeof ownerWin.MouseEvent !== "function") {
+                    return {
+                        dispatched: false,
+                        samples: 0,
+                        last_x: null,
+                        last_y: null,
+                        used_animation_frame: false,
+                    };
+                }
+
+                const now = () =>
+                    ownerWin.performance && typeof ownerWin.performance.now === "function"
+                        ? ownerWin.performance.now()
+                        : Date.now();
+                const deadline = now() + durationMs;
+                const usedAnimationFrame =
+                    typeof ownerWin.requestAnimationFrame === "function";
+                const waitNextFrame = () =>
+                    new Promise((resolve) => {
+                        if (usedAnimationFrame) {
+                            ownerWin.requestAnimationFrame(() => resolve());
+                        } else {
+                            ownerWin.setTimeout(resolve, 16);
+                        }
+                    });
+
+                let samples = 0;
+                let lastX = null;
+                let lastY = null;
+                let lastTarget = null;
+                let hasEnteredCurrentTarget =
+                    !!(
+                        initialTarget &&
+                        typeof initialTarget.matches === "function" &&
+                        initialTarget.matches(":hover")
+                    );
+
+                const dispatchForTarget = (target) => {
+                    if (!target) {
+                        return false;
+                    }
+                    const rect =
+                        typeof target.getBoundingClientRect === "function"
+                            ? target.getBoundingClientRect()
+                            : null;
+                    if (!rect) {
+                        return false;
+                    }
+
+                    const localX = rect.left + rect.width / 2;
+                    const localY = rect.top + rect.height / 2;
+                    if (!Number.isFinite(localX) || !Number.isFinite(localY)) {
+                        return false;
+                    }
+
+                    const screenBaseX = Number.isFinite(ownerWin.screenX)
+                        ? ownerWin.screenX
+                        : (Number.isFinite(window.screenX) ? window.screenX : 0);
+                    const screenBaseY = Number.isFinite(ownerWin.screenY)
+                        ? ownerWin.screenY
+                        : (Number.isFinite(window.screenY) ? window.screenY : 0);
+                    const screenX = screenBaseX + localX;
+                    const screenY = screenBaseY + localY;
+                    const pageX =
+                        localX + (Number.isFinite(ownerWin.scrollX) ? ownerWin.scrollX : 0);
+                    const pageY =
+                        localY + (Number.isFinite(ownerWin.scrollY) ? ownerWin.scrollY : 0);
+
+                    const mouseEventInit = (bubbles) => ({
+                        bubbles,
+                        cancelable: true,
+                        composed: true,
+                        view: ownerWin,
+                        button: 0,
+                        buttons: 0,
+                        clientX: localX,
+                        clientY: localY,
+                        screenX,
+                        screenY,
+                        detail: 0,
+                    });
+                    const pointerEventInit = (bubbles) => ({
+                        ...mouseEventInit(bubbles),
+                        pointerId: 1,
+                        pointerType: "mouse",
+                        isPrimary: true,
+                        width: 1,
+                        height: 1,
+                        pressure: 0,
+                    });
+
+                    const dispatch = (dispatchTarget, ctor, type, init) => {
+                        try {
+                            const event = new ctor(type, init);
+                            for (const [key, value] of Object.entries({
+                                clientX: localX,
+                                clientY: localY,
+                                pageX,
+                                pageY,
+                                screenX,
+                                screenY,
+                                x: localX,
+                                y: localY,
+                                offsetX: rect.width / 2,
+                                offsetY: rect.height / 2,
+                            })) {
+                                try {
+                                    Object.defineProperty(event, key, {
+                                        configurable: true,
+                                        enumerable: true,
+                                        get: () => value,
+                                    });
+                                } catch (_e) {}
+                            }
+                            dispatchTarget.dispatchEvent(event);
+                            return true;
+                        } catch (_e) {
+                            return false;
+                        }
+                    };
+
+                    const targetChanged = lastTarget && lastTarget !== target;
+
+                    if ((forceReenterEachFrame || targetChanged) && lastTarget) {
+                        if (typeof ownerWin.PointerEvent === "function") {
+                            dispatch(lastTarget, ownerWin.PointerEvent, "pointerout", pointerEventInit(true));
+                            dispatch(lastTarget, ownerWin.PointerEvent, "pointerleave", pointerEventInit(false));
+                        }
+                        dispatch(lastTarget, ownerWin.MouseEvent, "mouseout", mouseEventInit(true));
+                        dispatch(lastTarget, ownerWin.MouseEvent, "mouseleave", mouseEventInit(false));
+                        hasEnteredCurrentTarget = false;
+                    }
+
+                    if (!hasEnteredCurrentTarget || forceReenterEachFrame || targetChanged) {
+                        if (typeof ownerWin.PointerEvent === "function") {
+                            dispatch(target, ownerWin.PointerEvent, "pointerover", pointerEventInit(true));
+                            dispatch(target, ownerWin.PointerEvent, "pointerenter", pointerEventInit(false));
+                        }
+                        dispatch(target, ownerWin.MouseEvent, "mouseover", mouseEventInit(true));
+                        dispatch(target, ownerWin.MouseEvent, "mouseenter", mouseEventInit(false));
+                        hasEnteredCurrentTarget = true;
+                    }
+                    if (typeof ownerWin.PointerEvent === "function") {
+                        dispatch(target, ownerWin.PointerEvent, "pointermove", pointerEventInit(true));
+                    }
+                    dispatch(target, ownerWin.MouseEvent, "mousemove", mouseEventInit(true));
+
+                    samples += 1;
+                    lastX = localX;
+                    lastY = localY;
+                    lastTarget = target;
+                    return true;
+                };
+
+                while (now() < deadline) {
+                    const target = deepQuerySelector(selector);
+                    if (!dispatchForTarget(target)) {
+                        break;
+                    }
+                    await waitNextFrame();
+                }
+
+                return {
+                    dispatched: samples > 0,
+                    samples,
+                    last_x: lastX,
+                    last_y: lastY,
+                    used_animation_frame: usedAnimationFrame,
+                };
+            })()"#;
+        let script = script_template
+            .replace("__SELECTOR_JSON__", &selector_json)
+            .replace("__DURATION_MS__", &duration_ms.to_string())
+            .replace("__FORCE_REENTER__", force_reenter_json)
+            .replace("__HELPERS__", helpers);
+        self.evaluate_js(&script).await
+    }
+
     pub async fn mouse_down(
         &self,
         x: f64,
@@ -823,8 +1687,15 @@ impl BrowserDriver {
         y: f64,
         button: MouseButton,
     ) -> std::result::Result<(), BrowserError> {
+        if Self::needs_fractional_pointer_bridge(x, y) {
+            return self
+                .dispatch_fractional_synthetic_click_with_button(x, y, button)
+                .await;
+        }
+
         self.mouse_down(x, y, button.as_ref()).await?;
         self.mouse_up(x, y, button.as_ref()).await?;
+        self.invalidate_accessibility_snapshot().await;
         Ok(())
     }
 
@@ -896,11 +1767,13 @@ impl BrowserDriver {
         page.execute(cmd)
             .await
             .map_err(|e| BrowserError::Internal(format!("Scroll failed: {}", e)))?;
+        self.invalidate_accessibility_snapshot().await;
         tokio::time::sleep(Duration::from_millis(50)).await;
         let after = self.wait_for_scroll_state(cx, cy, &before).await?;
-        let page_moved =
-            (after.page.x - before.page.x).abs() > 0.5 || (after.page.y - before.page.y).abs() > 0.5;
-        let target_moved = Self::scroll_target_changed(before.target.as_ref(), after.target.as_ref());
+        let page_moved = (after.page.x - before.page.x).abs() > 0.5
+            || (after.page.y - before.page.y).abs() > 0.5;
+        let target_moved =
+            Self::scroll_target_changed(before.target.as_ref(), after.target.as_ref());
 
         Ok(BrowserScrollOutcome {
             delta_x,
@@ -954,12 +1827,30 @@ impl BrowserDriver {
         page.execute(InsertTextParams::new(text))
             .await
             .map_err(|e| BrowserError::Internal(format!("Type failed: {}", e)))?;
+        self.invalidate_accessibility_snapshot().await;
 
         if !text.is_empty() {
             self.dispatch_text_keyup(selector, text).await?;
         }
 
-        self.wait_for_typed_text_state(selector).await
+        let mut outcome = self.wait_for_typed_text_state(selector).await?;
+        if Self::typed_text_request_already_satisfied(&outcome, text) {
+            return Ok(outcome);
+        }
+
+        if self.set_text_value_with_events(selector, text).await? {
+            outcome = self.wait_for_typed_text_state(selector).await?;
+            if Self::typed_text_request_already_satisfied(&outcome, text) {
+                return Ok(outcome);
+            }
+        }
+
+        let target = selector.unwrap_or("active element");
+        let observed = outcome.value.as_deref().unwrap_or("");
+        Err(BrowserError::Internal(format!(
+            "Typing had no observable effect on '{}' (requested '{}', observed '{}')",
+            target, text, observed
+        )))
     }
 
     pub async fn press_key(
@@ -989,12 +1880,25 @@ impl BrowserDriver {
         let page = { self.active_page.lock().await.clone() };
 
         if let Some(p) = page {
-            let primary_click_result = match p.find_element(selector).await {
-                Ok(element) => match element.click().await {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(format!("Click failed: {}", e)),
-                },
-                Err(e) => Err(format!("Element not found: {}", e)),
+            let prefer_deep_click = self
+                .probe_selector(selector)
+                .await
+                .ok()
+                .is_some_and(|probe| {
+                    probe.found && probe.visible && (!probe.topmost || probe.blocked_by.is_some())
+                });
+            let primary_click_result = if prefer_deep_click {
+                self.click_selector_deep(selector)
+                    .await
+                    .map_err(|e| format!("Deep click failed: {}", e))
+            } else {
+                match p.find_element(selector).await {
+                    Ok(element) => match element.click().await {
+                        Ok(_) => Ok(()),
+                        Err(e) => Err(format!("Click failed: {}", e)),
+                    },
+                    Err(e) => Err(format!("Element not found: {}", e)),
+                }
             };
             if let Err(primary_error) = primary_click_result {
                 if let Err(deep_error) = self.click_selector_deep(selector).await {
@@ -1020,6 +1924,7 @@ impl BrowserDriver {
                 }
             }
 
+            self.invalidate_accessibility_snapshot().await;
             tokio::time::sleep(Duration::from_millis(100)).await;
             Ok(())
         } else {
@@ -1031,6 +1936,8 @@ impl BrowserDriver {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn active_mouse_button_prefers_primary_pressed_button() {
@@ -1122,8 +2029,7 @@ mod tests {
         };
 
         assert!(BrowserDriver::typed_text_request_already_satisfied(
-            &outcome,
-            "fiber"
+            &outcome, "fiber"
         ));
     }
 
@@ -1153,8 +2059,7 @@ mod tests {
             "fiber outage"
         ));
         assert!(!BrowserDriver::typed_text_request_already_satisfied(
-            &unfocused,
-            "fiber"
+            &unfocused, "fiber"
         ));
     }
 
@@ -1189,5 +2094,179 @@ mod tests {
             BrowserDriver::edge_jump_settle_key("End", &modifiers, &outcome),
             Some("PageDown")
         );
+    }
+
+    #[test]
+    fn fractional_pointer_bridge_only_activates_for_subpixel_coords() {
+        assert!(!BrowserDriver::needs_fractional_pointer_bridge(85.0, 107.0));
+        assert!(BrowserDriver::needs_fractional_pointer_bridge(
+            85.006, 107.0
+        ));
+        assert!(BrowserDriver::needs_fractional_pointer_bridge(
+            85.0, 105.412
+        ));
+    }
+
+    #[test]
+    fn fractional_synthetic_click_script_dispatches_float_mouse_events() {
+        let script = BrowserDriver::fractional_synthetic_click_script(
+            85.006,
+            105.412,
+            &MouseButton::Left,
+            0,
+        )
+        .expect("script should serialize fractional click");
+        assert!(script.contains("const target = deepElementFromPoint(topX, topY);"));
+        assert!(script.contains("clientX: localX"));
+        assert!(script.contains("clientY: localY"));
+        assert!(script.contains("Object.defineProperty(event, key"));
+        assert!(script.contains("pageX,"));
+        assert!(script.contains("pageY,"));
+        assert!(script.contains("new ctor(type, init)"));
+        assert!(script.contains("const finalEventType = \"click\";"));
+        assert!(script.contains("currentDoc.defaultView && currentDoc.defaultView.frameElement"));
+    }
+
+    #[test]
+    fn fractional_synthetic_click_script_uses_button_specific_terminal_events() {
+        let middle_script =
+            BrowserDriver::fractional_synthetic_click_script(40.25, 80.75, &MouseButton::Middle, 0)
+                .expect("middle-button script should serialize");
+        assert!(middle_script.contains("const finalEventType = \"auxclick\";"));
+
+        let right_script =
+            BrowserDriver::fractional_synthetic_click_script(12.5, 24.5, &MouseButton::Right, 0)
+                .expect("right-button script should serialize");
+        assert!(right_script.contains("const finalEventType = \"contextmenu\";"));
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    struct RecordedSyntheticClick {
+        target_id: Option<String>,
+        current_target_id: Option<String>,
+        client_x: f64,
+        client_y: f64,
+        page_x: f64,
+        page_y: f64,
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "launches Chromium to probe fractional synthetic click coordinate fidelity"]
+    async fn fractional_synthetic_click_preserves_browser_event_coordinates() {
+        let fixture_dir = tempdir().expect("temp fixture dir");
+        let fixture_path = fixture_dir.path().join("fractional-click-probe.html");
+        fs::write(
+            &fixture_path,
+            r#"<!doctype html>
+<html>
+  <body style="margin:0">
+    <div id="target" style="width:400px;height:300px;background:#dde7ff"></div>
+    <script>
+      window.__clicks = [];
+      const target = document.getElementById("target");
+      target.addEventListener("click", (event) => {
+        window.__clicks.push({
+          target_id: event.target && event.target.id ? event.target.id : null,
+          current_target_id:
+            event.currentTarget && event.currentTarget.id ? event.currentTarget.id : null,
+          client_x: event.clientX,
+          client_y: event.clientY,
+          page_x: event.pageX,
+          page_y: event.pageY,
+        });
+      });
+    </script>
+  </body>
+</html>
+"#,
+        )
+        .expect("fixture should write");
+        let fixture_url = format!("file://{}", fixture_path.display());
+
+        let driver = BrowserDriver::new();
+        driver.set_lease(true);
+        driver
+            .navigate(&fixture_url)
+            .await
+            .expect("fixture should load");
+        driver
+            .synthetic_click(85.006, 105.412)
+            .await
+            .expect("fractional synthetic click should succeed");
+
+        let recorded: Vec<RecordedSyntheticClick> = driver
+            .evaluate_js("(() => window.__clicks || [])()")
+            .await
+            .expect("click record should decode");
+        driver.force_reset().await;
+
+        let click = recorded.first().expect("fixture should record a click");
+        assert_eq!(click.target_id.as_deref(), Some("target"));
+        assert_eq!(click.current_target_id.as_deref(), Some("target"));
+        assert!((click.client_x - 85.006).abs() < 0.01, "{click:?}");
+        assert!((click.client_y - 105.412).abs() < 0.01, "{click:?}");
+        assert!((click.page_x - 85.006).abs() < 0.01, "{click:?}");
+        assert!((click.page_y - 105.412).abs() < 0.01, "{click:?}");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "launches Chromium to probe legacy window.event click handlers"]
+    async fn fractional_synthetic_click_supports_legacy_window_event_handlers() {
+        let fixture_dir = tempdir().expect("temp fixture dir");
+        let fixture_path = fixture_dir
+            .path()
+            .join("fractional-click-window-event.html");
+        fs::write(
+            &fixture_path,
+            r#"<!doctype html>
+<html>
+  <body style="margin:0">
+    <div id="target" style="width:400px;height:300px;background:#ffe8d6"></div>
+    <script>
+      window.__clicks = [];
+      function recordClicked(observedEvent) {
+        window.__clicks.push({
+          page_x: observedEvent.pageX,
+          page_y: observedEvent.pageY,
+          client_x: observedEvent.clientX,
+          client_y: observedEvent.clientY,
+        });
+      }
+      const target = document.getElementById("target");
+      target.addEventListener("click", function() {
+        recordClicked(event);
+      });
+    </script>
+  </body>
+</html>
+"#,
+        )
+        .expect("fixture should write");
+        let fixture_url = format!("file://{}", fixture_path.display());
+
+        let driver = BrowserDriver::new();
+        driver.set_lease(true);
+        driver
+            .navigate(&fixture_url)
+            .await
+            .expect("fixture should load");
+        driver
+            .synthetic_click(85.006, 105.412)
+            .await
+            .expect("fractional synthetic click should succeed");
+
+        let recorded: Vec<RecordedSyntheticClick> = driver
+            .evaluate_js("(() => window.__clicks || [])()")
+            .await
+            .expect("click record should decode");
+        driver.force_reset().await;
+
+        let click = recorded
+            .first()
+            .expect("legacy window.event fixture should record a click");
+        assert!((click.client_x - 85.006).abs() < 0.01, "{click:?}");
+        assert!((click.client_y - 105.412).abs() < 0.01, "{click:?}");
+        assert!((click.page_x - 85.006).abs() < 0.01, "{click:?}");
+        assert!((click.page_y - 105.412).abs() < 0.01, "{click:?}");
     }
 }

@@ -11,7 +11,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
@@ -211,6 +211,13 @@ pub struct BrowserPointerState {
     pub buttons: i64,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct RecentAccessibilitySnapshot {
+    pub(crate) captured_at: Instant,
+    pub(crate) url: Option<String>,
+    pub(crate) tree: AccessibilityNode,
+}
+
 pub struct BrowserDriver {
     // Hermetic Instance
     browser: Arc<Mutex<Option<Arc<Browser>>>>,
@@ -232,6 +239,7 @@ pub struct BrowserDriver {
 
     // Browser-local pointer state for composed pointer primitives.
     pointer_state: Arc<Mutex<BrowserPointerState>>,
+    last_accessibility_snapshot: Arc<Mutex<Option<RecentAccessibilitySnapshot>>>,
 }
 
 impl Drop for BrowserDriver {

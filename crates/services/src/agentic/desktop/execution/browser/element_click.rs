@@ -1,14 +1,18 @@
 use super::super::{ToolExecutionResult, ToolExecutor};
-use super::selector_click::{ensure_browser_focus_guard, handle_browser_click};
+use super::selector_click::ensure_browser_focus_guard;
 use super::tree::{apply_browser_auto_lens, render_browser_tree_xml};
 use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
 use serde_json::json;
 use std::collections::HashMap;
 use tokio::time::{sleep, Duration};
 
-// Allow one tail recheck for asynchronous browser updates before classifying a click as no-op.
-const CLICK_DISPATCH_SETTLE_MS: [u64; 4] = [0, 180, 360, 900];
+// Verification starts immediately after dispatch. Geometry-only targets do not have a stable
+// DOM-backed identity to reconcile, so keep their tail shorter than DOM-backed targets while
+// still allowing one medium recheck for slower semantic updates.
+const CLICK_DISPATCH_SETTLE_MS_GEOMETRY_ONLY: [u64; 5] = [0, 80, 160, 320, 640];
+const CLICK_DISPATCH_SETTLE_MS_DOM_BACKED: [u64; 4] = [0, 120, 240, 900];
 const LINK_STABLE_TARGET_MATERIAL_TREE_CHANGE_MIN_DELTA: usize = 4;
+const RECENT_BROWSER_SNAPSHOT_MAX_AGE: Duration = Duration::from_millis(5_000);
 
 fn rect_center(rect: Rect) -> Option<(f64, f64)> {
     if rect.width <= 0 || rect.height <= 0 {
@@ -19,6 +23,12 @@ fn rect_center(rect: Rect) -> Option<(f64, f64)> {
         rect.x as f64 + (rect.width as f64 / 2.0),
         rect.y as f64 + (rect.height as f64 / 2.0),
     ))
+}
+
+fn semantic_target_is_actionable(target: &BrowserSemanticTarget) -> bool {
+    target.backend_dom_node_id.is_some()
+        || target.cdp_node_id.is_some()
+        || target.center_point.is_some()
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -162,26 +172,40 @@ fn semantic_change_delta(
 pub(super) fn click_element_postcondition_counts_as_success(
     pre_target: &BrowserSemanticTarget,
     post_target: Option<&BrowserSemanticTarget>,
+    focused_control: Option<&BrowserSemanticTarget>,
     postcondition: &ClickElementPostcondition,
 ) -> bool {
-    let link_like = matches!(pre_target.tag_name.as_deref(), Some("a"));
-    if link_like
-        && postcondition.tree_changed
+    let post_target_strengthened = post_target.is_some_and(|target| {
+        target.selected != pre_target.selected
+            || target.checked != pre_target.checked
+            || target.center_point != pre_target.center_point
+            || target.dom_id != pre_target.dom_id
+            || target.cdp_node_id != pre_target.cdp_node_id
+            || target.backend_dom_node_id != pre_target.backend_dom_node_id
+    });
+    let target_focus_activation = post_target
+        .is_some_and(|target| target.focused && !pre_target.focused)
+        || focused_control.is_some_and(|focused| {
+            focused.focused
+                && focused.semantic_id == pre_target.semantic_id
+                && focused.dom_id == pre_target.dom_id
+        });
+    let stable_same_page_click = postcondition.tree_changed
         && !postcondition.url_changed
         && !postcondition.target_disappeared
-    {
-        let post_target_strengthened = post_target.is_some_and(|target| {
-            target.focused != pre_target.focused
-                || target.selected != pre_target.selected
-                || target.checked != pre_target.checked
-                || target.center_point != pre_target.center_point
-                || target.dom_id != pre_target.dom_id
-                || target.cdp_node_id != pre_target.cdp_node_id
-                || target.backend_dom_node_id != pre_target.backend_dom_node_id
-        });
+        && !postcondition.editable_focus_transition;
+    let link_like = matches!(pre_target.tag_name.as_deref(), Some("a"));
+    if stable_same_page_click && link_like {
         if !post_target_strengthened && !postcondition.material_semantic_change {
             return false;
         }
+    }
+    if stable_same_page_click
+        && !link_like
+        && !post_target_strengthened
+        && !(target_focus_activation && postcondition.material_semantic_change)
+    {
+        return false;
     }
 
     postcondition.met()
@@ -248,10 +272,23 @@ fn node_is_editable(node: &AccessibilityNode) -> bool {
     )
 }
 
+fn normalized_attr_lookup_key(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .map(|ch| ch.to_ascii_lowercase())
+        .collect()
+}
+
+fn attr_lookup_key_matches(candidate: &str, key: &str) -> bool {
+    candidate.eq_ignore_ascii_case(key)
+        || normalized_attr_lookup_key(candidate) == normalized_attr_lookup_key(key)
+}
+
 fn node_attr_value<'a>(node: &'a AccessibilityNode, key: &str) -> Option<&'a str> {
     node.attributes
         .iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case(key))
+        .find(|(k, _)| attr_lookup_key_matches(k, key))
         .map(|(_, v)| v.as_str())
         .filter(|value| !value.trim().is_empty())
 }
@@ -277,6 +314,27 @@ fn semantic_lookup_token_matches(token: &str, raw_query: &str, normalized_query:
     token.eq_ignore_ascii_case(raw_query)
         || (!normalized_query.is_empty()
             && normalize_semantic_lookup_key(token) == normalized_query)
+}
+
+fn semantic_lookup_alias_candidates(raw_query: &str) -> Vec<String> {
+    let trimmed = raw_query.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+
+    let mut aliases = vec![trimmed.to_string()];
+    if let Some((_, remainder)) = trimmed.split_once('_') {
+        if !remainder.trim().is_empty() && !aliases.iter().any(|alias| alias == remainder.trim()) {
+            aliases.push(remainder.trim().to_string());
+        }
+    }
+    if let Some((_, suffix)) = trimmed.rsplit_once('_') {
+        if !suffix.trim().is_empty() && !aliases.iter().any(|alias| alias == suffix.trim()) {
+            aliases.push(suffix.trim().to_string());
+        }
+    }
+
+    aliases
 }
 
 fn semantic_target_from_node(node: &AccessibilityNode) -> BrowserSemanticTarget {
@@ -335,6 +393,48 @@ fn find_semantic_target_by_alias(
     None
 }
 
+fn collect_semantic_targets_by_name_or_data_index(
+    node: &AccessibilityNode,
+    raw_query: &str,
+    normalized_query: &str,
+    matches: &mut Vec<BrowserSemanticTarget>,
+) {
+    let name_match = node
+        .name
+        .as_deref()
+        .is_some_and(|name| semantic_lookup_token_matches(name, raw_query, normalized_query));
+    let data_index_match = node_attr_value(node, "data_index")
+        .is_some_and(|value| semantic_lookup_token_matches(value, raw_query, normalized_query));
+    if name_match || data_index_match {
+        matches.push(semantic_target_from_node(node));
+    }
+
+    for child in &node.children {
+        collect_semantic_targets_by_name_or_data_index(child, raw_query, normalized_query, matches);
+    }
+}
+
+fn find_unique_semantic_target_by_name_or_data_index(
+    node: &AccessibilityNode,
+    raw_query: &str,
+) -> Option<BrowserSemanticTarget> {
+    for alias in semantic_lookup_alias_candidates(raw_query) {
+        let normalized_alias = normalize_semantic_lookup_key(&alias);
+        let mut matches = Vec::new();
+        collect_semantic_targets_by_name_or_data_index(
+            node,
+            &alias,
+            &normalized_alias,
+            &mut matches,
+        );
+        if matches.len() == 1 {
+            return matches.into_iter().next();
+        }
+    }
+
+    None
+}
+
 fn find_focused_semantic_target(node: &AccessibilityNode) -> Option<BrowserSemanticTarget> {
     for child in &node.children {
         if let Some(found) = find_focused_semantic_target(child) {
@@ -345,7 +445,7 @@ fn find_focused_semantic_target(node: &AccessibilityNode) -> Option<BrowserSeman
     node_is_focused(node).then(|| semantic_target_from_node(node))
 }
 
-pub(super) fn find_semantic_target_by_id(
+fn find_semantic_target_by_id_or_alias_recursive(
     node: &AccessibilityNode,
     target_id: &str,
 ) -> Option<BrowserSemanticTarget> {
@@ -359,12 +459,20 @@ pub(super) fn find_semantic_target_by_id(
     }
 
     for child in &node.children {
-        if let Some(found) = find_semantic_target_by_id(child, target_id) {
+        if let Some(found) = find_semantic_target_by_id_or_alias_recursive(child, target_id) {
             return Some(found);
         }
     }
 
     find_semantic_target_by_alias(node, target_id, &normalize_semantic_lookup_key(target_id))
+}
+
+pub(super) fn find_semantic_target_by_id(
+    node: &AccessibilityNode,
+    target_id: &str,
+) -> Option<BrowserSemanticTarget> {
+    find_semantic_target_by_id_or_alias_recursive(node, target_id)
+        .or_else(|| find_unique_semantic_target_by_name_or_data_index(node, target_id))
 }
 
 pub(super) fn find_semantic_target_by_browser_ids(
@@ -466,7 +574,13 @@ pub(super) fn click_element_postcondition_met(
             .dom_id
             .as_deref()
             .is_some_and(|id| !id.trim().is_empty());
-    let target_disappeared = has_verifiable_identity && post_target.is_none();
+    let has_geometry_only_identity = !has_verifiable_identity
+        && pre_target
+            .semantic_id
+            .as_deref()
+            .is_some_and(|id| !id.trim().is_empty());
+    let target_disappeared =
+        (has_verifiable_identity || has_geometry_only_identity) && post_target.is_none();
     let editable_focus_transition = pre_target.editable
         && !pre_target.focused
         && post_target.is_some_and(|target| target.focused);
@@ -522,6 +636,23 @@ fn escape_css_attr_literal(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+fn selector_is_positionally_fragile(selector: &str) -> bool {
+    let normalized = selector.trim().to_ascii_lowercase();
+    normalized.contains(":nth-of-type(") || normalized.contains(":nth-child(")
+}
+
+fn selector_fallback_is_safe_for_native_dom_control(target: &BrowserSemanticTarget) -> bool {
+    matches!(
+        target
+            .tag_name
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
+        Some("button" | "a" | "input" | "textarea" | "select" | "option" | "label" | "summary")
+    )
+}
+
 pub(super) fn selector_fallback_candidates(target: &BrowserSemanticTarget) -> Vec<String> {
     let mut selectors = Vec::new();
 
@@ -531,7 +662,12 @@ pub(super) fn selector_fallback_candidates(target: &BrowserSemanticTarget) -> Ve
         .map(str::trim)
         .filter(|selector| !selector.is_empty())
     {
-        selectors.push(selector.to_string());
+        if !(uses_geometry_only_click_verification(target)
+            && selector_is_positionally_fragile(selector))
+            || selector_fallback_is_safe_for_native_dom_control(target)
+        {
+            selectors.push(selector.to_string());
+        }
     }
 
     if let Some(dom_id) = target
@@ -549,6 +685,30 @@ pub(super) fn selector_fallback_candidates(target: &BrowserSemanticTarget) -> Ve
     selectors
 }
 
+fn uses_geometry_only_click_verification(target: &BrowserSemanticTarget) -> bool {
+    target.center_point.is_some()
+        && target
+            .backend_dom_node_id
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
+        && target
+            .cdp_node_id
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
+        && target
+            .dom_id
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
+}
+
+fn click_dispatch_settle_schedule(target: &BrowserSemanticTarget) -> &'static [u64] {
+    if uses_geometry_only_click_verification(target) {
+        &CLICK_DISPATCH_SETTLE_MS_GEOMETRY_ONLY
+    } else {
+        &CLICK_DISPATCH_SETTLE_MS_DOM_BACKED
+    }
+}
+
 async fn verify_click_dispatch(
     exec: &ToolExecutor,
     pre_tree_xml: &str,
@@ -557,8 +717,9 @@ async fn verify_click_dispatch(
     method: &str,
     center_point: Option<(f64, f64)>,
 ) -> (bool, serde_json::Value) {
-    for (attempt_idx, settle_ms) in CLICK_DISPATCH_SETTLE_MS.iter().copied().enumerate() {
-        let is_final_attempt = attempt_idx + 1 == CLICK_DISPATCH_SETTLE_MS.len();
+    let settle_schedule = click_dispatch_settle_schedule(semantic_target);
+    for (attempt_idx, settle_ms) in settle_schedule.iter().copied().enumerate() {
+        let is_final_attempt = attempt_idx + 1 == settle_schedule.len();
         if settle_ms > 0 {
             sleep(Duration::from_millis(settle_ms)).await;
         }
@@ -606,6 +767,7 @@ async fn verify_click_dispatch(
                 let success = click_element_postcondition_counts_as_success(
                     semantic_target,
                     post_target.as_ref(),
+                    focused_control.as_ref(),
                     &postcondition,
                 );
                 verify["postcondition"]["met"] = json!(success);
@@ -653,6 +815,126 @@ async fn verify_click_dispatch(
     unreachable!("verification settle loop should return on the final attempt")
 }
 
+async fn attempt_click_element_with_target(
+    exec: &ToolExecutor,
+    id: &str,
+    semantic_target: &BrowserSemanticTarget,
+    pre_tree_xml: &str,
+    pre_url: Option<&str>,
+) -> ToolExecutionResult {
+    let mut click_errors: Vec<String> = Vec::new();
+    let mut attempt_verification: Vec<serde_json::Value> = Vec::new();
+
+    if let Some(backend_id) = semantic_target.backend_dom_node_id.as_deref() {
+        match exec.browser.click_backend_dom_node(backend_id).await {
+            Ok(()) => {
+                let (met, verify) = verify_click_dispatch(
+                    exec,
+                    pre_tree_xml,
+                    semantic_target,
+                    pre_url,
+                    "backend_dom_node_id",
+                    None,
+                )
+                .await;
+                if met {
+                    return ToolExecutionResult::success(format!(
+                        "Clicked element '{}'. verify={}",
+                        id, verify
+                    ));
+                }
+                attempt_verification.push(verify);
+            }
+            Err(e) => click_errors.push(format!("backend_dom_node_id={}", e)),
+        }
+    }
+
+    if let Some(cdp_id) = semantic_target.cdp_node_id.as_deref() {
+        match exec.browser.click_ax_node(cdp_id).await {
+            Ok(()) => {
+                let (met, verify) = verify_click_dispatch(
+                    exec,
+                    pre_tree_xml,
+                    semantic_target,
+                    pre_url,
+                    "cdp_node_id",
+                    None,
+                )
+                .await;
+                if met {
+                    return ToolExecutionResult::success(format!(
+                        "Clicked element '{}'. verify={}",
+                        id, verify
+                    ));
+                }
+                attempt_verification.push(verify);
+            }
+            Err(e) => click_errors.push(format!("cdp_node_id={}", e)),
+        }
+    }
+
+    if let Some((x, y)) = semantic_target.center_point {
+        match exec.browser.synthetic_click(x, y).await {
+            Ok(()) => {
+                let (met, verify) = verify_click_dispatch(
+                    exec,
+                    pre_tree_xml,
+                    semantic_target,
+                    pre_url,
+                    "geometry_center",
+                    Some((x, y)),
+                )
+                .await;
+                if met {
+                    return ToolExecutionResult::success(format!(
+                        "Clicked element '{}' via geometry fallback. verify={}",
+                        id, verify
+                    ));
+                }
+                attempt_verification.push(verify);
+            }
+            Err(e) => click_errors.push(format!("geometry_center=({:.2},{:.2})={}", x, y, e)),
+        }
+    }
+
+    for selector in selector_fallback_candidates(semantic_target) {
+        match exec.browser.click_selector(&selector).await {
+            Ok(()) => {
+                let (met, verify) = verify_click_dispatch(
+                    exec,
+                    pre_tree_xml,
+                    semantic_target,
+                    pre_url,
+                    &format!("selector_fallback:{selector}"),
+                    None,
+                )
+                .await;
+                if met {
+                    return ToolExecutionResult::success(format!(
+                        "Clicked element '{}' via selector fallback '{}'. verify={}",
+                        id, selector, verify
+                    ));
+                }
+                attempt_verification.push(verify);
+            }
+            Err(error) => {
+                click_errors.push(format!("selector_fallback({})={}", selector, error));
+            }
+        }
+    }
+
+    let verify = json!({
+        "id": id,
+        "pre_target": semantic_target_verification_json(Some(semantic_target)),
+        "attempts": attempt_verification,
+        "click_errors": click_errors,
+    });
+    ToolExecutionResult::failure(format!(
+        "ERROR_CLASS=NoEffectAfterAction Failed to click element '{}'. verify={}",
+        id, verify
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{find_focused_semantic_target, semantic_target_verification_json};
@@ -688,7 +970,105 @@ mod tests {
 
     #[test]
     fn click_dispatch_settle_schedule_includes_delayed_tail_probe() {
-        assert_eq!(super::CLICK_DISPATCH_SETTLE_MS, [0, 180, 360, 900]);
+        assert_eq!(
+            super::CLICK_DISPATCH_SETTLE_MS_GEOMETRY_ONLY,
+            [0, 80, 160, 320, 640]
+        );
+        assert_eq!(
+            super::CLICK_DISPATCH_SETTLE_MS_DOM_BACKED,
+            [0, 120, 240, 900]
+        );
+    }
+
+    #[test]
+    fn semantic_target_is_actionable_for_recent_geometry_only_targets() {
+        let target = super::BrowserSemanticTarget {
+            center_point: Some((63.0, 154.0)),
+            selector: Some("#area_svg > rect:nth-of-type(1)".to_string()),
+            ..Default::default()
+        };
+
+        assert!(super::semantic_target_is_actionable(&target));
+    }
+
+    #[test]
+    fn geometry_only_targets_use_shorter_click_verification_tail() {
+        let target = super::BrowserSemanticTarget {
+            center_point: Some((52.0, 69.0)),
+            selector: Some("#area_svg > rect:nth-of-type(1)".to_string()),
+            tag_name: Some("rect".to_string()),
+            ..Default::default()
+        };
+
+        assert!(super::uses_geometry_only_click_verification(&target));
+        assert_eq!(
+            super::click_dispatch_settle_schedule(&target),
+            &[0, 80, 160, 320, 640]
+        );
+    }
+
+    #[test]
+    fn dom_backed_targets_keep_delayed_tail_probe() {
+        let target = super::BrowserSemanticTarget {
+            dom_id: Some("submit".to_string()),
+            backend_dom_node_id: Some("backend-17".to_string()),
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+
+        assert!(!super::uses_geometry_only_click_verification(&target));
+        assert_eq!(
+            super::click_dispatch_settle_schedule(&target),
+            &[0, 120, 240, 900]
+        );
+    }
+
+    #[test]
+    fn geometry_only_targets_skip_positionally_fragile_selector_fallbacks() {
+        let target = super::BrowserSemanticTarget {
+            center_point: Some((52.0, 69.0)),
+            selector: Some("#area_svg > rect:nth-of-type(1)".to_string()),
+            tag_name: Some("rect".to_string()),
+            ..Default::default()
+        };
+
+        assert!(super::selector_fallback_candidates(&target).is_empty());
+    }
+
+    #[test]
+    fn dom_backed_targets_keep_positionally_fragile_selector_when_it_is_their_identity() {
+        let target = super::BrowserSemanticTarget {
+            dom_id: Some("listbox".to_string()),
+            selector: Some("#listbox > li:nth-of-type(1)".to_string()),
+            center_point: Some((30.0, 55.0)),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            super::selector_fallback_candidates(&target),
+            vec![
+                "#listbox > li:nth-of-type(1)".to_string(),
+                "[id=\"listbox\"]".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn native_dom_controls_keep_positionally_fragile_selector_fallback_without_dom_id() {
+        let target = super::BrowserSemanticTarget {
+            selector: Some(
+                "#results > div:nth-of-type(5) > div:nth-of-type(4) > button".to_string(),
+            ),
+            center_point: Some((75.0, 577.0)),
+            tag_name: Some("button".to_string()),
+            ..Default::default()
+        };
+
+        assert!(super::uses_geometry_only_click_verification(&target));
+        assert_eq!(
+            super::selector_fallback_candidates(&target),
+            vec!["#results > div:nth-of-type(5) > div:nth-of-type(4) > button".to_string()]
+        );
     }
 
     #[test]
@@ -777,6 +1157,187 @@ mod tests {
     }
 
     #[test]
+    fn stale_semantic_id_recovers_unique_data_index_target() {
+        let tree = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 160,
+                height: 160,
+            },
+            children: vec![
+                AccessibilityNode {
+                    id: "grp_rect_a".to_string(),
+                    role: "generic".to_string(),
+                    name: Some("4".to_string()),
+                    value: None,
+                    rect: Rect {
+                        x: 40,
+                        y: 60,
+                        width: 20,
+                        height: 20,
+                    },
+                    children: Vec::new(),
+                    is_visible: true,
+                    attributes: HashMap::from([
+                        ("data_index".to_string(), "4".to_string()),
+                        ("shape_kind".to_string(), "rectangle".to_string()),
+                    ]),
+                    som_id: None,
+                },
+                AccessibilityNode {
+                    id: "grp_rect_b".to_string(),
+                    role: "generic".to_string(),
+                    name: Some("5".to_string()),
+                    value: None,
+                    rect: Rect {
+                        x: 70,
+                        y: 90,
+                        width: 20,
+                        height: 20,
+                    },
+                    children: Vec::new(),
+                    is_visible: true,
+                    attributes: HashMap::from([
+                        ("data_index".to_string(), "5".to_string()),
+                        ("shape_kind".to_string(), "rectangle".to_string()),
+                    ]),
+                    som_id: None,
+                },
+            ],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let target = super::find_semantic_target_by_id(&tree, "grp_4").expect("target");
+        assert_eq!(target.semantic_id.as_deref(), Some("grp_rect_a"));
+        assert_eq!(target.center_point, Some((50.0, 70.0)));
+    }
+
+    #[test]
+    fn stale_semantic_id_recovers_unique_hyphenated_data_index_target() {
+        let tree = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 160,
+                height: 160,
+            },
+            children: vec![
+                AccessibilityNode {
+                    id: "grp_rect_a".to_string(),
+                    role: "generic".to_string(),
+                    name: None,
+                    value: None,
+                    rect: Rect {
+                        x: 40,
+                        y: 60,
+                        width: 20,
+                        height: 20,
+                    },
+                    children: Vec::new(),
+                    is_visible: true,
+                    attributes: HashMap::from([
+                        ("data-index".to_string(), "4".to_string()),
+                        ("shape_kind".to_string(), "rectangle".to_string()),
+                    ]),
+                    som_id: None,
+                },
+                AccessibilityNode {
+                    id: "grp_rect_b".to_string(),
+                    role: "generic".to_string(),
+                    name: None,
+                    value: None,
+                    rect: Rect {
+                        x: 70,
+                        y: 90,
+                        width: 20,
+                        height: 20,
+                    },
+                    children: Vec::new(),
+                    is_visible: true,
+                    attributes: HashMap::from([
+                        ("data-index".to_string(), "5".to_string()),
+                        ("shape_kind".to_string(), "rectangle".to_string()),
+                    ]),
+                    som_id: None,
+                },
+            ],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let target = super::find_semantic_target_by_id(&tree, "grp_4").expect("target");
+        assert_eq!(target.semantic_id.as_deref(), Some("grp_rect_a"));
+        assert_eq!(target.center_point, Some((50.0, 70.0)));
+    }
+
+    #[test]
+    fn stale_semantic_id_does_not_guess_ambiguous_name_alias() {
+        let tree = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 160,
+                height: 160,
+            },
+            children: vec![
+                AccessibilityNode {
+                    id: "grp_submit_primary".to_string(),
+                    role: "button".to_string(),
+                    name: Some("Submit".to_string()),
+                    value: None,
+                    rect: Rect {
+                        x: 10,
+                        y: 10,
+                        width: 20,
+                        height: 20,
+                    },
+                    children: Vec::new(),
+                    is_visible: true,
+                    attributes: HashMap::new(),
+                    som_id: None,
+                },
+                AccessibilityNode {
+                    id: "grp_submit_secondary".to_string(),
+                    role: "button".to_string(),
+                    name: Some("Submit".to_string()),
+                    value: None,
+                    rect: Rect {
+                        x: 40,
+                        y: 10,
+                        width: 20,
+                        height: 20,
+                    },
+                    children: Vec::new(),
+                    is_visible: true,
+                    attributes: HashMap::new(),
+                    som_id: None,
+                },
+            ],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        assert!(super::find_semantic_target_by_id(&tree, "btn_submit").is_none());
+    }
+
+    #[test]
     fn selector_fallback_candidates_prefer_explicit_selector_then_dom_id() {
         let target = super::BrowserSemanticTarget {
             selector: Some("[id=\"ticket-link-t-204\"]".to_string()),
@@ -802,6 +1363,254 @@ mod tests {
             vec!["[id=\"ticket\\\"link\\\\204\"]".to_string()]
         );
     }
+
+    #[test]
+    fn click_element_postcondition_rejects_stable_button_tree_change_without_semantic_delta() {
+        let pre_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let post_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let postcondition = super::ClickElementPostcondition {
+            target_disappeared: false,
+            editable_focus_transition: false,
+            tree_changed: true,
+            url_changed: false,
+            material_semantic_change: false,
+            semantic_change_delta: 0,
+        };
+
+        assert!(!super::click_element_postcondition_counts_as_success(
+            &pre_target,
+            Some(&post_target),
+            None,
+            &postcondition,
+        ));
+    }
+
+    #[test]
+    fn click_element_postcondition_rejects_stable_button_tree_change_without_activation_signal() {
+        let pre_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let post_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let postcondition = super::ClickElementPostcondition {
+            target_disappeared: false,
+            editable_focus_transition: false,
+            tree_changed: true,
+            url_changed: false,
+            material_semantic_change: false,
+            semantic_change_delta: 1,
+        };
+
+        assert!(!super::click_element_postcondition_counts_as_success(
+            &pre_target,
+            Some(&post_target),
+            None,
+            &postcondition,
+        ));
+    }
+
+    #[test]
+    fn click_element_postcondition_rejects_button_focus_loss_without_other_change() {
+        let pre_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            focused: true,
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let post_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            focused: false,
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let postcondition = super::ClickElementPostcondition {
+            target_disappeared: false,
+            editable_focus_transition: false,
+            tree_changed: true,
+            url_changed: false,
+            material_semantic_change: false,
+            semantic_change_delta: 0,
+        };
+
+        assert!(!super::click_element_postcondition_counts_as_success(
+            &pre_target,
+            Some(&post_target),
+            None,
+            &postcondition,
+        ));
+    }
+
+    #[test]
+    fn click_element_postcondition_rejects_button_focus_gain_without_other_change() {
+        let pre_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            focused: false,
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let post_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            focused: true,
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let postcondition = super::ClickElementPostcondition {
+            target_disappeared: false,
+            editable_focus_transition: false,
+            tree_changed: true,
+            url_changed: false,
+            material_semantic_change: false,
+            semantic_change_delta: 0,
+        };
+
+        assert!(!super::click_element_postcondition_counts_as_success(
+            &pre_target,
+            Some(&post_target),
+            None,
+            &postcondition,
+        ));
+    }
+
+    #[test]
+    fn click_element_postcondition_accepts_editable_focus_transition() {
+        let pre_target = super::BrowserSemanticTarget {
+            semantic_id: Some("inp_query".to_string()),
+            dom_id: Some("query".to_string()),
+            selector: Some("#query".to_string()),
+            tag_name: Some("input".to_string()),
+            editable: true,
+            focused: false,
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let post_target = super::BrowserSemanticTarget {
+            semantic_id: Some("inp_query".to_string()),
+            dom_id: Some("query".to_string()),
+            selector: Some("#query".to_string()),
+            tag_name: Some("input".to_string()),
+            editable: true,
+            focused: true,
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let postcondition = super::ClickElementPostcondition {
+            target_disappeared: false,
+            editable_focus_transition: true,
+            tree_changed: true,
+            url_changed: false,
+            material_semantic_change: false,
+            semantic_change_delta: 0,
+        };
+
+        assert!(super::click_element_postcondition_counts_as_success(
+            &pre_target,
+            Some(&post_target),
+            None,
+            &postcondition,
+        ));
+    }
+
+    #[test]
+    fn click_element_postcondition_accepts_stable_button_material_change_with_focus_activation() {
+        let pre_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            focused: false,
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let post_target = super::BrowserSemanticTarget {
+            semantic_id: Some("btn_submit".to_string()),
+            dom_id: Some("subbtn".to_string()),
+            selector: Some("#subbtn".to_string()),
+            tag_name: Some("button".to_string()),
+            focused: true,
+            center_point: Some((74.5, 99.5)),
+            ..Default::default()
+        };
+        let postcondition = super::ClickElementPostcondition {
+            target_disappeared: false,
+            editable_focus_transition: false,
+            tree_changed: true,
+            url_changed: false,
+            material_semantic_change: true,
+            semantic_change_delta: 29,
+        };
+
+        assert!(super::click_element_postcondition_counts_as_success(
+            &pre_target,
+            Some(&post_target),
+            Some(&post_target),
+            &postcondition,
+        ));
+    }
+
+    #[test]
+    fn geometry_only_target_disappearance_counts_as_postcondition() {
+        let pre_target = super::BrowserSemanticTarget {
+            semantic_id: Some("grp_2".to_string()),
+            selector: Some("#area_svg > rect:nth-of-type(1)".to_string()),
+            tag_name: Some("rect".to_string()),
+            center_point: Some((40.0, 110.0)),
+            ..Default::default()
+        };
+
+        let postcondition = super::click_element_postcondition_met(
+            "<root><generic id=\"grp_2\" name=\"2\" /></root>",
+            &pre_target,
+            Some("file:///tmp/miniwob/ascending-numbers.1.html"),
+            "<root><generic id=\"grp_3\" name=\"3\" /></root>",
+            None,
+            Some("file:///tmp/miniwob/ascending-numbers.1.html"),
+        );
+
+        assert!(postcondition.target_disappeared);
+        assert!(super::click_element_postcondition_counts_as_success(
+            &pre_target,
+            None,
+            None,
+            &postcondition,
+        ));
+    }
 }
 
 pub(super) async fn handle_browser_click_element(
@@ -810,6 +1619,34 @@ pub(super) async fn handle_browser_click_element(
 ) -> ToolExecutionResult {
     if let Some(blocked) = ensure_browser_focus_guard(exec) {
         return blocked;
+    }
+
+    let pre_url = exec.browser.known_active_url().await;
+    let mut recent_snapshot_failure: Option<ToolExecutionResult> = None;
+
+    if let Some((_snapshot_url, cached_tree)) = exec
+        .browser
+        .recent_accessibility_snapshot(RECENT_BROWSER_SNAPSHOT_MAX_AGE)
+        .await
+    {
+        let cached_tree = apply_browser_auto_lens(cached_tree);
+        if let Some(cached_target) = find_semantic_target_by_id(&cached_tree, id) {
+            if semantic_target_is_actionable(&cached_target) {
+                let cached_pre_tree_xml = render_browser_tree_xml(&cached_tree);
+                let cached_result = attempt_click_element_with_target(
+                    exec,
+                    id,
+                    &cached_target,
+                    &cached_pre_tree_xml,
+                    pre_url.as_deref(),
+                )
+                .await;
+                if cached_result.success {
+                    return cached_result;
+                }
+                recent_snapshot_failure = Some(cached_result);
+            }
+        }
     }
 
     let raw_tree = match exec.browser.get_accessibility_tree().await {
@@ -826,128 +1663,31 @@ pub(super) async fn handle_browser_click_element(
     let semantic_target = match find_semantic_target_by_id(&transformed, id) {
         Some(target) => target,
         None => {
-            return ToolExecutionResult::failure(format!(
-                "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__snapshot` again and retry with a fresh ID.",
-                id
-            ))
+            return recent_snapshot_failure.unwrap_or_else(|| {
+                ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__snapshot` again and retry with a fresh ID.",
+                    id
+                ))
+            })
         }
     };
 
-    if semantic_target.backend_dom_node_id.is_none()
-        && semantic_target.cdp_node_id.is_none()
-        && semantic_target.center_point.is_none()
-    {
-        return ToolExecutionResult::failure(format!(
-            "ERROR_CLASS=TargetNotFound Element '{}' is present but does not expose actionable browser node identifiers or clickable geometry.",
-            id
-        ));
+    if !semantic_target_is_actionable(&semantic_target) {
+        return recent_snapshot_failure.unwrap_or_else(|| {
+            ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=TargetNotFound Element '{}' is present but does not expose actionable browser node identifiers or clickable geometry.",
+                id
+            ))
+        });
     }
 
     let pre_tree_xml = render_browser_tree_xml(&transformed);
-    let pre_url = exec.browser.active_url().await.ok();
-    let mut click_errors: Vec<String> = Vec::new();
-    let mut attempt_verification: Vec<serde_json::Value> = Vec::new();
-
-    if let Some(backend_id) = semantic_target.backend_dom_node_id.as_deref() {
-        match exec.browser.click_backend_dom_node(backend_id).await {
-            Ok(()) => {
-                sleep(Duration::from_millis(120)).await;
-                let (met, verify) = verify_click_dispatch(
-                    exec,
-                    &pre_tree_xml,
-                    &semantic_target,
-                    pre_url.as_deref(),
-                    "backend_dom_node_id",
-                    None,
-                )
-                .await;
-                if met {
-                    return ToolExecutionResult::success(format!(
-                        "Clicked element '{}'. verify={}",
-                        id, verify
-                    ));
-                }
-                attempt_verification.push(verify);
-            }
-            Err(e) => click_errors.push(format!("backend_dom_node_id={}", e)),
-        }
-    }
-
-    if let Some(cdp_id) = semantic_target.cdp_node_id.as_deref() {
-        match exec.browser.click_ax_node(cdp_id).await {
-            Ok(()) => {
-                sleep(Duration::from_millis(120)).await;
-                let (met, verify) = verify_click_dispatch(
-                    exec,
-                    &pre_tree_xml,
-                    &semantic_target,
-                    pre_url.as_deref(),
-                    "cdp_node_id",
-                    None,
-                )
-                .await;
-                if met {
-                    return ToolExecutionResult::success(format!(
-                        "Clicked element '{}'. verify={}",
-                        id, verify
-                    ));
-                }
-                attempt_verification.push(verify);
-            }
-            Err(e) => click_errors.push(format!("cdp_node_id={}", e)),
-        }
-    }
-
-    if let Some((x, y)) = semantic_target.center_point {
-        match exec.browser.synthetic_click(x, y).await {
-            Ok(()) => {
-                sleep(Duration::from_millis(120)).await;
-                let (met, verify) = verify_click_dispatch(
-                    exec,
-                    &pre_tree_xml,
-                    &semantic_target,
-                    pre_url.as_deref(),
-                    "geometry_center",
-                    Some((x, y)),
-                )
-                .await;
-                if met {
-                    return ToolExecutionResult::success(format!(
-                        "Clicked element '{}' via geometry fallback. verify={}",
-                        id, verify
-                    ));
-                }
-                attempt_verification.push(verify);
-            }
-            Err(e) => click_errors.push(format!("geometry_center=({:.2},{:.2})={}", x, y, e)),
-        }
-    }
-
-    for selector in selector_fallback_candidates(&semantic_target) {
-        let result = handle_browser_click(exec, &selector).await;
-        if result.success {
-            let detail = result
-                .history_entry
-                .unwrap_or_else(|| format!("Selector fallback '{}' succeeded.", selector));
-            return ToolExecutionResult::success(format!(
-                "Clicked element '{}' via selector fallback '{}'. {}",
-                id, selector, detail
-            ));
-        }
-
-        if let Some(error) = result.error {
-            click_errors.push(format!("selector_fallback({})={}", selector, error));
-        }
-    }
-
-    let verify = json!({
-        "id": id,
-        "pre_target": semantic_target_verification_json(Some(&semantic_target)),
-        "attempts": attempt_verification,
-        "click_errors": click_errors,
-    });
-    ToolExecutionResult::failure(format!(
-        "ERROR_CLASS=NoEffectAfterAction Failed to click element '{}'. verify={}",
-        id, verify
-    ))
+    attempt_click_element_with_target(
+        exec,
+        id,
+        &semantic_target,
+        &pre_tree_xml,
+        pre_url.as_deref(),
+    )
+    .await
 }

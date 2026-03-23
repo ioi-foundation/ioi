@@ -12,6 +12,10 @@ use chromiumoxide::keys;
 use std::time::Instant;
 
 impl BrowserDriver {
+    pub async fn known_active_url(&self) -> Option<String> {
+        self.active_page_url.lock().await.clone()
+    }
+
     fn validate_upload_paths(paths: &[String]) -> std::result::Result<Vec<String>, BrowserError> {
         if paths.is_empty() {
             return Err(BrowserError::Internal(

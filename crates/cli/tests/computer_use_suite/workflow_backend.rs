@@ -312,6 +312,7 @@ impl WorkflowBridgeClient {
                 episode_step: 0,
                 generation: 0,
                 last_sync_ms: Some(now_ms()),
+                sync_history: Vec::new(),
                 info: BridgeInfo {
                     reason: Some("workflow_fixture_bootstrap".to_string()),
                     raw_reward: Some(0.0),
@@ -325,6 +326,7 @@ impl WorkflowBridgeClient {
                     interactive_elements: Vec::new(),
                     scroll_targets: Vec::new(),
                     dom_elements: Vec::new(),
+                    trigger: None,
                 },
             },
         };
@@ -1114,6 +1116,7 @@ fn sync_bridge_state_from_observation(
         interactive_elements: payload.interactive_elements,
         scroll_targets: payload.scroll_targets,
         dom_elements: payload.dom_elements,
+        trigger: None,
     };
 }
 
@@ -1139,6 +1142,7 @@ fn sync_bridge_state_from_synthesized_page(session: &mut WorkflowSession) {
         interactive_elements: synthesized_interactive_elements(session, &session.current_page),
         scroll_targets: Vec::new(),
         dom_elements: Vec::new(),
+        trigger: None,
     };
 }
 

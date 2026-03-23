@@ -82,18 +82,18 @@ use tokio::sync::Mutex;
 use zk_driver_succinct::SuccinctDriver;
 
 pub mod aggregator;
+mod collapse_verification;
 pub mod divergence;
+mod engine;
 #[cfg(test)]
 mod network_simulator;
 pub mod pacemaker;
-pub mod safety;
-#[cfg(test)]
-mod simulator;
-mod collapse_verification;
-mod engine;
 mod qc_state;
 mod recovery_cache;
 mod runtime;
+pub mod safety;
+#[cfg(test)]
+mod simulator;
 #[cfg(test)]
 mod tests;
 

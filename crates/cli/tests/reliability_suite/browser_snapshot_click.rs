@@ -271,7 +271,10 @@ async fn browser_snapshot_then_click_element_updates_fixture() -> Result<()> {
     let click = exec
         .execute(
             AgentTool::BrowserClickElement {
-                id: target_id.clone(),
+                id: Some(target_id.clone()),
+                ids: Vec::new(),
+                delay_ms_between_ids: None,
+                continue_with: None,
             },
             session_id,
             7,

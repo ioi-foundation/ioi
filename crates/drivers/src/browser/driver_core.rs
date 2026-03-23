@@ -26,6 +26,10 @@ fn launch_retry_backoff(attempt_index: usize) -> Duration {
     Duration::from_millis(LAUNCH_RETRY_DELAY_MS * (attempt_index as u64 + 1))
 }
 
+fn should_fallback_to_headless_launch(headless: bool, message: &str) -> bool {
+    !headless && is_retryable_launch_error(message)
+}
+
 fn restorable_page_url(raw: Option<&str>) -> Option<String> {
     let url = raw?.trim();
     if url.is_empty() || url.eq_ignore_ascii_case("about:blank") {
@@ -47,6 +51,7 @@ impl BrowserDriver {
             handler_alive: Arc::new(AtomicBool::new(false)),
             lease_active: Arc::new(AtomicBool::new(false)),
             pointer_state: Arc::new(Mutex::new(BrowserPointerState::default())),
+            last_accessibility_snapshot: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -398,7 +403,7 @@ impl BrowserDriver {
             base_args.push("--no-sandbox".to_string());
         }
 
-        let run_launch_attempt = |bin: PathBuf, extra_args: Vec<String>| async move {
+        let run_launch_attempt = |bin: PathBuf, extra_args: Vec<String>, attempt_headless: bool| async move {
             let args_owned = extra_args;
 
             log::info!(
@@ -411,7 +416,7 @@ impl BrowserDriver {
             let config_res = {
                 let mut builder = BrowserConfig::builder().chrome_executable(&bin);
 
-                if !headless {
+                if !attempt_headless {
                     builder = builder.with_head();
                 }
 
@@ -462,7 +467,7 @@ impl BrowserDriver {
             }
 
             let mut fallback_builder = BrowserConfig::builder().chrome_executable(&bin);
-            if !headless {
+            if !attempt_headless {
                 fallback_builder = fallback_builder.with_head();
             }
 
@@ -477,48 +482,69 @@ impl BrowserDriver {
                 .map_err(|e| e.to_string())
         };
 
-        let (profile_dir, browser, mut handler) = {
-            let mut last_error: Option<String> = None;
-            let mut launched = None;
+        let launch_with_retries = |attempt_headless: bool| {
+            let executable_path = info.executable_path.clone();
+            let base_args = base_args.clone();
+            async move {
+                let mut last_error: Option<String> = None;
+                let mut launched = None;
 
-            for attempt_index in 0..LAUNCH_RETRY_ATTEMPTS {
-                let profile_dir = Self::create_profile_dir()?;
-                let mut delta_args = base_args.clone();
-                delta_args.push(format!("--user-data-dir={}", profile_dir.display()));
+                for attempt_index in 0..LAUNCH_RETRY_ATTEMPTS {
+                    let profile_dir = Self::create_profile_dir()?;
+                    let mut delta_args = base_args.clone();
+                    delta_args.push(format!("--user-data-dir={}", profile_dir.display()));
 
-                match run_launch_attempt(info.executable_path.clone(), delta_args).await {
-                    Ok((browser, handler)) => {
-                        launched = Some((profile_dir, browser, handler));
-                        break;
-                    }
-                    Err(err) => {
-                        let retryable = attempt_index + 1 < LAUNCH_RETRY_ATTEMPTS
-                            && is_retryable_launch_error(&err);
-                        Self::remove_profile_dir(&profile_dir);
-                        if retryable {
-                            let delay = launch_retry_backoff(attempt_index);
-                            log::warn!(
-                                target: "browser",
-                                "Chromium launch attempt {}/{} failed before websocket resolution: {}. Retrying in {} ms.",
-                                attempt_index + 1,
-                                LAUNCH_RETRY_ATTEMPTS,
-                                err,
-                                delay.as_millis()
-                            );
-                            last_error = Some(err);
-                            tokio::time::sleep(delay).await;
-                            continue;
+                    match run_launch_attempt(executable_path.clone(), delta_args, attempt_headless)
+                        .await
+                    {
+                        Ok((browser, handler)) => {
+                            launched = Some((profile_dir, browser, handler));
+                            break;
                         }
-                        return Err(BrowserError::Internal(err));
+                        Err(err) => {
+                            let retryable = attempt_index + 1 < LAUNCH_RETRY_ATTEMPTS
+                                && is_retryable_launch_error(&err);
+                            Self::remove_profile_dir(&profile_dir);
+                            if retryable {
+                                let delay = launch_retry_backoff(attempt_index);
+                                log::warn!(
+                                    target: "browser",
+                                    "Chromium launch attempt {}/{} failed before websocket resolution (headless={}): {}. Retrying in {} ms.",
+                                    attempt_index + 1,
+                                    LAUNCH_RETRY_ATTEMPTS,
+                                    attempt_headless,
+                                    err,
+                                    delay.as_millis()
+                                );
+                                last_error = Some(err);
+                                tokio::time::sleep(delay).await;
+                                continue;
+                            }
+                            return Err(BrowserError::Internal(err));
+                        }
                     }
                 }
-            }
 
-            launched.ok_or_else(|| {
-                BrowserError::Internal(
-                    last_error.unwrap_or_else(|| "Chromium launch failed without an error".into()),
-                )
-            })?
+                launched.ok_or_else(|| {
+                    BrowserError::Internal(
+                        last_error
+                            .unwrap_or_else(|| "Chromium launch failed without an error".into()),
+                    )
+                })
+            }
+        };
+
+        let (profile_dir, browser, mut handler) = match launch_with_retries(headless).await {
+            Ok(launched) => launched,
+            Err(err) if should_fallback_to_headless_launch(headless, &err.to_string()) => {
+                log::warn!(
+                    target: "browser",
+                    "Chromium launch failed in headed mode with a retryable startup error: {}. Retrying once in headless mode.",
+                    err
+                );
+                launch_with_retries(true).await?
+            }
+            Err(err) => return Err(err),
         };
 
         let alive_signal = self.handler_alive.clone();
@@ -657,7 +683,32 @@ impl BrowserDriver {
 
 #[cfg(test)]
 mod tests {
-    use super::{evaluate_health, is_retryable_launch_error, restorable_page_url};
+    use super::{
+        evaluate_health, is_retryable_launch_error, restorable_page_url,
+        should_fallback_to_headless_launch, BrowserDriver, RecentAccessibilitySnapshot,
+    };
+    use crate::gui::accessibility::{AccessibilityNode, Rect};
+    use std::collections::HashMap;
+    use std::time::{Duration, Instant};
+
+    fn accessibility_leaf(id: &str) -> AccessibilityNode {
+        AccessibilityNode {
+            id: id.to_string(),
+            role: "button".to_string(),
+            name: Some("Leaf".to_string()),
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 24,
+                height: 24,
+            },
+            children: Vec::new(),
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        }
+    }
 
     #[test]
     fn cdp_health_overrides_dead_handler_flag() {
@@ -674,8 +725,28 @@ mod tests {
     }
 
     #[test]
+    fn retryable_headed_launch_error_falls_back_to_headless() {
+        assert!(should_fallback_to_headless_launch(
+            false,
+            "Browser process exited with status ExitStatus(unix_wait_status(0)) before websocket URL could be resolved, stderr: BrowserStderr(\"...\")",
+        ));
+    }
+
+    #[test]
+    fn headless_launch_error_does_not_recurse_to_headless_fallback() {
+        assert!(!should_fallback_to_headless_launch(
+            true,
+            "Browser process exited with status ExitStatus(unix_wait_status(0)) before websocket URL could be resolved, stderr: BrowserStderr(\"...\")",
+        ));
+    }
+
+    #[test]
     fn unrelated_launch_failure_is_not_retryable() {
         assert!(!is_retryable_launch_error(
+            "Config failed: unsupported browser configuration",
+        ));
+        assert!(!should_fallback_to_headless_launch(
+            false,
             "Config failed: unsupported browser configuration",
         ));
     }
@@ -690,5 +761,56 @@ mod tests {
             restorable_page_url(Some(" file:///tmp/example.html ")),
             Some("file:///tmp/example.html".to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn recent_accessibility_snapshot_returns_fresh_same_url_tree() {
+        let driver = BrowserDriver::new();
+        *driver.active_page_url.lock().await = Some("file:///tmp/miniwob/task.html".to_string());
+        *driver.last_accessibility_snapshot.lock().await = Some(RecentAccessibilitySnapshot {
+            captured_at: Instant::now(),
+            url: Some("file:///tmp/miniwob/task.html".to_string()),
+            tree: accessibility_leaf("btn_cached"),
+        });
+
+        let snapshot = driver
+            .recent_accessibility_snapshot(Duration::from_secs(1))
+            .await
+            .expect("fresh cache");
+        assert_eq!(snapshot.1.id, "btn_cached");
+    }
+
+    #[tokio::test]
+    async fn recent_accessibility_snapshot_rejects_mismatched_url() {
+        let driver = BrowserDriver::new();
+        *driver.active_page_url.lock().await = Some("file:///tmp/miniwob/task-b.html".to_string());
+        *driver.last_accessibility_snapshot.lock().await = Some(RecentAccessibilitySnapshot {
+            captured_at: Instant::now(),
+            url: Some("file:///tmp/miniwob/task-a.html".to_string()),
+            tree: accessibility_leaf("btn_cached"),
+        });
+
+        assert!(driver
+            .recent_accessibility_snapshot(Duration::from_secs(1))
+            .await
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn invalidate_accessibility_snapshot_clears_cached_tree() {
+        let driver = BrowserDriver::new();
+        *driver.active_page_url.lock().await = Some("file:///tmp/miniwob/task.html".to_string());
+        *driver.last_accessibility_snapshot.lock().await = Some(RecentAccessibilitySnapshot {
+            captured_at: Instant::now(),
+            url: Some("file:///tmp/miniwob/task.html".to_string()),
+            tree: accessibility_leaf("btn_cached"),
+        });
+
+        driver.invalidate_accessibility_snapshot().await;
+
+        assert!(driver
+            .recent_accessibility_snapshot(Duration::from_secs(1))
+            .await
+            .is_none());
     }
 }

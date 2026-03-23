@@ -279,6 +279,28 @@ pub struct BridgeInfo {
     pub scroll_targets: Vec<BridgeScrollTarget>,
     #[serde(default)]
     pub dom_elements: Vec<BridgeDomElement>,
+    pub trigger: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BridgeSyncRecord {
+    pub sync_index: u32,
+    pub last_sync_ms: Option<u64>,
+    pub episode_step: Option<u32>,
+    pub reward: Option<f32>,
+    pub raw_reward: Option<f32>,
+    pub terminated: Option<bool>,
+    pub truncated: Option<bool>,
+    pub trigger: Option<String>,
+    pub reason: Option<String>,
+    pub query_text: Option<String>,
+    pub visible_text_excerpt: Option<String>,
+    pub focused_tag: Option<String>,
+    pub focused_id: Option<String>,
+    pub page_url: Option<String>,
+    pub interactive_count: usize,
+    pub scroll_target_count: usize,
+    pub dom_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -295,6 +317,8 @@ pub struct BridgeState {
     pub last_sync_ms: Option<u64>,
     #[serde(default)]
     pub info: BridgeInfo,
+    #[serde(default)]
+    pub sync_history: Vec<BridgeSyncRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -418,4 +442,53 @@ pub struct SuiteConfig {
     pub bridge_source_dir: Option<std::path::PathBuf>,
     pub python_bin: String,
     pub fail_on_case_failure: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BridgeState;
+    use serde_json::json;
+
+    #[test]
+    fn bridge_state_deserializes_sync_history_and_trigger() {
+        let state: BridgeState = serde_json::from_value(json!({
+            "session_id": "session-1",
+            "env_id": "chase-circle",
+            "seed": 1,
+            "utterance": "hover",
+            "reward": 0.25,
+            "terminated": false,
+            "truncated": false,
+            "episode_step": 1,
+            "generation": 2,
+            "last_sync_ms": 12345,
+            "info": {
+                "query_text": "Hover over the circle.",
+                "trigger": "heartbeat"
+            },
+            "sync_history": [
+                {
+                    "sync_index": 0,
+                    "last_sync_ms": 12300,
+                    "episode_step": 0,
+                    "reward": 0.0,
+                    "raw_reward": 0.0,
+                    "terminated": false,
+                    "truncated": false,
+                    "trigger": "bootstrap",
+                    "query_text": "Hover over the circle.",
+                    "visible_text_excerpt": "Hover over the circle.",
+                    "interactive_count": 0,
+                    "scroll_target_count": 0,
+                    "dom_count": 1
+                }
+            ]
+        }))
+        .expect("bridge state should deserialize");
+
+        assert_eq!(state.info.trigger.as_deref(), Some("heartbeat"));
+        assert_eq!(state.sync_history.len(), 1);
+        assert_eq!(state.sync_history[0].trigger.as_deref(), Some("bootstrap"));
+        assert_eq!(state.sync_history[0].dom_count, 1);
+    }
 }

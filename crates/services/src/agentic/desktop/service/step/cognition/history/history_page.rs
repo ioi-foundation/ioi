@@ -447,4 +447,3 @@ pub(super) fn history_verification_follow_up_pending_signal(
         examples.join(" or ")
     ))
 }
-

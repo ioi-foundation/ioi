@@ -89,10 +89,17 @@ fn browser_click_tools_do_not_require_native_focus_recovery() {
         selector: "#submit".to_string(),
     }));
     assert!(!is_focus_sensitive_tool(&AgentTool::BrowserClickElement {
-        id: "btn_submit".to_string(),
+        id: Some("btn_submit".to_string()),
+        ids: Vec::new(),
+        delay_ms_between_ids: None,
+        continue_with: None,
     }));
     assert!(!is_focus_sensitive_tool(
-        &AgentTool::BrowserSyntheticClick { x: 20.0, y: 30.0 }
+        &AgentTool::BrowserSyntheticClick {
+            x: 20.0,
+            y: 30.0,
+            continue_with: None,
+        }
     ));
 }
 

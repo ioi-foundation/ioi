@@ -21,15 +21,42 @@
         let synthetic_click_params = json!({
             "type": "object",
             "properties": {
-                "x": { "type": "integer" },
-                "y": { "type": "integer" }
+                "x": { "type": "number", "description": "Absolute viewport x coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions." },
+                "y": { "type": "number", "description": "Absolute viewport y coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions." },
+                "continue_with": {
+                    "type": "object",
+                    "description": "Optional immediate follow-up browser action to execute after the coordinate click succeeds, without another inference turn. Use only when the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use this for drag setup or pointer button state changes.",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "enum": [
+                                "browser__click",
+                                "browser__click_element",
+                                "browser__key",
+                                "browser__hover",
+                                "browser__synthetic_click",
+                                "browser__move_mouse",
+                                "browser__scroll",
+                                "browser__select_text",
+                                "browser__paste_clipboard",
+                                "browser__find_text",
+                                "browser__select_dropdown"
+                            ]
+                        },
+                        "arguments": {
+                            "type": "object",
+                            "description": "Arguments for the follow-up browser action. Example: {\"id\":\"btn_submit\"}."
+                        }
+                    },
+                    "required": ["name", "arguments"]
+                }
             },
             "required": ["x", "y"]
         });
 
         tools.push(LlmToolDefinition {
             name: "browser__synthetic_click".to_string(),
-            description: "Click a coordinate (x,y) inside the web page directly. Useful for canvases, SVG surfaces, and blank regions that do not expose a semantic element. Does NOT move the user's mouse cursor.".to_string(),
+            description: "Activate a page coordinate (x,y) directly without moving the user's mouse cursor. Coordinates are absolute viewport CSS pixels, not normalized 0-1 fractions. Preferred for grounded coordinates from snapshots on canvases, SVG surfaces, and blank regions that do not expose a semantic element. When the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction, pair it with `continue_with` for an immediate follow-up. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
             parameters: synthetic_click_params.to_string(),
         });
     }
@@ -40,12 +67,20 @@
                 "type": "object",
                 "properties": {
                     "selector": { "type": "string", "description": "CSS selector for the hover target. Provide this or id." },
-                    "id": { "type": "string", "description": "Semantic ID from browser__snapshot. Provide this or selector." }
+                    "id": { "type": "string", "description": "Semantic ID from browser__snapshot. Provide this or selector." },
+                    "duration_ms": {
+                        "type": "integer",
+                        "description": "Optional bounded tracking window to keep reacquiring the target without another inference turn. Prefer this when the target moves or when hover must be maintained over time."
+                    },
+                    "resample_interval_ms": {
+                        "type": "integer",
+                        "description": "Optional refresh cadence used while duration_ms tracking is active. Omit it to use the default high-fidelity cadence, or set a positive value to trade fidelity for lower runtime churn."
+                    }
                 }
             });
             tools.push(LlmToolDefinition {
                 name: "browser__hover".to_string(),
-                description: "Move the browser pointer onto a target without clicking. Useful for hover-driven menus, tooltips, and drag setup.".to_string(),
+                description: "Move the browser pointer onto a target without clicking. Useful for hover-driven menus, tooltips, drag setup, and short bounded hover tracking. When a grounded target moves or must stay hovered over time, prefer one `browser__hover` with `duration_ms` instead of spending extra inference turns on repeated hover actions.".to_string(),
                 parameters: browser_hover_params.to_string(),
             });
         }
@@ -54,14 +89,14 @@
             let browser_move_mouse_params = json!({
                 "type": "object",
                 "properties": {
-                    "x": { "type": "integer", "description": "Viewport-relative x coordinate." },
-                    "y": { "type": "integer", "description": "Viewport-relative y coordinate." }
+                    "x": { "type": "number", "description": "Absolute viewport x coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions." },
+                    "y": { "type": "number", "description": "Absolute viewport y coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions." }
                 },
                 "required": ["x", "y"]
             });
             tools.push(LlmToolDefinition {
                 name: "browser__move_mouse".to_string(),
-                description: "Move the browser pointer to viewport coordinates without clicking. Works in headless mode.".to_string(),
+                description: "Reposition the browser pointer to absolute viewport CSS pixels without clicking. Do not use normalized 0-1 fractions. This alone does NOT activate page content; use `browser__synthetic_click` for coordinate-only activation, or pair it with `browser__mouse_down` and `browser__mouse_up` for drag flows. Works in headless mode.".to_string(),
                 parameters: browser_move_mouse_params.to_string(),
             });
         }
@@ -261,12 +296,41 @@
                         "description": "Text search scope for condition='text_present'.",
                         "enum": ["visible", "document"]
                     },
-                    "timeout_ms": { "type": "integer", "description": "Timeout for condition waits in milliseconds (1-30000). Required when condition is provided." }
+                    "timeout_ms": { "type": "integer", "description": "Timeout for condition waits in milliseconds (1-30000). Required when condition is provided." },
+                    "continue_with": {
+                        "type": "object",
+                        "description": "Optional immediate follow-up browser action to execute as soon as the wait finishes, without another inference turn. Use only when the next browser action is already grounded and timing matters.",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "enum": [
+                                    "browser__click",
+                                    "browser__click_element",
+                                    "browser__key",
+                                    "browser__hover",
+                                    "browser__synthetic_click",
+                                    "browser__move_mouse",
+                                    "browser__mouse_down",
+                                    "browser__mouse_up",
+                                    "browser__scroll",
+                                    "browser__select_text",
+                                    "browser__paste_clipboard",
+                                    "browser__find_text",
+                                    "browser__select_dropdown"
+                                ]
+                            },
+                            "arguments": {
+                                "type": "object",
+                                "description": "Arguments for the follow-up browser action. Example: {\"id\":\"btn_two\"}."
+                            }
+                        },
+                        "required": ["name", "arguments"]
+                    }
                 }
             });
             tools.push(LlmToolDefinition {
                 name: "browser__wait".to_string(),
-                description: "Wait in browser workflows by fixed duration or condition. Valid forms are either {ms} or {condition, timeout_ms}; the executor enforces this contract."
+                description: "Wait in browser workflows by fixed duration or condition. Valid forms are {ms}, {condition, timeout_ms}, or either form plus `continue_with` for an immediate grounded follow-up browser action once the wait finishes."
                     .to_string(),
                 parameters: browser_wait_params.to_string(),
             });
@@ -411,14 +475,54 @@
                 "properties": {
                     "id": {
                         "type": "string",
-                        "description": "Semantic element ID from browser__snapshot output (e.g. 'btn_sign_in')."
+                        "description": "Semantic element ID from browser__snapshot output (e.g. 'btn_sign_in'). Provide this or `ids`."
+                    },
+                    "ids": {
+                        "type": "array",
+                        "description": "Ordered semantic element IDs from browser__snapshot output to click in sequence without interleaving other actions. Provide this or `id`.",
+                        "items": {
+                            "type": "string"
+                        },
+                        "minItems": 1
+                    },
+                    "delay_ms_between_ids": {
+                        "type": "integer",
+                        "description": "Optional fixed delay in milliseconds inserted between consecutive `ids` clicks. Use this only with ordered `ids` when timing matters enough that another inference turn would introduce avoidable drift."
+                    },
+                    "continue_with": {
+                        "type": "object",
+                        "description": "Optional immediate follow-up browser action to execute after the click succeeds, without another inference turn. Use this when a visible gate or commit click should hand off directly to an already grounded browser action.",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "enum": [
+                                    "browser__click",
+                                    "browser__click_element",
+                                    "browser__key",
+                                    "browser__hover",
+                                    "browser__synthetic_click",
+                                    "browser__move_mouse",
+                                    "browser__mouse_down",
+                                    "browser__mouse_up",
+                                    "browser__scroll",
+                                    "browser__select_text",
+                                    "browser__paste_clipboard",
+                                    "browser__find_text",
+                                    "browser__select_dropdown"
+                                ]
+                            },
+                            "arguments": {
+                                "type": "object",
+                                "description": "Arguments for the follow-up browser action. Example: {\"ids\":[\"btn_one\",\"btn_two\"],\"delay_ms_between_ids\":2000}."
+                            }
+                        },
+                        "required": ["name", "arguments"]
                     }
-                },
-                "required": ["id"]
+                }
             });
             tools.push(LlmToolDefinition {
                 name: "browser__click_element".to_string(),
-                description: "Click a page element by semantic ID from browser__snapshot. Preferred over CSS selectors in headless mode.".to_string(),
+                description: "Click one page element by semantic ID from browser__snapshot, or click an ordered list of semantic IDs in sequence. With ordered `ids`, you may also provide `delay_ms_between_ids` for precise multi-click timing without another inference turn. Use `continue_with` when a visible gate or commit click should hand off directly to another grounded browser action. Preferred over CSS selectors in headless mode.".to_string(),
                 parameters: click_id_params.to_string(),
             });
         }

@@ -2,6 +2,7 @@ use super::super::*;
 use std::collections::HashSet;
 
 const ACCESSIBILITY_TREE_TIMEOUT: Duration = Duration::from_millis(1_500);
+const PROMPT_OBSERVATION_CACHE_MAX_AGE: Duration = Duration::from_millis(2_500);
 
 #[derive(Debug, serde::Deserialize)]
 struct DomFallbackRect {
@@ -47,6 +48,7 @@ fn allow_dom_fallback_for_ax_error(message: &str) -> bool {
         || lower.contains("empty tree")
         || lower.contains("notrendered")
         || lower.contains("not rendered")
+        || lower.contains("labelfor")
 }
 
 fn node_attr_value<'a>(node: &'a AccessibilityNode, key: &str) -> Option<&'a str> {
@@ -106,6 +108,74 @@ fn node_text_tokens(node: &AccessibilityNode) -> HashSet<String> {
     tokens
 }
 
+fn normalize_exact_prompt_text(value: &str) -> String {
+    value
+        .split_whitespace()
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_ascii_lowercase()
+}
+
+fn node_contains_visible_start_gate(node: &AccessibilityNode) -> bool {
+    let semantic_role = node.role.trim().to_ascii_lowercase();
+    let role_allows_gate = matches!(
+        semantic_role.as_str(),
+        "button"
+            | "link"
+            | "menuitem"
+            | "statictext"
+            | "text"
+            | "label"
+            | "labeltext"
+            | "generic"
+            | "group"
+            | "presentation"
+    );
+    let dom_id_is_cover = node_attr_value(node, "dom_id")
+        .is_some_and(|dom_id| dom_id.eq_ignore_ascii_case("sync-task-cover"));
+    let label_matches = [node.name.as_deref(), node.value.as_deref()]
+        .into_iter()
+        .flatten()
+        .map(normalize_exact_prompt_text)
+        .any(|text| matches!(text.as_str(), "start" | "begin" | "continue"));
+
+    if node.is_visible && (dom_id_is_cover || (role_allows_gate && label_matches)) {
+        return true;
+    }
+
+    node.children.iter().any(node_contains_visible_start_gate)
+}
+
+fn node_contains_grounded_prompt_target(node: &AccessibilityNode) -> bool {
+    let dom_id_is_cover = node_attr_value(node, "dom_id")
+        .is_some_and(|dom_id| dom_id.eq_ignore_ascii_case("sync-task-cover"));
+    let has_locator =
+        node_attr_value(node, "selector").is_some() || node_attr_value(node, "dom_id").is_some();
+    let has_shape_target = node_attr_value(node, "shape_kind").is_some() && has_locator;
+    let has_interactive_target = node.is_interactive() && has_locator;
+
+    if node.is_visible && !dom_id_is_cover && (has_shape_target || has_interactive_target) {
+        return true;
+    }
+
+    node.children
+        .iter()
+        .any(node_contains_grounded_prompt_target)
+}
+
+fn should_cache_prompt_observation_warmup(tree: &AccessibilityNode) -> bool {
+    if node_attr_value(tree, "snapshot_fallback_cause") != Some("navigate_warmup") {
+        return true;
+    }
+
+    if !node_contains_visible_start_gate(tree) {
+        return true;
+    }
+
+    node_contains_grounded_prompt_target(tree)
+}
+
 fn is_semantic_dom_hint_token(token: &str) -> bool {
     if token.len() <= 1 || token.chars().all(|ch| ch.is_ascii_digit()) {
         return false;
@@ -125,6 +195,19 @@ fn is_semantic_dom_hint_token(token: &str) -> bool {
             | "content"
             | "wrapper"
             | "wrap"
+            | "name"
+            | "username"
+            | "details"
+            | "detail"
+            | "body"
+            | "media"
+            | "controls"
+            | "control"
+            | "toolbar"
+            | "actions"
+            | "action"
+            | "spacer"
+            | "time"
             | "left"
             | "right"
             | "top"
@@ -257,6 +340,147 @@ fn prune_redundant_dom_fallback_aggregates(mut root: AccessibilityNode) -> Acces
     root
 }
 
+fn rects_are_equivalent_or_nested(left: &AccessibilityRect, right: &AccessibilityRect) -> bool {
+    if rect_contains(left, right) || rect_contains(right, left) {
+        return true;
+    }
+
+    let left_center_x = left.x.saturating_add(left.width / 2);
+    let left_center_y = left.y.saturating_add(left.height / 2);
+    let right_center_x = right.x.saturating_add(right.width / 2);
+    let right_center_y = right.y.saturating_add(right.height / 2);
+
+    (left_center_x - right_center_x).abs() <= 12
+        && (left_center_y - right_center_y).abs() <= 12
+        && (left.width - right.width).abs() <= 24
+        && (left.height - right.height).abs() <= 24
+}
+
+fn node_locator_hint(node: &AccessibilityNode, key: &str) -> Option<String> {
+    node_attr_value(node, key)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn dom_fallback_locator_matches(
+    candidate: &AccessibilityNode,
+    existing: &AccessibilityNode,
+) -> bool {
+    for key in ["dom_id", "selector"] {
+        let Some(candidate_hint) = node_locator_hint(candidate, key) else {
+            continue;
+        };
+        let Some(existing_hint) = node_locator_hint(existing, key) else {
+            continue;
+        };
+        if candidate_hint == existing_hint {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn nodes_semantically_overlap(candidate: &AccessibilityNode, existing: &AccessibilityNode) -> bool {
+    if !existing.is_visible {
+        return false;
+    }
+
+    if dom_fallback_locator_matches(candidate, existing) {
+        return true;
+    }
+
+    let candidate_tokens = node_text_tokens(candidate);
+    if candidate_tokens.is_empty() {
+        return false;
+    }
+    let existing_tokens = node_text_tokens(existing);
+    if existing_tokens.is_empty() || candidate_tokens != existing_tokens {
+        return false;
+    }
+
+    let candidate_role = candidate.role.trim().to_ascii_lowercase();
+    let existing_role = existing.role.trim().to_ascii_lowercase();
+    if candidate_role != existing_role && !(candidate.is_interactive() && existing.is_interactive())
+    {
+        return false;
+    }
+
+    rects_are_equivalent_or_nested(&candidate.rect, &existing.rect)
+}
+
+fn should_merge_dom_fallback_candidate(node: &AccessibilityNode) -> bool {
+    if node_attr_value(node, "dom_fallback") != Some("true") || !node.is_visible {
+        return false;
+    }
+
+    if is_dom_fallback_aggregate_candidate(node) {
+        return false;
+    }
+
+    node.is_interactive()
+        || [
+            "focused",
+            "checked",
+            "selected",
+            "scroll_top",
+            "scroll_height",
+            "client_height",
+            "can_scroll_up",
+            "can_scroll_down",
+            "autocomplete",
+        ]
+        .iter()
+        .any(|key| node_attr_value(node, key).is_some())
+}
+
+fn collect_visible_nodes(node: &AccessibilityNode, out: &mut Vec<AccessibilityNode>) {
+    if node.is_visible {
+        out.push(node.clone());
+    }
+    for child in &node.children {
+        collect_visible_nodes(child, out);
+    }
+}
+
+fn merge_missing_dom_fallback_nodes(
+    mut ax_tree: AccessibilityNode,
+    dom_tree: AccessibilityNode,
+) -> AccessibilityNode {
+    if node_attr_value(&dom_tree, "snapshot_fallback") != Some("dom") {
+        return ax_tree;
+    }
+
+    let mut existing_nodes = Vec::new();
+    collect_visible_nodes(&ax_tree, &mut existing_nodes);
+
+    let mut merged = 0usize;
+    for candidate in dom_tree.children {
+        if !should_merge_dom_fallback_candidate(&candidate) {
+            continue;
+        }
+        if existing_nodes
+            .iter()
+            .any(|existing| nodes_semantically_overlap(&candidate, existing))
+        {
+            continue;
+        }
+
+        existing_nodes.push(candidate.clone());
+        ax_tree.children.push(candidate);
+        merged += 1;
+    }
+
+    if merged > 0 {
+        ax_tree
+            .attributes
+            .insert("dom_fallback_overlay_count".to_string(), merged.to_string());
+    }
+
+    ax_tree
+}
+
 impl DomFallbackNode {
     fn into_accessibility(self) -> AccessibilityNode {
         let synthesized_name = dom_fallback_semantic_name(&self.attributes);
@@ -309,8 +533,92 @@ impl DomFallbackNode {
 }
 
 impl BrowserDriver {
-    async fn dom_fallback_tree(
+    async fn remember_accessibility_snapshot_with_url(
         &self,
+        url: Option<String>,
+        tree: &AccessibilityNode,
+    ) {
+        let mut cache = self.last_accessibility_snapshot.lock().await;
+        *cache = Some(RecentAccessibilitySnapshot {
+            captured_at: Instant::now(),
+            url,
+            tree: tree.clone(),
+        });
+    }
+
+    async fn remember_accessibility_snapshot(&self, tree: &AccessibilityNode) {
+        let url = self.known_active_url().await;
+        self.remember_accessibility_snapshot_with_url(url, tree)
+            .await;
+    }
+
+    pub(crate) async fn invalidate_accessibility_snapshot(&self) {
+        let mut cache = self.last_accessibility_snapshot.lock().await;
+        *cache = None;
+    }
+
+    pub(crate) fn warm_prompt_observation_after_navigation(&self, page: Page, url: Option<String>) {
+        let cache = self.last_accessibility_snapshot.clone();
+        tokio::spawn(async move {
+            let tree =
+                match BrowserDriver::dom_fallback_tree_for_page(&page, "navigate_warmup").await {
+                    Ok(tree) => tree,
+                    Err(error) => {
+                        log::debug!(
+                            target: "browser",
+                            "Prompt observation warmup after navigation failed: {}",
+                            error
+                        );
+                        return;
+                    }
+                };
+            if !should_cache_prompt_observation_warmup(&tree) {
+                log::debug!(
+                    target: "browser",
+                    "Skipping prompt observation warmup cache because the snapshot still exposes a visible start gate."
+                );
+                return;
+            }
+            let mut guard = cache.lock().await;
+            *guard = Some(RecentAccessibilitySnapshot {
+                captured_at: Instant::now(),
+                url,
+                tree,
+            });
+        });
+    }
+
+    pub async fn recent_accessibility_snapshot(
+        &self,
+        max_age: Duration,
+    ) -> Option<(Option<String>, AccessibilityNode)> {
+        let current_url = self.known_active_url().await;
+        let cache = self.last_accessibility_snapshot.lock().await;
+        let snapshot = cache.as_ref()?;
+        if snapshot.captured_at.elapsed() > max_age {
+            return None;
+        }
+
+        let current_url = current_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty());
+        let snapshot_url = snapshot
+            .url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty());
+        if current_url
+            .zip(snapshot_url)
+            .is_some_and(|(current, cached)| current != cached)
+        {
+            return None;
+        }
+
+        Some((snapshot.url.clone(), snapshot.tree.clone()))
+    }
+
+    pub(crate) async fn dom_fallback_tree_for_page(
         page: &Page,
         cause: &str,
     ) -> std::result::Result<AccessibilityNode, BrowserError> {
@@ -318,6 +626,139 @@ impl BrowserDriver {
             const MAX_CANDIDATES = 220;
             const normalize = (value) =>
                 (value || "").replace(/\s+/g, " ").trim();
+            const normalizedHintTokens = (value) => {
+                const raw = normalize(value).toLowerCase();
+                if (!raw) return [];
+                return raw
+                    .split(/[^a-z0-9]+/g)
+                    .map((token) => token.trim())
+                    .filter(Boolean);
+            };
+            const isSemanticHintToken = (token) => {
+                if (!token || token.length <= 1 || /^[0-9]+$/.test(token)) {
+                    return false;
+                }
+                return ![
+                    "ui",
+                    "btn",
+                    "button",
+                    "icon",
+                    "img",
+                    "image",
+                    "item",
+                    "row",
+                    "col",
+                    "container",
+                    "content",
+                    "wrapper",
+                    "wrap",
+                    "name",
+                    "username",
+                    "details",
+                    "detail",
+                    "body",
+                    "media",
+                    "controls",
+                    "control",
+                    "toolbar",
+                    "actions",
+                    "action",
+                    "spacer",
+                    "time",
+                    "left",
+                    "right",
+                    "top",
+                    "bottom",
+                    "current",
+                    "selected",
+                    "clicked",
+                    "active",
+                    "inactive",
+                    "disabled",
+                    "enabled",
+                    "hover",
+                ].includes(token);
+            };
+            const semanticHintNameFor = (el) => {
+                if (!el) return null;
+                const seen = new Set();
+                const tokens = [];
+                for (const raw of [normalize(el.id), normalize(String(el.className || ""))]) {
+                    for (const token of normalizedHintTokens(raw)) {
+                        if (!isSemanticHintToken(token) || seen.has(token)) {
+                            continue;
+                        }
+                        seen.add(token);
+                        tokens.push(token);
+                        if (tokens.length >= 3) {
+                            return tokens.join(" ");
+                        }
+                    }
+                }
+                return tokens.length > 0 ? tokens.join(" ") : null;
+            };
+            const controlContextHint = (raw) =>
+                normalizedHintTokens(raw).some((token) =>
+                    [
+                        "control",
+                        "controls",
+                        "toolbar",
+                        "action",
+                        "actions",
+                        "button",
+                        "buttons",
+                    ].includes(token)
+                );
+            const escapeCssIdent = (value) => {
+                const normalized = normalize(value);
+                if (!normalized) return "";
+                try {
+                    if (window.CSS && typeof window.CSS.escape === "function") {
+                        return window.CSS.escape(normalized);
+                    }
+                } catch (_e) {}
+                return normalized.replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char}`);
+            };
+            const selectorFor = (el) => {
+                if (!el || !el.tagName) return null;
+                const parts = [];
+                let current = el;
+                let guard = 0;
+                while (current && current.tagName && guard < 12) {
+                    const tag = String(current.tagName || "").toLowerCase();
+                    if (!tag || tag === "html") break;
+
+                    const domId = normalize(current.id);
+                    if (domId) {
+                        parts.unshift(`#${escapeCssIdent(domId)}`);
+                        break;
+                    }
+
+                    let part = tag;
+                    const parent = current.parentElement;
+                    if (parent) {
+                        let sameTagIndex = 0;
+                        let sameTagCount = 0;
+                        for (const sibling of Array.from(parent.children || [])) {
+                            if (!sibling || !sibling.tagName) continue;
+                            if (String(sibling.tagName || "").toLowerCase() !== tag) continue;
+                            sameTagCount += 1;
+                            if (sibling === current) {
+                                sameTagIndex = sameTagCount;
+                            }
+                        }
+                        if (sameTagCount > 1 && sameTagIndex > 0) {
+                            part += `:nth-of-type(${sameTagIndex})`;
+                        }
+                    }
+
+                    parts.unshift(part);
+                    if (tag === "body") break;
+                    current = parent;
+                    guard += 1;
+                }
+                return parts.length > 0 ? parts.join(" > ") : null;
+            };
             const deepActiveElement = () => {
                 let active = document.activeElement;
                 let guard = 0;
@@ -396,6 +837,44 @@ impl BrowserDriver {
                 }
                 return true;
             };
+            const hasSemanticControlStripContext = (el) => {
+                if (!el || !el.parentElement) return false;
+                const parent = el.parentElement;
+                if (
+                    controlContextHint(String(parent.className || ""))
+                    || controlContextHint(String(parent.id || ""))
+                ) {
+                    return true;
+                }
+
+                let siblingSemanticControls = 0;
+                for (const sibling of Array.from(parent.children || [])) {
+                    if (!sibling || sibling === el || !sibling.tagName) continue;
+                    const siblingTag = String(sibling.tagName || "").toLowerCase();
+                    if (!["span", "div", "i", "img", "svg"].includes(siblingTag)) {
+                        continue;
+                    }
+
+                    let siblingRect = null;
+                    try {
+                        siblingRect = sibling.getBoundingClientRect();
+                    } catch (_e) {
+                        continue;
+                    }
+
+                    if (!isVisible(sibling, siblingRect)) continue;
+                    if (!(siblingRect.width > 0 && siblingRect.height > 0)) continue;
+                    if (siblingRect.width > 40 || siblingRect.height > 40) continue;
+                    if (!semanticHintNameFor(sibling)) continue;
+
+                    siblingSemanticControls += 1;
+                    if (siblingSemanticControls >= 1) {
+                        return true;
+                    }
+                }
+
+                return false;
+            };
             const SVG_LEAF_TAGS = new Set([
                 "rect",
                 "circle",
@@ -412,6 +891,8 @@ impl BrowserDriver {
                         return "rectangle";
                     case "circle":
                         return "circle";
+                    case "line":
+                        return "line";
                     case "polygon":
                         return "triangle";
                     case "text":
@@ -449,6 +930,387 @@ impl BrowserDriver {
                 const dataIndex = normalize(el.getAttribute("data-index"));
                 return dataIndex ? dataIndex.slice(0, 120) : null;
             };
+            const svgNumberAttr = (el, attr) => {
+                if (!el || typeof el.getAttribute !== "function") return null;
+                const raw = parseFloat(normalize(el.getAttribute(attr)));
+                return Number.isFinite(raw) ? raw : null;
+            };
+            const roundedSvgCoord = (value) => {
+                if (!Number.isFinite(value)) return null;
+                return String(Math.round(value));
+            };
+            const preciseSvgCoord = (value) => {
+                if (!Number.isFinite(value)) return null;
+                const rounded = Math.round(value * 10) / 10;
+                return Number.isInteger(rounded)
+                    ? String(rounded.toFixed(0))
+                    : String(rounded);
+            };
+            const highPrecisionSvgCoord = (value) => {
+                if (!Number.isFinite(value)) return null;
+                const rounded = Math.round(value * 1000) / 1000;
+                return Number.isInteger(rounded)
+                    ? String(rounded.toFixed(0))
+                    : String(rounded);
+            };
+            const normalizedSvgLineAngle = (value) => {
+                if (!Number.isFinite(value)) return null;
+                let angle = value;
+                while (angle > 90) angle -= 180;
+                while (angle <= -90) angle += 180;
+                return angle;
+            };
+            const svgDistance = (x1, y1, x2, y2) => {
+                if (
+                    !Number.isFinite(x1)
+                    || !Number.isFinite(y1)
+                    || !Number.isFinite(x2)
+                    || !Number.isFinite(y2)
+                ) {
+                    return null;
+                }
+                return Math.hypot(x2 - x1, y2 - y1);
+            };
+            const svgViewportPointFor = (el, x, y) => {
+                if (!el || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+                const svg =
+                    el.ownerSVGElement
+                    || ((el.tagName || "").toLowerCase() === "svg" ? el : null);
+                if (!svg || typeof svg.getBoundingClientRect !== "function") return null;
+
+                try {
+                    const svgRect = svg.getBoundingClientRect();
+                    if (
+                        Number.isFinite(svgRect.left)
+                        && Number.isFinite(svgRect.top)
+                        && Number.isFinite(svgRect.width)
+                        && Number.isFinite(svgRect.height)
+                    ) {
+                        const ctm = typeof el.getCTM === "function" ? el.getCTM() : null;
+                        if (
+                            ctm
+                            && Number.isFinite(ctm.a)
+                            && Number.isFinite(ctm.b)
+                            && Number.isFinite(ctm.c)
+                            && Number.isFinite(ctm.d)
+                            && Number.isFinite(ctm.e)
+                            && Number.isFinite(ctm.f)
+                        ) {
+                            return {
+                                x: svgRect.left + x * ctm.a + y * ctm.c + ctm.e,
+                                y: svgRect.top + x * ctm.b + y * ctm.d + ctm.f,
+                            };
+                        }
+
+                        const viewBox = svg.viewBox && svg.viewBox.baseVal;
+                        if (
+                            viewBox
+                            && Number.isFinite(viewBox.width)
+                            && viewBox.width > 0
+                            && Number.isFinite(viewBox.height)
+                            && viewBox.height > 0
+                        ) {
+                            return {
+                                x: svgRect.left + ((x - viewBox.x) / viewBox.width) * svgRect.width,
+                                y: svgRect.top + ((y - viewBox.y) / viewBox.height) * svgRect.height,
+                            };
+                        }
+
+                        return {
+                            x: svgRect.left + x,
+                            y: svgRect.top + y,
+                        };
+                    }
+                } catch (_e) {}
+
+                return null;
+            };
+            const svgGeometryFor = (el, tag, rect) => {
+                if (!el || !tag) return null;
+                if (tag === "circle") {
+                    const localCenterX = svgNumberAttr(el, "cx");
+                    const localCenterY = svgNumberAttr(el, "cy");
+                    const viewportCenter =
+                        Number.isFinite(localCenterX) && Number.isFinite(localCenterY)
+                            ? svgViewportPointFor(el, localCenterX, localCenterY)
+                            : null;
+                    const radius = svgNumberAttr(el, "r");
+                    return {
+                        centerX:
+                            viewportCenter && Number.isFinite(viewportCenter.x)
+                                ? viewportCenter.x
+                                : rect.left + rect.width / 2,
+                        centerY:
+                            viewportCenter && Number.isFinite(viewportCenter.y)
+                                ? viewportCenter.y
+                                : rect.top + rect.height / 2,
+                        radius: Number.isFinite(radius) ? radius : Math.max(rect.width, rect.height) / 2,
+                    };
+                }
+                if (tag === "ellipse") {
+                    const localCenterX = svgNumberAttr(el, "cx");
+                    const localCenterY = svgNumberAttr(el, "cy");
+                    const viewportCenter =
+                        Number.isFinite(localCenterX) && Number.isFinite(localCenterY)
+                            ? svgViewportPointFor(el, localCenterX, localCenterY)
+                            : null;
+                    const radiusX = svgNumberAttr(el, "rx");
+                    const radiusY = svgNumberAttr(el, "ry");
+                    return {
+                        centerX:
+                            viewportCenter && Number.isFinite(viewportCenter.x)
+                                ? viewportCenter.x
+                                : rect.left + rect.width / 2,
+                        centerY:
+                            viewportCenter && Number.isFinite(viewportCenter.y)
+                                ? viewportCenter.y
+                                : rect.top + rect.height / 2,
+                        radiusX,
+                        radiusY,
+                    };
+                }
+                if (tag === "line") {
+                    const x1 = svgNumberAttr(el, "x1");
+                    const y1 = svgNumberAttr(el, "y1");
+                    const x2 = svgNumberAttr(el, "x2");
+                    const y2 = svgNumberAttr(el, "y2");
+                    if (
+                        Number.isFinite(x1)
+                        && Number.isFinite(y1)
+                        && Number.isFinite(x2)
+                        && Number.isFinite(y2)
+                    ) {
+                        const start = svgViewportPointFor(el, x1, y1);
+                        const end = svgViewportPointFor(el, x2, y2);
+                        const resolvedX1 =
+                            start && Number.isFinite(start.x)
+                                ? start.x
+                                : x1;
+                        const resolvedY1 =
+                            start && Number.isFinite(start.y)
+                                ? start.y
+                                : y1;
+                        const resolvedX2 =
+                            end && Number.isFinite(end.x)
+                                ? end.x
+                                : x2;
+                        const resolvedY2 =
+                            end && Number.isFinite(end.y)
+                                ? end.y
+                                : y2;
+                        return {
+                            x1: resolvedX1,
+                            y1: resolvedY1,
+                            x2: resolvedX2,
+                            y2: resolvedY2,
+                            length: svgDistance(resolvedX1, resolvedY1, resolvedX2, resolvedY2),
+                            angleDeg: (
+                                Number.isFinite(resolvedX1)
+                                && Number.isFinite(resolvedY1)
+                                && Number.isFinite(resolvedX2)
+                                && Number.isFinite(resolvedY2)
+                            )
+                                ? normalizedSvgLineAngle(
+                                    (Math.atan2(resolvedY2 - resolvedY1, resolvedX2 - resolvedX1) * 180) / Math.PI
+                                )
+                                : null,
+                        };
+                    }
+                }
+                return null;
+            };
+            const svgConnectedLineCountFor = (el, geometry) => {
+                if (
+                    !el
+                    || !el.ownerSVGElement
+                    || !geometry
+                    || !Number.isFinite(geometry.centerX)
+                    || !Number.isFinite(geometry.centerY)
+                ) {
+                    return null;
+                }
+
+                const tolerance = Math.max(
+                    Number.isFinite(geometry.radius) ? geometry.radius + 3 : 0,
+                    Number.isFinite(geometry.radiusX) ? geometry.radiusX + 3 : 0,
+                    Number.isFinite(geometry.radiusY) ? geometry.radiusY + 3 : 0,
+                    6,
+                );
+                let connectedLines = 0;
+
+                try {
+                    for (const lineEl of Array.from(el.ownerSVGElement.querySelectorAll("line"))) {
+                        const lineRect =
+                            typeof lineEl.getBoundingClientRect === "function"
+                                ? lineEl.getBoundingClientRect()
+                                : { left: 0, top: 0, width: 0, height: 0 };
+                        const lineGeometry = svgGeometryFor(lineEl, "line", lineRect);
+                        if (!lineGeometry) continue;
+
+                        const touchesStart = (() => {
+                            const distance = svgDistance(
+                                geometry.centerX,
+                                geometry.centerY,
+                                lineGeometry.x1,
+                                lineGeometry.y1,
+                            );
+                            return Number.isFinite(distance) && distance <= tolerance;
+                        })();
+                        const touchesEnd = (() => {
+                            const distance = svgDistance(
+                                geometry.centerX,
+                                geometry.centerY,
+                                lineGeometry.x2,
+                                lineGeometry.y2,
+                            );
+                            return Number.isFinite(distance) && distance <= tolerance;
+                        })();
+
+                        if (touchesStart || touchesEnd) {
+                            connectedLines += 1;
+                        }
+                    }
+                } catch (_e) {
+                    return null;
+                }
+
+                return connectedLines;
+            };
+            const svgConnectedLineRelationsFor = (el, geometry) => {
+                if (
+                    !el
+                    || !el.ownerSVGElement
+                    || !geometry
+                    || !Number.isFinite(geometry.centerX)
+                    || !Number.isFinite(geometry.centerY)
+                ) {
+                    return null;
+                }
+
+                const tolerance = Math.max(
+                    Number.isFinite(geometry.radius) ? geometry.radius + 3 : 0,
+                    Number.isFinite(geometry.radiusX) ? geometry.radiusX + 3 : 0,
+                    Number.isFinite(geometry.radiusY) ? geometry.radiusY + 3 : 0,
+                    6,
+                );
+                const relations = [];
+
+                try {
+                    for (const lineEl of Array.from(el.ownerSVGElement.querySelectorAll("line"))) {
+                        const lineRect =
+                            typeof lineEl.getBoundingClientRect === "function"
+                                ? lineEl.getBoundingClientRect()
+                                : { left: 0, top: 0, width: 0, height: 0 };
+                        const lineGeometry = svgGeometryFor(lineEl, "line", lineRect);
+                        if (!lineGeometry) continue;
+
+                        const touchesStart = (() => {
+                            const distance = svgDistance(
+                                geometry.centerX,
+                                geometry.centerY,
+                                lineGeometry.x1,
+                                lineGeometry.y1,
+                            );
+                            return Number.isFinite(distance) && distance <= tolerance;
+                        })();
+                        const touchesEnd = (() => {
+                            const distance = svgDistance(
+                                geometry.centerX,
+                                geometry.centerY,
+                                lineGeometry.x2,
+                                lineGeometry.y2,
+                            );
+                            return Number.isFinite(distance) && distance <= tolerance;
+                        })();
+
+                        if (!touchesStart && !touchesEnd) continue;
+
+                        const otherX = touchesStart ? lineGeometry.x2 : lineGeometry.x1;
+                        const otherY = touchesStart ? lineGeometry.y2 : lineGeometry.y1;
+                        const angleDeg =
+                            Number.isFinite(lineGeometry.angleDeg)
+                                ? normalizedSvgLineAngle(
+                                    touchesStart
+                                        ? lineGeometry.angleDeg
+                                        : lineGeometry.angleDeg + 180
+                                )
+                                : null;
+
+                        relations.push({
+                            otherX,
+                            otherY,
+                            angleDeg,
+                        });
+                    }
+                } catch (_e) {
+                    return null;
+                }
+
+                relations.sort((left, right) => {
+                    const leftAngle = Number.isFinite(left.angleDeg) ? left.angleDeg : 9999;
+                    const rightAngle = Number.isFinite(right.angleDeg) ? right.angleDeg : 9999;
+                    if (leftAngle !== rightAngle) return leftAngle - rightAngle;
+                    if (left.otherX !== right.otherX) return left.otherX - right.otherX;
+                    return left.otherY - right.otherY;
+                });
+
+                const seen = new Set();
+                const unique = [];
+                for (const relation of relations) {
+                    const pointX = roundedSvgCoord(relation.otherX);
+                    const pointY = roundedSvgCoord(relation.otherY);
+                    const angle =
+                        Number.isFinite(relation.angleDeg)
+                            ? roundedSvgCoord(relation.angleDeg)
+                            : "na";
+                    const key = `${pointX},${pointY},${angle}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    unique.push(relation);
+                }
+
+                return unique.length > 0 ? unique : null;
+            };
+            const svgAngleDelta = (from, to) => {
+                if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+                return normalizedSvgLineAngle(to - from);
+            };
+            const svgAngleMidpoint = (from, to) => {
+                const delta = svgAngleDelta(from, to);
+                if (!Number.isFinite(delta)) return null;
+                return normalizedSvgLineAngle(from + delta / 2);
+            };
+            const svgGeometryLabel = (kind, size, color, geometry) => {
+                if (!kind) return null;
+                const parts = [];
+                if (size) parts.push(size);
+                if (color) parts.push(color);
+                parts.push(kind);
+
+                const prefix = normalize(parts.join(" "));
+                if (!prefix) return null;
+
+                if (
+                    geometry
+                    && Number.isFinite(geometry.x1)
+                    && Number.isFinite(geometry.y1)
+                    && Number.isFinite(geometry.x2)
+                    && Number.isFinite(geometry.y2)
+                ) {
+                    return `${prefix} from ${roundedSvgCoord(geometry.x1)},${roundedSvgCoord(geometry.y1)} to ${roundedSvgCoord(geometry.x2)},${roundedSvgCoord(geometry.y2)}`.slice(0, 120);
+                }
+
+                if (geometry && Number.isFinite(geometry.centerX) && Number.isFinite(geometry.centerY)) {
+                    const coordinatePhrase = size === "large" ? "centered at" : "at";
+                    const radius =
+                        Number.isFinite(geometry.radius)
+                            ? ` radius ${roundedSvgCoord(geometry.radius)}`
+                            : "";
+                    return `${prefix} ${coordinatePhrase} ${roundedSvgCoord(geometry.centerX)},${roundedSvgCoord(geometry.centerY)}${radius}`.slice(0, 120);
+                }
+
+                return prefix.slice(0, 120);
+            };
             const svgLeafMetadata = (el, rect) => {
                 if (!el || !el.ownerSVGElement) return null;
                 const tag = (el.tagName || "").toLowerCase();
@@ -459,6 +1321,37 @@ impl BrowserDriver {
                 const kind = svgKindFor(tag, text);
                 const size = svgSizeFor(el, tag, rect);
                 const color = svgColorFor(el);
+                const geometry = svgGeometryFor(el, tag, rect);
+                const connectedLineRelations =
+                    kind === "circle" || kind === "ellipse"
+                        ? svgConnectedLineRelationsFor(el, geometry)
+                        : null;
+                const connectedLines =
+                    connectedLineRelations && connectedLineRelations.length > 0
+                        ? connectedLineRelations.length
+                        : kind === "circle" || kind === "ellipse"
+                            ? svgConnectedLineCountFor(el, geometry)
+                        : null;
+                const geometryRole =
+                    Number.isFinite(connectedLines) && connectedLines > 1
+                        ? "vertex"
+                        : Number.isFinite(connectedLines) && connectedLines > 0
+                            ? "endpoint"
+                            : null;
+                const connectedLineAngles =
+                    Array.isArray(connectedLineRelations)
+                        ? connectedLineRelations
+                            .map((relation) => relation.angleDeg)
+                            .filter((angle) => Number.isFinite(angle))
+                        : [];
+                const angleMidDeg =
+                    connectedLineAngles.length === 2
+                        ? svgAngleMidpoint(connectedLineAngles[0], connectedLineAngles[1])
+                        : null;
+                const angleSpanDeg =
+                    connectedLineAngles.length === 2
+                        ? Math.abs(svgAngleDelta(connectedLineAngles[0], connectedLineAngles[1]))
+                        : null;
                 const labelCandidates = [
                     normalize(el.getAttribute("aria-label")),
                     normalize(el.getAttribute("title")),
@@ -471,12 +1364,7 @@ impl BrowserDriver {
 
                 let label = labelCandidates.length > 0 ? labelCandidates[0].slice(0, 120) : null;
                 if (!label && kind) {
-                    const parts = [];
-                    if (size) parts.push(size);
-                    if (color) parts.push(color);
-                    parts.push(kind);
-                    const synthesized = normalize(parts.join(" "));
-                    label = synthesized ? synthesized.slice(0, 120) : null;
+                    label = svgGeometryLabel(kind, size, color, geometry);
                 }
 
                 return {
@@ -484,7 +1372,13 @@ impl BrowserDriver {
                     size,
                     color,
                     dataIndex,
+                    geometry,
                     label,
+                    connectedLines,
+                    connectedLineRelations,
+                    geometryRole,
+                    angleMidDeg,
+                    angleSpanDeg,
                 };
             };
             const svgAttrsFor = (el, rect) => {
@@ -496,6 +1390,83 @@ impl BrowserDriver {
                 if (metadata.size) attrs.shape_size = metadata.size;
                 if (metadata.color) attrs.shape_color = metadata.color;
                 if (metadata.dataIndex) attrs.data_index = metadata.dataIndex;
+                if (metadata.geometryRole) attrs.geometry_role = metadata.geometryRole;
+                if (Number.isFinite(metadata.connectedLines) && metadata.connectedLines > 0) {
+                    attrs.connected_lines = String(metadata.connectedLines);
+                }
+                if (
+                    Array.isArray(metadata.connectedLineRelations)
+                    && metadata.connectedLineRelations.length > 0
+                ) {
+                    const connectedPoints = metadata.connectedLineRelations
+                        .map((relation) => {
+                            const pointX = roundedSvgCoord(relation.otherX);
+                            const pointY = roundedSvgCoord(relation.otherY);
+                            return `${pointX},${pointY}`;
+                        })
+                        .join("|");
+                    if (connectedPoints) attrs.connected_points = connectedPoints;
+                    const connectedPointsPrecise = metadata.connectedLineRelations
+                        .map((relation) => {
+                            const pointX = highPrecisionSvgCoord(relation.otherX);
+                            const pointY = highPrecisionSvgCoord(relation.otherY);
+                            return `${pointX},${pointY}`;
+                        })
+                        .join("|");
+                    if (connectedPointsPrecise) {
+                        attrs.connected_points_precise = connectedPointsPrecise;
+                    }
+
+                    const connectedLineAngles = metadata.connectedLineRelations
+                        .map((relation) =>
+                            Number.isFinite(relation.angleDeg)
+                                ? roundedSvgCoord(relation.angleDeg)
+                                : null
+                        )
+                        .filter(Boolean)
+                        .join("|");
+                    if (connectedLineAngles) {
+                        attrs.connected_line_angles_deg = connectedLineAngles;
+                    }
+                    const connectedLineAnglesPrecise = metadata.connectedLineRelations
+                        .map((relation) =>
+                            Number.isFinite(relation.angleDeg)
+                                ? highPrecisionSvgCoord(relation.angleDeg)
+                                : null
+                        )
+                        .filter(Boolean)
+                        .join("|");
+                    if (connectedLineAnglesPrecise) {
+                        attrs.connected_line_angles_deg_precise = connectedLineAnglesPrecise;
+                    }
+                }
+                if (Number.isFinite(metadata.angleMidDeg)) {
+                    attrs.angle_mid_deg = roundedSvgCoord(metadata.angleMidDeg);
+                }
+                if (Number.isFinite(metadata.angleSpanDeg)) {
+                    attrs.angle_span_deg = roundedSvgCoord(metadata.angleSpanDeg);
+                }
+                if (metadata.geometry && Number.isFinite(metadata.geometry.radius)) {
+                    attrs.radius = roundedSvgCoord(metadata.geometry.radius);
+                }
+                if (metadata.geometry) {
+                    if (Number.isFinite(metadata.geometry.centerX)) {
+                        attrs.center_x_precise = highPrecisionSvgCoord(metadata.geometry.centerX);
+                    }
+                    if (Number.isFinite(metadata.geometry.centerY)) {
+                        attrs.center_y_precise = highPrecisionSvgCoord(metadata.geometry.centerY);
+                    }
+                    if (Number.isFinite(metadata.geometry.x1)) attrs.line_x1 = roundedSvgCoord(metadata.geometry.x1);
+                    if (Number.isFinite(metadata.geometry.y1)) attrs.line_y1 = roundedSvgCoord(metadata.geometry.y1);
+                    if (Number.isFinite(metadata.geometry.x2)) attrs.line_x2 = roundedSvgCoord(metadata.geometry.x2);
+                    if (Number.isFinite(metadata.geometry.y2)) attrs.line_y2 = roundedSvgCoord(metadata.geometry.y2);
+                    if (Number.isFinite(metadata.geometry.length)) {
+                        attrs.line_length = roundedSvgCoord(metadata.geometry.length);
+                    }
+                    if (Number.isFinite(metadata.geometry.angleDeg)) {
+                        attrs.line_angle_deg = roundedSvgCoord(metadata.geometry.angleDeg);
+                    }
+                }
                 return Object.keys(attrs).length > 0 ? attrs : null;
             };
             const isSemanticSvgLeaf = (el, rect) => {
@@ -618,16 +1589,28 @@ impl BrowserDriver {
             const controlStateFor = (el) => {
                 if (!el || !el.tagName) return null;
                 const tag = (el.tagName || "").toLowerCase();
+                const state = {};
+                const ariaReadonly =
+                    normalize(el.getAttribute("aria-readonly")).toLowerCase() === "true";
+                if (typeof el.disabled === "boolean" && !!el.disabled) {
+                    state.disabled = "true";
+                }
+                if (
+                    ["input", "textarea", "select"].includes(tag)
+                    && ((typeof el.readOnly === "boolean" && !!el.readOnly) || ariaReadonly)
+                ) {
+                    state.readonly = "true";
+                }
                 if (tag === "input") {
                     const type = normalize(el.getAttribute("type")).toLowerCase();
                     if ((type === "checkbox" || type === "radio") && !!el.checked) {
-                        return { checked: "true" };
+                        state.checked = "true";
                     }
                 }
                 if (tag === "option" && !!el.selected) {
-                    return { selected: "true" };
+                    state.selected = "true";
                 }
-                return null;
+                return Object.keys(state).length > 0 ? state : null;
             };
             const firstIdToken = (value) => {
                 const tokens = normalize(value).split(/\s+/).filter(Boolean);
@@ -719,18 +1702,35 @@ impl BrowserDriver {
 
                 const tag = (el.tagName || "").toLowerCase();
                 const role = toRole(el);
-                const name = elementName(el, rect);
+                const explicitName = elementName(el, rect);
                 const value = elementValue(el);
+                const semanticHintName = semanticHintNameFor(el);
+                const name = explicitName || semanticHintName;
                 const domId = normalize(el.id);
                 const className = normalize(String(el.className || ""));
+                const selector = selectorFor(el);
                 const hasInlineClick = !!normalize(el.getAttribute("onclick")) || typeof el.onclick === "function";
-                const domClickable = isInteractive(el, role) || hasInlineClick || (() => {
+                const baseDomClickable = isInteractive(el, role) || hasInlineClick || (() => {
                     let style = null;
                     try {
                         style = window.getComputedStyle(el);
                     } catch (_e) {}
                     return !!style && style.cursor === "pointer";
                 })();
+                const likelySemanticIconControl =
+                    !!semanticHintName
+                    && !explicitName
+                    && !value
+                    && ["span", "div", "i", "img", "svg"].includes(tag)
+                    && rect.width <= 40
+                    && rect.height <= 40;
+                const semanticControlStrip =
+                    likelySemanticIconControl && hasSemanticControlStripContext(el);
+                const domClickable = baseDomClickable || semanticControlStrip;
+                const semanticRole =
+                    role === "generic" && likelySemanticIconControl && domClickable
+                        ? "button"
+                        : role;
                 const svgAttrs = svgAttrsFor(el, rect);
                 const keep =
                     domClickable
@@ -753,7 +1753,7 @@ impl BrowserDriver {
 
                 root.children.push({
                     id: stableId,
-                    role,
+                    role: semanticRole,
                     name,
                     value,
                     rect: {
@@ -766,6 +1766,7 @@ impl BrowserDriver {
                     attributes: {
                         dom_fallback: "true",
                         dom_id: domId,
+                        ...(selector ? { selector: selector.slice(0, 240) } : {}),
                         ...(className ? { class_name: className.slice(0, 120) } : {}),
                         tag_name: (el.tagName || "").toLowerCase(),
                         ...(domClickable ? { dom_clickable: "true" } : {}),
@@ -875,6 +1876,14 @@ impl BrowserDriver {
         Ok(tree)
     }
 
+    async fn dom_fallback_tree(
+        &self,
+        page: &Page,
+        cause: &str,
+    ) -> std::result::Result<AccessibilityNode, BrowserError> {
+        Self::dom_fallback_tree_for_page(page, cause).await
+    }
+
     pub async fn get_accessibility_tree(
         &self,
     ) -> std::result::Result<AccessibilityNode, BrowserError> {
@@ -890,7 +1899,13 @@ impl BrowserDriver {
         )
         .await
         {
-            Ok(result) => result,
+            Ok(result) => match result {
+                Ok(tree) => {
+                    self.remember_accessibility_snapshot(&tree).await;
+                    Ok(tree)
+                }
+                Err(error) => Err(error),
+            },
             Err(_) => {
                 log::warn!(
                     target: "browser",
@@ -904,6 +1919,25 @@ impl BrowserDriver {
                 )))
             }
         }
+    }
+
+    pub async fn get_prompt_observation_tree(
+        &self,
+    ) -> std::result::Result<AccessibilityNode, BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        if let Some((_, tree)) = self
+            .recent_accessibility_snapshot(PROMPT_OBSERVATION_CACHE_MAX_AGE)
+            .await
+        {
+            return Ok(tree);
+        }
+
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+        let tree = self.dom_fallback_tree(&page, "prompt_observation").await?;
+        self.remember_accessibility_snapshot(&tree).await;
+        Ok(tree)
     }
 
     async fn get_accessibility_tree_inner(
@@ -945,7 +1979,19 @@ impl BrowserDriver {
 
         let root_ax = &nodes_vec[0];
         let rect_lookup = self.collect_ax_node_rects(&p, &nodes_vec).await;
-        Ok(self.convert_ax_node(root_ax, &nodes_vec, &rect_lookup))
+        let ax_tree = self.convert_ax_node(root_ax, &nodes_vec, &rect_lookup);
+        let enriched_tree = match self.dom_fallback_tree(&p, "ax_overlay_enrichment").await {
+            Ok(dom_tree) => merge_missing_dom_fallback_nodes(ax_tree, dom_tree),
+            Err(error) => {
+                log::debug!(
+                    target: "browser",
+                    "DOM overlay enrichment skipped after AX snapshot: {}",
+                    error
+                );
+                ax_tree
+            }
+        };
+        Ok(enriched_tree)
     }
 
     pub async fn get_visual_tree(&self) -> std::result::Result<AccessibilityNode, BrowserError> {
@@ -1342,8 +2388,11 @@ impl BrowserDriver {
 #[cfg(test)]
 mod tests {
     use super::{
-        prune_redundant_dom_fallback_aggregates, BrowserDriver, DomFallbackNode, DomFallbackRect,
+        merge_missing_dom_fallback_nodes, node_contains_visible_start_gate,
+        prune_redundant_dom_fallback_aggregates, should_cache_prompt_observation_warmup,
+        BrowserDriver, DomFallbackNode, DomFallbackRect,
     };
+    use crate::gui::accessibility::{AccessibilityNode, Rect as AccessibilityRect};
     use std::collections::HashMap;
 
     #[test]
@@ -1379,6 +2428,13 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn dom_fallback_is_allowed_for_label_for_ax_errors() {
+        assert!(super::allow_dom_fallback_for_ax_error(
+            "CDP GetAxTree failed: labelFor"
+        ));
+    }
+
     fn dom_node(
         id: &str,
         role: &str,
@@ -1403,6 +2459,34 @@ mod tests {
                 .map(|(key, value)| (key.to_string(), value.to_string()))
                 .collect::<HashMap<_, _>>(),
             children: Vec::new(),
+        }
+    }
+
+    fn ax_node(
+        id: &str,
+        role: &str,
+        name: Option<&str>,
+        rect: (i32, i32, i32, i32),
+        attrs: &[(&str, &str)],
+    ) -> AccessibilityNode {
+        AccessibilityNode {
+            id: id.to_string(),
+            role: role.to_string(),
+            name: name.map(str::to_string),
+            value: None,
+            rect: AccessibilityRect {
+                x: rect.0,
+                y: rect.1,
+                width: rect.2,
+                height: rect.3,
+            },
+            children: Vec::new(),
+            is_visible: true,
+            attributes: attrs
+                .iter()
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect::<HashMap<_, _>>(),
+            som_id: None,
         }
     }
 
@@ -1444,6 +2528,175 @@ mod tests {
 
         assert_eq!(node.name.as_deref(), Some("close email"));
         assert!(node.is_interactive());
+    }
+
+    #[test]
+    fn dom_fallback_semantic_hint_ignores_structural_class_tokens() {
+        let node = dom_node(
+            "dom-node-3",
+            "generic",
+            None,
+            (2.0, 56.0, 12.0, 12.0),
+            &[
+                ("dom_fallback", "true"),
+                ("tag_name", "span"),
+                ("class_name", "controls spacer details"),
+            ],
+        )
+        .into_accessibility();
+
+        assert_eq!(node.name.as_deref(), None);
+        assert!(!node.is_interactive());
+    }
+
+    #[test]
+    fn visible_start_gate_is_detected_from_sync_cover_node() {
+        let mut root = ax_node(
+            "root",
+            "root",
+            Some("DOM fallback tree"),
+            (0, 0, 800, 600),
+            &[("snapshot_fallback_cause", "navigate_warmup")],
+        );
+        root.children.push(ax_node(
+            "grp_start",
+            "generic",
+            Some("START"),
+            (0, 0, 160, 210),
+            &[("dom_id", "sync-task-cover")],
+        ));
+
+        assert!(node_contains_visible_start_gate(&root));
+        assert!(!should_cache_prompt_observation_warmup(&root));
+    }
+
+    #[test]
+    fn warmup_cache_is_kept_when_start_gate_coexists_with_grounded_target() {
+        let mut root = ax_node(
+            "root",
+            "root",
+            Some("DOM fallback tree"),
+            (0, 0, 800, 600),
+            &[("snapshot_fallback_cause", "navigate_warmup")],
+        );
+        root.children.push(ax_node(
+            "grp_start",
+            "generic",
+            Some("START"),
+            (0, 0, 160, 210),
+            &[("dom_id", "sync-task-cover")],
+        ));
+        root.children.push(ax_node(
+            "grp_circ",
+            "generic",
+            Some("large circle"),
+            (62, 119, 44, 44),
+            &[
+                ("dom_id", "circ"),
+                ("selector", "[id=\"circ\"]"),
+                ("shape_kind", "circle"),
+            ],
+        ));
+
+        assert!(node_contains_visible_start_gate(&root));
+        assert!(should_cache_prompt_observation_warmup(&root));
+    }
+
+    #[test]
+    fn warmup_cache_is_kept_for_started_task_surface() {
+        let mut root = ax_node(
+            "root",
+            "root",
+            Some("DOM fallback tree"),
+            (0, 0, 800, 600),
+            &[("snapshot_fallback_cause", "navigate_warmup")],
+        );
+        root.children.push(ax_node(
+            "grp_circ",
+            "generic",
+            Some("large circle"),
+            (62, 119, 44, 44),
+            &[
+                ("dom_id", "circ"),
+                ("selector", "[id=\"circ\"]"),
+                ("shape_kind", "circle"),
+            ],
+        ));
+
+        assert!(!node_contains_visible_start_gate(&root));
+        assert!(should_cache_prompt_observation_warmup(&root));
+    }
+
+    #[test]
+    fn dom_fallback_script_declares_selector_helper_before_use() {
+        let source = include_str!("accessibility.rs");
+        let helper_idx = source
+            .find("const selectorFor = (el) =>")
+            .expect("DOM fallback script should declare selectorFor");
+        let use_idx = source
+            .find("const selector = selectorFor(el);")
+            .expect("DOM fallback script should use selectorFor for selector attrs");
+
+        assert!(helper_idx < use_idx);
+    }
+
+    #[test]
+    fn dom_fallback_script_surfaces_svg_geometry_roles_and_line_metrics() {
+        let source = include_str!("accessibility.rs");
+
+        assert!(
+            source.contains("attrs.geometry_role = metadata.geometryRole;"),
+            "{source}"
+        );
+        assert!(
+            source.contains("attrs.connected_lines = String(metadata.connectedLines);"),
+            "{source}"
+        );
+        assert!(
+            source.contains("attrs.connected_points = connectedPoints;"),
+            "{source}"
+        );
+        assert!(
+            source.contains("attrs.connected_points_precise = connectedPointsPrecise;"),
+            "{source}"
+        );
+        assert!(
+            source.contains("attrs.connected_line_angles_deg = connectedLineAngles;"),
+            "{source}"
+        );
+        assert!(
+            source
+                .contains("attrs.connected_line_angles_deg_precise = connectedLineAnglesPrecise;"),
+            "{source}"
+        );
+        assert!(
+            source.contains("attrs.angle_mid_deg = roundedSvgCoord(metadata.angleMidDeg);"),
+            "{source}"
+        );
+        assert!(
+            source.contains("attrs.angle_span_deg = roundedSvgCoord(metadata.angleSpanDeg);"),
+            "{source}"
+        );
+        assert!(
+            source.contains("attrs.line_length = roundedSvgCoord(metadata.geometry.length);"),
+            "{source}"
+        );
+        assert!(
+            source.contains("attrs.line_angle_deg = roundedSvgCoord(metadata.geometry.angleDeg);"),
+            "{source}"
+        );
+        assert!(
+            source.contains(
+                "attrs.center_x_precise = highPrecisionSvgCoord(metadata.geometry.centerX);"
+            ),
+            "{source}"
+        );
+        assert!(
+            source.contains(
+                "attrs.center_y_precise = highPrecisionSvgCoord(metadata.geometry.centerY);"
+            ),
+            "{source}"
+        );
     }
 
     #[test]
@@ -1625,6 +2878,108 @@ mod tests {
             pruned
                 .attributes
                 .get("dom_fallback_pruned_aggregate_count")
+                .map(String::as_str),
+            Some("1")
+        );
+    }
+
+    #[test]
+    fn merge_missing_dom_fallback_nodes_adds_clickable_overlay_without_duplicate_submit() {
+        let ax_tree = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: Some("AX tree".to_string()),
+            value: None,
+            rect: AccessibilityRect {
+                x: 0,
+                y: 0,
+                width: 160,
+                height: 210,
+            },
+            children: vec![
+                ax_node(
+                    "btn_submit",
+                    "button",
+                    Some("Submit"),
+                    (30, 178, 95, 31),
+                    &[("dom_id", "subbtn"), ("selector", "#subbtn")],
+                ),
+                ax_node(
+                    "grp_svg_grid",
+                    "generic",
+                    Some("svg grid object"),
+                    (2, 52, 150, 130),
+                    &[("dom_id", "svg-grid"), ("selector", "#svg-grid")],
+                ),
+            ],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        let dom_tree = DomFallbackNode {
+            id: "dom-root".to_string(),
+            role: "root".to_string(),
+            name: Some("DOM fallback tree".to_string()),
+            value: None,
+            rect: DomFallbackRect {
+                x: 0.0,
+                y: 0.0,
+                width: 160.0,
+                height: 210.0,
+            },
+            is_visible: Some(true),
+            attributes: HashMap::from([("snapshot_fallback".to_string(), "dom".to_string())]),
+            children: vec![
+                dom_node(
+                    "dom-id-subbtn",
+                    "button",
+                    Some("Submit"),
+                    (30.0, 178.0, 95.0, 31.0),
+                    &[
+                        ("dom_fallback", "true"),
+                        ("tag_name", "button"),
+                        ("dom_id", "subbtn"),
+                        ("selector", "#subbtn"),
+                        ("dom_clickable", "true"),
+                    ],
+                ),
+                dom_node(
+                    "dom-id-sync-task-cover",
+                    "generic",
+                    Some("START"),
+                    (0.0, 0.0, 160.0, 210.0),
+                    &[
+                        ("dom_fallback", "true"),
+                        ("tag_name", "div"),
+                        ("dom_id", "sync-task-cover"),
+                        ("selector", "#sync-task-cover"),
+                        ("dom_clickable", "true"),
+                    ],
+                ),
+            ],
+        }
+        .into_accessibility();
+
+        let merged = merge_missing_dom_fallback_nodes(ax_tree, dom_tree);
+        let child_ids = merged
+            .children
+            .iter()
+            .map(|child| child.id.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(child_ids.contains(&"dom-id-sync-task-cover"));
+        assert_eq!(
+            child_ids
+                .iter()
+                .filter(|child_id| **child_id == "btn_submit")
+                .count(),
+            1
+        );
+        assert_eq!(
+            merged
+                .attributes
+                .get("dom_fallback_overlay_count")
                 .map(String::as_str),
             Some("1")
         );

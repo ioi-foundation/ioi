@@ -15,6 +15,12 @@ use judge::judge_case;
 use tasks::{cases_for_task_set, validate_case_catalog};
 use types::{AgentBackend, ComputerUseMode, SuiteConfig, SuiteSummary, TaskSet};
 
+const REWARD_FLOOR_EPSILON: f32 = 1e-4;
+
+pub(crate) fn reward_meets_floor(observed_reward: f32, expected_reward_floor: f32) -> bool {
+    observed_reward + REWARD_FLOOR_EPSILON >= expected_reward_floor
+}
+
 fn parse_modes(raw: &str) -> Result<Vec<ComputerUseMode>> {
     let normalized = raw.trim().to_ascii_lowercase();
     if normalized.is_empty() || normalized == "all" {

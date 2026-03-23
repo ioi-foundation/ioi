@@ -72,6 +72,37 @@ async fn wait_for_agent_bridge_ready(
     }
 }
 
+async fn settle_agent_bridge_state(
+    client: &BridgeClient,
+    session_id: &str,
+    local_judge: LocalJudge,
+) -> Result<BridgeState> {
+    let mut state = client.state(session_id).await?;
+    if matches!(local_judge, LocalJudge::HoverShapeReceipts) || state.terminated || state.truncated
+    {
+        return Ok(state);
+    }
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while Instant::now() < deadline {
+        sleep(Duration::from_millis(100)).await;
+        let refreshed = client.state(session_id).await?;
+        let changed = refreshed.last_sync_ms != state.last_sync_ms
+            || refreshed.reward != state.reward
+            || refreshed.info.raw_reward != state.info.raw_reward
+            || refreshed.terminated != state.terminated
+            || refreshed.truncated != state.truncated;
+        if changed {
+            state = refreshed;
+            if state.terminated || state.truncated {
+                break;
+            }
+        }
+    }
+
+    Ok(state)
+}
+
 fn bridge_task_brief(bridge_state: &BridgeState) -> Option<&str> {
     bridge_state
         .info
@@ -377,7 +408,8 @@ pub(super) async fn run_agent_case(
         drain_events_until_quiescent(&mut event_rx, &mut kernel_events).await;
     }
 
-    let bridge_state = client.state(&created.session_id).await?;
+    let bridge_state =
+        settle_agent_bridge_state(&client, &created.session_id, case.local_judge).await?;
     let screenshot_path = artifact_root.join("final.png");
     let bridge_state_path = artifact_root.join("bridge_state.json");
     let kernel_events_path = artifact_root.join("kernel_events.json");

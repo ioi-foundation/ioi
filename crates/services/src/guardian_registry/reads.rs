@@ -641,5 +641,4 @@ impl GuardianRegistry {
         });
         Ok(recovered)
     }
-
 }

@@ -1,6 +1,7 @@
 use super::*;
 
-pub(super) fn default_archived_recovered_history_profile() -> Result<ArchivedRecoveredHistoryProfile> {
+pub(super) fn default_archived_recovered_history_profile() -> Result<ArchivedRecoveredHistoryProfile>
+{
     build_archived_recovered_history_profile(
         DEFAULT_AFT_ARCHIVED_RECOVERED_HISTORY_RETENTION_HORIZON,
         AFT_RECOVERED_CONSENSUS_HEADER_WINDOW,
@@ -228,7 +229,6 @@ pub(super) async fn ensure_archived_recovered_history_profile(
 
     Ok((profile, activation))
 }
-
 
 pub(super) async fn publish_archived_recovered_history_segment(
     publisher: &GuardianRegistryPublisher,

@@ -224,7 +224,10 @@ pub(super) fn schedule_post_commit_rekicks(
     }
 }
 
-pub(super) fn dispatch_swarm_command(sender: &tokio::sync::mpsc::Sender<SwarmCommand>, command: SwarmCommand) {
+pub(super) fn dispatch_swarm_command(
+    sender: &tokio::sync::mpsc::Sender<SwarmCommand>,
+    command: SwarmCommand,
+) {
     match sender.try_send(command) {
         Ok(()) => {}
         Err(tokio::sync::mpsc::error::TrySendError::Full(command)) => {

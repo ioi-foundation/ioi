@@ -228,6 +228,8 @@ impl BrowserDriver {
             )));
         }
 
+        self.invalidate_accessibility_snapshot().await;
+
         Ok(BrowserDropdownSelection {
             value: result.value.unwrap_or_default(),
             label: result.label.unwrap_or_default(),
@@ -347,6 +349,8 @@ impl BrowserDriver {
                 result.reason.unwrap_or_else(|| "unknown error".to_string())
             )));
         }
+
+        self.invalidate_accessibility_snapshot().await;
 
         Ok(BrowserDropdownSelection {
             value: result.value.unwrap_or_default(),

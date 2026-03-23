@@ -12,8 +12,43 @@ fn queue_maps_browser_click_element_from_browser_interact_target() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::BrowserClickElement { id } => {
-            assert_eq!(id, "btn_submit");
+        AgentTool::BrowserClickElement {
+            id,
+            ids,
+            delay_ms_between_ids,
+            continue_with,
+        } => {
+            assert_eq!(id.as_deref(), Some("btn_submit"));
+            assert!(ids.is_empty());
+            assert!(delay_ms_between_ids.is_none());
+            assert!(continue_with.is_none());
+        }
+        other => panic!("expected BrowserClickElement, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_click_element_batch_ids_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        22,
+        serde_json::json!({
+            "ids": ["checkbox_a", "checkbox_b", "btn_submit"]
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserClickElement {
+            id,
+            ids,
+            delay_ms_between_ids,
+            continue_with,
+        } => {
+            assert!(id.is_none());
+            assert_eq!(ids, vec!["checkbox_a", "checkbox_b", "btn_submit"]);
+            assert!(delay_ms_between_ids.is_none());
+            assert!(continue_with.is_none());
         }
         other => panic!("expected BrowserClickElement, got {:?}", other),
     }
@@ -23,7 +58,7 @@ fn queue_maps_browser_click_element_from_browser_interact_target() {
 fn queue_maps_browser_wait_from_browser_interact_target() {
     let request = build_request(
         ActionTarget::BrowserInteract,
-        22,
+        23,
         serde_json::json!({
             "ms": 400
         }),
@@ -66,6 +101,36 @@ fn queue_maps_browser_wait_condition_from_browser_interact_target() {
             assert_eq!(timeout_ms, Some(1200));
         }
         other => panic!("expected BrowserWait condition mode, got {:?}", other),
+    }
+}
+
+#[test]
+fn queue_maps_browser_wait_with_follow_up_from_browser_interact_target() {
+    let request = build_request(
+        ActionTarget::BrowserInteract,
+        224,
+        serde_json::json!({
+            "ms": 2000,
+            "continue_with": {
+                "name": "browser__click_element",
+                "arguments": {
+                    "id": "btn_two"
+                }
+            }
+        }),
+    );
+
+    let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
+    match tool {
+        AgentTool::BrowserWait {
+            ms, continue_with, ..
+        } => {
+            assert_eq!(ms, Some(2000));
+            let continue_with = continue_with.expect("follow-up should be present");
+            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(continue_with.arguments["id"], "btn_two");
+        }
+        other => panic!("expected BrowserWait, got {:?}", other),
     }
 }
 

@@ -316,8 +316,16 @@ fn queue_custom_browser_click_target_maps_selector_and_id_variants() {
     };
     let id_tool = queue_action_request_to_tool(&id_request).expect("id variant should normalize");
     match id_tool {
-        AgentTool::BrowserClickElement { ref id } => {
-            assert_eq!(id, "btn_submit");
+        AgentTool::BrowserClickElement {
+            ref id,
+            ref ids,
+            delay_ms_between_ids,
+            continue_with,
+        } => {
+            assert_eq!(id.as_deref(), Some("btn_submit"));
+            assert!(ids.is_empty());
+            assert!(delay_ms_between_ids.is_none());
+            assert!(continue_with.is_none());
         }
         other => panic!("expected BrowserClickElement, got {:?}", other),
     }

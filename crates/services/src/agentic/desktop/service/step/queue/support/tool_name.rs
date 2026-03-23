@@ -186,7 +186,7 @@ pub(super) fn infer_browser_interact_tool_name(
     if obj.contains_key("modifiers") {
         return Ok("browser__key");
     }
-    if obj.contains_key("id") {
+    if obj.contains_key("id") || obj.contains_key("ids") {
         return Ok("browser__click_element");
     }
     if obj.contains_key("selector") {

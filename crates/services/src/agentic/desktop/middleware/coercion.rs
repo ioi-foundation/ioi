@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
+use super::builtins::canonical_deterministic_tool_name;
+
 fn default_install_manager() -> &'static str {
     if cfg!(target_os = "macos") {
         "brew"
@@ -138,6 +140,157 @@ pub(super) fn normalize_ui_click_component_arguments(arguments: &Value) -> Resul
         })?;
 
     Ok(json!({ "id": id }))
+}
+
+pub(super) fn normalize_browser_wait_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: browser__wait arguments must be a JSON object.")
+    })?;
+    let mut normalized = args_obj.clone();
+
+    normalize_browser_continue_with("browser__wait", &mut normalized)?;
+    Ok(Value::Object(normalized))
+}
+
+pub(super) fn normalize_browser_click_element_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: browser__click_element arguments must be a JSON object.")
+    })?;
+    let mut normalized = args_obj.clone();
+
+    normalize_browser_continue_with("browser__click_element", &mut normalized)?;
+    Ok(Value::Object(normalized))
+}
+
+pub(super) fn normalize_browser_synthetic_click_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!(
+            "Schema Validation Error: browser__synthetic_click arguments must be a JSON object."
+        )
+    })?;
+    let mut normalized = args_obj.clone();
+
+    if let Some(x) = normalized.get("x").and_then(parse_f64_like) {
+        normalized.insert("x".to_string(), json!(x));
+    }
+    if let Some(y) = normalized.get("y").and_then(parse_f64_like) {
+        normalized.insert("y".to_string(), json!(y));
+    }
+
+    normalize_browser_continue_with("browser__synthetic_click", &mut normalized)?;
+    Ok(Value::Object(normalized))
+}
+
+fn normalize_browser_continue_with(
+    tool_name: &str,
+    normalized: &mut serde_json::Map<String, Value>,
+) -> Result<()> {
+    let Some(raw_continue_with) = normalized.get("continue_with").cloned() else {
+        return Ok(());
+    };
+
+    let continue_obj = raw_continue_with.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: {tool_name} continue_with must be a JSON object.")
+    })?;
+    let mut continue_map = continue_obj.clone();
+
+    if let Some(name) = continue_map
+        .get("name")
+        .and_then(|v| v.as_str())
+        .and_then(canonical_deterministic_tool_name)
+    {
+        continue_map.insert("name".to_string(), json!(name));
+    }
+
+    if tool_name == "browser__synthetic_click"
+        && continue_map
+            .get("name")
+            .and_then(|value| value.as_str())
+            .is_some_and(|name| matches!(name, "browser__mouse_down" | "browser__mouse_up"))
+    {
+        return Err(anyhow!(
+            "Schema Validation Error: browser__synthetic_click continue_with does not allow pointer button state changes. Use grounded drag tools as separate steps with browser__move_mouse plus browser__mouse_down/browser__mouse_up."
+        ));
+    }
+
+    if !continue_map.contains_key("arguments") {
+        if let Some(parameters) = continue_map.remove("parameters") {
+            continue_map.insert("arguments".to_string(), parameters);
+        }
+    }
+    if !continue_map.contains_key("arguments") {
+        if let Some(input) = continue_map.remove("input") {
+            continue_map.insert("arguments".to_string(), input);
+        }
+    }
+    if !continue_map.contains_key("arguments") {
+        let nested_name = continue_map
+            .remove("name")
+            .and_then(|v| v.as_str().map(|s| s.trim().to_string()))
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                anyhow!(
+                    "Schema Validation Error: {tool_name} continue_with requires a non-empty 'name'."
+                )
+            })?;
+        continue_map = serde_json::Map::from_iter([
+            ("name".to_string(), json!(nested_name)),
+            ("arguments".to_string(), Value::Object(continue_map)),
+        ]);
+    }
+
+    if let Some(raw_args) = continue_map
+        .get("arguments")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let parsed: Value = serde_json::from_str(raw_args).map_err(|e| {
+            anyhow!(
+                "Schema Validation Error: {tool_name} continue_with.arguments must be valid JSON: {}",
+                e
+            )
+        })?;
+        if !parsed.is_object() {
+            return Err(anyhow!(
+                "Schema Validation Error: {tool_name} continue_with.arguments must decode to a JSON object."
+            ));
+        }
+        continue_map.insert("arguments".to_string(), parsed);
+    }
+
+    if !continue_map
+        .get("arguments")
+        .is_some_and(|value| value.is_object())
+    {
+        return Err(anyhow!(
+            "Schema Validation Error: {tool_name} continue_with.arguments must be a JSON object."
+        ));
+    }
+
+    normalized.insert("continue_with".to_string(), Value::Object(continue_map));
+    Ok(())
+}
+
+fn parse_f64_like(value: &Value) -> Option<f64> {
+    if let Some(raw) = value.as_f64() {
+        if raw.is_finite() {
+            return Some(raw);
+        }
+        return None;
+    }
+    if let Some(raw) = value.as_str() {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        if let Ok(parsed) = trimmed.parse::<f64>() {
+            if parsed.is_finite() {
+                return Some(parsed);
+            }
+        }
+    }
+    None
 }
 
 fn parse_u32_like(value: &Value) -> Option<u32> {

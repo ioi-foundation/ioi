@@ -138,9 +138,43 @@ mod tests {
         assert!(
             synthetic_click
                 .description
-                .contains("canvases, SVG surfaces"),
+                .contains("not normalized 0-1 fractions"),
             "{}",
             synthetic_click.description
+        );
+        assert!(
+            synthetic_click.parameters.contains(r#""type":"number""#),
+            "{}",
+            synthetic_click.parameters
+        );
+        assert!(
+            synthetic_click
+                .parameters
+                .contains("Absolute viewport x coordinate in CSS pixels"),
+            "{}",
+            synthetic_click.parameters
+        );
+
+        let move_mouse = tools
+            .iter()
+            .find(|tool| tool.name == "browser__move_mouse")
+            .expect("browser__move_mouse should be available");
+        assert!(
+            move_mouse
+                .description
+                .contains("does NOT activate page content"),
+            "{}",
+            move_mouse.description
+        );
+        assert!(
+            move_mouse.parameters.contains(r#""type":"number""#),
+            "{}",
+            move_mouse.parameters
+        );
+        assert!(
+            move_mouse.description.contains("normalized 0-1 fractions"),
+            "{}",
+            move_mouse.description
         );
     }
 }

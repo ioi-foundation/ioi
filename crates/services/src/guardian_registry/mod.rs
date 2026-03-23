@@ -137,12 +137,11 @@ pub enum RecoveryThresholdStatus {
     Impossible,
 }
 
-
 mod archived_history;
 mod materialize;
 mod observer;
 mod reads;
 mod service;
-mod validation;
 #[cfg(test)]
 mod tests;
+mod validation;

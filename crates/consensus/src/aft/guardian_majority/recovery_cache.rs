@@ -318,7 +318,10 @@ impl GuardianMajorityEngine {
             .retain(|height, _| keep_height(*height));
     }
 
-    pub(super) fn header_for_quorum_certificate_hint(&self, qc: &QuorumCertificate) -> Option<BlockHeader> {
+    pub(super) fn header_for_quorum_certificate_hint(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Option<BlockHeader> {
         self.local_header_for_qc(qc).or_else(|| {
             self.local_recovered_restart_header_for_qc(qc)
                 .map(|entry| entry.header)

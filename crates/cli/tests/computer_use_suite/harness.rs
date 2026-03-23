@@ -2131,6 +2131,7 @@ impl DirectHarness {
                 AgentTool::BrowserSyntheticClick {
                     x: validate_pointer_coordinate(x)?,
                     y: validate_pointer_coordinate(y)?,
+                    continue_with: None,
                 },
                 POINTER_BRIDGE_STATE_TIMEOUT,
             )
@@ -2160,6 +2161,8 @@ impl DirectHarness {
                 AgentTool::BrowserHover {
                     selector: Some(selector.to_string()),
                     id: None,
+                    duration_ms: None,
+                    resample_interval_ms: None,
                 },
                 POINTER_BRIDGE_STATE_TIMEOUT,
             )
@@ -2377,6 +2380,7 @@ impl DirectHarness {
                     query: None,
                     scope: None,
                     timeout_ms: None,
+                    continue_with: None,
                 },
                 POINTER_BRIDGE_STATE_TIMEOUT,
             )
@@ -2490,6 +2494,7 @@ async fn capture_catalog_diagnostics(harness: &mut DirectHarness) {
             query: None,
             scope: None,
             timeout_ms: None,
+            continue_with: None,
         })
         .await;
 }
@@ -4310,26 +4315,32 @@ mod tests {
         bridge_checkbox_checked_for_label, bridge_hidden_collapsible_selector_for_label,
         bridge_hidden_tab_selector_for_label, count_shape_matches, email_inbox_action_value,
         email_inbox_forward_value, email_inbox_reply_value, email_inbox_sender_value,
-        find_email_inbox_row_index, odd_or_even_visible_numbers, parse_count_shape_descriptor,
-        parse_email_inbox_action, parse_email_inbox_forward_recipient,
-        parse_email_inbox_reply_text, parse_email_inbox_sender, parse_social_media_user,
-        parse_stock_market_threshold, parse_stock_market_visible_price,
+        find_email_inbox_row_index, headless_for_run, odd_or_even_visible_numbers,
+        parse_count_shape_descriptor, parse_email_inbox_action,
+        parse_email_inbox_forward_recipient, parse_email_inbox_reply_text,
+        parse_email_inbox_sender, parse_social_media_user, parse_stock_market_threshold,
+        parse_stock_market_visible_price, settle_final_bridge_state,
         should_break_agent_loop_for_reward, solve_simple_algebra_problem,
         solve_simple_arithmetic_problem, svg_shape_kind, visible_table_value_map, BridgeClient,
-        ComputerUseCase, FindGreatestState, GuessNumberState, MiniwobAgentRuntime, TextEditorPhase,
+        BridgeProcess, ComputerUseCase, DirectExecutionContext, DirectHarness, FindGreatestState,
+        GuessNumberState, MiniwobAgentRuntime, TextEditorPhase,
     };
+    use crate::computer_use_suite::reward_meets_floor;
+    use crate::computer_use_suite::tasks::cases_for_task_set;
     use crate::computer_use_suite::types::{
-        AllowedToolProfile, BridgeDomElement, BridgeField, BridgeInfo, BridgeInteractiveElement,
-        BridgeScrollTarget, BridgeState, LocalJudge, RecipeId, TaskSet,
+        AgentBackend, AllowedToolProfile, BridgeDomElement, BridgeField, BridgeInfo,
+        BridgeInteractiveElement, BridgeScrollTarget, BridgeState, ComputerUseMode, LocalJudge,
+        RecipeId, SuiteConfig, TaskSet,
     };
     use ioi_drivers::browser::BrowserDomElementSummary;
-    use ioi_types::app::agentic::StepTrace;
+    use ioi_types::app::agentic::{AgentTool, AgentToolCall, StepTrace};
     use ioi_types::app::{
         KernelEvent, RoutingPostStateSummary, RoutingReceiptEvent, RoutingStateSummary,
     };
     use reqwest::Client;
     use serde_json::Value;
     use std::collections::{BTreeSet, HashMap};
+    use std::path::PathBuf;
     use std::sync::Mutex;
 
     fn test_runtime(recipe: RecipeId, expected_reward_floor: f32) -> MiniwobAgentRuntime {
@@ -4638,6 +4649,20 @@ mod tests {
             &positive_floor_state,
             1.0
         ));
+    }
+
+    #[test]
+    fn agent_loop_reward_short_circuit_tolerates_float_noise_at_reward_floor() {
+        let near_floor_state = BridgeState {
+            reward: 0.0633,
+            info: BridgeInfo {
+                raw_reward: Some(0.999_999_94),
+                ..BridgeInfo::default()
+            },
+            ..BridgeState::default()
+        };
+
+        assert!(should_break_agent_loop_for_reward(&near_floor_state, 1.0));
     }
 
     #[test]
@@ -8486,6 +8511,674 @@ mod tests {
             ]
         );
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires Chromium runtime, MiniWoB bridge helper, and local task assets"]
+    async fn timed_ordered_click_sequence_solves_button_delay_directly() -> anyhow::Result<()> {
+        crate::computer_use_suite::live_inference_support::load_env_from_workspace_dotenv_if_present();
+
+        let source_dir = std::env::var("COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/tmp/miniwob-plusplus"));
+        let config = SuiteConfig {
+            modes: vec![ComputerUseMode::Runtime],
+            agent_backend: AgentBackend::DeterministicMiniwob,
+            task_set: TaskSet::Catalog,
+            case_filter: None,
+            max_cases: None,
+            artifact_root: std::env::temp_dir().join("ioi-computer-use-direct-button-delay"),
+            retain_artifacts_for_all_runs: false,
+            require_browser_display: false,
+            bridge_source_dir: Some(source_dir.clone()),
+            python_bin: std::env::var("COMPUTER_USE_SUITE_PYTHON")
+                .unwrap_or_else(|_| "python3".to_string()),
+            fail_on_case_failure: true,
+        };
+        let case = cases_for_task_set(TaskSet::Catalog, Some(source_dir.as_path()))?
+            .into_iter()
+            .find(|case| case.env_id == "button-delay")
+            .ok_or_else(|| anyhow::anyhow!("button-delay case missing from catalog"))?;
+
+        let headless = headless_for_run(&config)?;
+        let mut bridge = BridgeProcess::start(&config).await?;
+        let shared = DirectExecutionContext::start(headless).await?;
+
+        let result =
+            async {
+                let client = bridge.client();
+                let created = client.create_session(&case).await?;
+                let session_id = created.session_id.clone();
+                let mut harness = DirectHarness::new(
+                    client.clone(),
+                    session_id.clone(),
+                    created.state,
+                    ComputerUseMode::Runtime,
+                    case.seed,
+                    &shared,
+                )
+                .await?;
+
+                let navigate = harness
+                    .execute_tool(AgentTool::BrowserNavigate { url: created.url })
+                    .await?;
+                anyhow::ensure!(
+                    navigate.success,
+                    "button-delay navigate failed: {:?}",
+                    navigate.error
+                );
+                harness.wait_until_ready().await?;
+
+                let click = harness
+                    .execute_tool(AgentTool::BrowserClickElement {
+                        id: Some("grp_start".to_string()),
+                        ids: Vec::new(),
+                        delay_ms_between_ids: None,
+                        continue_with: Some(AgentToolCall {
+                            name: "browser__click_element".to_string(),
+                            arguments: serde_json::json!({
+                                "ids": ["btn_one", "btn_two"],
+                                "delay_ms_between_ids": 2_000
+                            }),
+                        }),
+                    })
+                    .await?;
+                anyhow::ensure!(
+                    click.success,
+                    "button-delay timed click failed: {:?}",
+                    click.error
+                );
+
+                let payload: Value =
+                    serde_json::from_str(click.history_entry.as_deref().ok_or_else(|| {
+                        anyhow::anyhow!("timed click result missing history entry")
+                    })?)?;
+                assert!(
+                    payload.get("click").and_then(Value::as_str).is_some(),
+                    "{payload}"
+                );
+                assert_eq!(
+                    payload
+                        .get("continue_with")
+                        .and_then(|value| value.get("success"))
+                        .and_then(Value::as_bool),
+                    Some(true)
+                );
+                assert_eq!(
+                    payload
+                        .get("continue_with")
+                        .and_then(|value| value.get("arguments"))
+                        .and_then(|value| value.get("delay_ms_between_ids"))
+                        .and_then(Value::as_u64),
+                    Some(2_000)
+                );
+                assert_eq!(
+                    payload
+                        .get("continue_with")
+                        .and_then(|value| value.get("arguments"))
+                        .and_then(|value| value.get("ids"))
+                        .and_then(Value::as_array)
+                        .map(|ids| ids.len()),
+                    Some(2)
+                );
+
+                let final_state = settle_final_bridge_state(&mut harness, case.local_judge).await?;
+                anyhow::ensure!(
+                    final_state.terminated,
+                    "button-delay did not terminate after timed click: reward={} state={:?}",
+                    final_state.reward,
+                    final_state.info.reason
+                );
+                anyhow::ensure!(
+                    final_state.reward >= case.expected_reward_floor,
+                    "button-delay reward stayed below floor: reward={} floor={}",
+                    final_state.reward,
+                    case.expected_reward_floor
+                );
+
+                client.close(&session_id).await?;
+                harness.stop().await;
+                Ok(())
+            }
+            .await;
+
+        shared.stop().await;
+        bridge.stop().await;
+        result
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires Chromium runtime, MiniWoB bridge helper, and local task assets"]
+    async fn ordered_click_batch_solves_click_button_sequence_directly() -> anyhow::Result<()> {
+        crate::computer_use_suite::live_inference_support::load_env_from_workspace_dotenv_if_present();
+
+        let source_dir = std::env::var("COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/tmp/miniwob-plusplus"));
+        let config = SuiteConfig {
+            modes: vec![ComputerUseMode::Runtime],
+            agent_backend: AgentBackend::DeterministicMiniwob,
+            task_set: TaskSet::Catalog,
+            case_filter: None,
+            max_cases: None,
+            artifact_root: std::env::temp_dir()
+                .join("ioi-computer-use-direct-click-button-sequence"),
+            retain_artifacts_for_all_runs: false,
+            require_browser_display: false,
+            bridge_source_dir: Some(source_dir.clone()),
+            python_bin: std::env::var("COMPUTER_USE_SUITE_PYTHON")
+                .unwrap_or_else(|_| "python3".to_string()),
+            fail_on_case_failure: true,
+        };
+        let case = cases_for_task_set(TaskSet::Catalog, Some(source_dir.as_path()))?
+            .into_iter()
+            .find(|case| case.env_id == "click-button-sequence")
+            .ok_or_else(|| anyhow::anyhow!("click-button-sequence case missing from catalog"))?;
+
+        let headless = headless_for_run(&config)?;
+        let mut bridge = BridgeProcess::start(&config).await?;
+        let shared = DirectExecutionContext::start(headless).await?;
+
+        let result =
+            async {
+                let client = bridge.client();
+                let created = client.create_session(&case).await?;
+                let session_id = created.session_id.clone();
+                let mut harness = DirectHarness::new(
+                    client.clone(),
+                    session_id.clone(),
+                    created.state,
+                    ComputerUseMode::Runtime,
+                    case.seed,
+                    &shared,
+                )
+                .await?;
+
+                let navigate = harness
+                    .execute_tool(AgentTool::BrowserNavigate { url: created.url })
+                    .await?;
+                anyhow::ensure!(
+                    navigate.success,
+                    "click-button-sequence navigate failed: {:?}",
+                    navigate.error
+                );
+                harness.wait_until_ready().await?;
+
+                let click = harness
+                    .execute_tool(AgentTool::BrowserClickElement {
+                        id: None,
+                        ids: vec!["btn_one".to_string(), "btn_two".to_string()],
+                        delay_ms_between_ids: None,
+                        continue_with: None,
+                    })
+                    .await?;
+                anyhow::ensure!(
+                    click.success,
+                    "click-button-sequence ordered click failed: history={:?} error={:?}",
+                    click.history_entry,
+                    click.error
+                );
+
+                let final_state = settle_final_bridge_state(&mut harness, case.local_judge).await?;
+                anyhow::ensure!(
+                    final_state.terminated,
+                    "click-button-sequence did not terminate after ordered click: reward={} state={:?}",
+                    final_state.reward,
+                    final_state.info.reason
+                );
+                anyhow::ensure!(
+                    reward_meets_floor(
+                        final_state.info.raw_reward.unwrap_or(final_state.reward),
+                        case.expected_reward_floor,
+                    ),
+                    "click-button-sequence reward stayed below floor: reward={} raw_reward={:?} floor={}",
+                    final_state.reward,
+                    final_state.info.raw_reward,
+                    case.expected_reward_floor
+                );
+
+                client.close(&session_id).await?;
+                harness.stop().await;
+                Ok(())
+            }
+            .await;
+
+        shared.stop().await;
+        bridge.stop().await;
+        result
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires Chromium runtime, MiniWoB bridge helper, and local task assets"]
+    async fn timed_hover_tracking_solves_chase_circle_directly() -> anyhow::Result<()> {
+        crate::computer_use_suite::live_inference_support::load_env_from_workspace_dotenv_if_present();
+
+        let source_dir = std::env::var("COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/tmp/miniwob-plusplus"));
+        let config = SuiteConfig {
+            modes: vec![ComputerUseMode::Runtime],
+            agent_backend: AgentBackend::DeterministicMiniwob,
+            task_set: TaskSet::Catalog,
+            case_filter: None,
+            max_cases: None,
+            artifact_root: std::env::temp_dir().join("ioi-computer-use-direct-chase-circle"),
+            retain_artifacts_for_all_runs: false,
+            require_browser_display: false,
+            bridge_source_dir: Some(source_dir.clone()),
+            python_bin: std::env::var("COMPUTER_USE_SUITE_PYTHON")
+                .unwrap_or_else(|_| "python3".to_string()),
+            fail_on_case_failure: true,
+        };
+        let case = cases_for_task_set(TaskSet::Catalog, Some(source_dir.as_path()))?
+            .into_iter()
+            .find(|case| case.env_id == "chase-circle")
+            .ok_or_else(|| anyhow::anyhow!("chase-circle case missing from catalog"))?;
+
+        let headless = headless_for_run(&config)?;
+        let mut bridge = BridgeProcess::start(&config).await?;
+        let shared = DirectExecutionContext::start(headless).await?;
+
+        let result =
+            async {
+                let client = bridge.client();
+                let created = client.create_session(&case).await?;
+                let session_id = created.session_id.clone();
+                let mut harness = DirectHarness::new(
+                    client.clone(),
+                    session_id.clone(),
+                    created.state,
+                    ComputerUseMode::Runtime,
+                    case.seed,
+                    &shared,
+                )
+                .await?;
+
+                let navigate = harness
+                    .execute_tool(AgentTool::BrowserNavigate { url: created.url })
+                    .await?;
+                anyhow::ensure!(
+                    navigate.success,
+                    "chase-circle navigate failed: {:?}",
+                    navigate.error
+                );
+                harness.wait_until_ready().await?;
+
+                let snapshot = harness.execute_tool(AgentTool::BrowserSnapshot {}).await?;
+                anyhow::ensure!(
+                    snapshot.success,
+                    "chase-circle snapshot priming failed: {:?}",
+                    snapshot.error
+                );
+
+                let hover = harness
+                    .execute_tool(AgentTool::BrowserHover {
+                        selector: None,
+                        id: Some("grp_circ".to_string()),
+                        duration_ms: Some(30_000),
+                        resample_interval_ms: None,
+                    })
+                    .await?;
+                anyhow::ensure!(
+                    hover.success,
+                    "chase-circle timed hover failed: {:?}",
+                    hover.error
+                );
+
+                let payload: Value =
+                    serde_json::from_str(hover.history_entry.as_deref().ok_or_else(|| {
+                        anyhow::anyhow!("timed hover result missing history entry")
+                    })?)?;
+                assert_eq!(
+                    payload
+                        .get("tracking")
+                        .and_then(|value| value.get("duration_ms"))
+                        .and_then(Value::as_u64),
+                    Some(30_000)
+                );
+                assert!(
+                    payload
+                        .get("tracking")
+                        .and_then(|value| value.get("samples"))
+                        .and_then(Value::as_u64)
+                        .unwrap_or_default()
+                        >= 2
+                );
+
+                let final_state = settle_final_bridge_state(&mut harness, case.local_judge).await?;
+                anyhow::ensure!(
+                    final_state.terminated,
+                    "chase-circle did not terminate after timed hover: reward={} state={:?}",
+                    final_state.reward,
+                    final_state.info.reason
+                );
+                anyhow::ensure!(
+                    final_state.reward >= case.expected_reward_floor,
+                    "chase-circle reward stayed below floor: reward={} floor={}",
+                    final_state.reward,
+                    case.expected_reward_floor
+                );
+
+                client.close(&session_id).await?;
+                harness.stop().await;
+                Ok(())
+            }
+            .await;
+
+        shared.stop().await;
+        bridge.stop().await;
+        result
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "diagnostic probe for bisect-angle direct synthetic-click sequences"]
+    async fn bisect_angle_direct_synthetic_click_sequences_report_rewards() -> anyhow::Result<()> {
+        crate::computer_use_suite::live_inference_support::load_env_from_workspace_dotenv_if_present();
+
+        let source_dir = std::env::var("COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/tmp/miniwob-plusplus"));
+        let config = SuiteConfig {
+            modes: vec![ComputerUseMode::Runtime],
+            agent_backend: AgentBackend::DeterministicMiniwob,
+            task_set: TaskSet::Catalog,
+            case_filter: None,
+            max_cases: None,
+            artifact_root: std::env::temp_dir().join("ioi-computer-use-direct-bisect-angle"),
+            retain_artifacts_for_all_runs: false,
+            require_browser_display: false,
+            bridge_source_dir: Some(source_dir.clone()),
+            python_bin: std::env::var("COMPUTER_USE_SUITE_PYTHON")
+                .unwrap_or_else(|_| "python3".to_string()),
+            fail_on_case_failure: true,
+        };
+        let case = cases_for_task_set(TaskSet::Catalog, Some(source_dir.as_path()))?
+            .into_iter()
+            .find(|case| case.env_id == "bisect-angle")
+            .ok_or_else(|| anyhow::anyhow!("bisect-angle case missing from catalog"))?;
+
+        let headless = headless_for_run(&config)?;
+        let mut bridge = BridgeProcess::start(&config).await?;
+        let shared = DirectExecutionContext::start(headless).await?;
+
+        let sequences: &[&[(f64, f64)]] = &[
+            &[(85.0, 107.0)],
+            &[(85.0, 107.0), (85.006, 105.412)],
+            &[(85.0, 107.0), (85.006, 105.412), (85.012, 105.824)],
+            &[
+                (85.0, 107.0),
+                (85.006, 105.412),
+                (85.012, 105.824),
+                (85.018, 106.236),
+            ],
+            &[(85.0, 85.0), (88.804735, 105.372527)],
+            &[
+                (85.0, 85.0),
+                (88.804735, 105.372527),
+                (88.809961, 105.753443),
+            ],
+        ];
+
+        let result = async {
+            let client = bridge.client();
+            for sequence in sequences {
+                let created = client.create_session(&case).await?;
+                let session_id = created.session_id.clone();
+                let mut harness = DirectHarness::new(
+                    client.clone(),
+                    session_id.clone(),
+                    created.state,
+                    ComputerUseMode::Runtime,
+                    case.seed,
+                    &shared,
+                )
+                .await?;
+
+                let navigate = harness
+                    .execute_tool(AgentTool::BrowserNavigate { url: created.url })
+                    .await?;
+                anyhow::ensure!(
+                    navigate.success,
+                    "bisect-angle navigate failed: {:?}",
+                    navigate.error
+                );
+                harness.wait_until_ready().await?;
+
+                for (x, y) in sequence.iter().copied() {
+                    harness.click_point(x, y).await?;
+                    harness.wait_ms(80).await?;
+                }
+                harness.click_selector("#subbtn").await?;
+
+                let final_state = settle_final_bridge_state(&mut harness, case.local_judge).await?;
+                println!(
+                    "bisect-angle sequence {:?} => reward={} raw_reward={:?} terminated={} reason={:?}",
+                    sequence,
+                    final_state.reward,
+                    final_state.info.raw_reward,
+                    final_state.terminated,
+                    final_state.info.reason
+                );
+
+                client.close(&session_id).await?;
+                harness.stop().await;
+            }
+            Ok(())
+        }
+        .await;
+
+        shared.stop().await;
+        bridge.stop().await;
+        result
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "regression probe for bisect-angle semantic submit click fidelity"]
+    async fn bisect_angle_semantic_submit_click_commits_directly() -> anyhow::Result<()> {
+        crate::computer_use_suite::live_inference_support::load_env_from_workspace_dotenv_if_present();
+
+        let source_dir = std::env::var("COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/tmp/miniwob-plusplus"));
+        let config = SuiteConfig {
+            modes: vec![ComputerUseMode::Runtime],
+            agent_backend: AgentBackend::DeterministicMiniwob,
+            task_set: TaskSet::Catalog,
+            case_filter: None,
+            max_cases: None,
+            artifact_root: std::env::temp_dir().join("ioi-computer-use-bisect-angle-submit"),
+            retain_artifacts_for_all_runs: false,
+            require_browser_display: false,
+            bridge_source_dir: Some(source_dir.clone()),
+            python_bin: std::env::var("COMPUTER_USE_SUITE_PYTHON")
+                .unwrap_or_else(|_| "python3".to_string()),
+            fail_on_case_failure: true,
+        };
+        let case = cases_for_task_set(TaskSet::Catalog, Some(source_dir.as_path()))?
+            .into_iter()
+            .find(|case| case.env_id == "bisect-angle")
+            .ok_or_else(|| anyhow::anyhow!("bisect-angle case missing from catalog"))?;
+
+        let headless = headless_for_run(&config)?;
+        let mut bridge = BridgeProcess::start(&config).await?;
+        let shared = DirectExecutionContext::start(headless).await?;
+
+        let result = async {
+            let client = bridge.client();
+            let created = client.create_session(&case).await?;
+            let session_id = created.session_id.clone();
+            let mut harness = DirectHarness::new(
+                client.clone(),
+                session_id.clone(),
+                created.state,
+                ComputerUseMode::Runtime,
+                case.seed,
+                &shared,
+            )
+            .await?;
+
+            let navigate = harness
+                .execute_tool(AgentTool::BrowserNavigate { url: created.url })
+                .await?;
+            anyhow::ensure!(
+                navigate.success,
+                "bisect-angle navigate failed: {:?}",
+                navigate.error
+            );
+            harness.wait_until_ready().await?;
+
+            for (x, y) in [(85.0, 107.0), (85.006, 105.412)] {
+                harness.click_point(x, y).await?;
+                harness.wait_ms(80).await?;
+            }
+
+            let submit = harness
+                .execute_tool(AgentTool::BrowserClickElement {
+                    id: Some("btn_submit".to_string()),
+                    ids: Vec::new(),
+                    delay_ms_between_ids: None,
+                    continue_with: None,
+                })
+                .await?;
+            anyhow::ensure!(
+                submit.success,
+                "bisect-angle semantic submit click failed: {:?}",
+                submit.error
+            );
+
+            let final_state = settle_final_bridge_state(&mut harness, case.local_judge).await?;
+            let effective_reward = final_state.info.raw_reward.unwrap_or(final_state.reward);
+            anyhow::ensure!(
+                reward_meets_floor(effective_reward, case.expected_reward_floor),
+                "bisect-angle semantic submit reward stayed below floor: reward={} raw_reward={:?} floor={} reason={:?}",
+                final_state.reward,
+                final_state.info.raw_reward,
+                case.expected_reward_floor,
+                final_state.info.reason
+            );
+
+            client.close(&session_id).await?;
+            harness.stop().await;
+            Ok(())
+        }
+        .await;
+
+        shared.stop().await;
+        bridge.stop().await;
+        result
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "regression probe for bisect-angle synthetic click snapshots"]
+    async fn bisect_angle_synthetic_click_snapshot_probe() -> anyhow::Result<()> {
+        crate::computer_use_suite::live_inference_support::load_env_from_workspace_dotenv_if_present();
+
+        let source_dir = std::env::var("COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/tmp/miniwob-plusplus"));
+        let config = SuiteConfig {
+            modes: vec![ComputerUseMode::Runtime],
+            agent_backend: AgentBackend::DeterministicMiniwob,
+            task_set: TaskSet::Catalog,
+            case_filter: None,
+            max_cases: None,
+            artifact_root: std::env::temp_dir().join("ioi-computer-use-bisect-angle-probe"),
+            retain_artifacts_for_all_runs: false,
+            require_browser_display: false,
+            bridge_source_dir: Some(source_dir.clone()),
+            python_bin: std::env::var("COMPUTER_USE_SUITE_PYTHON")
+                .unwrap_or_else(|_| "python3".to_string()),
+            fail_on_case_failure: true,
+        };
+        let case = cases_for_task_set(TaskSet::Catalog, Some(source_dir.as_path()))?
+            .into_iter()
+            .find(|case| case.env_id == "bisect-angle")
+            .ok_or_else(|| anyhow::anyhow!("bisect-angle case missing from catalog"))?;
+
+        let headless = headless_for_run(&config)?;
+        let mut bridge = BridgeProcess::start(&config).await?;
+        let shared = DirectExecutionContext::start(headless).await?;
+
+        let result = async {
+            let client = bridge.client();
+            let created = client.create_session(&case).await?;
+            let session_id = created.session_id.clone();
+            let mut harness = DirectHarness::new(
+                client.clone(),
+                session_id.clone(),
+                created.state,
+                ComputerUseMode::Runtime,
+                case.seed,
+                &shared,
+            )
+            .await?;
+
+            let navigate = harness
+                .execute_tool(AgentTool::BrowserNavigate { url: created.url })
+                .await?;
+            anyhow::ensure!(
+                navigate.success,
+                "bisect-angle navigate failed: {:?}",
+                navigate.error
+            );
+            harness.wait_until_ready().await?;
+
+            for (label, x, y) in [
+                ("start_or_first_click", 85.0, 85.0),
+                ("live_correction_1", 88.804735, 105.372527),
+                ("live_correction_2", 88.809961, 105.753443),
+            ] {
+                harness.click_point(x, y).await?;
+                harness.wait_ms(80).await?;
+                let snapshot = harness.execute_tool(AgentTool::BrowserSnapshot {}).await?;
+                anyhow::ensure!(
+                    snapshot.success,
+                    "bisect-angle probe snapshot after {label} failed: {:?}",
+                    snapshot.error
+                );
+                println!(
+                    "bisect-angle probe {} bridge_reward={} terminated={} snapshot={}",
+                    label,
+                    harness.bridge_state.reward,
+                    harness.bridge_state.terminated,
+                    snapshot
+                        .history_entry
+                        .as_deref()
+                        .unwrap_or("<missing snapshot history>")
+                );
+            }
+
+            let submit = harness
+                .execute_tool(AgentTool::BrowserClickElement {
+                    id: Some("btn_submit".to_string()),
+                    ids: Vec::new(),
+                    delay_ms_between_ids: None,
+                    continue_with: None,
+                })
+                .await?;
+            anyhow::ensure!(
+                submit.success,
+                "bisect-angle probe submit failed: {:?}",
+                submit.error
+            );
+            let final_state = settle_final_bridge_state(&mut harness, case.local_judge).await?;
+            println!(
+                "bisect-angle probe final reward={} raw_reward={:?} terminated={} reason={:?}",
+                final_state.reward,
+                final_state.info.raw_reward,
+                final_state.terminated,
+                final_state.info.reason
+            );
+
+            client.close(&session_id).await?;
+            harness.stop().await;
+            Ok(())
+        }
+        .await;
+
+        shared.stop().await;
+        bridge.stop().await;
+        result
+    }
 }
 
 fn parse_drag_source_name(query: &str) -> Option<String> {
@@ -9385,7 +10078,10 @@ fn should_break_agent_loop_for_reward(
     expected_reward_floor: f32,
 ) -> bool {
     expected_reward_floor > 0.0
-        && bridge_state.info.raw_reward.unwrap_or(bridge_state.reward) >= expected_reward_floor
+        && super::reward_meets_floor(
+            bridge_state.info.raw_reward.unwrap_or(bridge_state.reward),
+            expected_reward_floor,
+        )
 }
 
 #[derive(Default)]
