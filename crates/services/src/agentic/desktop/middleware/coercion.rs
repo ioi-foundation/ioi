@@ -162,6 +162,16 @@ pub(super) fn normalize_browser_click_element_arguments(arguments: &Value) -> Re
     Ok(Value::Object(normalized))
 }
 
+pub(super) fn normalize_browser_key_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: browser__key arguments must be a JSON object.")
+    })?;
+    let mut normalized = args_obj.clone();
+
+    normalize_browser_continue_with("browser__key", &mut normalized)?;
+    Ok(Value::Object(normalized))
+}
+
 pub(super) fn normalize_browser_synthetic_click_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments.as_object().ok_or_else(|| {
         anyhow!(
@@ -170,11 +180,42 @@ pub(super) fn normalize_browser_synthetic_click_arguments(arguments: &Value) -> 
     })?;
     let mut normalized = args_obj.clone();
 
-    if let Some(x) = normalized.get("x").and_then(parse_f64_like) {
-        normalized.insert("x".to_string(), json!(x));
+    let id = normalized
+        .get("id")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let parsed_x = normalized.get("x").and_then(parse_f64_like);
+    let parsed_y = normalized.get("y").and_then(parse_f64_like);
+
+    if parsed_x.is_some() ^ parsed_y.is_some() {
+        return Err(anyhow!(
+            "Schema Validation Error: browser__synthetic_click requires both numeric 'x' and 'y' when either coordinate is provided."
+        ));
     }
-    if let Some(y) = normalized.get("y").and_then(parse_f64_like) {
+
+    if id.is_none() && parsed_x.is_none() {
+        return Err(anyhow!(
+            "Schema Validation Error: browser__synthetic_click requires either a grounded non-empty 'id' or both numeric 'x' and 'y' fields."
+        ));
+    }
+
+    if let Some(id) = id {
+        normalized.insert("id".to_string(), json!(id));
+    } else {
+        normalized.remove("id");
+    }
+
+    if let Some(x) = parsed_x {
+        let y = parsed_y.expect(
+            "browser__synthetic_click coordinate normalization already validated matching `y`",
+        );
+        normalized.insert("x".to_string(), json!(x));
         normalized.insert("y".to_string(), json!(y));
+    } else {
+        normalized.remove("x");
+        normalized.remove("y");
     }
 
     normalize_browser_continue_with("browser__synthetic_click", &mut normalized)?;
@@ -233,6 +274,10 @@ fn normalize_browser_continue_with(
                     "Schema Validation Error: {tool_name} continue_with requires a non-empty 'name'."
                 )
             })?;
+        if continue_map.is_empty() {
+            normalized.remove("continue_with");
+            return Ok(());
+        }
         continue_map = serde_json::Map::from_iter([
             ("name".to_string(), json!(nested_name)),
             ("arguments".to_string(), Value::Object(continue_map)),

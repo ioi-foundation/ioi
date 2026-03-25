@@ -17,6 +17,7 @@ import type {
   ActiveContextSnapshot,
   AtlasNeighborhood,
   AtlasSearchResult,
+  BenchmarkTraceFeed,
   ResetAutopilotDataResult,
   SkillCatalogEntry,
   SkillDetailView,
@@ -319,6 +320,10 @@ export class TauriRuntime implements AgentRuntime {
 
     async resetAutopilotData(): Promise<ResetAutopilotDataResult> {
         return invoke("reset_autopilot_data");
+    }
+
+    async getLocalBenchmarkTraceFeed(limit = 8): Promise<BenchmarkTraceFeed> {
+        return invoke("get_local_benchmark_trace_feed", { limit });
     }
 
     async runNode(nodeType: string, config: any, input: string): Promise<any> {

@@ -1,4 +1,4 @@
-use ioi_drivers::gui::accessibility::AccessibilityNode;
+use ioi_drivers::gui::accessibility::{propagate_som_ids_by_browser_identity, AccessibilityNode};
 use ioi_drivers::gui::lenses::{auto::AutoLens, AppLens};
 
 pub(super) fn detect_human_challenge(url: &str, content: &str) -> Option<&'static str> {
@@ -32,6 +32,13 @@ pub(super) fn detect_human_challenge(url: &str, content: &str) -> Option<&'stati
 pub(super) fn apply_browser_auto_lens(raw_tree: AccessibilityNode) -> AccessibilityNode {
     let lens = AutoLens;
     lens.transform(&raw_tree).unwrap_or(raw_tree)
+}
+
+pub(crate) fn apply_browser_auto_lens_with_som(raw_tree: &AccessibilityNode) -> AccessibilityNode {
+    let transformed = apply_browser_auto_lens(raw_tree.clone());
+    let mut grounded = transformed;
+    propagate_som_ids_by_browser_identity(raw_tree, &mut grounded);
+    grounded
 }
 
 pub(super) fn render_browser_tree_xml(tree: &AccessibilityNode) -> String {

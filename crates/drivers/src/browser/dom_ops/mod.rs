@@ -1,4 +1,9 @@
 mod accessibility;
+mod browser_use;
+mod browser_use_dom;
+mod browsergym;
+mod browsergym_flatten;
 mod frame;
 mod js_helpers;
 mod selectors;
+mod targets;

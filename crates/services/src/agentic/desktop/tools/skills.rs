@@ -15,6 +15,18 @@ pub(super) async fn inject_skill_tools(
     runtime: Arc<dyn InferenceRuntime>,
     tools: &mut Vec<LlmToolDefinition>,
 ) {
+    let has_skill_frames = match scs.lock() {
+        Ok(store) => store
+            .toc
+            .frames
+            .iter()
+            .any(|frame| frame.frame_type == FrameType::Skill),
+        Err(_) => false,
+    };
+    if !has_skill_frames {
+        return;
+    }
+
     // Skill Discovery via Semantic Search + Reputation Ranking (RSI)
     if let Ok(query_vec) = runtime.embed_text(query).await {
         // A. Get Candidates from Vector Index

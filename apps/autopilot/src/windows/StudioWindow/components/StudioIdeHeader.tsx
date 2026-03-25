@@ -11,6 +11,7 @@ interface ProjectScope {
 }
 
 type PrimaryView =
+  | "explorer"
   | "workflows"
   | "runs"
   | "inbox"
@@ -23,7 +24,7 @@ interface StudioIdeHeaderProps {
   currentProject: ProjectScope;
   projects: ProjectScope[];
   activeView: PrimaryView;
-  workflowSurface: "home" | "code" | "canvas" | "agents" | "catalog";
+  workflowSurface: "home" | "canvas" | "agents" | "catalog";
   chatVisible: boolean;
   notificationCount: number;
   onSelectProject: (projectId: string) => void;
@@ -53,9 +54,9 @@ function surfaceDetail(
   view: PrimaryView,
   workflowSurface: StudioIdeHeaderProps["workflowSurface"],
 ): string {
+  if (view === "explorer") return "Workspace editor";
   if (view === "workflows") {
     if (workflowSurface === "home") return "Welcome";
-    if (workflowSurface === "code") return "Code editor";
     if (workflowSurface === "agents") return "Agent roster";
     if (workflowSurface === "catalog") return "Catalog";
     return "Canvas";

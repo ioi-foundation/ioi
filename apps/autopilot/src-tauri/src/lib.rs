@@ -12,6 +12,7 @@ mod identity;
 mod ingestion;
 mod kernel;
 mod models;
+mod observability;
 mod orchestrator;
 mod project;
 mod template;
@@ -400,6 +401,7 @@ pub fn run() {
             kernel::data::get_skill_detail,
             kernel::data::get_substrate_proof,
             kernel::data::search_atlas,
+            observability::get_local_benchmark_trace_feed,
             kernel::artifacts::get_thread_events,
             kernel::artifacts::get_thread_artifacts,
             kernel::artifacts::get_artifact_content,

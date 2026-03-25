@@ -1,16 +1,23 @@
 use super::*;
 use ioi_crypto::algorithms::hash::sha256;
+use std::fmt::Display;
+use std::future::Future;
 use std::io::ErrorKind;
 use std::path::Path;
+use tokio::sync::OnceCell;
 use uuid::Uuid;
 
 const CHROMIUM_REVISION_ENV: &str = "IOI_CHROMIUM_REVISION";
 const CHROMIUM_SHA256_ENV: &str = "IOI_CHROMIUM_SHA256";
+const BROWSER_REQUEST_TIMEOUT_ENV: &str = "IOI_BROWSER_REQUEST_TIMEOUT_MS";
 const CHROMIUM_PIN_FILE_PREFIX: &str = "chromium-pin-";
 const HANDLER_ERROR_TOLERANCE: usize = 3;
 const LAUNCH_RETRY_ATTEMPTS: usize = 3;
 const LAUNCH_RETRY_DELAY_MS: u64 = 250;
 const HEALTH_PROBE_TIMEOUT: Duration = Duration::from_millis(1_500);
+const HEALTH_PROBE_CACHE_TTL: Duration = Duration::from_millis(1_000);
+const DEFAULT_BROWSER_REQUEST_TIMEOUT_MS: u64 = 2_000;
+static RESOLVED_CHROMIUM_BINARY: OnceCell<PathBuf> = OnceCell::const_new();
 
 fn evaluate_health(cdp_ok: bool, _handler_alive: bool) -> bool {
     cdp_ok
@@ -30,6 +37,15 @@ fn should_fallback_to_headless_launch(headless: bool, message: &str) -> bool {
     !headless && is_retryable_launch_error(message)
 }
 
+fn is_reset_worthy_browser_error(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("receiver is gone")
+        || lower.contains("channel closed")
+        || lower.contains("connection reset")
+        || lower.contains("broken pipe")
+        || lower.contains("request timed out")
+}
+
 fn restorable_page_url(raw: Option<&str>) -> Option<String> {
     let url = raw?.trim();
     if url.is_empty() || url.eq_ignore_ascii_case("about:blank") {
@@ -37,6 +53,64 @@ fn restorable_page_url(raw: Option<&str>) -> Option<String> {
     } else {
         Some(url.to_string())
     }
+}
+
+fn recent_successful_health_probe_fresh(last_ok_at: Option<Instant>, now: Instant) -> bool {
+    last_ok_at
+        .and_then(|timestamp| now.checked_duration_since(timestamp))
+        .is_some_and(|elapsed| elapsed <= HEALTH_PROBE_CACHE_TTL)
+}
+
+fn browser_request_timeout() -> Duration {
+    std::env::var(BROWSER_REQUEST_TIMEOUT_ENV)
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|ms| *ms > 0)
+        .map(Duration::from_millis)
+        .unwrap_or_else(|| Duration::from_millis(DEFAULT_BROWSER_REQUEST_TIMEOUT_MS))
+}
+
+fn chromium_launch_args(headless: bool) -> Vec<String> {
+    let mut args = vec![
+        "--disable-background-networking".to_string(),
+        "--disable-background-timer-throttling".to_string(),
+        "--disable-backgrounding-occluded-windows".to_string(),
+        "--disable-breakpad".to_string(),
+        "--disable-client-side-phishing-detection".to_string(),
+        "--disable-component-extensions-with-background-pages".to_string(),
+        "--disable-default-apps".to_string(),
+        "--disable-dev-shm-usage".to_string(),
+        "--disable-extensions".to_string(),
+        "--disable-features=Translate".to_string(),
+        "--disable-gpu".to_string(),
+        "--disable-hang-monitor".to_string(),
+        "--disable-infobars".to_string(),
+        "--disable-ipc-flooding-protection".to_string(),
+        "--disable-popup-blocking".to_string(),
+        "--disable-prompt-on-repost".to_string(),
+        "--disable-renderer-backgrounding".to_string(),
+        "--disable-setuid-sandbox".to_string(),
+        "--disable-software-rasterizer".to_string(),
+        "--disable-sync".to_string(),
+        "--enable-automation".to_string(),
+        "--force-color-profile=srgb".to_string(),
+        "--force-renderer-accessibility".to_string(),
+        "--metrics-recording-only".to_string(),
+        "--no-first-run".to_string(),
+        "--password-store=basic".to_string(),
+        "--start-maximized".to_string(),
+        "--use-mock-keychain".to_string(),
+    ];
+    if headless {
+        args.push("--headless=new".to_string());
+    }
+    if std::env::var("CI").is_ok()
+        || std::env::var("NO_SANDBOX").is_ok()
+        || unsafe { libc::geteuid() == 0 }
+    {
+        args.push("--no-sandbox".to_string());
+    }
+    args
 }
 
 impl BrowserDriver {
@@ -52,6 +126,17 @@ impl BrowserDriver {
             lease_active: Arc::new(AtomicBool::new(false)),
             pointer_state: Arc::new(Mutex::new(BrowserPointerState::default())),
             last_accessibility_snapshot: Arc::new(Mutex::new(None)),
+            last_prompt_observation_snapshot: Arc::new(Mutex::new(None)),
+            last_browser_observation_artifacts: Arc::new(Mutex::new(None)),
+            last_browser_use_interactive_backend_keys: Arc::new(Mutex::new(
+                std::collections::HashSet::new(),
+            )),
+            recent_browser_use_events: Arc::new(Mutex::new(std::collections::VecDeque::new())),
+            browser_use_closed_popup_messages: Arc::new(Mutex::new(Vec::new())),
+            browser_use_dialog_listener_targets: Arc::new(Mutex::new(
+                std::collections::HashSet::new(),
+            )),
+            recent_successful_health_probe_at: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -90,11 +175,7 @@ impl BrowserDriver {
             Ok(v) => Ok(v),
             Err(e) => {
                 let msg = e.to_string();
-                if msg.contains("receiver is gone")
-                    || msg.contains("channel closed")
-                    || msg.contains("connection reset")
-                    || msg.contains("broken pipe")
-                {
+                if is_reset_worthy_browser_error(&msg) {
                     log::warn!(target: "browser", "Connection died ({}), forcing reset.", msg);
                     self.force_reset().await;
                     return Err(BrowserError::Internal(
@@ -102,6 +183,42 @@ impl BrowserDriver {
                     ));
                 }
                 Err(BrowserError::Internal(msg))
+            }
+        }
+    }
+
+    pub(crate) async fn await_request_with_timeout<T, E, F>(
+        &self,
+        action: impl Into<String>,
+        future: F,
+    ) -> Result<T, BrowserError>
+    where
+        F: Future<Output = Result<T, E>>,
+        E: Display,
+    {
+        let action = action.into();
+        let timeout = browser_request_timeout();
+        match tokio::time::timeout(timeout, future).await {
+            Ok(result) => match self.check_connection_error(result).await {
+                Ok(value) => Ok(value),
+                Err(BrowserError::Internal(message)) => Err(BrowserError::Internal(format!(
+                    "{action} failed: {message}"
+                ))),
+                Err(other) => Err(other),
+            },
+            Err(_) => {
+                log::warn!(
+                    target: "browser",
+                    "{} timed out after {:?}; forcing browser session reset.",
+                    action,
+                    timeout
+                );
+                self.force_reset().await;
+                Err(BrowserError::Internal(format!(
+                    "{} timed out after {}ms. Browser session reset; retry the action.",
+                    action,
+                    timeout.as_millis()
+                )))
             }
         }
     }
@@ -207,6 +324,71 @@ impl BrowserDriver {
         Ok(path)
     }
 
+    async fn resolve_chromium_binary_path() -> Result<PathBuf, BrowserError> {
+        let executable = RESOLVED_CHROMIUM_BINARY
+            .get_or_try_init(|| async {
+                let revision = Self::pinned_revision()?;
+                let expected_sha_from_env = Self::expected_binary_sha256()?;
+
+                let cache_path = PathBuf::from("./ioi-data/browser_cache");
+                std::fs::create_dir_all(&cache_path).map_err(|e| {
+                    BrowserError::Internal(format!("Failed to create cache dir: {}", e))
+                })?;
+
+                let options = BrowserFetcherOptions::builder()
+                    .with_path(cache_path.clone())
+                    .with_revision(revision.clone())
+                    .build()
+                    .map_err(|err| {
+                        BrowserError::Internal(format!(
+                            "Failed to build fetcher options: {}",
+                            err
+                        ))
+                    })?;
+
+                let fetcher = BrowserFetcher::new(options);
+                let info = fetcher.fetch().await.map_err(|e| {
+                    BrowserError::Internal(format!("Failed to fetch Chromium: {}", e))
+                })?;
+
+                let actual_sha = Self::binary_sha256_hex(&info.executable_path)?;
+                if let Some(expected_sha) = expected_sha_from_env {
+                    Self::verify_binary_sha256(&actual_sha, &expected_sha)?;
+                    log::info!(
+                        target: "browser",
+                        "Verified Chromium checksum for revision {} via {}",
+                        revision,
+                        CHROMIUM_SHA256_ENV
+                    );
+                } else {
+                    let pin_path = Self::revision_pin_file(&cache_path, &revision);
+                    if let Some(expected_sha) = Self::read_revision_pin(&pin_path)? {
+                        Self::verify_binary_sha256(&actual_sha, &expected_sha)?;
+                        log::info!(
+                            target: "browser",
+                            "Verified Chromium checksum for revision {} via local pin {:?}",
+                            revision,
+                            pin_path
+                        );
+                    } else {
+                        Self::write_revision_pin(&pin_path, &actual_sha)?;
+                        log::warn!(
+                            target: "browser",
+                            "No {} configured; seeded local checksum pin for revision {} at {:?}. Set {} for strict immutable pinning.",
+                            CHROMIUM_SHA256_ENV,
+                            revision,
+                            pin_path,
+                            CHROMIUM_SHA256_ENV
+                        );
+                    }
+                }
+
+                Ok(info.executable_path)
+            })
+            .await?;
+        Ok(executable.clone())
+    }
+
     fn remove_profile_dir(path: &Path) {
         if let Err(e) = std::fs::remove_dir_all(path) {
             if e.kind() != ErrorKind::NotFound {
@@ -220,10 +402,37 @@ impl BrowserDriver {
         }
     }
 
+    fn cleanup_profile_dir_with_retries(path: PathBuf) {
+        const CLEANUP_RETRY_DELAYS_MS: [u64; 4] = [0, 100, 500, 1_000];
+
+        for delay_ms in CLEANUP_RETRY_DELAYS_MS {
+            if delay_ms > 0 {
+                std::thread::sleep(Duration::from_millis(delay_ms));
+            }
+
+            match std::fs::remove_dir_all(&path) {
+                Ok(()) => return,
+                Err(error) if error.kind() == ErrorKind::NotFound => return,
+                Err(error) => {
+                    log::warn!(
+                        target: "browser",
+                        "Failed to clean browser profile dir {:?}: {}",
+                        path,
+                        error
+                    );
+                }
+            }
+        }
+    }
+
+    fn schedule_profile_dir_cleanup(path: PathBuf) {
+        tokio::task::spawn_blocking(move || Self::cleanup_profile_dir_with_retries(path));
+    }
+
     async fn cleanup_profile_dir(&self) {
         let profile_path = { self.profile_dir.lock().await.take() };
         if let Some(path) = profile_path {
-            Self::remove_profile_dir(&path);
+            Self::schedule_profile_dir_cleanup(path);
         }
     }
 
@@ -240,8 +449,17 @@ impl BrowserDriver {
             let mut guard = self.retrieval_page.lock().await;
             *guard = None;
         }
+        {
+            let mut guard = self.browser_use_dialog_listener_targets.lock().await;
+            guard.clear();
+        }
+        {
+            let mut guard = self.last_browser_use_interactive_backend_keys.lock().await;
+            guard.clear();
+        }
         self.reset_pointer_state().await;
         self.handler_alive.store(false, Ordering::SeqCst);
+        *self.recent_successful_health_probe_at.lock().await = None;
         self.cleanup_profile_dir().await;
     }
 
@@ -254,6 +472,15 @@ impl BrowserDriver {
         };
 
         if let Some(browser) = browser_arc {
+            let now = Instant::now();
+            let cached_healthy = {
+                let guard = self.recent_successful_health_probe_at.lock().await;
+                recent_successful_health_probe_fresh(*guard, now)
+            };
+            if cached_healthy {
+                return true;
+            }
+
             let cdp_ok = match tokio::time::timeout(HEALTH_PROBE_TIMEOUT, browser.version()).await {
                 Ok(Ok(_)) => true,
                 Ok(Err(err)) => {
@@ -273,6 +500,10 @@ impl BrowserDriver {
                     false
                 }
             };
+            {
+                let mut guard = self.recent_successful_health_probe_at.lock().await;
+                *guard = cdp_ok.then(Instant::now);
+            }
             if cdp_ok && !handler_alive {
                 log::warn!(
                     target: "browser",
@@ -300,6 +531,17 @@ impl BrowserDriver {
             .new_page("about:blank")
             .await
             .map_err(|e| BrowserError::Internal(format!("Failed to create page: {}", e)))?;
+
+        if page_kind != "retrieval" {
+            self.attach_browser_use_page_watchdogs(&page).await?;
+            self.record_browser_use_event(
+                "TabCreatedEvent",
+                Some(page.target_id().as_ref().to_string()),
+                Some("about:blank".to_string()),
+                None,
+            )
+            .await;
+        }
 
         if let Some(url) = restorable_page_url(restore_url.as_deref()) {
             log::warn!(
@@ -330,81 +572,12 @@ impl BrowserDriver {
 
         self.force_reset().await;
 
-        let revision = Self::pinned_revision()?;
-        let expected_sha_from_env = Self::expected_binary_sha256()?;
-
-        let cache_path = PathBuf::from("./ioi-data/browser_cache");
-        std::fs::create_dir_all(&cache_path)
-            .map_err(|e| BrowserError::Internal(format!("Failed to create cache dir: {}", e)))?;
-
-        let options = BrowserFetcherOptions::builder()
-            .with_path(cache_path.clone())
-            .with_revision(revision.clone())
-            .build()
-            .map_err(|err| {
-                BrowserError::Internal(format!("Failed to build fetcher options: {}", err))
-            })?;
-
-        let fetcher = BrowserFetcher::new(options);
-        let info = fetcher
-            .fetch()
-            .await
-            .map_err(|e| BrowserError::Internal(format!("Failed to fetch Chromium: {}", e)))?;
-
-        let actual_sha = Self::binary_sha256_hex(&info.executable_path)?;
-        if let Some(expected_sha) = expected_sha_from_env {
-            Self::verify_binary_sha256(&actual_sha, &expected_sha)?;
-            log::info!(
-                target: "browser",
-                "Verified Chromium checksum for revision {} via {}",
-                revision,
-                CHROMIUM_SHA256_ENV
-            );
-        } else {
-            let pin_path = Self::revision_pin_file(&cache_path, &revision);
-            if let Some(expected_sha) = Self::read_revision_pin(&pin_path)? {
-                Self::verify_binary_sha256(&actual_sha, &expected_sha)?;
-                log::info!(
-                    target: "browser",
-                    "Verified Chromium checksum for revision {} via local pin {:?}",
-                    revision,
-                    pin_path
-                );
-            } else {
-                Self::write_revision_pin(&pin_path, &actual_sha)?;
-                log::warn!(
-                    target: "browser",
-                    "No {} configured; seeded local checksum pin for revision {} at {:?}. Set {} for strict immutable pinning.",
-                    CHROMIUM_SHA256_ENV,
-                    revision,
-                    pin_path,
-                    CHROMIUM_SHA256_ENV
-                );
-            }
-        }
-
-        let mut base_args = vec![
-            "--disable-dev-shm-usage".to_string(),
-            "--disable-gpu".to_string(),
-            "--disable-infobars".to_string(),
-            "--start-maximized".to_string(),
-            "--disable-software-rasterizer".to_string(),
-            "--disable-setuid-sandbox".to_string(),
-            "--disable-extensions".to_string(),
-            "--force-renderer-accessibility".to_string(),
-        ];
-        if headless {
-            base_args.push("--headless=new".to_string());
-        }
-        if std::env::var("CI").is_ok()
-            || std::env::var("NO_SANDBOX").is_ok()
-            || unsafe { libc::geteuid() == 0 }
-        {
-            base_args.push("--no-sandbox".to_string());
-        }
+        let executable_path = Self::resolve_chromium_binary_path().await?;
+        let base_args = chromium_launch_args(headless);
 
         let run_launch_attempt = |bin: PathBuf, extra_args: Vec<String>, attempt_headless: bool| async move {
             let args_owned = extra_args;
+            let request_timeout = browser_request_timeout();
 
             log::info!(
                 target: "browser",
@@ -414,7 +587,9 @@ impl BrowserDriver {
             );
 
             let config_res = {
-                let mut builder = BrowserConfig::builder().chrome_executable(&bin);
+                let mut builder = BrowserConfig::builder()
+                    .chrome_executable(&bin)
+                    .request_timeout(request_timeout);
 
                 if !attempt_headless {
                     builder = builder.with_head();
@@ -466,7 +641,9 @@ impl BrowserDriver {
                 fallback_args.push(arg);
             }
 
-            let mut fallback_builder = BrowserConfig::builder().chrome_executable(&bin);
+            let mut fallback_builder = BrowserConfig::builder()
+                .chrome_executable(&bin)
+                .request_timeout(request_timeout);
             if !attempt_headless {
                 fallback_builder = fallback_builder.with_head();
             }
@@ -483,7 +660,7 @@ impl BrowserDriver {
         };
 
         let launch_with_retries = |attempt_headless: bool| {
-            let executable_path = info.executable_path.clone();
+            let executable_path = executable_path.clone();
             let base_args = base_args.clone();
             async move {
                 let mut last_error: Option<String> = None;
@@ -580,6 +757,7 @@ impl BrowserDriver {
 
         *self.profile_dir.lock().await = Some(profile_dir);
         *self.browser.lock().await = Some(Arc::new(browser));
+        *self.recent_successful_health_probe_at.lock().await = Some(Instant::now());
         Ok(())
     }
 
@@ -684,8 +862,10 @@ impl BrowserDriver {
 #[cfg(test)]
 mod tests {
     use super::{
-        evaluate_health, is_retryable_launch_error, restorable_page_url,
+        chromium_launch_args, evaluate_health, is_reset_worthy_browser_error,
+        is_retryable_launch_error, recent_successful_health_probe_fresh, restorable_page_url,
         should_fallback_to_headless_launch, BrowserDriver, RecentAccessibilitySnapshot,
+        HEALTH_PROBE_CACHE_TTL,
     };
     use crate::gui::accessibility::{AccessibilityNode, Rect};
     use std::collections::HashMap;
@@ -725,6 +905,25 @@ mod tests {
     }
 
     #[test]
+    fn recent_successful_health_probe_is_fresh_within_cache_ttl() {
+        let now = Instant::now();
+        assert!(recent_successful_health_probe_fresh(
+            Some(now - (HEALTH_PROBE_CACHE_TTL / 2)),
+            now
+        ));
+    }
+
+    #[test]
+    fn recent_successful_health_probe_expires_after_cache_ttl() {
+        let now = Instant::now();
+        assert!(!recent_successful_health_probe_fresh(
+            Some(now - HEALTH_PROBE_CACHE_TTL - Duration::from_millis(1)),
+            now
+        ));
+        assert!(!recent_successful_health_probe_fresh(None, now));
+    }
+
+    #[test]
     fn retryable_headed_launch_error_falls_back_to_headless() {
         assert!(should_fallback_to_headless_launch(
             false,
@@ -738,6 +937,20 @@ mod tests {
             true,
             "Browser process exited with status ExitStatus(unix_wait_status(0)) before websocket URL could be resolved, stderr: BrowserStderr(\"...\")",
         ));
+    }
+
+    #[test]
+    fn chromium_launch_args_include_automation_and_first_run_suppression() {
+        let args = chromium_launch_args(true);
+        assert!(args.iter().any(|arg| arg == "--headless=new"));
+        assert!(args.iter().any(|arg| arg == "--enable-automation"));
+        assert!(args.iter().any(|arg| arg == "--no-first-run"));
+        assert!(args
+            .iter()
+            .any(|arg| arg == "--disable-background-networking"));
+        assert!(args
+            .iter()
+            .any(|arg| arg == "--force-renderer-accessibility"));
     }
 
     #[test]
@@ -761,6 +974,17 @@ mod tests {
             restorable_page_url(Some(" file:///tmp/example.html ")),
             Some("file:///tmp/example.html".to_string())
         );
+    }
+
+    #[test]
+    fn browser_request_timeout_errors_trigger_session_reset() {
+        assert!(is_reset_worthy_browser_error("Request timed out."));
+        assert!(is_reset_worthy_browser_error(
+            "Failed to query active URL: Request timed out."
+        ));
+        assert!(!is_reset_worthy_browser_error(
+            "Failed to decode browser response payload"
+        ));
     }
 
     #[tokio::test]
@@ -810,6 +1034,62 @@ mod tests {
 
         assert!(driver
             .recent_accessibility_snapshot(Duration::from_secs(1))
+            .await
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn recent_prompt_observation_snapshot_survives_general_snapshot_overwrite() {
+        let driver = BrowserDriver::new();
+        *driver.active_page_url.lock().await = Some("file:///tmp/miniwob/task.html".to_string());
+        *driver.last_prompt_observation_snapshot.lock().await = Some(RecentAccessibilitySnapshot {
+            captured_at: Instant::now(),
+            url: Some("file:///tmp/miniwob/task.html".to_string()),
+            tree: accessibility_leaf("grp_start"),
+        });
+        *driver.last_accessibility_snapshot.lock().await = Some(RecentAccessibilitySnapshot {
+            captured_at: Instant::now(),
+            url: Some("file:///tmp/miniwob/task.html".to_string()),
+            tree: accessibility_leaf("btn_submit"),
+        });
+
+        let snapshot = driver
+            .recent_prompt_observation_snapshot(Duration::from_secs(1))
+            .await
+            .expect("prompt cache");
+        assert_eq!(snapshot.1.id, "grp_start");
+    }
+
+    #[tokio::test]
+    async fn prompt_observation_cache_stays_distinct_from_general_snapshot_cache() {
+        let driver = BrowserDriver::new();
+        *driver.active_page_url.lock().await = Some("file:///tmp/miniwob/task.html".to_string());
+        *driver.last_accessibility_snapshot.lock().await = Some(RecentAccessibilitySnapshot {
+            captured_at: Instant::now(),
+            url: Some("file:///tmp/miniwob/task.html".to_string()),
+            tree: accessibility_leaf("btn_submit"),
+        });
+
+        assert!(driver
+            .recent_prompt_observation_snapshot(Duration::from_secs(1))
+            .await
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn invalidate_accessibility_snapshot_clears_prompt_observation_cache() {
+        let driver = BrowserDriver::new();
+        *driver.active_page_url.lock().await = Some("file:///tmp/miniwob/task.html".to_string());
+        *driver.last_prompt_observation_snapshot.lock().await = Some(RecentAccessibilitySnapshot {
+            captured_at: Instant::now(),
+            url: Some("file:///tmp/miniwob/task.html".to_string()),
+            tree: accessibility_leaf("grp_start"),
+        });
+
+        driver.invalidate_accessibility_snapshot().await;
+
+        assert!(driver
+            .recent_prompt_observation_snapshot(Duration::from_secs(1))
             .await
             .is_none());
     }

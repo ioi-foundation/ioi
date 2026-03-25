@@ -4,11 +4,13 @@ use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::backtrace::Backtrace;
+use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc::Sender;
 
 pub const OPENAI_CHAT_COMPLETIONS_URL: &str = "https://api.openai.com/v1/chat/completions";
@@ -160,6 +162,63 @@ pub struct CountingInferenceRuntime {
     call_records: Mutex<Vec<InferenceCallRecord>>,
 }
 
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn compact_inference_source_hint() -> Option<String> {
+    let backtrace = Backtrace::force_capture().to_string();
+    let mut frames = Vec::new();
+    let mut pending_function: Option<String> = None;
+
+    for raw_line in backtrace.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        if let Some((prefix, rest)) = line.split_once(':') {
+            if prefix.chars().all(|ch| ch.is_ascii_digit()) {
+                let function = rest.trim();
+                if function.is_empty() || function.contains("live_inference_support") {
+                    pending_function = None;
+                } else {
+                    pending_function = Some(function.to_string());
+                }
+                continue;
+            }
+        }
+
+        let Some(path) = line.strip_prefix("at ") else {
+            continue;
+        };
+        let marker = format!("{MAIN_SEPARATOR}crates{MAIN_SEPARATOR}");
+        let Some(relative_index) = path.find(&marker) else {
+            continue;
+        };
+        if path.contains("live_inference_support.rs") {
+            continue;
+        }
+
+        let relative_path = &path[relative_index + 1..];
+        let frame = match pending_function.take() {
+            Some(function) => format!("{function} @ {relative_path}"),
+            None => relative_path.to_string(),
+        };
+        if !frames.iter().any(|existing| existing == &frame) {
+            frames.push(frame);
+        }
+        if frames.len() >= 3 {
+            break;
+        }
+    }
+
+    (!frames.is_empty()).then(|| frames.join(" | "))
+}
+
 impl CountingInferenceRuntime {
     pub fn new(inner: Arc<dyn InferenceRuntime>) -> Self {
         Self {
@@ -185,7 +244,11 @@ impl CountingInferenceRuntime {
 pub struct InferenceCallRecord {
     pub ordinal: usize,
     pub method: &'static str,
+    pub source_hint: Option<String>,
     pub model_hash_hex: String,
+    pub started_at_ms: u64,
+    pub finished_at_ms: u64,
+    pub elapsed_ms: u64,
     pub input_utf8: Option<String>,
     pub output_utf8: Option<String>,
     pub error: Option<String>,
@@ -197,19 +260,52 @@ impl CountingInferenceRuntime {
         ordinal: usize,
         method: &'static str,
         model_hash: [u8; 32],
+        started_at_ms: u64,
+        finished_at_ms: u64,
         input_context: &[u8],
         outcome: &Result<Vec<u8>, VmError>,
     ) {
         let record = InferenceCallRecord {
             ordinal,
             method,
+            source_hint: compact_inference_source_hint(),
             model_hash_hex: hex::encode(model_hash),
+            started_at_ms,
+            finished_at_ms,
+            elapsed_ms: finished_at_ms.saturating_sub(started_at_ms),
             input_utf8: String::from_utf8(input_context.to_vec()).ok(),
             output_utf8: outcome
                 .as_ref()
                 .ok()
                 .and_then(|bytes| String::from_utf8(bytes.clone()).ok()),
             error: outcome.as_ref().err().map(ToString::to_string),
+        };
+        if let Ok(mut records) = self.call_records.lock() {
+            records.push(record);
+        }
+    }
+
+    fn record_aux_call(
+        &self,
+        ordinal: usize,
+        method: &'static str,
+        started_at_ms: u64,
+        finished_at_ms: u64,
+        input_utf8: Option<String>,
+        output_utf8: Option<String>,
+        error: Option<String>,
+    ) {
+        let record = InferenceCallRecord {
+            ordinal,
+            method,
+            source_hint: compact_inference_source_hint(),
+            model_hash_hex: String::new(),
+            started_at_ms,
+            finished_at_ms,
+            elapsed_ms: finished_at_ms.saturating_sub(started_at_ms),
+            input_utf8,
+            output_utf8,
+            error,
         };
         if let Ok(mut records) = self.call_records.lock() {
             records.push(record);
@@ -226,14 +322,18 @@ impl InferenceRuntime for CountingInferenceRuntime {
         options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let ordinal = self.call_count.fetch_add(1, Ordering::SeqCst) + 1;
+        let started_at_ms = now_ms();
         let outcome = self
             .inner
             .execute_inference(model_hash, input_context, options)
             .await;
+        let finished_at_ms = now_ms();
         self.record_call(
             ordinal,
             "execute_inference",
             model_hash,
+            started_at_ms,
+            finished_at_ms,
             input_context,
             &outcome,
         );
@@ -248,14 +348,18 @@ impl InferenceRuntime for CountingInferenceRuntime {
         token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
         let ordinal = self.call_count.fetch_add(1, Ordering::SeqCst) + 1;
+        let started_at_ms = now_ms();
         let outcome = self
             .inner
             .execute_inference_streaming(model_hash, input_context, options, token_stream)
             .await;
+        let finished_at_ms = now_ms();
         self.record_call(
             ordinal,
             "execute_inference_streaming",
             model_hash,
+            started_at_ms,
+            finished_at_ms,
             input_context,
             &outcome,
         );
@@ -263,11 +367,43 @@ impl InferenceRuntime for CountingInferenceRuntime {
     }
 
     async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
-        self.inner.embed_text(text).await
+        let ordinal = self.call_count.fetch_add(1, Ordering::SeqCst) + 1;
+        let started_at_ms = now_ms();
+        let outcome = self.inner.embed_text(text).await;
+        let finished_at_ms = now_ms();
+        self.record_aux_call(
+            ordinal,
+            "embed_text",
+            started_at_ms,
+            finished_at_ms,
+            Some(text.to_string()),
+            outcome
+                .as_ref()
+                .ok()
+                .map(|embedding| format!("embedding_dims={}", embedding.len())),
+            outcome.as_ref().err().map(ToString::to_string),
+        );
+        outcome
     }
 
     async fn embed_image(&self, image_bytes: &[u8]) -> Result<Vec<f32>, VmError> {
-        self.inner.embed_image(image_bytes).await
+        let ordinal = self.call_count.fetch_add(1, Ordering::SeqCst) + 1;
+        let started_at_ms = now_ms();
+        let outcome = self.inner.embed_image(image_bytes).await;
+        let finished_at_ms = now_ms();
+        self.record_aux_call(
+            ordinal,
+            "embed_image",
+            started_at_ms,
+            finished_at_ms,
+            Some(format!("image_bytes={}", image_bytes.len())),
+            outcome
+                .as_ref()
+                .ok()
+                .map(|embedding| format!("embedding_dims={}", embedding.len())),
+            outcome.as_ref().err().map(ToString::to_string),
+        );
+        outcome
     }
 
     async fn load_model(&self, model_hash: [u8; 32], path: &Path) -> Result<(), VmError> {

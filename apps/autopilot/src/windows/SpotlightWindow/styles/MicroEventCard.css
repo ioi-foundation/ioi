@@ -1,16 +1,16 @@
 .micro-event-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-default);
   border-radius: 10px;
   padding: 9px 10px;
-  background: rgba(5, 6, 8, 0.38);
+  background: rgba(13, 12, 10, 0.38);
 }
 
 .micro-event-card.status-failure {
-  border-color: rgba(255, 107, 129, 0.28);
+  border-color: var(--status-error-ring);
 }
 
 .micro-event-card.status-partial {
-  border-color: rgba(255, 184, 108, 0.24);
+  border-color: var(--status-warning-ring);
 }
 
 .micro-event-topline {

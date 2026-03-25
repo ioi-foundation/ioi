@@ -453,9 +453,6 @@ pub(super) fn queue_reverification_history_follow_up_pending_signal_for_snapshot
     snapshot: &str,
     history: &[ChatMessage],
 ) -> Option<String> {
-    if snapshot_has_history_page_marker(snapshot) {
-        return None;
-    }
     if !recent_history_viewed_item_ids(history).is_empty() {
         return None;
     }

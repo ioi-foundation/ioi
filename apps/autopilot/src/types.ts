@@ -159,6 +159,91 @@ export type ActiveContextSnapshot = Omit<
   substrate?: SubstrateProofView | null;
 };
 
+export interface BenchmarkTraceArtifactLink {
+  label: string;
+  path: string;
+  href: string;
+}
+
+export interface BenchmarkTraceSpan {
+  id: string;
+  lane: string;
+  parentSpanId?: string | null;
+  stepIndex?: number | null;
+  status: string;
+  summary: string;
+  startMs: number;
+  endMs: number;
+  durationMs?: number | null;
+  capabilityTags: string[];
+  attributesSummary: string;
+  artifactLinks: BenchmarkTraceArtifactLink[];
+}
+
+export interface BenchmarkTraceLane {
+  lane: string;
+  spans: BenchmarkTraceSpan[];
+}
+
+export interface BenchmarkTraceBookmark {
+  id: string;
+  label: string;
+  spanId: string;
+  kind: string;
+}
+
+export interface BenchmarkTraceReplay {
+  source: string;
+  rangeStartMs: number;
+  rangeEndMs: number;
+  spanCount: number;
+  lanes: BenchmarkTraceLane[];
+  bookmarks: BenchmarkTraceBookmark[];
+}
+
+export interface BenchmarkTraceMetric {
+  metricId: string;
+  label: string;
+  status: string;
+  summary: string;
+  supportingSpanIds: string[];
+}
+
+export interface BenchmarkTraceLinks {
+  traceBundle?: string | null;
+  traceAnalysis?: string | null;
+  benchmarkSummary?: string | null;
+  diagnosticSummary?: string | null;
+}
+
+export interface BenchmarkTraceSummary {
+  env_id: string;
+  model?: string | null;
+  provider_calls: number;
+  reward: number;
+  terminated: boolean;
+  query_text: string;
+}
+
+export interface BenchmarkTraceCaseView {
+  suite: string;
+  caseId: string;
+  runId: string;
+  runSort: number;
+  result: string;
+  summary: BenchmarkTraceSummary;
+  findings: string[];
+  traceMetrics: BenchmarkTraceMetric[];
+  trace: BenchmarkTraceReplay | null;
+  links: BenchmarkTraceLinks;
+}
+
+export interface BenchmarkTraceFeed {
+  generatedAt?: string | null;
+  repoRoot?: string | null;
+  cases: BenchmarkTraceCaseView[];
+}
+
 export type NotificationAction = Omit<GeneratedNotificationAction, "style"> & {
   style?: NotificationActionStyle | null;
 };

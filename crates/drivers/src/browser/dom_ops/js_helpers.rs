@@ -11,9 +11,8 @@ impl BrowserDriver {
         self.ensure_page().await?;
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
 
-        page.evaluate(script)
-            .await
-            .map_err(|e| BrowserError::Internal(format!("JS evaluation failed: {}", e)))?
+        self.await_request_with_timeout("JS evaluation", page.evaluate(script))
+            .await?
             .into_value::<T>()
             .map_err(|e| BrowserError::Internal(format!("JS decode failed: {}", e)))
     }
@@ -27,9 +26,8 @@ impl BrowserDriver {
         let page =
             { self.retrieval_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
 
-        page.evaluate(script)
-            .await
-            .map_err(|e| BrowserError::Internal(format!("JS evaluation failed: {}", e)))?
+        self.await_request_with_timeout("retrieval JS evaluation", page.evaluate(script))
+            .await?
             .into_value::<T>()
             .map_err(|e| BrowserError::Internal(format!("JS decode failed: {}", e)))
     }

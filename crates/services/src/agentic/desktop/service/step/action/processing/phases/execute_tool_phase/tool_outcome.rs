@@ -51,10 +51,28 @@ async fn crystallize_successful_session(
         .await;
 }
 
+fn browser_semantics_snapshot_present(text: &str) -> bool {
+    text.contains("BROWSER_USE_STATE_TXT:")
+        || text.contains("BROWSER_USE_PROMPT_CONTEXT_TXT:")
+        || text.contains("BROWSERGYM_AXTREE_TXT:")
+}
+
+fn history_has_browser_semantics_snapshot(history: &[ChatMessage]) -> bool {
+    history.iter().rev().any(|message| {
+        message.role == "tool" && browser_semantics_snapshot_present(&message.content)
+    })
+}
+
 fn blocked_terminalization_summary_from_history_and_snapshot(
     history: &[ChatMessage],
     current_snapshot: Option<&str>,
 ) -> Option<String> {
+    if current_snapshot.is_some_and(browser_semantics_snapshot_present)
+        || history_has_browser_semantics_snapshot(history)
+    {
+        return None;
+    }
+
     let mut pending =
         build_recent_pending_browser_state_context_with_snapshot(history, current_snapshot);
     if pending.trim().is_empty() {
@@ -1953,6 +1971,28 @@ mod tests {
         );
         assert!(blocked.contains("`Deena`"), "{blocked}");
         assert!(blocked.contains("`lnk_443422`"), "{blocked}");
+    }
+
+    #[test]
+    fn blocked_terminalization_is_disabled_when_browser_semantics_snapshot_is_present() {
+        let history = vec![chat_message(
+            "tool",
+            concat!(
+                "Tool Output (browser__snapshot): <root />\n\n",
+                "BROWSER_USE_STATE_TXT:\n[12]<button name=Submit />\n\n",
+                "BROWSERGYM_AXTREE_TXT:\n[a1] button \"Submit\""
+            ),
+            1,
+        )];
+
+        assert!(blocked_terminalization_summary_from_history(&history).is_none());
+        assert!(
+            blocked_terminalization_summary_from_history_and_snapshot(
+                &history,
+                Some("BROWSER_USE_STATE_TXT:\n[12]<button name=Submit />"),
+            )
+            .is_none()
+        );
     }
 
     #[test]

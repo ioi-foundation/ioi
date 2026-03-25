@@ -4,6 +4,7 @@ use super::pending_approval::{handle_pending_approval, PendingApprovalContext};
 use super::precheck::run_execution_prechecks;
 use super::rrsa::{record_rrsa_action_evidence, RrsaContext};
 use super::success_path::{handle_execution_success, ExecutionSuccessContext};
+use super::timeout::execute_tool_with_optional_timeout;
 use super::timer_contract::{
     prepare_timer_contract, restore_pending_visual_context, TimerContractContext,
 };
@@ -155,22 +156,20 @@ pub(crate) async fn execute_tool_phase(
 
             restore_pending_visual_context(service, agent_state).await;
 
-            // [FIX] Pass the required InferenceRuntime (reasoning) to ToolExecutor constructor inside handle_action_execution
             if should_execute_tool {
-                match service
-                    .handle_action_execution_with_state(
-                        state,
-                        call_context,
-                        tool.clone(),
-                        session_id,
-                        agent_state.step_count,
-                        final_visual_phash,
-                        &rules,
-                        &agent_state,
-                        &os_driver,
-                        None,
-                    )
-                    .await
+                match execute_tool_with_optional_timeout(
+                    service,
+                    state,
+                    call_context,
+                    agent_state,
+                    tool.clone(),
+                    &current_tool_name,
+                    session_id,
+                    final_visual_phash,
+                    &rules,
+                    &os_driver,
+                )
+                .await
                 {
                     Ok(execution_result) => {
                         handle_execution_success(ExecutionSuccessContext {

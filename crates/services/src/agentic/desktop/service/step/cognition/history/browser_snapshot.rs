@@ -32,13 +32,147 @@ pub(super) fn bottom_edge_jump_call() -> &'static str {
     }
 }
 
+fn browser_key_tool_call_with_selector(
+    key: &str,
+    modifiers: &[&str],
+    selector: Option<&str>,
+    continue_with: Option<serde_json::Value>,
+) -> String {
+    let mut payload = serde_json::Map::new();
+    payload.insert(
+        "key".to_string(),
+        serde_json::Value::String(key.to_string()),
+    );
+
+    if !modifiers.is_empty() {
+        payload.insert("modifiers".to_string(), serde_json::json!(modifiers));
+    }
+    if let Some(selector) = selector.map(str::trim).filter(|value| !value.is_empty()) {
+        payload.insert(
+            "selector".to_string(),
+            serde_json::Value::String(selector.to_string()),
+        );
+    }
+    if let Some(continue_with) = continue_with {
+        payload.insert("continue_with".to_string(), continue_with);
+    }
+
+    format!(
+        "browser__key {}",
+        serde_json::Value::Object(payload).to_string()
+    )
+}
+
+fn click_element_follow_up_call(follow_up_id: Option<&str>) -> Option<serde_json::Value> {
+    follow_up_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|follow_up_id| {
+            serde_json::json!({
+                "name": "browser__click_element",
+                "arguments": {
+                    "id": follow_up_id,
+                }
+            })
+        })
+}
+
+pub(super) fn top_edge_jump_call_for_selector(selector: Option<&str>) -> String {
+    if cfg!(target_os = "macos") {
+        browser_key_tool_call_with_selector("ArrowUp", &["Meta"], selector, None)
+    } else {
+        browser_key_tool_call_with_selector("Home", &["Control"], selector, None)
+    }
+}
+
+pub(super) fn bottom_edge_jump_call_for_selector(selector: Option<&str>) -> String {
+    if cfg!(target_os = "macos") {
+        browser_key_tool_call_with_selector("ArrowDown", &["Meta"], selector, None)
+    } else {
+        browser_key_tool_call_with_selector("End", &["Control"], selector, None)
+    }
+}
+
+pub(super) fn top_edge_jump_call_for_selector_with_follow_up(
+    selector: Option<&str>,
+    follow_up_id: Option<&str>,
+) -> String {
+    if cfg!(target_os = "macos") {
+        browser_key_tool_call_with_selector(
+            "ArrowUp",
+            &["Meta"],
+            selector,
+            click_element_follow_up_call(follow_up_id),
+        )
+    } else {
+        browser_key_tool_call_with_selector(
+            "Home",
+            &["Control"],
+            selector,
+            click_element_follow_up_call(follow_up_id),
+        )
+    }
+}
+
+pub(super) fn page_up_then_top_edge_jump_call_for_selector_with_follow_up(
+    selector: Option<&str>,
+    follow_up_id: Option<&str>,
+) -> String {
+    let nested_top_edge = if cfg!(target_os = "macos") {
+        serde_json::json!({
+            "name": "browser__key",
+            "arguments": {
+                "key": "ArrowUp",
+                "modifiers": ["Meta"],
+                "selector": selector,
+                "continue_with": click_element_follow_up_call(follow_up_id),
+            }
+        })
+    } else {
+        serde_json::json!({
+            "name": "browser__key",
+            "arguments": {
+                "key": "Home",
+                "modifiers": ["Control"],
+                "selector": selector,
+                "continue_with": click_element_follow_up_call(follow_up_id),
+            }
+        })
+    };
+    browser_key_tool_call_with_selector("PageUp", &[], selector, Some(nested_top_edge))
+}
+
+pub(super) fn page_up_call_for_selector(selector: Option<&str>) -> String {
+    browser_key_tool_call_with_selector("PageUp", &[], selector, None)
+}
+
+pub(super) fn recent_browser_key_selector_from_compact(compact: &str) -> Option<String> {
+    extract_scoped_compact_jsonish_string_field(compact, "\"key\":{", "selector")
+        .map(|selector| selector.trim().to_string())
+        .filter(|selector| !selector.is_empty())
+}
+
 pub(super) fn compact_ws_for_prompt(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 pub(super) fn looks_like_browser_snapshot_payload(text: &str) -> bool {
     let trimmed = text.trim();
-    trimmed.starts_with("<root") && trimmed.contains("id=\"") && trimmed.contains("rect=\"")
+    trimmed.starts_with("<root")
+        && trimmed.contains("id=\"")
+        && trimmed.contains("rect=\"")
+        && trimmed.contains("</root>")
+}
+
+pub(super) fn extract_browser_snapshot_xml(text: &str) -> Option<&str> {
+    let trimmed = text.trim();
+    if !trimmed.starts_with("<root") {
+        return None;
+    }
+
+    let end = trimmed.rfind("</root>")?;
+    let xml = &trimmed[..end + "</root>".len()];
+    (xml.contains("id=\"") && xml.contains("rect=\"")).then_some(xml)
 }
 
 pub(super) fn browser_snapshot_payload(message: &ChatMessage) -> Option<&str> {
@@ -51,7 +185,7 @@ pub(super) fn browser_snapshot_payload(message: &ChatMessage) -> Option<&str> {
         .strip_prefix(BROWSER_SNAPSHOT_TOOL_PREFIX)
         .unwrap_or(trimmed)
         .trim();
-    looks_like_browser_snapshot_payload(payload).then_some(payload)
+    extract_browser_snapshot_xml(payload)
 }
 
 pub(super) fn decode_browser_xml_text(text: &str) -> String {
@@ -159,6 +293,112 @@ pub(super) fn focused_home_should_jump_to_top_edge(compact: &str) -> Option<Stri
     (scroll_top >= client_height).then(|| format_prompt_number(scroll_top))
 }
 
+pub(super) fn recent_focused_scroll_remaining_near_top(
+    history: &[ChatMessage],
+    selector: &str,
+) -> Option<String> {
+    let selector = selector.trim();
+    if selector.is_empty() {
+        return None;
+    }
+
+    let (scroll_top, client_height) = history.iter().rev().take(6).find_map(|message| {
+        if message.role != "tool" {
+            return None;
+        }
+
+        let compact = compact_ws_for_prompt(&message.content);
+        if !compact.contains("\"key\":{")
+            || !compact.contains("\"focused\":true")
+            || !compact.contains("\"can_scroll_up\":true")
+        {
+            return None;
+        }
+        if recent_browser_key_selector_from_compact(&compact).as_deref() != Some(selector) {
+            return None;
+        }
+
+        let scroll_top = extract_compact_jsonish_number_field(&compact, "scroll_top")?;
+        let client_height = extract_compact_jsonish_number_field(&compact, "client_height")?;
+        Some((scroll_top, client_height))
+    })?;
+
+    (scroll_top > 0.0 && scroll_top < client_height).then(|| format_prompt_number(scroll_top))
+}
+
+pub(super) fn recent_focused_scroll_remaining_within_final_page_up_window(
+    history: &[ChatMessage],
+    selector: &str,
+) -> Option<String> {
+    let selector = selector.trim();
+    if selector.is_empty() {
+        return None;
+    }
+
+    let (scroll_top, client_height) = history.iter().rev().take(6).find_map(|message| {
+        if message.role != "tool" {
+            return None;
+        }
+
+        let compact = compact_ws_for_prompt(&message.content);
+        if !compact.contains("\"key\":{")
+            || !compact.contains("\"focused\":true")
+            || !compact.contains("\"can_scroll_up\":true")
+        {
+            return None;
+        }
+        if recent_browser_key_selector_from_compact(&compact).as_deref() != Some(selector) {
+            return None;
+        }
+
+        let scroll_top = extract_compact_jsonish_number_field(&compact, "scroll_top")?;
+        let client_height = extract_compact_jsonish_number_field(&compact, "client_height")?;
+        Some((scroll_top, client_height))
+    })?;
+
+    ((scroll_top >= client_height) && (scroll_top < client_height * 2.0))
+        .then(|| format_prompt_number(scroll_top))
+}
+
+pub(super) fn recent_top_edge_jump_left_scroll_remaining(
+    history: &[ChatMessage],
+    selector: &str,
+) -> Option<String> {
+    let selector = selector.trim();
+    if selector.is_empty() {
+        return None;
+    }
+
+    let scroll_top = history.iter().rev().take(6).find_map(|message| {
+        if message.role != "tool" {
+            return None;
+        }
+
+        let compact = compact_ws_for_prompt(&message.content);
+        if !compact.contains("\"key\":{")
+            || !compact.contains("\"focused\":true")
+            || !compact.contains("\"can_scroll_up\":true")
+        {
+            return None;
+        }
+        if recent_browser_key_selector_from_compact(&compact).as_deref() != Some(selector) {
+            return None;
+        }
+
+        let used_top_edge_jump = (compact.contains("\"key\":\"Home\"")
+            && compact.contains("\"modifiers\":[\"Control\"]"))
+            || (compact.contains("\"key\":\"ArrowUp\"")
+                && compact.contains("\"modifiers\":[\"Meta\"]"));
+        if !used_top_edge_jump {
+            return None;
+        }
+
+        extract_compact_jsonish_number_field(&compact, "scroll_top")
+    })?;
+
+    (scroll_top > 0.0).then(|| format_prompt_number(scroll_top))
+}
+
 pub(super) fn extract_json_object_fragment(text: &str) -> Option<&str> {
     let start = text.find('{')?;
     let end = text.rfind('}')?;
@@ -250,6 +490,38 @@ pub(super) fn unique_visible_scroll_target_summary(snapshot: &str) -> Option<Str
     candidate
 }
 
+fn unique_visible_scroll_target_details(snapshot: &str) -> Option<(String, String, String)> {
+    let mut candidate = None;
+
+    for fragment in snapshot.split('<') {
+        let Some(summary) = browser_fragment_scroll_target_summary(fragment) else {
+            continue;
+        };
+        let Some(semantic_id) = extract_browser_xml_attr(fragment, "id")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        let Some(selector) = extract_browser_xml_attr(fragment, "selector")
+            .map(|value| decode_browser_xml_text(&value))
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+
+        if candidate
+            .replace((semantic_id, summary, selector))
+            .is_some()
+        {
+            return None;
+        }
+    }
+
+    candidate
+}
+
 fn history_requests_scroll_surface(history: &[ChatMessage]) -> bool {
     if history.is_empty() {
         return true;
@@ -271,10 +543,30 @@ fn history_requests_scroll_surface(history: &[ChatMessage]) -> bool {
     })
 }
 
+fn history_requests_top_scroll_edge(history: &[ChatMessage]) -> bool {
+    history.iter().rev().take(6).any(|message| {
+        let compact = compact_ws_for_prompt(&message.content).to_ascii_lowercase();
+        compact.contains(" top of ")
+            || compact.contains("scroll to the top")
+            || compact.contains("control+home")
+            || compact.contains("meta+arrowup")
+    })
+}
+
+fn history_requests_bottom_scroll_edge(history: &[ChatMessage]) -> bool {
+    history.iter().rev().take(6).any(|message| {
+        let compact = compact_ws_for_prompt(&message.content).to_ascii_lowercase();
+        compact.contains(" bottom of ")
+            || compact.contains("scroll to the bottom")
+            || compact.contains("control+end")
+            || compact.contains("meta+arrowdown")
+    })
+}
+
 pub(super) fn extract_scroll_target_focus_hint(snapshot: &str) -> Option<String> {
     let summary = unique_visible_scroll_target_summary(snapshot)?;
     Some(format!(
-        "Visible scroll target `{summary}` is already on the page. If the goal requires interacting with that control, use control-local actions there; for scroll-specific keys like `Home` or `End`, focus that control instead of sending page-level edge keys."
+        "Visible scroll target `{summary}` is already on the page. If the goal requires interacting with that control, use control-local actions there. For scroll-specific keys like `Home` or `End`, prefer `browser__key` with that control's grounded `selector` instead of sending page-level edge keys."
     ))
 }
 
@@ -285,6 +577,48 @@ pub(super) fn extract_scroll_target_focus_hint_with_history(
     if !history_requests_scroll_surface(history) {
         return None;
     }
+    if let Some((scroll_target_id, summary, selector)) =
+        unique_visible_scroll_target_details(snapshot)
+    {
+        if let Some(scroll_top) =
+            recent_focused_scroll_remaining_within_final_page_up_window(history, &selector)
+        {
+            let next_controls =
+                next_visible_follow_up_controls(snapshot, &[scroll_target_id.as_str()]);
+            if next_controls.len() == 1 {
+                let follow_up_id = &next_controls[0];
+                return Some(format!(
+                    "Visible scroll target `{summary}` is already on the page. Recent grounded scroll state shows `scroll_top={scroll_top}`: one `PageUp` plus a grounded top-edge jump can finish it. Use `{}` now so the same grounded key chain can continue with visible control `{follow_up_id}`.",
+                    page_up_then_top_edge_jump_call_for_selector_with_follow_up(
+                        Some(&selector),
+                        Some(follow_up_id),
+                    )
+                ));
+            }
+        }
+
+        if let Some(scroll_top) = recent_top_edge_jump_left_scroll_remaining(history, &selector) {
+            return Some(format!(
+                "Visible scroll target `{summary}` is already on the page. Recent grounded top-edge jump still left `scroll_top={scroll_top}` above zero. Use `{}` next; stop only when updated state shows `can_scroll_up=false` or `scroll_top=0`.",
+                page_up_call_for_selector(Some(&selector))
+            ));
+        }
+
+        if history_requests_top_scroll_edge(history) {
+            return Some(format!(
+                "Visible scroll target `{summary}` is already on the page. Use `{}` now to move that control toward the top edge; otherwise continue with the next required visible control.",
+                top_edge_jump_call_for_selector(Some(&selector))
+            ));
+        }
+
+        if history_requests_bottom_scroll_edge(history) {
+            return Some(format!(
+                "Visible scroll target `{summary}` is already on the page. Use `{}` now to move that control toward the bottom edge; otherwise continue with the next required visible control.",
+                bottom_edge_jump_call_for_selector(Some(&selector))
+            ));
+        }
+    }
+
     extract_scroll_target_focus_hint(snapshot)
 }
 
@@ -368,16 +702,8 @@ fn browser_fragment_stateful_match_hint(fragment: &str) -> bool {
 }
 
 fn browser_fragment_rect_area(fragment: &str) -> Option<f64> {
-    let rect = extract_browser_xml_attr(fragment, "rect")?;
-    let mut parts = rect.split(',');
-    let _x = parts.next()?;
-    let _y = parts.next()?;
-    let width = parts.next()?.parse::<f64>().ok()?;
-    let height = parts.next()?.parse::<f64>().ok()?;
-    if parts.next().is_some() || width <= 0.0 || height <= 0.0 {
-        return None;
-    }
-    Some(width * height)
+    let rect = browser_fragment_rect(fragment)?;
+    Some(rect.width * rect.height)
 }
 
 fn browser_fragment_visual_area_bucket(fragment: &str) -> u8 {
@@ -430,10 +756,7 @@ fn browser_fragment_looks_like_passive_metric(
     normalized_name: Option<&str>,
     has_grounded_geometry: bool,
 ) -> bool {
-    if browser_fragment_is_actionable_goal_target(fragment, tag_name)
-        || has_grounded_geometry
-        || normalized_name.is_some_and(browser_name_looks_like_month_year_label)
-    {
+    if browser_fragment_is_actionable_goal_target(fragment, tag_name) || has_grounded_geometry {
         return false;
     }
 
@@ -529,9 +852,9 @@ pub(super) fn browser_fragment_priority_score(fragment: &str, tag_name: &str) ->
     }
     if normalized_name
         .as_deref()
-        .is_some_and(browser_name_looks_like_month_year_label)
+        .is_some_and(browser_fragment_is_start_gate_label)
     {
-        score = score.saturating_add(14);
+        score = score.saturating_add(18);
     }
     if matches!(
         tag_name,
@@ -585,29 +908,6 @@ fn browser_name_looks_like_reusable_navigation_control(name: &str) -> bool {
     )
 }
 
-fn browser_name_looks_like_month_year_label(name: &str) -> bool {
-    const MONTH_NAMES: [&str; 12] = [
-        "january",
-        "february",
-        "march",
-        "april",
-        "may",
-        "june",
-        "july",
-        "august",
-        "september",
-        "october",
-        "november",
-        "december",
-    ];
-
-    let has_month = MONTH_NAMES.iter().any(|month| name.contains(month));
-    let has_year = name
-        .split_whitespace()
-        .any(|token| token.len() == 4 && token.chars().all(|ch| ch.is_ascii_digit()));
-    has_month && has_year
-}
-
 fn browser_context_looks_like_dense_numeric_noise(context: &str) -> bool {
     let mut numeric_tokens = 0usize;
     let mut alphabetic_tokens = 0usize;
@@ -652,10 +952,22 @@ fn summarized_browser_fragment_context(name: Option<&str>, context: &str) -> Opt
     Some(safe_truncate(&compact, 72))
 }
 
-pub(super) fn browser_fragment_priority_summary(fragment: &str) -> Option<(String, u8, String)> {
+fn parse_browser_point_list(value: &str) -> Vec<(f64, f64)> {
+    value
+        .split('|')
+        .filter_map(|point| {
+            let (x, y) = point.split_once(',')?;
+            Some((x.parse::<f64>().ok()?, y.parse::<f64>().ok()?))
+        })
+        .collect()
+}
+
+fn browser_fragment_summary(_snapshot: &str, fragment: &str) -> Option<(String, String)> {
     let id = extract_browser_xml_attr(fragment, "id")?;
     let tag_name = browser_fragment_tag_name(fragment)?;
-    let score = browser_fragment_priority_score(fragment, tag_name)?;
+    let som_id = extract_browser_xml_attr(fragment, "som_id")
+        .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+        .filter(|value| !value.is_empty());
 
     let name = extract_browser_xml_attr(fragment, "name")
         .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
@@ -695,6 +1007,9 @@ pub(super) fn browser_fragment_priority_summary(fragment: &str) -> Option<(Strin
     let angle_span_deg = extract_browser_xml_attr(fragment, "angle_span_deg");
 
     let mut summary = format!("{id} tag={tag_name}");
+    if let Some(som_id) = som_id {
+        summary.push_str(&format!(" som_id={som_id}"));
+    }
     if let Some(name) = name {
         summary.push_str(&format!(" name={}", name));
     }
@@ -771,18 +1086,111 @@ pub(super) fn browser_fragment_priority_summary(fragment: &str) -> Option<(Strin
         summary.push_str(" omitted");
     }
 
+    Some((id, summary))
+}
+
+pub(super) fn browser_fragment_priority_summary(
+    snapshot: &str,
+    fragment: &str,
+) -> Option<(String, u8, String)> {
+    let has_specific_grounded_geometry = snapshot_has_specific_grounded_geometry(snapshot);
+    if has_specific_grounded_geometry && browser_fragment_is_surface_wrapper(fragment) {
+        return None;
+    }
+
+    let tag_name = browser_fragment_tag_name(fragment)?;
+    let mut score = browser_fragment_priority_score(fragment, tag_name)?;
+    if has_specific_grounded_geometry
+        && !fragment.contains(" shape_kind=\"")
+        && matches!(
+            tag_name,
+            "button"
+                | "link"
+                | "textbox"
+                | "combobox"
+                | "checkbox"
+                | "radio"
+                | "searchbox"
+                | "menuitem"
+                | "option"
+        )
+    {
+        score = score.saturating_sub(6);
+    }
+    if (tag_name == "svg"
+        || extract_browser_xml_attr(fragment, "tag_name").as_deref() == Some("svg"))
+        && !fragment.contains(" shape_kind=\"")
+        && snapshot
+            .split('<')
+            .filter(|candidate| !candidate.is_empty() && *candidate != fragment)
+            .any(|candidate| {
+                candidate.contains(" shape_kind=\"")
+                    && candidate.contains(" center_x=\"")
+                    && extract_browser_xml_attr(candidate, "tag_name").as_deref() != Some("svg")
+            })
+    {
+        score = score.saturating_sub(12);
+    }
+    let (id, summary) = browser_fragment_summary(snapshot, fragment)?;
     Some((id, score, summary))
+}
+
+fn snapshot_has_specific_grounded_geometry(snapshot: &str) -> bool {
+    snapshot.split('<').any(|fragment| {
+        !fragment.is_empty()
+            && fragment.contains(" shape_kind=\"")
+            && !matches!(
+                extract_browser_xml_attr(fragment, "tag_name").as_deref(),
+                Some("canvas" | "svg")
+            )
+    })
+}
+
+fn browser_fragment_is_surface_wrapper(fragment: &str) -> bool {
+    if fragment.contains(" shape_kind=\"") {
+        return false;
+    }
+
+    let tag_name = extract_browser_xml_attr(fragment, "tag_name")
+        .map(|value| decode_browser_xml_text(&value).to_ascii_lowercase());
+    if matches!(tag_name.as_deref(), Some("canvas" | "svg")) {
+        return true;
+    }
+
+    // Some DOM fallback nodes arrive without a preserved `tag_name`; keep surface detection
+    // grounded in standard rendering-surface vocabulary rather than benchmark-local ids.
+    ["name", "dom_id", "selector"].iter().any(|attr| {
+        extract_browser_xml_attr(fragment, attr)
+            .map(|value| decode_browser_xml_text(&value).to_ascii_lowercase())
+            .is_some_and(|value| value.contains("canvas") || value.contains("svg"))
+    })
+}
+
+pub(super) fn priority_target_looks_like_surface_wrapper(summary: &str) -> bool {
+    let lower = summary.to_ascii_lowercase();
+    !lower.contains(" shape_kind=") && (lower.contains("canvas") || lower.contains("svg"))
 }
 
 fn prioritized_browser_target_entries(snapshot: &str) -> Vec<(u8, usize, String)> {
     let mut seen_ids = HashSet::new();
     let mut targets = Vec::new();
     let mut order = 0usize;
+    let start_gate_covered_ids = snapshot_visible_start_gate_covered_semantic_ids(snapshot);
+
+    if let Some((semantic_id, summary)) = snapshot_visible_start_gate_priority_summary(snapshot) {
+        seen_ids.insert(semantic_id);
+        targets.push((u8::MAX, order, summary));
+        order += 1;
+    }
 
     for fragment in snapshot.split('<') {
-        let Some((id, score, summary)) = browser_fragment_priority_summary(fragment) else {
+        let Some((id, score, summary)) = browser_fragment_priority_summary(snapshot, fragment)
+        else {
             continue;
         };
+        if start_gate_covered_ids.contains(&id) {
+            continue;
+        }
         if !seen_ids.insert(id) {
             continue;
         }
@@ -791,6 +1199,9 @@ fn prioritized_browser_target_entries(snapshot: &str) -> Vec<(u8, usize, String)
     }
 
     for (id, score, summary) in extract_compact_priority_browser_targets(snapshot) {
+        if start_gate_covered_ids.contains(&id) {
+            continue;
+        }
         if !seen_ids.insert(id) {
             continue;
         }
@@ -956,7 +1367,7 @@ pub(super) fn extract_compact_priority_browser_targets(
         summary_block = &summary_block[..end];
     }
 
-    summary_block
+    let parsed = summary_block
         .split('|')
         .filter_map(|entry| {
             let summary = compact_ws_for_prompt(&decode_browser_xml_text(entry.trim()));
@@ -964,12 +1375,71 @@ pub(super) fn extract_compact_priority_browser_targets(
             let score = compact_priority_target_score(&summary)?;
             Some((semantic_id, score, summary))
         })
+        .collect::<Vec<_>>();
+
+    let has_specific_grounded_geometry = snapshot_has_specific_grounded_geometry(snapshot)
+        || parsed.iter().any(|(_, _, summary)| {
+            summary.contains(" shape_kind=")
+                && !summary.contains(" name=svg grid object")
+                && !summary.contains(" name=click canvas")
+        });
+
+    parsed
+        .into_iter()
+        .filter(|(semantic_id, _, summary)| {
+            if !has_specific_grounded_geometry {
+                return true;
+            }
+
+            let fragment = snapshot.split('<').find(|fragment| {
+                extract_browser_xml_attr(fragment, "id")
+                    .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+                    .as_deref()
+                    == Some(semantic_id.as_str())
+            });
+            let surface_wrapper = fragment.is_some_and(browser_fragment_is_surface_wrapper)
+                || (summary.contains(" name=svg grid object")
+                    || summary.contains(" name=click canvas"))
+                    && !summary.contains(" shape_kind=");
+
+            !surface_wrapper
+        })
+        .map(|(semantic_id, mut score, summary)| {
+            if has_specific_grounded_geometry
+                && !summary.contains(" shape_kind=")
+                && matches!(
+                    priority_target_tag(&summary),
+                    Some(
+                        "button"
+                            | "link"
+                            | "textbox"
+                            | "combobox"
+                            | "checkbox"
+                            | "radio"
+                            | "searchbox"
+                            | "menuitem"
+                            | "option"
+                    )
+                )
+            {
+                score = score.saturating_sub(6);
+            }
+            (semantic_id, score, summary)
+        })
         .collect()
 }
 
 pub(super) fn extract_priority_browser_targets(snapshot: &str, max_targets: usize) -> Vec<String> {
+    if let Some((_, summary)) = snapshot_visible_start_gate_priority_summary(snapshot) {
+        return vec![summary];
+    }
+
+    let has_specific_grounded_geometry = snapshot_has_specific_grounded_geometry(snapshot);
     prioritized_browser_target_entries(snapshot)
         .into_iter()
+        .filter(|(_, _, summary)| {
+            !has_specific_grounded_geometry || !priority_target_looks_like_surface_wrapper(summary)
+        })
         .take(max_targets)
         .map(|(_, _, summary)| summary)
         .collect()
@@ -995,22 +1465,43 @@ fn snapshot_priority_summary_for_semantic_id(snapshot: &str, semantic_id: &str) 
             continue;
         }
 
-        return browser_fragment_priority_summary(fragment).map(|(_, _, summary)| summary);
+        return browser_fragment_summary(snapshot, fragment).map(|(_, summary)| summary);
     }
 
     None
 }
 
-fn goal_aligned_priority_target_summary(snapshot: &str, history: &[ChatMessage]) -> Option<String> {
-    if autocomplete_follow_up_pending_signal(history, Some(snapshot)).is_some() {
-        return None;
+fn pending_state_priority_target_ids(snapshot: &str, history: &[ChatMessage]) -> HashSet<String> {
+    if history.is_empty() {
+        return HashSet::new();
     }
 
-    let semantic_id = recent_goal_primary_target(history)
-        .and_then(|target| snapshot_visible_exact_text_target(snapshot, &target))
-        .or_else(|| snapshot_visible_goal_text_target(snapshot, history))
-        .map(|candidate| candidate.semantic_id)?;
-    snapshot_priority_summary_for_semantic_id(snapshot, &semantic_id)
+    let pending_context =
+        build_recent_pending_browser_state_context_with_snapshot(history, Some(snapshot));
+    if pending_context.is_empty() {
+        return HashSet::new();
+    }
+
+    let mut ids = HashSet::new();
+    let mut remainder = pending_context.as_str();
+    while let Some((prefix, tail)) = remainder.split_once('`') {
+        let Some((candidate, rest)) = tail.split_once('`') else {
+            break;
+        };
+        let blocked_target = prefix
+            .trim_end()
+            .to_ascii_lowercase()
+            .ends_with("do not click");
+        if !blocked_target
+            && !candidate.is_empty()
+            && snapshot_priority_summary_for_semantic_id(snapshot, candidate).is_some()
+        {
+            ids.insert(candidate.to_string());
+        }
+        remainder = rest;
+    }
+
+    ids
 }
 
 pub(super) fn compact_browser_observation_with_history(
@@ -1018,28 +1509,56 @@ pub(super) fn compact_browser_observation_with_history(
     history: &[ChatMessage],
 ) -> String {
     let compact = compact_ws_for_prompt(snapshot.trim());
-    if compact.chars().count() <= BROWSER_OBSERVATION_CONTEXT_MAX_CHARS {
+    let pending_target_ids = pending_state_priority_target_ids(snapshot, history);
+    if let Some((_, summary)) = snapshot_visible_start_gate_priority_summary(snapshot) {
+        let root_summary =
+            browser_snapshot_root_summary(snapshot).unwrap_or_else(|| safe_truncate(&compact, 96));
+        let suffix_prefix = " IMPORTANT TARGETS: ";
+        let closing = " </root>";
+        let suffix_budget = BROWSER_OBSERVATION_CONTEXT_MAX_CHARS
+            .saturating_sub(
+                root_summary.chars().count()
+                    + suffix_prefix.chars().count()
+                    + closing.chars().count(),
+            )
+            .max(64);
+        let suffix = safe_truncate(&summary, suffix_budget);
+        if !suffix.is_empty() {
+            return format!("{root_summary}{suffix_prefix}{suffix}{closing}");
+        }
+    }
+
+    if compact.chars().count() <= BROWSER_OBSERVATION_CONTEXT_MAX_CHARS
+        && !snapshot_has_specific_grounded_geometry(snapshot)
+        && pending_target_ids.is_empty()
+    {
         return compact;
     }
 
     let mut priority_targets = prioritized_browser_target_entries(snapshot)
         .into_iter()
+        .filter(|(_, _, summary)| {
+            !snapshot_has_specific_grounded_geometry(snapshot)
+                || !priority_target_looks_like_surface_wrapper(summary)
+        })
         .filter(|(score, _, _)| *score >= 4)
+        .collect::<Vec<_>>();
+    if !pending_target_ids.is_empty() {
+        priority_targets.sort_by(|left, right| {
+            let left_pending = priority_target_semantic_id(&left.2)
+                .is_some_and(|semantic_id| pending_target_ids.contains(semantic_id));
+            let right_pending = priority_target_semantic_id(&right.2)
+                .is_some_and(|semantic_id| pending_target_ids.contains(semantic_id));
+            right_pending
+                .cmp(&left_pending)
+                .then(right.0.cmp(&left.0))
+                .then(left.1.cmp(&right.1))
+        });
+    }
+    let priority_targets = priority_targets
+        .into_iter()
         .map(|(_, _, summary)| summary)
         .collect::<Vec<_>>();
-    if let Some(goal_summary) = goal_aligned_priority_target_summary(snapshot, history) {
-        let goal_id = priority_target_semantic_id(&goal_summary);
-        if let Some(existing_idx) = priority_targets.iter().position(|summary| {
-            priority_target_semantic_id(summary)
-                .zip(goal_id)
-                .is_some_and(|(summary_id, goal_id)| summary_id == goal_id)
-        }) {
-            let existing = priority_targets.remove(existing_idx);
-            priority_targets.insert(0, existing);
-        } else {
-            priority_targets.insert(0, goal_summary);
-        }
-    }
     if priority_targets.is_empty() {
         return safe_truncate(&compact, BROWSER_OBSERVATION_CONTEXT_MAX_CHARS);
     }
@@ -1282,15 +1801,67 @@ pub(super) fn browser_snapshot_pending_signal_with_history(
     }
 
     if history_requests_scroll_surface(history) {
-        if let Some(summary) = unique_visible_scroll_target_summary(snapshot) {
+        if let Some((scroll_target_id, summary, selector)) =
+            unique_visible_scroll_target_details(snapshot)
+        {
+            if let Some(scroll_top) =
+                recent_focused_scroll_remaining_within_final_page_up_window(history, &selector)
+            {
+                let next_controls =
+                    next_visible_follow_up_controls(snapshot, &[scroll_target_id.as_str()]);
+                if next_controls.len() == 1 {
+                    let follow_up_id = &next_controls[0];
+                    return Some(format!(
+                        "Visible scroll target `{summary}` is already on the page. Recent grounded scroll state shows `scroll_top={scroll_top}`: one `PageUp` plus a grounded top-edge jump can finish it. Use `{}` now so the same grounded key chain can continue with visible control `{follow_up_id}`. Stop only when updated state shows `can_scroll_up=false` or `scroll_top=0`.",
+                        page_up_then_top_edge_jump_call_for_selector_with_follow_up(
+                            Some(&selector),
+                            Some(follow_up_id),
+                        )
+                    ));
+                }
+            }
+
+            if let Some(scroll_top) = recent_focused_scroll_remaining_near_top(history, &selector) {
+                let next_controls =
+                    next_visible_follow_up_controls(snapshot, &[scroll_target_id.as_str()]);
+                if next_controls.len() == 1 {
+                    let follow_up_id = &next_controls[0];
+                    return Some(format!(
+                        "Visible scroll target `{summary}` is already on the page. Recent grounded scroll state shows only `scroll_top={scroll_top}` remaining. Use `{}` now so the same grounded top-edge jump can continue with visible control `{follow_up_id}`. Stop only when updated state shows `can_scroll_up=false` or `scroll_top=0`.",
+                        top_edge_jump_call_for_selector_with_follow_up(
+                            Some(&selector),
+                            Some(follow_up_id),
+                        )
+                ));
+                }
+            }
+
+            if let Some(scroll_top) = recent_top_edge_jump_left_scroll_remaining(history, &selector)
+            {
+                return Some(format!(
+                    "Visible scroll target `{summary}` is already on the page. Recent grounded top-edge jump still left `scroll_top={scroll_top}` above zero. Use `{}` next; stop only when updated state shows `can_scroll_up=false` or `scroll_top=0`.",
+                    page_up_call_for_selector(Some(&selector))
+                ));
+            }
+
+            if history_requests_top_scroll_edge(history) {
+                return Some(format!(
+                    "Visible scroll target `{summary}` is already on the page. Use `{}` now to move that control toward the top edge; otherwise continue with the next required visible control.",
+                    top_edge_jump_call_for_selector(Some(&selector))
+                ));
+            }
+
+            if history_requests_bottom_scroll_edge(history) {
+                return Some(format!(
+                    "Visible scroll target `{summary}` is already on the page. Use `{}` now to move that control toward the bottom edge; otherwise continue with the next required visible control.",
+                    bottom_edge_jump_call_for_selector(Some(&selector))
+                ));
+            }
+
             return Some(format!(
-                "Visible scroll target `{summary}` is already on the page. Use `browser__click_element` or `browser__click` there for `Home` or `End`; otherwise continue with the next required visible control."
+                "Visible scroll target `{summary}` is already on the page. Use `browser__key` with that control's grounded `selector` for `Home` or `End`; otherwise continue with the next required visible control."
             ));
         }
-    }
-
-    if let Some(signal) = snapshot_select_submit_progress_pending_signal(snapshot) {
-        return Some(format!("{signal}"));
     }
 
     None
@@ -1676,11 +2247,7 @@ pub(super) fn recent_goal_primary_target(history: &[ChatMessage]) -> Option<Stri
         .rev()
         .filter(|message| message.role == "user")
         .take(3)
-        .find_map(|message| {
-            extract_find_by_target(&message.content)
-                .or_else(|| extract_first_quoted_value(&message.content))
-                .or_else(|| extract_select_submit_target(&message.content))
-        })
+        .find_map(|message| extract_first_quoted_value(&message.content))
 }
 
 pub(super) fn recent_goal_message_recipient_target(history: &[ChatMessage]) -> Option<String> {
@@ -1782,14 +2349,47 @@ pub(super) struct BrowserNavigationTransition {
     pub(super) post_url: String,
 }
 
+fn clicked_element_semantic_id_from_text(text: &str) -> Option<String> {
+    let rest = text.trim().strip_prefix("Clicked element '")?;
+    let end = rest.find('\'')?;
+    Some(rest[..end].to_string())
+}
+
+fn click_effect_text_from_message(message: &ChatMessage) -> Option<String> {
+    if message.role != "tool" {
+        return None;
+    }
+
+    parse_json_value_from_message(&message.content).and_then(|payload| {
+        payload
+            .get("click")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    })
+}
+
+fn text_has_click_postcondition_success(text: &str) -> bool {
+    let compact = compact_ws_for_prompt(text);
+    (compact.contains("\"postcondition\":{") && compact.contains("\"met\":true"))
+        || compact.contains("\"postcondition_met\":true")
+}
+
+fn message_has_click_postcondition_success(message: &ChatMessage) -> bool {
+    text_has_click_postcondition_success(&message.content)
+        || click_effect_text_from_message(message)
+            .as_deref()
+            .is_some_and(text_has_click_postcondition_success)
+}
+
 pub(super) fn clicked_element_semantic_id(message: &ChatMessage) -> Option<String> {
     if message.role != "tool" {
         return None;
     }
 
-    let rest = message.content.trim().strip_prefix("Clicked element '")?;
-    let end = rest.find('\'')?;
-    Some(rest[..end].to_string())
+    clicked_element_semantic_id_from_text(&message.content).or_else(|| {
+        click_effect_text_from_message(message)
+            .and_then(|click| clicked_element_semantic_id_from_text(&click))
+    })
 }
 
 pub(super) fn recent_successful_click_semantic_id(history: &[ChatMessage]) -> Option<String> {
@@ -1798,11 +2398,9 @@ pub(super) fn recent_successful_click_semantic_id(history: &[ChatMessage]) -> Op
             return None;
         }
 
-        let compact = compact_ws_for_prompt(&message.content);
-        let has_click_postcondition_success = (compact.contains("\"postcondition\":{")
-            && compact.contains("\"met\":true"))
-            || compact.contains("\"postcondition_met\":true");
-        if !has_click_postcondition_success || !compact.contains("Clicked element") {
+        if !message_has_click_postcondition_success(message)
+            || clicked_element_semantic_id(message).is_none()
+        {
             return None;
         }
 
@@ -1819,12 +2417,14 @@ pub(super) fn recent_successful_selected_control_semantic_id(
         }
 
         let compact = compact_ws_for_prompt(&message.content);
-        let has_click_postcondition_success = (compact.contains("\"postcondition\":{")
-            && compact.contains("\"met\":true"))
-            || compact.contains("\"postcondition_met\":true");
-        if !has_click_postcondition_success
-            || !compact.contains("Clicked element")
-            || !(compact.contains("\"checked\":true") || compact.contains("\"selected\":true"))
+        let click_text = click_effect_text_from_message(message).unwrap_or_default();
+        let selected_control = compact.contains("\"checked\":true")
+            || compact.contains("\"selected\":true")
+            || click_text.contains("\"checked\":true")
+            || click_text.contains("\"selected\":true");
+        if !message_has_click_postcondition_success(message)
+            || clicked_element_semantic_id(message).is_none()
+            || !selected_control
         {
             return None;
         }
@@ -1848,11 +2448,9 @@ pub(super) fn recent_successful_click_is_observed_in_later_snapshot(
             continue;
         }
 
-        let compact = compact_ws_for_prompt(&message.content);
-        let has_click_postcondition_success = (compact.contains("\"postcondition\":{")
-            && compact.contains("\"met\":true"))
-            || compact.contains("\"postcondition_met\":true");
-        if !has_click_postcondition_success || !compact.contains("Clicked element") {
+        if !message_has_click_postcondition_success(message)
+            || clicked_element_semantic_id(message).is_none()
+        {
             continue;
         }
         if clicked_element_semantic_id(message).as_deref() == Some(semantic_id) {
@@ -2519,6 +3117,46 @@ fn browser_fragment_is_start_gate_label(name: &str) -> bool {
     )
 }
 
+#[derive(Clone, Copy)]
+struct BrowserFragmentRect {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+fn browser_fragment_rect(fragment: &str) -> Option<BrowserFragmentRect> {
+    let rect = extract_browser_xml_attr(fragment, "rect")?;
+    let mut parts = rect.split(',');
+    let x = parts.next()?.parse::<f64>().ok()?;
+    let y = parts.next()?.parse::<f64>().ok()?;
+    let width = parts.next()?.parse::<f64>().ok()?;
+    let height = parts.next()?.parse::<f64>().ok()?;
+    if parts.next().is_some() || width <= 0.0 || height <= 0.0 {
+        return None;
+    }
+
+    Some(BrowserFragmentRect {
+        x,
+        y,
+        width,
+        height,
+    })
+}
+
+fn browser_rect_contains(outer: BrowserFragmentRect, inner: BrowserFragmentRect) -> bool {
+    let tolerance = 1.0;
+    let outer_right = outer.x + outer.width;
+    let outer_bottom = outer.y + outer.height;
+    let inner_right = inner.x + inner.width;
+    let inner_bottom = inner.y + inner.height;
+
+    inner.x >= outer.x - tolerance
+        && inner.y >= outer.y - tolerance
+        && inner_right <= outer_right + tolerance
+        && inner_bottom <= outer_bottom + tolerance
+}
+
 fn browser_fragment_is_start_gate_role(semantic_role: &str) -> bool {
     matches!(
         semantic_role,
@@ -2602,6 +3240,65 @@ pub(super) fn snapshot_visible_start_gate_target(
     }
 
     best_match.map(|(_, candidate)| candidate)
+}
+
+fn snapshot_visible_start_gate_priority_summary(snapshot: &str) -> Option<(String, String)> {
+    let start_gate = snapshot_visible_start_gate_target(snapshot)?;
+    let summary = snapshot_priority_summary_for_semantic_id(snapshot, &start_gate.semantic_id)?;
+    Some((start_gate.semantic_id, summary))
+}
+
+fn snapshot_visible_start_gate_covered_semantic_ids(snapshot: &str) -> HashSet<String> {
+    let Some(start_gate) = snapshot_visible_start_gate_target(snapshot) else {
+        return HashSet::new();
+    };
+
+    let mut gate_rect = None;
+    for fragment in snapshot.split('<') {
+        let Some(semantic_id) = extract_browser_xml_attr(fragment, "id")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        if semantic_id != start_gate.semantic_id {
+            continue;
+        }
+        gate_rect = browser_fragment_rect(fragment);
+        if gate_rect.is_some() {
+            break;
+        }
+    }
+
+    let Some(gate_rect) = gate_rect else {
+        return HashSet::new();
+    };
+
+    let mut covered = HashSet::new();
+    for fragment in snapshot.split('<') {
+        if fragment.contains(r#" omitted="true""#) || fragment.contains(r#" visible="false""#) {
+            continue;
+        }
+
+        let Some(semantic_id) = extract_browser_xml_attr(fragment, "id")
+            .map(|value| compact_ws_for_prompt(&decode_browser_xml_text(&value)))
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        if semantic_id == start_gate.semantic_id {
+            continue;
+        }
+
+        let Some(rect) = browser_fragment_rect(fragment) else {
+            continue;
+        };
+        if browser_rect_contains(gate_rect, rect) {
+            covered.insert(semantic_id);
+        }
+    }
+
+    covered
 }
 
 pub(super) fn snapshot_visible_goal_text_target(
@@ -3050,7 +3747,7 @@ pub(super) fn autocomplete_value_looks_committed(
         && current_norm.contains(&typed_norm)
 }
 
-fn snapshot_visible_autocomplete_suggestion_target(
+pub(super) fn snapshot_visible_autocomplete_suggestion_target(
     snapshot: &str,
     control: &SnapshotAutocompleteControlState,
 ) -> Option<SnapshotVisibleTargetState> {
@@ -3384,6 +4081,11 @@ pub(super) fn autocomplete_follow_up_pending_signal(
             RecentAutocompleteAction::Key(ref key) if key.eq_ignore_ascii_case("Enter")
         )
     });
+    if autocomplete_value_looks_committed(history, &control) {
+        if let Some(signal) = autocomplete_commit_success_signal(history, snapshot) {
+            return Some(signal);
+        }
+    }
     if !visible_popup && autocomplete_value_looks_committed(history, &control) {
         return None;
     }
@@ -3472,4 +4174,54 @@ pub(super) fn autocomplete_follow_up_pending_signal(
         "Autocomplete is still open on `{}`. Do not submit or finish yet. Use `browser__key` with `ArrowDown` or `ArrowUp` to ground the intended suggestion, then `browser__key` `Enter` to commit it.",
         control.semantic_id
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{browser_snapshot_payload, extract_browser_snapshot_xml};
+    use ioi_types::app::agentic::ChatMessage;
+
+    #[test]
+    fn extract_browser_snapshot_xml_strips_appended_selector_and_browsergym_sections() {
+        let payload = concat!(
+            "<root id=\"root\" rect=\"0,0,10,10\"><button id=\"btn_submit\" /></root>\n\n",
+            "BROWSER_USE_PROMPT_CONTEXT_TXT:\n<page_stats>1 links, 2 interactive, 0 iframes, 3 total elements</page_stats>\n\n",
+            "BROWSER_USE_SELECTOR_MAP:\n[1] <button name=\"Submit\" />\n\n",
+            "BROWSER_USE_EVAL_TXT:\n[i_4] <button>Submit\n\n",
+            "BROWSER_USE_MARKDOWN:\nSubmit\n\n",
+            "BROWSER_USE_PAGINATION_TXT:\n[3] type=next text=\"Next\"\n\n",
+            "BROWSER_USE_TABS_JSON:\n[{\"tab_id\":\"tab-1\"}]\n\n",
+            "BROWSER_USE_PAGE_INFO_JSON:\n{\"viewport_width\":1280}\n\n",
+            "BROWSER_USE_PENDING_REQUESTS_JSON:\n[{\"url\":\"https://cdn.example.com/app.js\"}]\n\n",
+            "BROWSER_USE_HTML:\n<button>Submit</button>\n\n",
+            "BROWSERGYM_EXTRA_PROPERTIES_JSON:\n{\"a1\":{\"visibility\":1.0}}\n\n",
+            "BROWSERGYM_FOCUSED_BID:\na1\n\n",
+            "BROWSERGYM_AXTREE_TXT:\n[a1] button \"Submit\""
+        );
+
+        assert_eq!(
+            extract_browser_snapshot_xml(payload),
+            Some("<root id=\"root\" rect=\"0,0,10,10\"><button id=\"btn_submit\" /></root>")
+        );
+    }
+
+    #[test]
+    fn browser_snapshot_payload_returns_only_root_xml_when_tool_output_has_supplement() {
+        let message = ChatMessage {
+            role: "tool".to_string(),
+            content: concat!(
+                "Tool Output (browser__snapshot): ",
+                "<root id=\"root\" rect=\"0,0,10,10\"></root>\n\n",
+                "BROWSER_USE_SELECTOR_MAP:\n[1] <button />"
+            )
+            .to_string(),
+            timestamp: 0,
+            trace_hash: None,
+        };
+
+        assert_eq!(
+            browser_snapshot_payload(&message),
+            Some("<root id=\"root\" rect=\"0,0,10,10\"></root>")
+        );
+    }
 }

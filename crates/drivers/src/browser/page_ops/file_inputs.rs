@@ -44,6 +44,13 @@ impl BrowserDriver {
         self.check_connection_error(page.execute(params).await)
             .await
             .map_err(|e| BrowserError::Internal(format!("DOM.setFileInputFiles failed: {}", e)))?;
+        self.record_browser_use_event(
+            "UploadFileEvent",
+            None,
+            self.known_active_url().await,
+            None,
+        )
+        .await;
 
         Ok(validated_paths.len())
     }
@@ -76,6 +83,13 @@ impl BrowserDriver {
         self.check_connection_error(page.execute(params).await)
             .await
             .map_err(|e| BrowserError::Internal(format!("DOM.setFileInputFiles failed: {}", e)))?;
+        self.record_browser_use_event(
+            "UploadFileEvent",
+            Some(backend_dom_node_id.to_string()),
+            self.known_active_url().await,
+            None,
+        )
+        .await;
 
         Ok(validated_paths.len())
     }

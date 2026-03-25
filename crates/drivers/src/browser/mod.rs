@@ -5,7 +5,7 @@ use chromiumoxide::{Browser, BrowserConfig, Page};
 use chromiumoxide_fetcher::{BrowserFetcher, BrowserFetcherOptions, Revision, CURRENT_REVISION};
 use futures::StreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -17,12 +17,14 @@ use tokio::sync::Mutex;
 
 use crate::gui::accessibility::{AccessibilityNode, Rect as AccessibilityRect};
 use crate::gui::geometry::{CoordinateSpace, Point, Rect as GeoRect};
-use chromiumoxide::cdp::browser_protocol::dom::{GetBoxModelParams, GetContentQuadsParams};
+use chromiumoxide::cdp::browser_protocol::dom::{
+    DescribeNodeParams, GetBoxModelParams, GetContentQuadsParams,
+};
 use chromiumoxide::cdp::browser_protocol::input::{
     DispatchMouseEventParams, DispatchMouseEventType, MouseButton,
 };
 use chromiumoxide::cdp::browser_protocol::page::{
-    CaptureScreenshotFormat, CaptureScreenshotParams, GetLayoutMetricsParams,
+    CaptureScreenshotFormat, CaptureScreenshotParams, GetFrameTreeParams, GetLayoutMetricsParams,
 };
 
 pub mod context;
@@ -218,6 +220,28 @@ pub(crate) struct RecentAccessibilitySnapshot {
     pub(crate) tree: AccessibilityNode,
 }
 
+#[derive(Debug, Clone)]
+pub struct BrowserObservationArtifacts {
+    pub captured_at: Instant,
+    pub url: Option<String>,
+    pub page_title: Option<String>,
+    pub browser_use_state_text: Option<String>,
+    pub browser_use_selector_map_text: Option<String>,
+    pub browser_use_html_text: Option<String>,
+    pub browser_use_eval_text: Option<String>,
+    pub browser_use_markdown_text: Option<String>,
+    pub browser_use_pagination_text: Option<String>,
+    pub browser_use_tabs_text: Option<String>,
+    pub browser_use_page_info_text: Option<String>,
+    pub browser_use_pending_requests_text: Option<String>,
+    pub browser_use_recent_events_text: Option<String>,
+    pub browser_use_closed_popup_messages_text: Option<String>,
+    pub browsergym_extra_properties_text: Option<String>,
+    pub browsergym_focused_bid: Option<String>,
+    pub browsergym_dom_text: Option<String>,
+    pub browsergym_axtree_text: Option<String>,
+}
+
 pub struct BrowserDriver {
     // Hermetic Instance
     browser: Arc<Mutex<Option<Arc<Browser>>>>,
@@ -240,6 +264,13 @@ pub struct BrowserDriver {
     // Browser-local pointer state for composed pointer primitives.
     pointer_state: Arc<Mutex<BrowserPointerState>>,
     last_accessibility_snapshot: Arc<Mutex<Option<RecentAccessibilitySnapshot>>>,
+    last_prompt_observation_snapshot: Arc<Mutex<Option<RecentAccessibilitySnapshot>>>,
+    last_browser_observation_artifacts: Arc<Mutex<Option<BrowserObservationArtifacts>>>,
+    last_browser_use_interactive_backend_keys: Arc<Mutex<HashSet<(String, i64)>>>,
+    recent_browser_use_events: Arc<Mutex<VecDeque<serde_json::Value>>>,
+    browser_use_closed_popup_messages: Arc<Mutex<Vec<String>>>,
+    browser_use_dialog_listener_targets: Arc<Mutex<HashSet<String>>>,
+    recent_successful_health_probe_at: Arc<Mutex<Option<Instant>>>,
 }
 
 impl Drop for BrowserDriver {

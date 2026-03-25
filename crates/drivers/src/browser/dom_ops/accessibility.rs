@@ -1,8 +1,28 @@
 use super::super::*;
-use std::collections::HashSet;
+use super::browser_use::{
+    annotate_tree_with_browser_use_identities, annotate_tree_with_browser_use_metadata,
+    build_snapshot_lookup, extract_dom_node_metadata, BrowserUseDomNodeMetadata,
+    BrowserUseSnapshotNode,
+};
+use super::browser_use_dom::{
+    build_ax_lookup_by_target_backend, collect_som_ids_by_target_backend,
+    render_browser_use_observation_from_dom,
+};
+use super::browsergym::{
+    annotate_tree_with_browsergym_metadata, cleanup_ax_tree_browsergym_ids,
+    extract_browsergym_extra_properties, extract_browsergym_snapshot_metadata,
+    render_browsergym_extra_properties_text,
+};
+use super::browsergym_flatten::{
+    flatten_ax_tree_to_string, flatten_dom_snapshot_to_string, BrowserGymAxFlattenOptions,
+    BrowserGymDomFlattenOptions,
+};
+use super::targets::{MultiTargetObservationContext, TemporaryBrowserConnection};
+use crate::browser::BrowserObservationArtifacts;
+use std::collections::{HashMap, HashSet};
 
 const ACCESSIBILITY_TREE_TIMEOUT: Duration = Duration::from_millis(1_500);
-const PROMPT_OBSERVATION_CACHE_MAX_AGE: Duration = Duration::from_millis(2_500);
+const PROMPT_OBSERVATION_CACHE_MAX_AGE: Duration = Duration::from_millis(12_000);
 
 #[derive(Debug, serde::Deserialize)]
 struct DomFallbackRect {
@@ -51,6 +71,49 @@ fn allow_dom_fallback_for_ax_error(message: &str) -> bool {
         || lower.contains("labelfor")
 }
 
+fn ax_value_to_string(value: &Option<accessibility::AxValue>) -> Option<String> {
+    value.as_ref().and_then(|entry| {
+        entry.value.as_ref().and_then(|inner| {
+            if let Some(text) = inner.as_str() {
+                (!text.is_empty()).then(|| text.to_string())
+            } else if let Some(flag) = inner.as_bool() {
+                Some(flag.to_string())
+            } else if let Some(number) = inner.as_f64() {
+                Some(number.to_string())
+            } else {
+                None
+            }
+        })
+    })
+}
+
+fn collect_frame_ids(
+    frame_tree: &chromiumoxide::cdp::browser_protocol::page::FrameTree,
+    out: &mut Vec<chromiumoxide::cdp::browser_protocol::page::FrameId>,
+) {
+    out.push(frame_tree.frame.id.clone());
+    if let Some(children) = frame_tree.child_frames.as_ref() {
+        for child in children {
+            collect_frame_ids(child, out);
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct MultiTargetBrowserGymCapture {
+    nodes: Vec<accessibility::AxNode>,
+    node_target_ids: HashMap<String, String>,
+    node_frame_ids: HashMap<String, String>,
+    extra_properties: HashMap<String, super::browsergym::BrowserGymElementProperties>,
+    snapshot_metadata_by_target: HashMap<String, super::browsergym::BrowserGymSnapshotMetadata>,
+    dom_metadata_by_target: HashMap<String, HashMap<i64, BrowserUseDomNodeMetadata>>,
+    dom_roots_by_target: HashMap<String, chromiumoxide::cdp::browser_protocol::dom::Node>,
+    snapshot_lookup_by_target: HashMap<String, HashMap<i64, BrowserUseSnapshotNode>>,
+    js_listener_backend_ids_by_target: HashMap<String, HashSet<i64>>,
+    dom_text_by_target: HashMap<String, String>,
+    focused_bid: Option<String>,
+}
+
 fn node_attr_value<'a>(node: &'a AccessibilityNode, key: &str) -> Option<&'a str> {
     node.attributes
         .iter()
@@ -74,6 +137,60 @@ fn rect_contains(outer: &AccessibilityRect, inner: &AccessibilityRect) -> bool {
         && inner.y >= outer.y.saturating_sub(tolerance)
         && inner_right <= outer_right.saturating_add(tolerance)
         && inner_bottom <= outer_bottom.saturating_add(tolerance)
+}
+
+fn default_browsergym_dom_flatten_options() -> BrowserGymDomFlattenOptions {
+    BrowserGymDomFlattenOptions {
+        with_visible: true,
+        with_clickable: true,
+        with_center_coords: true,
+        with_bounding_box_coords: true,
+        with_som: true,
+        filter_visible_only: true,
+        hide_bid_if_invisible: true,
+        ..Default::default()
+    }
+}
+
+fn default_browsergym_ax_flatten_options() -> BrowserGymAxFlattenOptions {
+    BrowserGymAxFlattenOptions {
+        with_visible: true,
+        with_clickable: true,
+        with_center_coords: true,
+        with_bounding_box_coords: true,
+        with_som: true,
+        filter_visible_only: true,
+        hide_bid_if_invisible: true,
+        ..Default::default()
+    }
+}
+
+fn join_browsergym_dom_sections(dom_text_by_target: &HashMap<String, String>) -> Option<String> {
+    if dom_text_by_target.is_empty() {
+        return None;
+    }
+
+    let mut target_ids = dom_text_by_target.keys().cloned().collect::<Vec<_>>();
+    target_ids.sort();
+
+    let mut sections = Vec::new();
+    for target_id in target_ids {
+        let Some(text) = dom_text_by_target.get(&target_id) else {
+            continue;
+        };
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if dom_text_by_target.len() == 1 {
+            sections.push(trimmed.to_string());
+        } else {
+            sections.push(format!("[target:{target_id}]\n{trimmed}"));
+        }
+    }
+
+    (!sections.is_empty()).then(|| sections.join("\n\n"))
 }
 
 fn normalized_text_tokens(text: &str) -> Vec<String> {
@@ -169,8 +286,8 @@ fn should_cache_prompt_observation_warmup(tree: &AccessibilityNode) -> bool {
         return true;
     }
 
-    if !node_contains_visible_start_gate(tree) {
-        return true;
+    if node_contains_visible_start_gate(tree) {
+        return false;
     }
 
     node_contains_grounded_prompt_target(tree)
@@ -552,13 +669,125 @@ impl BrowserDriver {
             .await;
     }
 
+    async fn remember_browser_observation_artifacts_with_url(
+        &self,
+        url: Option<String>,
+        page_title: Option<String>,
+        browser_use_state_text: Option<String>,
+        browser_use_selector_map_text: Option<String>,
+        browser_use_html_text: Option<String>,
+        browser_use_eval_text: Option<String>,
+        browser_use_markdown_text: Option<String>,
+        browser_use_pagination_text: Option<String>,
+        browser_use_tabs_text: Option<String>,
+        browser_use_page_info_text: Option<String>,
+        browser_use_pending_requests_text: Option<String>,
+        browser_use_recent_events_text: Option<String>,
+        browser_use_closed_popup_messages_text: Option<String>,
+        browsergym_extra_properties_text: Option<String>,
+        browsergym_focused_bid: Option<String>,
+        browsergym_dom_text: Option<String>,
+        browsergym_axtree_text: Option<String>,
+    ) {
+        let mut cache = self.last_browser_observation_artifacts.lock().await;
+        *cache = Some(BrowserObservationArtifacts {
+            captured_at: Instant::now(),
+            url,
+            page_title,
+            browser_use_state_text,
+            browser_use_selector_map_text,
+            browser_use_html_text,
+            browser_use_eval_text,
+            browser_use_markdown_text,
+            browser_use_pagination_text,
+            browser_use_tabs_text,
+            browser_use_page_info_text,
+            browser_use_pending_requests_text,
+            browser_use_recent_events_text,
+            browser_use_closed_popup_messages_text,
+            browsergym_extra_properties_text,
+            browsergym_focused_bid,
+            browsergym_dom_text,
+            browsergym_axtree_text,
+        });
+    }
+
+    async fn remember_browser_observation_artifacts(
+        &self,
+        page_title: Option<String>,
+        browser_use_state_text: Option<String>,
+        browser_use_selector_map_text: Option<String>,
+        browser_use_html_text: Option<String>,
+        browser_use_eval_text: Option<String>,
+        browser_use_markdown_text: Option<String>,
+        browser_use_pagination_text: Option<String>,
+        browser_use_tabs_text: Option<String>,
+        browser_use_page_info_text: Option<String>,
+        browser_use_pending_requests_text: Option<String>,
+        browser_use_recent_events_text: Option<String>,
+        browser_use_closed_popup_messages_text: Option<String>,
+        browsergym_extra_properties_text: Option<String>,
+        browsergym_focused_bid: Option<String>,
+        browsergym_dom_text: Option<String>,
+        browsergym_axtree_text: Option<String>,
+    ) {
+        let url = self.known_active_url().await;
+        self.remember_browser_observation_artifacts_with_url(
+            url,
+            page_title,
+            browser_use_state_text,
+            browser_use_selector_map_text,
+            browser_use_html_text,
+            browser_use_eval_text,
+            browser_use_markdown_text,
+            browser_use_pagination_text,
+            browser_use_tabs_text,
+            browser_use_page_info_text,
+            browser_use_pending_requests_text,
+            browser_use_recent_events_text,
+            browser_use_closed_popup_messages_text,
+            browsergym_extra_properties_text,
+            browsergym_focused_bid,
+            browsergym_dom_text,
+            browsergym_axtree_text,
+        )
+        .await;
+    }
+
+    async fn remember_prompt_observation_snapshot_with_url(
+        &self,
+        url: Option<String>,
+        tree: &AccessibilityNode,
+    ) {
+        let mut cache = self.last_prompt_observation_snapshot.lock().await;
+        *cache = Some(RecentAccessibilitySnapshot {
+            captured_at: Instant::now(),
+            url,
+            tree: tree.clone(),
+        });
+    }
+
+    async fn remember_prompt_observation_snapshot(&self, tree: &AccessibilityNode) {
+        let url = self.known_active_url().await;
+        self.remember_prompt_observation_snapshot_with_url(url, tree)
+            .await;
+    }
+
     pub(crate) async fn invalidate_accessibility_snapshot(&self) {
-        let mut cache = self.last_accessibility_snapshot.lock().await;
-        *cache = None;
+        let mut last_accessibility = self.last_accessibility_snapshot.lock().await;
+        *last_accessibility = None;
+        drop(last_accessibility);
+
+        let mut last_prompt = self.last_prompt_observation_snapshot.lock().await;
+        *last_prompt = None;
+
+        let mut last_artifacts = self.last_browser_observation_artifacts.lock().await;
+        *last_artifacts = None;
     }
 
     pub(crate) fn warm_prompt_observation_after_navigation(&self, page: Page, url: Option<String>) {
         let cache = self.last_accessibility_snapshot.clone();
+        let prompt_cache = self.last_prompt_observation_snapshot.clone();
         tokio::spawn(async move {
             let tree =
                 match BrowserDriver::dom_fallback_tree_for_page(&page, "navigate_warmup").await {
@@ -580,11 +809,16 @@ impl BrowserDriver {
                 return;
             }
             let mut guard = cache.lock().await;
-            *guard = Some(RecentAccessibilitySnapshot {
+            let snapshot = RecentAccessibilitySnapshot {
                 captured_at: Instant::now(),
                 url,
                 tree,
-            });
+            };
+            *guard = Some(snapshot.clone());
+            drop(guard);
+
+            let mut prompt_guard = prompt_cache.lock().await;
+            *prompt_guard = Some(snapshot);
         });
     }
 
@@ -616,6 +850,66 @@ impl BrowserDriver {
         }
 
         Some((snapshot.url.clone(), snapshot.tree.clone()))
+    }
+
+    pub async fn recent_prompt_observation_snapshot(
+        &self,
+        max_age: Duration,
+    ) -> Option<(Option<String>, AccessibilityNode)> {
+        let current_url = self.known_active_url().await;
+        let cache = self.last_prompt_observation_snapshot.lock().await;
+        let snapshot = cache.as_ref()?;
+        if snapshot.captured_at.elapsed() > max_age {
+            return None;
+        }
+
+        let current_url = current_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty());
+        let snapshot_url = snapshot
+            .url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty());
+        if current_url
+            .zip(snapshot_url)
+            .is_some_and(|(current, cached)| current != cached)
+        {
+            return None;
+        }
+
+        Some((snapshot.url.clone(), snapshot.tree.clone()))
+    }
+
+    pub async fn recent_browser_observation_artifacts(
+        &self,
+        max_age: Duration,
+    ) -> Option<(Option<String>, BrowserObservationArtifacts)> {
+        let current_url = self.known_active_url().await;
+        let cache = self.last_browser_observation_artifacts.lock().await;
+        let snapshot = cache.as_ref()?;
+        if snapshot.captured_at.elapsed() > max_age {
+            return None;
+        }
+
+        let current_url = current_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty());
+        let snapshot_url = snapshot
+            .url
+            .as_deref()
+            .map(str::trim)
+            .filter(|url| !url.is_empty());
+        if current_url
+            .zip(snapshot_url)
+            .is_some_and(|(current, cached)| current != cached)
+        {
+            return None;
+        }
+
+        Some((snapshot.url.clone(), snapshot.clone()))
     }
 
     pub(crate) async fn dom_fallback_tree_for_page(
@@ -1881,7 +2175,13 @@ impl BrowserDriver {
         page: &Page,
         cause: &str,
     ) -> std::result::Result<AccessibilityNode, BrowserError> {
-        Self::dom_fallback_tree_for_page(page, cause).await
+        let tree = Self::dom_fallback_tree_for_page(page, cause).await?;
+        self.remember_browser_observation_artifacts(
+            None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+            None, None,
+        )
+        .await;
+        Ok(tree)
     }
 
     pub async fn get_accessibility_tree(
@@ -1889,6 +2189,13 @@ impl BrowserDriver {
     ) -> std::result::Result<AccessibilityNode, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
+        self.record_browser_use_event(
+            "BrowserStateRequestEvent",
+            None,
+            self.known_active_url().await,
+            None,
+        )
+        .await;
 
         let page = { self.active_page.lock().await.clone() };
         let p = page.ok_or(BrowserError::NoActivePage)?;
@@ -1926,18 +2233,443 @@ impl BrowserDriver {
     ) -> std::result::Result<AccessibilityNode, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
+        self.record_browser_use_event(
+            "BrowserStateRequestEvent",
+            None,
+            self.known_active_url().await,
+            None,
+        )
+        .await;
 
         if let Some((_, tree)) = self
-            .recent_accessibility_snapshot(PROMPT_OBSERVATION_CACHE_MAX_AGE)
+            .recent_prompt_observation_snapshot(PROMPT_OBSERVATION_CACHE_MAX_AGE)
             .await
         {
             return Ok(tree);
         }
 
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+        // Prompt grounding should come from a fresh page capture, not from the generic
+        // verification cache. Verification snapshots are often taken immediately after an
+        // action dispatch and can miss short-lived dynamic readouts that appear a beat later.
         let tree = self.dom_fallback_tree(&page, "prompt_observation").await?;
         self.remember_accessibility_snapshot(&tree).await;
+        self.remember_prompt_observation_snapshot(&tree).await;
         Ok(tree)
+    }
+
+    async fn get_full_ax_tree_across_frames(
+        &self,
+        page: &Page,
+    ) -> std::result::Result<Vec<accessibility::AxNode>, BrowserError> {
+        let frame_tree = page
+            .execute(GetFrameTreeParams::default())
+            .await
+            .map_err(|e| BrowserError::Internal(format!("CDP GetFrameTree failed: {}", e)))?;
+
+        let mut frame_ids = Vec::new();
+        collect_frame_ids(&frame_tree.frame_tree, &mut frame_ids);
+
+        let mut frame_trees = Vec::new();
+        let mut frame_root_ids = HashMap::new();
+
+        for frame_id in frame_ids {
+            let snapshot = page
+                .execute(
+                    GetFullAxTreeParams::builder()
+                        .frame_id(frame_id.clone())
+                        .build(),
+                )
+                .await
+                .map_err(|e| {
+                    BrowserError::Internal(format!(
+                        "CDP GetAxTree failed for frame '{:?}': {}",
+                        frame_id, e
+                    ))
+                })?;
+            if let Some(root) = snapshot.nodes.first() {
+                frame_root_ids.insert(frame_id.clone(), root.node_id.clone());
+            }
+            frame_trees.push((frame_id, snapshot.nodes.clone()));
+        }
+
+        for (_, nodes) in frame_trees.iter_mut() {
+            for node in nodes.iter_mut() {
+                let role = ax_value_to_string(&node.role).unwrap_or_default();
+                if !role.eq_ignore_ascii_case("iframe") {
+                    continue;
+                }
+
+                let Some(backend_node_id) = node.backend_dom_node_id else {
+                    continue;
+                };
+
+                let Some(frame_id) = page
+                    .execute(
+                        DescribeNodeParams::builder()
+                            .backend_node_id(backend_node_id)
+                            .build(),
+                    )
+                    .await
+                    .ok()
+                    .and_then(|description| description.node.frame_id.clone())
+                else {
+                    continue;
+                };
+
+                let Some(root_node_id) = frame_root_ids.get(&frame_id) else {
+                    continue;
+                };
+
+                let child_ids = node.child_ids.get_or_insert_with(Vec::new);
+                if !child_ids.iter().any(|existing| existing == root_node_id) {
+                    child_ids.push(root_node_id.clone());
+                }
+            }
+        }
+
+        Ok(frame_trees
+            .into_iter()
+            .flat_map(|(_, nodes)| nodes.into_iter())
+            .collect())
+    }
+
+    async fn capture_browsergym_multitarget(
+        &self,
+        context: &MultiTargetObservationContext,
+        active_target_id: &str,
+    ) -> std::result::Result<MultiTargetBrowserGymCapture, BrowserError> {
+        let mut capture = MultiTargetBrowserGymCapture::default();
+        let mut snapshot_metadata_by_target =
+            HashMap::<String, super::browsergym::BrowserGymSnapshotMetadata>::new();
+        let mut marked_targets = Vec::new();
+
+        let mut target_order = Vec::new();
+        let mut seen_targets = HashSet::new();
+        for frame_id in &context.frame_order {
+            let Some(frame) = context.frames_by_id.get(frame_id) else {
+                continue;
+            };
+            if seen_targets.insert(frame.target_id.clone()) {
+                target_order.push(frame.target_id.clone());
+            }
+        }
+
+        for (target_order_idx, target_id) in target_order.iter().enumerate() {
+            let Some(page) = context.pages_by_target.get(target_id) else {
+                continue;
+            };
+
+            let parent_bid = if target_id == active_target_id {
+                String::new()
+            } else {
+                match context.root_frame_by_target.get(target_id) {
+                    Some(root_frame_id) => match context.frames_by_id.get(root_frame_id) {
+                        Some(root_frame) => match root_frame.parent_target_id.as_ref() {
+                            Some(parent_target_id) => {
+                                match (
+                                    context.pages_by_target.get(parent_target_id),
+                                    snapshot_metadata_by_target.get(parent_target_id),
+                                ) {
+                                    (Some(parent_page), Some(parent_metadata)) => {
+                                        match parent_page
+                                            .execute(
+                                                chromiumoxide::cdp::browser_protocol::dom::GetFrameOwnerParams::new(
+                                                    chromiumoxide::cdp::browser_protocol::page::FrameId::new(
+                                                        root_frame_id.clone(),
+                                                    ),
+                                                ),
+                                            )
+                                            .await
+                                        {
+                                            Ok(owner) => parent_metadata
+                                                .backend_node_bids
+                                                .get(owner.backend_node_id.inner())
+                                                .cloned()
+                                                .unwrap_or_else(|| format!("oopif{}", target_order_idx)),
+                                            Err(_) => format!("oopif{}", target_order_idx),
+                                        }
+                                    }
+                                    _ => format!("oopif{}", target_order_idx),
+                                }
+                            }
+                            None => format!("oopif{}", target_order_idx),
+                        },
+                        None => format!("oopif{}", target_order_idx),
+                    },
+                    None => String::new(),
+                }
+            };
+
+            match self
+                .mark_browsergym_page_with_parent_bid(page, &parent_bid)
+                .await
+            {
+                Ok(()) => {
+                    marked_targets.push(target_id.clone());
+                    match self.extract_browsergym_focused_bid(page).await {
+                        Ok(Some(focused_bid)) => {
+                            let replace = capture
+                                .focused_bid
+                                .as_ref()
+                                .is_none_or(|current| focused_bid.len() > current.len());
+                            if replace {
+                                capture.focused_bid = Some(focused_bid);
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(error) => {
+                            log::debug!(
+                                target: "browser",
+                                "BrowserGym focused element query unavailable for target '{}': {}",
+                                target_id,
+                                error
+                            );
+                        }
+                    }
+                }
+                Err(error) => {
+                    log::warn!(
+                        target: "browser",
+                        "BrowserGym DOM marking unavailable for target '{}': {}",
+                        target_id,
+                        error
+                    );
+                }
+            }
+
+            match self
+                .detect_browser_use_js_click_listener_backend_ids(page)
+                .await
+            {
+                Ok(backend_ids) if !backend_ids.is_empty() => {
+                    capture
+                        .js_listener_backend_ids_by_target
+                        .insert(target_id.clone(), backend_ids);
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    log::debug!(
+                        target: "browser",
+                        "Browser-use JS click listener detection unavailable for target '{}': {}",
+                        target_id,
+                        error
+                    );
+                }
+            }
+
+            match self.capture_browsergym_snapshot(page).await {
+                Ok(snapshot) => {
+                    let snapshot_extra_properties = extract_browsergym_extra_properties(&snapshot);
+                    let snapshot_metadata = extract_browsergym_snapshot_metadata(&snapshot);
+                    capture
+                        .dom_metadata_by_target
+                        .insert(target_id.clone(), extract_dom_node_metadata(&snapshot));
+                    capture
+                        .snapshot_lookup_by_target
+                        .insert(target_id.clone(), build_snapshot_lookup(&snapshot));
+                    let dom_text = flatten_dom_snapshot_to_string(
+                        &snapshot,
+                        Some(&snapshot_extra_properties),
+                        &default_browsergym_dom_flatten_options(),
+                    );
+                    if !dom_text.trim().is_empty() {
+                        capture
+                            .dom_text_by_target
+                            .insert(target_id.clone(), dom_text);
+                    }
+                    snapshot_metadata_by_target
+                        .insert(target_id.clone(), snapshot_metadata.clone());
+                    capture
+                        .snapshot_metadata_by_target
+                        .insert(target_id.clone(), snapshot_metadata);
+                }
+                Err(error) => {
+                    log::warn!(
+                        target: "browser",
+                        "Browser DOM snapshot unavailable for target '{}': {}",
+                        target_id,
+                        error
+                    );
+                }
+            }
+
+            match page
+                .execute(
+                    chromiumoxide::cdp::browser_protocol::dom::GetDocumentParams::builder()
+                        .depth(-1)
+                        .pierce(true)
+                        .build(),
+                )
+                .await
+            {
+                Ok(dom_tree) => {
+                    capture
+                        .dom_roots_by_target
+                        .insert(target_id.clone(), dom_tree.root.clone());
+                }
+                Err(error) => {
+                    log::debug!(
+                        target: "browser",
+                        "Browser-use DOM.getDocument unavailable for target '{}': {}",
+                        target_id,
+                        error
+                    );
+                }
+            }
+        }
+
+        let mut frame_root_ids = HashMap::new();
+        let mut frame_trees = Vec::new();
+
+        for frame_id in &context.frame_order {
+            let Some(frame) = context.frames_by_id.get(frame_id) else {
+                continue;
+            };
+            let Some(page) = context.pages_by_target.get(&frame.target_id) else {
+                continue;
+            };
+
+            match page
+                .execute(
+                    GetFullAxTreeParams::builder()
+                        .frame_id(chromiumoxide::cdp::browser_protocol::page::FrameId::new(
+                            frame_id.clone(),
+                        ))
+                        .build(),
+                )
+                .await
+            {
+                Ok(snapshot) => {
+                    if let Some(root) = snapshot.nodes.first() {
+                        frame_root_ids.insert(frame_id.clone(), root.node_id.clone());
+                    }
+                    for node in &snapshot.nodes {
+                        let node_id: String = node.node_id.clone().into();
+                        capture
+                            .node_target_ids
+                            .insert(node_id.clone(), frame.target_id.clone());
+                        capture.node_frame_ids.insert(node_id, frame_id.clone());
+                    }
+                    frame_trees.push((frame.target_id.clone(), snapshot.nodes.clone()));
+                }
+                Err(error) => {
+                    log::debug!(
+                        target: "browser",
+                        "Skipping AXTree capture for frame '{}' on target '{}': {}",
+                        frame_id,
+                        frame.target_id,
+                        error
+                    );
+                }
+            }
+        }
+
+        for (target_id, nodes) in frame_trees.iter_mut() {
+            let Some(page) = context.pages_by_target.get(target_id) else {
+                continue;
+            };
+
+            for node in nodes.iter_mut() {
+                let role = ax_value_to_string(&node.role).unwrap_or_default();
+                if !role.eq_ignore_ascii_case("iframe") {
+                    continue;
+                }
+
+                let Some(backend_node_id) = node.backend_dom_node_id else {
+                    continue;
+                };
+
+                let Some(frame_id) = page
+                    .execute(
+                        DescribeNodeParams::builder()
+                            .backend_node_id(backend_node_id)
+                            .build(),
+                    )
+                    .await
+                    .ok()
+                    .and_then(|description| description.node.frame_id.clone())
+                else {
+                    continue;
+                };
+
+                let frame_id_key = frame_id.as_ref().to_string();
+                let Some(root_node_id) = frame_root_ids.get(&frame_id_key) else {
+                    continue;
+                };
+
+                let child_ids = node.child_ids.get_or_insert_with(Vec::new);
+                if !child_ids.iter().any(|existing| existing == root_node_id) {
+                    child_ids.push(root_node_id.clone());
+                }
+            }
+        }
+
+        for target_id in marked_targets.into_iter().rev() {
+            if let Some(page) = context.pages_by_target.get(&target_id) {
+                if let Err(error) = self.unmark_browsergym_page(page).await {
+                    log::debug!(
+                        target: "browser",
+                        "BrowserGym DOM cleanup failed for target '{}': {}",
+                        target_id,
+                        error
+                    );
+                }
+            }
+        }
+
+        for metadata in snapshot_metadata_by_target.into_values() {
+            for (bid, props) in metadata.extra_properties {
+                capture.extra_properties.insert(bid, props);
+            }
+        }
+
+        capture.nodes = frame_trees
+            .into_iter()
+            .flat_map(|(_, nodes)| nodes.into_iter())
+            .collect();
+
+        Ok(capture)
+    }
+
+    async fn collect_ax_node_rects_across_targets(
+        &self,
+        context: &MultiTargetObservationContext,
+        nodes: &[accessibility::AxNode],
+        ax_node_target_ids: &HashMap<String, String>,
+    ) -> HashMap<String, AccessibilityRect> {
+        let mut rects_by_node = HashMap::new();
+        let mut rects_by_target_backend = HashMap::<(String, i64), AccessibilityRect>::new();
+
+        for ax_node in nodes {
+            let Some(backend_node_id) = ax_node.backend_dom_node_id else {
+                continue;
+            };
+            let node_id: String = ax_node.node_id.clone().into();
+            let Some(target_id) = ax_node_target_ids.get(&node_id) else {
+                continue;
+            };
+            let Some(page) = context.pages_by_target.get(target_id) else {
+                continue;
+            };
+            let backend_key = (target_id.clone(), *backend_node_id.inner());
+
+            let rect = if let Some(cached) = rects_by_target_backend.get(&backend_key).copied() {
+                Some(cached)
+            } else {
+                let resolved = Self::resolve_backend_node_rect(page, backend_node_id).await;
+                if let Some(found) = resolved {
+                    rects_by_target_backend.insert(backend_key, found);
+                }
+                resolved
+            };
+
+            if let Some(found) = rect {
+                rects_by_node.insert(node_id, found);
+            }
+        }
+
+        rects_by_node
     }
 
     async fn get_accessibility_tree_inner(
@@ -1948,8 +2680,255 @@ impl BrowserDriver {
             .await
             .map_err(|e| BrowserError::Internal(format!("CDP AxEnable failed: {}", e)))?;
 
-        let nodes_vec = match p.execute(GetFullAxTreeParams::default()).await {
-            Ok(snapshot) => snapshot.nodes.clone(),
+        let active_target_id = p.target_id().as_ref().to_string();
+        if let Ok(debugger_ws_url) = self.debugger_websocket_url().await {
+            match TemporaryBrowserConnection::connect(&debugger_ws_url).await {
+                Ok(mut temp_browser) => {
+                    match temp_browser
+                        .discover_observation_context(&active_target_id)
+                        .await
+                    {
+                        Ok(context) => match self
+                            .capture_browsergym_multitarget(&context, &active_target_id)
+                            .await
+                        {
+                            Ok(capture) if !capture.nodes.is_empty() => {
+                                let mut nodes_vec = capture.nodes;
+                                let browsergym_ids_by_ax_node_id =
+                                    cleanup_ax_tree_browsergym_ids(&mut nodes_vec);
+                                let browsergym_axtree_text = flatten_ax_tree_to_string(
+                                    &nodes_vec,
+                                    &browsergym_ids_by_ax_node_id,
+                                    Some(&capture.extra_properties),
+                                    &default_browsergym_ax_flatten_options(),
+                                );
+                                let browsergym_extra_properties_text =
+                                    render_browsergym_extra_properties_text(
+                                        &capture.extra_properties,
+                                    );
+                                let browsergym_dom_text =
+                                    join_browsergym_dom_sections(&capture.dom_text_by_target);
+                                let root_ax = &nodes_vec[0];
+                                let rect_lookup = self
+                                    .collect_ax_node_rects_across_targets(
+                                        &context,
+                                        &nodes_vec,
+                                        &capture.node_target_ids,
+                                    )
+                                    .await;
+                                let mut ax_tree = self.convert_ax_node(
+                                    root_ax,
+                                    &nodes_vec,
+                                    &rect_lookup,
+                                    &browsergym_ids_by_ax_node_id,
+                                    &capture.node_target_ids,
+                                    &capture.node_frame_ids,
+                                );
+                                if !capture.extra_properties.is_empty() {
+                                    annotate_tree_with_browsergym_metadata(
+                                        &mut ax_tree,
+                                        &capture.extra_properties,
+                                        capture.focused_bid.as_deref(),
+                                    );
+                                }
+                                annotate_tree_with_browser_use_metadata(
+                                    &mut ax_tree,
+                                    &capture.dom_metadata_by_target,
+                                    &capture.snapshot_lookup_by_target,
+                                    &capture.js_listener_backend_ids_by_target,
+                                );
+                                crate::gui::accessibility::assign_browser_som_ids(&mut ax_tree);
+                                let ax_lookup = build_ax_lookup_by_target_backend(
+                                    &nodes_vec,
+                                    &capture.node_target_ids,
+                                    &active_target_id,
+                                );
+                                let mut som_by_target_backend = HashMap::new();
+                                collect_som_ids_by_target_backend(
+                                    &ax_tree,
+                                    &active_target_id,
+                                    &mut som_by_target_backend,
+                                );
+                                let previous_interactive_backend_keys = {
+                                    self.last_browser_use_interactive_backend_keys
+                                        .lock()
+                                        .await
+                                        .clone()
+                                };
+                                let browser_use_observation =
+                                    render_browser_use_observation_from_dom(
+                                        &active_target_id,
+                                        &capture.dom_roots_by_target,
+                                        Some(&context.frames_by_id),
+                                        &capture.snapshot_metadata_by_target,
+                                        &capture.snapshot_lookup_by_target,
+                                        &capture.js_listener_backend_ids_by_target,
+                                        &ax_lookup,
+                                        &som_by_target_backend,
+                                        Some(&previous_interactive_backend_keys),
+                                    );
+                                {
+                                    let mut guard =
+                                        self.last_browser_use_interactive_backend_keys.lock().await;
+                                    *guard =
+                                        browser_use_observation.interactive_backend_keys.clone();
+                                }
+                                annotate_tree_with_browser_use_identities(
+                                    &mut ax_tree,
+                                    &active_target_id,
+                                    &browser_use_observation.identities_by_target_backend,
+                                );
+                                let browser_use_metadata =
+                                    self.capture_browser_use_state_metadata_texts().await;
+                                self.remember_browser_observation_artifacts(
+                                    browser_use_metadata.page_title,
+                                    browser_use_observation.state_text,
+                                    browser_use_observation.selector_map_text,
+                                    browser_use_observation.html_text,
+                                    browser_use_observation.eval_text,
+                                    browser_use_observation.markdown_text,
+                                    browser_use_observation.pagination_text,
+                                    browser_use_metadata.tabs_text,
+                                    browser_use_metadata.page_info_text,
+                                    browser_use_metadata.pending_requests_text,
+                                    browser_use_metadata.recent_events_text,
+                                    browser_use_metadata.closed_popup_messages_text,
+                                    browsergym_extra_properties_text,
+                                    capture.focused_bid.clone(),
+                                    browsergym_dom_text,
+                                    (!browsergym_axtree_text.trim().is_empty())
+                                        .then_some(browsergym_axtree_text),
+                                )
+                                .await;
+                                return Ok(ax_tree);
+                            }
+                            Ok(_) => {
+                                log::debug!(
+                                    target: "browser",
+                                    "Temporary multi-target browser observation returned an empty AX capture; falling back to the active target session."
+                                );
+                            }
+                            Err(error) => {
+                                log::warn!(
+                                    target: "browser",
+                                    "Temporary multi-target browser observation failed ({}); falling back to the active target session.",
+                                    error
+                                );
+                            }
+                        },
+                        Err(error) => {
+                            log::debug!(
+                                target: "browser",
+                                "Temporary browser target discovery failed ({}); falling back to the active target session.",
+                                error
+                            );
+                        }
+                    }
+                }
+                Err(error) => {
+                    log::debug!(
+                        target: "browser",
+                        "Temporary browser connection unavailable ({}); falling back to the active target session.",
+                        error
+                    );
+                }
+            }
+        }
+
+        let browsergym_mark_attempted = true;
+        let mut browsergym_marked = false;
+        let mut browsergym_snapshot = None;
+        let mut browsergym_snapshot_metadata = None;
+        let mut browsergym_focused_bid = None;
+        let mut browser_use_js_click_listener_ids = HashSet::new();
+        let mut browser_use_dom_root = None;
+
+        match self.mark_browsergym_page(p).await {
+            Ok(()) => {
+                browsergym_marked = true;
+                match self.extract_browsergym_focused_bid(p).await {
+                    Ok(focused_bid) => browsergym_focused_bid = focused_bid,
+                    Err(error) => {
+                        log::debug!(
+                            target: "browser",
+                            "BrowserGym focused element query unavailable: {}",
+                            error
+                        );
+                    }
+                }
+            }
+            Err(error) => {
+                log::warn!(
+                    target: "browser",
+                    "BrowserGym DOM marking unavailable ({}); continuing with plain AXTree capture.",
+                    error
+                );
+            }
+        }
+
+        match self
+            .detect_browser_use_js_click_listener_backend_ids(p)
+            .await
+        {
+            Ok(backend_ids) => browser_use_js_click_listener_ids = backend_ids,
+            Err(error) => {
+                log::debug!(
+                    target: "browser",
+                    "Browser-use JS click listener detection unavailable: {}",
+                    error
+                );
+            }
+        }
+
+        match self.capture_browsergym_snapshot(p).await {
+            Ok(snapshot) => {
+                browsergym_snapshot_metadata =
+                    Some(extract_browsergym_snapshot_metadata(&snapshot));
+                browsergym_snapshot = Some(snapshot);
+            }
+            Err(error) => {
+                log::warn!(
+                    target: "browser",
+                    "Browser DOM snapshot unavailable ({}); continuing with AXTree-only capture.",
+                    error
+                );
+            }
+        }
+
+        match p
+            .execute(
+                chromiumoxide::cdp::browser_protocol::dom::GetDocumentParams::builder()
+                    .depth(-1)
+                    .pierce(true)
+                    .build(),
+            )
+            .await
+        {
+            Ok(dom_tree) => {
+                browser_use_dom_root = Some(dom_tree.root.clone());
+            }
+            Err(error) => {
+                log::debug!(
+                    target: "browser",
+                    "Browser-use DOM.getDocument unavailable: {}",
+                    error
+                );
+            }
+        }
+
+        let ax_result = self.get_full_ax_tree_across_frames(p).await;
+        if browsergym_mark_attempted {
+            if let Err(error) = self.unmark_browsergym_page(p).await {
+                log::debug!(
+                    target: "browser",
+                    "BrowserGym DOM cleanup failed after snapshot capture: {}",
+                    error
+                );
+            }
+        }
+
+        let mut nodes_vec = match ax_result {
+            Ok(nodes) => nodes,
             Err(e) => {
                 let err_msg = e.to_string();
                 if allow_dom_fallback_for_ax_error(&err_msg) {
@@ -1977,21 +2956,142 @@ impl BrowserDriver {
             return self.dom_fallback_tree(&p, "ax_empty_tree").await;
         }
 
+        let browsergym_ids_by_ax_node_id = cleanup_ax_tree_browsergym_ids(&mut nodes_vec);
+        let browsergym_extra_properties = browsergym_snapshot_metadata
+            .as_ref()
+            .map(|metadata| metadata.extra_properties.clone())
+            .unwrap_or_default();
+        let browsergym_dom_text = browsergym_snapshot.as_ref().and_then(|snapshot| {
+            let text = flatten_dom_snapshot_to_string(
+                snapshot,
+                Some(&browsergym_extra_properties),
+                &default_browsergym_dom_flatten_options(),
+            );
+            (!text.trim().is_empty()).then_some(text)
+        });
+        let browsergym_extra_properties_text =
+            render_browsergym_extra_properties_text(&browsergym_extra_properties);
+        let browser_use_dom_metadata = browsergym_snapshot
+            .as_ref()
+            .map(extract_dom_node_metadata)
+            .unwrap_or_default();
+        let browser_use_snapshot_lookup = browsergym_snapshot
+            .as_ref()
+            .map(build_snapshot_lookup)
+            .unwrap_or_default();
+        let browsergym_axtree_text = flatten_ax_tree_to_string(
+            &nodes_vec,
+            &browsergym_ids_by_ax_node_id,
+            Some(&browsergym_extra_properties),
+            &default_browsergym_ax_flatten_options(),
+        );
+
         let root_ax = &nodes_vec[0];
         let rect_lookup = self.collect_ax_node_rects(&p, &nodes_vec).await;
-        let ax_tree = self.convert_ax_node(root_ax, &nodes_vec, &rect_lookup);
-        let enriched_tree = match self.dom_fallback_tree(&p, "ax_overlay_enrichment").await {
-            Ok(dom_tree) => merge_missing_dom_fallback_nodes(ax_tree, dom_tree),
-            Err(error) => {
-                log::debug!(
-                    target: "browser",
-                    "DOM overlay enrichment skipped after AX snapshot: {}",
-                    error
-                );
-                ax_tree
-            }
+        let mut ax_tree = self.convert_ax_node(
+            root_ax,
+            &nodes_vec,
+            &rect_lookup,
+            &browsergym_ids_by_ax_node_id,
+            &HashMap::new(),
+            &HashMap::new(),
+        );
+        if browsergym_marked || !browsergym_extra_properties.is_empty() {
+            annotate_tree_with_browsergym_metadata(
+                &mut ax_tree,
+                &browsergym_extra_properties,
+                browsergym_focused_bid.as_deref(),
+            );
+        }
+        annotate_tree_with_browser_use_metadata(
+            &mut ax_tree,
+            &HashMap::from([(active_target_id.clone(), browser_use_dom_metadata)]),
+            &HashMap::from([(
+                active_target_id.clone(),
+                browser_use_snapshot_lookup.clone(),
+            )]),
+            &HashMap::from([(
+                active_target_id.clone(),
+                browser_use_js_click_listener_ids.clone(),
+            )]),
+        );
+        crate::gui::accessibility::assign_browser_som_ids(&mut ax_tree);
+        let ax_lookup =
+            build_ax_lookup_by_target_backend(&nodes_vec, &HashMap::new(), &active_target_id);
+        let mut som_by_target_backend = HashMap::new();
+        collect_som_ids_by_target_backend(&ax_tree, &active_target_id, &mut som_by_target_backend);
+        let previous_interactive_backend_keys = {
+            self.last_browser_use_interactive_backend_keys
+                .lock()
+                .await
+                .clone()
         };
-        Ok(enriched_tree)
+        let browser_use_observation = browser_use_dom_root.as_ref().map(|dom_root| {
+            render_browser_use_observation_from_dom(
+                &active_target_id,
+                &HashMap::from([(active_target_id.clone(), dom_root.clone())]),
+                None,
+                &browsergym_snapshot_metadata
+                    .as_ref()
+                    .map(|metadata| HashMap::from([(active_target_id.clone(), metadata.clone())]))
+                    .unwrap_or_default(),
+                &HashMap::from([(
+                    active_target_id.clone(),
+                    browser_use_snapshot_lookup.clone(),
+                )]),
+                &HashMap::from([(
+                    active_target_id.clone(),
+                    browser_use_js_click_listener_ids.clone(),
+                )]),
+                &ax_lookup,
+                &som_by_target_backend,
+                Some(&previous_interactive_backend_keys),
+            )
+        });
+        if let Some(observation) = browser_use_observation.as_ref() {
+            let mut guard = self.last_browser_use_interactive_backend_keys.lock().await;
+            *guard = observation.interactive_backend_keys.clone();
+        }
+        if let Some(observation) = browser_use_observation.as_ref() {
+            annotate_tree_with_browser_use_identities(
+                &mut ax_tree,
+                &active_target_id,
+                &observation.identities_by_target_backend,
+            );
+        }
+        let browser_use_metadata = self.capture_browser_use_state_metadata_texts().await;
+        self.remember_browser_observation_artifacts(
+            browser_use_metadata.page_title,
+            browser_use_observation
+                .as_ref()
+                .and_then(|observation| observation.state_text.clone()),
+            browser_use_observation
+                .as_ref()
+                .and_then(|observation| observation.selector_map_text.clone()),
+            browser_use_observation
+                .as_ref()
+                .and_then(|observation| observation.html_text.clone()),
+            browser_use_observation
+                .as_ref()
+                .and_then(|observation| observation.eval_text.clone()),
+            browser_use_observation
+                .as_ref()
+                .and_then(|observation| observation.markdown_text.clone()),
+            browser_use_observation
+                .as_ref()
+                .and_then(|observation| observation.pagination_text.clone()),
+            browser_use_metadata.tabs_text,
+            browser_use_metadata.page_info_text,
+            browser_use_metadata.pending_requests_text,
+            browser_use_metadata.recent_events_text,
+            browser_use_metadata.closed_popup_messages_text,
+            browsergym_extra_properties_text,
+            browsergym_focused_bid.clone(),
+            browsergym_dom_text,
+            (!browsergym_axtree_text.trim().is_empty()).then_some(browsergym_axtree_text),
+        )
+        .await;
+        Ok(ax_tree)
     }
 
     pub async fn get_visual_tree(&self) -> std::result::Result<AccessibilityNode, BrowserError> {
@@ -1999,24 +3099,7 @@ impl BrowserDriver {
         self.ensure_page().await?;
 
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
-
-        page.execute(accessibility::EnableParams::default())
-            .await
-            .ok();
-
-        let snapshot = page
-            .execute(accessibility::GetFullAxTreeParams::default())
-            .await
-            .map_err(|e| BrowserError::Internal(format!("GetFullAxTree failed: {}", e)))?;
-
-        let nodes = snapshot.nodes.clone();
-
-        if nodes.is_empty() {
-            return Err(BrowserError::Internal("Empty tree".into()));
-        }
-
-        let rect_lookup = self.collect_ax_node_rects(&page, &nodes).await;
-        Ok(self.convert_ax_node(&nodes[0], &nodes, &rect_lookup))
+        self.get_accessibility_tree_inner(&page).await
     }
 
     fn convert_ax_node(
@@ -2024,41 +3107,29 @@ impl BrowserDriver {
         ax_node: &accessibility::AxNode,
         all_nodes: &[accessibility::AxNode],
         rect_lookup: &HashMap<String, AccessibilityRect>,
+        browsergym_ids_by_ax_node_id: &HashMap<String, String>,
+        ax_node_target_ids: &HashMap<String, String>,
+        ax_node_frame_ids: &HashMap<String, String>,
     ) -> AccessibilityNode {
         let mut children = Vec::new();
         if let Some(child_ids) = &ax_node.child_ids {
             for cid in child_ids {
                 if let Some(child_ax) = all_nodes.iter().find(|n| &n.node_id == cid) {
-                    children.push(self.convert_ax_node(child_ax, all_nodes, rect_lookup));
+                    children.push(self.convert_ax_node(
+                        child_ax,
+                        all_nodes,
+                        rect_lookup,
+                        browsergym_ids_by_ax_node_id,
+                        ax_node_target_ids,
+                        ax_node_frame_ids,
+                    ));
                 }
             }
         }
 
-        fn extract_string(val_opt: &Option<accessibility::AxValue>) -> Option<String> {
-            val_opt.as_ref().and_then(|v| {
-                if let Some(inner) = &v.value {
-                    if let Some(s) = inner.as_str() {
-                        if s.is_empty() {
-                            None
-                        } else {
-                            Some(s.to_string())
-                        }
-                    } else if let Some(b) = inner.as_bool() {
-                        Some(b.to_string())
-                    } else if let Some(n) = inner.as_f64() {
-                        Some(n.to_string())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-        }
-
-        let name = extract_string(&ax_node.name);
-        let mut value = extract_string(&ax_node.value);
-        let role = extract_string(&ax_node.role)
+        let name = ax_value_to_string(&ax_node.name);
+        let mut value = ax_value_to_string(&ax_node.value);
+        let role = ax_value_to_string(&ax_node.role)
             .map(|s| s.to_lowercase())
             .unwrap_or_else(|| "generic".to_string());
 
@@ -2068,19 +3139,29 @@ impl BrowserDriver {
         let mut attributes = HashMap::new();
         // Preserve the raw CDP AX node ID even after semantic lenses rewrite `node.id`.
         attributes.insert("cdp_node_id".to_string(), id_string.clone());
+        if let Some(target_id) = ax_node_target_ids.get(&id_string) {
+            attributes.insert("target_id".to_string(), target_id.clone());
+        }
+        if let Some(frame_id) = ax_node_frame_ids.get(&id_string) {
+            attributes.insert("frame_id".to_string(), frame_id.clone());
+        }
+        if let Some(browsergym_id) = browsergym_ids_by_ax_node_id.get(&id_string) {
+            attributes.insert("browsergym_id".to_string(), browsergym_id.clone());
+            attributes.insert("bid".to_string(), browsergym_id.clone());
+        }
         if let Some(backend_id) = ax_node.backend_dom_node_id {
             attributes.insert(
                 "backend_dom_node_id".to_string(),
                 backend_id.inner().to_string(),
             );
         }
-        if let Some(desc) = extract_string(&ax_node.description) {
+        if let Some(desc) = ax_value_to_string(&ax_node.description) {
             attributes.insert("description".to_string(), desc.clone());
             if value.is_none() {
                 value = Some(desc);
             }
         }
-        if let Some(chrome_role) = extract_string(&ax_node.chrome_role) {
+        if let Some(chrome_role) = ax_value_to_string(&ax_node.chrome_role) {
             attributes.insert("chrome_role".to_string(), chrome_role);
         }
 
@@ -2315,9 +3396,19 @@ impl BrowserDriver {
         &self,
         backend_dom_node_id: &str,
     ) -> std::result::Result<(), BrowserError> {
+        self.click_backend_dom_node_in_target(backend_dom_node_id, None)
+            .await
+    }
+
+    pub async fn click_backend_dom_node_in_target(
+        &self,
+        backend_dom_node_id: &str,
+        target_id: Option<&str>,
+    ) -> std::result::Result<(), BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
-        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+        let active_page =
+            { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
 
         let parsed_backend_id = backend_dom_node_id.trim().parse::<i64>().map_err(|e| {
             BrowserError::Internal(format!(
@@ -2328,8 +3419,39 @@ impl BrowserDriver {
         let backend_node_id =
             chromiumoxide::cdp::browser_protocol::dom::BackendNodeId::new(parsed_backend_id);
 
-        let (x, y) = Self::resolve_click_center_for_backend_node(&page, backend_node_id).await?;
-        self.synthetic_click(x, y).await
+        let active_target_id = active_page.target_id().as_ref().to_string();
+        let (x, y) = if target_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_none_or(|target_id| target_id == active_target_id)
+        {
+            Self::resolve_click_center_for_backend_node(&active_page, backend_node_id).await?
+        } else {
+            let debugger_ws_url = self.debugger_websocket_url().await?;
+            let mut temp_browser = TemporaryBrowserConnection::connect(&debugger_ws_url).await?;
+            let target_id = target_id.expect("target_id already checked as Some");
+            let _ = temp_browser
+                .discover_observation_context(&active_target_id)
+                .await
+                .ok();
+            let target_page = temp_browser
+                .page_for_target(
+                    &chromiumoxide::cdp::browser_protocol::target::TargetId::new(
+                        target_id.to_string(),
+                    ),
+                )
+                .await?;
+            Self::resolve_click_center_for_backend_node(&target_page, backend_node_id).await?
+        };
+        self.synthetic_click(x, y).await?;
+        self.record_browser_use_event(
+            "ClickElementEvent",
+            None,
+            self.known_active_url().await,
+            None,
+        )
+        .await;
+        Ok(())
     }
 
     /// Click an element by raw CDP Accessibility node id.
@@ -2340,9 +3462,42 @@ impl BrowserDriver {
         &self,
         target_cdp_id: &str,
     ) -> std::result::Result<(), BrowserError> {
+        self.click_ax_node_in_target(target_cdp_id, None).await
+    }
+
+    pub async fn click_ax_node_in_target(
+        &self,
+        target_cdp_id: &str,
+        target_id: Option<&str>,
+    ) -> std::result::Result<(), BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
-        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+        let active_page =
+            { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+
+        let active_target_id = active_page.target_id().as_ref().to_string();
+        let page = if target_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_none_or(|target_id| target_id == active_target_id)
+        {
+            active_page
+        } else {
+            let debugger_ws_url = self.debugger_websocket_url().await?;
+            let mut temp_browser = TemporaryBrowserConnection::connect(&debugger_ws_url).await?;
+            let requested_target_id = target_id.expect("target_id already checked as Some");
+            let _ = temp_browser
+                .discover_observation_context(&active_target_id)
+                .await
+                .ok();
+            temp_browser
+                .page_for_target(
+                    &chromiumoxide::cdp::browser_protocol::target::TargetId::new(
+                        requested_target_id.to_string(),
+                    ),
+                )
+                .await?
+        };
 
         page.execute(accessibility::EnableParams::default())
             .await
@@ -2381,7 +3536,15 @@ impl BrowserDriver {
                 ))
             })?;
 
-        self.synthetic_click(x, y).await
+        self.synthetic_click(x, y).await?;
+        self.record_browser_use_event(
+            "ClickElementEvent",
+            None,
+            self.known_active_url().await,
+            None,
+        )
+        .await;
+        Ok(())
     }
 }
 
@@ -2571,7 +3734,7 @@ mod tests {
     }
 
     #[test]
-    fn warmup_cache_is_kept_when_start_gate_coexists_with_grounded_target() {
+    fn warmup_cache_is_skipped_when_start_gate_coexists_with_grounded_target() {
         let mut root = ax_node(
             "root",
             "root",
@@ -2599,7 +3762,7 @@ mod tests {
         ));
 
         assert!(node_contains_visible_start_gate(&root));
-        assert!(should_cache_prompt_observation_warmup(&root));
+        assert!(!should_cache_prompt_observation_warmup(&root));
     }
 
     #[test]
@@ -2642,7 +3805,10 @@ mod tests {
 
     #[test]
     fn dom_fallback_script_surfaces_svg_geometry_roles_and_line_metrics() {
-        let source = include_str!("accessibility.rs");
+        let source = include_str!("accessibility.rs")
+            .split("\n#[cfg(test)]")
+            .next()
+            .expect("pre-test source");
 
         assert!(
             source.contains("attrs.geometry_role = metadata.geometryRole;"),
@@ -2677,6 +3843,44 @@ mod tests {
             source.contains("attrs.angle_span_deg = roundedSvgCoord(metadata.angleSpanDeg);"),
             "{source}"
         );
+        assert!(
+            !source.contains("attrs.target_angle_mid_deg = roundedSvgCoord("),
+            "{source}"
+        );
+        assert!(
+            !source.contains("attrs.angle_mid_offset_deg = roundedSvgCoord("),
+            "{source}"
+        );
+        assert!(
+            !source.contains("attrs.angle_mid_delta_deg = roundedSvgCoord("),
+            "{source}"
+        );
+        assert!(
+            !source.contains("attrs.midpoint_probe_x = roundedSvgCoord("),
+            "{source}"
+        );
+        assert!(
+            !source.contains("attrs.midpoint_probe_y = roundedSvgCoord("),
+            "{source}"
+        );
+        assert!(
+            !source.contains("attrs.midpoint_probe_distance = roundedSvgCoord("),
+            "{source}"
+        );
+        assert!(
+            !source.contains("const maybePushDerivedSvgProbeTarget = ("),
+            "{source}"
+        );
+        assert!(
+            !source.contains("derived_target_kind: \"midpoint_probe\""),
+            "{source}"
+        );
+        assert!(
+            !source.contains("geometry_role: \"midpoint_probe\""),
+            "{source}"
+        );
+        assert!(!source.contains("svgTouchesPoint("), "{source}");
+        assert!(!source.contains("const svgPointFromAngle = ("), "{source}");
         assert!(
             source.contains("attrs.line_length = roundedSvgCoord(metadata.geometry.length);"),
             "{source}"

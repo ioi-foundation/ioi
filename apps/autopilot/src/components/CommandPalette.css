@@ -5,7 +5,7 @@
 .command-palette-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(30, 30, 30, 0.7);
+  background: rgba(13, 12, 10, 0.74);
   backdrop-filter: blur(10px);
   display: flex;
   align-items: flex-start;
@@ -28,7 +28,7 @@
   width: 560px;
   max-height: 400px;
   background: var(--surface-2);
-  border: 1px solid transparent;
+  border: 1px solid var(--border-default);
   border-radius: 14px;
   box-shadow: var(--shadow-lg), var(--shadow-glow);
   overflow: hidden;
@@ -52,7 +52,7 @@
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-md);
-  border-bottom: 1px solid transparent;
+  border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-3);
 }
 

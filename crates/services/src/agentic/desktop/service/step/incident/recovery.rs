@@ -10,7 +10,7 @@ use crate::agentic::rules::ActionRules;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::error::TransactionError;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::BTreeSet;
 
 const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
@@ -111,8 +111,59 @@ fn is_browser_reacquisition_failure(class: FailureClass) -> bool {
             | FailureClass::VisionTargetNotFound
             | FailureClass::NoEffectAfterAction
             | FailureClass::ContextDrift
+            | FailureClass::TimeoutOrHang
             | FailureClass::NonDeterministicUI
     )
+}
+
+pub(super) fn browser_root_failure_prefers_direct_retry(incident_state: &IncidentState) -> bool {
+    if !is_browser_root_tool(&incident_state.root_tool_name) {
+        return false;
+    }
+
+    let Some(root_error) = incident_state.root_error.as_deref() else {
+        return false;
+    };
+
+    match FailureClass::from_str(&incident_state.root_failure_class) {
+        Some(FailureClass::TimeoutOrHang) => {
+            root_error.contains("\"browser_session_unstable\":true")
+                || root_error.contains("\"retry_recommended\":true")
+        }
+        Some(FailureClass::NoEffectAfterAction) => {
+            incident_state
+                .root_tool_name
+                .trim()
+                .eq_ignore_ascii_case("browser__click_element")
+                && root_error_has_click_dispatch_timeout(root_error)
+        }
+        _ => false,
+    }
+}
+
+fn root_error_has_click_dispatch_timeout(root_error: &str) -> bool {
+    root_error_verify_payload(root_error)
+        .and_then(|verify| {
+            verify
+                .get("dispatch_failures")
+                .and_then(Value::as_array)
+                .cloned()
+        })
+        .is_some_and(|failures| {
+            failures.iter().any(|failure| {
+                failure
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .is_some_and(|error| error.contains("dispatch timed out"))
+            })
+        })
+}
+
+fn root_error_verify_payload(root_error: &str) -> Option<Value> {
+    let (_, verify_text) = root_error
+        .split_once(" verify=")
+        .or_else(|| root_error.split_once("verify="))?;
+    serde_json::from_str::<Value>(verify_text).ok()
 }
 
 fn is_gui_click_root_tool(root_tool_name: &str) -> bool {
@@ -578,6 +629,63 @@ mod tests {
             AgentTool::BrowserSnapshot {} => {}
             other => panic!("expected BrowserSnapshot, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn deterministic_recovery_prefers_browser_snapshot_for_browser_timeout() {
+        let available = BTreeSet::from(["browser__snapshot".to_string(), "ui__find".to_string()]);
+        let incident = test_incident_state("browser__click_element", "TimeoutOrHang");
+        let agent_state = test_agent_state("click sign in");
+
+        let tool = deterministic_recovery_tool(
+            &available,
+            &incident,
+            &agent_state,
+            &ActionRules::default(),
+        )
+        .expect("deterministic selection should succeed")
+        .expect("deterministic selection should choose a tool");
+
+        match tool {
+            AgentTool::BrowserSnapshot {} => {}
+            other => panic!("expected BrowserSnapshot, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn browser_root_failure_prefers_direct_retry_for_browser_session_unstable_timeout() {
+        let mut incident = test_incident_state("browser__click_element", "TimeoutOrHang");
+        incident.root_error = Some(
+            "ERROR_CLASS=TimeoutOrHang Click element 'btn_buy' could not continue. verify={\"browser_session_unstable\":true,\"retry_recommended\":true}".to_string(),
+        );
+
+        assert!(super::browser_root_failure_prefers_direct_retry(&incident));
+    }
+
+    #[test]
+    fn browser_root_failure_does_not_prefer_direct_retry_without_retry_signal() {
+        let incident = test_incident_state("browser__click_element", "TimeoutOrHang");
+
+        assert!(!super::browser_root_failure_prefers_direct_retry(&incident));
+    }
+
+    #[test]
+    fn browser_root_failure_prefers_direct_retry_for_click_dispatch_timeout_no_effect() {
+        let mut incident = test_incident_state("browser__click_element", "NoEffectAfterAction");
+        incident.root_error = Some(
+            "ERROR_CLASS=NoEffectAfterAction Failed to click element 'btn_buy'. verify={\"dispatch_failures\":[{\"error\":\"dispatch timed out after 2500 ms. Retry the action.\",\"method\":\"selector_grounded\",\"selector\":\"#buy\"}],\"id\":\"btn_buy\"}".to_string(),
+        );
+
+        assert!(super::browser_root_failure_prefers_direct_retry(&incident));
+    }
+
+    #[test]
+    fn browser_root_failure_does_not_prefer_direct_retry_for_non_click_no_effect() {
+        let mut incident = test_incident_state("browser__snapshot", "NoEffectAfterAction");
+        incident.root_error =
+            Some("ERROR_CLASS=NoEffectAfterAction duplicate replay guard".to_string());
+
+        assert!(!super::browser_root_failure_prefers_direct_retry(&incident));
     }
 
     #[test]

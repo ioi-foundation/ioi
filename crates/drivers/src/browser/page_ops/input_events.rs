@@ -66,6 +66,14 @@ struct BrowserFractionalSyntheticClickDispatch {
 }
 
 impl BrowserDriver {
+    fn selector_probe_prefers_dom_click(probe: &SelectorProbe) -> bool {
+        matches!(
+            probe.tag.trim().to_ascii_lowercase().as_str(),
+            "div" | "span" | "li" | "td" | "tr" | "section" | "article" | "main" | "header"
+                | "footer" | "p"
+        )
+    }
+
     fn normalize_typed_text_value(value: &str) -> String {
         value.split_whitespace().collect::<Vec<_>>().join(" ")
     }
@@ -495,6 +503,13 @@ impl BrowserDriver {
             || (key.eq_ignore_ascii_case("ArrowDown") && Self::modifiers_include(modifiers, "Meta"))
     }
 
+    fn edge_jump_settle_threshold(outcome: &BrowserTypeOutcome) -> i32 {
+        outcome
+            .client_height
+            .unwrap_or(SCROLL_EDGE_SETTLE_TOLERANCE)
+            .saturating_add(SCROLL_EDGE_SETTLE_TOLERANCE)
+    }
+
     fn edge_jump_settle_key(
         key: &str,
         modifiers: &[String],
@@ -504,11 +519,13 @@ impl BrowserDriver {
             return None;
         }
 
+        let settle_threshold = Self::edge_jump_settle_threshold(outcome);
+
         if Self::is_top_edge_jump_chord(key, modifiers)
             && outcome.can_scroll_up == Some(true)
             && outcome
                 .scroll_top
-                .is_some_and(|scroll_top| (0..=SCROLL_EDGE_SETTLE_TOLERANCE).contains(&scroll_top))
+                .is_some_and(|scroll_top| (0..=settle_threshold).contains(&scroll_top))
         {
             return Some("PageUp");
         }
@@ -525,7 +542,7 @@ impl BrowserDriver {
                         .saturating_sub(scroll_top)
                 });
             if remaining_distance
-                .is_some_and(|distance| (0..=SCROLL_EDGE_SETTLE_TOLERANCE).contains(&distance))
+                .is_some_and(|distance| (0..=settle_threshold).contains(&distance))
             {
                 return Some("PageDown");
             }
@@ -538,6 +555,7 @@ impl BrowserDriver {
         &self,
         key: &str,
         modifiers: &[String],
+        selector: Option<&str>,
     ) -> std::result::Result<BrowserTypeOutcome, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
@@ -646,7 +664,7 @@ impl BrowserDriver {
 
         self.invalidate_accessibility_snapshot().await;
         tokio::time::sleep(Duration::from_millis(40)).await;
-        self.wait_for_typed_text_state(None).await
+        self.wait_for_typed_text_state(selector).await
     }
 
     async fn dispatch_text_keyup(
@@ -1226,12 +1244,11 @@ impl BrowserDriver {
             cmd_move = cmd_move.button(button);
         }
         let cmd_move = cmd_move.build().map_err(BrowserError::Internal)?;
-        page.execute(cmd_move).await.map_err(|e| {
-            BrowserError::Internal(format!(
-                "Mouse move dispatch failed at ({:.2}, {:.2}): {}",
-                x, y, e
-            ))
-        })?;
+        self.await_request_with_timeout(
+            format!("mouse move dispatch at ({:.2}, {:.2})", x, y),
+            page.execute(cmd_move),
+        )
+        .await?;
 
         let mut state = self.pointer_state.lock().await;
         state.x = x;
@@ -1629,12 +1646,11 @@ impl BrowserDriver {
             .click_count(1)
             .build()
             .map_err(BrowserError::Internal)?;
-        page.execute(cmd_down).await.map_err(|e| {
-            BrowserError::Internal(format!(
-                "Mouse press dispatch failed at ({:.2}, {:.2}): {}",
-                x, y, e
-            ))
-        })?;
+        self.await_request_with_timeout(
+            format!("mouse press dispatch at ({:.2}, {:.2})", x, y),
+            page.execute(cmd_down),
+        )
+        .await?;
 
         let mut state = self.pointer_state.lock().await;
         state.x = x;
@@ -1667,12 +1683,11 @@ impl BrowserDriver {
             .click_count(1)
             .build()
             .map_err(BrowserError::Internal)?;
-        page.execute(cmd_up).await.map_err(|e| {
-            BrowserError::Internal(format!(
-                "Mouse release dispatch failed at ({:.2}, {:.2}): {}",
-                x, y, e
-            ))
-        })?;
+        self.await_request_with_timeout(
+            format!("mouse release dispatch at ({:.2}, {:.2})", x, y),
+            page.execute(cmd_up),
+        )
+        .await?;
 
         let mut state = self.pointer_state.lock().await;
         state.x = x;
@@ -1774,6 +1789,8 @@ impl BrowserDriver {
             || (after.page.y - before.page.y).abs() > 0.5;
         let target_moved =
             Self::scroll_target_changed(before.target.as_ref(), after.target.as_ref());
+        self.record_browser_use_event("ScrollEvent", None, self.known_active_url().await, None)
+            .await;
 
         Ok(BrowserScrollOutcome {
             delta_x,
@@ -1835,12 +1852,26 @@ impl BrowserDriver {
 
         let mut outcome = self.wait_for_typed_text_state(selector).await?;
         if Self::typed_text_request_already_satisfied(&outcome, text) {
+            self.record_browser_use_event(
+                "TypeTextEvent",
+                None,
+                self.known_active_url().await,
+                None,
+            )
+            .await;
             return Ok(outcome);
         }
 
         if self.set_text_value_with_events(selector, text).await? {
             outcome = self.wait_for_typed_text_state(selector).await?;
             if Self::typed_text_request_already_satisfied(&outcome, text) {
+                self.record_browser_use_event(
+                    "TypeTextEvent",
+                    None,
+                    self.known_active_url().await,
+                    None,
+                )
+                .await;
                 return Ok(outcome);
             }
         }
@@ -1857,20 +1888,45 @@ impl BrowserDriver {
         &self,
         key: &str,
         modifiers: &[String],
+        selector: Option<&str>,
     ) -> std::result::Result<BrowserTypeOutcome, BrowserError> {
         let key = key.trim();
         if key.is_empty() {
             return Err(BrowserError::Internal("Key cannot be empty".to_string()));
         }
 
-        let outcome = self.dispatch_key_and_wait(key, modifiers).await?;
+        if let Some(sel) = selector {
+            match self.focus_selector(sel).await {
+                Ok(true) => {}
+                Ok(false) => {
+                    return Err(BrowserError::Internal(format!(
+                        "Failed to focus selector '{}'",
+                        sel
+                    )))
+                }
+                Err(e) => {
+                    return Err(BrowserError::Internal(format!(
+                        "Selector focus failed for '{}': {}",
+                        sel, e
+                    )))
+                }
+            }
+        }
+
+        let outcome = self.dispatch_key_and_wait(key, modifiers, selector).await?;
         let Some(recovery_key) = Self::edge_jump_settle_key(key, modifiers, &outcome) else {
+            self.record_browser_use_event("SendKeysEvent", None, self.known_active_url().await, None)
+                .await;
             return Ok(outcome);
         };
 
         let empty_modifiers: Vec<String> = Vec::new();
-        self.dispatch_key_and_wait(recovery_key, &empty_modifiers)
-            .await
+        let outcome = self
+            .dispatch_key_and_wait(recovery_key, &empty_modifiers, selector)
+            .await?;
+        self.record_browser_use_event("SendKeysEvent", None, self.known_active_url().await, None)
+            .await;
+        Ok(outcome)
     }
 
     pub async fn click_selector(&self, selector: &str) -> std::result::Result<(), BrowserError> {
@@ -1885,19 +1941,44 @@ impl BrowserDriver {
                 .await
                 .ok()
                 .is_some_and(|probe| {
-                    probe.found && probe.visible && (!probe.topmost || probe.blocked_by.is_some())
+                    probe.found
+                        && probe.visible
+                        && (!probe.topmost
+                            || probe.blocked_by.is_some()
+                            || Self::selector_probe_prefers_dom_click(&probe))
                 });
             let primary_click_result = if prefer_deep_click {
                 self.click_selector_deep(selector)
                     .await
                     .map_err(|e| format!("Deep click failed: {}", e))
             } else {
-                match p.find_element(selector).await {
-                    Ok(element) => match element.click().await {
-                        Ok(_) => Ok(()),
-                        Err(e) => Err(format!("Click failed: {}", e)),
+                match self.click_selector_deep(selector).await {
+                    Ok(()) => Ok(()),
+                    Err(deep_error) => match self
+                        .await_request_with_timeout(
+                            format!("selector lookup for '{selector}'"),
+                            p.find_element(selector),
+                        )
+                        .await
+                    {
+                        Ok(element) => match self
+                            .await_request_with_timeout(
+                                format!("selector click for '{selector}'"),
+                                element.click(),
+                            )
+                            .await
+                        {
+                            Ok(_) => Ok(()),
+                            Err(e) => Err(format!(
+                                "Deep click failed: {}; Click failed: {}",
+                                deep_error, e
+                            )),
+                        },
+                        Err(e) => Err(format!(
+                            "Deep click failed: {}; Element not found: {}",
+                            deep_error, e
+                        )),
                     },
-                    Err(e) => Err(format!("Element not found: {}", e)),
                 }
             };
             if let Err(primary_error) = primary_click_result {
@@ -1926,6 +2007,87 @@ impl BrowserDriver {
 
             self.invalidate_accessibility_snapshot().await;
             tokio::time::sleep(Duration::from_millis(100)).await;
+            self.record_browser_use_event(
+                "ClickElementEvent",
+                None,
+                self.known_active_url().await,
+                None,
+            )
+            .await;
+            Ok(())
+        } else {
+            Err(BrowserError::NoActivePage)
+        }
+    }
+
+    pub async fn click_selector_grounded(
+        &self,
+        selector: &str,
+    ) -> std::result::Result<(), BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        let page = { self.active_page.lock().await.clone() };
+
+        if let Some(p) = page {
+            let primary_click_result = match self.click_selector_deep(selector).await {
+                Ok(()) => Ok(()),
+                Err(deep_error) => match self
+                    .await_request_with_timeout(
+                        format!("selector lookup for '{selector}'"),
+                        p.find_element(selector),
+                    )
+                    .await
+                {
+                    Ok(element) => match self
+                        .await_request_with_timeout(
+                            format!("selector click for '{selector}'"),
+                            element.click(),
+                        )
+                        .await
+                    {
+                        Ok(_) => Ok(()),
+                        Err(e) => Err(format!(
+                            "Deep click failed: {}; Click failed: {}",
+                            deep_error, e
+                        )),
+                    },
+                    Err(e) => Err(format!(
+                        "Deep click failed: {}; Element not found: {}",
+                        deep_error, e
+                    )),
+                },
+            };
+
+            if let Err(primary_error) = primary_click_result {
+                match self.get_selector_rect_window_logical(selector).await {
+                    Ok(rect) => {
+                        let center = rect.center();
+                        if let Err(geometry_error) =
+                            self.synthetic_click(center.x, center.y).await
+                        {
+                            return Err(BrowserError::Internal(format!(
+                                "Grounded selector click failed ({primary_error}); geometry click fallback failed: {geometry_error}"
+                            )));
+                        }
+                    }
+                    Err(geometry_error) => {
+                        return Err(BrowserError::Internal(format!(
+                            "Grounded selector click failed ({primary_error}); geometry resolution failed: {geometry_error}"
+                        )));
+                    }
+                }
+            }
+
+            self.invalidate_accessibility_snapshot().await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            self.record_browser_use_event(
+                "ClickElementEvent",
+                None,
+                self.known_active_url().await,
+                None,
+            )
+            .await;
             Ok(())
         } else {
             Err(BrowserError::NoActivePage)
@@ -2064,6 +2226,30 @@ mod tests {
     }
 
     #[test]
+    fn selector_probe_prefers_dom_click_for_container_controls() {
+        let probe = SelectorProbe {
+            found: true,
+            visible: true,
+            tag: "div".to_string(),
+            ..SelectorProbe::default()
+        };
+
+        assert!(BrowserDriver::selector_probe_prefers_dom_click(&probe));
+    }
+
+    #[test]
+    fn selector_probe_keeps_pointer_click_for_native_controls() {
+        let probe = SelectorProbe {
+            found: true,
+            visible: true,
+            tag: "button".to_string(),
+            ..SelectorProbe::default()
+        };
+
+        assert!(!BrowserDriver::selector_probe_prefers_dom_click(&probe));
+    }
+
+    #[test]
     fn edge_jump_settle_key_requests_page_up_for_near_top_control_home() {
         let modifiers = vec!["Control".to_string()];
         let outcome = scrollable_outcome(2, 565, 104, true, true);
@@ -2075,9 +2261,20 @@ mod tests {
     }
 
     #[test]
-    fn edge_jump_settle_key_skips_page_up_when_not_near_top() {
+    fn edge_jump_settle_key_requests_page_up_within_one_visible_page_of_top() {
         let modifiers = vec!["Control".to_string()];
-        let outcome = scrollable_outcome(24, 565, 104, true, true);
+        let outcome = scrollable_outcome(75, 565, 104, true, true);
+
+        assert_eq!(
+            BrowserDriver::edge_jump_settle_key("Home", &modifiers, &outcome),
+            Some("PageUp")
+        );
+    }
+
+    #[test]
+    fn edge_jump_settle_key_skips_page_up_when_more_than_one_page_from_top() {
+        let modifiers = vec!["Control".to_string()];
+        let outcome = scrollable_outcome(140, 565, 104, true, true);
 
         assert_eq!(
             BrowserDriver::edge_jump_settle_key("Home", &modifiers, &outcome),

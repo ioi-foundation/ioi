@@ -6,15 +6,13 @@ use std::collections::{HashSet, VecDeque};
 
 const BROWSER_OBSERVATION_CONTEXT_MAX_CHARS: usize = 1_800;
 const BROWSER_SNAPSHOT_TOOL_PREFIX: &str = "Tool Output (browser__snapshot):";
-const PENDING_BROWSER_STATE_MAX_CHARS: usize = 320;
+const PENDING_BROWSER_STATE_MAX_CHARS: usize = 560;
 const SUCCESS_SIGNAL_MAX_CHARS: usize = 280;
 
 #[path = "history/browser_snapshot.rs"]
 mod browser_snapshot;
 #[path = "history/filters.rs"]
 mod filters;
-#[path = "history/history_page.rs"]
-mod history_page;
 #[path = "history/navigation.rs"]
 mod navigation;
 #[path = "history/signals.rs"]
@@ -41,4 +39,4 @@ pub(crate) use self::signals::{
     build_recent_pending_browser_state_context_with_snapshot,
     latest_recent_pending_browser_state_context,
 };
-use self::{browser_snapshot::*, filters::*, history_page::*, navigation::*, signals::*};
+use self::{browser_snapshot::*, filters::*, navigation::*, signals::*};

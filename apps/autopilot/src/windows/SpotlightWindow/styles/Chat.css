@@ -146,7 +146,7 @@
 .message-content-markdown a {
   color: var(--spot-accent);
   text-decoration: underline;
-  text-decoration-color: rgba(255, 121, 198, 0.45);
+  text-decoration-color: var(--accent-blue-ring);
 }
 
 .message-content-markdown a:hover {
@@ -670,7 +670,7 @@
 .spot-password-input:focus {
   outline: none;
   border-color: var(--gate-color);
-  box-shadow: 0 0 0 2px rgba(255, 184, 108, 0.18);
+  box-shadow: 0 0 0 2px var(--gate-bg);
 }
 
 .spot-password-input:disabled {
@@ -703,7 +703,7 @@
 
 .clarification-option.selected {
   border-color: var(--gate-color);
-  box-shadow: 0 0 0 1px rgba(139, 233, 253, 0.2);
+  box-shadow: 0 0 0 1px var(--gate-bg);
 }
 
 .clarification-option input[type="radio"] {
@@ -763,7 +763,7 @@
 .spot-clarification-other:focus {
   outline: none;
   border-color: var(--gate-color);
-  box-shadow: 0 0 0 2px rgba(139, 233, 253, 0.18);
+  box-shadow: 0 0 0 2px var(--gate-bg);
 }
 
 /* ============================================
@@ -977,7 +977,7 @@
 }
 
 .sc-output-stderr {
-  color: rgba(255, 107, 129, 0.9);
+  color: var(--spot-error);
 }
 
 .sc-truncation-bar {
@@ -986,8 +986,8 @@
   justify-content: space-between;
   gap: 8px;
   padding: 5px 10px;
-  background: rgba(255, 184, 108, 0.08);
-  border-top: 1px solid rgba(255, 184, 108, 0.16);
+  background: var(--status-warning-dim);
+  border-top: 1px solid var(--status-warning-ring);
   font-size: 11px;
 }
 
@@ -1050,10 +1050,14 @@
   align-self: flex-start;
   width: min(100%, 1100px);
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--spot-border-strong);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
-    rgba(15, 16, 20, 0.88);
+    linear-gradient(
+      180deg,
+      rgba(250, 248, 244, 0.05),
+      rgba(250, 248, 244, 0.01)
+    ),
+    rgba(33, 32, 28, 0.92);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
   padding: 14px 14px 12px;
   animation: messageSlide 220ms ease;
@@ -1275,7 +1279,7 @@
 }
 
 .answer-contract-artifact-link:hover {
-  color: var(--accent-cyan);
+  color: var(--accent-blue-strong);
 }
 
 .answer-citations {
@@ -1439,7 +1443,7 @@
   height: 18px;
   border-radius: 999px;
   color: var(--spot-accent);
-  background: rgba(255, 121, 198, 0.15);
+  background: var(--accent-blue-dim);
   animation: thinkingPulse 2.2s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -1486,11 +1490,11 @@
   0%,
   100% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(255, 121, 198, 0.18);
+    box-shadow: 0 0 0 0 rgba(90, 140, 236, 0.18);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 0 0 6px rgba(255, 121, 198, 0);
+    box-shadow: 0 0 0 6px rgba(90, 140, 236, 0);
   }
 }
 
@@ -1499,7 +1503,7 @@
   width: min(100%, 1100px);
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(13, 14, 18, 0.8);
+  background: rgba(26, 25, 22, 0.82);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }

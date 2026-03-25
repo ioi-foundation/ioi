@@ -497,14 +497,6 @@ pub(super) fn recent_history_viewed_item_ids(history: &[ChatMessage]) -> Vec<Str
     let mut seen = HashSet::new();
 
     for message in history.iter().rev().take(20) {
-        if let Some(snapshot) = browser_snapshot_payload(message) {
-            if let Some(item_id) = snapshot_history_item_id(snapshot) {
-                if seen.insert(item_id.clone()) {
-                    item_ids.push(item_id);
-                }
-            }
-        }
-
         if let Some(transition) = browser_navigation_transition(message) {
             for url in [
                 transition.pre_url.as_deref(),

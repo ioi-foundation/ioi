@@ -1,4 +1,15 @@
-fn emit_execution_contract_receipt_event(
+#[derive(Default)]
+struct ExecutionReceiptMetadata {
+    verifier_command_commit_hash: Option<String>,
+    probe_source: Option<String>,
+    observed_value: Option<String>,
+    evidence_type: Option<String>,
+    provider_id: Option<String>,
+    synthesized_payload_hash: Option<String>,
+    timestamp_ms: Option<u64>,
+}
+
+fn emit_execution_contract_receipt_event_with_metadata(
     service: &DesktopAgentService,
     session_id: [u8; 32],
     step_index: u32,
@@ -7,18 +18,37 @@ fn emit_execution_contract_receipt_event(
     key: &str,
     satisfied: bool,
     evidence_material: &str,
+    metadata: ExecutionReceiptMetadata,
 ) {
     let Some(tx) = service.event_sender.as_ref() else {
         return;
     };
 
-    let timestamp_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
+    let ExecutionReceiptMetadata {
+        verifier_command_commit_hash,
+        probe_source,
+        observed_value,
+        evidence_type,
+        provider_id,
+        synthesized_payload_hash,
+        timestamp_ms,
+    } = metadata;
+
+    let timestamp_ms = timestamp_ms.unwrap_or_else(unix_timestamp_ms_now);
     let evidence_payload = format!(
-        "intent_id={};stage={};key={};satisfied={};evidence={}",
-        intent_id, stage, key, satisfied, evidence_material
+        "intent_id={};stage={};key={};satisfied={};evidence={};probe_source={};observed_value={};evidence_type={};provider_id={};synthesized_payload_hash={};verifier_command_commit_hash={};timestamp_ms={}",
+        intent_id,
+        stage,
+        key,
+        satisfied,
+        evidence_material,
+        probe_source.as_deref().unwrap_or("none"),
+        observed_value.as_deref().unwrap_or("none"),
+        evidence_type.as_deref().unwrap_or("none"),
+        provider_id.as_deref().unwrap_or("none"),
+        synthesized_payload_hash.as_deref().unwrap_or("none"),
+        verifier_command_commit_hash.as_deref().unwrap_or("none"),
+        timestamp_ms,
     );
     let evidence_commit_hash = sha256(evidence_payload.as_bytes())
         .map(|digest| format!("sha256:{}", hex::encode(digest.as_ref())))
@@ -35,14 +65,93 @@ fn emit_execution_contract_receipt_event(
             satisfied,
             timestamp_ms,
             evidence_commit_hash,
-            verifier_command_commit_hash: None,
-            probe_source: None,
-            observed_value: None,
-            evidence_type: None,
-            provider_id: None,
-            synthesized_payload_hash: None,
+            verifier_command_commit_hash,
+            probe_source,
+            observed_value,
+            evidence_type,
+            provider_id,
+            synthesized_payload_hash,
         },
     ));
+}
+
+fn emit_execution_contract_receipt_event(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    step_index: u32,
+    intent_id: &str,
+    stage: &str,
+    key: &str,
+    satisfied: bool,
+    evidence_material: &str,
+) {
+    emit_execution_contract_receipt_event_with_metadata(
+        service,
+        session_id,
+        step_index,
+        intent_id,
+        stage,
+        key,
+        satisfied,
+        evidence_material,
+        ExecutionReceiptMetadata::default(),
+    );
+}
+
+fn emit_execution_phase_timing_receipt(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    step_index: u32,
+    intent_id: &str,
+    key: &str,
+    phase_started: Instant,
+    satisfied: bool,
+    status: &str,
+    detail: serde_json::Value,
+) {
+    let finished_at_ms = unix_timestamp_ms_now();
+    let elapsed_ms = phase_started.elapsed().as_millis() as u64;
+    let started_at_ms = finished_at_ms.saturating_sub(elapsed_ms);
+    let mut observed = json!({
+        "status": status,
+        "elapsed_ms": elapsed_ms,
+        "started_at_ms": started_at_ms,
+        "finished_at_ms": finished_at_ms,
+    });
+    if let Some(observed_map) = observed.as_object_mut() {
+        match detail {
+            serde_json::Value::Object(extra) => {
+                for (key, value) in extra {
+                    observed_map.insert(key, value);
+                }
+            }
+            value => {
+                observed_map.insert("detail".to_string(), value);
+            }
+        }
+    }
+    let observed_value = serde_json::to_string(&observed)
+        .unwrap_or_else(|_| "{\"status\":\"serialization_error\"}".to_string());
+    emit_execution_contract_receipt_event_with_metadata(
+        service,
+        session_id,
+        step_index,
+        intent_id,
+        "execution",
+        key,
+        satisfied,
+        &format!(
+            "status={};elapsed_ms={};started_at_ms={};finished_at_ms={}",
+            status, elapsed_ms, started_at_ms, finished_at_ms
+        ),
+        ExecutionReceiptMetadata {
+            probe_source: Some("service_action_execution".to_string()),
+            observed_value: Some(observed_value),
+            evidence_type: Some("json".to_string()),
+            timestamp_ms: Some(finished_at_ms),
+            ..ExecutionReceiptMetadata::default()
+        },
+    );
 }
 
 fn persist_committed_action(

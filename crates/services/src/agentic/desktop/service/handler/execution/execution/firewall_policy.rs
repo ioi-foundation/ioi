@@ -214,7 +214,7 @@ fn emit_policy_decision_and_exit(
     } else {
         None
     };
-    emit_execution_contract_receipt_event(
+    emit_execution_contract_receipt_event_with_metadata(
         service,
         session_id,
         step_index,
@@ -231,6 +231,7 @@ fn emit_policy_decision_and_exit(
                 .map(hex::encode)
                 .unwrap_or_else(|| "unavailable".to_string())
         ),
+        ExecutionReceiptMetadata::default(),
     );
     if let Some(tx) = &service.event_sender {
         let _ = tx.send(KernelEvent::FirewallInterception {
@@ -260,7 +261,7 @@ async fn enforce_policy_and_record(
         return Ok(());
     }
 
-    emit_execution_contract_receipt_event(
+    emit_execution_contract_receipt_event_with_metadata(
         service,
         session_id,
         step_index,
@@ -274,6 +275,7 @@ async fn enforce_policy_and_record(
             hex::encode(determinism.request_hash),
             determinism.target_str
         ),
+        ExecutionReceiptMetadata::default(),
     );
 
     let workload_lease_check = determinism.workload_spec.evaluate_lease(
@@ -286,7 +288,7 @@ async fn enforce_policy_and_record(
         .as_deref()
         .unwrap_or("none")
         .to_string();
-    emit_execution_contract_receipt_event(
+    emit_execution_contract_receipt_event_with_metadata(
         service,
         session_id,
         step_index,
@@ -304,6 +306,13 @@ async fn enforce_policy_and_record(
             determinism.workload_spec.runtime_target.as_label(),
             determinism.workload_spec.net_mode.as_label()
         ),
+        ExecutionReceiptMetadata {
+            probe_source: Some(workload_lease_check.probe_source.clone()),
+            observed_value: Some(workload_lease_check.observed_value.clone()),
+            evidence_type: Some("scalar".to_string()),
+            timestamp_ms: Some(workload_lease_check.timestamp_ms),
+            ..ExecutionReceiptMetadata::default()
+        },
     );
     if !workload_lease_check.satisfied {
         let exit = emit_policy_decision_and_exit(

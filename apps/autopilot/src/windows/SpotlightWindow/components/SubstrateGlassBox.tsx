@@ -35,13 +35,13 @@ interface GraphData {
 }
 
 const NODE_COLORS: Record<GraphNodeKind, string> = {
-  query: "#8be9fd",
-  index: "#6272a4",
-  candidates: "#ffb86c",
-  rerank: "#69f0ae",
-  topk: "#ff79c6",
-  proof: "#bd93f9",
-  certificate: "#ffb86c",
+  query: "#93bef8",
+  index: "#6b87a8",
+  candidates: "#c49a3c",
+  rerank: "#6b9a7d",
+  topk: "#3b5eda",
+  proof: "#8e72a8",
+  certificate: "#c49a3c",
 };
 
 function safeParseMs(value: string): number {
@@ -150,10 +150,10 @@ function buildGraphData(
       z: z + 8,
     });
 
-    addLink(qNodeId, idxNodeId, "lookup", "#6272a4");
-    addLink(idxNodeId, candNodeId, "candidate gen", "#ffb86c");
-    addLink(candNodeId, rerankNodeId, "exact rerank", "#69f0ae");
-    addLink(rerankNodeId, topNodeId, "select top-k", "#ff79c6");
+    addLink(qNodeId, idxNodeId, "lookup", "#6b87a8");
+    addLink(idxNodeId, candNodeId, "candidate gen", "#c49a3c");
+    addLink(candNodeId, rerankNodeId, "exact rerank", "#6b9a7d");
+    addLink(rerankNodeId, topNodeId, "select top-k", "#3b5eda");
 
     if (receipt.proofHash || receipt.proofRef) {
       const proofNodeId = `proof:${receipt.eventId}`;
@@ -167,7 +167,7 @@ function buildGraphData(
         y: 18,
         z: z + 10,
       });
-      addLink(topNodeId, proofNodeId, "trace proof", "#bd93f9");
+      addLink(topNodeId, proofNodeId, "trace proof", "#8e72a8");
     }
 
     if (receipt.certificateMode && receipt.certificateMode !== "none") {
@@ -182,11 +182,11 @@ function buildGraphData(
         y: -18,
         z: z + 12,
       });
-      addLink(topNodeId, certNodeId, "lb cert", "#ffb86c");
+      addLink(topNodeId, certNodeId, "lb cert", "#c49a3c");
     }
 
     if (previousTopNode) {
-      addLink(previousTopNode, qNodeId, "next introspection", "#6c7896");
+      addLink(previousTopNode, qNodeId, "next introspection", "#706c63");
     }
     previousTopNode = topNodeId;
   });

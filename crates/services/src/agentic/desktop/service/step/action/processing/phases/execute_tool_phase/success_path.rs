@@ -417,12 +417,6 @@ fn browser_fragment_priority_score_for_chat(fragment: &str, tag_name: &str) -> O
     {
         score = score.saturating_add(5);
     }
-    if normalized_name
-        .as_deref()
-        .is_some_and(browser_name_looks_like_month_year_label_for_chat)
-    {
-        score = score.saturating_add(8);
-    }
     if matches!(
         tag_name,
         "button"
@@ -460,29 +454,6 @@ fn browser_name_looks_like_navigation_control_for_chat(name: &str) -> bool {
         name.trim(),
         "<" | ">" | "<<" | ">>" | "prev" | "previous" | "previous month" | "next" | "next month"
     )
-}
-
-fn browser_name_looks_like_month_year_label_for_chat(name: &str) -> bool {
-    const MONTH_NAMES: [&str; 12] = [
-        "january",
-        "february",
-        "march",
-        "april",
-        "may",
-        "june",
-        "july",
-        "august",
-        "september",
-        "october",
-        "november",
-        "december",
-    ];
-
-    let has_month = MONTH_NAMES.iter().any(|month| name.contains(month));
-    let has_year = name
-        .split_whitespace()
-        .any(|token| token.len() == 4 && token.chars().all(|ch| ch.is_ascii_digit()));
-    has_month && has_year
 }
 
 fn browser_context_looks_like_dense_numeric_noise_for_chat(context: &str) -> bool {
@@ -709,7 +680,20 @@ fn compact_browser_click_history_entry(entry: &str) -> String {
     };
 
     let mut verify_summary = serde_json::Map::new();
-    for key in ["method", "center_point", "settle_ms", "pre_url", "post_url"] {
+    for key in [
+        "method",
+        "center_point",
+        "dispatch_elapsed_ms",
+        "prompt_observation_source",
+        "prompt_observation_elapsed_ms",
+        "current_tree_elapsed_ms",
+        "post_snapshot_elapsed_ms",
+        "target_resolution_source",
+        "verify_elapsed_ms",
+        "settle_ms",
+        "pre_url",
+        "post_url",
+    ] {
         if let Some(value) = verify_value.get(key) {
             verify_summary.insert(key.to_string(), value.clone());
         }
@@ -773,9 +757,104 @@ fn compact_browser_click_history_entry(entry: &str) -> String {
     let summarized = format!(
         "{} verify={}",
         prefix,
-        serde_json::Value::Object(verify_summary)
+        serde_json::Value::Object(verify_summary.clone())
     );
-    truncate_chars_for_chat_context(&summarized, TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT)
+    if summarized.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT {
+        return summarized;
+    }
+
+    let mut pruned_summary = verify_summary;
+    let url_changed = pruned_summary
+        .get("postcondition")
+        .and_then(|value| value.as_object())
+        .and_then(|postcondition| postcondition.get("url_changed"))
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+
+    if !url_changed {
+        pruned_summary.remove("pre_url");
+        pruned_summary.remove("post_url");
+    }
+
+    let summarized = format!(
+        "{} verify={}",
+        prefix,
+        serde_json::Value::Object(pruned_summary.clone())
+    );
+    if summarized.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT {
+        return summarized;
+    }
+
+    for key in ["center_point", "focused_control"] {
+        pruned_summary.remove(key);
+        let candidate = format!(
+            "{} verify={}",
+            prefix,
+            serde_json::Value::Object(pruned_summary.clone())
+        );
+        if candidate.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT {
+            return candidate;
+        }
+    }
+
+    if pruned_summary
+        .get("postcondition")
+        .and_then(|value| value.as_object())
+        .is_some()
+    {
+        for key in [
+            "editable_focus_transition",
+            "target_disappeared",
+            "url_changed",
+        ] {
+            if let Some(postcondition) = pruned_summary
+                .get_mut("postcondition")
+                .and_then(|value| value.as_object_mut())
+            {
+                postcondition.remove(key);
+            }
+            let candidate = format!(
+                "{} verify={}",
+                prefix,
+                serde_json::Value::Object(pruned_summary.clone())
+            );
+            if candidate.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT {
+                return candidate;
+            }
+        }
+    }
+
+    if pruned_summary
+        .get("post_target")
+        .and_then(|value| value.as_object())
+        .is_some()
+    {
+        for key in ["selector", "dom_id", "tag_name"] {
+            if let Some(post_target) = pruned_summary
+                .get_mut("post_target")
+                .and_then(|value| value.as_object_mut())
+            {
+                post_target.remove(key);
+            }
+            let candidate = format!(
+                "{} verify={}",
+                prefix,
+                serde_json::Value::Object(pruned_summary.clone())
+            );
+            if candidate.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT {
+                return candidate;
+            }
+        }
+    }
+
+    truncate_chars_for_chat_context(
+        &format!(
+            "{} verify={}",
+            prefix,
+            serde_json::Value::Object(pruned_summary)
+        ),
+        TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT,
+    )
 }
 
 fn compact_browser_synthetic_click_history_entry(entry: &str) -> String {
@@ -799,29 +878,100 @@ fn compact_browser_synthetic_click_history_entry(entry: &str) -> String {
 
     let x = click.get("x").cloned().unwrap_or(serde_json::Value::Null);
     let y = click.get("y").cloned().unwrap_or(serde_json::Value::Null);
-    let mut summary = format!("Synthetic click at ({x}, {y})");
+    let summary_prefix = format!("Synthetic click at ({x}, {y})");
 
-    if let Some(postcondition) = value
-        .get("postcondition")
-        .and_then(|value| value.as_object())
-    {
-        let mut postcondition_summary = serde_json::Map::new();
-        for key in ["met", "tree_changed", "url_changed"] {
-            if let Some(field_value) = postcondition.get(key) {
-                postcondition_summary.insert(key.to_string(), field_value.clone());
+    let compact_target_json = |target: &serde_json::Value,
+                               include_locator: bool,
+                               include_center_point: bool|
+     -> Option<serde_json::Value> {
+        let object = target.as_object()?;
+        let mut compact = serde_json::Map::new();
+        for key in ["semantic_id", "tag_name"] {
+            if let Some(field_value) = object.get(key) {
+                compact.insert(key.to_string(), field_value.clone());
             }
         }
-        if !postcondition_summary.is_empty() {
-            summary.push_str(&format!(
-                " verify={}",
-                serde_json::json!({
-                    "postcondition": postcondition_summary,
-                })
-            ));
+        if include_locator {
+            for key in ["dom_id", "selector"] {
+                if let Some(field_value) = object.get(key) {
+                    compact.insert(key.to_string(), field_value.clone());
+                }
+            }
+        }
+        if include_center_point {
+            if let Some(field_value) = object.get("center_point") {
+                compact.insert("center_point".to_string(), field_value.clone());
+            }
+        }
+        (!compact.is_empty()).then_some(serde_json::Value::Object(compact))
+    };
+
+    let postcondition_summary = value
+        .get("postcondition")
+        .and_then(|value| value.as_object())
+        .map(|postcondition| {
+            let mut postcondition_summary = serde_json::Map::new();
+            for key in ["met", "tree_changed", "url_changed"] {
+                if let Some(field_value) = postcondition.get(key) {
+                    postcondition_summary.insert(key.to_string(), field_value.clone());
+                }
+            }
+            postcondition_summary
+        })
+        .filter(|summary| !summary.is_empty());
+
+    if let Some(postcondition_summary) = postcondition_summary {
+        let build_summary = |include_pre_target: bool,
+                             include_post_target: bool,
+                             include_locator: bool,
+                             include_center_point: bool|
+         -> Option<String> {
+            let mut verify_summary = serde_json::Map::new();
+            verify_summary.insert(
+                "postcondition".to_string(),
+                serde_json::Value::Object(postcondition_summary.clone()),
+            );
+
+            if include_pre_target {
+                if let Some(pre_target) = value.get("pre_target").and_then(|target| {
+                    compact_target_json(target, include_locator, include_center_point)
+                }) {
+                    verify_summary.insert("pre_target".to_string(), pre_target);
+                }
+            }
+            if include_post_target {
+                if let Some(post_target) = value.get("post_target").and_then(|target| {
+                    compact_target_json(target, include_locator, include_center_point)
+                }) {
+                    verify_summary.insert("post_target".to_string(), post_target);
+                }
+            }
+
+            let candidate = format!(
+                "{summary_prefix} verify={}",
+                serde_json::Value::Object(verify_summary)
+            );
+            (candidate.chars().count() <= TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT)
+                .then_some(candidate)
+        };
+
+        for candidate in [
+            build_summary(true, true, true, true),
+            build_summary(true, true, false, true),
+            build_summary(true, true, false, false),
+            build_summary(false, true, false, true),
+            build_summary(false, true, false, false),
+            build_summary(true, false, false, true),
+            build_summary(true, false, false, false),
+            build_summary(false, false, false, false),
+        ] {
+            if let Some(summary) = candidate {
+                return summary;
+            }
         }
     }
 
-    truncate_chars_for_chat_context(&summary, TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT)
+    truncate_chars_for_chat_context(&summary_prefix, TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT)
 }
 
 fn compact_tool_history_entry_for_chat(current_tool_name: &str, history_entry: &str) -> String {
@@ -2475,11 +2625,15 @@ mod tests {
     fn compact_browser_click_history_entry_summarizes_verbose_verify_payload() {
         let raw = concat!(
             "Clicked element 'grp_4' via geometry fallback. verify=",
-            "{\"center_point\":[52.0,69.0],\"dispatch_succeeded\":true,",
+            "{\"center_point\":[52.0,69.0],\"dispatch_elapsed_ms\":18234,",
+            "\"dispatch_succeeded\":true,",
+            "\"prompt_observation_source\":\"recent_prompt_observation_snapshot\",",
+            "\"prompt_observation_elapsed_ms\":17802,",
             "\"focused_control\":null,\"method\":\"geometry_center\",",
             "\"post_target\":{\"semantic_id\":\"grp_5\",\"dom_id\":null,",
             "\"selector\":\"#area_svg > rect:nth-of-type(1)\",\"tag_name\":\"rect\",",
             "\"backend_dom_node_id\":null},",
+            "\"post_snapshot_elapsed_ms\":14,",
             "\"post_url\":\"file:///tmp/ioi-miniwob-bridge/demo/miniwob/ascending-numbers.1.html\",",
             "\"postcondition\":{\"editable_focus_transition\":false,",
             "\"material_semantic_change\":true,\"met\":true,",
@@ -2488,7 +2642,8 @@ mod tests {
             "\"pre_target\":{\"semantic_id\":\"grp_4\",\"selector\":\"#area_svg > rect:nth-of-type(1)\",",
             "\"tag_name\":\"rect\",\"center_point\":[52.0,69.0]},",
             "\"pre_url\":\"file:///tmp/ioi-miniwob-bridge/demo/miniwob/ascending-numbers.1.html\",",
-            "\"settle_ms\":360}"
+            "\"settle_ms\":360,\"target_resolution_source\":\"prompt_observation_tree\",",
+            "\"verify_elapsed_ms\":379}"
         );
 
         let compact = compact_tool_history_entry_for_chat("browser__click_element", raw);
@@ -2501,6 +2656,19 @@ mod tests {
             compact.contains("\"method\":\"geometry_center\""),
             "{compact}"
         );
+        assert!(
+            compact.contains("\"dispatch_elapsed_ms\":18234"),
+            "{compact}"
+        );
+        assert!(
+            compact
+                .contains("\"prompt_observation_source\":\"recent_prompt_observation_snapshot\""),
+            "{compact}"
+        );
+        assert!(
+            compact.contains("\"target_resolution_source\":\"prompt_observation_tree\""),
+            "{compact}"
+        );
         assert!(compact.contains("\"semantic_change_delta\":6"), "{compact}");
         assert!(compact.contains("\"post_target\""), "{compact}");
         assert!(!compact.contains("\"pre_target\""), "{compact}");
@@ -2510,7 +2678,7 @@ mod tests {
 
     #[test]
     fn compact_browser_synthetic_click_history_entry_summarizes_postcondition() {
-        let raw = r#"{"synthetic_click":{"x":60,"y":107},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#;
+        let raw = r##"{"synthetic_click":{"x":60,"y":107},"pre_target":{"semantic_id":"grp_vertex","selector":"#blue-circle","tag_name":"circle","center_point":[31.0,108.0],"focused":false},"post_target":{"semantic_id":"grp_blue_circle","selector":"#blue-circle","tag_name":"circle","center_point":[53.0,118.0],"focused":false},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"##;
 
         let compact = compact_tool_history_entry_for_chat("browser__synthetic_click", raw);
 
@@ -2520,5 +2688,43 @@ mod tests {
         );
         assert!(compact.contains(r#""met":true"#), "{compact}");
         assert!(compact.contains(r#""tree_changed":true"#), "{compact}");
+        assert!(compact.contains(r#""pre_target":{"#), "{compact}");
+        assert!(
+            compact.contains(r#""semantic_id":"grp_vertex""#),
+            "{compact}"
+        );
+        assert!(compact.contains(r#""post_target":{"#), "{compact}");
+        assert!(
+            compact.contains(r#""semantic_id":"grp_blue_circle""#),
+            "{compact}"
+        );
+    }
+
+    #[test]
+    fn compact_browser_synthetic_click_history_entry_keeps_verify_json_parseable_under_budget() {
+        let raw = r##"{"synthetic_click":{"x":51.0,"y":103.0},"pre_target":{"semantic_id":"grp_large_line_from_31108_to_9181","selector":"#svg-grid > line:nth-of-type(2)","tag_name":"line","center_point":[61.0,94.5],"focused":false,"editable":false,"checked":null,"selected":null},"post_target":{"semantic_id":"grp_blue_circle","dom_id":"blue-circle","selector":"#blue-circle","tag_name":"circle","center_point":[53.5,105.5],"focused":false,"editable":false,"checked":null,"selected":null},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"##;
+
+        let compact = compact_tool_history_entry_for_chat("browser__synthetic_click", raw);
+        let verify_json = compact
+            .split_once(" verify=")
+            .map(|(_, verify)| verify)
+            .expect("synthetic click compact summary should keep verify payload");
+        let parsed = serde_json::from_str::<serde_json::Value>(verify_json)
+            .expect("verify payload should remain valid JSON");
+
+        assert!(
+            compact.chars().count() <= super::TOOL_CHAT_HISTORY_BROWSER_CLICK_CHAR_LIMIT,
+            "{compact}"
+        );
+        assert_eq!(
+            parsed["postcondition"]["met"],
+            serde_json::Value::Bool(true),
+            "{compact}"
+        );
+        assert_eq!(
+            parsed["post_target"]["semantic_id"],
+            serde_json::Value::String("grp_blue_circle".to_string()),
+            "{compact}"
+        );
     }
 }

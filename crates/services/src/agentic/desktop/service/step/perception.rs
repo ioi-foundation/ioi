@@ -17,7 +17,7 @@ use ioi_drivers::gui::operator::NativeOperator;
 use ioi_drivers::gui::platform::fetch_tree_direct;
 use ioi_drivers::gui::som::{assign_som_ids, draw_som_overlay};
 use ioi_drivers::mcp::compression::ContextCompressor;
-use ioi_types::app::agentic::LlmToolDefinition;
+use ioi_types::app::agentic::{IntentScopeProfile, LlmToolDefinition};
 use ioi_types::error::TransactionError;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -62,6 +62,18 @@ fn format_window_label(win: &WindowInfo) -> String {
         (true, false) => app.to_string(),
         (true, true) => "Unknown".to_string(),
     }
+}
+
+fn should_omit_passive_workspace_context(
+    tier: ExecutionTier,
+    active_window_title: &str,
+    resolved_scope: Option<IntentScopeProfile>,
+    tools: &[LlmToolDefinition],
+) -> bool {
+    tier == ExecutionTier::DomHeadless
+        && matches!(resolved_scope, Some(IntentScopeProfile::UiInteraction))
+        && is_browser_surface("", active_window_title)
+        && tools.iter().any(|tool| tool.name.starts_with("browser__"))
 }
 
 fn default_browser_chrome_ui_height() -> i32 {
@@ -318,27 +330,7 @@ pub async fn gather_context(
         None
     };
 
-    // 2. Passive Context Injection
-    let workspace_path = Path::new(&service.workspace_path);
-    let agents_md_path = workspace_path.join("AGENTS.md");
-    let project_index = ContextCompressor::generate_tree_index(workspace_path, 4);
-    let agents_md_content = if agents_md_path.exists() {
-        std::fs::read_to_string(&agents_md_path).unwrap_or_default()
-    } else {
-        String::new()
-    };
-
-    // 3. Hybrid RAG
-    let rag_phash_filter = if current_tier == ExecutionTier::VisualForeground {
-        Some(visual_phash)
-    } else {
-        None
-    };
-    let memory_pointers = service
-        .retrieve_context_hybrid(&agent_state.goal, rag_phash_filter)
-        .await;
-
-    // 4. Dynamic Tool Discovery
+    // 2. Dynamic Tool Discovery
     let tools_runtime = service.fast_inference.clone();
     let tools = discover_tools(
         state,
@@ -351,6 +343,38 @@ pub async fn gather_context(
         agent_state.resolved_intent.as_ref(),
     )
     .await;
+
+    // 3. Passive Context Injection
+    let omit_passive_workspace_context = should_omit_passive_workspace_context(
+        current_tier,
+        &active_window_title,
+        agent_state
+            .resolved_intent
+            .as_ref()
+            .map(|intent| intent.scope),
+        &tools,
+    );
+    let (project_index, agents_md_content, memory_pointers) = if omit_passive_workspace_context {
+        (String::new(), String::new(), String::new())
+    } else {
+        let workspace_path = Path::new(&service.workspace_path);
+        let agents_md_path = workspace_path.join("AGENTS.md");
+        let project_index = ContextCompressor::generate_tree_index(workspace_path, 4);
+        let agents_md_content = if agents_md_path.exists() {
+            std::fs::read_to_string(&agents_md_path).unwrap_or_default()
+        } else {
+            String::new()
+        };
+        let rag_phash_filter = if current_tier == ExecutionTier::VisualForeground {
+            Some(visual_phash)
+        } else {
+            None
+        };
+        let memory_pointers = service
+            .retrieve_context_hybrid(&agent_state.goal, rag_phash_filter)
+            .await;
+        (project_index, agents_md_content, memory_pointers)
+    };
 
     let discovered_tool_names = tools
         .iter()
@@ -378,11 +402,12 @@ pub async fn gather_context(
         })
         .unwrap_or_default();
     log::info!(
-        "Perception discovered tools for current step session={} resolved_intent={} tool_count={} mail_tool_count={} required_capabilities={:?} tools={:?} mail_tools={:?}",
+        "Perception discovered tools for current step session={} resolved_intent={} tool_count={} mail_tool_count={} omit_passive_workspace_context={} required_capabilities={:?} tools={:?} mail_tools={:?}",
         hex::encode(agent_state.session_id),
         resolved_intent_id,
         discovered_tool_names.len(),
         discovered_mail_tools.len(),
+        omit_passive_workspace_context,
         resolved_caps,
         discovered_tool_names,
         discovered_mail_tools
@@ -764,7 +789,17 @@ async fn capture_foreground_visuals(
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_browser_chrome_top;
+    use super::{normalize_browser_chrome_top, should_omit_passive_workspace_context};
+    use crate::agentic::desktop::types::ExecutionTier;
+    use ioi_types::app::agentic::{IntentScopeProfile, LlmToolDefinition};
+
+    fn tool(name: &str) -> LlmToolDefinition {
+        LlmToolDefinition {
+            name: name.to_string(),
+            description: String::new(),
+            parameters: "{}".to_string(),
+        }
+    }
 
     #[test]
     fn normalize_browser_chrome_top_clamps_reasonable_values() {
@@ -776,5 +811,25 @@ mod tests {
         assert_eq!(normalize_browser_chrome_top(999.0), None);
         assert_eq!(normalize_browser_chrome_top(f64::NAN), None);
         assert_eq!(normalize_browser_chrome_top(f64::INFINITY), None);
+    }
+
+    #[test]
+    fn omits_passive_workspace_context_for_dom_headless_browser_ui_steps() {
+        assert!(should_omit_passive_workspace_context(
+            ExecutionTier::DomHeadless,
+            "Chromium (chromium)",
+            Some(IntentScopeProfile::UiInteraction),
+            &[tool("browser__snapshot"), tool("browser__click_element")]
+        ));
+    }
+
+    #[test]
+    fn retains_passive_workspace_context_for_command_steps() {
+        assert!(!should_omit_passive_workspace_context(
+            ExecutionTier::DomHeadless,
+            "Chromium (chromium)",
+            Some(IntentScopeProfile::CommandExecution),
+            &[tool("browser__snapshot"), tool("browser__click_element")]
+        ));
     }
 }

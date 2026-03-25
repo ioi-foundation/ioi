@@ -115,6 +115,8 @@ impl BrowserDriver {
             .map_err(|e| BrowserError::Internal(format!("Failed to query active URL: {}", e)))?
             .unwrap_or_default();
         *self.active_page_url.lock().await = Some(current_url.clone());
+        self.record_browser_use_event("GoBackEvent", None, Some(current_url.clone()), None)
+            .await;
 
         Ok((moved, current_url))
     }
@@ -131,5 +133,7 @@ include!("page_ops/file_inputs.rs");
 include!("page_ops/dropdowns.rs");
 
 include!("page_ops/tab_management.rs");
+
+include!("page_ops/browser_use_state.rs");
 
 include!("page_ops/input_events.rs");

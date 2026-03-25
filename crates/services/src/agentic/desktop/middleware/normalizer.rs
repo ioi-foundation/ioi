@@ -5,10 +5,11 @@ use serde_json::{json, Value};
 use super::builtins::{canonical_deterministic_tool_name, is_deterministic_tool_name};
 use super::coercion::{
     lower_edit_line_to_fs_write, normalize_browser_click_element_arguments,
-    normalize_browser_synthetic_click_arguments, normalize_browser_wait_arguments,
-    normalize_install_package_arguments, normalize_net_fetch_arguments,
-    normalize_ui_click_arguments, normalize_ui_click_component_arguments,
-    normalize_ui_scroll_arguments, normalize_ui_type_arguments,
+    normalize_browser_key_arguments, normalize_browser_synthetic_click_arguments,
+    normalize_browser_wait_arguments, normalize_install_package_arguments,
+    normalize_net_fetch_arguments, normalize_ui_click_arguments,
+    normalize_ui_click_component_arguments, normalize_ui_scroll_arguments,
+    normalize_ui_type_arguments,
 };
 use super::envelope::{sanitize_json, unwrap_tool_envelope};
 use super::ToolNormalizer;
@@ -141,6 +142,8 @@ impl ToolNormalizer {
             let mut net_fetch_present = false;
             let mut browser_click_element_args: Option<Value> = None;
             let mut browser_click_element_present = false;
+            let mut browser_key_args: Option<Value> = None;
+            let mut browser_key_present = false;
             let mut browser_wait_args: Option<Value> = None;
             let mut browser_wait_present = false;
             if let Some(map_mut) = raw_val.as_object_mut() {
@@ -260,6 +263,15 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
+                    if name == "browser__key" {
+                        browser_key_present = true;
+                        browser_key_args = Some(
+                            map_mut
+                                .get("arguments")
+                                .cloned()
+                                .unwrap_or_else(|| json!({})),
+                        );
+                    }
                     if name == "browser__wait" {
                         browser_wait_present = true;
                         browser_wait_args = Some(
@@ -356,6 +368,13 @@ impl ToolNormalizer {
                 let normalized = normalize_browser_click_element_arguments(&args)?;
                 raw_val = json!({
                     "name": "browser__click_element",
+                    "arguments": normalized,
+                });
+            } else if browser_key_present {
+                let args = browser_key_args.unwrap_or_else(|| json!({}));
+                let normalized = normalize_browser_key_arguments(&args)?;
+                raw_val = json!({
+                    "name": "browser__key",
                     "arguments": normalized,
                 });
             } else if browser_wait_present {

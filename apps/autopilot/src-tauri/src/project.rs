@@ -71,6 +71,7 @@ pub struct ProjectShellSnapshot {
 pub struct ProjectFileDocument {
     pub name: String,
     pub path: String,
+    pub absolute_path: String,
     pub language_hint: Option<String>,
     pub content: String,
     pub size_bytes: usize,
@@ -324,6 +325,7 @@ fn read_project_file_document(
     Ok(ProjectFileDocument {
         name: file_name_for_path(&file_path),
         path: relative_path(root, &file_path),
+        absolute_path: file_path.display().to_string(),
         language_hint: language_hint_for_path(&file_path),
         content,
         size_bytes,

@@ -134,7 +134,9 @@ fn browser_input_tools_map_to_custom_targets() {
 
     let key_tool = AgentTool::BrowserKey {
         key: "Enter".to_string(),
+        selector: None,
         modifiers: None,
+        continue_with: None,
     };
     assert_eq!(
         key_tool.target(),
@@ -165,6 +167,27 @@ fn browser_key_normalizer_accepts_key() {
 
     match tool {
         AgentTool::BrowserKey { key, .. } => assert_eq!(key, "Enter"),
+        other => panic!("expected BrowserKey, got {:?}", other),
+    }
+}
+
+#[test]
+fn browser_key_normalizer_accepts_selector() {
+    let tool = normalize_tool_call(
+        r##"{"name":"browser__key","arguments":{"key":"Home","selector":"#text-area","modifiers":["Control"]}}"##,
+    )
+    .expect("normalization should succeed");
+
+    match tool {
+        AgentTool::BrowserKey {
+            key,
+            selector,
+            modifiers,
+        } => {
+            assert_eq!(key, "Home");
+            assert_eq!(selector.as_deref(), Some("#text-area"));
+            assert_eq!(modifiers.as_deref(), Some(&["Control".to_string()][..]));
+        }
         other => panic!("expected BrowserKey, got {:?}", other),
     }
 }
@@ -201,7 +224,8 @@ fn queue_custom_browser_key_target_maps_to_typed_tool() {
     let request = ActionRequest {
         target: ActionTarget::Custom("browser__key".to_string()),
         params: serde_jcs::to_vec(&serde_json::json!({
-            "key": "Enter"
+            "key": "Enter",
+            "selector": "#text-area"
         }))
         .unwrap(),
         context: ioi_types::app::ActionContext {
@@ -214,7 +238,10 @@ fn queue_custom_browser_key_target_maps_to_typed_tool() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::BrowserKey { key, .. } => assert_eq!(key, "Enter"),
+        AgentTool::BrowserKey { key, selector, .. } => {
+            assert_eq!(key, "Enter");
+            assert_eq!(selector.as_deref(), Some("#text-area"));
+        }
         other => panic!("expected BrowserKey, got {:?}", other),
     }
 }

@@ -1,20 +1,30 @@
 use super::super::{ToolExecutionResult, ToolExecutor};
 use super::element_click::{
-    find_semantic_target_by_id, handle_browser_click_element, selector_fallback_candidates,
-    BrowserSemanticTarget,
+    capture_execution_prompt_browser_tree, find_nearest_semantic_target_by_point,
+    find_semantic_target_by_id, find_semantic_target_by_som_id, handle_browser_click_element,
+    resolve_semantic_target_from_current_or_prompt_tree, run_browser_dispatch_with_timeout,
+    semantic_target_verification_json, BrowserSemanticTarget,
 };
 use super::selector_click::{ensure_browser_focus_guard, handle_browser_click};
-use super::tree::{apply_browser_auto_lens, detect_human_challenge, render_browser_tree_xml};
+use super::snapshot::append_browser_snapshot_supplement;
+use super::tree::{
+    apply_browser_auto_lens_with_som, detect_human_challenge, render_browser_tree_xml,
+};
 use crate::agentic::desktop::middleware;
+use image::ImageFormat;
 use ioi_drivers::gui::accessibility::AccessibilityNode;
+use ioi_drivers::gui::geometry::{CoordinateSpace, DisplayTransform, Point};
+use ioi_drivers::gui::som::draw_som_overlay;
 use ioi_types::app::agentic::{AgentTool, AgentToolCall};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::env;
+use std::io::Cursor;
 use std::path::PathBuf;
 use tokio::time::{sleep, Duration, Instant};
 
 const RECENT_BROWSER_HOVER_SNAPSHOT_MAX_AGE: Duration = Duration::from_millis(5_000);
+const RECENT_BROWSER_SNAPSHOT_ARTIFACTS_MAX_AGE: Duration = Duration::from_millis(5_000);
 const DEFAULT_BROWSER_HOVER_TRACK_INTERVAL_MS: u64 = 0;
 const MIN_BROWSER_HOVER_TRACK_INTERVAL_MS: u64 = 0;
 const MAX_BROWSER_HOVER_TRACK_INTERVAL_MS: u64 = 1_000;
@@ -36,10 +46,83 @@ fn semantic_candidates(semantic_blob: &str) -> Vec<String> {
         .collect()
 }
 
-async fn capture_browser_tree_xml(exec: &ToolExecutor) -> Option<String> {
+async fn browser_snapshot_transform(
+    exec: &ToolExecutor,
+    image_width: u32,
+    image_height: u32,
+) -> DisplayTransform {
+    let scale_factor = exec
+        .browser
+        .get_content_frame()
+        .await
+        .ok()
+        .and_then(|frame| {
+            let width = frame.rect.width;
+            (width > 0.0).then_some(image_width as f64 / width)
+        })
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .unwrap_or(1.0);
+
+    DisplayTransform::new(
+        scale_factor,
+        Point::new(0.0, 0.0, CoordinateSpace::ScreenLogical),
+        Point::new(0.0, 0.0, CoordinateSpace::ImagePhysical),
+        image_width,
+        image_height,
+    )
+}
+
+async fn capture_browser_snapshot_visual_observation(
+    exec: &ToolExecutor,
+    raw_tree: &AccessibilityNode,
+) -> Result<Vec<u8>, String> {
+    let raw_bytes = exec
+        .browser
+        .capture_tab_screenshot(false)
+        .await
+        .map_err(|e| format!("Browser screenshot failed: {}", e))?;
+    let mut image = image::load_from_memory(&raw_bytes)
+        .map_err(|e| format!("Browser screenshot decode failed: {}", e))?
+        .to_rgba8();
+
+    let transform = browser_snapshot_transform(exec, image.width(), image.height()).await;
+    draw_som_overlay(&mut image, raw_tree, &transform);
+
+    let mut encoded = Vec::new();
+    image::DynamicImage::ImageRgba8(image)
+        .write_to(&mut Cursor::new(&mut encoded), ImageFormat::Png)
+        .map_err(|e| format!("Browser screenshot encode failed: {}", e))?;
+    Ok(encoded)
+}
+
+fn resolve_synthetic_click_target_by_id(
+    tree: &AccessibilityNode,
+    semantic_id: &str,
+) -> Result<(f64, f64, BrowserSemanticTarget), ToolExecutionResult> {
+    let Some(target) = find_semantic_target_by_id(tree, semantic_id) else {
+        return Err(ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__snapshot` again and retry with a fresh ID.",
+            semantic_id
+        )));
+    };
+    let Some((x, y)) = target.center_point else {
+        return Err(ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=TargetNotFound Element '{}' is present but does not expose clickable geometry for `browser__synthetic_click`.",
+            semantic_id
+        )));
+    };
+
+    Ok((x, y, target))
+}
+
+async fn capture_current_browser_tree(exec: &ToolExecutor) -> Option<AccessibilityNode> {
     let raw_tree = exec.browser.get_accessibility_tree().await.ok()?;
-    let transformed = apply_browser_auto_lens(raw_tree);
-    Some(render_browser_tree_xml(&transformed))
+    Some(apply_browser_auto_lens_with_som(&raw_tree))
+}
+
+async fn capture_prompt_browser_tree(exec: &ToolExecutor) -> Option<AccessibilityNode> {
+    let (tree, _) = capture_execution_prompt_browser_tree(exec).await?;
+    Some(tree)
 }
 
 fn normalize_browser_follow_up(
@@ -70,6 +153,7 @@ fn normalize_browser_follow_up(
         AgentTool::BrowserClick { .. }
             | AgentTool::BrowserClickElement { .. }
             | AgentTool::BrowserWait { .. }
+            | AgentTool::BrowserType { .. }
             | AgentTool::BrowserKey { .. }
             | AgentTool::BrowserHover { .. }
             | AgentTool::BrowserSyntheticClick { .. }
@@ -101,6 +185,13 @@ fn history_entry_json_value(entry: Option<&str>) -> serde_json::Value {
 fn browser_follow_up_activates_visible_control(tool: &AgentTool) -> Result<bool, String> {
     match tool {
         AgentTool::BrowserClick { .. } | AgentTool::BrowserClickElement { .. } => Ok(true),
+        AgentTool::BrowserKey { continue_with, .. } => {
+            let Some(continue_with) = continue_with.as_ref() else {
+                return Ok(false);
+            };
+            let nested = normalize_browser_follow_up(continue_with, "browser__key")?;
+            browser_follow_up_activates_visible_control(&nested)
+        }
         AgentTool::BrowserWait { continue_with, .. } => {
             let Some(continue_with) = continue_with.as_ref() else {
                 return Ok(false);
@@ -126,8 +217,47 @@ fn synthetic_click_postcondition_met(postcondition: &serde_json::Value) -> bool 
         .unwrap_or(false)
 }
 
+fn click_history_entry_verify_payload(entry: Option<&str>) -> Option<serde_json::Value> {
+    let entry = entry.map(str::trim).filter(|value| !value.is_empty())?;
+    let (_, verify_text) = entry.split_once(" verify=")?;
+    serde_json::from_str(verify_text).ok()
+}
+
+fn click_follow_up_requires_post_action_observation(
+    click_history_entry: Option<&str>,
+    tool: &AgentTool,
+) -> Result<bool, String> {
+    if !browser_follow_up_activates_visible_control(tool)? {
+        return Ok(false);
+    }
+
+    let Some(verify) = click_history_entry_verify_payload(click_history_entry) else {
+        return Ok(false);
+    };
+    let geometry_dispatched = verify
+        .get("method")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|method| method.starts_with("geometry_"));
+    let postcondition_met = verify
+        .get("postcondition")
+        .map(synthetic_click_postcondition_met)
+        .unwrap_or(false);
+
+    Ok(geometry_dispatched && postcondition_met)
+}
+
 fn browser_semantic_target_is_actionable(target: &BrowserSemanticTarget) -> bool {
-    target.backend_dom_node_id.is_some()
+    target
+        .selector
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|selector| !selector.is_empty())
+        || target
+            .dom_id
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|dom_id| !dom_id.is_empty())
+        || target.backend_dom_node_id.is_some()
         || target.cdp_node_id.is_some()
         || target.center_point.is_some()
 }
@@ -147,17 +277,33 @@ async fn dispatch_browser_click_element_without_verification(
         return Err(blocked);
     }
 
+    let prompt_tree = capture_prompt_browser_tree(exec).await;
     let raw_tree = match exec.browser.get_accessibility_tree().await {
         Ok(tree) => tree,
         Err(e) => {
+            if let Some(prompt_tree) = prompt_tree.as_ref() {
+                if let Some((semantic_target, _)) =
+                    resolve_semantic_target_from_current_or_prompt_tree(None, Some(prompt_tree), id)
+                {
+                    if browser_semantic_target_is_actionable(&semantic_target) {
+                        return dispatch_browser_click_with_target(exec, id, &semantic_target)
+                            .await;
+                    }
+                }
+            }
+
             return Err(ToolExecutionResult::failure(format!(
                 "Failed to fetch browser accessibility tree: {}",
                 e
-            )))
+            )));
         }
     };
-    let transformed = apply_browser_auto_lens(raw_tree);
-    let Some(semantic_target) = find_semantic_target_by_id(&transformed, id) else {
+    let transformed = apply_browser_auto_lens_with_som(&raw_tree);
+    let Some((semantic_target, _)) = resolve_semantic_target_from_current_or_prompt_tree(
+        Some(&transformed),
+        prompt_tree.as_ref(),
+        id,
+    ) else {
         return Err(ToolExecutionResult::failure(format!(
             "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__snapshot` again and retry with a fresh ID.",
             id
@@ -170,9 +316,22 @@ async fn dispatch_browser_click_element_without_verification(
         )));
     }
 
+    dispatch_browser_click_with_target(exec, id, &semantic_target).await
+}
+
+async fn dispatch_browser_click_with_target(
+    exec: &ToolExecutor,
+    id: &str,
+    semantic_target: &BrowserSemanticTarget,
+) -> Result<DispatchedBrowserClickElement, ToolExecutionResult> {
     let mut click_errors = Vec::new();
     if let Some(backend_id) = semantic_target.backend_dom_node_id.as_deref() {
-        match exec.browser.click_backend_dom_node(backend_id).await {
+        match run_browser_dispatch_with_timeout(
+            exec.browser
+                .click_backend_dom_node_in_target(backend_id, semantic_target.target_id.as_deref()),
+        )
+        .await
+        {
             Ok(()) => {
                 return Ok(DispatchedBrowserClickElement {
                     id: id.to_string(),
@@ -180,11 +339,16 @@ async fn dispatch_browser_click_element_without_verification(
                     center_point: None,
                 })
             }
-            Err(e) => click_errors.push(format!("backend_dom_node_id={}", e)),
+            Err(error) => click_errors.push(format!("backend_dom_node_id={}", error)),
         }
     }
     if let Some(cdp_id) = semantic_target.cdp_node_id.as_deref() {
-        match exec.browser.click_ax_node(cdp_id).await {
+        match run_browser_dispatch_with_timeout(
+            exec.browser
+                .click_ax_node_in_target(cdp_id, semantic_target.target_id.as_deref()),
+        )
+        .await
+        {
             Ok(()) => {
                 return Ok(DispatchedBrowserClickElement {
                     id: id.to_string(),
@@ -192,11 +356,11 @@ async fn dispatch_browser_click_element_without_verification(
                     center_point: None,
                 })
             }
-            Err(e) => click_errors.push(format!("cdp_node_id={}", e)),
+            Err(error) => click_errors.push(format!("cdp_node_id={}", error)),
         }
     }
     if let Some((x, y)) = semantic_target.center_point {
-        match exec.browser.synthetic_click(x, y).await {
+        match run_browser_dispatch_with_timeout(exec.browser.synthetic_click(x, y)).await {
             Ok(()) => {
                 return Ok(DispatchedBrowserClickElement {
                     id: id.to_string(),
@@ -204,19 +368,9 @@ async fn dispatch_browser_click_element_without_verification(
                     center_point: Some((x, y)),
                 })
             }
-            Err(e) => click_errors.push(format!("geometry_center=({:.2},{:.2})={}", x, y, e)),
-        }
-    }
-    for selector in selector_fallback_candidates(&semantic_target) {
-        match exec.browser.click_selector(&selector).await {
-            Ok(()) => {
-                return Ok(DispatchedBrowserClickElement {
-                    id: id.to_string(),
-                    method: format!("selector_fallback:{selector}"),
-                    center_point: None,
-                })
+            Err(error) => {
+                click_errors.push(format!("geometry_center=({:.2},{:.2})={}", x, y, error))
             }
-            Err(error) => click_errors.push(format!("selector_fallback({})={}", selector, error)),
         }
     }
 
@@ -254,20 +408,6 @@ async fn execute_browser_synthetic_click_follow_up(
                 .to_string(),
         );
     }
-    Ok(Box::pin(execute_normalized_browser_follow_up(
-        exec,
-        semantic_map,
-        tool,
-    ))
-    .await)
-}
-
-async fn execute_browser_click_follow_up(
-    exec: &ToolExecutor,
-    semantic_map: Option<&BTreeMap<u32, String>>,
-    continue_with: &AgentToolCall,
-) -> Result<ToolExecutionResult, String> {
-    let tool = normalize_browser_follow_up(continue_with, "browser__click_element")?;
     Ok(Box::pin(execute_normalized_browser_follow_up(
         exec,
         semantic_map,
@@ -317,16 +457,47 @@ async fn finalize_browser_click_result(
 
     let click_entry = history_entry_json_value(click_result.history_entry.as_deref());
     let click_visual_observation = click_result.visual_observation;
-    let follow_up_result =
-        match execute_browser_click_follow_up(exec, semantic_map, &continue_with).await {
-            Ok(result) => result,
-            Err(reason) => {
-                return ToolExecutionResult::failure(format!(
-                    "Browser click follow-up failed: {}",
-                    reason
-                ))
+    let follow_up_tool = match normalize_browser_follow_up(&continue_with, "browser__click_element")
+    {
+        Ok(tool) => tool,
+        Err(reason) => {
+            return ToolExecutionResult::failure(format!(
+                "Browser click follow-up failed: {}",
+                reason
+            ))
+        }
+    };
+    if click_follow_up_requires_post_action_observation(
+        click_result.history_entry.as_deref(),
+        &follow_up_tool,
+    )
+    .unwrap_or(false)
+    {
+        let payload = json!({
+            "click": click_entry,
+            "continue_with": {
+                "name": continue_with.name,
+                "arguments": continue_with.arguments,
+                "success": false,
+                "skipped": true,
+                "error": "ERROR_CLASS=PostActionObservationRequired browser__click_element continue_with cannot activate a visible control until the geometry-backed click is re-observed. Re-evaluate the page or surface before submit/commit clicks.",
             }
-        };
+        });
+        if let Some(visual_observation) = click_visual_observation {
+            return ToolExecutionResult::success_with_visual_observation(
+                payload.to_string(),
+                visual_observation,
+            );
+        }
+        return ToolExecutionResult::success(payload.to_string());
+    }
+
+    let follow_up_result = Box::pin(execute_normalized_browser_follow_up(
+        exec,
+        semantic_map,
+        follow_up_tool,
+    ))
+    .await;
     if !follow_up_result.success {
         let payload = json!({
             "click": click_entry,
@@ -355,6 +526,71 @@ async fn finalize_browser_click_result(
     if let Some(visual_observation) = follow_up_result
         .visual_observation
         .or(click_visual_observation)
+    {
+        ToolExecutionResult::success_with_visual_observation(
+            payload.to_string(),
+            visual_observation,
+        )
+    } else {
+        ToolExecutionResult::success(payload.to_string())
+    }
+}
+
+async fn finalize_browser_key_result(
+    exec: &ToolExecutor,
+    semantic_map: Option<&BTreeMap<u32, String>>,
+    key_result: ToolExecutionResult,
+    continue_with: Option<AgentToolCall>,
+) -> ToolExecutionResult {
+    let Some(continue_with) = continue_with else {
+        return key_result;
+    };
+    if !key_result.success {
+        return key_result;
+    }
+
+    let key_entry = history_entry_json_value(key_result.history_entry.as_deref());
+    let key_visual_observation = key_result.visual_observation;
+    let follow_up_tool = match normalize_browser_follow_up(&continue_with, "browser__key") {
+        Ok(tool) => tool,
+        Err(reason) => {
+            return ToolExecutionResult::failure(format!(
+                "Browser key follow-up failed: {}",
+                reason
+            ))
+        }
+    };
+    let follow_up_result = Box::pin(execute_normalized_browser_follow_up(
+        exec,
+        semantic_map,
+        follow_up_tool,
+    ))
+    .await;
+    if !follow_up_result.success {
+        let payload = json!({
+            "key": key_entry,
+            "continue_with": {
+                "name": continue_with.name,
+                "arguments": continue_with.arguments,
+                "success": false,
+                "error": follow_up_result.error,
+            }
+        });
+        return ToolExecutionResult::failure(format!("Browser key follow-up failed: {}", payload));
+    }
+
+    let payload = json!({
+        "key": key_entry,
+        "continue_with": {
+            "name": continue_with.name,
+            "arguments": continue_with.arguments,
+            "success": true,
+            "result": history_entry_json_value(follow_up_result.history_entry.as_deref()),
+        }
+    });
+    if let Some(visual_observation) = follow_up_result
+        .visual_observation
+        .or(key_visual_observation)
     {
         ToolExecutionResult::success_with_visual_observation(
             payload.to_string(),
@@ -608,28 +844,32 @@ async fn resolve_semantic_target_from_som(
     som_id: u32,
     semantic_map: Option<&BTreeMap<u32, String>>,
 ) -> Result<super::element_click::BrowserSemanticTarget, String> {
-    let semantic_map = semantic_map.ok_or_else(|| {
-        "SoM map unavailable. Run a fresh perception step before using som_id.".to_string()
-    })?;
-    let semantic_blob = semantic_map
-        .get(&som_id)
-        .ok_or_else(|| format!("SoM id '{}' not found in current semantic map.", som_id))?;
-    let candidates = semantic_candidates(semantic_blob);
-    if candidates.is_empty() {
-        return Err(format!(
-            "SoM id '{}' has no semantic candidates in the current map.",
-            som_id
-        ));
-    }
-
     let raw_tree = exec
         .browser
         .get_accessibility_tree()
         .await
         .map_err(|e| format!("Failed to fetch browser accessibility tree: {}", e))?;
-    let transformed = apply_browser_auto_lens(raw_tree);
 
-    for candidate in candidates {
+    if let Some(target) = find_semantic_target_by_som_id(&raw_tree, som_id) {
+        return Ok(target);
+    }
+
+    let transformed = apply_browser_auto_lens_with_som(&raw_tree);
+    if let Some(target) = find_semantic_target_by_som_id(&transformed, som_id) {
+        return Ok(target);
+    }
+
+    let Some(semantic_map) = semantic_map else {
+        return Err(format!(
+            "SoM id '{}' is not present in the current browser snapshot.",
+            som_id
+        ));
+    };
+    let semantic_blob = semantic_map
+        .get(&som_id)
+        .ok_or_else(|| format!("SoM id '{}' not found in current semantic map.", som_id))?;
+
+    for candidate in semantic_candidates(semantic_blob) {
         if let Some(target) = find_semantic_target_by_id(&transformed, &candidate) {
             return Ok(target);
         }
@@ -655,7 +895,7 @@ async fn resolve_browser_target_from_id(
         .get_accessibility_tree()
         .await
         .map_err(|e| format!("Failed to fetch browser accessibility tree: {}", e))?;
-    let transformed = apply_browser_auto_lens(raw_tree);
+    let transformed = apply_browser_auto_lens_with_som(&raw_tree);
 
     find_semantic_target_by_id(&transformed, id).ok_or_else(|| {
         format!(
@@ -665,37 +905,8 @@ async fn resolve_browser_target_from_id(
     })
 }
 
-fn browser_type_selector_lookup_token(selector: &str) -> Option<&str> {
-    let selector = selector.trim();
-    if selector.is_empty() {
-        return None;
-    }
-
-    let token = selector.strip_prefix('#').unwrap_or(selector);
-    if token.is_empty()
-        || token
-            .chars()
-            .any(|ch| !(ch.is_ascii_alphanumeric() || ch == '_' || ch == '-'))
-    {
-        return None;
-    }
-
-    Some(token)
-}
-
-fn browser_type_selector_fallbacks_for_target(
-    requested_selector: &str,
-    target: &BrowserSemanticTarget,
-) -> Vec<String> {
-    let requested_selector = requested_selector.trim();
-    selector_fallback_candidates(target)
-        .into_iter()
-        .filter(|candidate| candidate.trim() != requested_selector)
-        .collect()
-}
-
 async fn browser_type_selector_candidates(
-    exec: &ToolExecutor,
+    _exec: &ToolExecutor,
     selector: Option<&str>,
 ) -> Vec<Option<String>> {
     let Some(requested_selector) = selector
@@ -706,26 +917,7 @@ async fn browser_type_selector_candidates(
         return vec![None];
     };
 
-    let mut candidates = vec![Some(requested_selector.clone())];
-    let Some(token) = browser_type_selector_lookup_token(&requested_selector) else {
-        return candidates;
-    };
-
-    let Ok(target) = resolve_browser_target_from_id(exec, token).await else {
-        return candidates;
-    };
-
-    for fallback in browser_type_selector_fallbacks_for_target(&requested_selector, &target) {
-        if !candidates
-            .iter()
-            .flatten()
-            .any(|candidate| candidate == &fallback)
-        {
-            candidates.push(Some(fallback));
-        }
-    }
-
-    candidates
+    vec![Some(requested_selector)]
 }
 
 fn browser_type_error_supports_selector_retry(message: &str) -> bool {
@@ -791,7 +983,7 @@ async fn resolve_hover_target(
         .browser
         .recent_accessibility_snapshot(RECENT_BROWSER_HOVER_SNAPSHOT_MAX_AGE)
         .await
-        .map(|(_snapshot_url, tree)| apply_browser_auto_lens(tree));
+        .map(|(_snapshot_url, tree)| apply_browser_auto_lens_with_som(&tree));
     if let Some(tree) = recent_tree.as_ref() {
         if let Ok(target) = resolve_hover_target_from_transformed_trees(&id, None, Some(tree)) {
             return Ok(target);
@@ -802,7 +994,7 @@ async fn resolve_hover_target(
         .get_accessibility_tree()
         .await
         .map_err(|e| format!("resolve hover semantic id '{}': {}", id, e))?;
-    let transformed = apply_browser_auto_lens(raw_tree);
+    let transformed = apply_browser_auto_lens_with_som(&raw_tree);
     resolve_hover_target_from_transformed_trees(&id, Some(&transformed), recent_tree.as_ref())
 }
 
@@ -842,7 +1034,12 @@ async fn resolve_tracked_hover_target(
 }
 
 fn hover_tracking_selector(target: &BrowserSemanticTarget) -> Option<String> {
-    selector_fallback_candidates(target).into_iter().next()
+    target
+        .selector
+        .as_deref()
+        .map(str::trim)
+        .filter(|selector| !selector.is_empty())
+        .map(str::to_string)
 }
 
 fn resolve_hover_semantic_target_from_transformed_trees(
@@ -1010,8 +1207,34 @@ pub async fn handle(
         },
         AgentTool::BrowserSnapshot {} => match exec.browser.get_accessibility_tree().await {
             Ok(raw_tree) => {
-                let transformed = apply_browser_auto_lens(raw_tree);
-                ToolExecutionResult::success(render_browser_tree_xml(&transformed))
+                let transformed = apply_browser_auto_lens_with_som(&raw_tree);
+                let snapshot = render_browser_tree_xml(&transformed);
+                let artifacts = exec
+                    .browser
+                    .recent_browser_observation_artifacts(
+                        RECENT_BROWSER_SNAPSHOT_ARTIFACTS_MAX_AGE,
+                    )
+                    .await
+                    .map(|(_, artifacts)| artifacts);
+                let snapshot = append_browser_snapshot_supplement(
+                    &snapshot,
+                    &raw_tree,
+                    &transformed,
+                    artifacts.as_ref(),
+                );
+                match capture_browser_snapshot_visual_observation(exec, &raw_tree).await {
+                    Ok(image_bytes) => {
+                        ToolExecutionResult::success_with_visual_observation(snapshot, image_bytes)
+                    }
+                    Err(error) => {
+                        log::warn!(
+                            target: "browser",
+                            "Browser snapshot overlay capture failed: {}",
+                            error
+                        );
+                        ToolExecutionResult::success(snapshot)
+                    }
+                }
             }
             Err(e) => ToolExecutionResult::failure(format!("Extraction failed: {}", e)),
         },
@@ -1287,21 +1510,88 @@ pub async fn handle(
             }
         }
         AgentTool::BrowserSyntheticClick {
+            id,
             x,
             y,
             continue_with,
         } => {
-            let pre_tree_xml = capture_browser_tree_xml(exec).await;
+            let pre_tree = match capture_prompt_browser_tree(exec).await {
+                Some(tree) => Some(tree),
+                None => capture_current_browser_tree(exec).await,
+            };
+            let pre_tree_xml = pre_tree.as_ref().map(render_browser_tree_xml);
+            let explicit_coordinates = x.zip(y);
+            let (click_x, click_y, requested_target, pre_target) =
+                if let Some(requested_id) = id.as_deref() {
+                    let Some(tree) = pre_tree.as_ref() else {
+                        return ToolExecutionResult::failure(
+                            "Failed to fetch browser accessibility tree before `browser__synthetic_click`."
+                                .to_string(),
+                        );
+                    };
+                    let (x, y, target) =
+                        match resolve_synthetic_click_target_by_id(tree, requested_id) {
+                            Ok(resolved) => resolved,
+                            Err(error) => return error,
+                        };
+                    let pre_target = explicit_coordinates
+                        .and_then(|(explicit_x, explicit_y)| {
+                            find_nearest_semantic_target_by_point(tree, explicit_x, explicit_y)
+                        })
+                        .or_else(|| Some(target.clone()));
+                    let (click_x, click_y) = explicit_coordinates.unwrap_or((x, y));
+                    (click_x, click_y, Some(target), pre_target)
+                } else {
+                    let Some((x, y)) = explicit_coordinates else {
+                        return ToolExecutionResult::failure(
+                            "Schema Validation Error: browser__synthetic_click requires either a grounded `id` or both `x` and `y`."
+                                .to_string(),
+                        );
+                    };
+                    let pre_target = pre_tree
+                        .as_ref()
+                        .and_then(|tree| find_nearest_semantic_target_by_point(tree, x, y));
+                    (x, y, None, pre_target)
+                };
             let pre_url = exec.browser.active_url().await.ok();
-            match exec.browser.synthetic_click(x as f64, y as f64).await {
+            match exec.browser.synthetic_click(click_x, click_y).await {
                 Ok(_) => {
-                    let post_tree_xml = capture_browser_tree_xml(exec).await;
+                    exec.browser
+                        .record_browser_use_event(
+                            "ClickCoordinateEvent",
+                            None,
+                            exec.browser.known_active_url().await,
+                            None,
+                        )
+                        .await;
+                    let post_tree = capture_current_browser_tree(exec).await;
+                    let post_tree_xml = post_tree.as_ref().map(render_browser_tree_xml);
+                    let post_target = if let Some(requested_id) = id.as_deref() {
+                        post_tree.as_ref().and_then(|tree| {
+                            if explicit_coordinates.is_some() {
+                                find_nearest_semantic_target_by_point(tree, click_x, click_y)
+                                    .or_else(|| find_semantic_target_by_id(tree, requested_id))
+                            } else {
+                                find_semantic_target_by_id(tree, requested_id).or_else(|| {
+                                    find_nearest_semantic_target_by_point(tree, click_x, click_y)
+                                })
+                            }
+                        })
+                    } else {
+                        post_tree
+                            .as_ref()
+                            .and_then(|tree| find_nearest_semantic_target_by_point(tree, click_x, click_y))
+                    };
                     let post_url = exec.browser.active_url().await.ok();
                     let click_payload = json!({
                         "synthetic_click": {
-                            "x": x,
-                            "y": y,
+                            "id": id,
+                            "x": click_x,
+                            "y": click_y,
                         },
+                        "requested_target": semantic_target_verification_json(requested_target.as_ref()),
+                        "pre_target": semantic_target_verification_json(pre_target.as_ref()),
+                        "post_target": semantic_target_verification_json(post_target.as_ref()),
                         "postcondition": synthetic_click_postcondition_payload(
                             pre_tree_xml.as_deref(),
                             pre_url.as_deref(),
@@ -1458,13 +1748,23 @@ pub async fn handle(
             )),
             Err(e) => ToolExecutionResult::failure(format!("Browser select text failed: {}", e)),
         },
-        AgentTool::BrowserKey { key, modifiers } => {
+        AgentTool::BrowserKey {
+            key,
+            selector,
+            modifiers,
+            continue_with,
+        } => {
             let modifiers = modifiers.unwrap_or_default();
-            match exec.browser.press_key(&key, &modifiers).await {
+            match exec
+                .browser
+                .press_key(&key, &modifiers, selector.as_deref())
+                .await
+            {
                 Ok(outcome) => {
                     let payload = json!({
                         "key": {
                             "key": key,
+                            "requested_selector": selector,
                             "modifiers": modifiers,
                             "is_chord": !modifiers.is_empty(),
                             "selector": outcome.selector,
@@ -1480,7 +1780,13 @@ pub async fn handle(
                             "autocomplete": outcome.autocomplete,
                         }
                     });
-                    ToolExecutionResult::success(payload.to_string())
+                    finalize_browser_key_result(
+                        exec,
+                        semantic_map,
+                        ToolExecutionResult::success(payload.to_string()),
+                        continue_with,
+                    )
+                    .await
                 }
                 Err(e) => ToolExecutionResult::failure(format!("Browser key press failed: {}", e)),
             }
@@ -2037,11 +2343,10 @@ pub async fn handle(
 mod tests {
     use super::{
         browser_follow_up_activates_visible_control, browser_type_error_supports_selector_retry,
-        browser_type_selector_fallbacks_for_target, browser_type_selector_lookup_token,
-        history_entry_json_value, normalize_browser_follow_up, normalize_hover_tracking_window,
+        click_follow_up_requires_post_action_observation, history_entry_json_value,
+        normalize_browser_follow_up, normalize_hover_tracking_window,
         resolve_hover_target_from_transformed_trees, resolve_scoped_upload_paths,
-        should_use_browser_side_hover_tracking, BrowserSemanticTarget,
-        DEFAULT_BROWSER_HOVER_TRACK_INTERVAL_MS,
+        should_use_browser_side_hover_tracking, DEFAULT_BROWSER_HOVER_TRACK_INTERVAL_MS,
     };
     use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
     use ioi_types::app::agentic::AgentToolCall;
@@ -2104,34 +2409,6 @@ mod tests {
 
         let _ = fs::remove_dir_all(&scope_root);
         let _ = fs::remove_dir_all(&outside_root);
-    }
-
-    #[test]
-    fn browser_type_selector_lookup_token_accepts_semantic_hash_reference() {
-        assert_eq!(
-            browser_type_selector_lookup_token("#inp_dispatch_note"),
-            Some("inp_dispatch_note")
-        );
-    }
-
-    #[test]
-    fn browser_type_selector_lookup_token_rejects_complex_css() {
-        assert_eq!(browser_type_selector_lookup_token("#note textarea"), None);
-        assert_eq!(browser_type_selector_lookup_token("[id=\"note\"]"), None);
-    }
-
-    #[test]
-    fn browser_type_selector_fallbacks_prefer_grounded_dom_selector_for_semantic_ids() {
-        let target = BrowserSemanticTarget {
-            semantic_id: Some("inp_dispatch_note".to_string()),
-            dom_id: Some("note".to_string()),
-            selector: Some("[id=\"note\"]".to_string()),
-            ..Default::default()
-        };
-
-        let fallbacks = browser_type_selector_fallbacks_for_target("#inp_dispatch_note", &target);
-
-        assert_eq!(fallbacks, vec!["[id=\"note\"]".to_string()]);
     }
 
     #[test]
@@ -2246,6 +2523,45 @@ mod tests {
     }
 
     #[test]
+    fn normalize_browser_follow_up_accepts_browser_key_with_nested_click_element() {
+        let tool = normalize_browser_follow_up(
+            &AgentToolCall {
+                name: "browser__key".to_string(),
+                arguments: json!({
+                    "key": "Home",
+                    "selector": "[id=\"text-area\"]",
+                    "modifiers": ["Control"],
+                    "continue_with": {
+                        "name": "browser__click_element",
+                        "arguments": {
+                            "id": "btn_submit"
+                        }
+                    }
+                }),
+            },
+            "browser__wait",
+        )
+        .expect("follow-up should normalize");
+
+        match tool {
+            ioi_types::app::agentic::AgentTool::BrowserKey {
+                key,
+                selector,
+                modifiers,
+                continue_with,
+            } => {
+                assert_eq!(key, "Home");
+                assert_eq!(selector.as_deref(), Some("[id=\"text-area\"]"));
+                assert_eq!(modifiers.as_deref(), Some(&["Control".to_string()][..]));
+                let continue_with = continue_with.expect("nested click follow-up");
+                assert_eq!(continue_with.name, "browser__click_element");
+                assert_eq!(continue_with.arguments["id"], json!("btn_submit"));
+            }
+            other => panic!("expected BrowserKey, got {:?}", other),
+        }
+    }
+
+    #[test]
     fn normalize_browser_follow_up_rejects_non_browser_action() {
         let err = normalize_browser_follow_up(
             &AgentToolCall {
@@ -2274,6 +2590,26 @@ mod tests {
     }
 
     #[test]
+    fn normalize_browser_follow_up_accepts_browser_type() {
+        let tool = normalize_browser_follow_up(
+            &AgentToolCall {
+                name: "browser__type".to_string(),
+                arguments: json!({ "text": "annis" }),
+            },
+            "browser__click_element",
+        )
+        .expect("follow-up should normalize");
+
+        match tool {
+            ioi_types::app::agentic::AgentTool::BrowserType { text, selector } => {
+                assert_eq!(text, "annis");
+                assert!(selector.is_none());
+            }
+            other => panic!("expected BrowserType, got {:?}", other),
+        }
+    }
+
+    #[test]
     fn normalize_browser_follow_up_accepts_nested_synthetic_click() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
@@ -2286,12 +2622,45 @@ mod tests {
 
         match tool {
             ioi_types::app::agentic::AgentTool::BrowserSyntheticClick {
+                id,
                 x,
                 y,
                 continue_with,
             } => {
-                assert!((x - 85.012).abs() < f64::EPSILON);
-                assert!((y - 105.824).abs() < f64::EPSILON);
+                assert!(id.is_none());
+                assert!((x.expect("x") - 85.012).abs() < f64::EPSILON);
+                assert!((y.expect("y") - 105.824).abs() < f64::EPSILON);
+                assert!(continue_with.is_none());
+            }
+            other => panic!("expected BrowserSyntheticClick, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn normalize_browser_follow_up_preserves_grounded_synthetic_click_coordinates() {
+        let tool = normalize_browser_follow_up(
+            &AgentToolCall {
+                name: "browser__synthetic_click".to_string(),
+                arguments: json!({
+                    "id": "grp_click_canvas",
+                    "x": "51",
+                    "y": 116
+                }),
+            },
+            "browser__wait",
+        )
+        .expect("follow-up should normalize");
+
+        match tool {
+            ioi_types::app::agentic::AgentTool::BrowserSyntheticClick {
+                id,
+                x,
+                y,
+                continue_with,
+            } => {
+                assert_eq!(id.as_deref(), Some("grp_click_canvas"));
+                assert_eq!(x, Some(51.0));
+                assert_eq!(y, Some(116.0));
                 assert!(continue_with.is_none());
             }
             other => panic!("expected BrowserSyntheticClick, got {:?}", other),
@@ -2335,11 +2704,35 @@ mod tests {
     }
 
     #[test]
+    fn browser_follow_up_activates_visible_control_for_key_wrapped_click_chain() {
+        let tool = normalize_browser_follow_up(
+            &AgentToolCall {
+                name: "browser__key".to_string(),
+                arguments: json!({
+                    "key": "Home",
+                    "selector": "[id=\"text-area\"]",
+                    "modifiers": ["Control"],
+                    "continue_with": {
+                        "name": "browser__click_element",
+                        "arguments": {
+                            "id": "btn_submit"
+                        }
+                    }
+                }),
+            },
+            "browser__synthetic_click",
+        )
+        .expect("follow-up should normalize");
+
+        assert!(browser_follow_up_activates_visible_control(&tool).expect("policy check"));
+    }
+
+    #[test]
     fn browser_follow_up_activates_visible_control_ignores_geometry_only_chain() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
                 name: "browser__synthetic_click".to_string(),
-                arguments: json!({ "x": 85.012, "y": 105.824 }),
+                arguments: json!({ "id": "grp_blue_circle" }),
             },
             "browser__synthetic_click",
         )
@@ -2357,6 +2750,42 @@ mod tests {
         assert_eq!(
             history_entry_json_value(Some("Clicked element 'btn_two'")),
             json!("Clicked element 'btn_two'")
+        );
+    }
+
+    #[test]
+    fn click_follow_up_requires_post_action_observation_for_geometry_backed_visible_control() {
+        let tool = normalize_browser_follow_up(
+            &AgentToolCall {
+                name: "browser__click".to_string(),
+                arguments: json!({ "selector": "#submit" }),
+            },
+            "browser__click_element",
+        )
+        .expect("follow-up should normalize");
+        let entry = r#"Clicked element 'grp_geometry_target_at_77107' via geometry fallback. verify={"method":"geometry_center","postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#;
+
+        assert!(
+            click_follow_up_requires_post_action_observation(Some(entry), &tool)
+                .expect("policy check"),
+        );
+    }
+
+    #[test]
+    fn click_follow_up_allows_visible_control_after_dom_backed_click() {
+        let tool = normalize_browser_follow_up(
+            &AgentToolCall {
+                name: "browser__click_element".to_string(),
+                arguments: json!({ "id": "btn_submit" }),
+            },
+            "browser__click_element",
+        )
+        .expect("follow-up should normalize");
+        let entry = r#"Clicked element 'btn_next'. verify={"method":"backend_dom_node_id","postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#;
+
+        assert!(
+            !click_follow_up_requires_post_action_observation(Some(entry), &tool)
+                .expect("policy check"),
         );
     }
 

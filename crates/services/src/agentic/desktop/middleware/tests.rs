@@ -261,6 +261,100 @@ fn test_normalize_browser_click_element_with_follow_up_shorthand_arguments() {
 }
 
 #[test]
+fn test_normalize_browser_key_with_nested_follow_up_shorthand_arguments() {
+    let input = r#"{
+        "name": "browser__key",
+        "arguments": {
+            "key": "PageUp",
+            "selector": "[id=\"text-area\"]",
+            "continue_with": {
+                "name": "browser__key",
+                "key": "Home",
+                "modifiers": ["Control"],
+                "selector": "[id=\"text-area\"]",
+                "continue_with": {
+                    "name": "browser__click_element",
+                    "id": "btn_submit"
+                }
+            }
+        }
+    }"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserKey {
+            key,
+            selector,
+            continue_with,
+            ..
+        } => {
+            assert_eq!(key, "PageUp");
+            assert_eq!(selector.as_deref(), Some("[id=\"text-area\"]"));
+            let continue_with = continue_with.expect("follow-up should be present");
+            assert_eq!(continue_with.name, "browser__key");
+            assert_eq!(
+                continue_with.arguments,
+                json!({
+                    "key": "Home",
+                    "modifiers": ["Control"],
+                    "selector": "[id=\"text-area\"]",
+                    "continue_with": {
+                        "name": "browser__click_element",
+                        "id": "btn_submit"
+                    }
+                })
+            );
+        }
+        other => panic!("Expected BrowserKey, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_normalize_browser_wait_drops_empty_follow_up_shorthand() {
+    let input = r#"{
+        "name": "browser__wait",
+        "arguments": {
+            "ms": 2000,
+            "continue_with": {
+                "name": "browser__click_element"
+            }
+        }
+    }"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserWait {
+            ms, continue_with, ..
+        } => {
+            assert_eq!(ms, Some(2000));
+            assert!(continue_with.is_none());
+        }
+        other => panic!("Expected BrowserWait, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_normalize_browser_click_element_drops_empty_follow_up_shorthand() {
+    let input = r#"{
+        "name": "browser__click_element",
+        "arguments": {
+            "id": "grp_start",
+            "continue_with": {
+                "name": "browser__click_element"
+            }
+        }
+    }"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserClickElement {
+            id, continue_with, ..
+        } => {
+            assert_eq!(id.as_deref(), Some("grp_start"));
+            assert!(continue_with.is_none());
+        }
+        other => panic!("Expected BrowserClickElement, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_dynamic_tool_without_name_is_rejected() {
     let input = r#"{"arguments":{"query":"latest news"}}"#;
     let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
@@ -442,15 +536,57 @@ fn test_normalize_synthetic_click() {
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::BrowserSyntheticClick {
+            id,
             x,
             y,
             continue_with,
         } => {
-            assert!((x - 100.5).abs() < f64::EPSILON);
-            assert!((y - 200.1).abs() < f64::EPSILON);
+            assert!(id.is_none());
+            assert!((x.expect("x") - 100.5).abs() < f64::EPSILON);
+            assert!((y.expect("y") - 200.1).abs() < f64::EPSILON);
             assert!(continue_with.is_none());
         }
         _ => panic!("Wrong tool type"),
+    }
+}
+
+#[test]
+fn test_normalize_synthetic_click_with_grounded_id() {
+    let input = r#"{"name": "browser__synthetic_click", "arguments": {"id": "grp_blue_circle"}}"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserSyntheticClick {
+            id,
+            x,
+            y,
+            continue_with,
+        } => {
+            assert_eq!(id.as_deref(), Some("grp_blue_circle"));
+            assert!(x.is_none());
+            assert!(y.is_none());
+            assert!(continue_with.is_none());
+        }
+        other => panic!("Expected BrowserSyntheticClick, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_normalize_synthetic_click_preserves_coordinates_with_grounded_id() {
+    let input = r#"{"name": "browser__synthetic_click", "arguments": {"id": "grp_click_canvas", "x": "51", "y": 116}}"#;
+    let tool = ToolNormalizer::normalize(input).unwrap();
+    match tool {
+        AgentTool::BrowserSyntheticClick {
+            id,
+            x,
+            y,
+            continue_with,
+        } => {
+            assert_eq!(id.as_deref(), Some("grp_click_canvas"));
+            assert_eq!(x, Some(51.0));
+            assert_eq!(y, Some(116.0));
+            assert!(continue_with.is_none());
+        }
+        other => panic!("Expected BrowserSyntheticClick, got {:?}", other),
     }
 }
 
@@ -470,12 +606,14 @@ fn test_normalize_synthetic_click_with_follow_up_shorthand_arguments() {
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::BrowserSyntheticClick {
+            id,
             x,
             y,
             continue_with,
         } => {
-            assert!((x - 85.012).abs() < f64::EPSILON);
-            assert!((y - 105.824).abs() < f64::EPSILON);
+            assert!(id.is_none());
+            assert!((x.expect("x") - 85.012).abs() < f64::EPSILON);
+            assert!((y.expect("y") - 105.824).abs() < f64::EPSILON);
             let continue_with = continue_with.expect("follow-up should be present");
             assert_eq!(continue_with.name, "browser__click_element");
             assert_eq!(continue_with.arguments, json!({ "id": "btn_submit" }));
@@ -502,6 +640,16 @@ fn test_normalize_synthetic_click_rejects_pointer_state_follow_up() {
     assert!(err.to_string().contains(
         "browser__synthetic_click continue_with does not allow pointer button state changes"
     ));
+}
+
+#[test]
+fn test_normalize_synthetic_click_rejects_missing_target_and_coordinates() {
+    let input = r#"{"name":"browser__synthetic_click","arguments":{"x":85}}"#;
+    let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
+    assert!(err.to_string().contains("Schema Validation Error"));
+    assert!(err
+        .to_string()
+        .contains("browser__synthetic_click requires either"));
 }
 
 #[test]

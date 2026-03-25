@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ComposeIcon,
+  ExplorerIcon,
   FleetIcon,
   IntegrationsIcon,
   NotificationsIcon,
@@ -9,6 +10,7 @@ import {
 } from "./ActivityBarIcons";
 
 type ActivityView =
+  | "explorer"
   | "workflows"
   | "runs"
   | "inbox"
@@ -39,50 +41,110 @@ interface NavItem {
   badgeCount?: number;
 }
 
+interface ActivityButtonProps {
+  item: NavItem;
+  icon: ReactNode;
+  badgeCount?: number;
+  isActive: boolean;
+  onClick: () => void;
+}
+
 const NAV_ITEMS: Array<NavItem & { id: ActivityView }> = [
+  {
+    id: "explorer",
+    label: "Explorer",
+    icon: <ExplorerIcon />,
+    description: "Browse the workspace, open files, and edit project sources.",
+    shortcut: "⌘1",
+  },
   {
     id: "workflows",
     label: "Workflows",
     icon: <ComposeIcon />,
     description: "Build workers, logic, and reusable procedures.",
-    shortcut: "⌘1",
+    shortcut: "⌘2",
   },
   {
     id: "runs",
     label: "Runs",
     icon: <FleetIcon />,
     description: "Supervise runtime health, evidence, and receipts.",
-    shortcut: "⌘2",
+    shortcut: "⌘3",
   },
   {
     id: "inbox",
     label: "Inbox",
     icon: <NotificationsIcon />,
     description: "Review ranked prompts, approvals, and interventions.",
-    shortcut: "⌘3",
+    shortcut: "⌘4",
   },
   {
     id: "capabilities",
     label: "Capabilities",
     icon: <IntegrationsIcon />,
     description: "Equip workers with connections, skills, and extensions.",
-    shortcut: "⌘4",
+    shortcut: "⌘5",
   },
   {
     id: "policy",
     label: "Policy",
     icon: <ShieldIcon />,
     description: "Set governance, approvals, and execution posture.",
-    shortcut: "⌘5",
+    shortcut: "⌘6",
   },
   {
     id: "settings",
     label: "Settings",
     icon: <SettingsIcon />,
     description: "Manage shell identity, diagnostics, and local system state.",
-    shortcut: "⌘6",
+    shortcut: "⌘7",
   },
 ];
+
+function ActivityButton({
+  item,
+  icon,
+  badgeCount,
+  isActive,
+  onClick,
+}: ActivityButtonProps) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button
+      type="button"
+      className={`studio-activity-button ${isActive ? "is-active" : ""}`}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      aria-current={isActive ? "page" : undefined}
+      aria-label={item.label}
+      title={`${item.label} ${item.shortcut ? `(${item.shortcut})` : ""}`}
+    >
+      <span
+        aria-hidden="true"
+        className="studio-activity-button-indicator"
+        style={{
+          height: isActive ? 20 : hovered ? 8 : 0,
+          transform: `translateY(-50%) translateX(${isActive || hovered ? "0px" : "-4px"})`,
+          opacity: isActive || hovered ? 1 : 0,
+        }}
+      />
+      <span
+        className={`studio-activity-button-icon ${
+          item.id === "capabilities" ? "is-capabilities" : ""
+        }`}
+      >
+        {icon}
+      </span>
+      {badgeCount && badgeCount > 0 ? (
+        <span className="studio-activity-button-badge">
+          {badgeCount > 9 ? "9+" : badgeCount}
+        </span>
+      ) : null}
+    </button>
+  );
+}
 
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -146,24 +208,14 @@ export function LocalActivityBar({
             item.id === "inbox" ? notificationCount : item.badgeCount;
 
           return (
-            <button
+            <ActivityButton
               key={item.id}
-              type="button"
-              className={`studio-activity-button ${
-                activeView === item.id ? "is-active" : ""
-              }`}
+              item={item}
+              icon={icon}
+              badgeCount={badgeCount}
+              isActive={activeView === item.id}
               onClick={() => onViewChange(item.id)}
-              aria-current={activeView === item.id ? "page" : undefined}
-              aria-label={item.label}
-              title={`${item.label} ${item.shortcut ? `(${item.shortcut})` : ""}`}
-            >
-              <span className="studio-activity-button-icon">{icon}</span>
-              {badgeCount && badgeCount > 0 ? (
-                <span className="studio-activity-button-badge">
-                  {badgeCount > 9 ? "9+" : badgeCount}
-                </span>
-              ) : null}
-            </button>
+            />
           );
         })}
       </div>
@@ -180,36 +232,26 @@ export function LocalActivityBar({
         </div>
 
         {bottomNavItems.map((item) => {
-            const isCapabilitiesItem = item.id === "capabilities";
-            const icon = isCapabilitiesItem ? (
-              <IntegrationsIcon
-                disableHoverAnimation={activeView === "capabilities"}
-              />
-            ) : (
-              item.icon
-            );
-            const badgeCount =
-              item.id === "inbox" ? notificationCount : item.badgeCount;
+          const isCapabilitiesItem = item.id === "capabilities";
+          const icon = isCapabilitiesItem ? (
+            <IntegrationsIcon
+              disableHoverAnimation={activeView === "capabilities"}
+            />
+          ) : (
+            item.icon
+          );
+          const badgeCount =
+            item.id === "inbox" ? notificationCount : item.badgeCount;
 
           return (
-            <button
+            <ActivityButton
               key={item.id}
-              type="button"
-              className={`studio-activity-button ${
-                activeView === item.id ? "is-active" : ""
-              }`}
+              item={item}
+              icon={icon}
+              badgeCount={badgeCount}
+              isActive={activeView === item.id}
               onClick={() => onViewChange(item.id)}
-              aria-current={activeView === item.id ? "page" : undefined}
-              aria-label={item.label}
-              title={`${item.label} ${item.shortcut ? `(${item.shortcut})` : ""}`}
-            >
-              <span className="studio-activity-button-icon">{icon}</span>
-              {badgeCount && badgeCount > 0 ? (
-                <span className="studio-activity-button-badge">
-                  {badgeCount > 9 ? "9+" : badgeCount}
-                </span>
-              ) : null}
-            </button>
+            />
           );
         })}
       </div>

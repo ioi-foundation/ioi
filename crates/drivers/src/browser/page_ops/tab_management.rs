@@ -1,4 +1,28 @@
+fn browsergym_screenshot_scale_factor() -> f64 {
+    std::env::var("IOI_BROWSER_SNAPSHOT_SCALE_FACTOR")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<f64>().ok())
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .unwrap_or(1.5)
+}
+
 impl BrowserDriver {
+    pub async fn reset_active_page_for_navigation(&self) -> std::result::Result<(), BrowserError> {
+        self.require_runtime()?;
+
+        if let Some(page) = { self.active_page.lock().await.clone() } {
+            page.close().await.map_err(|e| {
+                BrowserError::Internal(format!("Failed to close active tab for reset: {}", e))
+            })?;
+        }
+
+        *self.active_page.lock().await = None;
+        *self.active_page_url.lock().await = None;
+        self.reset_pointer_state().await;
+        self.invalidate_accessibility_snapshot().await;
+        Ok(())
+    }
+
     pub async fn list_tabs(&self) -> std::result::Result<Vec<BrowserTabInfo>, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
@@ -105,6 +129,13 @@ impl BrowserDriver {
             .map_err(|e| BrowserError::Internal(format!("Failed to query tab URL: {}", e)))?
             .unwrap_or_default();
         *self.active_page_url.lock().await = Some(url.clone());
+        self.record_browser_use_event(
+            "SwitchTabEvent",
+            Some(target_tab.to_string()),
+            Some(url.clone()),
+            None,
+        )
+        .await;
 
         Ok(BrowserTabInfo {
             tab_id: target_tab.to_string(),
@@ -156,6 +187,8 @@ impl BrowserDriver {
         page.close()
             .await
             .map_err(|e| BrowserError::Internal(format!("Failed to close tab: {}", e)))?;
+        self.record_browser_use_event("CloseTabEvent", Some(target_tab.to_string()), None, None)
+            .await;
 
         if active_target_id.as_deref() == Some(target_tab) {
             *self.active_page.lock().await = None;
@@ -199,15 +232,74 @@ impl BrowserDriver {
         self.require_runtime()?;
         self.ensure_page().await?;
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
-        let params = CaptureScreenshotParams::builder()
-            .format(CaptureScreenshotFormat::Jpeg)
-            .quality(80)
+        let scale_factor = browsergym_screenshot_scale_factor();
+
+        let metrics = self
+            .check_connection_error(page.layout_metrics().await)
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Tab screenshot metrics failed: {}", e)))?;
+        let width = metrics.css_visual_viewport.client_width.round().max(1.0) as i64;
+        let height = metrics.css_visual_viewport.client_height.round().max(1.0) as i64;
+
+        self.check_connection_error(page.execute(
+            chromiumoxide::cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams::new(
+                width,
+                height,
+                scale_factor,
+                false,
+            ),
+        )
+        .await)
+        .await
+        .map_err(|e| {
+            BrowserError::Internal(format!(
+                "Tab screenshot metrics override failed: {}",
+                e
+            ))
+        })?;
+
+        let mut params = CaptureScreenshotParams::builder()
+            .format(CaptureScreenshotFormat::Png)
             .capture_beyond_viewport(full_page)
             .build();
-        let bytes = page
-            .screenshot(params)
+
+        if full_page {
+            params.clip = Some(chromiumoxide::cdp::browser_protocol::page::Viewport {
+                x: 0.0,
+                y: 0.0,
+                width: metrics.css_content_size.width,
+                height: metrics.css_content_size.height,
+                scale: 1.0,
+            });
+        }
+
+        let capture_result = self
+            .check_connection_error(page.execute(params).await)
             .await
-            .map_err(|e| BrowserError::Internal(format!("Tab screenshot failed: {}", e)))?;
-        Ok(bytes)
+            .map_err(|e| BrowserError::Internal(format!("Tab screenshot failed: {}", e)))
+            .and_then(|response| {
+                use base64::Engine as _;
+
+                let encoded: &str = response.result.data.as_ref();
+                base64::engine::general_purpose::STANDARD
+                    .decode(encoded.as_bytes())
+                    .map_err(|e| {
+                        BrowserError::Internal(format!(
+                            "Tab screenshot decode failed: {}",
+                            e
+                        ))
+                    })
+            });
+
+        let _ = self
+            .check_connection_error(page.execute(
+                chromiumoxide::cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams::new(
+                    width, height, 1.0, false,
+                ),
+            )
+            .await)
+            .await;
+
+        capture_result
     }
 }
