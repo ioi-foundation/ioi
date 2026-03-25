@@ -3,12 +3,17 @@ import {
   countActiveOverrides,
   type ShieldPolicyState,
 } from "../policyCenter";
+import { type TauriRuntime } from "../../../services/TauriRuntime";
 import type {
   AssistantUserProfile,
   AssistantWorkbenchSession,
+  BenchmarkTraceCaseView,
+  BenchmarkTraceFeed,
 } from "../../../types";
+import { StudioBenchmarkTraceDeck } from "./StudioBenchmarkTraceDeck";
 
 type PrimaryView =
+  | "explorer"
   | "workflows"
   | "runs"
   | "inbox"
@@ -26,10 +31,11 @@ interface ProjectScope {
 }
 
 interface StudioUtilityDrawerProps {
+  runtime: TauriRuntime;
   activeView: PrimaryView;
   chatSurface: "chat" | "reply-composer" | "meeting-prep";
   operatorPaneOpen: boolean;
-  workflowSurface: "home" | "code" | "canvas" | "agents" | "catalog";
+  workflowSurface: "home" | "canvas" | "agents" | "catalog";
   notificationCount: number;
   shieldPolicy: ShieldPolicyState;
   currentProject: ProjectScope;
@@ -42,19 +48,6 @@ interface UtilityLogItem {
   lane: string;
   title: string;
   detail: string;
-}
-
-interface UtilityTraceStep {
-  title: string;
-  detail: string;
-  state: "done" | "active" | "queued";
-}
-
-interface UtilityReceipt {
-  lane: string;
-  title: string;
-  summary: string;
-  digest: string;
 }
 
 const TABS: Array<{ id: UtilityTab; label: string }> = [
@@ -76,7 +69,6 @@ function prettyWorkflowSurface(
   surface: StudioUtilityDrawerProps["workflowSurface"],
 ): string {
   if (surface === "home") return "home";
-  if (surface === "code") return "code";
   if (surface === "agents") return "agents";
   if (surface === "catalog") return "catalog";
   return "canvas";
@@ -88,14 +80,6 @@ function prettyOperatorSurface(
   if (surface === "reply-composer") return "reply composer";
   if (surface === "meeting-prep") return "meeting brief";
   return "conversation";
-}
-
-function shortDigest(seed: string): string {
-  let hash = 0;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-  }
-  return `0x${hash.toString(16).padStart(8, "0")}`;
 }
 
 function isEditableElement(target: EventTarget | null): boolean {
@@ -116,7 +100,22 @@ function initialTabForView(view: PrimaryView): UtilityTab {
   return "terminal";
 }
 
+function defaultTraceCaseId(feed: BenchmarkTraceFeed | null): string | null {
+  const cases = feed?.cases ?? [];
+  return cases.find((entry) => entry.result !== "pass")?.caseId ?? cases[0]?.caseId ?? null;
+}
+
+function defaultTraceSpanId(caseView: BenchmarkTraceCaseView | null): string | null {
+  const failureSpan = caseView?.traceMetrics.find((metric) => metric.status !== "pass")
+    ?.supportingSpanIds[0];
+  if (failureSpan) return failureSpan;
+  const bookmarkSpan = caseView?.trace?.bookmarks[0]?.spanId;
+  if (bookmarkSpan) return bookmarkSpan;
+  return caseView?.trace?.lanes.flatMap((lane) => lane.spans)[0]?.id ?? null;
+}
+
 export function StudioUtilityDrawer({
+  runtime,
   activeView,
   chatSurface,
   operatorPaneOpen,
@@ -132,6 +131,11 @@ export function StudioUtilityDrawer({
   const [activeTab, setActiveTab] = useState<UtilityTab>(
     initialTabForView(activeView),
   );
+  const [traceFeed, setTraceFeed] = useState<BenchmarkTraceFeed | null>(null);
+  const [traceLoading, setTraceLoading] = useState(false);
+  const [traceError, setTraceError] = useState<string | null>(null);
+  const [selectedTraceCaseId, setSelectedTraceCaseId] = useState<string | null>(null);
+  const [selectedTraceSpanId, setSelectedTraceSpanId] = useState<string | null>(null);
   const activeTabName = utilityTabLabel(activeTab);
 
   useEffect(() => {
@@ -146,6 +150,39 @@ export function StudioUtilityDrawer({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTraceLoading(true);
+    setTraceError(null);
+
+    runtime
+      .getLocalBenchmarkTraceFeed(8)
+      .then((feed) => {
+        if (cancelled) return;
+        setTraceFeed(feed);
+        setSelectedTraceCaseId((current) => {
+          if (current && feed.cases.some((entry) => entry.caseId === current)) {
+            return current;
+          }
+          return defaultTraceCaseId(feed);
+        });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setTraceFeed(null);
+        setTraceError(String(error));
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setTraceLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [runtime]);
 
   const terminalLines = useMemo(() => {
     const lines = [
@@ -235,109 +272,23 @@ export function StudioUtilityDrawer({
     shieldPolicy,
   ]);
 
-  const traceSteps = useMemo<UtilityTraceStep[]>(() => {
-    const surfaceDetail =
-      activeView === "workflows"
-        ? `Surface: ${prettyWorkflowSurface(workflowSurface)}`
-        : `Surface: ${prettySurfaceLabel(activeView)}`;
+  const selectedTraceCase = useMemo(
+    () =>
+      traceFeed?.cases.find((entry) => entry.caseId === selectedTraceCaseId) ??
+      traceFeed?.cases[0] ??
+      null,
+    [selectedTraceCaseId, traceFeed],
+  );
 
-    return [
-      {
-        title: "Scope resolution",
-        detail: `${currentProject.name} in ${currentProject.environment}.`,
-        state: "done",
-      },
-      {
-        title: "Surface routing",
-        detail: surfaceDetail,
-        state: "active",
-      },
-      {
-        title: "Operator lane",
-        detail: operatorPaneOpen
-          ? `Attached to ${prettyOperatorSurface(chatSurface)}.`
-          : "Collapsed until explicitly reopened.",
-        state: operatorPaneOpen ? "active" : "queued",
-      },
-      {
-        title: "Governance check",
-        detail: `Reads ${shieldPolicy.global.reads} · Writes ${shieldPolicy.global.writes} · Overrides ${countActiveOverrides(
-          shieldPolicy,
-        )}.`,
-        state: "done",
-      },
-      {
-        title: "Queue posture",
-        detail:
-          notificationCount > 0
-            ? `${notificationCount} review items are waiting for operator attention.`
-            : "Queue is clear.",
-        state: notificationCount > 0 ? "active" : "done",
-      },
-    ];
-  }, [
-    activeView,
-    chatSurface,
-    currentProject.environment,
-    currentProject.name,
-    notificationCount,
-    operatorPaneOpen,
-    shieldPolicy,
-    workflowSurface,
-  ]);
-
-  const receipts = useMemo<UtilityReceipt[]>(() => {
-    const policyReceipt = [
-      shieldPolicy.global.reads,
-      shieldPolicy.global.writes,
-      shieldPolicy.global.automations,
-      String(countActiveOverrides(shieldPolicy)),
-    ].join(":");
-
-    return [
-      {
-        lane: "scope",
-        title: "Project receipt",
-        summary: `${currentProject.name} scoped to ${currentProject.environment}.`,
-        digest: shortDigest(`${currentProject.id}:${currentProject.environment}`),
-      },
-      {
-        lane: "operator",
-        title: "Operator receipt",
-        summary: operatorPaneOpen
-          ? `Operator lane bound to ${prettyOperatorSurface(chatSurface)}.`
-          : "Operator lane collapsed but retained in shell state.",
-        digest: shortDigest(`${operatorPaneOpen}:${chatSurface}`),
-      },
-      {
-        lane: "policy",
-        title: "Policy receipt",
-        summary: `Reads ${shieldPolicy.global.reads} · Writes ${shieldPolicy.global.writes} · Automations ${shieldPolicy.global.automations.replace(
-          /_/g,
-          " ",
-        )}.`,
-        digest: shortDigest(policyReceipt),
-      },
-      {
-        lane: "queue",
-        title: "Queue receipt",
-        summary:
-          notificationCount > 0
-            ? `${notificationCount} pending items remain in the operator inbox.`
-            : "No pending review items remain in the operator inbox.",
-        digest: shortDigest(`queue:${notificationCount}:${activeView}`),
-      },
-    ];
-  }, [
-    activeView,
-    chatSurface,
-    currentProject.environment,
-    currentProject.id,
-    currentProject.name,
-    notificationCount,
-    operatorPaneOpen,
-    shieldPolicy,
-  ]);
+  useEffect(() => {
+    const availableSpanIds = new Set(
+      selectedTraceCase?.trace?.lanes.flatMap((lane) => lane.spans.map((span) => span.id)) ?? [],
+    );
+    if (selectedTraceSpanId && availableSpanIds.has(selectedTraceSpanId)) {
+      return;
+    }
+    setSelectedTraceSpanId(defaultTraceSpanId(selectedTraceCase));
+  }, [selectedTraceCase, selectedTraceSpanId]);
 
   return (
     <section
@@ -408,38 +359,29 @@ export function StudioUtilityDrawer({
           ) : null}
 
           {activeTab === "trace" ? (
-            <div className="studio-utility-trace-list">
-              {traceSteps.map((step, index) => (
-                <article
-                  key={`${index}:${step.title}`}
-                  className={`studio-utility-card studio-utility-trace-step studio-utility-trace-step--${step.state}`}
-                >
-                  <div className="studio-utility-trace-index">{index + 1}</div>
-                  <div className="studio-utility-trace-copy">
-                    <strong>{step.title}</strong>
-                    <p>{step.detail}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <StudioBenchmarkTraceDeck
+              mode="trace"
+              feed={traceFeed}
+              loading={traceLoading}
+              error={traceError}
+              selectedCaseId={selectedTraceCaseId}
+              selectedSpanId={selectedTraceSpanId}
+              onSelectCase={setSelectedTraceCaseId}
+              onSelectSpan={setSelectedTraceSpanId}
+            />
           ) : null}
 
           {activeTab === "receipts" ? (
-            <div className="studio-utility-receipts">
-              {receipts.map((receipt) => (
-                <article
-                  key={`${receipt.lane}:${receipt.digest}`}
-                  className="studio-utility-card studio-utility-receipt"
-                >
-                  <div className="studio-utility-card-head">
-                    <span>{receipt.lane}</span>
-                    <strong>{receipt.title}</strong>
-                  </div>
-                  <p>{receipt.summary}</p>
-                  <code>{receipt.digest}</code>
-                </article>
-              ))}
-            </div>
+            <StudioBenchmarkTraceDeck
+              mode="receipts"
+              feed={traceFeed}
+              loading={traceLoading}
+              error={traceError}
+              selectedCaseId={selectedTraceCaseId}
+              selectedSpanId={selectedTraceSpanId}
+              onSelectCase={setSelectedTraceCaseId}
+              onSelectSpan={setSelectedTraceSpanId}
+            />
           ) : null}
         </div>
       ) : null}

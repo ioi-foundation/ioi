@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
+import { StudioFileTypeIcon } from "./StudioFileTypeIcon";
 
 interface ProjectScope {
   id: string;
@@ -63,6 +64,32 @@ function MoreActionsIcon() {
   );
 }
 
+function FolderFlapIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg
+      className={`studio-explorer-folder-icon ${isOpen ? "is-open" : ""}`}
+      width="15"
+      height="12"
+      viewBox="0 0 29 22"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        className="studio-explorer-folder-back"
+        d="M2 4a1.5 1.5 0 011.5-1.5h5.2c.55 0 1.07.25 1.4.68L11.3 4.7c.2.25.5.3.7.3H21a2 2 0 012 2V18a2 2 0 01-2 2H4a2 2 0 01-2-2V4z"
+      />
+      <path
+        className="studio-explorer-folder-front studio-explorer-folder-front--closed"
+        d="M3.5 7.5h19a1.5 1.5 0 011.5 1.5v9a2 2 0 01-2 2H4a2 2 0 01-2-2V9a1.5 1.5 0 011.5-1.5z"
+      />
+      <path
+        className="studio-explorer-folder-front studio-explorer-folder-front--open"
+        d="M6.5 7.5h19a1.5 1.5 0 011.5 1.5L24 18a2 2 0 01-2 2H4a2 2 0 01-2-2L5 9a1.5 1.5 0 011.5-1.5z"
+      />
+    </svg>
+  );
+}
+
 function countNodes(nodes: ProjectExplorerNode[]): number {
   return nodes.reduce(
     (total, node) => total + 1 + countNodes(node.children),
@@ -70,13 +97,18 @@ function countNodes(nodes: ProjectExplorerNode[]): number {
   );
 }
 
-function collectInitiallyExpandedPaths(nodes: ProjectExplorerNode[]): Record<string, boolean> {
+function collectInitiallyExpandedPaths(
+  activeFilePath: string | null,
+): Record<string, boolean> {
   const next: Record<string, boolean> = {};
-  for (const node of nodes) {
-    if (node.kind === "directory") {
-      next[node.path] = true;
-    }
+  if (!activeFilePath) {
+    return next;
   }
+
+  for (const path of ancestorPaths(activeFilePath)) {
+    next[path] = true;
+  }
+
   return next;
 }
 
@@ -114,6 +146,12 @@ function replaceNodeChildren(
   });
 }
 
+function lastPathSegment(path: string): string {
+  const trimmed = path.replace(/\/+$/, "");
+  const parts = trimmed.split("/").filter(Boolean);
+  return parts[parts.length - 1] || path;
+}
+
 export function StudioExplorerPane({
   currentProject,
   activeFilePath,
@@ -128,11 +166,13 @@ export function StudioExplorerPane({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initBusy, setInitBusy] = useState(false);
+  const [rootExpanded, setRootExpanded] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setRootExpanded(true);
 
     void invoke<ProjectShellSnapshot>("project_shell_inspect", {
       root: currentProject.rootPath,
@@ -141,7 +181,7 @@ export function StudioExplorerPane({
         if (!cancelled) {
           setSnapshot(result);
           setTreeNodes(result.tree);
-          setExpandedPaths(collectInitiallyExpandedPaths(result.tree));
+          setExpandedPaths(collectInitiallyExpandedPaths(activeFilePath));
         }
       })
       .catch((nextError) => {
@@ -188,7 +228,7 @@ export function StudioExplorerPane({
       );
       setSnapshot(result);
       setTreeNodes(result.tree);
-      setExpandedPaths(collectInitiallyExpandedPaths(result.tree));
+      setExpandedPaths(collectInitiallyExpandedPaths(activeFilePath));
     } catch (nextError) {
       setError(String(nextError));
     } finally {
@@ -242,14 +282,31 @@ export function StudioExplorerPane({
   };
 
   const totalTreeNodes = useMemo(() => countNodes(treeNodes), [treeNodes]);
-  const visibleArtifacts = snapshot?.artifacts.slice(0, 4) ?? [];
+  const rootPath = snapshot?.root_path || currentProject.rootPath;
+  const rootLabel = lastPathSegment(rootPath);
+  const repoStatusLabel = snapshot?.git.is_repo
+    ? snapshot.git.dirty
+      ? "Dirty"
+      : "Clean"
+    : "No repo";
+  const branchLabel = snapshot?.git.is_repo
+    ? snapshot.git.branch || "detached"
+    : "git unavailable";
 
-  const renderTree = (nodes: ProjectExplorerNode[], depth = 0) =>
+  const hasExpandedChildDirectory = (nodes: ProjectExplorerNode[]): boolean =>
+    nodes.some(
+      (node) => node.kind === "directory" && !!expandedPaths[node.path],
+    );
+
+  const renderTree = (nodes: ProjectExplorerNode[]) =>
     nodes.map((node) => {
       const isDirectory = node.kind === "directory";
       const isExpanded = isDirectory && expandedPaths[node.path];
       const isLoading = !!loadingDirectories[node.path];
       const isActiveFile = !isDirectory && activeFilePath === node.path;
+      const childGuideTone = hasExpandedChildDirectory(node.children)
+        ? "is-ancestor"
+        : "is-youngest";
 
       return (
         <div
@@ -263,39 +320,30 @@ export function StudioExplorerPane({
             } ${isExpanded ? "is-expanded" : ""} ${
               isActiveFile ? "is-active" : ""
             }`}
-            style={{ paddingLeft: `${10 + depth * 14}px` }}
             onClick={() =>
               isDirectory ? toggleDirectory(node) : onOpenFile(node.path)
             }
           >
-            <span
-              className={`studio-explorer-tree-caret ${
-                isDirectory && node.has_children ? "is-visible" : ""
-              } ${isExpanded ? "is-expanded" : ""}`}
-              aria-hidden="true"
-            >
-              ▸
-            </span>
-            <span
-              className={`studio-explorer-tree-kind ${
-                isDirectory ? "is-directory" : "is-file"
-              }`}
-              aria-hidden="true"
-            />
+            {isDirectory ? (
+              <FolderFlapIcon isOpen={!!isExpanded} />
+            ) : (
+              <StudioFileTypeIcon name={node.name} context="explorer" />
+            )}
             <span className="studio-explorer-tree-name">{node.name}</span>
           </button>
 
           {isDirectory && isExpanded ? (
-            isLoading && node.children.length === 0 ? (
-              <p
-                className="studio-explorer-feedback studio-explorer-feedback--nested"
-                style={{ paddingLeft: `${30 + depth * 14}px` }}
-              >
-                Loading...
-              </p>
-            ) : (
-              renderTree(node.children, depth + 1)
-            )
+            <div
+              className={`studio-explorer-tree-children ${childGuideTone}`}
+            >
+              {isLoading && node.children.length === 0 ? (
+                <p className="studio-explorer-feedback studio-explorer-feedback--nested">
+                  Loading...
+                </p>
+              ) : (
+                renderTree(node.children)
+              )}
+            </div>
           ) : null}
         </div>
       );
@@ -316,36 +364,27 @@ export function StudioExplorerPane({
       </div>
 
       <div className="studio-explorer-body">
-        <section className="studio-explorer-card">
-          <div className="studio-explorer-card-head">
-            <strong>Workspace</strong>
-            <span>Root</span>
-          </div>
-          <p>{snapshot?.root_path || currentProject.rootPath}</p>
-        </section>
-
-        <section className="studio-explorer-card">
-          <div className="studio-explorer-card-head">
-            <strong>Repository</strong>
-            <span>
-              {snapshot?.git.is_repo
-                ? snapshot.git.dirty
-                  ? "Dirty"
-                  : "Clean"
-                : "Not initialized"}
+        <section className="studio-explorer-meta">
+          <div className="studio-explorer-meta-row">
+            <span className="studio-explorer-chip">{branchLabel}</span>
+            <span
+              className={`studio-explorer-chip ${
+                snapshot?.git.is_repo
+                  ? snapshot.git.dirty
+                    ? "is-dirty"
+                    : "is-clean"
+                  : "is-muted"
+              }`}
+            >
+              {repoStatusLabel}
+            </span>
+            <span className="studio-explorer-chip is-muted">
+              {totalTreeNodes} items
             </span>
           </div>
-          {snapshot?.git.is_repo ? (
-            <p>
-              Branch {snapshot.git.branch || "detached"} ·{" "}
-              {snapshot.git.last_commit || "No commits yet"}
-            </p>
-          ) : (
-            <p>
-              Initialize a repository so edits, diffs, and worker runs stay
-              scoped to a known project boundary.
-            </p>
-          )}
+          <p className="studio-explorer-root-path" title={rootPath}>
+            {rootPath}
+          </p>
           {!snapshot?.git.is_repo ? (
             <button
               type="button"
@@ -358,52 +397,31 @@ export function StudioExplorerPane({
           ) : null}
         </section>
 
-        <section className="studio-explorer-card studio-explorer-card--tree">
-          <div className="studio-explorer-card-head">
-            <strong>Files</strong>
-            <span>{totalTreeNodes}</span>
-          </div>
+        <section className="studio-explorer-tree-shell">
+          <button
+            type="button"
+            className={`studio-explorer-root-row ${rootExpanded ? "is-expanded" : ""}`}
+            onClick={() => setRootExpanded((current) => !current)}
+            aria-expanded={rootExpanded}
+          >
+            <FolderFlapIcon isOpen={rootExpanded} />
+            <span className="studio-explorer-tree-name">{rootLabel}</span>
+          </button>
+
           {loading ? (
             <p className="studio-explorer-feedback">Loading project tree...</p>
           ) : null}
           {error ? <p className="studio-explorer-feedback">{error}</p> : null}
-          {!loading && !error && snapshot ? (
-            <div className="studio-explorer-tree">{renderTree(treeNodes)}</div>
-          ) : null}
-        </section>
-
-        <section className="studio-explorer-card">
-          <div className="studio-explorer-card-head">
-            <strong>Artifacts</strong>
-            <span>{snapshot?.artifacts.length || 0}</span>
-          </div>
-          {loading ? (
-            <p className="studio-explorer-feedback">Loading artifacts...</p>
-          ) : null}
-          {error ? <p className="studio-explorer-feedback">{error}</p> : null}
-          {!loading && !error && snapshot ? (
-            visibleArtifacts.length > 0 ? (
-              <div className="studio-explorer-artifact-list">
-                {visibleArtifacts.map((artifact) => (
-                  <button
-                    key={`${artifact.artifact_type}:${artifact.path}`}
-                    type="button"
-                    className="studio-explorer-artifact"
-                    onClick={() => onOpenFile(artifact.path)}
-                  >
-                    <div className="studio-explorer-artifact-head">
-                      <strong>{artifact.title}</strong>
-                      <span>{artifact.artifact_type}</span>
-                    </div>
-                    <p>{artifact.path}</p>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="studio-explorer-feedback">
-                Run workflows or export reports and they will appear here.
-              </p>
-            )
+          {!loading && !error && snapshot && rootExpanded ? (
+            <div
+              className={`studio-explorer-tree ${
+                hasExpandedChildDirectory(treeNodes)
+                  ? "is-ancestor"
+                  : "is-youngest"
+              }`}
+            >
+              {renderTree(treeNodes)}
+            </div>
           ) : null}
         </section>
       </div>

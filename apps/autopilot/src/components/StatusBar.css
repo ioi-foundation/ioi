@@ -67,7 +67,7 @@
 .status-meter {
   width: 36px;
   height: 4px;
-  background: rgba(232, 237, 242, 0.08);
+  background: var(--bg-hover);
   border-radius: 999px;
   overflow: hidden;
 }

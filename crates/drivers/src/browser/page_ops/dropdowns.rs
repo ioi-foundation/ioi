@@ -54,6 +54,13 @@ impl BrowserDriver {
                 result.reason.unwrap_or_else(|| "unknown error".to_string())
             )));
         }
+        self.record_browser_use_event(
+            "GetDropdownOptionsEvent",
+            None,
+            self.known_active_url().await,
+            None,
+        )
+        .await;
         Ok(result.options)
     }
 
@@ -109,6 +116,13 @@ impl BrowserDriver {
                 result.reason.unwrap_or_else(|| "unknown error".to_string())
             )));
         }
+        self.record_browser_use_event(
+            "GetDropdownOptionsEvent",
+            None,
+            self.known_active_url().await,
+            None,
+        )
+        .await;
         Ok(result.options)
     }
 
@@ -229,6 +243,13 @@ impl BrowserDriver {
         }
 
         self.invalidate_accessibility_snapshot().await;
+        self.record_browser_use_event(
+            "SelectDropdownOptionEvent",
+            None,
+            self.known_active_url().await,
+            None,
+        )
+        .await;
 
         Ok(BrowserDropdownSelection {
             value: result.value.unwrap_or_default(),
@@ -351,6 +372,13 @@ impl BrowserDriver {
         }
 
         self.invalidate_accessibility_snapshot().await;
+        self.record_browser_use_event(
+            "SelectDropdownOptionEvent",
+            None,
+            self.known_active_url().await,
+            None,
+        )
+        .await;
 
         Ok(BrowserDropdownSelection {
             value: result.value.unwrap_or_default(),

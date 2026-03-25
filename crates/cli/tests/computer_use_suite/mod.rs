@@ -13,7 +13,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use judge::judge_case;
 use tasks::{cases_for_task_set, validate_case_catalog};
-use types::{AgentBackend, ComputerUseMode, SuiteConfig, SuiteSummary, TaskSet};
+use types::{
+    AgentBackend, ComputerUseCaseResult, ComputerUseMode, SuiteConfig, SuiteSummary, TaskSet,
+};
 
 const REWARD_FLOOR_EPSILON: f32 = 1e-4;
 
@@ -90,7 +92,7 @@ fn default_artifact_root() -> PathBuf {
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs();
+        .as_millis();
     PathBuf::from("target")
         .join("computer_use_suite")
         .join(format!("run-{}", ts))
@@ -191,13 +193,45 @@ pub async fn run_computer_use_suite(config: SuiteConfig) -> Result<Vec<SuiteSumm
     let mut suite_summaries = Vec::new();
     let mut failure_messages = Vec::new();
     for mode in &config.modes {
-        let report = harness::run_mode(&config, *mode, &cases).await?;
-        let judged_results = report
-            .results
-            .into_iter()
-            .zip(cases.iter())
-            .map(|(result, case)| judge_case(case, result))
-            .collect::<Vec<_>>();
+        harness::publish_live_run_started(&config, *mode, config.task_set, &cases)?;
+        let mut judged_results = Vec::new();
+        let total_cases = cases.len();
+        let report = harness::run_mode_with_case_sink(
+            &config,
+            *mode,
+            &cases,
+            |case, completed_cases| {
+                harness::publish_live_case_started(
+                    &config,
+                    *mode,
+                    config.task_set,
+                    case,
+                    completed_cases,
+                    total_cases,
+                )
+            },
+            |case, result: &ComputerUseCaseResult, completed_cases| {
+                let judged = judge_case(case, result.clone());
+                judged_results.push(judged.clone());
+                harness::publish_live_case_progress(
+                    &config,
+                    *mode,
+                    config.task_set,
+                    &judged,
+                    completed_cases,
+                    total_cases,
+                )
+            },
+        )
+        .await?;
+        if judged_results.len() != report.results.len() {
+            judged_results = report
+                .results
+                .into_iter()
+                .zip(cases.iter())
+                .map(|(result, case)| judge_case(case, result))
+                .collect::<Vec<_>>();
+        }
         harness::persist_mode_report(&config, *mode, config.task_set, &judged_results).await?;
 
         let summary = SuiteSummary {

@@ -96,8 +96,9 @@ fn browser_click_tools_do_not_require_native_focus_recovery() {
     }));
     assert!(!is_focus_sensitive_tool(
         &AgentTool::BrowserSyntheticClick {
-            x: 20.0,
-            y: 30.0,
+            id: None,
+            x: Some(20.0),
+            y: Some(30.0),
             continue_with: None,
         }
     ));

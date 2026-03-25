@@ -3,7 +3,7 @@ use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::vm::drivers::gui::{AtomicInput, InputEvent};
 use ioi_drivers::browser::SelectorProbe;
 use serde_json::json;
-use tokio::time::{sleep, Duration};
+use tokio::time::{sleep, Duration, Instant};
 
 use super::surface::is_probable_browser_window;
 
@@ -16,6 +16,22 @@ const SEARCH_FOCUS_SELECTORS: &[&str] = &[
     "textarea[placeholder*='search' i]",
     "input[placeholder*='search' i]",
 ];
+
+fn browser_click_trace_enabled() -> bool {
+    std::env::var("IOI_BROWSER_CLICK_TRACE_STDERR")
+        .ok()
+        .map(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+        })
+        .unwrap_or(false)
+}
+
+fn emit_browser_click_trace(label: &str, details: impl AsRef<str>) {
+    if browser_click_trace_enabled() {
+        eprintln!("[browser-click] {label} {}", details.as_ref());
+    }
+}
 
 pub(super) fn selector_focus_postcondition(
     pre: &SelectorProbe,
@@ -86,15 +102,36 @@ pub(super) async fn handle_browser_click(
         return blocked;
     }
 
+    let selector_started_at = Instant::now();
+    emit_browser_click_trace("selector_pre_probe_start", format!("selector={selector}"));
     let pre = match exec.browser.probe_selector(selector).await {
         Ok(p) => p,
         Err(e) => {
+            emit_browser_click_trace(
+                "selector_pre_probe_error",
+                format!(
+                    "selector={selector} elapsed_ms={} error={e}",
+                    selector_started_at.elapsed().as_millis()
+                ),
+            );
             return ToolExecutionResult::failure(format!(
                 "ERROR_CLASS=TargetNotFound Failed to inspect selector '{}': {}",
                 selector, e
-            ))
+            ));
         }
     };
+    emit_browser_click_trace(
+        "selector_pre_probe_done",
+        format!(
+            "selector={selector} elapsed_ms={} found={} visible={} topmost={} focused={} editable={}",
+            selector_started_at.elapsed().as_millis(),
+            pre.found,
+            pre.visible,
+            pre.topmost,
+            pre.focused,
+            pre.editable,
+        ),
+    );
 
     if !pre.found {
         return ToolExecutionResult::failure(format!(
@@ -114,20 +151,59 @@ pub(super) async fn handle_browser_click(
         }
     }
 
+    emit_browser_click_trace("selector_click_start", format!("selector={selector}"));
     if let Err(e) = exec.browser.click_selector(selector).await {
         click_errors.push(format!("click_primary={}", e));
+        emit_browser_click_trace(
+            "selector_click_error",
+            format!(
+                "selector={selector} elapsed_ms={} error={e}",
+                selector_started_at.elapsed().as_millis()
+            ),
+        );
         let _ = exec.browser.focus_selector(selector).await;
         match exec.browser.click_selector(selector).await {
             Ok(_) => {
                 fallback_used = "selector_refocus_retry".to_string();
+                emit_browser_click_trace(
+                    "selector_click_retry_done",
+                    format!(
+                        "selector={selector} elapsed_ms={}",
+                        selector_started_at.elapsed().as_millis()
+                    ),
+                );
             }
             Err(second) => {
                 click_errors.push(format!("click_retry={}", second));
+                emit_browser_click_trace(
+                    "selector_click_retry_error",
+                    format!(
+                        "selector={selector} elapsed_ms={} error={second}",
+                        selector_started_at.elapsed().as_millis()
+                    ),
+                );
             }
         }
+    } else {
+        emit_browser_click_trace(
+            "selector_click_done",
+            format!(
+                "selector={selector} elapsed_ms={}",
+                selector_started_at.elapsed().as_millis()
+            ),
+        );
     }
 
+    emit_browser_click_trace("selector_post_probe_start", format!("selector={selector}"));
     let mut post = exec.browser.probe_selector(selector).await.ok();
+    emit_browser_click_trace(
+        "selector_post_probe_done",
+        format!(
+            "selector={selector} elapsed_ms={} found={}",
+            selector_started_at.elapsed().as_millis(),
+            post.as_ref().is_some_and(|probe| probe.found),
+        ),
+    );
     let mut postcondition_met = selector_focus_postcondition(&pre, post.as_ref());
 
     if !postcondition_met {

@@ -16,14 +16,45 @@ use ioi_types::app::{RedactionMap, RedactionType, WorkloadScsRetrieveReceipt};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use parity_scale_codec::Encode;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::HashSet;
 use tokio::time::{timeout, Duration, Instant};
 
 const SCS_SEMANTIC_INDEXING_BUDGET: Duration = Duration::from_secs(2);
 
-fn should_embed_for_semantic_indexing(role: &str) -> bool {
-    role.eq_ignore_ascii_case("user") || role.eq_ignore_ascii_case("assistant")
+fn assistant_message_is_structured_tool_call(text: &str) -> bool {
+    fn is_tool_call_payload(value: &Value) -> bool {
+        match value {
+            Value::Object(map) => {
+                matches!(map.get("name"), Some(Value::String(_)))
+                    && matches!(map.get("arguments"), Some(Value::Object(_)))
+                    && map
+                        .keys()
+                        .all(|key| matches!(key.as_str(), "name" | "arguments"))
+            }
+            _ => false,
+        }
+    }
+
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    match serde_json::from_str::<Value>(trimmed) {
+        Ok(Value::Array(items)) => !items.is_empty() && items.iter().all(is_tool_call_payload),
+        Ok(value) => is_tool_call_payload(&value),
+        Err(_) => false,
+    }
+}
+
+fn should_embed_for_semantic_indexing(role: &str, scrubbed_text: &str) -> bool {
+    if role.eq_ignore_ascii_case("user") {
+        return true;
+    }
+
+    role.eq_ignore_ascii_case("assistant")
+        && !assistant_message_is_structured_tool_call(scrubbed_text)
 }
 
 #[derive(Debug, Clone)]
@@ -108,6 +139,17 @@ pub async fn retrieve_context_hybrid_with_receipt(
             }
         }
     };
+
+    let should_skip_retrieval = match scs_mutex.lock() {
+        Ok(store) => store.toc.frames.len() <= 1,
+        Err(_) => false,
+    };
+    if should_skip_retrieval {
+        return HybridRetrievalResult {
+            output: "".to_string(),
+            receipt: None,
+        };
+    }
 
     // Use reasoning model to embed the query
     let embedding_res = service.reasoning_inference.embed_text(query).await;
@@ -272,7 +314,7 @@ pub async fn append_chat_to_scs(
     let recorded_message = build_recorded_message(&service.scrubber, msg).await;
 
     // 1. Persist Canonical Message Envelope
-    let (frame_id, checksum) = {
+    let (frame_id, checksum, skip_semantic_indexing) = {
         let mut store = scs_mutex
             .lock()
             .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
@@ -299,8 +341,18 @@ pub async fn append_chat_to_scs(
                 "Internal: Frame not found".into(),
             ))?;
 
-        (id, frame.checksum)
+        (
+            id,
+            frame.checksum,
+            // Avoid blocking a brand-new store on embeddings before there is any
+            // retrievable context for semantic search to benefit from.
+            store.toc.frames.len() <= 1,
+        )
     };
+
+    if skip_semantic_indexing {
+        return Ok(checksum);
+    }
 
     // 2. Semantic Indexing
     // Keep indexing best-effort and bounded so action completion never waits on
@@ -312,7 +364,11 @@ pub async fn append_chat_to_scs(
     let mut vectors = Vec::new();
 
     let remaining = semantic_budget_remaining();
-    if should_embed_for_semantic_indexing(&recorded_message.role) && !remaining.is_zero() {
+    if should_embed_for_semantic_indexing(
+        &recorded_message.role,
+        &recorded_message.scrubbed_for_scs,
+    ) && !remaining.is_zero()
+    {
         match timeout(
             remaining,
             service
@@ -847,6 +903,15 @@ mod tests {
         let (service, path) =
             build_test_service_with_temp_scs_with_inference(Arc::new(SlowInferenceRuntime));
         let session_id = [33u8; 32];
+        let seed_msg = ChatMessage {
+            role: "user".to_string(),
+            content: "Seed semantic history before timing assistant indexing.".to_string(),
+            timestamp: 1_700_000_000_100u64,
+            trace_hash: None,
+        };
+        let seed_res = service.append_chat_to_scs(session_id, &seed_msg, 0).await;
+        assert!(seed_res.is_ok());
+
         let msg = ChatMessage {
             role: "assistant".to_string(),
             content: "This is long enough to trigger semantic fact extraction and embedding work."
@@ -865,6 +930,34 @@ mod tests {
             "append_chat_to_scs exceeded semantic indexing budget: {:?}",
             elapsed
         );
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn append_chat_to_scs_skips_semantic_indexing_for_structured_assistant_tool_calls() {
+        let (service, path) =
+            build_test_service_with_temp_scs_with_inference(Arc::new(NoInferenceRuntime));
+        let session_id = [56u8; 32];
+        let seed_msg = ChatMessage {
+            role: "user".to_string(),
+            content: "Seed semantic history before structured assistant tool call.".to_string(),
+            timestamp: 1_700_000_000_790u64,
+            trace_hash: None,
+        };
+        let seed_res = service.append_chat_to_scs(session_id, &seed_msg, 0).await;
+        assert!(seed_res.is_ok());
+
+        let msg = ChatMessage {
+            role: "assistant".to_string(),
+            content: r#"{"name":"browser__synthetic_click","arguments":{"x":63.0,"y":104.0}}"#
+                .to_string(),
+            timestamp: 1_700_000_000_791u64,
+            trace_hash: None,
+        };
+
+        let append_res = service.append_chat_to_scs(session_id, &msg, 0).await;
+        assert!(append_res.is_ok());
 
         let _ = std::fs::remove_file(path);
     }

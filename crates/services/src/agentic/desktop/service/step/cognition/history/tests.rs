@@ -11,7 +11,7 @@ use super::{
     extract_browser_xml_attr, extract_priority_browser_targets,
     latest_recent_pending_browser_state_context, recent_goal_message_recipient_target,
     recent_goal_primary_target, recent_history_return_item_id, snapshot_visible_exact_text_target,
-    top_edge_jump_call, BROWSER_OBSERVATION_CONTEXT_MAX_CHARS,
+    top_edge_jump_call_for_selector, BROWSER_OBSERVATION_CONTEXT_MAX_CHARS,
 };
 use ioi_types::app::agentic::ChatMessage;
 
@@ -207,6 +207,60 @@ fn browser_observation_context_from_snapshot_reuses_same_formatting() {
 }
 
 #[test]
+fn browser_observation_context_keeps_submit_visible_with_geometry_targets() {
+    let history = vec![
+        chat_message(
+            "tool",
+            concat!(
+                "Tool Output (browser__snapshot): ",
+                "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+                "<generic id=\"grp_blue_circle\" name=\"small blue circle at 63,97 radius 4\" dom_id=\"blue-circle\" selector=\"[id=&quot;blue-circle&quot;]\" ",
+                "tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" center_x=\"63\" center_y=\"96\" rect=\"60,93,7,7\" />",
+                "<generic id=\"grp_large_line_from_31108_to_9181\" name=\"large line from 31,108 to 91,81\" ",
+                "tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"91\" line_y2=\"81\" ",
+                "line_angle_deg=\"-24\" center_x=\"61\" center_y=\"94\" rect=\"31,81,60,27\" />",
+                "<generic id=\"grp_small_blue_circle_at_31108_rad\" name=\"small blue circle at 31,108 radius 4\" ",
+                "tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
+                "<generic id=\"grp_large_line_from_31108_to_71125\" name=\"large line from 31,108 to 71,125\" ",
+                "tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"71\" line_y2=\"125\" ",
+                "line_angle_deg=\"23\" center_x=\"51\" center_y=\"116\" rect=\"31,108,40,17\" />",
+                "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"30,178,95,31\" />",
+                "</root>",
+            ),
+            1,
+        ),
+        chat_message(
+            "tool",
+            r##"Synthetic click at (63.5, 96.5) verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false},"synthetic_click":{"id":"grp_blue_circle","x":63.5,"y":96.5},"pre_target":{"semantic_id":"grp_blue_circle","selector":"#blue-circle","tag_name":"circle","center_point":[63.5,96.5]},"post_target":{"semantic_id":"grp_blue_circle","selector":"#blue-circle","tag_name":"circle","center_point":[65.5,98.5]}}"##,
+            2,
+        ),
+    ];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<generic id=\"grp_blue_circle\" name=\"small blue circle at 66,99 radius 4\" dom_id=\"blue-circle\" selector=\"[id=&quot;blue-circle&quot;]\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" connected_points=\"31,108\" connected_line_angles_deg=\"-15\" center_x=\"65\" center_y=\"98\" rect=\"62,95,7,7\" />",
+        "<generic id=\"grp_large_line_from_31108_to_9181\" name=\"large line from 31,108 to 91,81\" tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"91\" line_y2=\"81\" line_angle_deg=\"-24\" center_x=\"61\" center_y=\"94\" rect=\"31,81,60,27\" />",
+        "<generic id=\"grp_small_blue_circle_at_31108_rad\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|65,98|71,125\" connected_line_angles_deg=\"-24|-15|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
+        "<generic id=\"grp_large_line_from_31108_to_71125\" name=\"large line from 31,108 to 71,125\" tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"71\" line_y2=\"125\" line_angle_deg=\"23\" center_x=\"51\" center_y=\"116\" rect=\"31,108,40,17\" />",
+        "<generic id=\"grp_large_line_from_6598_to_31108\" name=\"large line from 65,98 to 31,108\" tag_name=\"line\" shape_kind=\"line\" line_x1=\"65\" line_y1=\"98\" line_x2=\"31\" line_y2=\"108\" line_angle_deg=\"-15\" center_x=\"48\" center_y=\"103\" rect=\"31,98,34,10\" />",
+        "<generic id=\"grp_small_black_circle_at_71125_ra\" name=\"small black circle at 71,125 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" connected_points=\"31,108\" connected_line_angles_deg=\"23\" center_x=\"71\" center_y=\"125\" rect=\"68,122,7,7\" />",
+        "<generic id=\"grp_small_black_circle_at_9181_rad\" name=\"small black circle at 91,81 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" connected_points=\"31,108\" connected_line_angles_deg=\"-24\" center_x=\"91\" center_y=\"81\" rect=\"88,78,7,7\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"30,178,95,31\" />",
+        "</root>"
+    );
+
+    let context = build_browser_observation_context_from_snapshot_with_history(snapshot, &history);
+
+    assert!(context.contains("IMPORTANT TARGETS:"), "{context}");
+    assert!(
+        context.contains("grp_small_black_circle_at_9181_rad"),
+        "{context}"
+    );
+    assert!(context.contains("btn_submit"), "{context}");
+    assert!(context.contains("connected_points=31,108"), "{context}");
+    assert!(context.contains("line_angle=-24deg"), "{context}");
+}
+
+#[test]
 fn browser_observation_context_surfaces_stateful_control_attributes() {
     let noise =
         "<generic id=\"grp_noise\" name=\"alpha beta gamma delta epsilon zeta eta theta\" />"
@@ -353,6 +407,27 @@ fn recent_session_events_context_compacts_verbose_browser_verify_payloads() {
 }
 
 #[test]
+fn recent_session_events_context_keeps_compact_synthetic_click_verify_payload() {
+    let history = vec![chat_message(
+        "tool",
+        r##"Synthetic click at (51.0, 95.0) verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false},"pre_target":{"semantic_id":"grp_large_line_from_31108_to_9181","selector":"#svg-grid > line:nth-of-type(2)","tag_name":"line","center_point":[61.0,94.5]},"post_target":{"semantic_id":"grp_blue_circle","dom_id":"blue-circle","selector":"#blue-circle","tag_name":"circle","center_point":[53.5,97.5]}}"##,
+        1,
+    )];
+
+    let context = build_recent_session_events_context(&history, true);
+    assert!(
+        context.contains("Synthetic click at (51.0, 95.0)"),
+        "{context}"
+    );
+    assert!(context.contains("\"pre_target\""), "{context}");
+    assert!(context.contains("\"post_target\""), "{context}");
+    assert!(
+        context.contains("\"semantic_id\":\"grp_blue_circle\""),
+        "{context}"
+    );
+}
+
+#[test]
 fn latest_recent_pending_browser_state_context_keeps_recent_explicit_context_without_refresh() {
     let history = vec![
             chat_message(
@@ -478,7 +553,7 @@ fn browser_observation_context_preserves_svg_geometry_targets_under_truncation()
                 "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
                 "{}",
                 "<generic id=\"grp_svg_grid_object\" name=\"svg grid object\" dom_id=\"svg-grid\" selector=\"[id=&quot;svg-grid&quot;]\" tag_name=\"svg\" rect=\"2,52,150,130\" />",
-                "<generic id=\"grp_small_blue_circle\" name=\"small blue circle at 31,108\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"blue\" geometry_role=\"vertex\" connected_lines=\"2\" connected_points=\"91,81|71,125\" connected_line_angles_deg=\"-24|23\" angle_mid_deg=\"0\" angle_span_deg=\"47\" bisector_probe_point=\"60.9,107.7\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
+                "<generic id=\"grp_small_blue_circle\" name=\"small blue circle at 31,108\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"blue\" geometry_role=\"vertex\" connected_lines=\"2\" connected_points=\"91,81|71,125\" connected_line_angles_deg=\"-24|23\" angle_mid_deg=\"0\" angle_span_deg=\"47\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
                 "<generic id=\"grp_small_black_circle\" name=\"small black circle at 71,125\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"black\" center_x=\"71\" center_y=\"125\" rect=\"68,122,7,7\" />",
                 "<generic id=\"grp_small_black_circle_2\" name=\"small black circle at 91,81\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"black\" center_x=\"91\" center_y=\"81\" rect=\"88,78,7,7\" />",
                 "<generic id=\"grp_angle_arm\" name=\"line from 31,108 to 71,125\" tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"71\" line_y2=\"125\" line_length=\"43\" line_angle_deg=\"23\" rect=\"31,108,40,17\" />",
@@ -513,7 +588,6 @@ fn browser_observation_context_preserves_svg_geometry_targets_under_truncation()
     );
     assert!(context.contains("angle_mid=0deg"), "{context}");
     assert!(context.contains("angle_span=47deg"), "{context}");
-    assert!(context.contains("bisector_probe=60.9,107.7"), "{context}");
     assert!(context.contains("center=31,108"), "{context}");
     assert!(context.contains("grp_angle_arm tag=generic"), "{context}");
     assert!(context.contains("line=31,108->71,125"), "{context}");
@@ -527,11 +601,52 @@ fn browser_observation_context_preserves_svg_geometry_targets_under_truncation()
 }
 
 #[test]
+fn extract_priority_browser_targets_prefers_visible_start_gate_over_covered_targets() {
+    let snapshot = format!(
+        concat!(
+            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+            "{}",
+            "<generic id=\"grp_start\" name=\"START\" dom_id=\"sync-task-cover\" selector=\"[id=&quot;sync-task-cover&quot;]\" rect=\"0,0,160,210\" />",
+            "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+            "<generic id=\"grp_click_canvas\" name=\"click canvas\" dom_id=\"click-canvas\" selector=\"[id=&quot;click-canvas&quot;]\" tag_name=\"canvas\" rect=\"0,0,160,210\" />",
+            "<generic id=\"grp_reward_display\" name=\"Last reward: -\" dom_id=\"reward-display\" selector=\"[id=&quot;reward-display&quot;]\" rect=\"165,0,160,210\" />",
+            "</root>"
+        ),
+        "<generic id=\"grp_padding\" name=\"padding\" rect=\"0,0,1,1\" /> ".repeat(220),
+    );
+
+    let targets = extract_priority_browser_targets(&snapshot, 8).join(" | ");
+
+    assert!(targets.contains("grp_start"), "{targets}");
+    assert!(!targets.contains("grp_click_canvas"), "{targets}");
+    assert!(!targets.contains("btn_submit"), "{targets}");
+}
+
+#[test]
+fn extract_priority_browser_targets_collapses_to_start_gate_even_when_canvas_is_uncovered() {
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<generic id=\"grp_start\" name=\"START\" dom_id=\"sync-task-cover\" selector=\"[id=&quot;sync-task-cover&quot;]\" rect=\"0,0,160,210\" />",
+        "<generic id=\"grp_click_canvas\" name=\"click canvas\" dom_id=\"click-canvas\" selector=\"[id=&quot;click-canvas&quot;]\" tag_name=\"canvas\" rect=\"165,0,160,210\" />",
+        "<generic id=\"grp_reward_display\" name=\"Last reward: -\" dom_id=\"reward-display\" selector=\"[id=&quot;reward-display&quot;]\" rect=\"165,0,160,210\" />",
+        "<button id=\"btn_buy\" name=\"Buy\" dom_id=\"buy\" selector=\"[id=&quot;buy&quot;]\" rect=\"40,150,60,20\" />",
+        "</root>"
+    );
+
+    let targets = extract_priority_browser_targets(snapshot, 8).join(" | ");
+
+    assert!(targets.contains("grp_start"), "{targets}");
+    assert!(!targets.contains("grp_click_canvas"), "{targets}");
+    assert!(!targets.contains("reward-display"), "{targets}");
+    assert!(!targets.contains("btn_buy"), "{targets}");
+}
+
+#[test]
 fn extract_priority_browser_targets_prefers_grounded_geometry_over_status_telemetry() {
     let snapshot = concat!(
             "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
             "<generic id=\"grp_svg_grid_object\" name=\"svg grid object\" dom_id=\"svg-grid\" selector=\"[id=&quot;svg-grid&quot;]\" tag_name=\"svg\" rect=\"2,52,150,130\" />",
-            "<generic id=\"grp_small_blue_circle\" name=\"small blue circle at 31,108\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"blue\" geometry_role=\"vertex\" connected_lines=\"2\" connected_points=\"91,81|71,125\" connected_line_angles_deg=\"-24|23\" angle_mid_deg=\"0\" angle_span_deg=\"47\" bisector_probe_point=\"60.9,107.7\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
+            "<generic id=\"grp_small_blue_circle\" name=\"small blue circle at 31,108\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"blue\" geometry_role=\"vertex\" connected_lines=\"2\" connected_points=\"91,81|71,125\" connected_line_angles_deg=\"-24|23\" angle_mid_deg=\"0\" angle_span_deg=\"47\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
             "<generic id=\"grp_small_black_circle\" name=\"small black circle at 71,125\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"black\" center_x=\"71\" center_y=\"125\" rect=\"68,122,7,7\" />",
             "<generic id=\"grp_small_black_circle_2\" name=\"small black circle at 91,81\" tag_name=\"circle\" shape_kind=\"circle\" shape_size=\"small\" shape_color=\"black\" center_x=\"91\" center_y=\"81\" rect=\"88,78,7,7\" />",
             "<generic id=\"grp_angle_arm\" name=\"line from 31,108 to 71,125\" tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"71\" line_y2=\"125\" line_length=\"43\" line_angle_deg=\"23\" rect=\"31,108,40,17\" />",
@@ -547,17 +662,33 @@ fn extract_priority_browser_targets_prefers_grounded_geometry_over_status_teleme
 
     let targets = extract_priority_browser_targets(snapshot, 8);
     let joined = targets.join(" | ");
+    let svg_index = targets
+        .iter()
+        .position(|target| target.contains("grp_svg_grid_object"));
+    let geometry_index = targets
+        .iter()
+        .position(|target| target.contains("grp_small_blue_circle"));
+    let submit_index = targets
+        .iter()
+        .position(|target| target.contains("btn_submit"));
 
     assert!(joined.contains("grp_small_blue_circle"), "{joined}");
     assert!(joined.contains("shape_kind=circle"), "{joined}");
     assert!(joined.contains("geometry_role=vertex"), "{joined}");
     assert!(joined.contains("connected_points=91,81|71,125"), "{joined}");
     assert!(joined.contains("angle_mid=0deg"), "{joined}");
-    assert!(joined.contains("bisector_probe=60.9,107.7"), "{joined}");
     assert!(joined.contains("grp_angle_arm"), "{joined}");
     assert!(joined.contains("line=31,108->71,125"), "{joined}");
     assert!(joined.contains("line_angle=23deg"), "{joined}");
     assert!(joined.contains("btn_submit tag=button"), "{joined}");
+    assert!(svg_index.is_none(), "{joined}");
+    assert!(
+        geometry_index
+            .zip(submit_index)
+            .is_some_and(|(geometry, submit)| geometry < submit),
+        "{joined}"
+    );
+    assert!(!joined.contains("grp_click_canvas"), "{joined}");
     assert!(!joined.contains("reward-display"), "{joined}");
     assert!(!joined.contains("timer-countdown"), "{joined}");
     assert!(!joined.contains("episode-id"), "{joined}");
@@ -733,6 +864,36 @@ fn success_signal_context_highlights_recent_browser_effect() {
 }
 
 #[test]
+fn success_signal_context_prefers_new_surface_targets_after_start_gate_clears() {
+    let history = vec![chat_message(
+        "tool",
+        "Clicked element 'grp_start' via geometry fallback. verify={\"postcondition\":{\"met\":true,\"tree_changed\":true}}",
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<generic id=\"grp_large_line_from_31108_to_9181\" name=\"large line from 31,108 to 91,81\" tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"91\" line_y2=\"81\" line_angle_deg=\"-24\" rect=\"31,81,60,27\" />",
+        "<generic id=\"grp_large_line_from_31108_to_71125\" name=\"large line from 31,108 to 71,125\" tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"71\" line_y2=\"125\" line_angle_deg=\"23\" rect=\"31,108,40,17\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" dom_clickable=\"true\" tag_name=\"button\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
+    assert!(
+        context.contains("exposed a different task surface"),
+        "{context}"
+    );
+    assert!(
+        context.contains("grp_large_line_from_31108_to_9181"),
+        "{context}"
+    );
+    assert!(
+        !context.contains("Use a visible control such as `btn_submit`"),
+        "{context}"
+    );
+}
+
+#[test]
 fn success_signal_context_highlights_selected_form_control_follow_up() {
     let history = vec![chat_message(
             "tool",
@@ -748,27 +909,7 @@ fn success_signal_context_highlights_selected_form_control_follow_up() {
 }
 
 #[test]
-fn recent_goal_primary_target_falls_back_to_select_submit_instruction() {
-    let history = vec![chat_message("user", "Select TeCSlMn and click Submit.", 1)];
-
-    let target = recent_goal_primary_target(&history);
-    assert_eq!(target.as_deref(), Some("TeCSlMn"));
-}
-
-#[test]
-fn recent_goal_primary_target_extracts_date_before_hit_submit_clause() {
-    let history = vec![chat_message(
-        "user",
-        "Select 06/20/2016 as the date and hit submit.",
-        1,
-    )];
-
-    let target = recent_goal_primary_target(&history);
-    assert_eq!(target.as_deref(), Some("06/20/2016"));
-}
-
-#[test]
-fn recent_goal_primary_target_prefers_find_by_target_over_reply_payload_quote() {
+fn recent_goal_primary_target_requires_explicit_quoted_target() {
     let history = vec![chat_message(
         "user",
         r#"Find the email by Regan and reply to them with the text "Vitae mi, eu."."#,
@@ -776,19 +917,15 @@ fn recent_goal_primary_target_prefers_find_by_target_over_reply_payload_quote() 
     )];
 
     let target = recent_goal_primary_target(&history);
-    assert_eq!(target.as_deref(), Some("Regan"));
+    assert_eq!(target.as_deref(), Some("Vitae mi, eu."));
 }
 
 #[test]
-fn recent_goal_primary_target_extracts_message_source_sender() {
-    let history = vec![chat_message(
-        "user",
-        "I want to send Sadie the e-mail that I got from Judi.",
-        1,
-    )];
+fn recent_goal_primary_target_ignores_unquoted_benchmark_instruction() {
+    let history = vec![chat_message("user", "Select TeCSlMn and click Submit.", 1)];
 
     let target = recent_goal_primary_target(&history);
-    assert_eq!(target.as_deref(), Some("Judi"));
+    assert_eq!(target, None);
 }
 
 #[test]
@@ -804,45 +941,32 @@ fn recent_goal_message_recipient_target_extracts_message_recipient() {
 }
 
 #[test]
-fn success_signal_context_highlights_submit_turnover_after_selected_control() {
-    let history = vec![
-            chat_message(
-                "user",
-                "Select TeCSlMn and click Submit.",
-                1,
-            ),
-            chat_message(
-                "tool",
-                "Clicked element 'radio_tecslmn' via geometry fallback. verify={\"post_target\":{\"semantic_id\":\"radio_tecslmn\",\"checked\":true},\"postcondition\":{\"met\":true,\"tree_changed\":true}}",
-                2,
-            ),
-            chat_message(
-                "tool",
-                "Clicked element 'btn_submit' via selector fallback '[id=\"subbtn\"]'. Browser click/focus succeeded. verify={\"postcondition_met\":true}",
-                3,
-            ),
-        ];
+fn pending_browser_state_context_does_not_emit_select_submit_shortcut_from_prompt_text() {
+    let history = vec![chat_message("user", "Select TeCSlMn and click Submit.", 1)];
     let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<generic id=\"grp_select_jtddg_and_click_submit_\" name=\"Select JtddG and click Submit.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
-            "<label id=\"label_hdbp\" name=\"hDbp\" tag_name=\"label\" rect=\"2,59,52,11\" />",
-            "<radio id=\"radio_hdbp\" name=\"hDbp\" dom_id=\"ch0\" selector=\"[id=&quot;ch0&quot;]\" tag_name=\"input\" rect=\"7,55,20,13\" />",
-            "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"2,171,95,31\" />",
-            "</root>",
-        );
-
-    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.contains("RECENT SUCCESS SIGNAL:"), "{context}");
-    assert!(context.contains("`btn_submit`"), "{context}");
-    assert!(context.contains("`TeCSlMn`"), "{context}");
-    assert!(context.contains("`radio_tecslmn`"), "{context}");
-    assert!(context.contains("turned over the page"), "{context}");
-    assert!(context.contains("current browser observation"), "{context}");
-    assert!(
-        context.contains("Do not use the new page's controls"),
-        "{context}"
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<radio id=\"radio_tecslmn\" name=\"TeCSlMn\" dom_id=\"ch0\" selector=\"[id=&quot;ch0&quot;]\" tag_name=\"input\" rect=\"7,55,20,13\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"2,153,95,31\" />",
+        "</root>",
     );
-    assert!(context.contains("`agent__complete`"), "{context}");
+
+    let context =
+        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+    assert!(context.is_empty(), "{context}");
+}
+
+#[test]
+fn browser_snapshot_pending_state_context_does_not_emit_select_submit_shortcut_from_page_text() {
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<generic id=\"grp_query\" name=\"Select TeCSlMn and click Submit.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
+        "<radio id=\"radio_tecslmn\" name=\"TeCSlMn\" dom_id=\"ch0\" selector=\"[id=&quot;ch0&quot;]\" tag_name=\"input\" rect=\"7,55,20,13\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"2,153,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_browser_snapshot_pending_state_context(snapshot);
+    assert!(context.is_empty(), "{context}");
 }
 
 #[test]
@@ -1006,6 +1130,36 @@ fn priority_target_extraction_drops_passive_metric_targets_from_compact_summary(
     assert!(!joined.contains("timer-countdown"), "{joined}");
     assert!(!joined.contains("episode-id"), "{joined}");
     assert!(!joined.contains("Episodes done"), "{joined}");
+}
+
+#[test]
+fn observation_context_hides_surface_wrappers_when_geometry_is_still_unresolved() {
+    let history = vec![chat_message(
+        "tool",
+        r##"{"synthetic_click":{"x":51,"y":116},"postcondition":{"met":true,"tree_changed":true,"url_changed":false},"pre_target":{"semantic_id":"grp_large_line_from_31108_to_71125","selector":"#svg-grid > line:nth-of-type(1)","tag_name":"line","center_point":[51.0,116.5]},"post_target":{"semantic_id":"grp_large_line_from_31108_to_71125","selector":"#svg-grid > line:nth-of-type(1)","tag_name":"line","center_point":[51.0,116.5]}}"##,
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<generic id=\"grp_query\" name=\"Create a line that bisects the angle evenly in two, then press submit.\" />",
+        "<generic id=\"grp_svg_grid_object\" name=\"svg grid object\" dom_id=\"svg-grid\" selector=\"[id=&quot;svg-grid&quot;]\" tag_name=\"svg\" rect=\"2,52,150,130\" />",
+        "<generic id=\"grp_click_canvas\" name=\"click canvas\" dom_id=\"click-canvas\" selector=\"[id=&quot;click-canvas&quot;]\" rect=\"0,50,160,160\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"30,178,95,31\" />",
+        "<generic id=\"grp_blue_circle\" name=\"small blue circle at 53,118 radius 4\" dom_id=\"blue-circle\" selector=\"[id=&quot;blue-circle&quot;]\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" connected_points=\"31,108\" center_x=\"53\" center_y=\"118\" radius=\"4\" rect=\"49,114,7,7\" />",
+        "<generic id=\"grp_small_blue_circle_at_31108_rad\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|71,125|53,118\" connected_line_angles_deg=\"-24|23|24\" center_x=\"31\" center_y=\"108\" radius=\"4\" rect=\"27,104,7,7\" />",
+        "<generic id=\"grp_large_line_from_31108_to_9181\" name=\"large line from 31,108 to 91,81\" tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"91\" line_y2=\"81\" line_length=\"66\" line_angle_deg=\"-24\" rect=\"30,80,60,27\" />",
+        "<generic id=\"grp_large_line_from_31108_to_71125\" name=\"large line from 31,108 to 71,125\" tag_name=\"line\" shape_kind=\"line\" line_x1=\"31\" line_y1=\"108\" line_x2=\"71\" line_y2=\"125\" line_length=\"43\" line_angle_deg=\"23\" rect=\"30,107,40,17\" />",
+        "</root>",
+    );
+
+    let context = build_browser_observation_context_from_snapshot_with_history(snapshot, &history);
+    assert!(context.contains("RECENT BROWSER OBSERVATION:"), "{context}");
+    assert!(
+        context.contains("grp_large_line_from_31108_to_71125"),
+        "{context}"
+    );
+    assert!(!context.contains("grp_svg_grid_object"), "{context}");
+    assert!(!context.contains("grp_click_canvas"), "{context}");
 }
 
 #[test]
@@ -1608,67 +1762,6 @@ fn pending_browser_state_context_guides_exact_visible_target_click() {
 }
 
 #[test]
-fn pending_browser_state_context_guides_grounded_timed_click_sequence() {
-    let history = vec![chat_message(
-        "user",
-        "Click button ONE, wait 2 seconds, then click button TWO.",
-        1,
-    )];
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_query\" name=\"Click button ONE, wait 2 seconds, then click button TWO.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
-        "<button id=\"btn_one\" name=\"ONE\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" dom_clickable=\"true\" rect=\"105,79,40,40\" />",
-        "<button id=\"btn_two\" name=\"TWO\" dom_id=\"subbtn2\" selector=\"[id=&quot;subbtn2&quot;]\" dom_clickable=\"true\" rect=\"56,117,40,40\" />",
-        "</root>",
-    );
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(
-        context.contains("Use `browser__click_element` with `ids` [`btn_one`, `btn_two`]"),
-        "{context}"
-    );
-    assert!(context.contains("`delay_ms_between_ids` 2000"), "{context}");
-    assert!(context.contains("timed sequence executes"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_combines_start_gate_with_grounded_timed_click_sequence() {
-    let history = vec![chat_message(
-        "user",
-        "Click button ONE, wait 2 seconds, then click button TWO.",
-        1,
-    )];
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_start\" name=\"START\" dom_id=\"sync-task-cover\" selector=\"[id=&quot;sync-task-cover&quot;]\" rect=\"0,0,160,210\" />",
-        "<button id=\"btn_one\" name=\"ONE\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" dom_clickable=\"true\" rect=\"105,79,40,40\" />",
-        "<button id=\"btn_two\" name=\"TWO\" dom_id=\"subbtn2\" selector=\"[id=&quot;subbtn2&quot;]\" dom_clickable=\"true\" rect=\"56,117,40,40\" />",
-        "</root>",
-    );
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("visible start gate `grp_start`"),
-        "{context}"
-    );
-    assert!(context.contains("`continue_with`"), "{context}");
-    assert!(
-        context.contains("`browser__click_element` on `grp_start`"),
-        "{context}"
-    );
-    assert!(
-        context.contains("visible as `btn_one` and `btn_two`"),
-        "{context}"
-    );
-}
-
-#[test]
 fn pending_browser_state_context_prefers_actionable_target_over_instruction_token() {
     let history = vec![chat_message(
         "user",
@@ -2247,6 +2340,45 @@ fn pending_browser_state_context_guides_ranked_result_link_after_failed_page_cli
 }
 
 #[test]
+fn pending_browser_state_context_retries_visible_non_submit_click_after_dispatch_timeout() {
+    let history = vec![
+        chat_message(
+            "user",
+            r#"Buy YJV stock when the price is less than $59.60."#,
+            1,
+        ),
+        chat_message(
+            "tool",
+            r##"Tool Output (browser__click_element): ERROR_CLASS=NoEffectAfterAction Failed to click element 'btn_buy'. verify={"dispatch_failures":[{"error":"dispatch timed out after 2500 ms. Retry the action.","method":"selector_grounded","selector":"#buy"}],"id":"btn_buy"}"##,
+            2,
+        ),
+    ];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<button id=\"btn_buy\" name=\"Buy\" dom_id=\"buy\" selector=\"[id=&quot;buy&quot;]\" tag_name=\"button\" rect=\"20,140,101,31\" />",
+        "<generic id=\"grp_yjv\" name=\"YJV\" dom_id=\"stock-symbol\" selector=\"[id=&quot;stock-symbol&quot;]\" tag_name=\"span\" rect=\"20,90,24,12\" />",
+        "<generic id=\"grp_59_dot_00\" name=\"$59.00\" dom_id=\"stock-price\" selector=\"[id=&quot;stock-price&quot;]\" tag_name=\"span\" rect=\"20,110,40,12\" />",
+        "</root>",
+    );
+
+    let context =
+        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+    assert!(
+        context.contains("RECENT PENDING BROWSER STATE:"),
+        "{context}"
+    );
+    assert!(context.contains("`btn_buy`"), "{context}");
+    assert!(
+        context.contains("retry `browser__click_element` on `btn_buy` now"),
+        "{context}"
+    );
+    assert!(
+        context.contains("Do not spend the next step on `browser__snapshot`"),
+        "{context}"
+    );
+}
+
+#[test]
 fn pending_browser_state_context_guides_pagination_after_instruction_only_find_text_hit() {
     let history = vec![
         chat_message(
@@ -2405,313 +2537,6 @@ fn pending_browser_state_context_allows_reusable_navigation_control_repeat_after
         !context.contains("Use `browser__snapshot` once now"),
         "{context}"
     );
-}
-
-#[test]
-fn pending_browser_state_context_guides_calendar_navigation_toward_goal_date() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" dom_id=\"datepicker\" class_name=\"hasDatepicker\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"27,84,95,31\" />",
-        "<link id=\"lnk_prev\" name=\"Prev\" tag_name=\"a\" class_name=\"ui-datepicker-prev ui-corner-all\" dom_clickable=\"true\" rect=\"38,86,14,14\" />",
-        "<link id=\"lnk_next\" name=\"Next\" tag_name=\"a\" class_name=\"ui-datepicker-next ui-corner-all\" dom_clickable=\"true\" rect=\"126,86,14,14\" />",
-        "<generic id=\"grp_november_2016\" name=\"November 2016\" tag_name=\"div\" rect=\"54,86,48,14\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message("user", "Select 06/20/2016 as the date and hit submit.", 1),
-        chat_message(
-            "tool",
-            r#"Clicked element 'lnk_prev' via geometry fallback. verify={"post_target":{"semantic_id":"lnk_prev","tag_name":"a","center_point":[40.5,84.5]},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
-            2,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(context.contains("`06/20/2016`"), "{context}");
-    assert!(context.contains("`November 2016`"), "{context}");
-    assert!(context.contains("`lnk_prev` again"), "{context}");
-    assert!(context.contains("`June 2016`"), "{context}");
-    assert!(context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_guides_calendar_day_selection_when_target_month_is_visible() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" dom_id=\"datepicker\" class_name=\"hasDatepicker\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"27,84,95,31\" />",
-        "<link id=\"lnk_prev\" name=\"Prev\" tag_name=\"a\" class_name=\"ui-datepicker-prev ui-corner-all\" dom_clickable=\"true\" rect=\"38,86,14,14\" />",
-        "<link id=\"lnk_next\" name=\"Next\" tag_name=\"a\" class_name=\"ui-datepicker-next ui-corner-all\" dom_clickable=\"true\" rect=\"126,86,14,14\" />",
-        "<generic id=\"grp_june_2016\" name=\"June 2016\" tag_name=\"div\" rect=\"54,86,48,14\" />",
-        "<link id=\"lnk_20\" name=\"20\" tag_name=\"a\" class_name=\"ui-state-default\" dom_clickable=\"true\" rect=\"72,144,15,12\" />",
-        "</root>",
-    );
-    let history = vec![chat_message(
-        "user",
-        "Select 06/20/2016 as the date and hit submit.",
-        1,
-    )];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(context.contains("`June 2016`"), "{context}");
-    assert!(context.contains("`lnk_20`"), "{context}");
-    assert!(context.contains("`btn_submit`"), "{context}");
-    assert!(!context.contains("`lnk_prev`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_prefers_direct_date_entry_when_selector_is_visible() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" focused=\"true\" dom_id=\"datepicker\" selector=\"#datepicker\" class_name=\"hasDatepicker\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"#subbtn\" rect=\"27,84,95,31\" />",
-        "<link id=\"lnk_prev\" name=\"Prev\" tag_name=\"a\" class_name=\"ui-datepicker-prev ui-corner-all\" dom_clickable=\"true\" rect=\"38,86,14,14\" />",
-        "<generic id=\"grp_december_2016\" name=\"December 2016\" tag_name=\"div\" rect=\"54,86,48,14\" />",
-        "</root>",
-    );
-    let history = vec![chat_message(
-        "user",
-        "Select 06/20/2016 as the date and hit submit.",
-        1,
-    )];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(context.contains("`browser__type`"), "{context}");
-    assert!(context.contains("`06/20/2016`"), "{context}");
-    assert!(context.contains("`#datepicker`"), "{context}");
-    assert!(context.contains("`btn_submit`"), "{context}");
-    assert!(!context.contains("`lnk_prev`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_opens_readonly_datepicker_instead_of_typing() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" focused=\"true\" dom_id=\"datepicker\" selector=\"#datepicker\" class_name=\"hasDatepicker\" readonly=\"true\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"#subbtn\" rect=\"27,84,95,31\" />",
-        "</root>",
-    );
-    let history = vec![chat_message(
-        "user",
-        "Select 06/20/2016 as the date and hit submit.",
-        1,
-    )];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(
-        context.contains("readonly and calendar-backed"),
-        "{context}"
-    );
-    assert!(context.contains("`browser__click_element`"), "{context}");
-    assert!(context.contains("`inp_datepicker`"), "{context}");
-    assert!(context.contains("`btn_submit`"), "{context}");
-    assert!(!context.contains("Use `browser__type`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_uses_calendar_navigation_after_readonly_picker_opens() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" focused=\"true\" dom_id=\"datepicker\" selector=\"#datepicker\" class_name=\"hasDatepicker\" readonly=\"true\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"#subbtn\" rect=\"27,84,95,31\" />",
-        "<link id=\"lnk_prev\" name=\"Prev\" tag_name=\"a\" class_name=\"ui-datepicker-prev ui-corner-all\" dom_clickable=\"true\" rect=\"38,86,14,14\" />",
-        "<link id=\"lnk_next\" name=\"Next\" tag_name=\"a\" class_name=\"ui-datepicker-next ui-corner-all\" dom_clickable=\"true\" rect=\"126,86,14,14\" />",
-        "<generic id=\"grp_november_2016\" name=\"November 2016\" tag_name=\"div\" rect=\"54,86,48,14\" />",
-        "</root>",
-    );
-    let history = vec![chat_message(
-        "user",
-        "Select 06/20/2016 as the date and hit submit.",
-        1,
-    )];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(context.contains("`November 2016`"), "{context}");
-    assert!(context.contains("`lnk_prev`"), "{context}");
-    assert!(context.contains("`June 2016`"), "{context}");
-    assert!(!context.contains("open the calendar"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_batches_calendar_navigation_day_and_submit() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" focused=\"true\" dom_id=\"datepicker\" selector=\"#datepicker\" class_name=\"hasDatepicker\" readonly=\"true\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"#subbtn\" rect=\"27,84,95,31\" />",
-        "<link id=\"lnk_prev\" name=\"Prev\" tag_name=\"a\" class_name=\"ui-datepicker-prev ui-corner-all\" dom_clickable=\"true\" rect=\"38,86,14,14\" />",
-        "<generic id=\"grp_december_2016\" name=\"December 2016\" tag_name=\"div\" rect=\"54,86,48,14\" />",
-        "<link id=\"lnk_20\" name=\"20\" omitted=\"true\" tag_name=\"a\" class_name=\"ui-state-default\" dom_clickable=\"true\" rect=\"90,120,14,14\" />",
-        "</root>",
-    );
-    let history = vec![chat_message(
-        "user",
-        "Select 06/20/2016 as the date and hit submit.",
-        1,
-    )];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(
-        context.contains("`lnk_prev` repeated 6 time(s)"),
-        "{context}"
-    );
-    assert!(context.contains("`lnk_20`"), "{context}");
-    assert!(context.contains("`btn_submit`"), "{context}");
-    assert!(
-        context.contains("`browser__click_element` with `ids`"),
-        "{context}"
-    );
-}
-
-#[test]
-fn pending_browser_state_context_batches_visible_calendar_day_selection_and_submit() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" focused=\"true\" dom_id=\"datepicker\" selector=\"#datepicker\" class_name=\"hasDatepicker\" readonly=\"true\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"#subbtn\" rect=\"27,84,95,31\" />",
-        "<generic id=\"grp_june_2016\" name=\"June 2016\" tag_name=\"div\" rect=\"54,86,48,14\" />",
-        "<link id=\"lnk_20\" name=\"20\" omitted=\"true\" tag_name=\"a\" class_name=\"ui-state-default\" dom_clickable=\"true\" rect=\"90,120,14,14\" />",
-        "</root>",
-    );
-    let history = vec![chat_message(
-        "user",
-        "Select 06/20/2016 as the date and hit submit.",
-        1,
-    )];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(
-        context.contains("`ids` [`lnk_20`, `btn_submit`]"),
-        "{context}"
-    );
-    assert!(context.contains("`delay_ms_between_ids` 120"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_advances_to_submit_after_grounded_date_type() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" focused=\"true\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" class_name=\"hasDatepicker\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"#subbtn\" rect=\"27,84,95,31\" />",
-        "<link id=\"lnk_prev\" name=\"Prev\" tag_name=\"a\" class_name=\"ui-datepicker-prev ui-corner-all\" dom_clickable=\"true\" rect=\"38,86,14,14\" />",
-        "<generic id=\"grp_december_2016\" name=\"December 2016\" tag_name=\"div\" rect=\"54,86,48,14\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message("user", "Select 06/20/2016 as the date and hit submit.", 1),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#datepicker","dom_id":"datepicker","text":"06/20/2016","value":"06/20/2016","focused":true}}"##,
-            2,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(
-        context.contains("already grounded to `06/20/2016`"),
-        "{context}"
-    );
-    assert!(context.contains("`btn_submit`"), "{context}");
-    assert!(!context.contains("Use `browser__type`"), "{context}");
-    assert!(!context.contains("`lnk_prev`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_clears_after_grounded_date_submit_succeeds() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" focused=\"true\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" class_name=\"hasDatepicker\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"#subbtn\" rect=\"27,84,95,31\" />",
-        "<generic id=\"grp_reward\" name=\"Last reward: 1.0\" dom_id=\"reward-display\" rect=\"3,214,153,11\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message("user", "Select 06/20/2016 as the date and hit submit.", 1),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#datepicker","dom_id":"datepicker","text":"06/20/2016","value":"06/20/2016","focused":true}}"##,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'btn_submit' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
-            3,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.is_empty(), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_clears_after_grounded_date_submit_with_stale_calendar() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker\" name=\"datepicker\" focused=\"true\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" class_name=\"hasDatepicker\" dom_clickable=\"true\" rect=\"29,52,128,21\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"#subbtn\" rect=\"27,84,95,31\" />",
-        "<link id=\"lnk_prev\" name=\"Prev\" tag_name=\"a\" class_name=\"ui-datepicker-prev ui-corner-all\" dom_clickable=\"true\" rect=\"38,86,14,14\" />",
-        "<link id=\"lnk_next\" name=\"Next\" tag_name=\"a\" class_name=\"ui-datepicker-next ui-corner-all\" dom_clickable=\"true\" rect=\"126,86,14,14\" />",
-        "<generic id=\"grp_november_2016\" name=\"November 2016\" tag_name=\"div\" rect=\"54,86,48,14\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message("user", "Select 06/20/2016 as the date and hit submit.", 1),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#datepicker","dom_id":"datepicker","text":"06/20/2016","value":"06/20/2016","focused":true}}"##,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'btn_submit' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
-            3,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.is_empty(), "{context}");
 }
 
 #[test]
@@ -3206,473 +3031,6 @@ fn success_signal_context_suppresses_generic_click_when_alternate_history_verifi
 }
 
 #[test]
-fn success_signal_context_suppresses_generic_click_after_confirmation_audit_return() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Verify T-318 changed and T-310 stayed unchanged before finishing.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'lnk_open_audit_history' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/confirmation","post_url":"http://127.0.0.1:40363/workflow/case/tickets/T-318/history"}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_318" name="Audit history for ticket T-318" tag_name="h1" rect="0,0,1,1" /><generic id="grp_typed_audit_verification_complete" name="Typed audit verification complete." dom_id="history-status" rect="0,0,1,1" /><generic id="grp_saved_dispatch_row" name="dispatch.agent Saved dispatch update Billing Review Pending Review Validate recurring invoice delta" tag_name="tr" rect="0,0,1,1" /></root>"#,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'lnk_queue' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/tickets/T-318/history","post_url":"http://127.0.0.1:40363/workflow/case/queue"}"#,
-            4,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_history_7c01a1\" name=\"History\" dom_id=\"ticket-history-link-t-310\" context=\"T-310 Recurring invoice delta Pending Review Unassigned Billing Review History\" omitted=\"true\" rect=\"0,0,1,1\" />",
-            "<link id=\"lnk_history_1ebf96\" name=\"History\" dom_id=\"ticket-history-link-t-318\" context=\"T-318 Invoice adjustment awaiting callback Pending Review Billing Review Billing Review History\" omitted=\"true\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.is_empty(), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_guides_history_page_verification_return_to_queue() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Verify T-215 changed and T-204 stayed unchanged before finishing.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'lnk_history_t_215' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/queue","post_url":"http://127.0.0.1:40363/workflow/case/tickets/T-215/history"}"#,
-            2,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_queue\" name=\"Queue\" dom_id=\"queue-link\" selector=\"[id=&quot;queue-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<heading id=\"heading_audit_history_for_ticket_t_215\" name=\"Audit history for ticket T-215\" tag_name=\"h1\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_verify_saved_dispatch\" name=\"Verify that the saved dispatch event matches the requested change before you return to the queue.\" dom_id=\"history-status\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_history_header\" name=\"Actor Action Assignee Status Note\" tag_name=\"tr\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_saved_dispatch_row\" name=\"dispatch.agent Saved dispatch update Network Ops Awaiting Dispatch Escalate fiber outage to on-call\" tag_name=\"tr\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(context.contains("`lnk_queue`"), "{context}");
-    assert!(context.contains("`T-204`"), "{context}");
-    assert!(
-        context.contains("Do not call `browser__snapshot` again"),
-        "{context}"
-    );
-    assert!(
-        context.contains("Do not reopen or mutate the item"),
-        "{context}"
-    );
-}
-
-#[test]
-fn success_signal_context_suppresses_generic_click_when_history_page_verification_is_pending() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Verify T-215 changed and T-204 stayed unchanged before finishing.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'lnk_history_t_215' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/queue","post_url":"http://127.0.0.1:40363/workflow/case/tickets/T-215/history"}"#,
-            2,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_queue\" name=\"Queue\" dom_id=\"queue-link\" selector=\"[id=&quot;queue-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<heading id=\"heading_audit_history_for_ticket_t_215\" name=\"Audit history for ticket T-215\" tag_name=\"h1\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_verify_saved_dispatch\" name=\"Verify that the saved dispatch event matches the requested change before you return to the queue.\" dom_id=\"history-status\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_saved_dispatch_row\" name=\"dispatch.agent Saved dispatch update Network Ops Awaiting Dispatch Escalate fiber outage to on-call\" tag_name=\"tr\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.is_empty(), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_guides_history_page_mismatch_recovery() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Verify T-318 changed and T-310 stayed unchanged before finishing.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'lnk_history_t_318' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/queue","post_url":"http://127.0.0.1:40363/workflow/case/tickets/T-318/history"}"#,
-            2,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_queue\" name=\"Queue\" dom_id=\"queue-link\" selector=\"[id=&quot;queue-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<link id=\"lnk_confirmation\" name=\"Confirmation\" dom_id=\"confirmation-link\" selector=\"[id=&quot;confirmation-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<heading id=\"heading_audit_history_for_ticket_t_318\" name=\"Audit history for ticket T-318\" tag_name=\"h1\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_verify_saved_dispatch\" name=\"Verify that the saved dispatch event matches the requested change before you return to the queue.\" dom_id=\"history-status\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_history_header\" name=\"Actor Action Assignee Status Note\" tag_name=\"tr\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_requested_callback_row\" name=\"dispatch.agent Requested billing callback Unassigned Pending Review Awaiting customer callback\" tag_name=\"tr\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_reopen_ticket\" name=\"Reopen ticket\" dom_id=\"reopen-ticket\" selector=\"[id=&quot;reopen-ticket&quot;]\" tag_name=\"button\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(
-        context.contains("does not yet show a row matching the page-visible verification prompt"),
-        "{context}"
-    );
-    assert!(context.contains("`lnk_confirmation`"), "{context}");
-    assert!(context.contains("`btn_reopen_ticket`"), "{context}");
-    assert!(
-        context.contains("Do not spend the next step on another `browser__snapshot`"),
-        "{context}"
-    );
-}
-
-#[test]
-fn success_signal_context_suppresses_generic_click_when_history_page_verification_is_unmet() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Verify T-318 changed and T-310 stayed unchanged before finishing.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'lnk_history_t_318' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/queue","post_url":"http://127.0.0.1:40363/workflow/case/tickets/T-318/history"}"#,
-            2,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_queue\" name=\"Queue\" dom_id=\"queue-link\" selector=\"[id=&quot;queue-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<link id=\"lnk_confirmation\" name=\"Confirmation\" dom_id=\"confirmation-link\" selector=\"[id=&quot;confirmation-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<heading id=\"heading_audit_history_for_ticket_t_318\" name=\"Audit history for ticket T-318\" tag_name=\"h1\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_verify_saved_dispatch\" name=\"Verify that the saved dispatch event matches the requested change before you return to the queue.\" dom_id=\"history-status\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_requested_callback_row\" name=\"dispatch.agent Requested billing callback Unassigned Pending Review Awaiting customer callback\" tag_name=\"tr\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_reopen_ticket\" name=\"Reopen ticket\" dom_id=\"reopen-ticket\" selector=\"[id=&quot;reopen-ticket&quot;]\" tag_name=\"button\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.is_empty(), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_guides_confirmation_mismatch_recovery() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Verify T-318 changed and T-310 stayed unchanged before finishing.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Billing Review"},"id":"inp_assign_team"}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Pending Review"},"id":"inp_ticket_status"}"#,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#note","text":"Validate recurring invoice delta","value":"Validate recurring invoice delta","dom_id":"note"}}"##,
-            4,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_queue\" name=\"Queue\" dom_id=\"queue-link\" selector=\"[id=&quot;queue-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<link id=\"lnk_open_audit_history\" name=\"Open audit history\" dom_id=\"history-link\" selector=\"[id=&quot;history-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_save_status\" name=\"Saved, cross-ticket queue/history verification pending\" dom_id=\"save-status\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_assignment_banner\" name=\"Ticket T-318 was routed to Unassigned.\" dom_id=\"assignment-banner\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_status_summary\" name=\"Saved status: Pending Review\" dom_id=\"status-summary\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_note_summary\" name=\"Saved note: Validate recurring invoice delta\" dom_id=\"note-summary\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_reopen_ticket\" name=\"Reopen ticket\" dom_id=\"reopen-ticket\" selector=\"[id=&quot;reopen-ticket&quot;]\" tag_name=\"button\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(
-        context.contains("does not yet reflect the recent saved update"),
-        "{context}"
-    );
-    assert!(context.contains("`Billing Review`"), "{context}");
-    assert!(context.contains("`Unassigned`"), "{context}");
-    assert!(context.contains("`btn_reopen_ticket`"), "{context}");
-    assert!(
-        context.contains("Do not spend the next step on `browser__snapshot`"),
-        "{context}"
-    );
-}
-
-#[test]
-fn success_signal_context_suppresses_generic_click_when_confirmation_summary_is_stale() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Verify T-318 changed and T-310 stayed unchanged before finishing.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Billing Review"},"id":"inp_assign_team"}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Pending Review"},"id":"inp_ticket_status"}"#,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#note","text":"Validate recurring invoice delta","value":"Validate recurring invoice delta","dom_id":"note"}}"##,
-            4,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_queue\" name=\"Queue\" dom_id=\"queue-link\" selector=\"[id=&quot;queue-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_save_status\" name=\"Saved, cross-ticket queue/history verification pending\" dom_id=\"save-status\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_assignment_banner\" name=\"Ticket T-318 was routed to Unassigned.\" dom_id=\"assignment-banner\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_status_summary\" name=\"Saved status: Pending Review\" dom_id=\"status-summary\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_reopen_ticket\" name=\"Reopen ticket\" dom_id=\"reopen-ticket\" selector=\"[id=&quot;reopen-ticket&quot;]\" tag_name=\"button\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.is_empty(), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_guides_reopened_draft_resume() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Verify T-318 changed and T-310 stayed unchanged before finishing.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Billing Review"},"id":"inp_assign_team"}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Pending Review"},"id":"inp_ticket_status"}"#,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#note","text":"Validate recurring invoice delta","value":"Validate recurring invoice delta","dom_id":"note"}}"##,
-            4,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'btn_reopen_ticket' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/confirmation","post_url":"http://127.0.0.1:40363/workflow/case/tickets/T-318"}"#,
-            5,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_queue\" name=\"Queue\" dom_id=\"queue-link\" selector=\"[id=&quot;queue-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<heading id=\"heading_ticket_t_318\" name=\"Ticket T-318\" dom_id=\"ticket-title\" selector=\"[id=&quot;ticket-title&quot;]\" tag_name=\"h1\" rect=\"0,0,1,1\" />",
-            "<combobox id=\"inp_assign_team\" name=\"Assign team\" dom_id=\"assignee\" selector=\"[id=&quot;assignee&quot;]\" rect=\"0,0,1,1\" />",
-            "<combobox id=\"inp_ticket_status\" name=\"Ticket status\" value=\"Pending Review\" dom_id=\"status\" selector=\"[id=&quot;status&quot;]\" rect=\"0,0,1,1\" />",
-            "<textbox id=\"inp_dispatch_note\" name=\"Dispatch note\" dom_id=\"note\" selector=\"[id=&quot;note&quot;]\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_review_update\" name=\"Review update\" dom_id=\"review-update\" selector=\"[id=&quot;review-update&quot;]\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(
-        context.contains("reopened so the saved state can be corrected"),
-        "{context}"
-    );
-    assert!(
-        context.contains("Do not return to queue/history verification yet"),
-        "{context}"
-    );
-    assert!(context.contains("`Billing Review`"), "{context}");
-    assert!(context.contains("`Pending Review`"), "{context}");
-    assert!(
-        context.contains("`Validate recurring invoice delta`"),
-        "{context}"
-    );
-    assert!(context.contains("`btn_review_update`"), "{context}");
-}
-
-#[test]
-fn success_signal_context_suppresses_generic_click_when_reopened_draft_requires_resume() {
-    let history = vec![
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Billing Review"},"id":"inp_assign_team"}"#,
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Pending Review"},"id":"inp_ticket_status"}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#note","text":"Validate recurring invoice delta","value":"Validate recurring invoice delta","dom_id":"note"}}"##,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'btn_reopen_ticket' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/confirmation","post_url":"http://127.0.0.1:40363/workflow/case/tickets/T-318"}"#,
-            4,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_queue\" name=\"Queue\" dom_id=\"queue-link\" selector=\"[id=&quot;queue-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<heading id=\"heading_ticket_t_318\" name=\"Ticket T-318\" dom_id=\"ticket-title\" selector=\"[id=&quot;ticket-title&quot;]\" tag_name=\"h1\" rect=\"0,0,1,1\" />",
-            "<combobox id=\"inp_assign_team\" name=\"Assign team\" dom_id=\"assignee\" selector=\"[id=&quot;assignee&quot;]\" rect=\"0,0,1,1\" />",
-            "<combobox id=\"inp_ticket_status\" name=\"Ticket status\" value=\"Pending Review\" dom_id=\"status\" selector=\"[id=&quot;status&quot;]\" rect=\"0,0,1,1\" />",
-            "<textbox id=\"inp_dispatch_note\" name=\"Dispatch note\" dom_id=\"note\" selector=\"[id=&quot;note&quot;]\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_review_update\" name=\"Review update\" dom_id=\"review-update\" selector=\"[id=&quot;review-update&quot;]\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.is_empty(), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_guides_review_confirmation_before_queue_return() {
-    let history = vec![
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Billing Review"},"id":"inp_assign_team"}"#,
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Pending Review"},"id":"inp_ticket_status"}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#note","text":"Validate recurring invoice delta","value":"Validate recurring invoice delta","dom_id":"note"}}"##,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'btn_review_update' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/tickets/T-318","post_url":"http://127.0.0.1:40363/workflow/case/review"}"#,
-            4,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<link id=\"lnk_queue\" name=\"Queue\" dom_id=\"queue-link\" selector=\"[id=&quot;queue-link&quot;]\" rect=\"0,0,1,1\" />",
-            "<heading id=\"heading_review_queued_update\" name=\"Review queued update\" tag_name=\"h1\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_ticket_t_318\" name=\"Ticket T-318\" dom_id=\"review-ticket\" selector=\"[id=&quot;review-ticket&quot;]\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_draft_assignee\" name=\"Draft assignee: Billing Review\" dom_id=\"review-assignee\" selector=\"[id=&quot;review-assignee&quot;]\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_draft_status\" name=\"Draft status: Pending Review\" dom_id=\"review-status\" selector=\"[id=&quot;review-status&quot;]\" rect=\"0,0,1,1\" />",
-            "<generic id=\"grp_draft_note\" name=\"Draft note: Validate recurring invoice delta\" dom_id=\"review-note\" selector=\"[id=&quot;review-note&quot;]\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_edit_draft\" name=\"Edit draft\" dom_id=\"edit-update\" selector=\"[id=&quot;edit-update&quot;]\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_confirm_update\" name=\"Confirm update\" dom_id=\"confirm-update\" selector=\"[id=&quot;confirm-update&quot;]\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_cancel_draft\" name=\"Cancel draft\" dom_id=\"cancel-update\" selector=\"[id=&quot;cancel-update&quot;]\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(context.contains("ready to be saved"), "{context}");
-    assert!(context.contains("`Billing Review`"), "{context}");
-    assert!(context.contains("`Pending Review`"), "{context}");
-    assert!(
-        context.contains("`Validate recurring invoice delta`"),
-        "{context}"
-    );
-    assert!(context.contains("`btn_confirm_update`"), "{context}");
-    assert!(context.contains("`btn_edit_draft`"), "{context}");
-    assert!(
-        context.contains("Do not return to queue/history verification"),
-        "{context}"
-    );
-}
-
-#[test]
-fn success_signal_context_suppresses_generic_click_when_review_confirmation_is_pending() {
-    let history = vec![
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Billing Review"},"id":"inp_assign_team"}"#,
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"selected":{"label":"Pending Review"},"id":"inp_ticket_status"}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#note","text":"Validate recurring invoice delta","value":"Validate recurring invoice delta","dom_id":"note"}}"##,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r#"Clicked element 'btn_review_update' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true,"url_changed":true},"pre_url":"http://127.0.0.1:40363/workflow/case/tickets/T-318","post_url":"http://127.0.0.1:40363/workflow/case/review"}"#,
-            4,
-        ),
-    ];
-    let snapshot = concat!(
-            "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-            "<generic id=\"grp_ticket_t_318\" name=\"Ticket T-318\" dom_id=\"review-ticket\" selector=\"[id=&quot;review-ticket&quot;]\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_edit_draft\" name=\"Edit draft\" dom_id=\"edit-update\" selector=\"[id=&quot;edit-update&quot;]\" rect=\"0,0,1,1\" />",
-            "<button id=\"btn_confirm_update\" name=\"Confirm update\" dom_id=\"confirm-update\" selector=\"[id=&quot;confirm-update&quot;]\" rect=\"0,0,1,1\" />",
-            "</root>",
-        );
-
-    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.is_empty(), "{context}");
-}
-
-#[test]
 fn pending_browser_state_context_highlights_autocomplete_follow_up() {
     let history = vec![chat_message(
         "tool",
@@ -3980,7 +3338,7 @@ fn pending_browser_state_context_clears_committed_autocomplete_with_hidden_live_
 }
 
 #[test]
-fn pending_browser_state_context_returns_to_submit_after_date_typed_after_earlier_submit() {
+fn browser_snapshot_pending_state_context_prioritizes_invalid_field_over_lingering_autocomplete() {
     let history = vec![
         chat_message(
             "user",
@@ -3989,119 +3347,141 @@ fn pending_browser_state_context_returns_to_submit_after_date_typed_after_earlie
         ),
         chat_message(
             "tool",
-            "Clicked element 'btn_search' via geometry fallback. verify={\"postcondition\":{\"met\":true}}",
+            r##"{"typed":{"selector":"#flight-to","text":"ISN","value":"ISN","focused":true,"autocomplete":{"mode":"list","assistive_hint":"1 result is available, use up and down arrow keys to navigate."}}}"##,
             2,
         ),
         chat_message(
             "tool",
-            r##"{"typed":{"selector":"#datepicker","text":"10/15/2016","dom_id":"datepicker","value":"10/15/2016","focused":true}}"##,
+            r#"Clicked element 'grp_williston_nd_isn_9d1c2c' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true}}"#,
             3,
+        ),
+        chat_message(
+            "tool",
+            r#"Clicked element 'btn_search' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true}}"#,
+            4,
         ),
     ];
     let snapshot = concat!(
         "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_10_divide_15_divide_2016\" name=\"10/15/2016\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" class_name=\"flight-input hasDatepicker\" tag_name=\"input\" rect=\"0,0,1,1\" />",
-        "<button id=\"btn_search\" name=\"Search\" dom_id=\"search\" selector=\"[id=&quot;search&quot;]\" dom_clickable=\"true\" rect=\"0,0,1,1\" />",
+        "<textbox id=\"inp_from\" name=\"From:\" value=\"Dothan, AL (DHN)\" dom_id=\"flight-from\" selector=\"[id=&quot;flight-from&quot;]\" tag_name=\"input\" rect=\"4,82,126,21\" />",
+        "<textbox id=\"inp_to\" name=\"To:\" value=\"Williston, ND (ISN)\" focused=\"true\" dom_id=\"flight-to\" selector=\"[id=&quot;flight-to&quot;]\" class_name=\"flight-input ui-autocomplete-input\" tag_name=\"input\" rect=\"4,107,126,21\" />",
+        "<textbox id=\"inp_datepicker_flight_input\" name=\"datepicker flight input\" class_name=\"flight-input hasDatepicker error\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" tag_name=\"input\" rect=\"12,162,106,16\" />",
+        "<button id=\"btn_search\" name=\"Search\" dom_id=\"search\" selector=\"[id=&quot;search&quot;]\" dom_clickable=\"true\" rect=\"4,185,126,19\" />",
+        "<generic id=\"grp_williston_nd_isn_9d1c2c\" name=\"Williston, ND (ISN)\" selector=\"#ui-id-2 > li\" class_name=\"ui-menu-item\" dom_clickable=\"true\" omitted=\"true\" rect=\"5,128,126,17\" />",
+        "<status id=\"status_isn\" name=\"1 result is available, use up and down arrow keys to navigate. Williston, ND (ISN)\" visible=\"false\" assistive_hint=\"true\" assistive_reason=\"assistive_live_region\" />",
         "</root>",
     );
 
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(
-        context.contains("The date field `inp_10_divide_15_divide_2016` is already grounded"),
-        "{context}"
-    );
-    assert!(context.contains("`btn_search`"), "{context}");
-    assert!(
-        !context.contains("The target text `10/15/2016` is already visible"),
-        "{context}"
-    );
-}
-
-#[test]
-fn pending_browser_state_context_does_not_reclick_date_after_submit_attempt() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Navigate to the assigned MiniWoB page and complete the on-page task using browser tools only. Do not use web retrieval tools. Task brief: Book the shortest one-way flight from: Kiana, AK to: Augusta, GA on 10/07/2016.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#datepicker","text":"10/07/2016","dom_id":"datepicker","value":"10/07/2016","focused":true}}"##,
-            2,
-        ),
-        chat_message(
-            "tool",
-            "Clicked element 'btn_search' via geometry fallback. verify={\"postcondition\":{\"met\":true}}",
-            3,
-        ),
-    ];
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_10_divide_07_divide_2016\" name=\"10/07/2016\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" class_name=\"flight-input hasDatepicker\" tag_name=\"input\" rect=\"0,0,1,1\" />",
-        "<textbox id=\"inp_to\" name=\"To:\" class_name=\"flight-input error\" dom_id=\"flight-to\" selector=\"[id=&quot;flight-to&quot;]\" rect=\"0,0,1,1\" />",
-        "<button id=\"btn_search\" name=\"Search\" dom_id=\"search\" selector=\"[id=&quot;search&quot;]\" dom_clickable=\"true\" rect=\"0,0,1,1\" />",
-        "</root>",
-    );
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        !context.contains("The target text `10/07/2016` is already visible"),
-        "{context}"
-    );
-    assert!(
-        !context.contains("`inp_10_divide_07_divide_2016` now"),
-        "{context}"
-    );
-    assert!(context.contains("`inp_to`"), "{context}");
-    assert!(
-        context.contains("Do not click `btn_search` again yet"),
-        "{context}"
-    );
-}
-
-#[test]
-fn pending_browser_state_context_prioritizes_invalid_date_field_after_submit_attempt() {
-    let history = vec![
-        chat_message(
-            "user",
-            "Navigate to the assigned MiniWoB page and complete the on-page task using browser tools only. Do not use web retrieval tools. Task brief: Book the shortest one-way flight from: Dothan, AL to: ISN on 10/15/2016.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r##"{"typed":{"selector":"#datepicker","text":"10/15/2016","dom_id":"datepicker","value":"10/15/2016","focused":true}}"##,
-            2,
-        ),
-        chat_message(
-            "tool",
-            "Clicked element 'btn_search' via geometry fallback. verify={\"postcondition\":{\"met\":true}}",
-            3,
-        ),
-    ];
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<textbox id=\"inp_datepicker_flight_input\" name=\"datepicker flight input\" value=\"10/15/2016\" class_name=\"flight-input hasDatepicker error\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" rect=\"0,0,1,1\" />",
-        "<button id=\"btn_search\" name=\"Search\" dom_id=\"search\" selector=\"[id=&quot;search&quot;]\" dom_clickable=\"true\" rect=\"0,0,1,1\" />",
-        "</root>",
-    );
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
+    let context = build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
     assert!(
         context.contains("`inp_datepicker_flight_input`"),
         "{context}"
     );
-    assert!(context.contains("still needs correction"), "{context}");
     assert!(
-        !context.contains("The target text `10/15/2016` is already visible"),
+        context.contains("Do not click `btn_search` again yet"),
         "{context}"
+    );
+    assert!(
+        !context.contains("`grp_williston_nd_isn_9d1c2c`"),
+        "{context}"
+    );
+}
+
+#[test]
+fn browser_snapshot_pending_state_context_advances_past_committed_autocomplete_popup() {
+    let history = vec![
+        chat_message(
+            "tool",
+            r##"{"typed":{"selector":"#flight-to","text":"ISN","value":"ISN","focused":true,"autocomplete":{"mode":"list","assistive_hint":"1 result is available, use up and down arrow keys to navigate."}}}"##,
+            1,
+        ),
+        chat_message(
+            "tool",
+            r#"Clicked element 'grp_williston_nd_isn_9d1c2c' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true}}"#,
+            2,
+        ),
+    ];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_from\" name=\"From:\" value=\"Dothan, AL (DHN)\" dom_id=\"flight-from\" selector=\"[id=&quot;flight-from&quot;]\" tag_name=\"input\" rect=\"4,82,126,21\" />",
+        "<textbox id=\"inp_to\" name=\"To:\" value=\"Williston, ND (ISN)\" focused=\"true\" dom_id=\"flight-to\" selector=\"[id=&quot;flight-to&quot;]\" class_name=\"flight-input ui-autocomplete-input\" tag_name=\"input\" rect=\"4,107,126,21\" />",
+        "<textbox id=\"inp_datepicker_flight_input\" name=\"datepicker flight input\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" class_name=\"flight-input hasDatepicker\" tag_name=\"input\" rect=\"12,162,106,16\" />",
+        "<button id=\"btn_search\" name=\"Search\" dom_id=\"search\" selector=\"[id=&quot;search&quot;]\" dom_clickable=\"true\" rect=\"4,185,126,19\" />",
+        "<generic id=\"grp_williston_nd_isn_9d1c2c\" name=\"Williston, ND (ISN)\" selector=\"#ui-id-2 > li\" class_name=\"ui-menu-item\" dom_clickable=\"true\" omitted=\"true\" rect=\"5,128,126,17\" />",
+        "<status id=\"status_isn\" name=\"1 result is available, use up and down arrow keys to navigate. Williston, ND (ISN)\" visible=\"false\" assistive_hint=\"true\" assistive_reason=\"assistive_live_region\" />",
+        "</root>",
+    );
+
+    let pending_context =
+        build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
+    assert!(pending_context.is_empty(), "{pending_context}");
+
+    let success_context =
+        build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
+    assert!(
+        success_context.contains("autocomplete selection already succeeded"),
+        "{success_context}"
+    );
+    assert!(
+        success_context.contains(
+            "Continue with the next required visible control such as `inp_datepicker_flight_input`"
+        ),
+        "{success_context}"
+    );
+    assert!(
+        !success_context.contains("commit it in one step"),
+        "{success_context}"
+    );
+}
+
+#[test]
+fn pending_state_context_reframes_submit_after_committed_autocomplete_popup() {
+    let history = vec![
+        chat_message(
+            "tool",
+            r##"{"typed":{"selector":"#flight-to","text":"ISN","value":"ISN","focused":true,"autocomplete":{"mode":"list","assistive_hint":"1 result is available, use up and down arrow keys to navigate."}}}"##,
+            1,
+        ),
+        chat_message(
+            "tool",
+            r##"{"key":{"key":"ArrowDown","selector":"#flight-to","dom_id":"flight-to","focused":true,"autocomplete":{"mode":"list","assistive_hint":"1 result is available, use up and down arrow keys to navigate.","active_descendant_dom_id":"ui-id-4"}}}"##,
+            2,
+        ),
+        chat_message(
+            "tool",
+            r#"Clicked element 'grp_williston_nd_isn_9d1c2c' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true}}"#,
+            3,
+        ),
+        chat_message(
+            "tool",
+            r#"Clicked element 'btn_search' via geometry fallback. verify={"postcondition":{"met":true,"tree_changed":true}}"#,
+            4,
+        ),
+    ];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_from\" name=\"From:\" value=\"Dothan, AL (DHN)\" dom_id=\"flight-from\" selector=\"[id=&quot;flight-from&quot;]\" tag_name=\"input\" rect=\"4,82,126,21\" />",
+        "<textbox id=\"inp_to\" name=\"To:\" value=\"Williston, ND (ISN)\" focused=\"true\" dom_id=\"flight-to\" selector=\"[id=&quot;flight-to&quot;]\" class_name=\"flight-input ui-autocomplete-input\" tag_name=\"input\" rect=\"4,107,126,21\" />",
+        "<textbox id=\"inp_datepicker_flight_input\" name=\"datepicker flight input\" dom_id=\"datepicker\" selector=\"[id=&quot;datepicker&quot;]\" class_name=\"flight-input hasDatepicker\" tag_name=\"input\" rect=\"12,162,106,16\" />",
+        "<button id=\"btn_search\" name=\"Search\" dom_id=\"search\" selector=\"[id=&quot;search&quot;]\" tag_name=\"button\" dom_clickable=\"true\" rect=\"4,185,126,19\" />",
+        "<generic id=\"grp_williston_nd_isn\" name=\"Williston, ND (ISN)\" dom_id=\"ui-id-2\" selector=\"[id=&quot;ui-id-2&quot;]\" class_name=\"ui-menu ui-widget ui-widget-content ui-autocomplete ui-front\" dom_clickable=\"true\" omitted=\"true\" rect=\"5,128,126,18\" />",
+        "<generic id=\"grp_williston_nd_isn_9d1c2c\" name=\"Williston, ND (ISN)\" class_name=\"ui-menu-item\" dom_clickable=\"true\" omitted=\"true\" rect=\"5,128,126,18\" />",
+        "</root>",
+    );
+
+    let pending_context =
+        build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
+    assert!(
+        pending_context.contains("autocomplete selection already looks committed"),
+        "{pending_context}"
+    );
+    assert!(
+        pending_context.contains("`inp_datepicker_flight_input`"),
+        "{pending_context}"
+    );
+    assert!(
+        !pending_context.contains("commit it in one step"),
+        "{pending_context}"
     );
 }
 
@@ -4250,11 +3630,18 @@ fn success_signal_context_highlights_already_satisfied_typed_field() {
         r##"{"typed":{"selector":"#queue-search","text":"fiber","value":"fiber","focused":true,"already_satisfied":true}}"##,
         1,
     )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_queue_search\" name=\"fiber\" dom_id=\"queue-search\" selector=\"[id=&quot;queue-search&quot;]\" tag_name=\"input\" value=\"fiber\" focused=\"true\" rect=\"4,82,126,21\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
 
-    let context = build_recent_success_signal_context(&history);
+    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
     assert!(context.contains("RECENT SUCCESS SIGNAL:"));
     assert!(context.contains("already contained the requested text"));
     assert!(context.contains("Do not type the same text"));
+    assert!(context.contains("`btn_submit`"), "{context}");
 }
 
 #[test]
@@ -4275,73 +3662,81 @@ fn success_signal_context_highlights_synthetic_click_state_change_follow_up() {
     let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
     assert!(context.contains("RECENT SUCCESS SIGNAL:"), "{context}");
     assert!(
-        context.contains("browser synthetic click already caused observable state change"),
+        context.contains("A recent browser synthetic click already caused observable state change"),
         "{context}"
     );
-    assert!(context.contains("`btn_submit`"), "{context}");
+    assert!(
+        context.contains("Do not repeat the same coordinate blindly"),
+        "{context}"
+    );
+    assert!(
+        context.contains("Visible controls now include `btn_submit`"),
+        "{context}"
+    );
 }
 
 #[test]
-fn success_signal_context_requires_geometry_reverification_before_submit() {
-    let history = vec![chat_message(
-        "tool",
-        r#"{"synthetic_click":{"x":62,"y":109},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
-        1,
-    )];
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_vertex\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|62,109|71,125\" connected_line_angles_deg=\"-24|2|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-
-    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.contains("RECENT SUCCESS SIGNAL:"), "{context}");
-    assert!(
-        context.contains("moved geometry at `grp_vertex`"),
-        "{context}"
-    );
-    assert!(
-        context.contains("connected_line_angles=-24|2|23deg"),
-        "{context}"
-    );
-    assert!(context.contains("outer_angle_mid=-0.5deg"), "{context}");
-    assert!(context.contains("candidate_error=2.5deg"), "{context}");
-    assert!(context.contains("before any visible control"), "{context}");
-    assert!(!context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn success_signal_context_surfaces_corrected_coordinate_after_offset_click() {
-    let history = vec![chat_message(
-        "tool",
-        r#"{"synthetic_click":{"x":85,"y":107},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#,
-        1,
-    )];
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_vertex\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|87,109|71,125\" connected_line_angles_deg=\"-24|1|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<generic id=\"grp_user_endpoint\" name=\"small blue circle at 87,109 radius 4\" dom_id=\"blue-circle\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" center_x=\"87\" center_y=\"109\" center_x_precise=\"87\" center_y_precise=\"109\" rect=\"84,106,7,7\" />",
-        "<generic id=\"grp_fixed_endpoint_a\" name=\"small black circle at 91,81 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" center_x=\"91\" center_y=\"81\" center_x_precise=\"91\" center_y_precise=\"81\" rect=\"88,78,7,7\" />",
-        "<generic id=\"grp_fixed_endpoint_b\" name=\"small black circle at 71,125 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" center_x=\"71\" center_y=\"125\" center_x_precise=\"71\" center_y_precise=\"125\" rect=\"68,122,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-
-    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.contains("RECENT SUCCESS SIGNAL:"), "{context}");
-    assert!(
-        context.contains(
-            r#"The next action must be `browser__synthetic_click {"x":85.006,"y":105.412}`"#
+fn success_signal_context_prioritizes_submit_after_duplicate_typed_action() {
+    let history = vec![
+        chat_message(
+            "tool",
+            r##"{"typed":{"selector":"#tt","text":"myron","value":"myron","focused":true,"already_satisfied":null}}"##,
+            1,
         ),
+        chat_message(
+            "tool",
+            "Skipped immediate replay of 'browser__type' because the identical action already succeeded on the previous step. Do not repeat it.",
+            2,
+        ),
+    ];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_tt\" name=\"myron\" dom_id=\"tt\" selector=\"[id=&quot;tt&quot;]\" tag_name=\"input\" value=\"myron\" focused=\"true\" rect=\"4,82,126,21\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
+    assert!(context.contains("RECENT SUCCESS SIGNAL:"), "{context}");
+    assert!(
+        context.contains("identical action already succeeded"),
         "{context}"
     );
     assert!(
-        context.contains("moved geometry at `grp_vertex`"),
+        context.contains("Use visible control `btn_submit` next."),
         "{context}"
     );
-    assert!(context.contains("candidate_error=1.6deg"), "{context}");
-    assert!(!context.contains("`btn_submit`"), "{context}");
+    assert!(
+        context.contains("Do not spend the next step on another `browser__snapshot`"),
+        "{context}"
+    );
+}
+
+#[test]
+fn success_signal_context_uses_semantic_textbox_name_when_password_value_is_hidden() {
+    let history = vec![chat_message(
+        "tool",
+        r##"{"typed":{"selector":"#verify","text":"P322","value":"P322","focused":true,"already_satisfied":true,"dom_id":"verify"}}"##,
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_p322\" name=\"P322\" dom_id=\"password\" selector=\"[id=&quot;password&quot;]\" tag_name=\"input\" rect=\"4,82,126,21\" />",
+        "<textbox id=\"inp_p322_1ef3fa\" name=\"P322\" dom_id=\"verify\" selector=\"[id=&quot;verify&quot;]\" tag_name=\"input\" focused=\"true\" rect=\"4,107,126,21\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
+    assert!(context.contains("RECENT SUCCESS SIGNAL:"), "{context}");
+    assert!(
+        context.contains("already contained the requested text"),
+        "{context}"
+    );
+    assert!(
+        context.contains("Use visible control `btn_submit` next."),
+        "{context}"
+    );
 }
 
 #[test]
@@ -4527,14 +3922,15 @@ fn pending_browser_state_context_highlights_no_effect_home_on_focused_scroll_con
 
     let context = build_recent_pending_browser_state_context(&history);
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
-    assert!(context.contains("Do not submit yet"));
     assert!(context.contains("Do not use `Home` again"));
     assert!(context.contains("scroll_top=257"));
     assert!(context.contains("spend the next step on `PageUp`"));
     assert!(context.contains("can_scroll_up=true"));
     assert!(context.contains("can_scroll_up=false"));
     assert!(context.contains("scroll_top=0"));
-    assert!(context.contains(top_edge_jump_call()));
+    assert!(context.contains(&top_edge_jump_call_for_selector(
+        Some("[id=\"text-area\"]",)
+    )));
 }
 
 #[test]
@@ -4549,7 +3945,9 @@ fn pending_browser_state_context_keeps_page_up_option_when_home_is_near_top() {
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
     assert!(context.contains("Use `PageUp` or"));
     assert!(!context.contains("Do not spend the next step on `PageUp`"));
-    assert!(context.contains(top_edge_jump_call()));
+    assert!(context.contains(&top_edge_jump_call_for_selector(
+        Some("[id=\"text-area\"]",)
+    )));
 }
 
 #[test]
@@ -4569,10 +3967,214 @@ fn pending_browser_state_context_escalates_repeated_page_up_to_control_home() {
 
     let context = build_recent_pending_browser_state_context(&history);
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
-    assert!(context.contains("Several recent `PageUp` steps"));
-    assert!(context.contains(top_edge_jump_call()));
-    assert!(context.contains("stop spending steps on repeated `PageUp`"));
+    assert!(context.contains("Repeated `PageUp`"));
+    assert!(context.contains(&top_edge_jump_call_for_selector(
+        Some("[id=\"text-area\"]",)
+    )));
+    assert!(context.contains("Stop repeating `PageUp`"));
     assert!(context.contains("scroll_top=0"));
+}
+
+#[test]
+fn snapshot_pending_signal_chains_top_edge_jump_to_unique_follow_up_when_near_top() {
+    let history = vec![
+        chat_message(
+            "tool",
+            r##"{"key":{"key":"PageUp","modifiers":[],"is_chord":false,"selector":"[id=\"text-area\"]","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":112,"scroll_height":565,"client_height":104,"can_scroll_up":true,"can_scroll_down":true,"autocomplete":null}}"##,
+            1,
+        ),
+        chat_message(
+            "tool",
+            r##"{"key":{"key":"PageUp","modifiers":[],"is_chord":false,"selector":"[id=\"text-area\"]","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":24,"scroll_height":565,"client_height":104,"can_scroll_up":true,"can_scroll_down":true,"autocomplete":null}}"##,
+            2,
+        ),
+    ];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" scroll_top=\"24\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
+    assert!(
+        context.contains("RECENT PENDING BROWSER STATE:"),
+        "{context}"
+    );
+    assert!(context.contains("scroll_top=24"), "{context}");
+    assert!(context.contains("btn_submit"), "{context}");
+    assert!(context.contains("browser__key {"), "{context}");
+    assert!(context.contains("\"key\":\"Home\""), "{context}");
+    assert!(
+        context.contains("\"selector\":\"[id=\\\"text-area\\\"]\""),
+        "{context}"
+    );
+    assert!(context.contains("\"continue_with\":{"), "{context}");
+    assert!(context.contains("\"id\":\"btn_submit\""), "{context}");
+}
+
+#[test]
+fn snapshot_pending_signal_chains_page_up_then_top_edge_jump_when_one_page_window_remains() {
+    let history = vec![chat_message(
+        "tool",
+        r##"{"key":{"key":"Home","modifiers":["Control"],"is_chord":true,"selector":"[id=\"text-area\"]","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":166,"scroll_height":565,"client_height":104,"can_scroll_up":true,"can_scroll_down":true,"autocomplete":null}}"##,
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" scroll_top=\"166\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
+    assert!(
+        context.contains("RECENT PENDING BROWSER STATE:"),
+        "{context}"
+    );
+    assert!(context.contains("scroll_top=166"), "{context}");
+    assert!(context.contains("browser__key {"), "{context}");
+    assert!(context.contains("\"key\":\"PageUp\""), "{context}");
+    assert!(context.contains("\"name\":\"browser__key\""), "{context}");
+    assert!(context.contains("\"key\":\"Home\""), "{context}");
+    assert!(context.contains("\"modifiers\":[\"Control\"]"), "{context}");
+    assert!(context.contains("\"id\":\"btn_submit\""), "{context}");
+}
+
+#[test]
+fn observation_context_highlights_page_up_then_top_edge_jump_chain_near_finish_window() {
+    let history = vec![chat_message(
+        "tool",
+        r##"{"key":{"key":"Home","modifiers":["Control"],"is_chord":true,"selector":"[id=\"text-area\"]","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":166,"scroll_height":565,"client_height":104,"can_scroll_up":true,"can_scroll_down":true,"autocomplete":null}}"##,
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" scroll_top=\"166\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_browser_observation_context_from_snapshot_with_history(snapshot, &history);
+    assert!(context.contains("ASSISTIVE BROWSER HINTS:"), "{context}");
+    assert!(context.contains("scroll_top=166"), "{context}");
+    assert!(context.contains("browser__key {"), "{context}");
+    assert!(context.contains("\"key\":\"PageUp\""), "{context}");
+    assert!(context.contains("\"name\":\"browser__key\""), "{context}");
+    assert!(context.contains("\"id\":\"btn_submit\""), "{context}");
+}
+
+#[test]
+fn snapshot_pending_signal_chains_page_up_then_top_edge_jump_when_scroll_target_is_focused() {
+    let history = vec![chat_message(
+        "tool",
+        r##"{"key":{"key":"Home","modifiers":["Control"],"is_chord":true,"selector":"[id=\"text-area\"]","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":166,"scroll_height":565,"client_height":104,"can_scroll_up":true,"can_scroll_down":true,"autocomplete":null}}"##,
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" focused=\"true\" scroll_top=\"166\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
+    assert!(
+        context.contains("RECENT PENDING BROWSER STATE:"),
+        "{context}"
+    );
+    assert!(context.contains("\"key\":\"PageUp\""), "{context}");
+    assert!(context.contains("\"name\":\"browser__key\""), "{context}");
+    assert!(context.contains("\"key\":\"Home\""), "{context}");
+    assert!(context.contains("\"id\":\"btn_submit\""), "{context}");
+}
+
+#[test]
+fn snapshot_pending_signal_uses_page_up_after_top_edge_jump_leaves_multiple_pages() {
+    let history = vec![chat_message(
+        "tool",
+        r##"{"key":{"key":"Home","modifiers":["Control"],"is_chord":true,"selector":"[id=\"text-area\"]","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":257,"scroll_height":565,"client_height":104,"can_scroll_up":true,"can_scroll_down":true,"autocomplete":null}}"##,
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" focused=\"true\" scroll_top=\"257\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
+    assert!(
+        context.contains("RECENT PENDING BROWSER STATE:"),
+        "{context}"
+    );
+    assert!(context.contains("scroll_top=257"), "{context}");
+    assert!(context.contains("\"key\":\"PageUp\""), "{context}");
+    assert!(
+        context.contains("\"selector\":\"[id=\\\"text-area\\\"]\""),
+        "{context}"
+    );
+    assert!(
+        !context.contains("\"modifiers\":[\"Control\"]"),
+        "{context}"
+    );
+}
+
+#[test]
+fn observation_context_uses_page_up_after_top_edge_jump_leaves_multiple_pages() {
+    let history = vec![chat_message(
+        "tool",
+        r##"{"key":{"key":"Home","modifiers":["Control"],"is_chord":true,"selector":"[id=\"text-area\"]","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":257,"scroll_height":565,"client_height":104,"can_scroll_up":true,"can_scroll_down":true,"autocomplete":null}}"##,
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" focused=\"true\" scroll_top=\"257\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
+
+    let context = build_browser_observation_context_from_snapshot_with_history(snapshot, &history);
+    assert!(context.contains("ASSISTIVE BROWSER HINTS:"), "{context}");
+    assert!(context.contains("scroll_top=257"), "{context}");
+    assert!(context.contains("\"key\":\"PageUp\""), "{context}");
+    assert!(
+        context.contains("\"selector\":\"[id=\\\"text-area\\\"]\""),
+        "{context}"
+    );
+    assert!(
+        !context.contains("\"modifiers\":[\"Control\"]"),
+        "{context}"
+    );
+}
+
+#[test]
+fn snapshot_pending_signal_chains_top_edge_submit_when_canvas_wrapper_is_present() {
+    let history = vec![chat_message(
+        "tool",
+        r##"{"key":{"key":"PageUp","modifiers":[],"is_chord":false,"selector":"[id=\"text-area\"]","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":75,"scroll_height":565,"client_height":104,"can_scroll_up":true,"can_scroll_down":true,"autocomplete":null}}"##,
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<generic id=\"grp_query\" name=\"Scroll the textarea to the top of the text hit submit.\" />",
+        "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" focused=\"true\" scroll_top=\"75\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+        "<generic id=\"grp_click_canvas\" name=\"click canvas\" dom_id=\"click-canvas\" selector=\"[id=&quot;click-canvas&quot;]\" dom_clickable=\"true\" rect=\"0,0,160,210\" />",
+        "</root>",
+    );
+
+    let context = build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
+    assert!(
+        context.contains("RECENT PENDING BROWSER STATE:"),
+        "{context}"
+    );
+    assert!(
+        context.contains("\"name\":\"browser__click_element\""),
+        "{context}"
+    );
+    assert!(context.contains("\"id\":\"btn_submit\""), "{context}");
+    assert!(!context.contains("grp_click_canvas"), "{context}");
 }
 
 #[test]
@@ -4582,11 +4184,18 @@ fn success_signal_context_highlights_scroll_edge_key_completion() {
         r##"{"key":{"key":"Home","modifiers":[],"is_chord":false,"selector":"#text-area","dom_id":"text-area","tag_name":"textarea","value":"Lorem ipsum","focused":true,"scroll_top":0,"scroll_height":510,"client_height":104,"can_scroll_up":false,"can_scroll_down":true,"autocomplete":null}}"##,
         1,
     )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" scroll_top=\"0\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"false\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" rect=\"30,178,95,31\" />",
+        "</root>",
+    );
 
-    let context = build_recent_success_signal_context(&history);
+    let context = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
     assert!(context.contains("RECENT SUCCESS SIGNAL:"));
     assert!(context.contains("top edge"));
     assert!(context.contains("Do not repeat the same key"));
+    assert!(context.contains("`btn_submit`"), "{context}");
 }
 
 #[test]
@@ -4684,7 +4293,7 @@ fn snapshot_pending_signal_allows_omitted_submit_after_requested_selectables_are
 }
 
 #[test]
-fn success_signal_context_defers_to_snapshot_pending_selectable_progress() {
+fn success_signal_context_surfaces_remaining_selectable_controls_after_click_progress() {
     let history = vec![
         chat_message(
             "tool",
@@ -4710,12 +4319,10 @@ fn success_signal_context_defers_to_snapshot_pending_selectable_progress() {
     let pending =
         build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
     let success = build_recent_success_signal_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        pending.contains("RECENT PENDING BROWSER STATE:"),
-        "{pending}"
-    );
-    assert!(pending.contains("`checkbox_gtqzx`"), "{pending}");
-    assert!(success.is_empty(), "{success}");
+    assert!(pending.is_empty(), "{pending}");
+    assert!(success.contains("RECENT SUCCESS SIGNAL:"), "{success}");
+    assert!(success.contains("checkbox_gtqzx"), "{success}");
+    assert!(success.contains("btn_submit"), "{success}");
 }
 
 #[test]
@@ -4797,8 +4404,39 @@ fn snapshot_pending_signal_highlights_visible_scroll_target_before_body_key() {
     assert!(context.contains(
         "Visible scroll target `inp_lorem tag=textbox dom_id=text-area` is already on the page."
     ));
-    assert!(context.contains("browser__click_element"));
+    assert!(context.contains("browser__key"));
+    assert!(context.contains("grounded `selector`"));
     assert!(context.contains("otherwise continue with the next required visible control"));
+}
+
+#[test]
+fn snapshot_pending_signal_prefers_jump_key_for_explicit_top_scroll_goal() {
+    let history = vec![chat_message(
+        "user",
+        "Navigate to the assigned MiniWoB page and complete the on-page task using browser tools only. Do not use web retrieval tools. Task brief: Scroll the textarea to the top of the text hit submit.",
+        1,
+    )];
+    let snapshot = concat!(
+        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
+        "<generic id=\"grp_query\" name=\"Scroll the textarea to the top of the text hit submit.\" />",
+        "<textbox id=\"inp_lorem\" name=\"Lorem\" dom_id=\"text-area\" selector=\"[id=&quot;text-area&quot;]\" tag_name=\"textarea\" scroll_top=\"257\" scroll_height=\"565\" client_height=\"104\" can_scroll_up=\"true\" can_scroll_down=\"true\" rect=\"2,57,156,106\" />",
+        "<button id=\"btn_submit\" name=\"Submit\" />",
+        "</root>",
+    );
+
+    let context = build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
+    assert!(
+        context.contains("RECENT PENDING BROWSER STATE:"),
+        "{context}"
+    );
+    assert!(context.contains("toward the top edge"), "{context}");
+    assert!(
+        context.contains(&top_edge_jump_call_for_selector(
+            Some("[id=\"text-area\"]",)
+        )),
+        "{context}"
+    );
+    assert!(!context.contains("for `Home` or `End`"), "{context}");
 }
 
 #[test]
@@ -4841,34 +4479,6 @@ fn recent_pending_context_skips_scroll_hint_for_non_scroll_goal_history() {
 }
 
 #[test]
-fn snapshot_pending_signal_highlights_coordinate_probe_activation() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_svg_grid_object\" name=\"svg grid object\" dom_id=\"svg-grid\" selector=\"[id=&quot;svg-grid&quot;]\" tag_name=\"svg\" rect=\"2,52,150,130\" />",
-        "<generic id=\"grp_small_blue_circle\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"2\" bisector_probe_point=\"60.9,107.7\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" dom_id=\"subbtn\" selector=\"[id=&quot;subbtn&quot;]\" tag_name=\"button\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-
-    let context = build_browser_snapshot_pending_state_context(snapshot);
-    assert!(
-        context.contains("RECENT PENDING BROWSER STATE:"),
-        "{context}"
-    );
-    assert!(context.contains("`grp_small_blue_circle`"), "{context}");
-    assert!(context.contains("`browser__synthetic_click`"), "{context}");
-    assert!(
-        context.contains("`browser__move_mouse` only repositions"),
-        "{context}"
-    );
-    assert!(
-        context.contains("Do not attach `continue_with` or click any visible control"),
-        "{context}"
-    );
-    assert!(!context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
 fn observation_context_skips_scroll_hint_for_non_scroll_goal_history() {
     let history = vec![chat_message(
         "user",
@@ -4885,415 +4495,4 @@ fn observation_context_skips_scroll_hint_for_non_scroll_goal_history() {
     let context = build_browser_observation_context_from_snapshot_with_history(snapshot, &history);
     assert!(!context.contains("Visible scroll target"), "{context}");
     assert!(context.contains("grp_circ"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_rechecks_synthetic_click_geometry_without_success_receipt() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_vertex\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|87,109|71,125\" connected_line_angles_deg=\"-24|1|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message("tool", "Synthetic click at (85, 107)", 2),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains(
-            r#"The next action must be `browser__synthetic_click {"x":85.007,"y":105.511}`"#
-        ),
-        "{context}"
-    );
-    assert!(
-        context.contains("moved geometry at `grp_vertex`"),
-        "{context}"
-    );
-    assert!(context.contains("candidate_error=1.5deg"), "{context}");
-    assert!(context.contains("after click 85,107"), "{context}");
-    assert!(!context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_prefers_endpoint_circle_centers_for_precise_bisector_correction() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_vertex\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|87,109|71,125\" connected_line_angles_deg=\"-24|1|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<generic id=\"grp_user_endpoint\" name=\"small blue circle at 87,109 radius 4\" dom_id=\"blue-circle\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" center_x=\"87\" center_y=\"109\" center_x_precise=\"87\" center_y_precise=\"109\" rect=\"84,106,7,7\" />",
-        "<generic id=\"grp_fixed_endpoint_a\" name=\"small black circle at 91,81 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" center_x=\"91\" center_y=\"81\" center_x_precise=\"91\" center_y_precise=\"81\" rect=\"88,78,7,7\" />",
-        "<generic id=\"grp_fixed_endpoint_b\" name=\"small black circle at 71,125 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" center_x=\"71\" center_y=\"125\" center_x_precise=\"71\" center_y_precise=\"125\" rect=\"68,122,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message("tool", "Synthetic click at (85, 107)", 2),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains(
-            r#"The next action must be `browser__synthetic_click {"x":85.006,"y":105.412}`"#
-        ),
-        "{context}"
-    );
-    assert!(context.contains("candidate_error=1.6deg"), "{context}");
-    assert!(!context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_rechecks_near_solution_synthetic_click_geometry_before_submit() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_vertex\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|87,107|71,125\" connected_line_angles_deg=\"-24|-1|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<generic id=\"grp_user_endpoint\" name=\"small blue circle at 87,107 radius 4\" dom_id=\"blue-circle\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" center_x=\"87\" center_y=\"107\" center_x_precise=\"87\" center_y_precise=\"107\" rect=\"84,104,7,7\" />",
-        "<generic id=\"grp_fixed_endpoint_a\" name=\"small black circle at 91,81 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" center_x=\"91\" center_y=\"81\" center_x_precise=\"91\" center_y_precise=\"81\" rect=\"88,78,7,7\" />",
-        "<generic id=\"grp_fixed_endpoint_b\" name=\"small black circle at 71,125 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" connected_lines=\"1\" center_x=\"71\" center_y=\"125\" center_x_precise=\"71\" center_y_precise=\"125\" rect=\"68,122,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message("tool", "Synthetic click at (85.006, 105.412)", 2),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains(r#"The next action must be `browser__synthetic_click"#),
-        "{context}"
-    );
-    assert!(
-        context.contains("changed geometry at `grp_vertex`"),
-        "{context}"
-    );
-    assert!(context.contains("candidate_error=0.4deg"), "{context}");
-    assert!(!context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_submits_after_precise_synthetic_click_geometry() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_vertex\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|84,107|71,125\" connected_line_angles_deg=\"-24|-0.3|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message("tool", "Synthetic click at (84, 107)", 2),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("changed geometry at `grp_vertex`"),
-        "{context}"
-    );
-    assert!(context.contains("candidate_error=0.2deg"), "{context}");
-    assert!(context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_treats_line_creation_goal_as_pointer_trace_before_mouse_down() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<statictext id=\"statictext_create_a_line\" name=\"Create a line that bisects the angle evenly in two, then press submit.\" rect=\"7,11,220,20\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"move","buttons":0,"x":85.0,"y":107.0}}"#,
-            2,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.contains("browser__mouse_down"), "{context}");
-    assert!(context.contains("pointer trace"), "{context}");
-    assert!(!context.contains("The target text"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_keeps_pointer_trace_guidance_after_mouse_down() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<statictext id=\"statictext_create_a_line\" name=\"Create a line that bisects the angle evenly in two, then press submit.\" rect=\"7,11,220,20\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"move","buttons":0,"x":85.0,"y":107.0}}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_down","button":"left","buttons":1,"x":85.0,"y":107.0}}"#,
-            3,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("pointer trace is already in progress"),
-        "{context}"
-    );
-    assert!(context.contains("browser__move_mouse"), "{context}");
-    assert!(context.contains("browser__mouse_up"), "{context}");
-    assert!(
-        context.contains("do not use `browser__mouse_up` yet"),
-        "{context}"
-    );
-    assert!(!context.contains("The target text"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_blocks_submit_after_trace_release_without_motion() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<statictext id=\"statictext_create_a_line\" name=\"Create a line that bisects the angle evenly in two, then press submit.\" rect=\"7,11,220,20\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"move","buttons":0,"x":85.0,"y":107.0}}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_down","button":"left","buttons":1,"x":85.0,"y":107.0}}"#,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_up","button":"left","buttons":0,"x":85.0,"y":107.0}}"#,
-            4,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("released without any movement after press"),
-        "{context}"
-    );
-    assert!(context.contains("browser__mouse_down"), "{context}");
-    assert!(context.contains("browser__move_mouse"), "{context}");
-    assert!(!context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_allows_submit_after_trace_motion_and_release() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<statictext id=\"statictext_create_a_line\" name=\"Create a line that bisects the angle evenly in two, then press submit.\" rect=\"7,11,220,20\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"move","buttons":0,"x":85.0,"y":107.0}}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_down","button":"left","buttons":1,"x":85.0,"y":107.0}}"#,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"move","buttons":1,"x":120.0,"y":90.0}}"#,
-            4,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_up","button":"left","buttons":0,"x":120.0,"y":90.0}}"#,
-            5,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(context.contains("pointer gesture is finished"), "{context}");
-    assert!(context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_corrects_trace_geometry_with_synthetic_click_after_offset_release()
-{
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_vertex\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|87,109|71,125\" connected_line_angles_deg=\"-24|1|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"move","buttons":0,"x":85.0,"y":107.0}}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_down","button":"left","buttons":1,"x":85.0,"y":107.0}}"#,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_up","button":"left","buttons":0,"x":85.0,"y":107.0}}"#,
-            4,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context
-            .contains(r#"The next action must be `browser__synthetic_click {"x":85,"y":105.5}`"#),
-        "{context}"
-    );
-    assert!(
-        context.contains("changed geometry at `grp_vertex`"),
-        "{context}"
-    );
-    assert!(context.contains("candidate_error=1.5deg"), "{context}");
-    assert!(!context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_corrects_trace_geometry_before_submit() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_vertex\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|62,109|71,125\" connected_line_angles_deg=\"-24|2|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"move","buttons":0,"x":62.0,"y":109.0}}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_down","button":"left","buttons":1,"x":62.0,"y":109.0}}"#,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_up","button":"left","buttons":0,"x":62.0,"y":109.0}}"#,
-            4,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("changed geometry at `grp_vertex`"),
-        "{context}"
-    );
-    assert!(context.contains("candidate_error=2.5deg"), "{context}");
-    assert!(context.contains("Correct the geometry"), "{context}");
-    assert!(!context.contains("`btn_submit`"), "{context}");
-}
-
-#[test]
-fn pending_browser_state_context_submits_when_trace_release_is_precisely_balanced() {
-    let snapshot = concat!(
-        "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
-        "<generic id=\"grp_vertex\" name=\"small blue circle at 31,108 radius 4\" tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"vertex\" connected_lines=\"3\" connected_points=\"91,81|84,107|71,125\" connected_line_angles_deg=\"-24|-0.3|23\" center_x=\"31\" center_y=\"108\" rect=\"28,105,7,7\" />",
-        "<button id=\"btn_submit\" name=\"Submit\" rect=\"30,178,95,31\" />",
-        "</root>",
-    );
-    let history = vec![
-        chat_message(
-            "user",
-            "Create a line that bisects the angle evenly in two, then press submit.",
-            1,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"move","buttons":0,"x":84.0,"y":107.0}}"#,
-            2,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_down","button":"left","buttons":1,"x":84.0,"y":107.0}}"#,
-            3,
-        ),
-        chat_message(
-            "tool",
-            r#"{"pointer":{"action":"mouse_up","button":"left","buttons":0,"x":84.0,"y":107.0}}"#,
-            4,
-        ),
-    ];
-
-    let context =
-        build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
-    assert!(
-        context.contains("changed geometry at `grp_vertex`"),
-        "{context}"
-    );
-    assert!(context.contains("candidate_error=0.2deg"), "{context}");
-    assert!(context.contains("`btn_submit`"), "{context}");
-    assert!(!context.contains("browser__synthetic_click"), "{context}");
 }

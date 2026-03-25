@@ -272,6 +272,7 @@ pub struct BridgeInfo {
     pub task_ready: Option<bool>,
     pub focused_tag: Option<String>,
     pub focused_id: Option<String>,
+    pub last_event: Option<BridgeEventSummary>,
     pub visible_text_excerpt: Option<String>,
     #[serde(default)]
     pub interactive_elements: Vec<BridgeInteractiveElement>,
@@ -280,6 +281,17 @@ pub struct BridgeInfo {
     #[serde(default)]
     pub dom_elements: Vec<BridgeDomElement>,
     pub trigger: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BridgeEventSummary {
+    pub kind: Option<String>,
+    pub timestamp_ms: Option<u64>,
+    pub target_selector: Option<String>,
+    pub target_tag: Option<String>,
+    pub target_id: Option<String>,
+    pub x: Option<i32>,
+    pub y: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -297,6 +309,7 @@ pub struct BridgeSyncRecord {
     pub visible_text_excerpt: Option<String>,
     pub focused_tag: Option<String>,
     pub focused_id: Option<String>,
+    pub last_event: Option<BridgeEventSummary>,
     pub page_url: Option<String>,
     pub interactive_count: usize,
     pub scroll_target_count: usize,
@@ -464,7 +477,16 @@ mod tests {
             "last_sync_ms": 12345,
             "info": {
                 "query_text": "Hover over the circle.",
-                "trigger": "heartbeat"
+                "trigger": "heartbeat",
+                "last_event": {
+                    "kind": "mousemove",
+                    "timestamp_ms": 12344,
+                    "target_selector": "#circ",
+                    "target_tag": "circle",
+                    "target_id": "circ",
+                    "x": 50,
+                    "y": 60
+                }
             },
             "sync_history": [
                 {
@@ -478,6 +500,15 @@ mod tests {
                     "trigger": "bootstrap",
                     "query_text": "Hover over the circle.",
                     "visible_text_excerpt": "Hover over the circle.",
+                    "last_event": {
+                        "kind": "mouseenter",
+                        "timestamp_ms": 12300,
+                        "target_selector": "#circ",
+                        "target_tag": "circle",
+                        "target_id": "circ",
+                        "x": 48,
+                        "y": 61
+                    },
                     "interactive_count": 0,
                     "scroll_target_count": 0,
                     "dom_count": 1
@@ -487,8 +518,23 @@ mod tests {
         .expect("bridge state should deserialize");
 
         assert_eq!(state.info.trigger.as_deref(), Some("heartbeat"));
+        assert_eq!(
+            state
+                .info
+                .last_event
+                .as_ref()
+                .and_then(|event| event.kind.as_deref()),
+            Some("mousemove")
+        );
         assert_eq!(state.sync_history.len(), 1);
         assert_eq!(state.sync_history[0].trigger.as_deref(), Some("bootstrap"));
+        assert_eq!(
+            state.sync_history[0]
+                .last_event
+                .as_ref()
+                .and_then(|event| event.kind.as_deref()),
+            Some("mouseenter")
+        );
         assert_eq!(state.sync_history[0].dom_count, 1);
     }
 }

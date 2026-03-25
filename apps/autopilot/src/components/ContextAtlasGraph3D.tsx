@@ -36,19 +36,19 @@ interface ContextAtlasGraph3DProps {
 }
 
 const NODE_COLORS: Record<string, string> = {
-  session: "#8be9fd",
-  skill: "#ff79c6",
-  tool: "#69f0ae",
-  evidence: "#ffb86c",
-  published_doc: "#ffb86c",
-  constraint: "#bd93f9",
-  query: "#8be9fd",
-  index_root: "#6272a4",
-  proof: "#bd93f9",
+  session: "#93bef8",
+  skill: "#3b5eda",
+  tool: "#6b9a7d",
+  evidence: "#c49a3c",
+  published_doc: "#c49a3c",
+  constraint: "#8e72a8",
+  query: "#759ce8",
+  index_root: "#6b87a8",
+  proof: "#8e72a8",
 };
 
 function colorForNode(kind: string): string {
-  return NODE_COLORS[kind] || "#7c8a9b";
+  return NODE_COLORS[kind] || "#8a867d";
 }
 
 function buildGraphData(
@@ -85,7 +85,7 @@ function buildGraphData(
       source: edge.source_id,
       target: edge.target_id,
       label: edge.summary || edge.relation,
-      color: edge.relation === "similar_to" ? "#ffb86c" : "#7c8a9b",
+      color: edge.relation === "similar_to" ? "#c49a3c" : "#6b87a8",
       width: Math.max(0.6, Math.min(2.6, edge.weight || 1)),
     }));
 

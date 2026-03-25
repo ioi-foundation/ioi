@@ -32,7 +32,7 @@
   justify-content: space-between;
   padding: 10px 14px;
   border-bottom: 1px solid var(--spot-border-subtle);
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--warm-a3);
   flex-shrink: 0;
 }
 
@@ -63,7 +63,7 @@
   font-size: 10px;
   font-weight: 600;
   color: var(--spot-text-secondary);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-hover);
   padding: 2px 6px;
   border-radius: 999px;
   text-transform: uppercase;
@@ -91,7 +91,7 @@
 }
 
 .artifact-action-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-hover);
   color: var(--spot-text-primary);
 }
 
@@ -105,7 +105,7 @@
   flex: 1;
   overflow: auto;
   padding: 16px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(13, 12, 10, 0.22);
 }
 
 .artifact-content::-webkit-scrollbar {
@@ -118,12 +118,12 @@
 }
 
 .artifact-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border-default);
   border-radius: 4px;
 }
 
 .artifact-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--border-strong);
 }
 
 /* Code Block */
@@ -151,7 +151,7 @@
 }
 
 .code-line:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--warm-a3);
 }
 
 .line-number {
@@ -172,24 +172,24 @@
 
 /* Syntax Highlighting Hints */
 .code-block .keyword {
-  color: #ff79c6;
+  color: var(--spot-accent);
 }
 
 .code-block .string {
-  color: #69f0ae;
+  color: var(--spot-success);
 }
 
 .code-block .comment {
-  color: #6c7896;
+  color: var(--spot-text-dim);
   font-style: italic;
 }
 
 .code-block .function {
-  color: #8be9fd;
+  color: var(--accent-cyan);
 }
 
 .code-block .number {
-  color: #bd93f9;
+  color: var(--accent-violet);
 }
 
 /* ============================================
@@ -208,7 +208,7 @@
   justify-content: space-between;
   padding: 6px 10px;
   border-bottom: 1px solid var(--spot-border-subtle, rgba(255, 255, 255, 0.06));
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--warm-a3);
   flex-shrink: 0;
 }
 
@@ -220,7 +220,7 @@
 
 .log-copy-btn {
   padding: 3px 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--warm-a5);
   border: 1px solid var(--spot-border);
   border-radius: 4px;
   color: var(--spot-text-secondary);
@@ -231,7 +231,7 @@
 }
 
 .log-copy-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--warm-a14);
   border-color: var(--spot-accent);
   color: var(--spot-text-primary);
 }
@@ -727,11 +727,11 @@
 }
 
 .artifact-hub-log-row.status-failure {
-  border-color: rgba(255, 107, 129, 0.28);
+  border-color: var(--status-error-ring);
 }
 
 .artifact-hub-log-row.status-partial {
-  border-color: rgba(255, 184, 108, 0.24);
+  border-color: var(--status-warning-ring);
 }
 
 .artifact-hub-log-meta {
@@ -889,17 +889,17 @@
 }
 
 .artifact-hub-substrate-card {
-  border: 1px solid rgba(255, 121, 198, 0.28);
+  border: 1px solid var(--accent-blue-border);
   border-radius: 12px;
   background:
     radial-gradient(
       circle at 16% 10%,
-      rgba(255, 121, 198, 0.16),
+      rgba(90, 140, 236, 0.16),
       transparent 46%
     ),
     radial-gradient(
       circle at 84% 0%,
-      rgba(189, 147, 249, 0.14),
+      rgba(142, 114, 168, 0.14),
       transparent 42%
     ),
     var(--surface-3);

@@ -143,6 +143,13 @@ mod tests {
             synthetic_click.description
         );
         assert!(
+            synthetic_click
+                .parameters
+                .contains(r#""id":{"description":"Optional semantic ID from browser__snapshot"#),
+            "{}",
+            synthetic_click.parameters
+        );
+        assert!(
             synthetic_click.parameters.contains(r#""type":"number""#),
             "{}",
             synthetic_click.parameters
@@ -150,7 +157,14 @@ mod tests {
         assert!(
             synthetic_click
                 .parameters
-                .contains("Absolute viewport x coordinate in CSS pixels"),
+                .contains("Prefer this instead of guessing raw coordinates"),
+            "{}",
+            synthetic_click.parameters
+        );
+        assert!(
+            synthetic_click
+                .parameters
+                .contains("absolute viewport x coordinate in CSS pixels"),
             "{}",
             synthetic_click.parameters
         );

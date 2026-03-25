@@ -21,8 +21,9 @@
         let synthetic_click_params = json!({
             "type": "object",
             "properties": {
-                "x": { "type": "number", "description": "Absolute viewport x coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions." },
-                "y": { "type": "number", "description": "Absolute viewport y coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions." },
+                "id": { "type": "string", "description": "Optional grounded browser__snapshot ID for a coordinate target. This may be a semantic ID or a numeric `som_id` from the tagged screenshot. Prefer this instead of guessing raw coordinates when the target is already named in the observation." },
+                "x": { "type": "number", "description": "Optional absolute viewport x coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. Provide this together with y when no grounded target id is available." },
+                "y": { "type": "number", "description": "Optional absolute viewport y coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. Provide this together with x when no grounded target id is available." },
                 "continue_with": {
                     "type": "object",
                     "description": "Optional immediate follow-up browser action to execute after the coordinate click succeeds, without another inference turn. Use only when the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use this for drag setup or pointer button state changes.",
@@ -51,12 +52,11 @@
                     "required": ["name", "arguments"]
                 }
             },
-            "required": ["x", "y"]
         });
 
         tools.push(LlmToolDefinition {
             name: "browser__synthetic_click".to_string(),
-            description: "Activate a page coordinate (x,y) directly without moving the user's mouse cursor. Coordinates are absolute viewport CSS pixels, not normalized 0-1 fractions. Preferred for grounded coordinates from snapshots on canvases, SVG surfaces, and blank regions that do not expose a semantic element. When the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction, pair it with `continue_with` for an immediate follow-up. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
+            description: "Activate a page coordinate directly without moving the user's mouse cursor. Prefer `id` when browser__snapshot already names the grounded target; otherwise provide raw `x` and `y` viewport CSS pixels. Coordinates are absolute viewport CSS pixels, not normalized 0-1 fractions. Preferred for grounded coordinate-style actions on canvases, SVG surfaces, and blank regions that do not expose a DOM-clickable control. When the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction, pair it with `continue_with` for an immediate follow-up. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
             parameters: synthetic_click_params.to_string(),
         });
     }
@@ -163,8 +163,9 @@
             });
             tools.push(LlmToolDefinition {
                 name: "browser__type".to_string(),
-                description: "Type text into the browser via CDP. Works in headless mode."
-                    .to_string(),
+                description:
+                    "Type text into the browser via CDP. Works in headless mode. When using numeric `som_id` tags from `browser__snapshot`, focus the field first with `browser__click_element`, optionally via `continue_with`."
+                        .to_string(),
                 parameters: browser_type_params.to_string(),
             });
         }
@@ -191,6 +192,10 @@
                 "type": "object",
                 "properties": {
                     "key": { "type": "string", "description": "Key to press (for example: 'Enter', 'Tab', 'Backspace', 'ArrowDown', 'a')." },
+                    "selector": {
+                        "type": "string",
+                        "description": "Optional CSS selector to focus before pressing the key. Prefer this when the intended scrollable control, textbox, listbox, or combobox is already grounded in the current browser observation."
+                    },
                     "modifiers": {
                         "type": "array",
                         "items": { "type": "string" },
@@ -206,7 +211,7 @@
             tools.push(LlmToolDefinition {
                 name: "browser__key".to_string(),
                 description: format!(
-                    "Press a keyboard key or modifier-aware key chord in the browser via CDP. For chords, include both `key` and `modifiers`, for example {}. Works in headless mode.",
+                    "Press a keyboard key or modifier-aware key chord in the browser via CDP. Pass `selector` when you need the key to land on a specific grounded browser control without a separate focus click. For chords, include both `key` and `modifiers`, for example {}. Works in headless mode.",
                     browser_top_edge_jump_json,
                 ),
                 parameters: browser_key_params.to_string(),
@@ -306,6 +311,7 @@
                                 "enum": [
                                     "browser__click",
                                     "browser__click_element",
+                                    "browser__type",
                                     "browser__key",
                                     "browser__hover",
                                     "browser__synthetic_click",
@@ -463,7 +469,7 @@
             tools.push(LlmToolDefinition {
                 name: "browser__snapshot".to_string(),
                 description:
-                    "Snapshot the current browser page as semantic XML with stable element IDs."
+                    "Snapshot the current browser page as semantic XML from the accessibility tree, with `som_id` numeric element tags that match an attached marked screenshot. The output may also include Browser-use state text, a Browser-use-style selector map, Browser-use tabs/page-info/pending-request metadata, and BrowserGym extra-properties, focused-bid, AXTree, and DOM sections after the root XML."
                         .to_string(),
                 parameters: snapshot_params.to_string(),
             });
@@ -475,11 +481,11 @@
                 "properties": {
                     "id": {
                         "type": "string",
-                        "description": "Semantic element ID from browser__snapshot output (e.g. 'btn_sign_in'). Provide this or `ids`."
+                        "description": "Element ID from browser__snapshot output. This may be a semantic ID (for example 'btn_sign_in') or a numeric `som_id` such as '12' from the tagged screenshot. Provide this or `ids`."
                     },
                     "ids": {
                         "type": "array",
-                        "description": "Ordered semantic element IDs from browser__snapshot output to click in sequence without interleaving other actions. Provide this or `id`.",
+                        "description": "Ordered element IDs from browser__snapshot output to click in sequence without interleaving other actions. Each item may be a semantic ID or a numeric `som_id`. Provide this or `id`.",
                         "items": {
                             "type": "string"
                         },
@@ -522,7 +528,7 @@
             });
             tools.push(LlmToolDefinition {
                 name: "browser__click_element".to_string(),
-                description: "Click one page element by semantic ID from browser__snapshot, or click an ordered list of semantic IDs in sequence. With ordered `ids`, you may also provide `delay_ms_between_ids` for precise multi-click timing without another inference turn. Use `continue_with` when a visible gate or commit click should hand off directly to another grounded browser action. Preferred over CSS selectors in headless mode.".to_string(),
+                description: "Click one page element by browser__snapshot ID, or click an ordered list of IDs in sequence. Numeric `som_id` values from the tagged screenshot are preferred for generic browser actions; semantic IDs remain supported for compatibility. With ordered `ids`, you may also provide `delay_ms_between_ids` for precise multi-click timing without another inference turn. Use `continue_with` when the click must hand off directly to another already grounded browser action, including focus-then-type on a visible field or a visible gate/commit click followed by another grounded action. Preferred over CSS selectors in headless mode.".to_string(),
                 parameters: click_id_params.to_string(),
             });
         }

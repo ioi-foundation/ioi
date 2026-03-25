@@ -381,9 +381,40 @@ fn browser_type_target_maps_to_custom_browser_type_tool() {
 fn browser_key_target_maps_to_custom_browser_key_tool() {
     let tool = AgentTool::BrowserKey {
         key: "Enter".to_string(),
+        selector: None,
         modifiers: None,
+        continue_with: None,
     };
     assert_eq!(tool.target(), crate::app::ActionTarget::BrowserInteract);
+}
+
+#[test]
+fn browser_key_serializes_follow_up_browser_action() {
+    let tool = AgentTool::BrowserKey {
+        key: "Home".to_string(),
+        selector: Some("[id=\"text-area\"]".to_string()),
+        modifiers: Some(vec!["Control".to_string()]),
+        continue_with: Some(AgentToolCall {
+            name: "browser__click_element".to_string(),
+            arguments: json!({
+                "id": "btn_submit"
+            }),
+        }),
+    };
+
+    let payload = serde_json::to_value(&tool).expect("serialize tool");
+    assert_eq!(payload["name"], "browser__key");
+    assert_eq!(payload["arguments"]["key"], "Home");
+    assert_eq!(payload["arguments"]["selector"], "[id=\"text-area\"]");
+    assert_eq!(payload["arguments"]["modifiers"], json!(["Control"]));
+    assert_eq!(
+        payload["arguments"]["continue_with"]["name"],
+        "browser__click_element"
+    );
+    assert_eq!(
+        payload["arguments"]["continue_with"]["arguments"]["id"],
+        "btn_submit"
+    );
 }
 
 #[test]
@@ -480,8 +511,9 @@ fn browser_wait_serializes_follow_up_browser_action() {
 #[test]
 fn browser_synthetic_click_serializes_follow_up_browser_action() {
     let tool = AgentTool::BrowserSyntheticClick {
-        x: 85.012,
-        y: 105.824,
+        id: None,
+        x: Some(85.012),
+        y: Some(105.824),
         continue_with: Some(AgentToolCall {
             name: "browser__click_element".to_string(),
             arguments: json!({ "id": "btn_submit" }),
@@ -498,6 +530,22 @@ fn browser_synthetic_click_serializes_follow_up_browser_action() {
         payload["arguments"]["continue_with"]["arguments"]["id"],
         "btn_submit"
     );
+}
+
+#[test]
+fn browser_synthetic_click_serializes_grounded_target_id() {
+    let tool = AgentTool::BrowserSyntheticClick {
+        id: Some("grp_blue_circle".to_string()),
+        x: None,
+        y: None,
+        continue_with: None,
+    };
+
+    let payload = serde_json::to_value(&tool).expect("serialize tool");
+    assert_eq!(payload["name"], "browser__synthetic_click");
+    assert_eq!(payload["arguments"]["id"], "grp_blue_circle");
+    assert!(payload["arguments"].get("x").is_none(), "{payload}");
+    assert!(payload["arguments"].get("y").is_none(), "{payload}");
 }
 
 #[test]

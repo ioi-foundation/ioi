@@ -25,6 +25,13 @@ impl BrowserDriver {
                 .map_err(|e| BrowserError::Internal(format!("Failed to query active URL: {}", e)))?
                 .unwrap_or_else(|| url.to_string());
             *self.active_page_url.lock().await = Some(current_url.clone());
+            self.record_browser_use_event(
+                "NavigateToUrlEvent",
+                None,
+                Some(current_url.clone()),
+                None,
+            )
+            .await;
             self.warm_prompt_observation_after_navigation(p.clone(), Some(current_url));
             let content = self.check_connection_error(p.content().await).await?;
             Ok(content)

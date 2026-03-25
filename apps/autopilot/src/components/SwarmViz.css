@@ -4,10 +4,10 @@
 
 /* === MAIN CONTAINER === */
 .swarm-viz {
-  --swarm-bg: rgba(35, 35, 35, 0.82);
-  --swarm-panel: rgba(39, 39, 39, 0.92);
-  --swarm-surface: rgba(47, 47, 47, 0.94);
-  --swarm-hover: rgba(232, 237, 242, 0.05);
+  --swarm-bg: rgba(33, 32, 28, 0.82);
+  --swarm-panel: rgba(42, 40, 36, 0.92);
+  --swarm-surface: rgba(51, 49, 44, 0.94);
+  --swarm-hover: var(--bg-hover);
   --swarm-border: var(--border-subtle);
   --swarm-border-strong: var(--border-default);
   --swarm-text: var(--text-primary);
@@ -58,7 +58,7 @@
   font-size: 11px;
   font-weight: 500;
   color: var(--swarm-text-muted);
-  background: rgba(232, 237, 242, 0.05);
+  background: var(--bg-hover);
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -140,7 +140,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  background: rgba(39, 39, 39, 0.72);
+  background: rgba(42, 40, 36, 0.72);
   border-bottom: 1px solid var(--swarm-border);
   flex-shrink: 0;
   overflow-x: auto;
@@ -156,7 +156,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: rgba(55, 55, 55, 0.7);
+  background: rgba(51, 49, 44, 0.7);
   border-radius: 999px;
   flex-shrink: 0;
 }
@@ -382,21 +382,21 @@
 }
 
 .agent-card-v2.completed {
-  border-color: rgba(79, 181, 139, 0.3);
+  border-color: var(--status-success-ring);
 }
 
 .agent-card-v2.failed {
-  border-color: rgba(255, 107, 129, 0.4);
-  background: rgba(255, 107, 129, 0.05);
+  border-color: var(--status-error-ring);
+  background: var(--status-error-dim);
 }
 
 .agent-card-v2.requisition {
-  border: 1px dashed rgba(255, 121, 198, 0.56);
-  background: rgba(255, 121, 198, 0.05);
+  border: 1px dashed var(--accent-blue-border);
+  background: var(--accent-blue-dim);
 }
 
 .agent-card-v2.paused {
-  border-color: rgba(255, 184, 108, 0.44);
+  border-color: var(--status-warning-ring);
   opacity: 0.8;
 }
 
@@ -449,7 +449,7 @@
 @keyframes avatarGlow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(255, 121, 198, 0);
+    box-shadow: 0 0 0 0 rgba(90, 140, 236, 0);
   }
   50% {
     box-shadow: 0 0 0 4px var(--accent-blue-dim);
@@ -639,27 +639,27 @@
 }
 
 .action-btn.approve:hover {
-  background: rgba(79, 181, 139, 0.15);
-  border-color: rgba(79, 181, 139, 0.3);
+  background: var(--status-success-dim);
+  border-color: var(--status-success-ring);
   color: var(--swarm-success);
 }
 
 .action-btn.reject:hover,
 .action-btn.cancel:hover {
-  background: rgba(255, 107, 129, 0.15);
-  border-color: rgba(255, 107, 129, 0.3);
+  background: var(--status-error-dim);
+  border-color: var(--status-error-ring);
   color: var(--swarm-error);
 }
 
 .action-btn.pause:hover {
-  background: rgba(255, 184, 108, 0.15);
-  border-color: rgba(255, 184, 108, 0.3);
+  background: var(--status-warning-dim);
+  border-color: var(--status-warning-ring);
   color: var(--swarm-warning);
 }
 
 .action-btn.resume:hover {
-  background: rgba(79, 181, 139, 0.15);
-  border-color: rgba(79, 181, 139, 0.3);
+  background: var(--status-success-dim);
+  border-color: var(--status-success-ring);
   color: var(--swarm-success);
 }
 
@@ -685,7 +685,7 @@
   margin-top: 8px;
   margin-bottom: 8px;
   border: 1px dashed var(--accent-blue-ring);
-  background: rgba(255, 121, 198, 0.03);
+  background: rgba(90, 140, 236, 0.04);
   border-radius: 8px;
   position: relative;
   overflow: hidden;
@@ -707,7 +707,7 @@
   justify-content: space-between;
   padding: 8px 12px;
   background: var(--accent-blue-dim);
-  border-bottom: 1px dashed rgba(255, 121, 198, 0.22);
+  border-bottom: 1px dashed var(--accent-blue-border);
 }
 
 .squad-title {
@@ -1167,7 +1167,7 @@
 /* Estimate Box */
 .estimate-box {
   background: var(--accent-blue-dim);
-  border: 1px solid rgba(255, 121, 198, 0.22);
+  border: 1px solid var(--accent-blue-border);
   border-radius: 6px;
   padding: 12px;
   display: flex;
@@ -1228,18 +1228,18 @@
 }
 
 .detail-btn.secondary:hover {
-  background: rgba(232, 237, 242, 0.05);
+  background: var(--bg-hover);
   color: var(--swarm-text);
 }
 
 .detail-btn.danger {
   background: transparent;
-  border-color: rgba(255, 107, 129, 0.5);
+  border-color: var(--status-error-ring);
   color: var(--swarm-error);
 }
 
 .detail-btn.danger:hover {
-  background: rgba(255, 107, 129, 0.1);
+  background: var(--status-error-dim);
   border-color: var(--swarm-error);
 }
 

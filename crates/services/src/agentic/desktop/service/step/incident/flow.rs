@@ -3,9 +3,10 @@ use super::core::{
     ApprovalDirective, IncidentDirective, IncidentReceiptFields, IncidentState, PendingGate,
 };
 use super::recovery::{
-    build_planner_prompt, deterministic_recovery_tool, effective_forbidden_tools,
-    incident_specific_forbidden_tools, is_recoverable_failure, policy_max_transitions,
-    policy_strategy_override, queue_recovery_action, queue_root_retry, validate_recovery_tool,
+    browser_root_failure_prefers_direct_retry, build_planner_prompt, deterministic_recovery_tool,
+    effective_forbidden_tools, incident_specific_forbidden_tools, is_recoverable_failure,
+    policy_max_transitions, policy_strategy_override, queue_recovery_action, queue_root_retry,
+    validate_recovery_tool,
 };
 use super::store::{clear_incident_state, load_incident_state, persist_incident_state};
 use crate::agentic::desktop::middleware;
@@ -31,6 +32,18 @@ use ioi_types::error::TransactionError;
 use serde_json::json;
 use std::collections::BTreeSet;
 
+fn browser_semantics_snapshot_present(text: &str) -> bool {
+    text.contains("BROWSER_USE_STATE_TXT:")
+        || text.contains("BROWSER_USE_PROMPT_CONTEXT_TXT:")
+        || text.contains("BROWSERGYM_AXTREE_TXT:")
+}
+
+fn history_has_browser_semantics_snapshot(history: &[ChatMessage]) -> bool {
+    history.iter().rev().any(|message| {
+        message.role == "tool" && browser_semantics_snapshot_present(&message.content)
+    })
+}
+
 fn planner_pending_browser_state_from_history(
     incident_state: &IncidentState,
     history: &[ChatMessage],
@@ -43,6 +56,10 @@ fn planner_pending_browser_state_from_history(
             Some(FailureClass::NoEffectAfterAction)
         )
     {
+        return None;
+    }
+
+    if history_has_browser_semantics_snapshot(history) {
         return None;
     }
 
@@ -59,6 +76,17 @@ fn planner_pending_browser_state_from_history(
     }
 
     explicit_pending
+}
+
+fn consume_enqueued_root_retry(
+    incident_state: &mut IncidentState,
+    executed_retry_hash: &str,
+) -> bool {
+    let is_root_retry = incident_state.root_retry_hash == executed_retry_hash;
+    if is_root_retry {
+        incident_state.retry_enqueued = false;
+    }
+    is_root_retry
 }
 
 pub fn should_enter_incident_recovery(
@@ -265,7 +293,9 @@ pub async fn advance_incident_after_action_outcome(
         return Ok(IncidentDirective::Noop);
     }
 
-    if success && incident_state.root_retry_hash == executed_retry_hash {
+    let executed_root_retry = consume_enqueued_root_retry(&mut incident_state, executed_retry_hash);
+
+    if success && executed_root_retry {
         incident_state.stage = IncidentStage::Resolved.as_str().to_string();
         incident_state.gate_state = GateState::Cleared.as_str().to_string();
         incident_state.resolution_action = ResolutionAction::MarkResolved.as_str().to_string();
@@ -646,6 +676,60 @@ pub async fn start_or_continue_incident_recovery(
         .collect();
     let mut planner_forbidden_tools = forbidden_tools.clone();
 
+    if browser_root_failure_prefers_direct_retry(&incident_state) {
+        incident_state.active = true;
+        incident_state.transitions_used = incident_state.transitions_used.saturating_add(1);
+        incident_state.stage = IncidentStage::RetryRoot.as_str().to_string();
+        incident_state.strategy_cursor = StrategyNode::RetryRootAction.as_str().to_string();
+        incident_state.gate_state = GateState::Cleared.as_str().to_string();
+        incident_state.resolution_action = ResolutionAction::RetryRoot.as_str().to_string();
+        incident_state.pending_remedy_fingerprint = None;
+        incident_state.pending_remedy_tool_jcs = None;
+        let queued_retry = if incident_state.retry_enqueued {
+            false
+        } else {
+            queue_root_retry(agent_state, session_id, &incident_state.root_tool_jcs)?
+        };
+        incident_state.retry_enqueued = incident_state.retry_enqueued || queued_retry;
+        persist_incident_state(state, &session_id, &incident_state)?;
+        emit_incident_chat_progress(
+            service,
+            session_id,
+            block_height,
+            if queued_retry {
+                format!(
+                    "System: Incident '{}' queued a direct root retry after unstable browser dispatch.",
+                    incident_state.incident_id
+                )
+            } else {
+                format!(
+                    "System: Incident '{}' already had a direct root retry queued after unstable browser dispatch.",
+                    incident_state.incident_id
+                )
+            },
+        )
+        .await?;
+        verification_checks.push("incident_active=true".to_string());
+        verification_checks.push(format!("incident_id={}", incident_state.incident_id));
+        verification_checks.push("incident_direct_root_retry=true".to_string());
+        verification_checks.push(format!(
+            "incident_transitions_used={}",
+            incident_state.transitions_used
+        ));
+        verification_checks.push(format!(
+            "incident_budget_remaining={}",
+            incident_state
+                .max_transitions
+                .saturating_sub(incident_state.transitions_used)
+        ));
+        verification_checks.push(format!("queued_retry_after_direct_retry={}", queued_retry));
+        return Ok(if queued_retry {
+            IncidentDirective::QueueActions
+        } else {
+            IncidentDirective::Noop
+        });
+    }
+
     let mut chosen_tool =
         deterministic_recovery_tool(&available_tool_names, &incident_state, agent_state, rules)?;
     if let Some(tool) = chosen_tool.as_ref() {
@@ -954,7 +1038,7 @@ pub async fn start_or_continue_incident_recovery(
 
 #[cfg(test)]
 mod tests {
-    use super::planner_pending_browser_state_from_history;
+    use super::{consume_enqueued_root_retry, planner_pending_browser_state_from_history};
     use crate::agentic::desktop::service::step::incident::core::IncidentState;
     use ioi_types::app::agentic::ChatMessage;
 
@@ -1072,5 +1156,54 @@ mod tests {
         );
         assert!(pending.contains("`Deena`"), "{pending}");
         assert!(pending.contains("`lnk_443422`"), "{pending}");
+    }
+
+    #[test]
+    fn planner_pending_browser_state_is_disabled_when_browser_semantics_snapshot_is_present() {
+        let history = vec![chat_message(
+            "tool",
+            concat!(
+                "Tool Output (browser__snapshot): <root />\n\n",
+                "BROWSER_USE_STATE_TXT:\n[12]<button name=Submit />\n\n",
+                "BROWSERGYM_AXTREE_TXT:\n[a1] button \"Submit\""
+            ),
+            1,
+        )];
+
+        assert!(
+            planner_pending_browser_state_from_history(
+                &test_incident_state("browser__snapshot", "NoEffectAfterAction"),
+                &history,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn consume_enqueued_root_retry_clears_flag_when_root_retry_executes() {
+        let mut incident = test_incident_state("browser__click_element", "NoEffectAfterAction");
+        incident.retry_enqueued = true;
+
+        let consumed = consume_enqueued_root_retry(&mut incident, "retry-hash");
+
+        assert!(consumed);
+        assert!(
+            !incident.retry_enqueued,
+            "executed root retry should clear the enqueued marker"
+        );
+    }
+
+    #[test]
+    fn consume_enqueued_root_retry_ignores_non_root_retry_execution() {
+        let mut incident = test_incident_state("browser__click_element", "NoEffectAfterAction");
+        incident.retry_enqueued = true;
+
+        let consumed = consume_enqueued_root_retry(&mut incident, "other-retry");
+
+        assert!(!consumed);
+        assert!(
+            incident.retry_enqueued,
+            "non-root executions should not clear the enqueued marker"
+        );
     }
 }

@@ -47,6 +47,7 @@ use std::io::Cursor;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const CURRENT_BROWSER_OBSERVATION_TIMEOUT: Duration = Duration::from_millis(1_500);
+const CURRENT_BROWSER_OBSERVATION_CACHE_MAX_AGE: Duration = Duration::from_secs(12);
 const BROWSER_PROMPT_SCREENSHOT_MAX_DIM: u32 = 640;
 const BROWSER_PROMPT_SCREENSHOT_JPEG_QUALITY: u8 = 60;
 
@@ -173,7 +174,13 @@ fn browser_observation_has_grounded_non_canvas_targets(browser_observation_conte
         .lines()
         .flat_map(|line| line.split('|'))
         .any(|fragment| {
-            let compact = fragment.trim();
+            let compact = fragment
+                .split_once("IMPORTANT TARGETS:")
+                .map(|(_, tail)| tail)
+                .unwrap_or(fragment)
+                .trim()
+                .trim_end_matches("</root>")
+                .trim();
             if compact.is_empty()
                 || compact.starts_with("RECENT BROWSER OBSERVATION:")
                 || compact.contains(" tag=root")
@@ -280,6 +287,14 @@ fn top_edge_jump_tool_call() -> &'static str {
     }
 }
 
+fn top_edge_jump_tool_call_with_grounded_selector() -> &'static str {
+    if cfg!(target_os = "macos") {
+        r#"browser__key {"key":"ArrowUp","modifiers":["Meta"],"selector":"<grounded selector>"}"#
+    } else {
+        r#"browser__key {"key":"Home","modifiers":["Control"],"selector":"<grounded selector>"}"#
+    }
+}
+
 fn bottom_edge_jump_name() -> &'static str {
     if cfg!(target_os = "macos") {
         "Meta+ArrowDown"
@@ -299,26 +314,40 @@ fn bottom_edge_jump_tool_call() -> &'static str {
 pub(crate) async fn current_browser_observation_snapshot(
     service: &DesktopAgentService,
 ) -> Option<String> {
-    let raw_tree = match tokio::time::timeout(
-        CURRENT_BROWSER_OBSERVATION_TIMEOUT,
-        service.browser.get_prompt_observation_tree(),
-    )
-    .await
+    let raw_tree = if let Some((_, tree)) = service
+        .browser
+        .recent_prompt_observation_snapshot(CURRENT_BROWSER_OBSERVATION_CACHE_MAX_AGE)
+        .await
     {
-        Ok(Ok(tree)) => tree,
-        Ok(Err(err)) => {
-            log::warn!(
-                "Current browser observation fetch failed before timeout: {}",
-                err
-            );
-            return None;
-        }
-        Err(_) => {
-            log::warn!(
-                "Current browser observation fetch timed out after {:?}.",
-                CURRENT_BROWSER_OBSERVATION_TIMEOUT
-            );
-            return None;
+        tree
+    } else if let Some((_, tree)) = service
+        .browser
+        .recent_accessibility_snapshot(CURRENT_BROWSER_OBSERVATION_CACHE_MAX_AGE)
+        .await
+    {
+        tree
+    } else {
+        match tokio::time::timeout(
+            CURRENT_BROWSER_OBSERVATION_TIMEOUT,
+            service.browser.get_prompt_observation_tree(),
+        )
+        .await
+        {
+            Ok(Ok(tree)) => tree,
+            Ok(Err(err)) => {
+                log::warn!(
+                    "Current browser observation fetch failed before timeout: {}",
+                    err
+                );
+                return None;
+            }
+            Err(_) => {
+                log::warn!(
+                    "Current browser observation fetch timed out after {:?}.",
+                    CURRENT_BROWSER_OBSERVATION_TIMEOUT
+                );
+                return None;
+            }
         }
     };
     let lens = AutoLens;
@@ -338,18 +367,25 @@ fn is_browser_step_tool(name: &str) -> bool {
         )
 }
 
+fn pending_state_has_visible_start_gate(pending_browser_state_context: &str) -> bool {
+    pending_browser_state_context
+        .to_ascii_lowercase()
+        .contains("visible start gate")
+}
+
 fn filter_cognition_tools(
     tools: &[LlmToolDefinition],
     prefer_browser_semantics: bool,
     goal: &str,
     browser_observation_context: &str,
+    pending_browser_state_context: &str,
 ) -> Vec<LlmToolDefinition> {
     if !prefer_browser_semantics {
         return tools.to_vec();
     }
 
-    let hide_synthetic_click =
-        browser_observation_has_grounded_shape_targets(browser_observation_context)
+    let hide_synthetic_click = pending_state_has_visible_start_gate(pending_browser_state_context)
+        || browser_observation_has_grounded_shape_targets(browser_observation_context)
             && !browser_observation_has_grounded_geometry_targets(browser_observation_context);
     let prefer_sustained_hover_surface = goal_prefers_sustained_hover_browser_surface(goal);
 
@@ -503,9 +539,9 @@ fn build_strategy_instruction(
 ) -> String {
     if prefer_browser_semantics {
         if has_meaningful_visual_context {
-            return "MODE: BROWSER ACTION. Use browser semantic tools as the primary state and action path. Prefer `browser__snapshot` for semantic XML and `browser__click_element` with `id` or ordered `ids` for page interaction. Treat any screenshot as secondary layout context, not the primary source of truth.".to_string();
+            return "MODE: BROWSER ACTION. Use browser semantic tools as the primary state and action path. Prefer `browser__snapshot` for accessibility-tree XML plus a tagged screenshot. Read the appended Browser-use state, selector-map, eval, markdown, pagination, tabs, page-info, pending-requests, HTML, and BrowserGym extra-properties, focused-bid, AXTree, and DOM sections when present, and prefer `browser__click_element` with `id` or ordered `ids` from that observation. Numeric `som_id` values from the tagged screenshot are the preferred generic browser IDs. Treat any other screenshot as secondary layout context.".to_string();
         }
-        return "MODE: BROWSER ACTION. No trustworthy visual screenshot is attached for this step. Use browser semantic tools as the primary state and action path. Prefer `browser__snapshot` for semantic XML and `browser__click_element` with `id` or ordered `ids` for page interaction.".to_string();
+        return "MODE: BROWSER ACTION. No trustworthy visual screenshot is attached for this step. Use browser semantic tools as the primary state and action path. Prefer `browser__snapshot` for accessibility-tree XML plus tagged element IDs; when the snapshot appends Browser-use state, selector-map, eval, markdown, pagination, tabs, page-info, pending-requests, HTML, or BrowserGym extra-properties, focused-bid, AXTree, or DOM text sections, use those as additional grounding. Use `browser__click_element` with `id` or ordered `ids` from that observation.".to_string();
     }
 
     match tier {
@@ -513,7 +549,7 @@ fn build_strategy_instruction(
             if matches!(resolved_scope, IntentScopeProfile::Conversation) {
                 "MODE: HEADLESS CONVERSATION. Treat the latest user message and chat history as the primary source of truth. For summarization/drafting tasks with inline text, respond directly via `chat__reply`; do NOT require browser extraction unless the user explicitly requests web retrieval.".to_string()
             } else {
-                "MODE: HEADLESS. Use 'browser__snapshot' for semantic XML and `browser__click_element` with `id` or ordered `ids` for robust web interaction.".to_string()
+                "MODE: HEADLESS. Use `browser__snapshot` for accessibility-tree XML plus tagged element IDs, `browser__click_element` with `id` or ordered `ids` for standard DOM controls, and `browser__synthetic_click` with grounded `id` for coordinate-style targets such as SVG, canvas, or blank regions.".to_string()
             }
         }
         ExecutionTier::VisualBackground => {
@@ -557,17 +593,32 @@ fn build_browser_operating_rules(
     pending_browser_state_context: &str,
     success_signal_context: &str,
 ) -> String {
+    if goal_prefers_sustained_hover_browser_surface(goal)
+        && pending_browser_state_context.trim().is_empty()
+        && success_signal_context.trim().is_empty()
+    {
+        return [
+            "OPERATING RULES:",
+            "1. Use the grounded browser state and output EXACTLY ONE valid JSON tool call.",
+            "2. Prefer one grounded `browser__hover` with `duration_ms` `30000` for a moving target. Do not use a short probe hover that will expire before the task can finish.",
+            "3. Use `browser__move_mouse` only if `browser__hover` cannot track the target from the current browser observation. Do not spend the next step on `browser__snapshot` unless the target is missing or no longer grounded.",
+            "4. Use `system__fail` only if the available browser tools cannot reach the target.",
+        ]
+        .join("\n");
+    }
+
     let browser_context = format!(
         "{}\n{}\n{}",
         browser_observation_context, pending_browser_state_context, success_signal_context
     );
     let mut rules = vec![
         "1. Use the least-privileged browser tool that works and output EXACTLY ONE valid JSON tool call.".to_string(),
-        "2. Treat RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, and RECENT SUCCESS SIGNAL as the grounded state. If they already name a visible control and the next action, do that instead of another `browser__snapshot`, `browser__scroll`, or `browser__find_text`. When RECENT PENDING BROWSER STATE gives an exact tool call, preserve its numeric arguments exactly as written instead of rounding or simplifying them.".to_string(),
-        "3. Only use `browser__click_element` ids that appear verbatim in RECENT BROWSER OBSERVATION or RECENT PENDING BROWSER STATE; never synthesize ids. If a target summary is shown as `<raw_id> tag=...`, use the leading raw token only.".to_string(),
-        "4. Prefer `browser__click_element` over GUI or desktop-wide input for page content. `browser__find_text` is navigation evidence, not proof that a target row, item, or record is visible. If requested text appears in both instructions and the working area, the instruction copy is descriptive only.".to_string(),
-        "5. When a precise delay, wait condition, or coordinate action must be followed by an already grounded browser action, prefer `browser__wait` or `browser__synthetic_click` with `continue_with` so the executor can act immediately without another inference turn. Use `continue_with` for grounded commit/submit-style actions only after the coordinate click has an observable browser reaction; if a coordinate click is exploratory or only changes geometry, re-evaluate before any visible control click. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
-        "5b. Coordinates for `browser__synthetic_click` and `browser__move_mouse` are absolute viewport CSS pixels, not normalized 0-1 fractions. For example, `x=85.0` means 85 pixels from the left edge.".to_string(),
+        "2. Treat RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, and RECENT SUCCESS SIGNAL as the grounded state. If they already name a visible control and the next action, do that instead of another `browser__snapshot`, `browser__scroll`, or `browser__find_text`. When RECENT PENDING BROWSER STATE gives an exact tool call, emit that exact tool call unless the current browser observation proves it impossible. Preserve numeric arguments exactly as written; do not round, simplify, swap in a nearby id, or substitute alternate coordinates.".to_string(),
+        "3. Only use `browser__click_element` ids that appear verbatim in RECENT BROWSER OBSERVATION or RECENT PENDING BROWSER STATE; never synthesize ids. Prefer numeric `som_id` values from tagged browser observations when available; otherwise use the grounded semantic id exactly as shown.".to_string(),
+        "4. Prefer `browser__click_element` over GUI or desktop-wide input for standard page controls. When RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL already grounds a coordinate-style target or explicitly names `browser__synthetic_click`, follow that tool instead of converting it to `browser__click_element`. `browser__find_text` is navigation evidence, not proof that a target row, item, or record is visible. If requested text appears in both instructions and the working area, the instruction copy is descriptive only.".to_string(),
+        "5. When a precise delay, wait condition, or coordinate action must be followed by an already grounded browser action, prefer `browser__wait` or `browser__synthetic_click` with `continue_with` so the executor can act immediately without another inference turn. When RECENT BROWSER OBSERVATION already names a grounded coordinate target, prefer `browser__synthetic_click` with `id` instead of guessing raw coordinates. Use `continue_with` only when the follow-up tool name and every required argument are already fully grounded in RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL. If the follow-up action is only implied by the page instruction, take the first action alone and re-evaluate. When RECENT PENDING BROWSER STATE already gives an exact coordinate click and the current browser state shows a single grounded follow-up control, prefer one `browser__synthetic_click` with `continue_with` so the executor can act immediately after the coordinate click's observable browser reaction. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
+        "5b. For `browser__synthetic_click`, prefer `id` when the target is already grounded in RECENT BROWSER OBSERVATION. When using raw coordinates for `browser__synthetic_click` or `browser__move_mouse`, they are absolute viewport CSS pixels, not normalized 0-1 fractions. For example, `x=85.0` means 85 pixels from the left edge.".to_string(),
+        "5c. When a grounded editable field is already visible and the next action is to enter text, prefer one `browser__type` with `selector` over a separate focus click plus typing. If the field must be focused first because the click itself is the next grounded browser action, you may use `browser__click_element` with `continue_with` `browser__type` only when the field target and exact text are already fully grounded.".to_string(),
     ];
 
     if browser_rule_relevant(
@@ -578,7 +629,7 @@ fn build_browser_operating_rules(
     ) || pending_browser_state_context.contains("`ids` [")
     {
         rules.push(
-            "5a. When the page instruction already requires an ordered sequence of grounded clicks, prefer one `browser__click_element` call with ordered `ids` and `delay_ms_between_ids` over separate inference turns. If a visible gate or commit click must happen first, prefer `browser__click_element` with `continue_with` set to the already grounded browser action."
+            "5a. When the page instruction already requires an ordered sequence of grounded clicks, prefer one `browser__click_element` call with ordered `ids` and `delay_ms_between_ids` over separate inference turns. If a visible gate or commit click must happen first, only attach `continue_with` when RECENT PENDING BROWSER STATE or RECENT SUCCESS SIGNAL already provides the complete follow-up `browser__click_element` arguments; otherwise click the gate first and re-evaluate."
                 .to_string(),
         );
     }
@@ -616,6 +667,18 @@ fn build_browser_operating_rules(
         );
     }
 
+    if browser_rule_relevant(
+        &format!("{}\n{}", goal, browser_context),
+        &[
+            "select ", "choose ", "dropdown", "combobox", "listbox", "option",
+        ],
+    ) {
+        rules.push(
+            "6b. When the goal is to choose an option from a native dropdown or list and the control is already grounded as a `combobox`, `listbox`, or `option`, prefer `browser__select_dropdown` with the exact requested `label` or `value` instead of clicking the control just to focus it. Use `browser__dropdown_options` only when the requested option text is not already grounded."
+                .to_string(),
+        );
+    }
+
     if !success_signal_context.trim().is_empty()
         || browser_rule_relevant(goal, &["submit", "save", "send", "apply", "confirm"])
     {
@@ -644,14 +707,18 @@ fn build_browser_operating_rules(
         ],
     ) {
         rules.push(format!(
-            "8. For scroll goals, ground the real scrollable control first. do not start with page-level `Home` or `End` on `body` when RECENT BROWSER OBSERVATION already exposes the intended control. Prefer control-local `Home`, `End`, `PageUp`, or `PageDown`. Finish only when grounded state shows `can_scroll_up=false`, `scroll_top=0`, or `can_scroll_down=false`. If `Home` or `End` still leaves room to move, do not repeat it blindly: escalate with {} (`{}`) for the top edge or the matching bottom-edge chord.",
-            top_edge_jump_tool_call(),
+            "8. For scroll goals, ground the real scrollable control first. Do not start with page-level `Home` or `End` on `body` when RECENT BROWSER OBSERVATION already exposes the intended control. When that control already has a grounded selector, prefer `browser__key` with `selector` over a separate focus click. Prefer control-local `Home`, `End`, `PageUp`, or `PageDown`. Finish only when grounded state shows `can_scroll_up=false`, `scroll_top=0`, or `can_scroll_down=false`. If `Home` or `End` still leaves room to move, do not repeat it blindly: escalate with the same control-local `browser__key` plus modifiers (for example {} (`{}`) when the control is already grounded) or the matching bottom-edge chord.",
+            top_edge_jump_tool_call_with_grounded_selector(),
             top_edge_jump_name(),
         ));
         rules.push(format!(
-            "9. When using `browser__key` for a modifier chord like `{}`, include both `key` and `modifiers` in the JSON tool call.",
+            "9. When using `browser__key` for a control-local action, include `selector` when the intended control is already grounded. When escalating a grounded control with a modifier chord like `{}`, reuse that same `selector` and include both `key` and `modifiers` in the JSON tool call.",
             top_edge_jump_name(),
         ));
+        rules.push(
+            "10. If a grounded control-local key is expected to finish the local scroll state and exactly one next visible control is already grounded, you may nest that immediate browser follow-up inside `continue_with` to avoid burning another inference turn."
+                .to_string(),
+        );
     }
 
     if browser_rule_relevant(
@@ -1038,6 +1105,10 @@ pub async fn think(
             success_signal_context = build_browser_snapshot_success_signal_context(snapshot);
         }
     }
+    if prefer_browser_semantics {
+        pending_browser_state_context.clear();
+        success_signal_context.clear();
+    }
     let browser_visual_grounding_required = browser_prompt_visual_grounding_required(
         prefer_browser_semantics,
         mode,
@@ -1067,6 +1138,7 @@ pub async fn think(
         prefer_browser_semantics,
         &agent_state.goal,
         &browser_observation_context,
+        &pending_browser_state_context,
     );
     let strategy_instruction = build_strategy_instruction(
         perception.tier,
@@ -1518,14 +1590,14 @@ mod tests {
     use super::router::AttentionMode;
     use super::{
         browser_prompt_visual_grounding_required, browser_rule_relevant,
-        browser_surface_requires_visual_grounding,
+        browser_surface_requires_visual_grounding, build_browser_operating_rules,
         build_compact_browser_action_system_instructions, build_operating_rules,
         build_recent_command_history_context, build_strategy_instruction,
         compact_browser_action_prompt_eligible, compact_browser_action_prompt_tools,
         encode_browser_prompt_screenshot, filter_cognition_tools, has_meaningful_visual_context,
         inference_error_system_fail_reason, mailbox_connector_instruction,
         preflight_missing_capability, top_edge_jump_name, top_edge_jump_tool_call,
-        workspace_reference_context,
+        top_edge_jump_tool_call_with_grounded_selector, workspace_reference_context,
     };
     use crate::agentic::desktop::service::step::perception::PerceptionContext;
     use crate::agentic::desktop::types::{CommandExecution, ExecutionTier};
@@ -1754,6 +1826,19 @@ mod tests {
     }
 
     #[test]
+    fn browser_prompt_visual_grounding_required_drops_canvas_screenshot_when_start_gate_is_first_priority_target(
+    ) {
+        let snapshot = r#"<root><canvas id="click-canvas" tag_name="canvas"></canvas><generic id="grp_start" name="START" dom_id="sync-task-cover" dom_clickable="true"></generic></root>"#;
+        let observation = "RECENT BROWSER OBSERVATION:\n<root> IMPORTANT TARGETS: grp_start tag=generic name=START dom_id=sync-task-cover selector=[id=\"sync-task-cover\"] dom_clickable=true | grp_click_canvas tag=generic name=click canvas dom_id=click-canvas selector=[id=\"click-canvas\"] </root>";
+        assert!(!browser_prompt_visual_grounding_required(
+            true,
+            AttentionMode::VisualAction,
+            Some(snapshot),
+            observation
+        ));
+    }
+
+    #[test]
     fn encoded_browser_prompt_screenshot_stays_meaningful() {
         let screenshot = encode_png_base64(160, 120);
         let raw_bytes = BASE64.decode(screenshot).expect("decode png");
@@ -1783,6 +1868,7 @@ mod tests {
                 tool("system__fail"),
             ],
             true,
+            "",
             "",
             "",
         );
@@ -1828,6 +1914,7 @@ mod tests {
             true,
             "",
             "",
+            "",
         );
         let tool = filtered.first().expect("browser tool should remain");
 
@@ -1866,6 +1953,7 @@ mod tests {
             true,
             "",
             "RECENT BROWSER OBSERVATION:\ngrp_1 tag=generic name=1 shape_kind=digit center=125,96",
+            "",
         );
         let names = filtered
             .iter()
@@ -1893,6 +1981,7 @@ mod tests {
             true,
             "",
             "RECENT BROWSER OBSERVATION:\ngrp_click_canvas tag=generic name=click canvas",
+            "",
         );
         let names = filtered
             .iter()
@@ -1926,6 +2015,7 @@ mod tests {
                 "shape_kind=circle geometry_role=vertex connected_line_angles=-24|23deg ",
                 "angle_mid=0deg center=31,108"
             ),
+            "",
         );
         let names = filtered
             .iter()
@@ -1937,6 +2027,57 @@ mod tests {
                 "browser__snapshot",
                 "browser__click_element",
                 "browser__synthetic_click",
+                "agent__complete"
+            ]
+        );
+    }
+
+    #[test]
+    fn browser_operating_rules_do_not_inject_geometry_degree_heuristics() {
+        let rules = build_browser_operating_rules(
+            "",
+            concat!(
+                "RECENT BROWSER OBSERVATION:\n",
+                "grp_vertex tag=generic name=vertex shape_kind=circle geometry_role=vertex connected_line_angles=-24|23deg angle_mid=-1deg angle_span=47deg | ",
+                "grp_blue_circle tag=generic name=endpoint shape_kind=circle geometry_role=endpoint target_angle_mid=-1deg angle_mid_offset=6deg angle_mid_delta=6deg | ",
+                "grp_line tag=generic name=line shape_kind=line line_angle=5deg"
+            ),
+            "",
+            "",
+        );
+
+        assert!(
+            !rules.contains("Geometry degree fields are directly comparable"),
+            "{rules}"
+        );
+    }
+
+    #[test]
+    fn browser_prompt_hides_synthetic_click_while_start_gate_is_pending() {
+        let filtered = filter_cognition_tools(
+            &[
+                tool("browser__snapshot"),
+                tool("browser__click_element"),
+                tool("browser__synthetic_click"),
+                tool("agent__complete"),
+            ],
+            true,
+            "",
+            concat!(
+                "RECENT BROWSER OBSERVATION:\n",
+                "btn_submit tag=button name=Submit selector=#subbtn"
+            ),
+            "RECENT PENDING BROWSER STATE:\nA visible start gate `grp_start` is still covering the task surface.\n",
+        );
+        let names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            vec![
+                "browser__snapshot",
+                "browser__click_element",
                 "agent__complete"
             ]
         );
@@ -1959,6 +2100,7 @@ mod tests {
             ],
             true,
             "Keep your mouse inside the circle as it moves around.",
+            "",
             "",
         );
         let names = filtered
@@ -2118,23 +2260,18 @@ mod tests {
             "",
             "",
         );
-        assert!(rules.chars().count() < 3500, "{rules}");
-        assert!(rules.contains("browser__snapshot"));
-        assert!(rules.contains("Only use `browser__click_element` ids"));
-        assert!(rules.contains("never synthesize ids"));
-        assert!(rules.contains("leading raw token"));
-        assert!(rules.contains("RECENT PENDING BROWSER STATE"));
-        assert!(rules.contains("preserve its numeric arguments exactly as written"));
+        assert!(rules.chars().count() < 2000, "{rules}");
+        assert!(rules.contains("grounded browser state"), "{rules}");
         assert!(rules.contains("browser__hover"), "{rules}");
         assert!(rules.contains("duration_ms"), "{rules}");
         assert!(rules.contains("30000"), "{rules}");
         assert!(rules.contains("short probe hover"), "{rules}");
-        assert!(rules.contains("navigation evidence, not proof"));
-        assert!(rules.contains("instruction copy is descriptive only"));
+        assert!(rules.contains("browser__move_mouse"), "{rules}");
+        assert!(rules.contains("browser__snapshot"), "{rules}");
+        assert!(rules.contains("target is missing"), "{rules}");
         assert!(!rules.contains("submit already turned over the page"));
         assert!(!rules.contains("Do not interact with the newly visible page"));
-        assert!(!rules
-            .contains("prefer the nearby control whose visible name matches the requested action"));
+        assert!(!rules.contains("Only use `browser__click_element` ids"));
         assert!(!rules.contains("modifier chord"));
         assert!(!rules.contains("PageUp"));
         assert!(!rules.contains(top_edge_jump_name()));
@@ -2170,7 +2307,97 @@ mod tests {
         assert!(rules.contains("modifier chord"), "{rules}");
         assert!(rules.contains("PageUp"), "{rules}");
         assert!(rules.contains(top_edge_jump_name()), "{rules}");
-        assert!(rules.contains(top_edge_jump_tool_call()), "{rules}");
+        assert!(
+            rules.contains(top_edge_jump_tool_call_with_grounded_selector()),
+            "{rules}"
+        );
+        assert!(rules.contains("reuse that same `selector`"), "{rules}");
+    }
+
+    #[test]
+    fn browser_operating_rules_require_fully_grounded_continue_with() {
+        let rules = build_operating_rules(
+            true,
+            "Click start and then submit the visible form.",
+            "RECENT BROWSER OBSERVATION:\nbtn_start tag=button name=START\nbtn_submit tag=button name=Submit",
+            "RECENT PENDING BROWSER STATE:\nA visible start gate `btn_start` is still covering the task surface. Use `browser__click_element` on `btn_start` now to begin the page, then continue with the working controls.\n",
+            "",
+        );
+        assert!(
+            rules.contains(
+                "Use `continue_with` only when the follow-up tool name and every required argument are already fully grounded"
+            ),
+            "{rules}"
+        );
+        assert!(
+            rules.contains(
+                "RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL"
+            ),
+            "{rules}"
+        );
+        assert!(
+            rules.contains(
+                "If the follow-up action is only implied by the page instruction, take the first action alone and re-evaluate."
+            ),
+            "{rules}"
+        );
+    }
+
+    #[test]
+    fn browser_operating_rules_allow_single_grounded_follow_up_after_exact_coordinate_call() {
+        let rules = build_operating_rules(
+            true,
+            "Complete the visible browser task.",
+            "RECENT BROWSER OBSERVATION:\nbtn_submit tag=button name=Submit selector=[id=\"subbtn\"]",
+            "RECENT PENDING BROWSER STATE:\nGeometry click drift detected. Use `{\"name\":\"browser__synthetic_click\",\"arguments\":{\"x\":78.6,\"y\":89}}` now. If the corrected click lands and grounded follow-up control `btn_submit` is still the next required control, you may emit `{\"name\":\"browser__synthetic_click\",\"arguments\":{\"x\":78.6,\"y\":89,\"continue_with\":{\"name\":\"browser__click_element\",\"arguments\":{\"id\":\"btn_submit\"}}}}` to avoid another inference turn.\n",
+            "",
+        );
+        assert!(
+            rules.contains("single grounded follow-up control"),
+            "{rules}"
+        );
+        assert!(
+            rules.contains("coordinate click's observable browser reaction"),
+            "{rules}"
+        );
+    }
+
+    #[test]
+    fn browser_operating_rules_prefer_browser_type_selector_for_grounded_fields() {
+        let rules = build_operating_rules(
+            true,
+            "Enter the username into the visible field and submit.",
+            "RECENT BROWSER OBSERVATION:\ninp_username tag=input name=Username selector=#username\nbtn_submit tag=button name=Submit selector=#subbtn",
+            "",
+            "",
+        );
+        assert!(
+            rules.contains("prefer one `browser__type` with `selector` over a separate focus click plus typing"),
+            "{rules}"
+        );
+        assert!(
+            rules.contains(
+                "you may use `browser__click_element` with `continue_with` `browser__type`"
+            ),
+            "{rules}"
+        );
+    }
+
+    #[test]
+    fn browser_operating_rules_preserve_grounded_synthetic_click_precedence() {
+        let rules = build_operating_rules(
+            true,
+            "Create a line on the visible SVG and then submit.",
+            "RECENT BROWSER OBSERVATION:\ngrp_blue_circle tag=generic shape_kind=circle center=63,96\nbtn_submit tag=button name=Submit",
+            "RECENT PENDING BROWSER STATE:\nGrounded geometry target `grp_blue_circle` is already visible. Use `browser__synthetic_click` with `id` on `grp_blue_circle` now.\n",
+            "RECENT SUCCESS SIGNAL:\nRecent synthetic click changed grounded geometry at `grp_vertex`.",
+        );
+        assert!(rules.contains("coordinate-style target"), "{rules}");
+        assert!(
+            rules.contains("follow that tool instead of converting it to `browser__click_element`"),
+            "{rules}"
+        );
+        assert!(rules.contains("`browser__synthetic_click`"), "{rules}");
     }
 
     #[test]
@@ -2342,7 +2569,7 @@ mod tests {
             super::resolve_browser_observation_context(&history, Some(current_snapshot), true);
 
         assert!(context.contains("grp_start"), "{context}");
-        assert!(context.contains("btn_one"), "{context}");
-        assert!(context.contains("btn_two"), "{context}");
+        assert!(!context.contains("btn_one"), "{context}");
+        assert!(!context.contains("btn_two"), "{context}");
     }
 }

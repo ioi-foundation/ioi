@@ -35,11 +35,14 @@ type ToastCandidate = Pick<
 >;
 
 type ChatSurface = "chat" | "reply-composer" | "meeting-prep";
-type WorkflowSurface = "home" | "code" | "canvas" | "agents" | "catalog";
+type WorkflowSurface = "home" | "canvas" | "agents" | "catalog";
 type InstallModalAgent = {
   name: string;
   requirements: string;
   image: string;
+};
+type ProjectShellSnapshotRoot = {
+  root_path: string;
 };
 
 function buildLoadedEditorTab(
@@ -49,6 +52,7 @@ function buildLoadedEditorTab(
   return {
     ...previous,
     name: document.name,
+    absolutePath: document.absolute_path,
     content: document.content,
     savedContent: document.content,
     loading: false,
@@ -77,6 +81,24 @@ function normalizeInstallModalAgent(agent: {
       agent.icon ??
       "linear-gradient(135deg, rgba(90, 140, 255, 0.95), rgba(35, 189, 152, 0.9))",
   };
+}
+
+function joinAbsoluteProjectPath(
+  rootPath: string | null,
+  relativePath: string,
+): string {
+  if (!rootPath) return "";
+  if (!relativePath || relativePath === ".") return rootPath;
+
+  const separator =
+    rootPath.includes("\\") && !rootPath.includes("/") ? "\\" : "/";
+  const normalizedRoot = rootPath.replace(/[\\/]+$/, "");
+  const normalizedRelative = relativePath
+    .replace(/^[\\/]+/, "")
+    .split(/[\\/]+/)
+    .join(separator);
+
+  return `${normalizedRoot}${separator}${normalizedRelative}`;
 }
 
 async function sendNativeAutopilotNotification(
@@ -133,6 +155,9 @@ export function useStudioWindowController() {
   const [currentProjectId, setCurrentProjectId] = useState(
     PROJECT_SCOPES[0]?.id ?? "autopilot-core",
   );
+  const [resolvedProjectRootPath, setResolvedProjectRootPath] = useState<
+    string | null
+  >(null);
   const [editorTabs, setEditorTabs] = useState<StudioEditorTab[]>([]);
   const [activeEditorPath, setActiveEditorPath] = useState<string | null>(null);
   const [editingAgent, setEditingAgent] = useState<AgentSummary | null>(null);
@@ -185,6 +210,10 @@ export function useStudioWindowController() {
       case "compose":
         setWorkflowSurface("canvas");
         setActiveView("workflows");
+        return;
+      case "code":
+      case "explorer":
+        setActiveView("explorer");
         return;
       case "agents":
         setWorkflowSurface("agents");
@@ -279,14 +308,46 @@ export function useStudioWindowController() {
   useEffect(() => {
     setEditorTabs([]);
     setActiveEditorPath(null);
-    setWorkflowSurface((surface) => (surface === "code" ? "home" : surface));
   }, [currentProjectId]);
 
   useEffect(() => {
-    if (editorTabs.length === 0 && workflowSurface === "code") {
-      setWorkflowSurface("home");
-    }
-  }, [editorTabs.length, workflowSurface]);
+    let cancelled = false;
+    setResolvedProjectRootPath(null);
+
+    void invoke<ProjectShellSnapshotRoot>("project_shell_inspect", {
+      root: currentProject.rootPath,
+    })
+      .then((snapshot) => {
+        if (cancelled) return;
+        setResolvedProjectRootPath(snapshot.root_path);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setResolvedProjectRootPath(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProject.rootPath]);
+
+  useEffect(() => {
+    if (!resolvedProjectRootPath) return;
+    setEditorTabs((current) =>
+      current.map((tab) =>
+        tab.absolutePath
+          ? tab
+          : {
+              ...tab,
+              absolutePath: joinAbsoluteProjectPath(
+                resolvedProjectRootPath,
+                tab.path,
+              ),
+            },
+      ),
+    );
+  }, [resolvedProjectRootPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -399,10 +460,18 @@ export function useStudioWindowController() {
         root: currentProject.rootPath,
         relativePath,
       });
+      const absolutePath =
+        document.absolute_path ||
+        joinAbsoluteProjectPath(resolvedProjectRootPath, document.path);
 
       setEditorTabs((current) =>
         current.map((tab) =>
-          tab.path === relativePath ? buildLoadedEditorTab(tab, document) : tab,
+          tab.path === relativePath
+            ? buildLoadedEditorTab(tab, {
+                ...document,
+                absolute_path: absolutePath,
+              })
+            : tab,
         ),
       );
     } catch (error) {
@@ -430,6 +499,10 @@ export function useStudioWindowController() {
         {
           path: relativePath,
           name,
+          absolutePath: joinAbsoluteProjectPath(
+            resolvedProjectRootPath,
+            relativePath,
+          ),
           content: "",
           savedContent: "",
           loading: true,
@@ -449,8 +522,7 @@ export function useStudioWindowController() {
     }
 
     setActiveEditorPath(relativePath);
-    setActiveView("workflows");
-    setWorkflowSurface("code");
+    setActiveView("explorer");
   };
 
   const closeEditorTab = (relativePath: string) => {
@@ -471,10 +543,6 @@ export function useStudioWindowController() {
       const fallbackTab =
         nextTabs[closingIndex] ?? nextTabs[closingIndex - 1] ?? nextTabs[0] ?? null;
       setActiveEditorPath(fallbackTab?.path ?? null);
-    }
-
-    if (nextTabs.length === 0 && workflowSurface === "code") {
-      setWorkflowSurface("home");
     }
   };
 
@@ -521,10 +589,18 @@ export function useStudioWindowController() {
         relativePath,
         content: targetTab.content,
       });
+      const absolutePath =
+        document.absolute_path ||
+        joinAbsoluteProjectPath(resolvedProjectRootPath, document.path);
 
       setEditorTabs((current) =>
         current.map((tab) =>
-          tab.path === relativePath ? buildLoadedEditorTab(tab, document) : tab,
+          tab.path === relativePath
+            ? buildLoadedEditorTab(tab, {
+                ...document,
+                absolute_path: absolutePath,
+              })
+            : tab,
         ),
       );
     } catch (error) {
@@ -626,7 +702,8 @@ export function useStudioWindowController() {
   const chatFullscreen = chatPaneVisible && chatPaneMaximized;
   const showStatusBar =
     !chatFullscreen &&
-    (activeView === "workflows" ||
+    (activeView === "explorer" ||
+      activeView === "workflows" ||
       activeView === "runs" ||
       activeView === "policy" ||
       activeView === "settings");

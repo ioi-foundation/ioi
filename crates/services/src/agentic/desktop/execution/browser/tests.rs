@@ -573,6 +573,7 @@ fn click_element_postcondition_succeeds_on_url_change() {
     assert!(postcondition.met());
     assert!(click_element_postcondition_counts_as_success(
         &pre_target,
+        None,
         Some(&post_target),
         None,
         &postcondition
@@ -618,6 +619,7 @@ fn link_click_tree_change_without_navigation_does_not_count_as_success() {
     assert!(postcondition.met());
     assert!(!click_element_postcondition_counts_as_success(
         &pre_target,
+        None,
         Some(&post_target),
         None,
         &postcondition
@@ -661,6 +663,7 @@ fn link_click_tree_change_with_selected_state_counts_as_success() {
     assert!(!postcondition.url_changed);
     assert!(click_element_postcondition_counts_as_success(
         &pre_target,
+        None,
         Some(&post_target),
         None,
         &postcondition
@@ -694,6 +697,7 @@ fn link_click_tree_change_with_center_shift_counts_as_success() {
     assert!(!postcondition.url_changed);
     assert!(click_element_postcondition_counts_as_success(
         &pre_target,
+        None,
         Some(&post_target),
         None,
         &postcondition
@@ -729,6 +733,7 @@ fn link_click_tree_change_with_material_semantic_delta_counts_as_success() {
     assert!(postcondition.semantic_change_delta >= 4);
     assert!(click_element_postcondition_counts_as_success(
         &pre_target,
+        None,
         Some(&post_target),
         None,
         &postcondition

@@ -36,6 +36,17 @@ impl AccessibilityNode {
     /// Used for semantic filtering (Phase 1.1).
     pub fn is_interactive(&self) -> bool {
         let role = self.role.to_ascii_lowercase();
+        let attr_role = self
+            .attributes
+            .get("role")
+            .map(|value| value.to_ascii_lowercase())
+            .unwrap_or_default();
+        let tag_name = self
+            .attributes
+            .get("tag_name")
+            .map(|value| value.to_ascii_lowercase())
+            .unwrap_or_default();
+
         role.contains("button")
             || role.contains("link")
             || role.contains("checkbox")
@@ -53,6 +64,64 @@ impl AccessibilityNode {
             || role.contains("searchbox")
             || role.contains("search_box")
             || role.contains("entry")
+            || matches!(
+                tag_name.as_str(),
+                "button"
+                    | "input"
+                    | "select"
+                    | "textarea"
+                    | "a"
+                    | "details"
+                    | "summary"
+                    | "option"
+                    | "optgroup"
+            )
+            || matches!(
+                attr_role.as_str(),
+                "button"
+                    | "link"
+                    | "menuitem"
+                    | "option"
+                    | "radio"
+                    | "checkbox"
+                    | "tab"
+                    | "textbox"
+                    | "combobox"
+                    | "slider"
+                    | "spinbutton"
+                    | "search"
+                    | "searchbox"
+                    | "row"
+                    | "cell"
+                    | "gridcell"
+            )
+            || self.attributes.keys().any(|key| {
+                matches!(
+                    key.as_str(),
+                    "onclick" | "onmousedown" | "onmouseup" | "onkeydown" | "onkeyup"
+                )
+            })
+            || self.attributes.get("tabindex").is_some()
+            || self
+                .attributes
+                .get("focusable")
+                .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+            || self
+                .attributes
+                .get("editable")
+                .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+            || self
+                .attributes
+                .get("settable")
+                .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+            || self.attributes.contains_key("checked")
+            || self.attributes.contains_key("expanded")
+            || self.attributes.contains_key("pressed")
+            || self.attributes.contains_key("selected")
+            || self
+                .attributes
+                .get("cursor_style")
+                .is_some_and(|value| value.eq_ignore_ascii_case("pointer"))
             || self
                 .attributes
                 .get("dom_clickable")
@@ -135,7 +204,183 @@ impl AccessibilityNode {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+fn browser_som_identity_keys(node: &AccessibilityNode) -> Vec<String> {
+    let mut keys = Vec::new();
+
+    if !node.id.trim().is_empty() {
+        keys.push(format!("node:{}", node.id.trim()));
+    }
+
+    for (attr, prefix) in [
+        ("backend_dom_node_id", "backend"),
+        ("cdp_node_id", "cdp"),
+        ("target_id", "target"),
+        ("frame_id", "frame"),
+        ("dom_id", "dom"),
+        ("browsergym_id", "bgym"),
+        ("bid", "bid"),
+        ("id", "attr_id"),
+        ("selector", "selector"),
+    ] {
+        if let Some(value) = node
+            .attributes
+            .get(attr)
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            keys.push(format!("{prefix}:{value}"));
+        }
+    }
+
+    keys
+}
+
+fn browser_role_is_actionable(role: &str) -> bool {
+    matches!(
+        role,
+        "button"
+            | "link"
+            | "textbox"
+            | "text_box"
+            | "searchbox"
+            | "search_box"
+            | "combobox"
+            | "combo_box"
+            | "checkbox"
+            | "check_box"
+            | "radio"
+            | "slider"
+            | "option"
+            | "menuitem"
+            | "menu_item"
+            | "tab"
+            | "treeitem"
+            | "tree_item"
+            | "textarea"
+            | "input"
+            | "entry"
+    )
+}
+
+fn node_has_explicit_browser_som_mark(node: &AccessibilityNode) -> bool {
+    node.attributes
+        .get("set_of_marks")
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+        || node
+            .attributes
+            .get("browsergym_set_of_marks")
+            .is_some_and(|value| value == "1")
+}
+
+fn tree_contains_explicit_browser_som_mark(node: &AccessibilityNode) -> bool {
+    node_has_explicit_browser_som_mark(node)
+        || node
+            .children
+            .iter()
+            .any(tree_contains_explicit_browser_som_mark)
+}
+
+fn node_should_receive_browser_som_id(node: &AccessibilityNode, _use_explicit_marks: bool) -> bool {
+    if !node.is_visible || node.rect.width <= 0 || node.rect.height <= 0 {
+        return false;
+    }
+
+    let normalized_role = node
+        .role
+        .trim()
+        .chars()
+        .map(|ch| match ch {
+            '-' | ' ' => '_',
+            other => other.to_ascii_lowercase(),
+        })
+        .collect::<String>();
+
+    let tag_name = node
+        .attributes
+        .get("tag_name")
+        .map(String::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    let is_scrollable = node
+        .attributes
+        .get("scrollable")
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"));
+    let is_frame = matches!(tag_name.as_str(), "iframe" | "frame");
+
+    node_has_explicit_browser_som_mark(node)
+        || is_scrollable
+        || is_frame
+        || browser_role_is_actionable(&normalized_role)
+        || node.is_interactive()
+        || node
+            .attributes
+            .get("clickable")
+            .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+}
+
+fn assign_browser_som_ids_recursive(
+    node: &mut AccessibilityNode,
+    counter: &mut u32,
+    use_explicit_marks: bool,
+) {
+    if node_should_receive_browser_som_id(node, use_explicit_marks) {
+        node.som_id = Some(*counter);
+        *counter += 1;
+    } else {
+        node.som_id = None;
+    }
+
+    for child in &mut node.children {
+        assign_browser_som_ids_recursive(child, counter, use_explicit_marks);
+    }
+}
+
+pub fn assign_browser_som_ids(root: &mut AccessibilityNode) {
+    let mut counter = 1;
+    let use_explicit_marks = tree_contains_explicit_browser_som_mark(root);
+    assign_browser_som_ids_recursive(root, &mut counter, use_explicit_marks);
+}
+
+fn collect_browser_som_identity_map(
+    node: &AccessibilityNode,
+    identities: &mut HashMap<String, u32>,
+) {
+    if let Some(som_id) = node.som_id {
+        for key in browser_som_identity_keys(node) {
+            identities.entry(key).or_insert(som_id);
+        }
+    }
+
+    for child in &node.children {
+        collect_browser_som_identity_map(child, identities);
+    }
+}
+
+fn propagate_browser_som_ids_recursive(
+    identities: &HashMap<String, u32>,
+    node: &mut AccessibilityNode,
+) {
+    node.som_id = browser_som_identity_keys(node)
+        .into_iter()
+        .find_map(|key| identities.get(&key).copied());
+
+    for child in &mut node.children {
+        propagate_browser_som_ids_recursive(identities, child);
+    }
+}
+
+pub fn propagate_som_ids_by_browser_identity(
+    source: &AccessibilityNode,
+    target: &mut AccessibilityNode,
+) {
+    let mut identities = HashMap::new();
+    collect_browser_som_identity_map(source, &mut identities);
+    propagate_browser_som_ids_recursive(&identities, target);
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
     pub x: i32,
     pub y: i32,
@@ -458,15 +703,6 @@ fn compact_numeric_day_name(text: &str) -> Option<u8> {
 }
 
 fn node_is_calendar_like(node: &AccessibilityNode) -> bool {
-    if node
-        .attributes
-        .get("class_name")
-        .map(|value| value.to_ascii_lowercase())
-        .is_some_and(|value| value.contains("calendar") || value.contains("datepicker"))
-    {
-        return true;
-    }
-
     let mut day_like_children = 0usize;
     let mut navigation_children = 0usize;
     for child in &node.children {
@@ -989,6 +1225,19 @@ fn selector_for_dom_id(dom_id: &str) -> String {
 fn browser_locator_attrs(node: &AccessibilityNode, max_len: usize) -> String {
     let mut attrs = String::new();
 
+    if let Some(bid) = node
+        .attributes
+        .get("bid")
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        attrs.push_str(&format!(
+            " bid=\"{}\"",
+            escape_xml(&truncate_attr_value(bid, max_len))
+        ));
+    }
+
     if let Some(dom_id) = node
         .attributes
         .get("dom_id")
@@ -1134,9 +1383,27 @@ fn browser_locator_attrs(node: &AccessibilityNode, max_len: usize) -> String {
     }
 
     for key in [
+        "type",
+        "placeholder",
+        "inputmode",
+        "accept",
+        "multiple",
+        "contenteditable",
+        "aria-label",
+        "aria-expanded",
+        "aria-checked",
+        "format",
+        "expected_format",
+        "cursor_style",
+        "scrollable",
+        "hidden_below_count",
+        "hidden_below",
         "scroll_top",
+        "scroll_left",
         "scroll_height",
+        "scroll_width",
         "client_height",
+        "client_width",
         "can_scroll_up",
         "can_scroll_down",
     ] {
@@ -1186,7 +1453,10 @@ fn xml_tag_name(role: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{selected_child_indices, serialize_tree_to_xml, AccessibilityNode, Rect};
+    use super::{
+        assign_browser_som_ids, selected_child_indices, serialize_tree_to_xml, AccessibilityNode,
+        Rect,
+    };
     use std::collections::HashMap;
 
     #[test]
@@ -1250,6 +1520,107 @@ mod tests {
         let xml = serialize_tree_to_xml(&node, 0);
         assert!(xml.contains(r#"class_name="trash""#), "{xml}");
         assert!(xml.contains(r#"dom_clickable="true""#), "{xml}");
+    }
+
+    #[test]
+    fn assign_browser_som_ids_keeps_broader_actionable_indexing_when_explicit_marks_exist() {
+        let mut tree = AccessibilityNode {
+            id: "root".to_string(),
+            role: "root".to_string(),
+            name: None,
+            value: None,
+            rect: Rect {
+                x: 0,
+                y: 0,
+                width: 400,
+                height: 300,
+            },
+            children: vec![
+                AccessibilityNode {
+                    id: "marked".to_string(),
+                    role: "button".to_string(),
+                    name: Some("Marked".to_string()),
+                    value: None,
+                    rect: Rect {
+                        x: 10,
+                        y: 10,
+                        width: 120,
+                        height: 32,
+                    },
+                    children: vec![],
+                    is_visible: true,
+                    attributes: HashMap::from([(
+                        "browsergym_set_of_marks".to_string(),
+                        "1".to_string(),
+                    )]),
+                    som_id: None,
+                },
+                AccessibilityNode {
+                    id: "plain-input".to_string(),
+                    role: "textbox".to_string(),
+                    name: Some("Search".to_string()),
+                    value: None,
+                    rect: Rect {
+                        x: 10,
+                        y: 60,
+                        width: 180,
+                        height: 32,
+                    },
+                    children: vec![],
+                    is_visible: true,
+                    attributes: HashMap::from([("tag_name".to_string(), "input".to_string())]),
+                    som_id: None,
+                },
+            ],
+            is_visible: true,
+            attributes: HashMap::new(),
+            som_id: None,
+        };
+
+        assign_browser_som_ids(&mut tree);
+
+        assert_eq!(tree.children[0].som_id, Some(1));
+        assert_eq!(tree.children[1].som_id, Some(2));
+    }
+
+    #[test]
+    fn serialize_tree_to_xml_includes_ported_browser_use_attrs() {
+        let node = AccessibilityNode {
+            id: "frame_main".to_string(),
+            role: "iframe".to_string(),
+            name: Some("Embedded Search".to_string()),
+            value: None,
+            rect: Rect {
+                x: 10,
+                y: 20,
+                width: 320,
+                height: 240,
+            },
+            children: vec![],
+            is_visible: true,
+            attributes: HashMap::from([
+                ("dom_id".to_string(), "cross-origin-frame".to_string()),
+                ("tag_name".to_string(), "iframe".to_string()),
+                ("scrollable".to_string(), "true".to_string()),
+                ("hidden_below_count".to_string(), "2".to_string()),
+                (
+                    "hidden_below".to_string(),
+                    "textbox:Search@1.1p|button:Submit@1.5p".to_string(),
+                ),
+                ("cursor_style".to_string(), "pointer".to_string()),
+            ]),
+            som_id: Some(7),
+        };
+
+        let xml = serialize_tree_to_xml(&node, 0);
+        assert!(xml.contains(r#"som_id="7""#), "{xml}");
+        assert!(xml.contains(r#"scrollable="true""#), "{xml}");
+        assert!(xml.contains(r#"hidden_below_count="2""#), "{xml}");
+        assert!(xml.contains(r#"cursor_style="pointer""#), "{xml}");
+        assert!(
+            xml.contains(r#"hidden_below="textbox:Search@1.1p|button:Submit@1.5p""#),
+            "{xml}"
+        );
     }
 
     #[test]

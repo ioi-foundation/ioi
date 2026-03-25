@@ -10,6 +10,7 @@ import { MissionControlRunsView } from "./MissionControlRunsView";
 import { MissionControlWorkflowsView } from "./MissionControlWorkflowsView";
 import { NotificationsView } from "./NotificationsView";
 import { StudioExplorerPane } from "./StudioExplorerPane";
+import { StudioExplorerView } from "./StudioExplorerView";
 import { StudioIdeHeader } from "./StudioIdeHeader";
 import { StudioLeftUtilityPane } from "./StudioLeftUtilityPane";
 import { StudioUtilityDrawer } from "./StudioUtilityDrawer";
@@ -52,14 +53,29 @@ export function StudioWindowMainContent({
         <div
           className={`studio-content ${controller.chatFullscreen ? "is-chat-fullscreen" : ""}`}
         >
-          <StudioExplorerPane
-            currentProject={currentProject}
-            activeFilePath={controller.workflow.activeEditorPath}
-            onOpenFile={controller.workflow.openProjectFile}
-          />
+          {activeView === "explorer" ? (
+            <StudioExplorerPane
+              currentProject={currentProject}
+              activeFilePath={controller.workflow.activeEditorPath}
+              onOpenFile={controller.workflow.openProjectFile}
+            />
+          ) : null}
 
           <div className="studio-center-area">
             <div className="studio-content-main">
+              {activeView === "explorer" ? (
+                <StudioExplorerView
+                  editorTabs={controller.workflow.editorTabs}
+                  activeEditorPath={controller.workflow.activeEditorPath}
+                  onSelectEditorTab={controller.workflow.selectEditorTab}
+                  onCloseEditorTab={controller.workflow.closeEditorTab}
+                  onChangeEditorTabContent={
+                    controller.workflow.updateEditorTabContent
+                  }
+                  onSaveEditorTab={controller.workflow.saveEditorTab}
+                />
+              ) : null}
+
               {activeView === "workflows" ? (
                 <MissionControlWorkflowsView
                   runtime={runtime}
@@ -68,8 +84,6 @@ export function StudioWindowMainContent({
                   projects={projects}
                   notificationCount={notificationBadgeCount}
                   editingAgent={controller.agents.editingAgent}
-                  editorTabs={controller.workflow.editorTabs}
-                  activeEditorPath={controller.workflow.activeEditorPath}
                   onSurfaceChange={controller.workflow.setSurface}
                   onSelectProject={controller.workflow.selectProject}
                   onOpenInbox={() => controller.changePrimaryView("inbox")}
@@ -79,13 +93,6 @@ export function StudioWindowMainContent({
                   onOpenPolicy={() =>
                     controller.policy.openPolicyCenter(null)
                   }
-                  onSelectEditorTab={controller.workflow.selectEditorTab}
-                  onCloseEditorTab={controller.workflow.closeEditorTab}
-                  onChangeEditorTabContent={
-                    controller.workflow.updateEditorTabContent
-                  }
-                  onSaveEditorTab={controller.workflow.saveEditorTab}
-                  onReloadEditorTab={controller.workflow.reloadEditorTab}
                   onOpenAgent={controller.agents.openBuilder}
                   onCloseAgent={controller.agents.closeBuilder}
                   onInstallAgent={controller.agents.openInstallModalForAgent}
@@ -164,6 +171,7 @@ export function StudioWindowMainContent({
             </div>
 
             <StudioUtilityDrawer
+              runtime={runtime}
               activeView={activeView}
               chatSurface={controller.chat.surface}
               operatorPaneOpen={controller.chat.paneVisible}

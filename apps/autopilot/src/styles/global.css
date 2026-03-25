@@ -1,72 +1,120 @@
 /* Global styles - Design System & Reset */
 
 :root {
+  color-scheme: dark;
+
+  /* --- Terra Cobalt Primitives --- */
+  --sand-0: #0d0c0a;
+  --sand-50: #131210;
+  --sand-100: #1a1916;
+  --sand-150: #21201c;
+  --sand-200: #2a2824;
+  --sand-250: #33312c;
+  --sand-300: #3d3b35;
+  --sand-400: #56534b;
+  --sand-500: #706c63;
+  --sand-600: #8a867d;
+  --sand-700: #a8a49b;
+  --sand-800: #c4c0b7;
+  --sand-900: #dddad3;
+  --sand-950: #eceae5;
+  --sand-1000: #faf8f4;
+
+  --warm-a3: rgba(250, 248, 244, 0.035);
+  --warm-a5: rgba(250, 248, 244, 0.06);
+  --warm-a7: rgba(250, 248, 244, 0.08);
+  --warm-a14: rgba(250, 248, 244, 0.15);
+  --warm-a22: rgba(250, 248, 244, 0.22);
+
+  --cb-50: #edf2fd;
+  --cb-100: #c8dcfd;
+  --cb-200: #93bef8;
+  --cb-300: #759ce8;
+  --cb-400: #5a8cec;
+  --cb-500: #3b5eda;
+  --cb-600: #3650c0;
+  --cb-700: #2740a8;
+  --cb-800: #1c2d78;
+  --cb-bg: rgba(90, 140, 236, 0.1);
+
+  --sage: #6b9a7d;
+  --sage-bg: rgba(107, 154, 125, 0.12);
+  --amber: #c49a3c;
+  --amber-bg: rgba(196, 154, 60, 0.12);
+  --clay: #b85c5c;
+  --clay-bg: rgba(184, 92, 92, 0.12);
+  --slate: #6b87a8;
+  --slate-bg: rgba(107, 135, 168, 0.12);
+  --plum: #8e72a8;
+  --plum-bg: rgba(142, 114, 168, 0.12);
+
   /* --- Primitive Colors --- */
-  --bg-dark: #1e1e1e;
-  --bg-panel: #252526;
-  --bg-element: #2d2d30;
-  --bg-hover: rgba(255, 255, 255, 0.045);
+  --bg-dark: var(--sand-100);
+  --bg-panel: var(--sand-150);
+  --bg-element: var(--sand-250);
+  --bg-hover: var(--warm-a7);
 
-  --accent-blue: #ff79c6;
-  --accent-blue-strong: #ff92d0;
-  --accent-blue-dim: rgba(255, 121, 198, 0.16);
-  --accent-blue-glow: rgba(255, 121, 198, 0.22);
-  --accent-blue-ring: rgba(255, 121, 198, 0.34);
-  --accent-cyan: #8be9fd;
-  --accent-cyan-dim: rgba(139, 233, 253, 0.16);
-  --accent-green: #69f0ae;
-  --accent-green-dim: rgba(105, 240, 174, 0.14);
-  --accent-orange: #ffb86c;
-  --accent-orange-dim: rgba(255, 184, 108, 0.16);
-  --accent-violet: #bd93f9;
-  --accent-violet-dim: rgba(189, 147, 249, 0.16);
+  --accent-blue: var(--cb-400);
+  --accent-blue-strong: var(--cb-300);
+  --accent-blue-dim: var(--cb-bg);
+  --accent-blue-glow: rgba(90, 140, 236, 0.24);
+  --accent-blue-ring: rgba(90, 140, 236, 0.36);
+  --accent-blue-border: rgba(90, 140, 236, 0.28);
+  --accent-cyan: var(--cb-200);
+  --accent-cyan-dim: rgba(147, 190, 248, 0.16);
+  --accent-green: var(--sage);
+  --accent-green-dim: var(--sage-bg);
+  --accent-orange: var(--amber);
+  --accent-orange-dim: var(--amber-bg);
+  --accent-violet: var(--plum);
+  --accent-violet-dim: var(--plum-bg);
 
-  --status-success: var(--accent-green);
-  --status-success-dim: var(--accent-green-dim);
-  --status-warning: var(--accent-orange);
-  --status-warning-dim: var(--accent-orange-dim);
-  --status-error: #ff6b81;
-  --status-error-dim: rgba(255, 107, 129, 0.14);
-  --status-info: var(--accent-cyan);
-  --status-info-dim: rgba(139, 233, 253, 0.14);
+  --status-success: var(--sage);
+  --status-success-dim: var(--sage-bg);
+  --status-success-ring: rgba(107, 154, 125, 0.32);
+  --status-warning: var(--amber);
+  --status-warning-dim: var(--amber-bg);
+  --status-warning-ring: rgba(196, 154, 60, 0.3);
+  --status-error: var(--clay);
+  --status-error-dim: var(--clay-bg);
+  --status-error-ring: rgba(184, 92, 92, 0.32);
+  --status-info: var(--slate);
+  --status-info-dim: var(--slate-bg);
+  --status-info-ring: rgba(107, 135, 168, 0.28);
 
   /* --- Semantic Surfaces --- */
-  --surface-0: #1e1e1e; /* App Background */
-  --surface-1: #232323; /* Shell / Sidebar */
-  --surface-2: #272727; /* Primary Panels */
-  --surface-3: #2f2f2f; /* Inputs / Cards */
-  --surface-4: #373737; /* Selected / Hover Fills */
-  --surface-5: #404040; /* Strong Emphasis */
-  --surface-glass: rgba(37, 37, 38, 0.88);
-  --surface-glass-strong: rgba(30, 30, 30, 0.94);
+  --surface-0: var(--sand-100); /* App Background */
+  --surface-1: var(--sand-150); /* Shell / Sidebar */
+  --surface-2: var(--sand-200); /* Primary Panels */
+  --surface-3: var(--sand-250); /* Inputs / Cards */
+  --surface-4: var(--sand-300); /* Selected / Hover Fills */
+  --surface-5: var(--sand-400); /* Strong Emphasis */
+  --surface-glass: rgba(33, 32, 28, 0.88);
+  --surface-glass-strong: rgba(13, 12, 10, 0.92);
 
   /* --- Borders --- */
-  --border-subtle: rgba(255, 255, 255, 0.03);
-  --border-default: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.1);
-  --interactive-selected-bg: #353535;
-  --interactive-selected-border: rgba(255, 255, 255, 0.04);
-  --interactive-focus-border: rgba(255, 255, 255, 0.12);
-  --interactive-focus-ring: rgba(255, 255, 255, 0.05);
-  --button-primary-border: rgba(255, 255, 255, 0.08);
-  --button-primary-bg: linear-gradient(
-    180deg,
-    rgba(63, 63, 63, 0.96),
-    rgba(53, 53, 53, 0.96)
-  );
+  --border-subtle: var(--warm-a7);
+  --border-default: var(--warm-a14);
+  --border-strong: var(--warm-a22);
+  --interactive-selected-bg: rgba(90, 140, 236, 0.12);
+  --interactive-selected-border: var(--accent-blue-border);
+  --interactive-focus-border: var(--accent-blue);
+  --interactive-focus-ring: rgba(90, 140, 236, 0.16);
+  --button-primary-border: rgba(59, 94, 218, 0.34);
+  --button-primary-bg: linear-gradient(180deg, var(--cb-500), var(--cb-600));
   --button-primary-bg-hover: linear-gradient(
     180deg,
-    rgba(72, 72, 72, 0.98),
-    rgba(60, 60, 60, 0.98)
+    var(--cb-400),
+    var(--cb-500)
   );
-  --button-primary-text: #ececec;
-  --glass-border: 1px solid rgba(232, 237, 242, 0.08);
+  --button-primary-text: var(--sand-1000);
+  --glass-border: 1px solid var(--border-default);
 
   /* --- Typography --- */
-  --text-primary: #ececec;
-  --text-secondary: #c8c8c8;
-  --text-tertiary: #a0a0a0;
-  --text-muted: #7a7a7a;
+  --text-primary: var(--sand-1000);
+  --text-secondary: var(--sand-700);
+  --text-tertiary: var(--sand-600);
+  --text-muted: var(--sand-500);
 
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
@@ -107,11 +155,13 @@
 
   /* --- Shadows --- */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.22);
-  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.46);
-  --shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.42);
+  --shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.32);
   --shadow-glow:
-    0 0 0 1px rgba(255, 255, 255, 0.02), 0 16px 40px rgba(0, 0, 0, 0.24);
+    0 0 0 1px rgba(250, 248, 244, 0.02),
+    0 18px 44px rgba(0, 0, 0, 0.28),
+    0 0 28px rgba(90, 140, 236, 0.08);
 }
 
 *,

@@ -289,10 +289,24 @@ pub enum AgentTool {
     /// Synthetic click for background execution.
     #[serde(rename = "browser__synthetic_click")]
     BrowserSyntheticClick {
-        /// Absolute X coordinate in viewport CSS pixels.
-        x: f64,
-        /// Absolute Y coordinate in viewport CSS pixels.
-        y: f64,
+        /// Optional semantic ID from `browser__snapshot` for a grounded coordinate target.
+        ///
+        /// Prefer this when the target is already grounded in the browser observation but still
+        /// requires a coordinate-style click (for example SVG, canvas, or blank-region surfaces).
+        /// When combined with explicit `x` and `y`, the id acts as the grounded surface or target
+        /// anchor while the runtime preserves the supplied coordinates.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        /// Optional absolute X coordinate in viewport CSS pixels.
+        ///
+        /// Use this together with `y` when no grounded target id is available.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        x: Option<f64>,
+        /// Optional absolute Y coordinate in viewport CSS pixels.
+        ///
+        /// Use this together with `x` when no grounded target id is available.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        y: Option<f64>,
         /// Optional immediate follow-up browser action to execute after the click succeeds.
         ///
         /// Use this when the coordinate action and the next browser action are already
@@ -341,9 +355,18 @@ pub enum AgentTool {
     BrowserKey {
         /// Key name (for example: "Enter", "Tab", "ArrowDown").
         key: String,
+        /// Optional CSS selector to focus before pressing the key.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        selector: Option<String>,
         /// Optional modifier keys to hold while pressing `key`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         modifiers: Option<Vec<String>>,
+        /// Optional immediate follow-up browser action to execute after the key succeeds.
+        ///
+        /// This is useful when a grounded control-local key is expected to finish a local state
+        /// change and the next grounded browser action is already known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        continue_with: Option<AgentToolCall>,
     },
 
     /// Copy the current browser text selection into the system clipboard.

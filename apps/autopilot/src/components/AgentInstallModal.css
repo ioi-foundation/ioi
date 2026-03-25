@@ -1,7 +1,7 @@
 .install-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(30, 30, 30, 0.72);
+  background: rgba(13, 12, 10, 0.72);
   backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
@@ -45,7 +45,7 @@
   font-size: 24px;
   font-weight: bold;
   color: white;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px var(--border-default);
 }
 
 .install-header h2 {
@@ -66,7 +66,7 @@
 
 .req-banner {
   background: var(--status-warning-dim);
-  border: 1px solid rgba(255, 184, 108, 0.24);
+  border: 1px solid var(--status-warning-ring);
   border-radius: 6px;
   padding: 8px 12px;
   font-size: 12px;
@@ -94,7 +94,7 @@
   cursor: pointer;
   transition: all 0.2s;
   background: var(--surface-3);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
 }
 
 .provider-option:hover {
@@ -109,7 +109,7 @@
 .provider-option.disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(13, 12, 10, 0.2);
   border-style: dashed;
 }
 

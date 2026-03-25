@@ -442,7 +442,9 @@ mod tests {
         mark_action_fingerprint_executed_at_step(&mut state.tool_execution_log, "fp", 3, "success");
         let tool = AgentTool::BrowserKey {
             key: "PageUp".to_string(),
+            selector: None,
             modifiers: None,
+            continue_with: None,
         };
         let mut checks = Vec::new();
         let (is_duplicate, history) =
@@ -458,7 +460,9 @@ mod tests {
         mark_action_fingerprint_executed_at_step(&mut state.tool_execution_log, "fp", 3, "success");
         let tool = AgentTool::BrowserKey {
             key: "Enter".to_string(),
+            selector: None,
             modifiers: None,
+            continue_with: None,
         };
         let mut checks = Vec::new();
         let (is_duplicate, history) =
