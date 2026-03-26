@@ -144,7 +144,7 @@ fn action_routing_receipt_uses_visual_last_tier_for_pre_state_and_intent_hash() 
         resolution_action: String::new(),
         stop_condition_hit: false,
         escalation_path: None,
-        scs_lineage_ptr: None,
+        lineage_ptr: None,
         mutation_receipt_ptr: None,
         policy_binding_hash: binding.clone(),
         policy_binding_sig: None,

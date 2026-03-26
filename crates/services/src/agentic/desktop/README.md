@@ -32,5 +32,5 @@ The service persists the agent's cognition in the state tree:
 *   **`AgentState`**:
     *   `history`: A list of `ChatMessage` (User/Assistant/System) objects.
     *   `short_term_memory`: Recent observations.
-    *   `long_term_memory`: References to vector embeddings in the SCS.
+    *   `long_term_memory`: References to runtime archival-memory records and embeddings.
     *   `status`: Running, Paused, Completed, Failed.

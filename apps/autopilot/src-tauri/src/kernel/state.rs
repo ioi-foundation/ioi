@@ -21,10 +21,10 @@ where
 {
     let state = app.state::<Mutex<AppState>>();
     let mut task_clone: Option<AgentTask> = None;
-    let mut scs_handle = None;
+    let mut memory_runtime = None;
 
     if let Ok(mut s) = state.lock() {
-        scs_handle = s.studio_scs.clone();
+        memory_runtime = s.memory_runtime.clone();
         if let Some(ref mut task) = s.current_task {
             f(task);
             task_clone = Some(task.clone());
@@ -33,8 +33,8 @@ where
 
     if let Some(t) = task_clone {
         // Persist task state on important updates
-        if let Some(scs) = scs_handle {
-            orchestrator::save_local_task_state(&scs, &t);
+        if let Some(memory_runtime) = memory_runtime.as_ref() {
+            orchestrator::save_local_task_state(memory_runtime, &t);
         }
 
         let event_name = match t.phase {

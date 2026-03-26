@@ -215,8 +215,8 @@ pub struct SkillPublicationInfo {
 pub struct SkillRecord {
     /// Canonical hash of the serialized `AgentMacro`.
     pub skill_hash: [u8; 32],
-    /// SCS frame id where the immutable archival macro payload is stored.
-    pub frame_id: u64,
+    /// Archival memory record id where the immutable macro payload is stored.
+    pub archival_record_id: i64,
     /// Executable macro body used at runtime.
     pub macro_body: AgentMacro,
     /// Mutable lifecycle state.

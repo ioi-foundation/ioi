@@ -19,8 +19,8 @@ In one sentence:
 This repository already contains substantial pieces of that stack:
 
 - the fractal kernel: consensus, execution, state, storage, validator/runtime machinery
-- `Forge`: the kernel-adjacent, CLI-first surface for scaffolding and instantiating intelligent blockchains and sovereign domains (currently rooted in `crates/cli`)
-- `SCS`: the Sovereign Context Substrate for verifiable memory and context
+- `IOI CLI`: the kernel-adjacent, CLI-first surface for scaffolding and instantiating intelligent blockchains and sovereign domains (currently rooted in `crates/cli`, with `forge` as a command namespace)
+- `ioi-memory`: the local-first checkpoint, archival memory, and artifact runtime for live product flows
 - `wallet.network`: the authority and capability-control plane for sessions, approvals, and delegated execution
 - `Autopilot`: the native desktop runtime with Spotlight, Studio, gates, receipts, and Context Atlas
 - `sas.xyz`: the provider OS for packaging, deploying, serving, and commercializing worker services
@@ -56,7 +56,7 @@ It is an attempt to provide the **runtime substrate** those systems need in orde
 | :--- | :--- |
 | `L0` | The root coordination layer. For IOI this means global `ai://` registry, publication, trust anchors, and settlement roots. |
 | `L1` | A sovereign agentic runtime built on top of that root layer. It owns its own execution, state, projections, and serving. |
-| `SCS` | Sovereign Context Substrate. The context plane for memory, retrieval, export, and retrieval proofs. |
+| `MemoryRuntime` | The runtime-backed memory layer used by live product flows for checkpoints, archival recall, and artifact blobs. |
 | `CSPS` | Canonical State and Projection System. The new taxonomy for systems where canonical state is truth and projections are first-class runtime artifacts. |
 | `FQF` | Fractal Query Fabric. IOI's proposed `CSPS` architecture for canonical app state, projections, subscriptions, and query receipts. |
 | `wallet.network` | The sovereign IAM and capability-control plane for sessions, approvals, leases, and secret-safe execution. |
@@ -81,8 +81,8 @@ IOI is called fractal because the same core ideas are meant to work:
 ```mermaid
 graph TD
     L0[IOI Mainnet - L0<br/>ai:// registry, trust anchors, publication, settlement]
-    L1[Sovereign Agentic Runtime - L1<br/>kernel + FQF + SCS + wallet.network]
-    UI[Product Surfaces<br/>Forge CLI, Autopilot, sas.xyz, aiagent.xyz, ioi.ai, ai:// apps]
+    L1[Sovereign Agentic Runtime - L1<br/>kernel + FQF + ioi-memory + wallet.network]
+    UI[Product Surfaces<br/>IOI CLI, Autopilot, sas.xyz, aiagent.xyz, ioi.ai, ai:// apps]
 
     L0 --> L1
     L1 --> UI
@@ -133,7 +133,9 @@ result to unconditional classical `99% Byzantine agreement` in the ordinary
 dense-vote permissioned model. In the implementation and formal package, that
 sentence is realized through proof-carrying public evidence, omission-dominant
 canonical ordering, collapse-gated durability, and endogenous historical
-continuation rather than through dense positive quorum intersection alone.
+continuation rather than through dense positive quorum intersection alone. The
+retrievability and restart plane is treated as theorem-internal protocol
+machinery, not as a hidden helper surface sitting outside the claim.
 
 - **GuardianMajority:** guardian-backed transport and tentative `BaseFinal`
   progression on the hot path
@@ -155,7 +157,7 @@ Supporting protocol specs live in
 [`docs/consensus/aft/specs/canonical_ordering.md`](docs/consensus/aft/specs/canonical_ordering.md),
 [`docs/consensus/aft/specs/equal_authority_ordering.md`](docs/consensus/aft/specs/equal_authority_ordering.md),
 and [`docs/consensus/aft/specs/nested_guardian.md`](docs/consensus/aft/specs/nested_guardian.md).
-Formal models live under [`formal/aft/`](formal/aft/).
+Formal models live under [`docs/specs/formal/aft/`](docs/specs/formal/aft/).
 
 ### 2. The Agency Firewall
 
@@ -170,29 +172,28 @@ The current framing in the project remains accurate:
 
 > the model may generate fuzzy plans, but the runtime must collapse all effects through deterministic policy and cryptographic control.
 
-### 3. Sovereign Context Substrate (SCS)
+### 3. Memory Runtime
 
 Memory is not prompt stuffing.
 
-`SCS` is the separate context plane for:
+The live product architecture now uses `ioi-memory` for:
 
-- append-only memory frames
-- `ContextSlice` export
-- retrieval lineage
-- scrub-on-export / privacy shaping
-- verifiable `mHNSW` retrieval
+- thread checkpoints and transcript hydration
+- runtime-backed core and archival memory
+- local artifact and evidence blobs
+- semantic recall over persisted archival records
 
-`SCS` is not a generic application database. It is a dedicated context substrate.
+The earlier `SCS` exploration has been removed from the live repository surface
+in favor of this clean-room `ioi-memory` architecture. Lower-level
+proof-oriented state and retrieval primitives still exist where they are
+useful, but they are no longer expressed as a separate product-memory crate.
 
 Important current implementation note:
 
-- the implemented `mHNSW` retrieval contract is **certifying by default**
-- retrieval fails closed if certificate generation or verification fails
-
-See:
-
-- [`docs/commitment/tree/mhnsw/README.md`](docs/commitment/tree/mhnsw/README.md)
-- [`crates/scs`](crates/scs)
+- archival retrieval for live product flows is runtime-backed through
+  `ioi-memory`
+- artifacts and evidence no longer share the same abstraction boundary as
+  semantic recall
 
 ### 4. Canonical State and Projection System (CSPS) and FQF
 
@@ -263,7 +264,7 @@ This is part of why the repo contains both runtime systems and product-surface w
 
 The intended product topology remains multi-surface and intentionally separated.
 
-1. **Forge (`crates/cli` today)**: The Web4 L0 surface. A CLI-first, kernel-adjacent builder for scaffolding, instantiating, publishing, upgrading, and inspecting intelligent blockchains and other sovereign domains.
+1. **IOI CLI (`crates/cli` today)**: The Web4 L0 surface. A CLI-first, kernel-adjacent builder for scaffolding, instantiating, publishing, upgrading, and inspecting intelligent blockchains and other sovereign domains, with `forge` as a major command family.
 
 2. **`ioi.ai`**: The hosted demand ingress and execution UX. A user-facing surface for expressing intent, being routed to the right worker or service, approving actions when needed, and receiving outcomes plus receipts.
 
@@ -275,7 +276,7 @@ The intended product topology remains multi-surface and intentionally separated.
 
 The repo currently includes:
 
-- [`crates/cli`](crates/cli) as the current kernel-adjacent CLI surface that is expected to evolve into Forge
+- [`crates/cli`](crates/cli) as the current kernel-adjacent CLI surface that is expected to evolve into IOI CLI
 - [`apps/autopilot`](apps/autopilot)
 - [`apps/sas-xyz`](apps/sas-xyz)
 - [`apps/aiagent-xyz`](apps/aiagent-xyz)
@@ -290,7 +291,7 @@ The codebase is a Rust workspace with a TS/React application layer on top.
 
 | Path | Role |
 | :--- | :--- |
-| [`crates/cli`](crates/cli) | Current kernel-adjacent CLI surface expected to evolve into Forge for scaffolding, instantiating, publishing, and inspecting intelligent blockchains and sovereign domains. |
+| [`crates/cli`](crates/cli) | Current kernel-adjacent CLI surface expected to evolve into IOI CLI for scaffolding, instantiating, publishing, and inspecting intelligent blockchains and sovereign domains. |
 | [`apps/autopilot`](apps/autopilot) | Private/local operator shell and desktop runtime with Spotlight, Studio, policy gates, receipts, and Context Atlas. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Provider OS surface for packaging, deploying, serving, and commercializing worker services. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Discovery and procurement surface for worker services and bespoke demand. |
@@ -315,7 +316,7 @@ The codebase is a Rust workspace with a TS/React application layer on top.
 
 | Path | Role |
 | :--- | :--- |
-| [`crates/scs`](crates/scs) | Sovereign Context Substrate and retrieval logic. |
+| [`crates/memory`](crates/memory) | The live `ioi-memory` runtime for checkpoints, archival memory, and artifact blobs. |
 | [`crates/pii`](crates/pii) | Privacy, review, and scrub-on-export primitives. |
 | [`crates/api`](crates/api) | Core chain/state traits and interfaces. |
 | [`crates/types`](crates/types) | Shared protocol and runtime types. |
@@ -325,7 +326,7 @@ The codebase is a Rust workspace with a TS/React application layer on top.
 
 If you want the fastest path to understanding the current repo, read in this order:
 
-1. [`docs/forge.md`](docs/forge.md)
+1. [`docs/specs/ioi-cli.md`](docs/specs/ioi-cli.md)
 2. [`docs/consensus/aft/specs/yellow_paper.tex`](docs/consensus/aft/specs/yellow_paper.tex)
 3. [`crates/cli/src/lib.rs`](crates/cli/src/lib.rs)
 4. [`apps/autopilot/README.md`](apps/autopilot/README.md)
@@ -429,7 +430,7 @@ cargo check
 npm run build:all
 ```
 
-Focused kernel / Forge harness tests:
+Focused kernel / IOI CLI harness tests:
 
 ```bash
 # Infrastructure E2E: P2P sync and block production
@@ -459,7 +460,7 @@ IOI does not add "blockchain vibes" to AI wrappers. It uses strict cryptographic
 ### Materially present in this repo today
 
 - kernel execution, storage, consensus, and validator machinery
-- `SCS`, `ContextSlice`, and certifying `mHNSW` retrieval
+- `ioi-memory`, `ContextSlice`, and the runtime-backed checkpoint / archival memory path
 - `wallet.network` session and approval primitives
 - Autopilot desktop runtime and Context Atlas work
 - the shared `agent-ide` package and the current standalone shell

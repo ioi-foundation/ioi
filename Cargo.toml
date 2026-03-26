@@ -12,6 +12,7 @@ members = [
     "crates/node",
     "crates/cli",
     "crates/execution",
+    "crates/memory",
     "crates/state",
     "crates/consensus",
     "crates/api",
@@ -28,7 +29,6 @@ members = [
     "crates/ipc",
     "crates/drivers",
     "crates/pii",
-    "crates/scs",
     "crates/macros",
     
     # [FIX] All heavy extensions live here now:

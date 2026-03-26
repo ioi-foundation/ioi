@@ -14,7 +14,7 @@ use ioi_api::{
 use ioi_consensus::util::engine_from_config;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
-use ioi_scs::SovereignContextStore;
+use ioi_memory::MemoryRuntime;
 use ioi_services::{
     agentic::desktop::DesktopAgentService,
     agentic::optimizer::OptimizerService, // Import Optimizer
@@ -180,7 +180,6 @@ pub async fn setup_workload<CS, ST>(
     config: WorkloadConfig,
     _gui_driver: Option<Arc<dyn GuiDriver>>,
     _browser_driver: Option<Arc<BrowserDriver>>,
-    _scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
     _event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     _os_driver: Option<Arc<dyn OsDriver>>,
 ) -> Result<(
@@ -210,6 +209,8 @@ where
     let _ = &commitment_scheme;
     let db_path = Path::new(&config.state_file).with_extension("db");
     let db_preexisted = db_path.exists();
+    let memory_db_path = Path::new(&config.state_file).with_extension("memory.db");
+    let memory_runtime = Arc::new(MemoryRuntime::open_sqlite(&memory_db_path)?);
 
     let store = Arc::new(RedbEpochStore::open(&db_path, config.epoch_size)?);
     state_tree.attach_store(store.clone());
@@ -460,11 +461,8 @@ where
     let mut optimizer_service =
         OptimizerService::new(reasoning_runtime.clone(), safety_adapter.clone());
 
-    // [FIX] Inject SCS if available
-    if let Some(store) = &_scs {
-        optimizer_service = optimizer_service.with_scs(store.clone());
-        tracing::info!(target: "workload", "SCS injected into OptimizerService.");
-    }
+    optimizer_service = optimizer_service.with_memory_runtime(memory_runtime.clone());
+    tracing::info!(target: "workload", "Memory runtime injected into OptimizerService.");
 
     // Register Optimizer
     initial_services.push(Arc::new(optimizer_service) as Arc<dyn UpgradableService>);
@@ -534,12 +532,8 @@ where
             fast_runtime,
             reasoning_runtime,
         )
-        .with_mcp_manager(mcp_manager);
-
-        if let Some(store) = &_scs {
-            agent = agent.with_scs(store.clone());
-            tracing::info!(target: "workload", "SCS injected into DesktopAgent.");
-        }
+        .with_mcp_manager(mcp_manager)
+        .with_memory_runtime(memory_runtime);
 
         if let Some(sender) = _event_sender {
             agent = agent.with_event_sender(sender.clone());

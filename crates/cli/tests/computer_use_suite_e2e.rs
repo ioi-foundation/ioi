@@ -29,11 +29,12 @@ where
         .name("computer-use-suite-runtime".to_string())
         .stack_size(COMPUTER_USE_SUITE_TEST_STACK_BYTES)
         .spawn(move || {
-            Builder::new_multi_thread()
+            let result = Builder::new_multi_thread()
                 .enable_all()
                 .build()
                 .context("build computer use suite Tokio runtime")?
-                .block_on(test_fn())
+                .block_on(test_fn());
+            result
         })
         .context("spawn computer use suite runtime thread")?;
 

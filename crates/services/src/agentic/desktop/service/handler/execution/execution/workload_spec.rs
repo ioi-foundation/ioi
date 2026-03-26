@@ -60,7 +60,11 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         | AgentTool::NetFetch { .. } => {
             RuntimeTarget::Network
         }
-        AgentTool::MemorySearch { .. } | AgentTool::MemoryInspect { .. } => RuntimeTarget::Memory,
+        AgentTool::MemorySearch { .. }
+        | AgentTool::MemoryInspect { .. }
+        | AgentTool::MemoryReplaceCore { .. }
+        | AgentTool::MemoryAppendCore { .. }
+        | AgentTool::MemoryClearCore { .. } => RuntimeTarget::Memory,
         AgentTool::Dynamic(_) => RuntimeTarget::Adapter,
         AgentTool::MathEval { .. }
         | AgentTool::ChatReply { .. }

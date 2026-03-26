@@ -4,39 +4,39 @@ use super::*;
 pub fn notification_list_interventions(
     state: State<Mutex<AppState>>,
 ) -> Result<Vec<InterventionRecord>, String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
-    Ok(load_interventions(&scs))
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
+    Ok(load_interventions(&memory_runtime))
 }
 
 #[tauri::command]
 pub fn notification_list_assistant(
     state: State<Mutex<AppState>>,
 ) -> Result<Vec<AssistantNotificationRecord>, String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
-    Ok(load_assistant_notifications(&scs))
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
+    Ok(load_assistant_notifications(&memory_runtime))
 }
 
 #[tauri::command]
 pub fn notification_badge_count_get(state: State<Mutex<AppState>>) -> Result<usize, String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
-    let interventions = load_interventions(&scs);
-    let notifications = load_assistant_notifications(&scs);
-    let policy = load_assistant_attention_policy(&scs);
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
+    let interventions = load_interventions(&memory_runtime);
+    let notifications = load_assistant_notifications(&memory_runtime);
+    let policy = load_assistant_attention_policy(&memory_runtime);
     Ok(compute_badge_count(&interventions, &notifications, &policy))
 }
 
@@ -44,13 +44,13 @@ pub fn notification_badge_count_get(state: State<Mutex<AppState>>) -> Result<usi
 pub fn assistant_attention_policy_get(
     state: State<Mutex<AppState>>,
 ) -> Result<AssistantAttentionPolicy, String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
-    Ok(load_assistant_attention_policy(&scs))
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
+    Ok(load_assistant_attention_policy(&memory_runtime))
 }
 
 #[tauri::command]
@@ -59,13 +59,13 @@ pub fn assistant_attention_policy_set(
     app: AppHandle,
     policy: AssistantAttentionPolicy,
 ) -> Result<AssistantAttentionPolicy, String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
-    save_assistant_attention_policy(&scs, &policy);
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
+    save_assistant_attention_policy(&memory_runtime, &policy);
     let _ = app.emit("assistant-attention-policy-updated", &policy);
     emit_badge_count(&app);
     Ok(policy)
@@ -75,27 +75,27 @@ pub fn assistant_attention_policy_set(
 pub fn assistant_attention_profile_get(
     state: State<Mutex<AppState>>,
 ) -> Result<AssistantAttentionProfile, String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
-    Ok(load_assistant_attention_profile(&scs))
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
+    Ok(load_assistant_attention_profile(&memory_runtime))
 }
 
 #[tauri::command]
 pub fn assistant_user_profile_get(
     state: State<Mutex<AppState>>,
 ) -> Result<AssistantUserProfile, String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
     Ok(sanitize_assistant_user_profile(
-        load_assistant_user_profile(&scs),
+        load_assistant_user_profile(&memory_runtime),
     ))
 }
 
@@ -105,14 +105,14 @@ pub fn assistant_user_profile_set(
     app: AppHandle,
     profile: AssistantUserProfile,
 ) -> Result<AssistantUserProfile, String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
     let sanitized = sanitize_assistant_user_profile(profile);
-    save_assistant_user_profile(&scs, &sanitized);
+    save_assistant_user_profile(&memory_runtime, &sanitized);
     let _ = app.emit("assistant-user-profile-updated", &sanitized);
     Ok(sanitized)
 }
@@ -123,13 +123,13 @@ pub fn assistant_attention_policy_apply_query(
     app: AppHandle,
     instruction: String,
 ) -> Result<AssistantAttentionPolicy, String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
-    let mut policy = load_assistant_attention_policy(&scs);
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
+    let mut policy = load_assistant_attention_policy(&memory_runtime);
     let lower = instruction.to_ascii_lowercase();
 
     if lower.contains("build completion") && lower.contains("digest") {
@@ -204,7 +204,7 @@ pub fn assistant_attention_policy_apply_query(
         policy.global.toasts_enabled = false;
     }
 
-    save_assistant_attention_policy(&scs, &policy);
+    save_assistant_attention_policy(&memory_runtime, &policy);
     let _ = app.emit("assistant-attention-policy-updated", &policy);
     emit_badge_count(&app);
     Ok(policy)
@@ -218,18 +218,18 @@ pub fn notification_update_intervention_status(
     status: InterventionStatus,
     snoozed_until_ms: Option<u64>,
 ) -> Result<(), String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
-    let mut items = load_interventions(&scs);
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
+    let mut items = load_interventions(&memory_runtime);
     if let Some(item) = items.iter_mut().find(|item| item.item_id == item_id) {
         item.status = status;
         item.snoozed_until_ms = snoozed_until_ms;
         item.updated_at_ms = now_ms();
-        upsert_intervention(&scs, item.clone());
+        upsert_intervention(&memory_runtime, item.clone());
         let _ = app.emit("intervention-updated", item.clone());
         emit_badge_count(&app);
     }
@@ -244,20 +244,21 @@ pub fn notification_update_assistant_status(
     status: AssistantNotificationStatus,
     snoozed_until_ms: Option<u64>,
 ) -> Result<(), String> {
-    let scs = state
+    let memory_runtime = state
         .lock()
         .map_err(|_| "Failed to lock app state".to_string())?
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS not initialized".to_string())?;
-    let mut items = load_assistant_notifications(&scs);
+        .ok_or_else(|| "Memory runtime not initialized".to_string())?;
+    let mut items = load_assistant_notifications(&memory_runtime);
     if let Some(item) = items.iter_mut().find(|item| item.item_id == item_id) {
         item.status = status;
         item.snoozed_until_ms = snoozed_until_ms;
         item.updated_at_ms = now_ms();
-        upsert_assistant_notification(&scs, item.clone());
+        upsert_assistant_notification(&memory_runtime, item.clone());
         let _ = app.emit("assistant-notification-updated", item.clone());
-        let profile = record_assistant_feedback(&scs, &item.notification_class, &item.status);
+        let profile =
+            record_assistant_feedback(&memory_runtime, &item.notification_class, &item.status);
         let _ = app.emit("assistant-attention-profile-updated", profile);
         emit_badge_count(&app);
     }
@@ -265,11 +266,11 @@ pub fn notification_update_assistant_status(
 }
 
 pub(crate) fn resolve_intervention_by_request_hash(app: &AppHandle, request_hash: &str) {
-    let Some(scs) = app_store(app) else {
+    let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
     let request_hash = normalize_request_hash(request_hash);
-    let mut items = load_interventions(&scs);
+    let mut items = load_interventions(&memory_runtime);
     for item in items.iter_mut().filter(|item| {
         item.request_hash
             .as_deref()
@@ -279,24 +280,24 @@ pub(crate) fn resolve_intervention_by_request_hash(app: &AppHandle, request_hash
     }) {
         item.status = InterventionStatus::Resolved;
         item.updated_at_ms = now_ms();
-        upsert_intervention(&scs, item.clone());
+        upsert_intervention(&memory_runtime, item.clone());
         let _ = app.emit("intervention-updated", item.clone());
     }
     emit_badge_count(app);
 }
 
 pub(crate) fn resolve_intervention_by_dedupe_prefix(app: &AppHandle, dedupe_prefix: &str) {
-    let Some(scs) = app_store(app) else {
+    let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
-    let mut items = load_interventions(&scs);
+    let mut items = load_interventions(&memory_runtime);
     for item in items
         .iter_mut()
         .filter(|item| item.dedupe_key.starts_with(dedupe_prefix))
     {
         item.status = InterventionStatus::Resolved;
         item.updated_at_ms = now_ms();
-        upsert_intervention(&scs, item.clone());
+        upsert_intervention(&memory_runtime, item.clone());
         let _ = app.emit("intervention-updated", item.clone());
     }
     emit_badge_count(app);

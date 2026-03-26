@@ -24,15 +24,17 @@ use crate::agentic::desktop::keys::{
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::actions;
 use crate::agentic::desktop::service::lifecycle::maybe_seed_runtime_locality_context;
-use crate::agentic::desktop::service::step::anti_loop::choose_routing_tier;
+use crate::agentic::desktop::service::step::anti_loop::{
+    choose_routing_tier, mutation_receipt_artifact_id, mutation_receipt_pointer_for_artifact_id,
+};
 use crate::agentic::desktop::service::step::helpers::default_safe_policy;
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
+use crate::agentic::desktop::utils::persist_agent_state;
 use crate::agentic::rules::ActionRules;
 use hex;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_scs::{FrameType, RetentionClass};
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, StepTrace};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent};
 use ioi_types::codec;
@@ -215,62 +217,57 @@ pub async fn handle_step(
                                 .append_chat_to_scs(p.session_id, &sys_msg, ctx.block_height)
                                 .await?;
 
-                            if let Some(scs_mutex) = &service.scs {
-                                let trace_hash = sha256(&codec::to_bytes_canonical(&last_trace)?)
-                                    .map_err(|e| {
+                            let trace_hash_bytes = sha256(&codec::to_bytes_canonical(&last_trace)?)
+                                .map_err(|e| {
                                     TransactionError::Invalid(format!("Trace hash failed: {}", e))
                                 })?;
-                                let mutation_payload = serde_json::to_vec(&json!({
-                                    "kind": "MutationReceipt",
-                                    "strategy": "Hotfix",
-                                    "session_id": hex::encode(p.session_id),
-                                    "step_index": agent_state.step_count,
-                                    "block_height": ctx.block_height,
-                                    "parent_skill_hash": parent_skill_hash.map(hex::encode),
-                                    "child_skill_hash": hex::encode(child_skill_hash),
-                                    "source_trace_hash": hex::encode(trace_hash),
-                                    "rationale": format!(
-                                        "Auto-synthesized recovery skill '{}'",
-                                        record.macro_body.definition.name
-                                    ),
-                                }))
-                                .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+                            let mut trace_hash = [0u8; 32];
+                            trace_hash.copy_from_slice(trace_hash_bytes.as_ref());
 
-                                let mutation_ptr = {
-                                    let mut store = scs_mutex.lock().map_err(|_| {
-                                        TransactionError::Invalid(
-                                            "Internal: SCS lock poisoned".into(),
-                                        )
+                            let mutation_payload = serde_json::to_string(&json!({
+                                "kind": "MutationReceipt",
+                                "strategy": "Hotfix",
+                                "session_id": hex::encode(p.session_id),
+                                "step_index": agent_state.step_count,
+                                "block_height": ctx.block_height,
+                                "parent_skill_hash": parent_skill_hash.map(hex::encode),
+                                "child_skill_hash": hex::encode(child_skill_hash),
+                                "source_trace_hash": hex::encode(trace_hash),
+                                "rationale": format!(
+                                    "Auto-synthesized recovery skill '{}'",
+                                    record.macro_body.definition.name
+                                ),
+                            }))
+                            .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+
+                            let mutation_ptr_key = get_mutation_receipt_ptr_key(&p.session_id);
+                            if let Some(memory_runtime) = service.memory_runtime.as_ref() {
+                                let artifact_id = mutation_receipt_artifact_id(&trace_hash);
+                                memory_runtime
+                                    .upsert_artifact_json(
+                                        p.session_id,
+                                        &artifact_id,
+                                        &mutation_payload,
+                                    )
+                                    .map_err(|error| {
+                                        TransactionError::Invalid(format!(
+                                            "Failed to persist mutation receipt artifact: {}",
+                                            error
+                                        ))
                                     })?;
-                                    let frame_id = store
-                                        .append_frame(
-                                            FrameType::System,
-                                            &mutation_payload,
-                                            ctx.block_height,
-                                            [0u8; 32],
-                                            p.session_id,
-                                            RetentionClass::Archival,
-                                        )
-                                        .map_err(|e| {
-                                            TransactionError::Invalid(format!(
-                                                "Failed to append mutation receipt frame: {}",
-                                                e
-                                            ))
-                                        })?;
-                                    let checksum = store
-                                        .toc
-                                        .frames
-                                        .get(frame_id as usize)
-                                        .map(|f| f.checksum)
-                                        .unwrap_or([0u8; 32]);
-                                    format!("scs://mutation-receipt/{}", hex::encode(checksum))
-                                };
-
-                                let mutation_ptr_key = get_mutation_receipt_ptr_key(&p.session_id);
+                                let mutation_ptr =
+                                    mutation_receipt_pointer_for_artifact_id(&artifact_id);
                                 state.insert(&mutation_ptr_key, mutation_ptr.as_bytes())?;
+                            } else {
+                                state.delete(&mutation_ptr_key)?;
                             }
 
-                            state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                            persist_agent_state(
+                                state,
+                                &key,
+                                &agent_state,
+                                service.memory_runtime.as_ref(),
+                            )?;
                             return Ok(());
                         }
                         Err(e) => {
@@ -284,7 +281,7 @@ pub async fn handle_step(
 
     if agent_state.budget == 0 || agent_state.consecutive_failures >= 5 {
         agent_state.status = AgentStatus::Failed("Resources/Retry limit exceeded".into());
-        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
         return Ok(());
     }
 
@@ -396,7 +393,7 @@ pub async fn handle_step(
                 });
             }
         }
-        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
         return Ok(());
     }
 
@@ -474,7 +471,12 @@ pub async fn handle_step(
                     );
                     agent_state.status =
                         AgentStatus::Paused("Waiting for sudo password".to_string());
-                    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                    persist_agent_state(
+                        state,
+                        &key,
+                        &agent_state,
+                        service.memory_runtime.as_ref(),
+                    )?;
                 }
                 return Ok(());
             }
@@ -681,7 +683,7 @@ pub async fn handle_step(
     }
 
     // 8. Persist State
-    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+    persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
 
     Ok(())
 }

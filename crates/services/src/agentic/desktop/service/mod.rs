@@ -32,7 +32,7 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::SovereignContextStore;
+use ioi_memory::MemoryRuntime;
 use ioi_types::app::KernelEvent;
 use ioi_types::app::{AccountId, ChainId};
 use ioi_types::codec;
@@ -40,7 +40,7 @@ use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::service_configs::Capabilities;
 use std::any::Any;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::agentic::fitness::Evaluator;
@@ -83,8 +83,8 @@ pub struct DesktopAgentService {
 
     /// Optional ZK verifier for proof checking.
     pub(crate) zk_verifier: Option<Arc<dyn AgentZkVerifier>>,
-    /// Optional handle to the Sovereign Context Store (SCS) for long-term memory.
-    pub(crate) scs: Option<Arc<Mutex<SovereignContextStore>>>,
+    /// Optional memory runtime successor used for checkpoints and transcript state.
+    pub(crate) memory_runtime: Option<Arc<MemoryRuntime>>,
     /// Sender for broadcasting kernel events to the UI.
     pub(crate) event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
     /// Driver for OS-level operations (window management, clipboard).
@@ -195,9 +195,10 @@ impl BlockchainService for DesktopAgentService {
 impl DesktopAgentService {
     pub async fn fetch_swarm_manifest(
         &self,
+        state: &dyn ioi_api::state::StateAccess,
         hash: [u8; 32],
     ) -> Option<ioi_types::app::agentic::SwarmManifest> {
-        self::memory::fetch_swarm_manifest(self, hash).await
+        self::memory::fetch_swarm_manifest(state, hash).await
     }
 
     pub async fn restore_visual_context(
@@ -317,13 +318,6 @@ impl DesktopAgentService {
         self::memory::hydrate_session_history_raw(self, session_id)
     }
 
-    pub(crate) fn fetch_failure_context(
-        &self,
-        session_id: [u8; 32],
-    ) -> Result<Vec<ioi_types::app::agentic::StepTrace>, TransactionError> {
-        self::memory::fetch_failure_context(self, session_id)
-    }
-
     pub(crate) fn fetch_session_traces(
         &self,
         state: &dyn StateAccess,
@@ -363,10 +357,6 @@ impl DesktopAgentService {
             block_height,
         )
         .await
-    }
-
-    pub(crate) async fn inspect_frame(&self, frame_id: u64) -> Result<String, TransactionError> {
-        self::memory::inspect_frame(self, frame_id).await
     }
 
     pub(crate) async fn prepare_cloud_inference_input(

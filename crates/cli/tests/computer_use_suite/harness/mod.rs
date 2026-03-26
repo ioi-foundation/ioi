@@ -1,20 +1,23 @@
 use anyhow::Result;
-use std::path::PathBuf;
 
 use super::types::{ComputerUseCase, ComputerUseCaseResult, ComputerUseMode, SuiteConfig, TaskSet};
 
-pub(super) use super::live_inference_support;
 pub(super) use super::reward_meets_floor;
-pub(super) use super::types;
 pub(super) use super::workflow_backend;
 
+mod agent;
 mod benchmark_refresh;
 mod benchmark_store;
 mod benchmark_summary;
 mod benchmark_trace;
-mod legacy;
+mod bridge;
+mod case_harness;
+mod context;
+mod mode_runner;
+mod results;
+mod support;
 
-pub use legacy::run_mode_with_case_sink;
+pub use mode_runner::run_mode_with_case_sink;
 
 pub fn publish_live_run_started(
     config: &SuiteConfig,
@@ -60,15 +63,7 @@ pub async fn persist_mode_report(
     task_set: TaskSet,
     results: &[ComputerUseCaseResult],
 ) -> Result<()> {
-    legacy::persist_mode_report(config, mode, task_set, results).await?;
+    mode_runner::persist_mode_report(config, mode, task_set, results).await?;
     benchmark_store::publish_live_run(config, mode, task_set, results)?;
     Ok(())
-}
-
-fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|path| path.parent())
-        .expect("workspace root")
-        .to_path_buf()
 }

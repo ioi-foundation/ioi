@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::benchmark_refresh::{self, RefreshMode};
 use super::benchmark_summary::{publish_case_summary, PublishedCaseSummary};
-use super::repo_root;
+use super::support::repo_root;
 use crate::computer_use_suite::types::{
     AgentBackend, ComputerUseCase, ComputerUseCaseResult, ComputerUseMode, SuiteConfig, TaskSet,
 };
@@ -103,7 +103,7 @@ pub(super) fn publish_live_run_started(
         task_set,
         &[],
         RunProgress::running(cases.first().map(|case| case.id.as_str()), cases.len(), 0),
-        RefreshMode::Background,
+        RefreshMode::StoreOnly,
     )
 }
 
@@ -125,7 +125,7 @@ pub(super) fn publish_live_case_started(
         task_set,
         &[],
         RunProgress::running(Some(case.id.as_str()), total_cases, completed_cases),
-        RefreshMode::Background,
+        RefreshMode::StoreOnly,
     )
 }
 
@@ -158,7 +158,7 @@ pub(super) fn publish_live_run(
         task_set,
         &published_cases,
         RunProgress::completed(results.len(), published_cases.len()),
-        RefreshMode::Blocking,
+        RefreshMode::FullBlocking,
     )
 }
 
@@ -190,7 +190,7 @@ pub(super) fn publish_live_case(
         task_set,
         &[published_case],
         progress,
-        RefreshMode::Background,
+        RefreshMode::StoreOnly,
     )
 }
 
@@ -225,12 +225,11 @@ fn merge_published_cases_into_store(
     progress: RunProgress<'_>,
     refresh_mode: RefreshMode,
 ) -> Result<()> {
-    let store_path = repo_root()
-        .join("apps")
-        .join("benchmarks")
-        .join("src")
-        .join("generated")
-        .join("benchmark-store.json");
+    let store_paths = benchmark_store_paths();
+    let store_path = store_paths
+        .first()
+        .cloned()
+        .context("benchmark store path is not configured")?;
     if let Some(parent) = store_path.parent() {
         fs::create_dir_all(parent)
             .with_context(|| format!("create benchmark store dir {}", parent.display()))?;
@@ -284,9 +283,27 @@ fn merge_published_cases_into_store(
     });
     store.runs.truncate(RUN_WINDOW_LIMIT);
 
-    write_json_atomically(&store_path, &store)?;
+    for store_path in &store_paths {
+        write_json_atomically(store_path, &store)?;
+    }
     benchmark_refresh::request_generated_data_refresh(refresh_mode)?;
     Ok(())
+}
+
+fn benchmark_store_paths() -> Vec<PathBuf> {
+    let root = repo_root();
+    vec![
+        root.join("apps")
+            .join("benchmarks")
+            .join("src")
+            .join("generated")
+            .join("benchmark-store.json"),
+        root.join("apps")
+            .join("benchmarks")
+            .join("public")
+            .join("generated")
+            .join("benchmark-store.json"),
+    ]
 }
 
 fn write_json_atomically(path: &Path, value: &impl Serialize) -> Result<()> {

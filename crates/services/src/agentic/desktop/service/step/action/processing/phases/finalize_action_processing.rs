@@ -639,6 +639,7 @@ pub(crate) async fn finalize_action_processing(
         current_tool_name.clone(),
         service.event_sender.clone(),
         agent_state.active_skill_hash,
+        service.memory_runtime.as_ref(),
     )?;
 
     if !success && !is_gated && !awaiting_sudo_password && !awaiting_clarification {
@@ -933,7 +934,7 @@ pub(crate) async fn finalize_action_processing(
         resolution_action: incident_fields.resolution_action,
         stop_condition_hit,
         escalation_path,
-        scs_lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
+        lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
         mutation_receipt_ptr: mutation_receipt_pointer(state, &session_id),
         policy_binding_hash: policy_binding,
         policy_binding_sig: None,

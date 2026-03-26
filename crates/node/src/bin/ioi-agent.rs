@@ -8,13 +8,12 @@ use std::sync::Arc;
 use tokio::time::Duration;
 
 // IOI Imports
-use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::gui::IoiGuiDriver;
 use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::{SovereignContextStore, StoreConfig};
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::desktop::DesktopAgentService;
 use ioi_services::market::licensing::LicenseVerifier;
 use ioi_types::app::{account_id_from_key_material, AccountId, SignatureSuite};
@@ -78,8 +77,9 @@ async fn main() -> Result<()> {
         ));
     }
 
-    let manifest: ioi_types::app::agentic::AgentManifest = toml::from_slice(MANIFEST_BYTES)
-        .map_err(|e| anyhow!("Corrupt embedded workflow: {}", e))?;
+    let manifest: ioi_types::app::agentic::AgentManifest =
+        toml::from_str(std::str::from_utf8(MANIFEST_BYTES)?)
+            .map_err(|e| anyhow!("Corrupt embedded workflow: {}", e))?;
 
     let asset_bytes = ioi_types::codec::to_bytes_canonical(&manifest).unwrap();
     let asset_hash_res = ioi_crypto::algorithms::hash::sha256(&asset_bytes)?;
@@ -95,7 +95,12 @@ async fn main() -> Result<()> {
     let client = ioi_client::WorkloadClient::new(&opts.mainnet_rpc, "", "", "").await?;
     let trusted_root = client.get_state_root().await?;
 
-    let verifier = LicenseVerifier::new(opts.mainnet_rpc.clone(), trusted_root.0);
+    let trusted_root_bytes: [u8; 32] = trusted_root
+        .0
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow!("invalid mainnet state root length"))?;
+    let verifier = LicenseVerifier::new(opts.mainnet_rpc.clone(), trusted_root_bytes);
 
     println!("🌐 Verifying license on Mainnet...");
     match verifier.verify_license(account_id, asset_hash).await {
@@ -115,33 +120,18 @@ async fn main() -> Result<()> {
         }
     }
 
-    // 4. Initialize Local Hypervisor (SCS + Drivers)
-    let scs_path = opts.data_dir.join("memory.scs");
-    let ed_kp = keypair.clone().try_into_ed25519()?;
-    let mut identity_key = [0u8; 32];
-    identity_key.copy_from_slice(ed_kp.secret().as_ref());
-
-    let scs_config = StoreConfig {
-        chain_id: 0,
-        owner_id: account_id.0,
-        identity_key,
-    };
-
-    let scs = if scs_path.exists() {
-        SovereignContextStore::open_with_config(&scs_path, scs_config.clone())?
-    } else {
-        SovereignContextStore::create(&scs_path, scs_config)?
-    };
-    let scs_arc = Arc::new(std::sync::Mutex::new(scs));
+    // 4. Initialize Local Hypervisor
+    let memory_runtime = Arc::new(MemoryRuntime::open_sqlite(
+        &opts.data_dir.join("desktop-memory.db"),
+    )?);
 
     // 5. Initialize Drivers & Lenses
     let os_driver = Arc::new(NativeOsDriver::new());
 
     // Initialize GUI driver mutably to register lenses
     let mut gui_driver_struct = IoiGuiDriver::new()
-        .with_scs(scs_arc.clone())
-        .with_som(true)
-        .with_os_driver(os_driver.clone());
+        .with_memory_runtime(memory_runtime.clone())
+        .with_som(true);
 
     // Register Custom Lenses from Manifest
     for lens_manifest in &manifest.custom_lenses {
@@ -186,16 +176,9 @@ async fn main() -> Result<()> {
 
     // 7. Start Embedded App (if enabled)
     if manifest.has_embedded_app && !opts.headless {
-        let host = ioi_services::agentic::desktop::host::EmbeddedAppHost::start().await?;
-        let entry = manifest.app_entrypoint.as_deref().unwrap_or("/");
-        let url = format!("{}{}", host.get_url(), entry);
-
-        println!("🖥️  Launching Embedded Interface: {}", url);
-
-        // Note: In headless mode we skip the UI, but the host might still be needed for API access
-        if !opts.headless {
-            browser_driver.navigate(&url).await?;
-        }
+        println!(
+            "🖥️  Embedded interface requested, but local app hosting is not wired in this binary. Continuing without launching the UI."
+        );
     }
 
     // 8. Launch the Agent Service
@@ -206,7 +189,7 @@ async fn main() -> Result<()> {
         inference_runtime.clone(),
         inference_runtime.clone(),
     )
-    .with_scs(scs_arc.clone())
+    .with_memory_runtime(memory_runtime.clone())
     .with_os_driver(os_driver.clone())
     .with_workspace_path(opts.data_dir.to_string_lossy().to_string());
 

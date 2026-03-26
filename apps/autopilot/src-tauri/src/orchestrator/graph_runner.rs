@@ -3,11 +3,11 @@ use super::store::save_local_session_summary;
 use crate::execution::{self, ExecutionResult, GovernanceTier};
 use crate::models::SessionSummary;
 use ioi_api::vm::inference::InferenceRuntime;
-use ioi_scs::SovereignContextStore;
+use ioi_memory::MemoryRuntime;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -169,7 +169,7 @@ fn error_result(output: String, input_snapshot: Option<Value>) -> ExecutionResul
 }
 
 pub async fn run_local_graph<F>(
-    scs: Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: Arc<MemoryRuntime>,
     inference: Arc<dyn InferenceRuntime>,
     payload: GraphPayload,
     emit_event: F,
@@ -195,7 +195,7 @@ where
                 .unwrap_or_default()
                 .as_millis() as u64,
         };
-        save_local_session_summary(&scs, summary);
+        save_local_session_summary(&memory_runtime, summary);
     }
 
     let globals = payload.global_config.unwrap_or(json!({}));
@@ -313,9 +313,12 @@ where
         let default_config = json!({});
         let config = node.config.as_ref().unwrap_or(&default_config);
 
-        if let Some(mut result) =
-            query_cache(&scs, node_id.clone(), config.clone(), input_str.clone())
-        {
+        if let Some(mut result) = query_cache(
+            &memory_runtime,
+            node_id.clone(),
+            config.clone(),
+            input_str.clone(),
+        ) {
             result.input_snapshot = Some(effective_input.clone());
             context.insert(node_id.clone(), output_value_for_result(&result));
 
@@ -346,7 +349,7 @@ where
             config,
             &input_str,
             active_session_id.clone(),
-            scs.clone(),
+            memory_runtime.clone(),
             inference.clone(),
             tier,
         )
@@ -359,7 +362,7 @@ where
                 let active_handle = active_handle_for_result(&node.node_type, &result);
 
                 inject_execution_result(
-                    &scs,
+                    &memory_runtime,
                     node_id.clone(),
                     config.clone(),
                     input_str.clone(),

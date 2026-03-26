@@ -20,7 +20,7 @@ Current follow-on design program:
 - [`recovered_prefix_kernel_certificates.md`](/home/heathledger/Documents/ioi/repos/ioi/docs/consensus/aft/specs/recovered_prefix_kernel_certificates.md): exploratory future-work note for a bounded recovered-prefix certificate family, starting from a public fixed-function validity certificate and only later considering succinct or zk wrappers
 
 The formal artifacts live under
-[`formal/aft/`](/home/heathledger/Documents/ioi/repos/ioi/formal/aft),
+[`docs/specs/formal/aft/`](/home/heathledger/Documents/ioi/repos/ioi/docs/specs/formal/aft),
 including the discharged proof-kernel modules and the richer bounded TLC
 models for `GuardianMajority`, `NestedGuardian`, `Asymptote`, and
 `CanonicalOrdering`, and the runtime implementation lives under

@@ -22,6 +22,7 @@ dist/
 .tlacache/
 formal/**/*_TTrace_*.tla
 formal/**/TLAPS.tla
+docs/specs/formal/aft/**/states/
 CODEX.txt
 packages/agent-ide/tsconfig.tsbuildinfo
 .env

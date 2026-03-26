@@ -1,7 +1,7 @@
 use crate::models::{AgentEvent, Artifact, ArtifactType, EventType};
 use crate::orchestrator;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use ioi_scs::SovereignContextStore;
+use ioi_memory::MemoryRuntime;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fs::File;
@@ -20,15 +20,15 @@ fn now_iso() -> String {
 }
 
 fn artifact_content_ref(artifact_id: &str) -> String {
-    format!("scs://artifact/{}", artifact_id)
+    format!("ioi-memory://artifact/{}", artifact_id)
 }
 
 fn persist_artifact(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     artifact: &Artifact,
     content: &[u8],
 ) -> Artifact {
-    orchestrator::append_artifact(scs, artifact, content);
+    orchestrator::append_artifact(memory_runtime, artifact, content);
     artifact.clone()
 }
 
@@ -57,7 +57,7 @@ fn build_artifact(
 }
 
 pub fn create_log_artifact(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
     title: &str,
     description: &str,
@@ -73,11 +73,11 @@ pub fn create_log_artifact(
         Some(1),
         None,
     );
-    persist_artifact(scs, &artifact, output.as_bytes())
+    persist_artifact(memory_runtime, &artifact, output.as_bytes())
 }
 
 pub fn create_diff_artifact(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
     title: &str,
     description: &str,
@@ -93,11 +93,11 @@ pub fn create_diff_artifact(
         Some(1),
         None,
     );
-    persist_artifact(scs, &artifact, diff_text.as_bytes())
+    persist_artifact(memory_runtime, &artifact, diff_text.as_bytes())
 }
 
 pub fn create_file_artifact(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
     path: &str,
     revision: Option<String>,
@@ -116,11 +116,11 @@ pub fn create_file_artifact(
         Some(1),
         None,
     );
-    persist_artifact(scs, &artifact, content.as_bytes())
+    persist_artifact(memory_runtime, &artifact, content.as_bytes())
 }
 
 pub fn create_web_artifact(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
     url: &str,
     content: &str,
@@ -140,11 +140,11 @@ pub fn create_web_artifact(
         Some(1),
         None,
     );
-    persist_artifact(scs, &artifact, content.as_bytes())
+    persist_artifact(memory_runtime, &artifact, content.as_bytes())
 }
 
 pub fn create_run_bundle(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
     run_id: &str,
     refs: Vec<String>,
@@ -163,11 +163,11 @@ pub fn create_run_bundle(
         None,
     );
     let content = serde_json::to_vec(&metadata).unwrap_or_else(|_| b"{}".to_vec());
-    persist_artifact(scs, &artifact, &content)
+    persist_artifact(memory_runtime, &artifact, &content)
 }
 
 pub fn create_report_artifact(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
     title: &str,
     description: &str,
@@ -183,16 +183,16 @@ pub fn create_report_artifact(
         None,
     );
     let content = serde_json::to_vec_pretty(report).unwrap_or_else(|_| b"{}".to_vec());
-    persist_artifact(scs, &artifact, &content)
+    persist_artifact(memory_runtime, &artifact, &content)
 }
 
 pub fn append_run_bundle_ref(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
     run_bundle_id: &str,
     new_ref: &str,
 ) -> Option<Artifact> {
-    let artifacts = orchestrator::load_artifacts(scs, thread_id);
+    let artifacts = orchestrator::load_artifacts(memory_runtime, thread_id);
     let existing = artifacts
         .iter()
         .find(|a| a.artifact_id == run_bundle_id && a.artifact_type == ArtifactType::RunBundle)?;
@@ -228,19 +228,17 @@ pub fn append_run_bundle_ref(
         Some(existing.artifact_id.clone()),
     );
     let content = serde_json::to_vec(&metadata).unwrap_or_else(|_| b"{}".to_vec());
-    Some(persist_artifact(scs, &artifact, &content))
+    Some(persist_artifact(memory_runtime, &artifact, &content))
 }
 
-fn get_scs(
-    state: &State<'_, Mutex<AppState>>,
-) -> Result<Arc<Mutex<SovereignContextStore>>, String> {
+fn get_memory_runtime(state: &State<'_, Mutex<AppState>>) -> Result<Arc<MemoryRuntime>, String> {
     let guard = state
         .lock()
         .map_err(|_| "Failed to lock state".to_string())?;
     guard
-        .studio_scs
+        .memory_runtime
         .clone()
-        .ok_or_else(|| "SCS store unavailable".to_string())
+        .ok_or_else(|| "Memory runtime unavailable".to_string())
 }
 
 fn latest_agent_answer(history: &[crate::models::ChatMessage]) -> Option<String> {
@@ -350,8 +348,13 @@ pub fn get_thread_events(
     limit: Option<usize>,
     cursor: Option<usize>,
 ) -> Result<Vec<AgentEvent>, String> {
-    let scs = get_scs(&state)?;
-    Ok(orchestrator::load_events(&scs, &thread_id, limit, cursor))
+    let memory_runtime = get_memory_runtime(&state)?;
+    Ok(orchestrator::load_events(
+        &memory_runtime,
+        &thread_id,
+        limit,
+        cursor,
+    ))
 }
 
 #[tauri::command]
@@ -359,8 +362,8 @@ pub fn get_thread_artifacts(
     state: State<'_, Mutex<AppState>>,
     thread_id: String,
 ) -> Result<Vec<Artifact>, String> {
-    let scs = get_scs(&state)?;
-    Ok(orchestrator::load_artifacts(&scs, &thread_id))
+    let memory_runtime = get_memory_runtime(&state)?;
+    Ok(orchestrator::load_artifacts(&memory_runtime, &thread_id))
 }
 
 #[tauri::command]
@@ -368,8 +371,8 @@ pub fn get_artifact_content(
     state: State<'_, Mutex<AppState>>,
     artifact_id: String,
 ) -> Result<Option<ArtifactContentPayload>, String> {
-    let scs = get_scs(&state)?;
-    if let Some(bytes) = orchestrator::load_artifact_content(&scs, &artifact_id) {
+    let memory_runtime = get_memory_runtime(&state)?;
+    if let Some(bytes) = orchestrator::load_artifact_content(&memory_runtime, &artifact_id) {
         if let Ok(text) = String::from_utf8(bytes.clone()) {
             return Ok(Some(ArtifactContentPayload {
                 artifact_id,
@@ -392,8 +395,8 @@ pub fn get_run_bundle(
     thread_id: String,
     run_id: Option<String>,
 ) -> Result<Option<Artifact>, String> {
-    let scs = get_scs(&state)?;
-    let artifacts = orchestrator::load_artifacts(&scs, &thread_id);
+    let memory_runtime = get_memory_runtime(&state)?;
+    let artifacts = orchestrator::load_artifacts(&memory_runtime, &thread_id);
 
     let mut bundles = artifacts
         .into_iter()
@@ -439,10 +442,10 @@ pub fn export_thread_bundle(
         }
     }
 
-    let scs = get_scs(&state)?;
-    let events = orchestrator::load_events(&scs, &thread_id, None, None);
-    let artifacts = orchestrator::load_artifacts(&scs, &thread_id);
-    let history = orchestrator::load_local_task(&scs, &thread_id)
+    let memory_runtime = get_memory_runtime(&state)?;
+    let events = orchestrator::load_events(&memory_runtime, &thread_id, None, None);
+    let artifacts = orchestrator::load_artifacts(&memory_runtime, &thread_id);
+    let history = orchestrator::load_local_task(&memory_runtime, &thread_id)
         .map(|task| task.history)
         .unwrap_or_default();
 
@@ -477,7 +480,8 @@ pub fn export_thread_bundle(
     let mut payload_path_by_artifact_id = std::collections::HashMap::<String, String>::new();
     if include_artifact_payloads {
         for artifact in &artifacts {
-            let Some(bytes) = orchestrator::load_artifact_content(&scs, &artifact.artifact_id)
+            let Some(bytes) =
+                orchestrator::load_artifact_content(&memory_runtime, &artifact.artifact_id)
             else {
                 continue;
             };

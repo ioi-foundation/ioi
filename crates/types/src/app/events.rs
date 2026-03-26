@@ -115,9 +115,9 @@ pub struct RoutingReceiptEvent {
     pub stop_condition_hit: bool,
     /// Optional escalation path selected by the router.
     pub escalation_path: Option<String>,
-    /// Optional SCS lineage pointer for skill/trace provenance.
-    pub scs_lineage_ptr: Option<String>,
-    /// Optional SCS mutation receipt pointer for RSI lineage.
+    /// Optional legacy lineage pointer for skill/trace provenance.
+    pub lineage_ptr: Option<String>,
+    /// Optional memory mutation receipt pointer for RSI lineage.
     pub mutation_receipt_ptr: Option<String>,
     /// Canonical hash binding `intent_hash` and `policy_decision`.
     pub policy_binding_hash: String,
@@ -386,8 +386,8 @@ pub enum WorkloadReceipt {
     NetFetch(WorkloadNetFetchReceipt),
     /// A governed web retrieval receipt ("web__search" / "web__read").
     WebRetrieve(WorkloadWebRetrieveReceipt),
-    /// A governed SCS retrieval receipt ("memory__search" / retrieval pipelines).
-    ScsRetrieve(WorkloadScsRetrieveReceipt),
+    /// A legacy-named governed memory retrieval receipt ("memory__search" / retrieval pipelines).
+    MemoryRetrieve(WorkloadMemoryRetrieveReceipt),
     /// A generic external adapter receipt.
     Adapter(crate::app::AdapterReceipt),
 }
@@ -506,12 +506,12 @@ pub struct WorkloadWebRetrieveReceipt {
     pub error_class: Option<String>,
 }
 
-/// Audit receipt for `memory__search` / SCS retrieval workloads.
+/// Audit receipt for `memory__search` retrieval workloads.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
-pub struct WorkloadScsRetrieveReceipt {
+pub struct WorkloadMemoryRetrieveReceipt {
     /// Tool that initiated the retrieval workload.
     pub tool_name: String,
-    /// Retrieval backend identifier (e.g. "scs:mhnsw").
+    /// Retrieval backend identifier (e.g. "memory:sqlite+semantic").
     pub backend: String,
     /// Hash of query bytes used for retrieval.
     pub query_hash: String,

@@ -334,7 +334,7 @@ pub async fn gather_context(
     let tools_runtime = service.fast_inference.clone();
     let tools = discover_tools(
         state,
-        service.scs.as_deref(),
+        service.memory_runtime.as_deref(),
         service.mcp.as_deref(),
         &agent_state.goal,
         tools_runtime,

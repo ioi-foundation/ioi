@@ -52,15 +52,15 @@ pub use workload::*;
 use parity_scale_codec::{Decode, Encode, Input};
 use serde::{Deserialize, Serialize};
 
-/// The atomic unit of data within the Sovereign Context Substrate (SCS).
-/// Unlike a file, a Context Slice is intent-bound and carries its own provenance.
+/// The atomic unit of exported contextual data.
+/// Unlike a file, a ContextSlice is intent-bound and carries its own provenance.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct ContextSlice {
     /// Unique content-addressed identifier for this slice.
     pub slice_id: [u8; 32],
 
-    /// The ID of the frame in the SCS that this slice corresponds to.
-    /// This allows the Provider to request the surrounding context if needed.
+    /// Legacy archival frame/record identifier associated with this slice.
+    /// This allows the Provider to request surrounding context if needed.
     pub frame_id: u64,
 
     /// The actual data chunks (e.g. XML fragments, JSON objects).

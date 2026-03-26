@@ -2,7 +2,7 @@
 
 **The Official Python Framework for the Internet of Intelligence (IOI) Protocol.**
 
-`ioi-swarm` is a high-performance library for building **sovereign, autonomous agents** that run on the Internet of Intelligence. Unlike standard agent frameworks, IOI agents are cryptographically tied to **The Substrate** (Sovereign Context Substrate), ensuring that every observation, decision, and action is verifiable and tamper-proof.
+`ioi-swarm` is a high-performance library for building **sovereign, autonomous agents** that run on the Internet of Intelligence. Unlike standard agent frameworks, IOI agents are tied into the IOI runtime and memory substrate so that observations, decisions, and actions can be tracked, constrained, and receipted.
 
 [![PyPI version](https://badge.fury.io/py/ioi-swarm.svg)](https://pypi.org/project/ioi-swarm/)
 [![License: BBSL](https://img.shields.io/badge/License-BBSL-blue.svg)](https://github.com/ioi-foundation/ioi/blob/master/LICENSE-BBSL)
@@ -11,7 +11,7 @@
 
 ## 🚀 Key Features
 
-*   **Sovereign Context Substrate (SCS):** Direct integration with the IOI Substrate for intent-constrained memory and provenance proofs.
+*   **`ioi-memory` runtime integration:** Local-first checkpoints, archival recall, and runtime-governed memory for agent sessions.
 *   **Distributed Inference Mesh (DIM):** Seamlessly burst agent reasoning to a decentralized network of GPU providers.
 *   **Verifiable Agency:** Every tool call generates a cryptographic receipt, providing an immutable audit trail of agent behavior.
 *   **Ghost Mode:** Record agent traces locally to synthesize security policies for the IOI Semantic Firewall.
@@ -51,7 +51,7 @@ IOI agents operate within a strict architectural boundary:
 
 1.  **Drivers:** Native hardware capabilities (Eyes & Hands).
 2.  **Tools:** Extensible WASM-based instruments (Utility).
-3.  **Skills:** Procedural memory stored in the Substrate (Know-How).
+3.  **Skills:** Procedural memory stored in runtime archival memory (Know-How).
 
 ## 📄 Documentation
 

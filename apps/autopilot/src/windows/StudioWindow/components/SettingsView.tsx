@@ -18,7 +18,7 @@ interface SettingsViewProps {
 }
 
 const RESET_COPY = [
-  "Local conversation history, events, and artifacts in `studio.scs`.",
+  "Local conversation history, events, and artifacts in `studio-memory.db`.",
   "Connector subscription registry and control policy state.",
   "Spotlight validation artifacts and browser-side local storage for the app origin.",
 ];

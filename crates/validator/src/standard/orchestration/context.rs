@@ -30,7 +30,7 @@ use tokio::sync::{mpsc, watch, Mutex}; // [FIX] Added imports
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel}; // [FIX] Added InferenceRuntime
                                                                   // [NEW] Import OsDriver trait
 use ioi_api::vm::drivers::os::OsDriver;
-use ioi_scs::SovereignContextStore;
+use ioi_memory::MemoryRuntime;
 // [FIX] Removed unused Pacemaker import
 
 /// Type alias for the thread-safe reference to the chain state machine.
@@ -162,8 +162,8 @@ where
     /// [NEW] Added os_driver field
     /// Driver for OS-level interactions.
     pub os_driver: Arc<dyn OsDriver>,
-    /// Handle to the Sovereign Context Store.
-    pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
+    /// Optional runtime-backed memory store for transcript and artifact retrieval.
+    pub memory_runtime: Option<Arc<MemoryRuntime>>,
     /// [NEW] Event broadcaster for UI feedback
     /// Broadcaster for kernel events to UI subscribers.
     pub event_broadcaster: tokio::sync::broadcast::Sender<KernelEvent>,

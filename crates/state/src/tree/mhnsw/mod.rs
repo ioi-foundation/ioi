@@ -6,7 +6,7 @@
 //! to the entire graph structure. It supports:
 //! 1. Vector Search (Nearest Neighbor)
 //! 2. Proof of Retrieval (Verifying a search path was followed correctly)
-//! 3. Serialization for persistent storage (e.g. in .scs files)
+//! 3. Serialization for persistent archival storage
 
 pub mod graph;
 pub mod metric;
@@ -33,11 +33,13 @@ use std::sync::Arc;
 
 /// A Merkelized HNSW index wrapper that implements StateManager.
 ///
-/// This struct is now serializable to support the .scs file format.
+/// This struct is serializable so it can be persisted by higher-level storage
+/// layers.
 #[derive(Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct MHnswIndex<CS: CommitmentScheme, M: DistanceMetric> {
     /// The underlying graph structure.
-    /// Made public to allow direct serialization/manipulation by storage layers (e.g. ioi-scs).
+    /// Made public to allow direct serialization/manipulation by storage
+    /// layers.
     pub graph: HnswGraph<M>,
     /// Commitment scheme is typically stateless (Hash), so we skip serialization or use default.
     #[serde(skip, default)]

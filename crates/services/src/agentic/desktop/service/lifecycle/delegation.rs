@@ -4,6 +4,7 @@ use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, SessionSummary,
 };
+use crate::agentic::desktop::utils::persist_agent_state;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::KernelEvent;
@@ -111,7 +112,12 @@ pub async fn spawn_delegated_child_session(
         active_lens: None,
     };
 
-    state.insert(&child_key, &codec::to_bytes_canonical(&child_state)?)?;
+    persist_agent_state(
+        state,
+        &child_key,
+        &child_state,
+        service.memory_runtime.as_ref(),
+    )?;
 
     // Update session history if present; best-effort to avoid blocking delegation on history corruption.
     let history_key = b"agent::history".to_vec();

@@ -131,7 +131,7 @@ pub(super) async fn intercept_raw_refusal(
         resolution_action: incident_fields.resolution_action,
         stop_condition_hit: refusal_stop_condition_hit,
         escalation_path: refusal_escalation_path,
-        scs_lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
+        lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
         mutation_receipt_ptr: mutation_receipt_pointer(state, &session_id),
         policy_binding_hash: policy_binding,
         policy_binding_sig: None,

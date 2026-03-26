@@ -1986,13 +1986,11 @@ mod tests {
         )];
 
         assert!(blocked_terminalization_summary_from_history(&history).is_none());
-        assert!(
-            blocked_terminalization_summary_from_history_and_snapshot(
-                &history,
-                Some("BROWSER_USE_STATE_TXT:\n[12]<button name=Submit />"),
-            )
-            .is_none()
-        );
+        assert!(blocked_terminalization_summary_from_history_and_snapshot(
+            &history,
+            Some("BROWSER_USE_STATE_TXT:\n[12]<button name=Submit />"),
+        )
+        .is_none());
     }
 
     #[test]

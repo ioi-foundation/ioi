@@ -1,4 +1,14 @@
 use super::*;
+use ioi_memory::MemoryRuntime;
+use ioi_services::agentic::desktop::utils::load_agent_state_checkpoint;
+
+fn parse_session_id_from_state_key(state_key: &[u8], full_scan_prefix: &[u8]) -> Option<[u8; 32]> {
+    let suffix = state_key.strip_prefix(full_scan_prefix)?;
+    let session_bytes = suffix.get(..32)?;
+    let mut session_id = [0u8; 32];
+    session_id.copy_from_slice(session_bytes);
+    Some(session_id)
+}
 
 /// Scans running desktop-agent sessions and submits `step@v1` transactions
 /// using detached context handles without holding the main context mutex.
@@ -9,6 +19,7 @@ pub async fn run_agent_driver_task_with_handles(
     chain_id: ioi_types::app::ChainId,
     nonce_manager: std::sync::Arc<TokioMutex<BTreeMap<AccountId, u64>>>,
     consensus_kick_tx: tokio::sync::mpsc::UnboundedSender<()>,
+    memory_runtime: Option<std::sync::Arc<MemoryRuntime>>,
 ) -> Result<bool> {
     let mut work_performed = false;
 
@@ -46,21 +57,50 @@ pub async fn run_agent_driver_task_with_handles(
 
     // 2. Identify Running Agents
     for (state_key, val_bytes) in kvs {
-        let key_suffix = state_key
-            .as_slice()
-            .strip_prefix(full_scan_prefix.as_slice())
-            .map(|s| hex::encode(&s[..s.len().min(4)]))
-            .unwrap_or_else(|| "unknown".to_string());
-        let state: AgentState = match decode_state_value(&val_bytes) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::warn!(
-                    target: "agent_driver",
-                    "Failed to decode agent state (raw or StateEntry) for key {}: {}",
-                    key_suffix,
-                    e
-                );
-                continue;
+        let Some(session_id) =
+            parse_session_id_from_state_key(state_key.as_slice(), full_scan_prefix.as_slice())
+        else {
+            tracing::warn!(
+                target: "agent_driver",
+                "Skipping agent state entry with malformed session suffix"
+            );
+            continue;
+        };
+
+        let key_suffix = hex::encode(&session_id[..4]);
+        let state: AgentState = if let Some(memory_runtime) = memory_runtime.as_ref() {
+            match load_agent_state_checkpoint(memory_runtime.as_ref(), session_id) {
+                Ok(Some(state)) => state,
+                Ok(None) => {
+                    tracing::debug!(
+                        target: "agent_driver",
+                        "Skipping agent {}; runtime checkpoint missing",
+                        key_suffix
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        target: "agent_driver",
+                        "Failed to load runtime agent state for key {}: {}",
+                        key_suffix,
+                        e
+                    );
+                    continue;
+                }
+            }
+        } else {
+            match decode_state_value(&val_bytes) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::warn!(
+                        target: "agent_driver",
+                        "Failed to decode agent state (raw or StateEntry) for key {}: {}",
+                        key_suffix,
+                        e
+                    );
+                    continue;
+                }
             }
         };
 
@@ -83,28 +123,44 @@ pub async fn run_agent_driver_task_with_handles(
             // Refresh the session immediately before dispatch. The initial prefix scan can race
             // with a just-committed step result, which otherwise causes stale Running snapshots
             // to submit an extra follow-up step after the session already completed/cleared queue.
-            let latest_state: AgentState = match workload_client.query_raw_state(&state_key).await {
-                Ok(Some(bytes)) => match decode_state_value(&bytes) {
-                    Ok(fresh) => fresh,
+            let latest_state: AgentState = if let Some(memory_runtime) = memory_runtime.as_ref() {
+                match load_agent_state_checkpoint(memory_runtime.as_ref(), session_id) {
+                    Ok(Some(fresh)) => fresh,
+                    Ok(None) => continue,
                     Err(e) => {
                         tracing::warn!(
                             target: "agent_driver",
-                            "Failed to decode refreshed agent state for key {}: {}",
+                            "Failed to refresh runtime agent state for key {}: {}",
                             key_suffix,
                             e
                         );
                         continue;
                     }
-                },
-                Ok(None) => continue,
-                Err(e) => {
-                    tracing::warn!(
-                        target: "agent_driver",
-                        "Failed to refresh agent state for key {}: {}",
-                        key_suffix,
-                        e
-                    );
-                    continue;
+                }
+            } else {
+                match workload_client.query_raw_state(&state_key).await {
+                    Ok(Some(bytes)) => match decode_state_value(&bytes) {
+                        Ok(fresh) => fresh,
+                        Err(e) => {
+                            tracing::warn!(
+                                target: "agent_driver",
+                                "Failed to decode refreshed agent state for key {}: {}",
+                                key_suffix,
+                                e
+                            );
+                            continue;
+                        }
+                    },
+                    Ok(None) => continue,
+                    Err(e) => {
+                        tracing::warn!(
+                            target: "agent_driver",
+                            "Failed to refresh agent state for key {}: {}",
+                            key_suffix,
+                            e
+                        );
+                        continue;
+                    }
                 }
             };
 
@@ -284,6 +340,7 @@ where
         context.chain_id,
         context.nonce_manager.clone(),
         context.consensus_kick_tx.clone(),
+        context.memory_runtime.clone(),
     )
     .await
 }

@@ -5,7 +5,15 @@ use ioi_types::app::{KernelEvent, RoutingReceiptEvent};
 use tokio::sync::broadcast::Sender;
 
 pub fn lineage_pointer(active_skill_hash: Option<[u8; 32]>) -> Option<String> {
-    active_skill_hash.map(|hash| format!("scs://skill/{}", hex::encode(hash)))
+    active_skill_hash.map(|hash| format!("memory://skill/{}", hex::encode(hash)))
+}
+
+pub fn mutation_receipt_artifact_id(trace_hash: &[u8; 32]) -> String {
+    format!("desktop.mutation_receipt.{}", hex::encode(trace_hash))
+}
+
+pub fn mutation_receipt_pointer_for_artifact_id(artifact_id: &str) -> String {
+    format!("memory://mutation-receipt/{artifact_id}")
 }
 
 pub fn policy_binding_hash(intent_hash: &str, policy_decision: &str) -> String {

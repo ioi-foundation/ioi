@@ -3,26 +3,14 @@ use super::*;
 #[tokio::test(flavor = "multi_thread")]
 async fn timer_query_routes_to_command_exec_without_planner_fast_path() -> Result<()> {
     let (tx, mut rx) = tokio::sync::broadcast::channel(256);
-    let now_ns = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let scs_path = std::env::temp_dir().join(format!("timer_command_exec_e2e_{}.scs", now_ns));
-    let scs = SovereignContextStore::create(
-        &scs_path,
-        StoreConfig {
-            chain_id: 1,
-            owner_id: [0u8; 32],
-            identity_key: [0x44; 32],
-        },
-    )?;
+    let memory_runtime = build_memory_runtime();
 
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(TimerIntentRuntime);
     let service = DesktopAgentService::new_hybrid(gui, terminal, browser, runtime.clone(), runtime)
-        .with_scs(Arc::new(Mutex::new(scs)))
+        .with_memory_runtime(memory_runtime)
         .with_event_sender(tx)
         .with_os_driver(Arc::new(NoopOsDriver));
 

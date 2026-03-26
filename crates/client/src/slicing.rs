@@ -81,7 +81,7 @@ impl SlicePackager {
                 chunks: batch_vec,
                 traversal_proof: None,
                 // [FIX] Initialize missing fields with defaults for client-side packaging
-                // Client-side packages don't necessarily come from an indexed SCS frame yet
+                // Client-side packages don't necessarily come from an indexed archival frame yet.
                 frame_id: 0,
                 mhnsw_root: [0u8; 32],
             };

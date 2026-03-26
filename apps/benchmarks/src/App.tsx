@@ -1,21 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
 
 import initialBenchmarkData from "./generated/benchmark-data.json";
 
 /* ── Types ── */
 
-type TabId = "dashboard" | "triage" | "playbook" | "discovery";
+type TabId = "dashboard" | "triage";
 type ResultStatus = "pass" | "near-miss" | "red" | "unknown";
 type ResultFilter = "all" | ResultStatus;
-type DataTableTab = "registry" | "gaps" | "snapshot";
 
 type SuiteSummary = {
   suite: string;
-  maturity: string;
-  benchmarkStatus: string;
-  workspaceStatus: string;
-  nextUnlock: string;
   counts: Record<ResultStatus, number>;
   focusCaseId: string | null;
   focusResult: ResultStatus;
@@ -163,8 +157,6 @@ type CaseRecord = {
   };
 };
 
-type TableRow = Record<string, string>;
-
 type ParsedObsTarget = {
   id: string;
   tag: string | null;
@@ -178,21 +170,24 @@ type ParsedObsTarget = {
 type BenchmarkDataShape = {
   generatedAt: string;
   liveDataPath?: string;
+  liveStorePath?: string;
   suiteSummaries: SuiteSummary[];
   latestCases: CaseRecord[];
-  capabilityGapMatrix: TableRow[];
-  benchmarkSnapshot: TableRow[];
-  registry: TableRow[];
-  discoverySections: {
-    currentFrontier: string[];
-    currentBlocker: string[];
-    decisionRule: string[];
-    currentNextMoveCommand: string;
-  };
-  docs: {
-    playbook: { path: string; href: string; content: string };
-    discovery: { path: string; href: string; content: string };
-  };
+};
+
+type BenchmarkStoreRunRecord = {
+  run_id?: string;
+  task_set?: string;
+  status?: string;
+  active_case_id?: string | null;
+  total_cases?: number;
+  completed_cases?: number;
+  updated_at_ms?: number | null;
+  cases?: Array<{ case_id?: string }>;
+};
+
+type BenchmarkStoreShape = {
+  runs?: BenchmarkStoreRunRecord[];
 };
 
 /* ── Constants ── */
@@ -200,8 +195,6 @@ type BenchmarkDataShape = {
 const tabs: Array<{ id: TabId; label: string; shortcut: string }> = [
   { id: "dashboard", label: "Dashboard", shortcut: "1" },
   { id: "triage", label: "Triage", shortcut: "2" },
-  { id: "playbook", label: "Playbook", shortcut: "3" },
-  { id: "discovery", label: "Discovery", shortcut: "4" },
 ];
 
 const resultFilters: Array<{ value: ResultFilter; label: string }> = [
@@ -260,6 +253,94 @@ function shortCaseId(id: string | null | undefined) {
 
 function total(c: Record<ResultStatus, number>) {
   return c.pass + c["near-miss"] + c.red + c.unknown;
+}
+
+function inferSuite(caseId: string | null | undefined): string {
+  if (!caseId) return "Unknown";
+  if (caseId.startsWith("miniwob_")) return "MiniWoB++";
+  if (caseId.startsWith("osworld_")) return "OSWorld";
+  if (caseId.startsWith("workarena_")) return "WorkArena";
+  return "Unknown";
+}
+
+function collectLiveRunsFromStore(store: BenchmarkStoreShape): LiveRunRecord[] {
+  if (!Array.isArray(store.runs)) {
+    return [];
+  }
+
+  const latestBySuite = new Map<string, LiveRunRecord>();
+  for (const run of store.runs) {
+    const status = typeof run.status === "string" ? run.status : "completed";
+    if (status !== "running") {
+      continue;
+    }
+
+    const activeCaseId =
+      typeof run.active_case_id === "string" && run.active_case_id
+        ? run.active_case_id
+        : null;
+    const suite = inferSuite(
+      activeCaseId ??
+        (typeof run.cases?.[0]?.case_id === "string" ? run.cases[0].case_id : null),
+    );
+    if (suite === "Unknown") {
+      continue;
+    }
+
+    const candidate: LiveRunRecord = {
+      suite,
+      runId: typeof run.run_id === "string" ? run.run_id : "run-local",
+      taskSet: typeof run.task_set === "string" ? run.task_set : "unknown",
+      status,
+      activeCaseId,
+      totalCases: typeof run.total_cases === "number" ? run.total_cases : 0,
+      completedCases: typeof run.completed_cases === "number" ? run.completed_cases : 0,
+      updatedAtMs: typeof run.updated_at_ms === "number" ? run.updated_at_ms : null,
+    };
+
+    const current = latestBySuite.get(suite);
+    if (!current || (candidate.updatedAtMs ?? 0) >= (current.updatedAtMs ?? 0)) {
+      latestBySuite.set(suite, candidate);
+    }
+  }
+
+  return Array.from(latestBySuite.values()).sort(
+    (left, right) => (right.updatedAtMs ?? 0) - (left.updatedAtMs ?? 0),
+  );
+}
+
+function mergeLiveRunsIntoBenchmarkData(
+  current: BenchmarkDataShape,
+  liveRuns: LiveRunRecord[],
+): BenchmarkDataShape {
+  const liveRunsBySuite = new Map(liveRuns.map((entry) => [entry.suite, entry]));
+  const seenSuites = new Set<string>();
+  const mergedSummaries = current.suiteSummaries.map((summary) => {
+    seenSuites.add(summary.suite);
+    return {
+      ...summary,
+      liveRun: liveRunsBySuite.get(summary.suite) ?? null,
+    };
+  });
+
+  for (const liveRun of liveRuns) {
+    if (seenSuites.has(liveRun.suite)) {
+      continue;
+    }
+    mergedSummaries.push({
+      suite: liveRun.suite,
+      counts: { pass: 0, "near-miss": 0, red: 0, unknown: 0 },
+      focusCaseId: null,
+      focusResult: "unknown",
+      latestRunId: liveRun.runId,
+      liveRun,
+    });
+  }
+
+  return {
+    ...current,
+    suiteSummaries: mergedSummaries,
+  };
 }
 
 function actMeta(name: string | null) {
@@ -660,88 +741,52 @@ function TraceViewer({
   );
 }
 
-/* ── Frontier Card with progressive disclosure ── */
-
-function FrontierCard({ title, items }: { title: string; items: string[] }) {
-  const [exp, setExp] = useState(false);
-  const shown = exp ? items : items.slice(0, 2);
-  const more = items.length - 2;
-  return (
-    <article className="fcard">
-      <p className="eyebrow">{title}</p>
-      <ul>{shown.map((l, i) => <li key={i}>{l}</li>)}</ul>
-      {more > 0 && <button type="button" className="fcard-more" onClick={() => setExp(!exp)}>{exp ? "Show less" : `+${more} more`}</button>}
-    </article>
-  );
-}
-
-/* ── Data tables ── */
-
-function GenericTable({ rows }: { rows: TableRow[] }) {
-  if (!rows.length) return <p className="empty">No data.</p>;
-  const hs = Object.keys(rows[0]);
-  return (
-    <table className="dt"><thead><tr>{hs.map((h) => <th key={h}>{h}</th>)}</tr></thead>
-      <tbody>{rows.map((r, i) => <tr key={i}>{hs.map((h) => <td key={h}>{r[h]}</td>)}</tr>)}</tbody></table>
-  );
-}
-
-function GapTable({ rows }: { rows: TableRow[] }) {
-  return (
-    <table className="dt"><thead><tr><th>Gap class</th><th>Status</th><th>Handling</th></tr></thead>
-      <tbody>{rows.map((r) => (
-        <tr key={r["Gap class"]}><td><code>{r["Gap class"]}</code></td>
-          <td><span className={`gap-s gap-${r["Current status"]}`}>{r["Current status"]}</span></td>
-          <td>{r["Handling"]}</td></tr>
-      ))}</tbody></table>
-  );
-}
-
-/* ── Markdown Panel ── */
-
-function MdPanel({ title, path, href, content }: { title: string; path: string; href: string; content: string }) {
-  return (
-    <section className="panel doc-panel">
-      <div className="panel-head"><div><p className="eyebrow">Normative Source</p><h2>{title}</h2></div>
-        <a href={href} className="chip-lnk">{path.split("/").slice(-2).join("/")} ↗</a></div>
-      <div className="md-body"><ReactMarkdown>{content}</ReactMarkdown></div>
-    </section>
-  );
-}
-
 /* ════════════════════════════════════════════════════════
    APP
    ════════════════════════════════════════════════════════ */
 
 function App() {
-  const [benchmarkData, setBenchmarkData] = useState(initialBenchmarkData as BenchmarkDataShape);
+  const [benchmarkData, setBenchmarkData] = useState(
+    initialBenchmarkData as unknown as BenchmarkDataShape,
+  );
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [caseSearch, setCaseSearch] = useState("");
   const [resultFilter, setResultFilter] = useState<ResultFilter>("all");
-  const [dataTab, setDataTab] = useState<DataTableTab>("registry");
   const [mobileInsp, setMobileInsp] = useState(false);
   const [openSteps, setOpenSteps] = useState<Set<number>>(new Set([0]));
   const [selTraceSpanId, setSelTraceSpanId] = useState<string | null>(null);
 
   useEffect(() => {
     const livePath = benchmarkData.liveDataPath ?? "/generated/benchmark-data.json";
+    const liveStorePath = benchmarkData.liveStorePath ?? "/generated/benchmark-store.json";
     let active = true;
 
     const refresh = async () => {
       try {
-        const response = await fetch(`${livePath}?ts=${Date.now()}`, {
-          cache: "no-store",
-        });
-        if (!response.ok) {
-          return;
-        }
-        const next = await response.json() as BenchmarkDataShape;
+        const timestamp = Date.now();
+        const [dataResponse, storeResponse] = await Promise.all([
+          fetch(`${livePath}?ts=${timestamp}`, { cache: "no-store" }),
+          fetch(`${liveStorePath}?ts=${timestamp}`, { cache: "no-store" }),
+        ]);
+        const nextData =
+          dataResponse.ok ? await dataResponse.json() as BenchmarkDataShape : null;
+        const liveRuns =
+          storeResponse.ok
+            ? collectLiveRunsFromStore(await storeResponse.json() as BenchmarkStoreShape)
+            : null;
         if (!active) {
           return;
         }
-        setBenchmarkData((current) =>
-          current.generatedAt === next.generatedAt ? current : next,
-        );
+        setBenchmarkData((current) => {
+          let merged = current;
+          if (nextData && current.generatedAt !== nextData.generatedAt) {
+            merged = nextData;
+          }
+          if (liveRuns) {
+            merged = mergeLiveRunsIntoBenchmarkData(merged, liveRuns);
+          }
+          return merged;
+        });
       } catch {
         // Keep the last good snapshot when live refresh is unavailable.
       }
@@ -756,17 +801,10 @@ function App() {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [benchmarkData.liveDataPath]);
+  }, [benchmarkData.liveDataPath, benchmarkData.liveStorePath]);
 
   const suiteSummaries = benchmarkData.suiteSummaries as SuiteSummary[];
   const latestCases = benchmarkData.latestCases as CaseRecord[];
-  const capGaps = benchmarkData.capabilityGapMatrix as TableRow[];
-  const snap = benchmarkData.benchmarkSnapshot as TableRow[];
-  const reg = benchmarkData.registry as TableRow[];
-  const disc = benchmarkData.discoverySections as {
-    currentFrontier: string[]; currentBlocker: string[]; decisionRule: string[];
-    currentNextMoveCommand: string;
-  };
 
   const headline = latestCases[0] ?? null;
   const initSuite = suiteSummaries.find((s) => s.focusCaseId)?.suite ?? headline?.suite ?? "MiniWoB++";
@@ -777,7 +815,7 @@ function App() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-      const m: Record<string, TabId> = { "1": "dashboard", "2": "triage", "3": "playbook", "4": "discovery" };
+      const m: Record<string, TabId> = { "1": "dashboard", "2": "triage" };
       if (m[e.key]) setActiveTab(m[e.key]);
     };
     window.addEventListener("keydown", h);
@@ -819,6 +857,20 @@ function App() {
     for (const x of suiteCases) c[x.result] = (c[x.result] ?? 0) + 1;
     return c;
   }, [suiteCases]);
+
+  const latestSlices = useMemo(() => latestCases.slice(0, 10), [latestCases]);
+  const liveRuns = useMemo(
+    () =>
+      suiteSummaries
+        .flatMap((entry) =>
+          entry.liveRun ? [{ suite: entry.suite, liveRun: entry.liveRun }] : [],
+        )
+        .sort(
+          (left, right) =>
+            (right.liveRun.updatedAtMs ?? 0) - (left.liveRun.updatedAtMs ?? 0),
+        ),
+    [suiteSummaries],
+  );
 
   const goTriage = useCallback((suite: string, cid: string | null) => {
     setSelSuite(suite); setSelCaseId(cid); setActiveTab("triage"); setMobileInsp(false);
@@ -862,7 +914,7 @@ function App() {
                     <div className="ssb-p" style={{ width: `${(s.counts.pass / t) * 100}%` }} />
                     <div className="ssb-n" style={{ width: `${(s.counts["near-miss"] / t) * 100}%` }} />
                   </div><span className="ssb-lbl">{s.counts.pass}/{t}</span></div>
-                ) : <span className="ssb-sub">{s.maturity}</span>}
+                ) : <span className="ssb-sub">{s.liveRun ? "Live run in progress" : "No retained cases yet"}</span>}
                 {s.liveRun?.status === "running" && (
                   <div className="ssb-live">
                     <span className="live-dot" />
@@ -883,12 +935,6 @@ function App() {
         {/* ═══ DASHBOARD ═══ */}
         {activeTab === "dashboard" && (
           <div className="dash">
-            {disc.currentNextMoveCommand && (
-              <div className="nxt">
-                <div className="nxt-h"><span className="eyebrow">Next move</span><CopyBtn text={disc.currentNextMoveCommand} label="command" /></div>
-                <pre>{disc.currentNextMoveCommand}</pre>
-              </div>
-            )}
             <div className="kpis">
               <article className="kpi"><span>Cases</span><strong>{totAll}</strong></article>
               <article className="kpi"><span>Pass rate</span><strong>{totAll ? Math.round((totPass / totAll) * 100) : 0}%</strong></article>
@@ -906,27 +952,88 @@ function App() {
                     {s.counts["near-miss"] > 0 && <span className="hc-n">{s.counts["near-miss"]} near</span>}
                     {s.counts.pass > 0 && <span className="hc-p">{s.counts.pass} pass</span>}
                   </div>}
-                  <p className="hc-f">{s.focusCaseId ? short(s.focusCaseId) : s.maturity}</p>
+                  <p className="hc-f">
+                    {s.focusCaseId
+                      ? short(s.focusCaseId)
+                      : s.liveRun?.activeCaseId
+                        ? shortCaseId(s.liveRun.activeCaseId)
+                        : "No retained cases yet"}
+                  </p>
                   <span className="hc-cta">Open in Triage →</span>
                 </button>
               );
             })}</div>
 
-            <div className="fcards">
-              <FrontierCard title="Current frontier" items={disc.currentFrontier} />
-              <FrontierCard title="Current blocker" items={disc.currentBlocker} />
-              <FrontierCard title="Decision rule" items={disc.decisionRule} />
-            </div>
+            {liveRuns.length > 0 && (
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Live runs</p>
+                    <h2>In-flight suites</h2>
+                  </div>
+                </div>
+                <div className="rail-ls">
+                  {liveRuns.map(({ suite, liveRun }) => (
+                    <button
+                      key={`${suite}:${liveRun.runId}`}
+                      type="button"
+                      className="rcase rcase-live"
+                      onClick={() => goTriage(suite, liveRun.activeCaseId)}
+                    >
+                      <div className="rc-top">
+                        <h3>{suite}</h3>
+                        <span className="pill pill-unknown">
+                          <span className="pill-i">◌</span>
+                          running
+                        </span>
+                      </div>
+                      <p className="rc-q">
+                        {liveRun.completedCases}/{liveRun.totalCases} completed
+                        {liveRun.activeCaseId
+                          ? ` · ${shortCaseId(liveRun.activeCaseId)} active`
+                          : ""}
+                      </p>
+                      <div className="rc-m">
+                        <span>{liveRun.taskSet}</span>
+                        <span>{liveRun.runId}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className="panel">
               <div className="panel-head">
-                <div className="dttabs">{(["registry", "gaps", "snapshot"] as DataTableTab[]).map((t) => (
-                  <button key={t} type="button" className={`dtt ${dataTab === t ? "on" : ""}`} onClick={() => setDataTab(t)}>
-                    {t === "registry" ? "Registry" : t === "gaps" ? "Gaps" : "Snapshot"}
-                  </button>
-                ))}</div>
+                <div>
+                  <p className="eyebrow">Recent cases</p>
+                  <h2>Latest retained slices</h2>
+                </div>
               </div>
-              <div className="tw">{dataTab === "registry" && <GenericTable rows={reg} />}{dataTab === "gaps" && <GapTable rows={capGaps} />}{dataTab === "snapshot" && <GenericTable rows={snap} />}</div>
+              <div className="rail-ls">
+                {latestSlices.map((entry) => (
+                  <button
+                    key={`${entry.runId}:${entry.caseId}`}
+                    type="button"
+                    className="rcase"
+                    onClick={() => goTriage(entry.suite, entry.caseId)}
+                  >
+                    <div className="rc-top">
+                      <h3>{short(entry.caseId)}</h3>
+                      <Pill status={entry.result} />
+                    </div>
+                    <p className="rc-q">{entry.summary.query_text ?? "—"}</p>
+                    <div className="rc-m">
+                      <span>{entry.suite}</span>
+                      <span>{entry.runId}</span>
+                      <span>{v(entry.summary.provider_calls)} calls</span>
+                    </div>
+                  </button>
+                ))}
+                {latestSlices.length === 0 && (
+                  <p className="empty">No retained cases are available yet.</p>
+                )}
+              </div>
             </section>
           </div>
         )}
@@ -1076,8 +1183,6 @@ function App() {
           </div>
         )}
 
-        {activeTab === "playbook" && <MdPanel title="Computer-Use Playbook Spec" path={benchmarkData.docs.playbook.path} href={benchmarkData.docs.playbook.href} content={benchmarkData.docs.playbook.content} />}
-        {activeTab === "discovery" && <MdPanel title="Computer-Use Live Discovery Plan" path={benchmarkData.docs.discovery.path} href={benchmarkData.docs.discovery.href} content={benchmarkData.docs.discovery.content} />}
       </main>
     </div>
   );

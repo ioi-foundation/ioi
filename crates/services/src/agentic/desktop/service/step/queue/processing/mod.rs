@@ -30,7 +30,7 @@ use crate::agentic::desktop::service::step::planner::{
 };
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
-use crate::agentic::desktop::utils::goto_trace_log;
+use crate::agentic::desktop::utils::{goto_trace_log, persist_agent_state};
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
@@ -964,6 +964,7 @@ pub async fn process_queue_item(
         "macro_step".to_string(),
         service.event_sender.clone(),
         active_skill,
+        service.memory_runtime.as_ref(),
     )?;
 
     if let Some(summary) = completion_summary.as_ref() {
@@ -1252,7 +1253,7 @@ pub async fn process_queue_item(
         resolution_action: incident_fields.resolution_action,
         stop_condition_hit,
         escalation_path,
-        scs_lineage_ptr: lineage_pointer(active_skill),
+        lineage_ptr: lineage_pointer(active_skill),
         mutation_receipt_ptr: mutation_receipt_pointer(state, &p.session_id),
         policy_binding_hash: policy_binding,
         policy_binding_sig: None,
@@ -1265,7 +1266,7 @@ pub async fn process_queue_item(
         agent_state.active_skill_hash = None;
     }
 
-    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+    persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
 
     Ok(())
 }

@@ -130,7 +130,7 @@ export interface SkillDetailView {
   description: string;
   lifecycle_state: string;
   source_type: string;
-  frame_id: number;
+  archival_record_id: number;
   success_rate_bps: number;
   sample_size: number;
   source_session_id?: string | null;

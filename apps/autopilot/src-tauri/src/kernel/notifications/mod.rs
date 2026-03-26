@@ -16,6 +16,7 @@ use crate::orchestrator::{
     upsert_assistant_notification, upsert_intervention,
 };
 use chrono::{DateTime, Utc};
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::desktop::connectors::google_api::{
     self, CalendarMeetingPrepCandidate, GmailFollowUpCandidate,
 };
@@ -30,11 +31,12 @@ fn now_ms() -> u64 {
     crate::kernel::state::now()
 }
 
-fn app_store(
-    app: &AppHandle,
-) -> Option<std::sync::Arc<std::sync::Mutex<ioi_scs::SovereignContextStore>>> {
+fn app_memory_runtime(app: &AppHandle) -> Option<std::sync::Arc<MemoryRuntime>> {
     let state = app.state::<Mutex<AppState>>();
-    state.lock().ok().and_then(|guard| guard.studio_scs.clone())
+    state
+        .lock()
+        .ok()
+        .and_then(|guard| guard.memory_runtime.clone())
 }
 
 fn unresolved_intervention(status: &InterventionStatus) -> bool {
@@ -344,11 +346,11 @@ fn google_subscription_label(kind: &str) -> &str {
 }
 
 fn record_assistant_feedback(
-    scs: &std::sync::Arc<std::sync::Mutex<ioi_scs::SovereignContextStore>>,
+    memory_runtime: &std::sync::Arc<MemoryRuntime>,
     notification_class: &AssistantNotificationClass,
     status: &AssistantNotificationStatus,
 ) -> AssistantAttentionProfile {
-    let mut profile = load_assistant_attention_profile(scs);
+    let mut profile = load_assistant_attention_profile(memory_runtime);
     let detector_key = detector_key_for_class(notification_class).to_string();
     let status_key = match status {
         AssistantNotificationStatus::New => "new",
@@ -367,7 +369,7 @@ fn record_assistant_feedback(
         .or_default()
         .entry(status_key)
         .or_insert(0) += 1;
-    save_assistant_attention_profile(scs, &profile);
+    save_assistant_attention_profile(memory_runtime, &profile);
     profile
 }
 
@@ -401,12 +403,12 @@ fn compute_badge_count(
 }
 
 fn emit_badge_count(app: &AppHandle) {
-    let Some(scs) = app_store(app) else {
+    let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
-    let interventions = load_interventions(&scs);
-    let notifications = load_assistant_notifications(&scs);
-    let policy = load_assistant_attention_policy(&scs);
+    let interventions = load_interventions(&memory_runtime);
+    let notifications = load_assistant_notifications(&memory_runtime);
+    let policy = load_assistant_attention_policy(&memory_runtime);
     let count = compute_badge_count(&interventions, &notifications, &policy);
     let _ = app.emit("notifications-badge-updated", count);
 }
@@ -529,15 +531,16 @@ fn sanitize_assistant_user_profile(mut profile: AssistantUserProfile) -> Assista
 }
 
 pub(crate) fn bootstrap_notification_defaults(app: &AppHandle) {
-    let Some(scs) = app_store(app) else {
+    let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
-    let policy = load_assistant_attention_policy(&scs);
-    save_assistant_attention_policy(&scs, &policy);
-    let profile = load_assistant_attention_profile(&scs);
-    save_assistant_attention_profile(&scs, &profile);
-    let user_profile = sanitize_assistant_user_profile(load_assistant_user_profile(&scs));
-    save_assistant_user_profile(&scs, &user_profile);
+    let policy = load_assistant_attention_policy(&memory_runtime);
+    save_assistant_attention_policy(&memory_runtime, &policy);
+    let profile = load_assistant_attention_profile(&memory_runtime);
+    save_assistant_attention_profile(&memory_runtime, &profile);
+    let user_profile =
+        sanitize_assistant_user_profile(load_assistant_user_profile(&memory_runtime));
+    save_assistant_user_profile(&memory_runtime, &user_profile);
     emit_badge_count(app);
 }
 
@@ -557,11 +560,11 @@ pub(crate) async fn spawn_notification_scheduler(app: AppHandle) {
 }
 
 pub(crate) fn upsert_intervention_record(app: &AppHandle, record: InterventionRecord) {
-    let Some(scs) = app_store(app) else {
+    let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
-    let policy = load_assistant_attention_policy(&scs);
-    upsert_intervention(&scs, record.clone());
+    let policy = load_assistant_attention_policy(&memory_runtime);
+    upsert_intervention(&memory_runtime, record.clone());
     let _ = app.emit("intervention-updated", &record);
     maybe_emit_intervention_toast(app, &record, &policy);
     emit_badge_count(app);
@@ -571,11 +574,11 @@ pub(crate) fn upsert_assistant_notification_record(
     app: &AppHandle,
     record: AssistantNotificationRecord,
 ) {
-    let Some(scs) = app_store(app) else {
+    let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
-    let policy = load_assistant_attention_policy(&scs);
-    upsert_assistant_notification(&scs, record.clone());
+    let policy = load_assistant_attention_policy(&memory_runtime);
+    upsert_assistant_notification(&memory_runtime, record.clone());
     let _ = app.emit("assistant-notification-updated", &record);
     maybe_emit_assistant_toast(app, &record, &policy);
     emit_badge_count(app);
@@ -935,13 +938,13 @@ pub(crate) fn record_valuable_completion(
 }
 
 async fn maybe_emit_google_productivity_notifications(app: &AppHandle) {
-    let Some(scs) = app_store(app) else {
+    let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
-    let policy = load_assistant_attention_policy(&scs);
-    let profile = load_assistant_attention_profile(&scs);
+    let policy = load_assistant_attention_policy(&memory_runtime);
+    let profile = load_assistant_attention_profile(&memory_runtime);
     let scan_now = now_ms();
-    let existing_notifications = load_assistant_notifications(&scs);
+    let existing_notifications = load_assistant_notifications(&memory_runtime);
     let mut seen_dedupes = existing_notifications
         .iter()
         .map(|item| item.dedupe_key.clone())
@@ -1465,11 +1468,11 @@ async fn maybe_emit_google_productivity_notifications(app: &AppHandle) {
 }
 
 pub(crate) fn maybe_emit_deadline_risk_notifications(app: &AppHandle) {
-    let Some(scs) = app_store(app) else {
+    let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
     let now = now_ms();
-    let policy = load_assistant_attention_policy(&scs);
+    let policy = load_assistant_attention_policy(&memory_runtime);
     if policy
         .detectors
         .get("deadline_risk")
@@ -1477,8 +1480,8 @@ pub(crate) fn maybe_emit_deadline_risk_notifications(app: &AppHandle) {
     {
         return;
     }
-    let interventions = load_interventions(&scs);
-    let notifications = load_assistant_notifications(&scs);
+    let interventions = load_interventions(&memory_runtime);
+    let notifications = load_assistant_notifications(&memory_runtime);
     for item in interventions
         .iter()
         .filter(|item| unresolved_intervention(&item.status))

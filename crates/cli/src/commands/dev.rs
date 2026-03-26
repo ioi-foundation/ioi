@@ -83,7 +83,7 @@ pub struct DevArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum DevCommands {
-    /// Inject a raw skill JSON into the node's SCS.
+    /// Inject a raw skill JSON into the node's local skill archive.
     InjectSkill { file: PathBuf },
 
     /// Ingest normalized external evidence and synthesize a candidate executable skill.
@@ -1043,7 +1043,7 @@ mod tests {
     fn sample_bundle() -> PublishedSkillBundle {
         let record = SkillRecord {
             skill_hash: [7u8; 32],
-            frame_id: 11,
+            archival_record_id: 11,
             macro_body: AgentMacro {
                 definition: LlmToolDefinition {
                     name: "browser__open_dashboard".to_string(),

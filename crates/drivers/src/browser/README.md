@@ -7,7 +7,7 @@ Built on top of [chromiumoxide](https://github.com/mattsse/chromiumoxide), it co
 ## Features
 
 *   **Headless Automation**: Controls a local Chrome instance (headless by default).
-*   **Context Extraction**: Retrieves full DOM/HTML content to feed into the Agent's context window (SCS).
+*   **Context Extraction**: Retrieves full DOM/HTML content to feed into the agent's runtime-backed context and evidence pipeline.
 *   **Interaction**: Supports clicking elements via CSS selectors.
 *   **Concurrency**: Thread-safe architecture using `Arc<Mutex<...>>`, allowing the driver to be shared across the Agent's execution loop.
 *   **Runtime Agnostic**: Automatically detects if it is running within a Tokio runtime or needs to spawn its own background thread for the CDP event loop.

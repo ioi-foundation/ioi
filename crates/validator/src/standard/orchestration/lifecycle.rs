@@ -614,6 +614,7 @@ where
             receipt_map.clone(),
             self.safety_model.clone(),
             self.os_driver.clone(),
+            self.memory_runtime.clone(),
             IngestionConfig::from_runtime_env(),
             event_tx.clone(),
         ));
@@ -717,7 +718,7 @@ where
                 inner: self.inference_runtime.clone(),
             }),
             os_driver: self.os_driver.clone(),
-            scs: self.scs.clone(),
+            memory_runtime: self.memory_runtime.clone(),
             event_broadcaster: event_tx,
         };
 

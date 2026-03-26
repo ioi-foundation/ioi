@@ -14,6 +14,7 @@ use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, PostMessageParams, ResumeAgentParams,
     SessionSummary, StartAgentParams, SwarmContext,
 };
+use crate::agentic::desktop::utils::{delete_agent_state_checkpoint, persist_agent_state};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::codec;
@@ -60,7 +61,7 @@ pub async fn handle_start(
                     let mut arr = [0u8; 32];
                     arr.copy_from_slice(&swarm_hash);
 
-                    if let Some(manifest) = service.fetch_swarm_manifest(arr).await {
+                    if let Some(manifest) = service.fetch_swarm_manifest(state, arr).await {
                         log::info!("Hydrating Swarm '{}' ({})", manifest.name, hash_hex);
 
                         // For MVP, assume first roster agent is the root entry point.
@@ -116,7 +117,12 @@ pub async fn handle_start(
                 // Keep child in ad-hoc mode until explicit role plumbing is added.
             }
 
-            state.insert(&parent_key, &codec::to_bytes_canonical(&parent_state)?)?;
+            persist_agent_state(
+                state,
+                &parent_key,
+                &parent_state,
+                service.memory_runtime.as_ref(),
+            )?;
         } else {
             return Err(TransactionError::Invalid("Parent session not found".into()));
         }
@@ -174,7 +180,7 @@ pub async fn handle_start(
         planner_state: None,
         command_history: Default::default(),
     };
-    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+    persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
 
     let history_key = b"agent::history".to_vec();
     let mut history: Vec<SessionSummary> = if let Some(bytes) = state.get(&history_key)? {
@@ -303,7 +309,7 @@ pub async fn handle_post_message(
             agent_state.consecutive_failures = 0;
         }
 
-        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
     } else {
         return Err(TransactionError::Invalid("Session not found".into()));
     }
@@ -364,7 +370,7 @@ pub async fn handle_resume(
                     hex::encode(&p.session_id[..4])
                 );
                 agent_state.status = AgentStatus::Paused("Waiting for sudo password".to_string());
-                state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
                 return Ok(());
             }
         }
@@ -406,7 +412,7 @@ pub async fn handle_resume(
 
         agent_state.consecutive_failures = 0;
 
-        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
         Ok(())
     } else {
         Err(TransactionError::Invalid(format!(
@@ -427,6 +433,13 @@ pub async fn handle_delete_session(
 
     let state_key = get_state_key(&session_id);
     state.delete(&state_key)?;
+    if let Err(error) = delete_agent_state_checkpoint(service.memory_runtime.as_ref(), session_id) {
+        log::warn!(
+            "Failed to delete agent-state checkpoint for session {}: {}",
+            hex::encode(&session_id[..4]),
+            error
+        );
+    }
     let remediation_key = get_remediation_key(&session_id);
     state.delete(&remediation_key)?;
     let incident_key = get_incident_key(&session_id);

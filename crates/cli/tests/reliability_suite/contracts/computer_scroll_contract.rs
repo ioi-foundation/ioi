@@ -253,7 +253,7 @@ fn routing_receipt_contract_for_scroll_includes_canonical_hash_and_pre_state() {
         resolution_action: String::new(),
         stop_condition_hit: false,
         escalation_path: None,
-        scs_lineage_ptr: None,
+        lineage_ptr: None,
         mutation_receipt_ptr: None,
         policy_binding_hash: binding_hash.clone(),
         policy_binding_sig: None,

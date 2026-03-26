@@ -68,7 +68,7 @@ use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{
     AgentState, AgentStatus, ToolCallStatus, MAX_COMMAND_HISTORY,
 };
-use crate::agentic::desktop::utils::goto_trace_log;
+use crate::agentic::desktop::utils::{goto_trace_log, persist_agent_state};
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
@@ -192,9 +192,15 @@ pub async fn process_tool_output(
                             "system::expand_macro".to_string(),
                             service.event_sender.clone(),
                             Some(skill_hash),
+                            service.memory_runtime.as_ref(),
                         )?;
                         agent_state.step_count += 1;
-                        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                        persist_agent_state(
+                            state,
+                            &key,
+                            &agent_state,
+                            service.memory_runtime.as_ref(),
+                        )?;
                         return Ok(());
                     }
                     Err(_e) => {
@@ -301,7 +307,7 @@ pub async fn process_tool_output(
                 agent_state.pending_request_nonce = None;
                 agent_state.pending_approval = None;
                 agent_state.status = AgentStatus::Running;
-                state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+                persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
                 return Ok(());
             }
         }

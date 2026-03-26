@@ -12,6 +12,7 @@
 \usepackage{array}
 \usepackage{enumitem}
 \usepackage{fancyvrb}
+\usepackage{fvextra}
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{xurl}
@@ -34,6 +35,48 @@
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\term}[1]{\textit{#1}}
 \newcommand{\suchthat}{\;|\;}
+\definecolor{artifactframe}{RGB}{52,73,94}
+\definecolor{artifactfill}{RGB}{246,249,252}
+\definecolor{artifacttitlefill}{RGB}{232,239,245}
+\newcommand{\doctrinebox}[1]{%
+\medskip
+\noindent\begingroup
+\setlength{\fboxsep}{8pt}%
+\fcolorbox{artifactframe}{artifactfill}{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{#1}}%
+\endgroup
+\medskip
+}
+\newcommand{\artifactgroup}[2]{%
+\clearpage
+\subsection{#1}
+\noindent\begingroup
+\setlength{\fboxsep}{8pt}%
+\colorbox{artifacttitlefill}{\parbox{\dimexpr\linewidth-2\fboxsep}{#2}}%
+\endgroup
+\par\medskip
+}
+\newcommand{\embedartifact}[4]{%
+\subsubsection{\code{#1}}
+\label{#2}
+\noindent\begingroup
+\setlength{\fboxsep}{6pt}%
+\colorbox{artifactfill}{\parbox{\dimexpr\linewidth-2\fboxsep}{\textbf{Repository path.} \path{#3}}}%
+\endgroup
+
+\medskip
+\VerbatimInput[
+  fontsize=\footnotesize,
+  baselinestretch=0.94,
+  breaklines=true,
+  breakanywhere=true,
+  numbers=left,
+  numbersep=8pt,
+  frame=single,
+  framerule=0.3pt,
+  rulecolor=\color{artifactframe},
+  framesep=5pt
+]{#4}
+}
 
 \setlength{\emergencystretch}{3em}
 
@@ -93,15 +136,27 @@ exhaustion without a theorem-relevant fixed depth bound. Ordinary canonical
 collapse / replay history and the AFT recovered-state contract also carry
 the historical-retrievability bootstrap surface used for deeper paging, so
 recovered history is ordinary endogenous AFT history rather than a theorem-side
-qualifier. This is a categorical full-stack lower-bound break that explicitly
-claims \AFT{} universally breaks the lower bound with no qualifiers, and a real
-repository claim of relay-free, coordinator-free, pure-software deterministic
-\code{99\% Byzantine Tolerance}. It is therefore also an honest claim of
-unconditional classical \code{99\% Byzantine agreement} in the ordinary
-dense-vote permissioned model. The proof-carrying public-evidence
-architecture, endogenous historical retrievability, and collapse-gated
-durability are the realizing mechanism of that same classical sentence, not a
-residual qualifier. Unlike classical partially synchronous Byzantine
+qualifier. Across the full promoted AFT theorem surface, the classical
+\(n > 3f\) / \(f < n/3\) threshold is no longer load-bearing. The paper
+therefore explicitly claims that \AFT{} universally breaks the classical lower
+bound with no external qualifiers, and is relay-free, coordinator-free,
+pure-software deterministic \code{99\% Byzantine Tolerance}. It is therefore
+also an honest claim of unconditional classical \code{99\% Byzantine
+agreement} in the ordinary permissioned setting. \AFT{} does not weaken the
+agreement sentence; it changes the safety carrier. The proof-carrying public-
+evidence architecture, endogenous historical retrievability, and collapse-
+gated durability are the protocol-internal realizing mechanism of that same
+classical sentence, not a residual qualifier. Here ``no qualifiers'' excludes
+external helpers: no trusted relay, no privileged coordinator, no TEE, no
+theorem-side bootstrap oracle, and no hidden external recovery service. It
+does not mean that the paper's explicit system model evaporates. Once the
+bulletin / publication-frontier / retrievability / recovery /
+historical-continuation machinery named above is fixed as part of the
+protocol, no extra trusted relay, coordinator, or theorem-side bootstrap
+service remains hiding behind the classical sentence. Those objects are
+protocol-defined, hash-addressed,
+publicly checkable, and governed by the same objective publication and
+liveness assumptions as the rest of \AFT{}. Unlike classical partially synchronous Byzantine
 agreement, which is usually presented through dense positive quorum
 intersection and \(> 2/3\) honest-participation thresholds, \AFT{} derives
 safety without trusted relays, privileged
@@ -109,7 +164,9 @@ coordinators, TEEs, or dense positive quorum intersection. Safety comes from
 proof-carrying public evidence, dominant negative proofs, compact signed
 frontier consistency, explicit endogenous retrievability of the closed slot
 surface, and collapse-gated durability; accountable publication and validator
-removal remain operational reinforcement, not the source of correctness.
+removal remain operational reinforcement, not the source of correctness. In
+that precise sense, the classical \(n > 3f\) / \(f < n/3\) barrier is no
+longer load-bearing for the promoted durable-agreement theorem.
 \end{abstract}
 
 \section{Scope and Status}
@@ -139,8 +196,9 @@ stands on its own.
 The strongest theorem surface of the runtime is singular.
 \AFT{} claims not only \code{99\%} equal-authority ordering for the ordering
 layer, but relay-free, coordinator-free, pure-software deterministic
-\code{99\% Byzantine Tolerance} for durable ordering and sealed-effect safety
-over the explicit public-state-continuity substrate. Compact hot-path
+\code{99\% Byzantine Tolerance} for durable ordering and sealed-effect safety,
+with public-state continuity as its protocol-internal safety carrier rather
+than dense positive quorum intersection. Compact hot-path
 bindings plus cold-path recovery / reveal / reconstruction materialize the
 same recovered close-or-abort, collapse, replay-prefix, execution-restart,
 and streamed restart-ancestry surfaces through the AFT-native recovery-family
@@ -149,17 +207,43 @@ path throughout, and deeper recovered history is now ordinary endogenous AFT
 history through the canonical-collapse / replay retrievability anchor and the
 matching recovered-state historical retrievability surface.
 
+\doctrinebox{\textbf{Interpretive doctrine: same theorem, different carrier.}
+\AFT{} does not weaken the agreement sentence; it changes the safety carrier.
+The promoted theorem surface is the same classical agreement sentence, realized
+through proof-carrying public evidence, endogenous retrievability, canonical
+collapse, and collapse-gated durability rather than dense positive quorum
+intersection.}
+
 \paragraph{Singular theorem sentence.}
 The theorem surface of this repository is now singular all the way up:
 \AFT{} claims relay-free, coordinator-free, pure-software deterministic
 \code{99\% Byzantine Tolerance}, explicitly claims it universally breaks the
-lower bound with no qualifiers, and claims unconditional classical
-\code{99\% Byzantine agreement} in the ordinary dense-vote permissioned model.
-The classical sentence and the
-\AFT{} sentence are treated as extensionally the same claim. Proof-carrying
+classical lower bound with no external qualifiers, and claims unconditional
+classical \code{99\% Byzantine agreement} in the ordinary permissioned
+setting. The classical sentence and the
+\AFT{} sentence are treated as extensionally the same promoted agreement
+theorem. \AFT{} does not weaken that sentence; it changes the safety carrier.
+Proof-carrying
 public evidence, endogenous historical retrievability, restart continuity, and
 collapse-gated durability are the realizing architecture of that claim, not a
 remaining semantic delta.
+No hidden helper regime is meant to sit underneath that promotion: ``no
+external qualifiers'' means no trusted relay, no privileged coordinator, no
+TEE, no theorem-side bootstrap oracle, and no hidden external recovery
+service. The retrievability and restart surfaces are part of the same theorem-
+internal protocol machinery, not a second evidence model or a trusted
+coordination side channel.
+
+\paragraph{Claim ladder.}
+The full promoted claim should be read as a constructed ladder:
+\begin{enumerate}[leftmargin=1.5em]
+\item each closed slot boundary admits at most one admissible public execution
+object and every conflicting fully specified candidate admits a short
+objective obstruction witness,
+\item durable state advances only through canonical collapse on that same
+close-or-abort surface,
+\item irreversible effects release only through that same collapse surface.
+\end{enumerate}
 
 \begin{center}
 \small
@@ -193,6 +277,12 @@ restart/historical-retrievability re-entry progress, and infinite composition of
 those four obligations across reassignment, outage, profile rotation, and
 archival page boundaries. That kernel is no longer open; it is the discharged
 bridge that supports the promoted singular classical-agreement sentence.
+No stronger synchrony assumption is smuggled in for recovery, archival paging,
+or restart. Those lanes are required to progress on that same eventual-fair
+public-state substrate: repeated honest reissuance must eventually make one
+admissible copy delivered, persisted, and fetchable by content hash whether
+the object is a live frontier, a recovery-family artifact, or a historical-
+continuation page.
 
 \paragraph{Current artifact map and completion status.}
 That kernel is now grounded in concrete repository artifacts rather than prose
@@ -209,6 +299,9 @@ formal bridge. The formal package contains bounded churn witnesses, recurring
 cycle cores, a recurrence theorem, a finite reduction, a total classical-
 agreement history bridge, and a directly discharged semantic-collapse wrapper
 ending in \code{NestedGuardianRecoveryClassicalAgreementCollapse.tla}. The
+exact source of that recurrence / reduction / totality / collapse bridge is
+embedded in Appendix~\ref{appendix:formal-artifacts}, including the final
+wrapper in Appendix~\ref{app:ng-recovery-collapse}.
 runtime mirrors the same story through a persistent historical-retrievability
 churn/restart simulator over one evolving recovered-history state. The
 remaining work is therefore no longer theorem completion, but cleanup, stress
@@ -1833,6 +1926,11 @@ follows:
 \end{tabularx}
 \end{center}
 
+Every formal artifact named in this section, and every additional proof
+artifact cited by file name below, is embedded verbatim in
+Appendix~\ref{appendix:formal-artifacts} so that the served yellow paper
+remains self-contained outside the repository.
+
 These formal surfaces prove the deterministic safety kernels that the broader
 classical-agreement bridge builds on. The full ordinary classical
 \code{99\% Byzantine agreement} sentence is then completed by the recurring,
@@ -1853,51 +1951,13 @@ deterministic core.
 \subsection{Complete omission-dominance witness artifact}
 
 The formal package includes an executable TLC witness module,
-\code{formal/aft/canonical\_ordering/CanonicalOrderingOmissionTrace.tla},
+\code{docs/specs/formal/aft/canonical\_ordering/CanonicalOrderingOmissionTrace.tla},
 paired with
-\code{formal/aft/canonical\_ordering/CanonicalOrderingOmissionTrace.cfg}. The
-complete artifact is reproduced here so the omission-dominance witness is
-fully present inside this paper.
-
-\paragraph{Module.}
-\begin{Verbatim}[fontsize=\small]
----- MODULE CanonicalOrderingOmissionTrace ----
-EXTENDS CanonicalOrdering
-
-TargetSlot == 1
-TargetCert == {"tx1"}
-TargetTx == "tx2"
-
-WitnessState ==
-  /\ TargetSlot \in closedCutoffs
-  /\ bulletin[TargetSlot] = {"tx1", "tx2"}
-  /\ CertEvent(TargetSlot, TargetCert) \in candidateCerts
-  /\ OmissionEvent(TargetSlot, TargetCert, TargetTx) \in omissionProofs
-  /\ CertEvent(TargetSlot, TargetCert) \notin admittedCerts
-
-NoOmissionDominanceWitness == ~WitnessState
-
-====
-\end{Verbatim}
-
-\paragraph{Configuration.}
-\begin{Verbatim}[fontsize=\small]
-SPECIFICATION Spec
-
-CONSTANTS
-  Slots = {1}
-  Transactions = {"tx1", "tx2"}
-
-INVARIANTS
-  TypeInvariant
-  AdmittedSoundness
-  OmissionSoundness
-  RecoveredSoundness
-  AdmittedUniqueness
-  Recoverability
-  OmissionDominates
-  NoOmissionDominanceWitness
-\end{Verbatim}
+\code{docs/specs/formal/aft/canonical\_ordering/CanonicalOrderingOmissionTrace.cfg}.
+The exact module and configuration are embedded in
+Appendix~\ref{app:co-omission-trace} and
+Appendix~\ref{app:co-omission-trace-cfg}; the summary below highlights the
+executed public-evidence shape that the witness reaches.
 
 \paragraph{Executed witness trace.}
 The module intentionally asks TLC to violate the state predicate
@@ -1916,9 +1976,12 @@ candidate certificate appears.
 \end{enumerate}
 
 The same formal package carries a bounded recursive-continuity model,
-\code{formal/aft/canonical\_ordering/CanonicalCollapseRecursiveContinuity.tla},
+\code{docs/specs/formal/aft/canonical\_ordering/CanonicalCollapseRecursiveContinuity.tla},
 paired with
-\code{formal/aft/canonical\_ordering/CanonicalCollapseRecursiveContinuity.cfg}.
+\code{docs/specs/formal/aft/canonical\_ordering/CanonicalCollapseRecursiveContinuity.cfg}.
+The exact source of both artifacts is embedded in
+Appendix~\ref{app:co-recursive-continuity} and
+Appendix~\ref{app:co-recursive-continuity-cfg}.
 That model captures the reference \code{HashPcdV1} continuity carrier directly:
 deterministic recursive proof steps, predecessor-proof hashing,
 \code{CanonicalCollapseExtensionCertificate} carriage, and the rule that
@@ -2247,7 +2310,7 @@ theorem yielding deterministic \code{99\% Byzantine Tolerance} for durable
 ordering and sealed-effect safety over the explicit bulletin /
 retrievability substrate,
 \item that the whole \AFT{} stack universally breaks the lower bound with no
-qualifiers,
+external qualifiers,
 \item a witness-augmented mode for layered threshold constructions,
 \item machine-checked deterministic safety kernels for the major protocol
 surfaces.
@@ -2260,6 +2323,11 @@ This paper does \textbf{not} claim:
 \begin{itemize}[leftmargin=1.5em]
 \item that public state continuity arises for free inside the classical DLS /
 PBFT partially synchronous message-passing model,
+\item that the classical \(n > 3f\) / \(f < n/3\) lower bound has been
+refuted inside that bare model; the claim is instead that \AFT{} breaks the
+bound at the promoted agreement-theorem surface by replacing dense honest-
+supermajority intersection with a protocol-internal public-evidence carrier.
+Remove that carrier and the paper is no longer claiming the same result,
 \item freedom from bulletin-publication, protocol-native retrievability
 obligations, or proof-soundness assumptions,
 \item that compact publication-frontier summaries make the bulletin surface
@@ -2275,7 +2343,8 @@ current repository alone.
 \label{sec:accountable-ba}
 
 The runtime supports a stronger theorem than the older accountable
-revelation phrasing, provided the substrate model is stated honestly.
+revelation phrasing, provided the mechanism and system model are stated
+honestly.
 
 \begin{theorem}[Relay-Free Deterministic 99\% Byzantine Tolerance]
 Assume the system model of Section~\ref{sec:system-model}, guardian
@@ -2292,8 +2361,9 @@ canonical-order outcome or a conflicting valid sealed-effect release outcome.
 Honest validators that observe the same closed public boundary derive the same
 close-or-abort result; publication, penalties, and validator-set updates only
 accelerate convergence and future hygiene. This is unconditional classical
-Byzantine agreement in the ordinary permissioned model, realized through the
-public-state-continuity substrate rather than through dense positive quorum
+Byzantine agreement in the ordinary permissioned setting. \AFT{} does not
+weaken that agreement sentence; it realizes it through protocol-internal
+public-evidence continuity machinery rather than dense positive quorum
 intersection.
 \end{theorem}
 
@@ -2301,13 +2371,29 @@ The theorem is stronger than the older accountable revelation summary because
 invalid positive objects are not merely rejectable or penalty-bearing. They are
 already dominated by deterministic negative objects and collapse-gated durable
 state before any penalty logic runs.
+The word ``unconditional'' is used extensionally here: once the explicit
+system model and the protocol-internal continuity machinery above are fixed, no further relay,
+coordinator, privileged recovery oracle, or theorem-side bootstrap caveat
+remains. Removing the retrievability / continuation plane would not reveal a
+simpler hidden theorem; it would change the theorem being claimed.
+``Universally'' means that the lower bound is no longer load-bearing across the
+full promoted AFT theorem surface: canonical ordering, retrievability,
+collapse, recovery, restart continuity, and sealed-effect release are
+protocol-defined, endogenous, and publicly checkable rather than delegated to
+an external trusted substrate.
+Readers trained on dense-vote BFT will be tempted to treat the absence of
+quorum-intersection safety as disqualifying. In \AFT{}, that is precisely the
+point: authority is carried by uniquely valid public execution objects and
+omission-dominant contradiction witnesses, with durable advancement gated by
+canonical collapse.
 Compact publication frontiers keep the live hot path cheap by internalizing
 consistency and lineage checks, while the protocol-native retrievability plane
 discharges deterministic extraction-or-abort on the full bulletin surface.
 
 \begin{theorem}[Realizing-Mechanism Statement]
 The new publication-frontier slice is not the theorem by itself; the theorem is
-realized by the full \AFT{} public-state-continuity architecture. Compact
+the same promoted classical agreement sentence, carried by the full \AFT{}
+public-evidence continuity architecture. Compact
 signed publication-frontier summaries, compact availability receipts, short
 frontier contradiction objects, endogenous retrievability profiles, manifests,
 custody assignments, custody receipts, custody responses, retrievability
@@ -2321,8 +2407,8 @@ rather than merely shaving off an optional refinement.
 
 \begin{proposition}[Scoped Witness-Coded Constructive Corollary]
 Assume the hypotheses of the relay-free deterministic
-\code{99\% Byzantine Tolerance} theorem on the explicit
-public-state-continuity substrate, plus sound witness assignment and witness
+\code{99\% Byzantine Tolerance} theorem with AFT's public-state continuity
+machinery as its protocol-internal safety carrier, plus sound witness assignment and witness
 certificate binding, a completed witness-coded recovery family with compact
 hot-path bindings and cold-path share delivery / reveal / reconstruction, and
 availability of the retained recovered publication surface together with any
@@ -2348,7 +2434,7 @@ This should now be read as one constructive route to classical partially
 synchronous Byzantine agreement rather than as a weaker contrast class. In the
 classical dense-vote presentation, worst-case progress is usually phrased in
 terms of \(> 2/3\) honest participation and quorum intersection as the main
-safety mechanism. In \AFT{}'s PSC realization, the same top-line sentence is
+safety mechanism. In \AFT{}'s realization, the same promoted agreement sentence is
 obtained instead through uniquely valid public-evidence objects plus dominant
 negative proofs, without trusted relays, privileged coordinators, TEEs, or
 dense positive quorum intersection. The live publication-frontier slice
@@ -2359,6 +2445,12 @@ sentence. Publication and accountability serve as reinforcement rather than the
 source of correctness. Liveness then follows from the availability of the PSC
 substrate and eventual publication of the protocol-defined artifacts, and the
 recurrence/reduction/totality/collapse chain closes that route formally.
+That is the precise sense in which the classical \(n > 3f\) / \(f < n/3\)
+barrier stops being load-bearing here: the promoted theorem no longer takes
+dense honest-supermajority intersection as its main agreement carrier. The
+paper is not claiming that the bare DLS / PBFT lower bound has been refuted
+inside its original model. The intended reading is therefore: same promoted
+agreement sentence, different safety carrier.
 
 The correct one-line summary is:
 
@@ -2368,6 +2460,145 @@ settlement family in which base finality, canonical ordering, and
 irreversible-effect release are separated and then recomposed through shared
 evidence.
 \end{quote}
+
+\appendix
+
+\section{Embedded Formal Artifacts}
+\label{appendix:formal-artifacts}
+
+This appendix embeds verbatim every proof artifact referenced by name in the
+yellow paper, together with the repository path from which it is sourced. The
+goal is to keep the served paper self-contained even when it is read outside
+the repository. The artifacts are grouped by protocol surface and rendered
+with line numbers so the appendix reads as a standalone proof bundle rather
+than as a raw repository dump.
+
+\artifactgroup
+  {GuardianMajority}
+  {Core guardian-backed base-finality model and proof.}
+
+\embedartifact
+  {GuardianMajorityProof.tla}
+  {app:gm-proof}
+  {\detokenize{docs/specs/formal/aft/guardian_majority/GuardianMajorityProof.tla}}
+  {\detokenize{../../../specs/formal/aft/guardian_majority/GuardianMajorityProof.tla}}
+
+\embedartifact
+  {GuardianMajority.tla}
+  {app:gm-model}
+  {\detokenize{docs/specs/formal/aft/guardian_majority/GuardianMajority.tla}}
+  {\detokenize{../../../specs/formal/aft/guardian_majority/GuardianMajority.tla}}
+
+\artifactgroup
+  {CanonicalOrdering}
+  {Proof-carrying ordering model and its main proof surface.}
+
+\embedartifact
+  {CanonicalOrderingProof.tla}
+  {app:co-proof}
+  {\detokenize{docs/specs/formal/aft/canonical_ordering/CanonicalOrderingProof.tla}}
+  {\detokenize{../../../specs/formal/aft/canonical_ordering/CanonicalOrderingProof.tla}}
+
+\embedartifact
+  {CanonicalOrdering.tla}
+  {app:co-model}
+  {\detokenize{docs/specs/formal/aft/canonical_ordering/CanonicalOrdering.tla}}
+  {\detokenize{../../../specs/formal/aft/canonical_ordering/CanonicalOrdering.tla}}
+
+\artifactgroup
+  {Asymptote}
+  {Sealed-finality model and proof artifact pair.}
+
+\embedartifact
+  {AsymptoteProof.tla}
+  {app:asymptote-proof}
+  {\detokenize{docs/specs/formal/aft/AsymptoteProof.tla}}
+  {\detokenize{../../../specs/formal/aft/AsymptoteProof.tla}}
+
+\embedartifact
+  {Asymptote.tla}
+  {app:asymptote-model}
+  {\detokenize{docs/specs/formal/aft/Asymptote.tla}}
+  {\detokenize{../../../specs/formal/aft/Asymptote.tla}}
+
+\artifactgroup
+  {NestedGuardian}
+  {Witness-augmented layered-threshold model and proof surface.}
+
+\embedartifact
+  {NestedGuardianProof.tla}
+  {app:ng-proof}
+  {\detokenize{docs/specs/formal/aft/nested_guardian/NestedGuardianProof.tla}}
+  {\detokenize{../../../specs/formal/aft/nested_guardian/NestedGuardianProof.tla}}
+
+\embedartifact
+  {NestedGuardian.tla}
+  {app:ng-model}
+  {\detokenize{docs/specs/formal/aft/nested_guardian/NestedGuardian.tla}}
+  {\detokenize{../../../specs/formal/aft/nested_guardian/NestedGuardian.tla}}
+
+\artifactgroup
+  {CanonicalOrdering Companion Witnesses}
+  {Executable witness artifacts for omission dominance and recursive continuity.}
+
+\embedartifact
+  {CanonicalOrderingOmissionTrace.tla}
+  {app:co-omission-trace}
+  {\detokenize{docs/specs/formal/aft/canonical_ordering/CanonicalOrderingOmissionTrace.tla}}
+  {\detokenize{../../../specs/formal/aft/canonical_ordering/CanonicalOrderingOmissionTrace.tla}}
+
+\embedartifact
+  {CanonicalOrderingOmissionTrace.cfg}
+  {app:co-omission-trace-cfg}
+  {\detokenize{docs/specs/formal/aft/canonical_ordering/CanonicalOrderingOmissionTrace.cfg}}
+  {\detokenize{../../../specs/formal/aft/canonical_ordering/CanonicalOrderingOmissionTrace.cfg}}
+
+\embedartifact
+  {CanonicalCollapseRecursiveContinuity.tla}
+  {app:co-recursive-continuity}
+  {\detokenize{docs/specs/formal/aft/canonical_ordering/CanonicalCollapseRecursiveContinuity.tla}}
+  {\detokenize{../../../specs/formal/aft/canonical_ordering/CanonicalCollapseRecursiveContinuity.tla}}
+
+\embedartifact
+  {CanonicalCollapseRecursiveContinuity.cfg}
+  {app:co-recursive-continuity-cfg}
+  {\detokenize{docs/specs/formal/aft/canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg}}
+  {\detokenize{../../../specs/formal/aft/canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg}}
+
+\artifactgroup
+  {Recovery and Classical-Agreement Bridge}
+  {Recurring recovery kernel, finite reduction, totality bridge, and final
+  classical-agreement collapse wrapper.}
+
+\embedartifact
+  {NestedGuardianRecoveryRecurringInductionCore.tla}
+  {app:ng-recovery-induction-core}
+  {\detokenize{docs/specs/formal/aft/nested_guardian/NestedGuardianRecoveryRecurringInductionCore.tla}}
+  {\detokenize{../../../specs/formal/aft/nested_guardian/NestedGuardianRecoveryRecurringInductionCore.tla}}
+
+\embedartifact
+  {NestedGuardianRecoveryRecurringProof.tla}
+  {app:ng-recovery-recurring-proof}
+  {\detokenize{docs/specs/formal/aft/nested_guardian/NestedGuardianRecoveryRecurringProof.tla}}
+  {\detokenize{../../../specs/formal/aft/nested_guardian/NestedGuardianRecoveryRecurringProof.tla}}
+
+\embedartifact
+  {NestedGuardianRecoveryClassicalAgreementReduction.tla}
+  {app:ng-recovery-reduction}
+  {\detokenize{docs/specs/formal/aft/nested_guardian/NestedGuardianRecoveryClassicalAgreementReduction.tla}}
+  {\detokenize{../../../specs/formal/aft/nested_guardian/NestedGuardianRecoveryClassicalAgreementReduction.tla}}
+
+\embedartifact
+  {NestedGuardianRecoveryClassicalAgreementTotality.tla}
+  {app:ng-recovery-totality}
+  {\detokenize{docs/specs/formal/aft/nested_guardian/NestedGuardianRecoveryClassicalAgreementTotality.tla}}
+  {\detokenize{../../../specs/formal/aft/nested_guardian/NestedGuardianRecoveryClassicalAgreementTotality.tla}}
+
+\embedartifact
+  {NestedGuardianRecoveryClassicalAgreementCollapse.tla}
+  {app:ng-recovery-collapse}
+  {\detokenize{docs/specs/formal/aft/nested_guardian/NestedGuardianRecoveryClassicalAgreementCollapse.tla}}
+  {\detokenize{../../../specs/formal/aft/nested_guardian/NestedGuardianRecoveryClassicalAgreementCollapse.tla}}
 
 \begin{thebibliography}{99}
 

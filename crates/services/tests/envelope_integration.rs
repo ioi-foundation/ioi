@@ -1,16 +1,14 @@
 // Path: crates/services/tests/envelope_integration.rs
 
 use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::mock::MockInferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::{SovereignContextStore, StoreConfig};
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::desktop::service::DesktopAgentService;
 use ioi_types::app::agentic::ChatMessage;
 use ioi_types::app::{ActionRequest, ContextSlice};
@@ -55,34 +53,23 @@ impl GuiDriver for NoopGuiDriver {
     }
 }
 
-fn build_service_with_scs_store() -> (DesktopAgentService, PathBuf) {
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|time| time.as_nanos())
-        .unwrap_or(0);
-    let path = std::env::temp_dir().join(format!("ioi_service_envelope_integration_{ts}.scs"));
-
-    let config = StoreConfig {
-        chain_id: 1,
-        owner_id: [11u8; 32],
-        identity_key: [12u8; 32],
-    };
-
-    let store = SovereignContextStore::create(&path, config).expect("create scs store");
+fn build_service_with_memory_runtime() -> DesktopAgentService {
     let service = DesktopAgentService::new(
         Arc::new(NoopGuiDriver),
         Arc::new(TerminalDriver::new()),
         Arc::new(BrowserDriver::new()),
         Arc::new(MockInferenceRuntime),
     )
-    .with_scs(Arc::new(Mutex::new(store)));
+    .with_memory_runtime(Arc::new(
+        MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
+    ));
 
-    (service, path)
+    service
 }
 
 #[tokio::test]
 async fn model_surface_is_scrubbed_and_raw_surface_preserves_input() {
-    let (service, path) = build_service_with_scs_store();
+    let service = build_service_with_memory_runtime();
     let session_id = [4u8; 32];
     let secret_msg = ChatMessage {
         role: "user".to_string(),
@@ -111,6 +98,4 @@ async fn model_surface_is_scrubbed_and_raw_surface_preserves_input() {
     assert!(!model_history[0]
         .content
         .contains("sk_live_abcd1234abcd1234"));
-
-    let _ = std::fs::remove_file(path);
 }

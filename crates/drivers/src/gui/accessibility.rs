@@ -2397,15 +2397,16 @@ mod tests {
     }
 }
 
-/// The interface for the Sovereign Context Substrate (SCS).
-/// Unlike a passive file system, the SCS actively filters data based on agentic intent.
+/// The interface for the desktop context substrate.
+/// Implementations may persist the captured slice as evidence, or keep it local-only.
 #[async_trait]
 pub trait SovereignSubstrateProvider: Send + Sync {
-    /// Retrieves a context slice authorized and filtered by the provided intent.
+    /// Persists a context slice authorized and filtered by the provided intent.
     async fn get_intent_constrained_slice(
         &self,
         intent: &ActionRequest,
         monitor_handle: u32,
+        slice_bytes: &[u8],
     ) -> Result<ContextSlice>;
 }
 
@@ -2418,82 +2419,85 @@ impl SovereignSubstrateProvider for MockSubstrateProvider {
         &self,
         intent: &ActionRequest,
         _monitor_handle: u32,
+        slice_bytes: &[u8],
     ) -> Result<ContextSlice> {
-        // 1. Capture Raw Context (Simulated)
-        let raw_tree = AccessibilityNode {
-            id: "win-1".to_string(),
-            role: "window".to_string(),
-            name: Some("IOI Autopilot".to_string()),
-            value: None,
-            rect: Rect {
-                x: 0,
-                y: 0,
-                width: 1920,
-                height: 1080,
-            },
-            is_visible: true,
-            attributes: HashMap::new(), // [NEW] Init
-            children: vec![
-                AccessibilityNode {
-                    id: "btn-1".to_string(),
-                    role: "button".to_string(),
-                    name: Some("Connect Wallet".to_string()),
-                    value: None,
-                    rect: Rect {
-                        x: 100,
-                        y: 100,
-                        width: 200,
-                        height: 50,
-                    },
-                    is_visible: true,
-                    attributes: HashMap::from([(
-                        "data-testid".to_string(),
-                        "connect-wallet-btn".to_string(),
-                    )]), // [NEW] Init with mock attr
-                    som_id: None,
-                    children: vec![],
+        let xml_data = if slice_bytes.is_empty() {
+            // 1. Capture Raw Context (Simulated)
+            let raw_tree = AccessibilityNode {
+                id: "win-1".to_string(),
+                role: "window".to_string(),
+                name: Some("IOI Autopilot".to_string()),
+                value: None,
+                rect: Rect {
+                    x: 0,
+                    y: 0,
+                    width: 1920,
+                    height: 1080,
                 },
-                // This node should be filtered out by logic if it has no content and isn't interactive
-                AccessibilityNode {
-                    id: "div-empty".to_string(),
-                    role: "group".to_string(),
-                    name: None,
-                    value: None,
-                    rect: Rect {
-                        x: 0,
-                        y: 0,
-                        width: 10,
-                        height: 10,
+                is_visible: true,
+                attributes: HashMap::new(),
+                children: vec![
+                    AccessibilityNode {
+                        id: "btn-1".to_string(),
+                        role: "button".to_string(),
+                        name: Some("Connect Wallet".to_string()),
+                        value: None,
+                        rect: Rect {
+                            x: 100,
+                            y: 100,
+                            width: 200,
+                            height: 50,
+                        },
+                        is_visible: true,
+                        attributes: HashMap::from([(
+                            "data-testid".to_string(),
+                            "connect-wallet-btn".to_string(),
+                        )]),
+                        som_id: None,
+                        children: vec![],
                     },
-                    is_visible: true,
-                    attributes: HashMap::new(), // [NEW] Init
-                    som_id: None,
-                    children: vec![],
-                },
-                AccessibilityNode {
-                    id: "ad-1".to_string(),
-                    role: "frame".to_string(),
-                    name: Some("Irrelevant Ads".to_string()),
-                    value: None,
-                    rect: Rect {
-                        x: 1500,
-                        y: 0,
-                        width: 300,
-                        height: 600,
+                    AccessibilityNode {
+                        id: "div-empty".to_string(),
+                        role: "group".to_string(),
+                        name: None,
+                        value: None,
+                        rect: Rect {
+                            x: 0,
+                            y: 0,
+                            width: 10,
+                            height: 10,
+                        },
+                        is_visible: true,
+                        attributes: HashMap::new(),
+                        som_id: None,
+                        children: vec![],
                     },
-                    is_visible: true,
-                    attributes: HashMap::new(), // [NEW] Init
-                    som_id: None,
-                    children: vec![],
-                },
-            ],
-            som_id: None,
+                    AccessibilityNode {
+                        id: "ad-1".to_string(),
+                        role: "frame".to_string(),
+                        name: Some("Irrelevant Ads".to_string()),
+                        value: None,
+                        rect: Rect {
+                            x: 1500,
+                            y: 0,
+                            width: 300,
+                            height: 600,
+                        },
+                        is_visible: true,
+                        attributes: HashMap::new(),
+                        som_id: None,
+                        children: vec![],
+                    },
+                ],
+                som_id: None,
+            };
+
+            serialize_tree_to_xml(&raw_tree, 0).into_bytes()
+        } else {
+            slice_bytes.to_vec()
         };
 
-        // 2. Apply Intent-Constraint (The Filter)
-        let xml_data = serialize_tree_to_xml(&raw_tree, 0).into_bytes();
-
-        // 3. Generate Provenance Proof
+        // 2. Generate a lightweight provenance binding from content + intent.
         let intent_hash = intent.hash();
         let mut proof_input = xml_data.clone();
         proof_input.extend_from_slice(&intent_hash);

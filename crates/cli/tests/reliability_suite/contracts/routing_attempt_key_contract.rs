@@ -136,7 +136,7 @@ fn stable_attempt_key_enforces_changed_condition_and_preserves_receipt_state() {
         escalation_path: Some(
             escalation_path_for_failure(FailureClass::TargetNotFound).to_string(),
         ),
-        scs_lineage_ptr: None,
+        lineage_ptr: None,
         mutation_receipt_ptr: None,
         policy_binding_hash: "binding".to_string(),
         policy_binding_sig: None,

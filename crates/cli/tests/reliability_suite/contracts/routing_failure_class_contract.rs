@@ -117,7 +117,7 @@ fn routing_receipt_for_explicit_tool_unavailable_marker_preserves_failure_class(
         resolution_action: String::new(),
         stop_condition_hit: false,
         escalation_path: Some("Request capability escalation or switch modality.".to_string()),
-        scs_lineage_ptr: None,
+        lineage_ptr: None,
         mutation_receipt_ptr: None,
         policy_binding_hash: "binding".to_string(),
         policy_binding_sig: None,
@@ -188,7 +188,7 @@ fn routing_receipt_for_navigation_fallback_failure_sets_nondeterministic_ui() {
         escalation_path: Some(
             "Escalate to VisualForeground with post-action verification checks.".to_string(),
         ),
-        scs_lineage_ptr: None,
+        lineage_ptr: None,
         mutation_receipt_ptr: None,
         policy_binding_hash: "binding".to_string(),
         policy_binding_sig: None,

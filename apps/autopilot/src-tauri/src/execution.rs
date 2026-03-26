@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use ioi_api::vm::drivers::os::OsDriver;
@@ -13,7 +13,7 @@ use ioi_api::vm::inference::{
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::{McpManager, McpServerConfig};
 use ioi_drivers::os::NativeOsDriver;
-use ioi_scs::SovereignContextStore;
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, RuleConditions, Verdict};
 use ioi_types::app::agentic::EvidenceGraph;
@@ -142,7 +142,7 @@ pub async fn execute_ephemeral_node(
     full_config: &Value,
     input_json: &str,
     session_id: Option<String>,
-    scs: Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: Arc<MemoryRuntime>,
     inference: Arc<dyn InferenceRuntime>,
     tier: GovernanceTier,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
@@ -179,7 +179,8 @@ pub async fn execute_ephemeral_node(
             }
         }
         "retrieval" => {
-            runners::run_retrieval_execution(logic_config, input_json, scs, inference).await
+            runners::run_retrieval_execution(logic_config, input_json, memory_runtime, inference)
+                .await
         }
         "receipt" => Ok(ExecutionResult {
             status: "success".to_string(),

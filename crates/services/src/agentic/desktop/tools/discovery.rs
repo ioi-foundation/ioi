@@ -7,7 +7,7 @@ use crate::agentic::desktop::types::ExecutionTier;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::mcp::McpManager;
-use ioi_scs::SovereignContextStore;
+use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{LlmToolDefinition, ResolvedIntentState};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -37,7 +37,7 @@ fn split_active_window_label(active_window_title: &str) -> (String, String) {
 /// Discovers tools available to the agent.
 pub async fn discover_tools(
     state: &dyn StateAccess,
-    scs: Option<&std::sync::Mutex<SovereignContextStore>>,
+    memory_runtime: Option<&MemoryRuntime>,
     mcp: Option<&McpManager>,
     query: &str,
     runtime: Arc<dyn InferenceRuntime>,
@@ -74,8 +74,8 @@ pub async fn discover_tools(
     );
 
     // Skill discovery via semantic search + reputation ranking
-    if let Some(scs) = scs {
-        skills::inject_skill_tools(state, scs, query, runtime, &mut tools).await;
+    if let Some(memory_runtime) = memory_runtime {
+        skills::inject_skill_tools(state, memory_runtime, query, runtime, &mut tools).await;
     }
 
     // Final filter:
@@ -104,13 +104,20 @@ mod tests {
     use super::discover_tools;
     use crate::agentic::desktop::tools::should_expose_headless_browser_followups;
     use crate::agentic::desktop::types::ExecutionTier;
+    use crate::agentic::skill_registry::{
+        build_skill_archival_metadata_json, canonical_skill_hash, skill_archival_content,
+        upsert_skill_record, SKILL_ARCHIVAL_KIND, SKILL_ARCHIVAL_SCOPE,
+    };
     use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
+    use ioi_memory::{MemoryRuntime, NewArchivalMemoryRecord};
     use ioi_state::primitives::hash::HashCommitmentScheme;
     use ioi_state::tree::iavl::IAVLTree;
     use ioi_types::app::agentic::{
-        CapabilityId, IntentConfidenceBand, IntentScopeProfile, ProviderRouteCandidate,
-        ProviderSelectionMode, ProviderSelectionState, ResolvedIntentState,
+        AgentMacro, CapabilityId, IntentConfidenceBand, IntentScopeProfile, LlmToolDefinition,
+        ProviderRouteCandidate, ProviderSelectionMode, ProviderSelectionState, ResolvedIntentState,
+        SkillLifecycleState, SkillRecord, SkillSourceType,
     };
+    use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
     use serde_json::Value;
     use std::sync::Arc;
 
@@ -534,5 +541,85 @@ mod tests {
         assert!(!tools
             .iter()
             .any(|tool| tool.name == "connector__google__gmail_draft_email"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn discovery_injects_runtime_backed_skills_without_scs() {
+        let mut state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let memory_runtime = MemoryRuntime::open_sqlite_in_memory().expect("memory runtime");
+
+        let skill = AgentMacro {
+            definition: LlmToolDefinition {
+                name: "browser__open_dashboard".to_string(),
+                description: "Open the dashboard and confirm the summary.".to_string(),
+                parameters:
+                    r#"{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}"#
+                        .to_string(),
+            },
+            steps: vec![ActionRequest {
+                target: ActionTarget::BrowserInteract,
+                params: br#"{"__ioi_tool_name":"browser__navigate","url":"{{url}}"}"#.to_vec(),
+                context: ActionContext {
+                    agent_id: "macro".to_string(),
+                    session_id: None,
+                    window_id: None,
+                },
+                nonce: 0,
+            }],
+            source_trace_hash: [3u8; 32],
+            fitness: 1.0,
+        };
+        let skill_hash = canonical_skill_hash(&skill).expect("skill hash");
+        let content = skill_archival_content(&skill.definition);
+        let archival_record_id = memory_runtime
+            .insert_archival_record(&NewArchivalMemoryRecord {
+                scope: SKILL_ARCHIVAL_SCOPE.to_string(),
+                thread_id: None,
+                kind: SKILL_ARCHIVAL_KIND.to_string(),
+                content: content.clone(),
+                metadata_json: build_skill_archival_metadata_json(skill_hash, &skill)
+                    .expect("skill metadata"),
+            })
+            .expect("insert archival record")
+            .expect("archival store available");
+        let embedding = runtime.embed_text(&content).await.expect("embed skill");
+        memory_runtime
+            .upsert_archival_embedding(archival_record_id, &embedding)
+            .expect("index skill");
+
+        upsert_skill_record(
+            &mut state,
+            &SkillRecord {
+                skill_hash,
+                archival_record_id,
+                macro_body: skill,
+                lifecycle_state: SkillLifecycleState::Validated,
+                source_type: SkillSourceType::Imported,
+                source_session_id: None,
+                source_evidence_hash: None,
+                benchmark: None,
+                publication: None,
+                created_at: 1,
+                updated_at: 1,
+            },
+        )
+        .expect("persist skill record");
+
+        let tools = discover_tools(
+            &state,
+            Some(&memory_runtime),
+            None,
+            &content,
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            None,
+        )
+        .await;
+
+        assert!(tools
+            .iter()
+            .any(|tool| tool.name == "browser__open_dashboard"));
     }
 }

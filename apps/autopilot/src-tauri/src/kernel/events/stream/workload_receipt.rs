@@ -203,7 +203,7 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
                 }),
             })
         }
-        WorkloadReceiptKind::ScsRetrieve(scs) => {
+        WorkloadReceiptKind::MemoryRetrieve(scs) => {
             let proof_ref = if scs.has_proof_ref {
                 Some(scs.proof_ref.clone())
             } else {
@@ -225,11 +225,11 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
                 None
             };
             Some(WorkloadReceiptSummary {
-                kind: "scs_retrieve",
+                kind: "memory_retrieve",
                 tool_name: scs.tool_name.clone(),
                 success: scs.success,
                 summary: format!(
-                    "WorkloadReceipt(ScsRetrieve) tool={} backend={} success={} k={} ef={} candidates={}/{} truncated={}",
+                    "WorkloadReceipt(MemoryRetrieve) tool={} backend={} success={} k={} ef={} candidates={}/{} truncated={}",
                     scs.tool_name,
                     scs.backend,
                     scs.success,
@@ -240,7 +240,7 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
                     scs.candidate_truncated
                 ),
                 digest: json!({
-                    "kind": "scs_retrieve",
+                    "kind": "memory_retrieve",
                     "tool_name": scs.tool_name,
                     "backend": scs.backend,
                     "query_hash": scs.query_hash,

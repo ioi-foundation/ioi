@@ -70,13 +70,13 @@ run_model() {
   popd >/dev/null
 }
 
-run_proof "formal/aft/guardian_majority" "GuardianMajorityProof.tla"
-run_proof "formal/aft/nested_guardian" "NestedGuardianProof.tla"
-run_proof "formal/aft" "AsymptoteProof.tla"
-run_proof "formal/aft/canonical_ordering" "CanonicalOrderingProof.tla"
-run_model "formal/aft/guardian_majority" "GuardianMajority.cfg" "GuardianMajority.tla"
-run_model "formal/aft/nested_guardian" "NestedGuardian.cfg" "NestedGuardian.tla"
-run_model "formal/aft" "Asymptote.cfg" "Asymptote.tla"
-run_model "formal/aft/canonical_ordering" "CanonicalOrdering.cfg" "CanonicalOrdering.tla"
-run_model "formal/aft/canonical_ordering" "CanonicalOrderingRetrievability.cfg" "CanonicalOrderingRetrievability.tla"
-run_model "formal/aft/canonical_ordering" "CanonicalCollapseRecursiveContinuity.cfg" "CanonicalCollapseRecursiveContinuity.tla"
+run_proof "docs/specs/formal/aft/guardian_majority" "GuardianMajorityProof.tla"
+run_proof "docs/specs/formal/aft/nested_guardian" "NestedGuardianProof.tla"
+run_proof "docs/specs/formal/aft" "AsymptoteProof.tla"
+run_proof "docs/specs/formal/aft/canonical_ordering" "CanonicalOrderingProof.tla"
+run_model "docs/specs/formal/aft/guardian_majority" "GuardianMajority.cfg" "GuardianMajority.tla"
+run_model "docs/specs/formal/aft/nested_guardian" "NestedGuardian.cfg" "NestedGuardian.tla"
+run_model "docs/specs/formal/aft" "Asymptote.cfg" "Asymptote.tla"
+run_model "docs/specs/formal/aft/canonical_ordering" "CanonicalOrdering.cfg" "CanonicalOrdering.tla"
+run_model "docs/specs/formal/aft/canonical_ordering" "CanonicalOrderingRetrievability.cfg" "CanonicalOrderingRetrievability.tla"
+run_model "docs/specs/formal/aft/canonical_ordering" "CanonicalCollapseRecursiveContinuity.cfg" "CanonicalCollapseRecursiveContinuity.tla"

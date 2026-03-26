@@ -370,7 +370,7 @@ export interface RoutingReceipt {
   hasFailureClass: boolean;
   stopConditionHit: boolean;
   escalationPath: string;
-  scsLineagePtr: string;
+  lineagePtr: string;
   mutationReceiptPtr: string;
   policyBindingHash: string;
   policyBindingSig: string;
@@ -2195,7 +2195,7 @@ function createBaseRoutingReceipt(): RoutingReceipt {
     hasFailureClass: false,
     stopConditionHit: false,
     escalationPath: "",
-    scsLineagePtr: "",
+    lineagePtr: "",
     mutationReceiptPtr: "",
     policyBindingHash: "",
     policyBindingSig: "",
@@ -2247,8 +2247,8 @@ export const RoutingReceipt: MessageFns<RoutingReceipt> = {
     if (message.escalationPath !== "") {
       writer.uint32(114).string(message.escalationPath);
     }
-    if (message.scsLineagePtr !== "") {
-      writer.uint32(122).string(message.scsLineagePtr);
+    if (message.lineagePtr !== "") {
+      writer.uint32(122).string(message.lineagePtr);
     }
     if (message.mutationReceiptPtr !== "") {
       writer.uint32(130).string(message.mutationReceiptPtr);
@@ -2389,7 +2389,7 @@ export const RoutingReceipt: MessageFns<RoutingReceipt> = {
             break;
           }
 
-          message.scsLineagePtr = reader.string();
+          message.lineagePtr = reader.string();
           continue;
         }
         case 16: {
@@ -2503,10 +2503,10 @@ export const RoutingReceipt: MessageFns<RoutingReceipt> = {
         : isSet(object.escalation_path)
         ? globalThis.String(object.escalation_path)
         : "",
-      scsLineagePtr: isSet(object.scsLineagePtr)
-        ? globalThis.String(object.scsLineagePtr)
-        : isSet(object.scs_lineage_ptr)
-        ? globalThis.String(object.scs_lineage_ptr)
+      lineagePtr: isSet(object.lineagePtr)
+        ? globalThis.String(object.lineagePtr)
+        : isSet(object.lineage_ptr)
+        ? globalThis.String(object.lineage_ptr)
         : "",
       mutationReceiptPtr: isSet(object.mutationReceiptPtr)
         ? globalThis.String(object.mutationReceiptPtr)
@@ -2575,8 +2575,8 @@ export const RoutingReceipt: MessageFns<RoutingReceipt> = {
     if (message.escalationPath !== "") {
       obj.escalationPath = message.escalationPath;
     }
-    if (message.scsLineagePtr !== "") {
-      obj.scsLineagePtr = message.scsLineagePtr;
+    if (message.lineagePtr !== "") {
+      obj.lineagePtr = message.lineagePtr;
     }
     if (message.mutationReceiptPtr !== "") {
       obj.mutationReceiptPtr = message.mutationReceiptPtr;
@@ -2616,7 +2616,7 @@ export const RoutingReceipt: MessageFns<RoutingReceipt> = {
     message.hasFailureClass = object.hasFailureClass ?? false;
     message.stopConditionHit = object.stopConditionHit ?? false;
     message.escalationPath = object.escalationPath ?? "";
-    message.scsLineagePtr = object.scsLineagePtr ?? "";
+    message.lineagePtr = object.lineagePtr ?? "";
     message.mutationReceiptPtr = object.mutationReceiptPtr ?? "";
     message.policyBindingHash = object.policyBindingHash ?? "";
     message.policyBindingSig = object.policyBindingSig ?? "";
@@ -3165,7 +3165,8 @@ export const PublicApiService = {
     responseDeserialize: (value: Buffer): DraftTransactionResponse => DraftTransactionResponse.decode(value),
   },
   /**
-   * [NEW] Retrieve a raw context chunk (e.g. screenshot PNG) by its hash/ID from the SCS.
+   * [NEW] Retrieve a raw context artifact (e.g. screenshot PNG) by its hash/ID
+   * from the runtime-backed local artifact store.
    * This allows the GUI to display the agent's visual memory.
    */
   getContextBlob: {
@@ -3208,7 +3209,8 @@ export interface PublicApiServer extends UntypedServiceImplementation {
    */
   draftTransaction: handleUnaryCall<DraftTransactionRequest, DraftTransactionResponse>;
   /**
-   * [NEW] Retrieve a raw context chunk (e.g. screenshot PNG) by its hash/ID from the SCS.
+   * [NEW] Retrieve a raw context artifact (e.g. screenshot PNG) by its hash/ID
+   * from the runtime-backed local artifact store.
    * This allows the GUI to display the agent's visual memory.
    */
   getContextBlob: handleUnaryCall<GetContextBlobRequest, GetContextBlobResponse>;
@@ -3344,7 +3346,8 @@ export interface PublicApiClient extends Client {
     callback: (error: ServiceError | null, response: DraftTransactionResponse) => void,
   ): ClientUnaryCall;
   /**
-   * [NEW] Retrieve a raw context chunk (e.g. screenshot PNG) by its hash/ID from the SCS.
+   * [NEW] Retrieve a raw context artifact (e.g. screenshot PNG) by its hash/ID
+   * from the runtime-backed local artifact store.
    * This allows the GUI to display the agent's visual memory.
    */
   getContextBlob(

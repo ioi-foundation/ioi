@@ -3,39 +3,17 @@ use crate::models::{
     AssistantNotificationRecord, AssistantUserProfile, InterventionRecord, SessionSummary,
 };
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_scs::{FrameType, RetentionClass, SovereignContextStore};
-use serde::Deserialize;
-use std::sync::{Arc, Mutex};
+use ioi_memory::MemoryRuntime;
+use serde::{de::DeserializeOwned, Serialize};
+use std::sync::Arc;
 
-pub const SESSION_INDEX_KEY: [u8; 32] = [
-    0x53, 0x45, 0x53, 0x53, 0x49, 0x4F, 0x4E, 0x5F, 0x49, 0x4E, 0x44, 0x45, 0x53, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-];
-
-pub const INTERVENTION_INDEX_KEY: [u8; 32] = [
-    0x49, 0x4E, 0x54, 0x45, 0x52, 0x56, 0x45, 0x4E, 0x54, 0x49, 0x4F, 0x4E, 0x53, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-];
-
-pub const ASSISTANT_NOTIFICATION_INDEX_KEY: [u8; 32] = [
-    0x41, 0x53, 0x53, 0x49, 0x53, 0x54, 0x41, 0x4E, 0x54, 0x5F, 0x4E, 0x4F, 0x54, 0x49, 0x46, 0x59,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-];
-
-pub const ATTENTION_POLICY_KEY: [u8; 32] = [
-    0x41, 0x54, 0x54, 0x45, 0x4E, 0x54, 0x49, 0x4F, 0x4E, 0x5F, 0x50, 0x4F, 0x4C, 0x49, 0x43, 0x59,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-];
-
-pub const ATTENTION_PROFILE_KEY: [u8; 32] = [
-    0x41, 0x54, 0x54, 0x45, 0x4E, 0x54, 0x49, 0x4F, 0x4E, 0x5F, 0x50, 0x52, 0x4F, 0x46, 0x49, 0x4C,
-    0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-];
-
-pub const ASSISTANT_USER_PROFILE_KEY: [u8; 32] = [
-    0x55, 0x53, 0x45, 0x52, 0x5F, 0x50, 0x52, 0x4F, 0x46, 0x49, 0x4C, 0x45, 0x5F, 0x41, 0x50, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-];
+const LOCAL_TASK_CHECKPOINT_NAME: &str = "autopilot.local_task.v1";
+const LOCAL_SESSION_INDEX_CHECKPOINT_NAME: &str = "autopilot.local_sessions.v1";
+const INTERVENTION_INDEX_CHECKPOINT_NAME: &str = "autopilot.interventions.v1";
+const ASSISTANT_NOTIFICATION_INDEX_CHECKPOINT_NAME: &str = "autopilot.assistant_notifications.v1";
+const ATTENTION_POLICY_CHECKPOINT_NAME: &str = "autopilot.assistant_attention_policy.v1";
+const ATTENTION_PROFILE_CHECKPOINT_NAME: &str = "autopilot.assistant_attention_profile.v1";
+const ASSISTANT_USER_PROFILE_CHECKPOINT_NAME: &str = "autopilot.assistant_user_profile.v1";
 
 fn scoped_storage_key(scope: &str, id: &str) -> Option<[u8; 32]> {
     let preimage = format!("autopilot::{}::{}", scope, id);
@@ -49,153 +27,160 @@ fn scoped_storage_key(scope: &str, id: &str) -> Option<[u8; 32]> {
     }
 }
 
-fn read_latest_json<T: for<'de> Deserialize<'de>>(
-    store: &SovereignContextStore,
-    key: &[u8; 32],
+fn global_checkpoint_key(name: &str) -> Option<[u8; 32]> {
+    scoped_storage_key("checkpoint", name)
+}
+
+fn thread_storage_key(thread_id: &str) -> Option<[u8; 32]> {
+    scoped_storage_key("thread", thread_id)
+}
+
+fn load_global_checkpoint_json<T: DeserializeOwned>(
+    memory_runtime: &Arc<MemoryRuntime>,
+    checkpoint_name: &str,
 ) -> Option<T> {
-    let frame_ids = store.session_index.get(key)?;
-    let last_id = *frame_ids.last()?;
-    let payload = store.read_frame_payload(last_id).ok()?;
-    serde_json::from_slice::<T>(&payload).ok()
+    let key = global_checkpoint_key(checkpoint_name)?;
+    match memory_runtime.load_checkpoint_blob(key, checkpoint_name) {
+        Ok(Some(bytes)) => serde_json::from_slice::<T>(&bytes).ok(),
+        Ok(None) => None,
+        Err(error) => {
+            eprintln!(
+                "[Autopilot] Failed to load checkpoint '{}' from memory runtime: {}",
+                checkpoint_name, error
+            );
+            None
+        }
+    }
 }
 
-fn read_latest_payload(store: &SovereignContextStore, key: &[u8; 32]) -> Option<Vec<u8>> {
-    let frame_ids = store.session_index.get(key)?;
-    let last_id = *frame_ids.last()?;
-    let payload = store.read_frame_payload(last_id).ok()?;
-    Some(payload.to_vec())
+fn persist_global_checkpoint_json<T: Serialize>(
+    memory_runtime: &Arc<MemoryRuntime>,
+    checkpoint_name: &str,
+    value: &T,
+) {
+    let Some(key) = global_checkpoint_key(checkpoint_name) else {
+        return;
+    };
+
+    let Ok(bytes) = serde_json::to_vec(value) else {
+        return;
+    };
+
+    if let Err(error) = memory_runtime.upsert_checkpoint_blob(key, checkpoint_name, &bytes) {
+        eprintln!(
+            "[Autopilot] Failed to persist checkpoint '{}' in memory runtime: {}",
+            checkpoint_name, error
+        );
+    }
 }
 
-pub fn append_event(scs: &Arc<Mutex<SovereignContextStore>>, event: &AgentEvent) {
-    let Some(key) = scoped_storage_key("thread_events", &event.thread_id) else {
+fn load_thread_checkpoint_json<T: DeserializeOwned>(
+    memory_runtime: &Arc<MemoryRuntime>,
+    thread_id: [u8; 32],
+    checkpoint_name: &str,
+) -> Option<T> {
+    match memory_runtime.load_checkpoint_blob(thread_id, checkpoint_name) {
+        Ok(Some(bytes)) => serde_json::from_slice::<T>(&bytes).ok(),
+        Ok(None) => None,
+        Err(error) => {
+            eprintln!(
+                "[Autopilot] Failed to load thread checkpoint '{}' from memory runtime: {}",
+                checkpoint_name, error
+            );
+            None
+        }
+    }
+}
+
+fn persist_thread_checkpoint_json<T: Serialize>(
+    memory_runtime: &Arc<MemoryRuntime>,
+    thread_id: [u8; 32],
+    checkpoint_name: &str,
+    value: &T,
+) {
+    let Ok(bytes) = serde_json::to_vec(value) else {
         return;
     };
 
-    let Ok(mut store) = scs.lock() else {
+    if let Err(error) = memory_runtime.upsert_checkpoint_blob(thread_id, checkpoint_name, &bytes) {
+        eprintln!(
+            "[Autopilot] Failed to persist thread checkpoint '{}' in memory runtime: {}",
+            checkpoint_name, error
+        );
+    }
+}
+
+pub fn append_event(memory_runtime: &Arc<MemoryRuntime>, event: &AgentEvent) {
+    let Some(key) = thread_storage_key(&event.thread_id) else {
         return;
     };
-
-    let mut events = read_latest_json::<Vec<AgentEvent>>(&store, &key).unwrap_or_default();
-    events.push(event.clone());
-
-    let Ok(payload) = serde_json::to_vec(&events) else {
+    let Ok(payload_json) = serde_json::to_string(event) else {
         return;
     };
-
-    let _ = store.append_frame(
-        FrameType::System,
-        &payload,
-        0,
-        [0u8; 32],
-        key,
-        RetentionClass::Archival,
-    );
+    let _ = memory_runtime.append_event_json(key, &event.event_id, &payload_json);
 }
 
 pub fn load_events(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
     limit: Option<usize>,
     cursor: Option<usize>,
 ) -> Vec<AgentEvent> {
-    let Some(key) = scoped_storage_key("thread_events", thread_id) else {
+    let Some(key) = thread_storage_key(thread_id) else {
         return Vec::new();
     };
 
-    let events = if let Ok(store) = scs.lock() {
-        read_latest_json::<Vec<AgentEvent>>(&store, &key).unwrap_or_default()
-    } else {
-        Vec::new()
-    };
-
-    if events.is_empty() {
-        return events;
-    }
-
-    let start = cursor.unwrap_or(0).min(events.len());
-    let remaining = &events[start..];
-    if let Some(limit) = limit {
-        remaining.iter().take(limit).cloned().collect()
-    } else {
-        remaining.to_vec()
-    }
+    memory_runtime
+        .load_event_jsons(key, limit, cursor)
+        .ok()
+        .into_iter()
+        .flat_map(|events| events.into_iter())
+        .filter_map(|event| serde_json::from_str::<AgentEvent>(&event.payload_json).ok())
+        .collect()
 }
 
-pub fn append_artifact(
-    scs: &Arc<Mutex<SovereignContextStore>>,
-    artifact: &Artifact,
-    content: &[u8],
-) {
-    let Some(index_key) = scoped_storage_key("thread_artifacts", &artifact.thread_id) else {
+pub fn append_artifact(memory_runtime: &Arc<MemoryRuntime>, artifact: &Artifact, content: &[u8]) {
+    let Some(thread_key) = thread_storage_key(&artifact.thread_id) else {
         return;
     };
-    let Some(content_key) = scoped_storage_key("artifact_content", &artifact.artifact_id) else {
+    let Ok(payload_json) = serde_json::to_string(artifact) else {
         return;
     };
-
-    let Ok(mut store) = scs.lock() else {
-        return;
-    };
-
-    let mut artifacts = read_latest_json::<Vec<Artifact>>(&store, &index_key).unwrap_or_default();
-    artifacts.retain(|a| a.artifact_id != artifact.artifact_id);
-    artifacts.push(artifact.clone());
-
-    if let Ok(index_payload) = serde_json::to_vec(&artifacts) {
-        let _ = store.append_frame(
-            FrameType::System,
-            &index_payload,
-            0,
-            [0u8; 32],
-            index_key,
-            RetentionClass::Archival,
-        );
-    }
-
-    let _ = store.append_frame(
-        FrameType::System,
-        content,
-        0,
-        [0u8; 32],
-        content_key,
-        RetentionClass::Archival,
-    );
+    let _ = memory_runtime.upsert_artifact_json(thread_key, &artifact.artifact_id, &payload_json);
+    let _ = memory_runtime.put_artifact_blob(thread_key, &artifact.artifact_id, content);
 }
 
-pub fn load_artifacts(scs: &Arc<Mutex<SovereignContextStore>>, thread_id: &str) -> Vec<Artifact> {
-    let Some(key) = scoped_storage_key("thread_artifacts", thread_id) else {
+pub fn load_artifacts(memory_runtime: &Arc<MemoryRuntime>, thread_id: &str) -> Vec<Artifact> {
+    let Some(key) = thread_storage_key(thread_id) else {
         return Vec::new();
     };
 
-    if let Ok(store) = scs.lock() {
-        read_latest_json::<Vec<Artifact>>(&store, &key).unwrap_or_default()
-    } else {
-        Vec::new()
-    }
+    memory_runtime
+        .load_artifact_jsons(key)
+        .ok()
+        .into_iter()
+        .flat_map(|artifacts| artifacts.into_iter())
+        .filter_map(|artifact| serde_json::from_str::<Artifact>(&artifact.payload_json).ok())
+        .collect()
 }
 
 pub fn load_artifact_content(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     artifact_id: &str,
 ) -> Option<Vec<u8>> {
-    let key = scoped_storage_key("artifact_content", artifact_id)?;
-    let store = scs.lock().ok()?;
-    read_latest_payload(&store, &key)
+    memory_runtime
+        .load_artifact_blob(artifact_id)
+        .ok()
+        .flatten()
 }
 
-pub fn get_local_sessions(scs: &Arc<Mutex<SovereignContextStore>>) -> Vec<SessionSummary> {
-    if let Ok(store) = scs.lock() {
-        read_latest_json::<Vec<SessionSummary>>(&store, &SESSION_INDEX_KEY).unwrap_or_default()
-    } else {
-        Vec::new()
-    }
+pub fn get_local_sessions(memory_runtime: &Arc<MemoryRuntime>) -> Vec<SessionSummary> {
+    load_global_checkpoint_json(memory_runtime, LOCAL_SESSION_INDEX_CHECKPOINT_NAME)
+        .unwrap_or_default()
 }
 
-pub fn save_local_session_summary(
-    scs: &Arc<Mutex<SovereignContextStore>>,
-    summary: SessionSummary,
-) {
-    let mut sessions = get_local_sessions(scs);
+pub fn save_local_session_summary(memory_runtime: &Arc<MemoryRuntime>, summary: SessionSummary) {
+    let mut sessions = get_local_sessions(memory_runtime);
     if let Some(pos) = sessions
         .iter()
         .position(|s| s.session_id == summary.session_id)
@@ -205,22 +190,20 @@ pub fn save_local_session_summary(
         sessions.push(summary);
     }
     sessions.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    persist_global_checkpoint_json(
+        memory_runtime,
+        LOCAL_SESSION_INDEX_CHECKPOINT_NAME,
+        &sessions,
+    );
+}
 
-    let Ok(bytes) = serde_json::to_vec(&sessions) else {
-        return;
-    };
-
-    let Ok(mut store) = scs.lock() else {
-        return;
-    };
-
-    let _ = store.append_frame(
-        FrameType::System,
-        &bytes,
-        0,
-        [0u8; 32],
-        SESSION_INDEX_KEY,
-        RetentionClass::Archival,
+pub fn delete_local_session_summary(memory_runtime: &Arc<MemoryRuntime>, session_id: &str) {
+    let mut sessions = get_local_sessions(memory_runtime);
+    sessions.retain(|session| session.session_id != session_id);
+    persist_global_checkpoint_json(
+        memory_runtime,
+        LOCAL_SESSION_INDEX_CHECKPOINT_NAME,
+        &sessions,
     );
 }
 
@@ -243,89 +226,33 @@ fn get_session_storage_key(session_id: &str) -> Option<[u8; 32]> {
     }
 }
 
-pub fn save_local_task_state(scs: &Arc<Mutex<SovereignContextStore>>, task: &AgentTask) {
+pub fn save_local_task_state(memory_runtime: &Arc<MemoryRuntime>, task: &AgentTask) {
     let sid = task.session_id.as_deref().unwrap_or(&task.id);
     let Some(key) = get_session_storage_key(sid) else {
         return;
     };
-
-    let Ok(bytes) = serde_json::to_vec(task) else {
-        return;
-    };
-
-    let Ok(mut store) = scs.lock() else {
-        return;
-    };
-
-    let _ = store.append_frame(
-        FrameType::System,
-        &bytes,
-        0,
-        [0u8; 32],
-        key,
-        RetentionClass::Archival,
-    );
+    persist_thread_checkpoint_json(memory_runtime, key, LOCAL_TASK_CHECKPOINT_NAME, task);
 }
 
-pub fn load_local_task(
-    scs: &Arc<Mutex<SovereignContextStore>>,
-    session_id: &str,
-) -> Option<AgentTask> {
+pub fn load_local_task(memory_runtime: &Arc<MemoryRuntime>, session_id: &str) -> Option<AgentTask> {
     let key = get_session_storage_key(session_id)?;
-
-    let store = scs.lock().ok()?;
-    read_latest_json::<AgentTask>(&store, &key)
+    load_thread_checkpoint_json(memory_runtime, key, LOCAL_TASK_CHECKPOINT_NAME)
 }
 
-fn write_latest_json<T: serde::Serialize>(
-    store: &mut SovereignContextStore,
-    key: [u8; 32],
-    value: &T,
-) {
-    let Ok(bytes) = serde_json::to_vec(value) else {
-        return;
-    };
-
-    let _ = store.append_frame(
-        FrameType::System,
-        &bytes,
-        0,
-        [0u8; 32],
-        key,
-        RetentionClass::Archival,
-    );
-}
-
-pub fn load_interventions(scs: &Arc<Mutex<SovereignContextStore>>) -> Vec<InterventionRecord> {
-    if let Ok(store) = scs.lock() {
-        read_latest_json::<Vec<InterventionRecord>>(&store, &INTERVENTION_INDEX_KEY)
-            .unwrap_or_default()
-    } else {
-        Vec::new()
-    }
+pub fn load_interventions(memory_runtime: &Arc<MemoryRuntime>) -> Vec<InterventionRecord> {
+    load_global_checkpoint_json(memory_runtime, INTERVENTION_INDEX_CHECKPOINT_NAME)
+        .unwrap_or_default()
 }
 
 pub fn load_assistant_notifications(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
 ) -> Vec<AssistantNotificationRecord> {
-    if let Ok(store) = scs.lock() {
-        read_latest_json::<Vec<AssistantNotificationRecord>>(
-            &store,
-            &ASSISTANT_NOTIFICATION_INDEX_KEY,
-        )
+    load_global_checkpoint_json(memory_runtime, ASSISTANT_NOTIFICATION_INDEX_CHECKPOINT_NAME)
         .unwrap_or_default()
-    } else {
-        Vec::new()
-    }
 }
 
-pub fn upsert_intervention(scs: &Arc<Mutex<SovereignContextStore>>, record: InterventionRecord) {
-    let Ok(mut store) = scs.lock() else {
-        return;
-    };
-
-    let mut records = read_latest_json::<Vec<InterventionRecord>>(&store, &INTERVENTION_INDEX_KEY)
-        .unwrap_or_default();
+pub fn upsert_intervention(memory_runtime: &Arc<MemoryRuntime>, record: InterventionRecord) {
+    let mut records = load_interventions(memory_runtime);
     if let Some(index) = records
         .iter()
         .position(|item| item.item_id == record.item_id || item.dedupe_key == record.dedupe_key)
@@ -335,22 +262,14 @@ pub fn upsert_intervention(scs: &Arc<Mutex<SovereignContextStore>>, record: Inte
         records.push(record);
     }
     records.sort_by(|a, b| b.updated_at_ms.cmp(&a.updated_at_ms));
-    write_latest_json(&mut store, INTERVENTION_INDEX_KEY, &records);
+    persist_global_checkpoint_json(memory_runtime, INTERVENTION_INDEX_CHECKPOINT_NAME, &records);
 }
 
 pub fn upsert_assistant_notification(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     record: AssistantNotificationRecord,
 ) {
-    let Ok(mut store) = scs.lock() else {
-        return;
-    };
-
-    let mut records = read_latest_json::<Vec<AssistantNotificationRecord>>(
-        &store,
-        &ASSISTANT_NOTIFICATION_INDEX_KEY,
-    )
-    .unwrap_or_default();
+    let mut records = load_assistant_notifications(memory_runtime);
     if let Some(index) = records
         .iter()
         .position(|item| item.item_id == record.item_id || item.dedupe_key == record.dedupe_key)
@@ -360,68 +279,53 @@ pub fn upsert_assistant_notification(
         records.push(record);
     }
     records.sort_by(|a, b| b.updated_at_ms.cmp(&a.updated_at_ms));
-    write_latest_json(&mut store, ASSISTANT_NOTIFICATION_INDEX_KEY, &records);
+    persist_global_checkpoint_json(
+        memory_runtime,
+        ASSISTANT_NOTIFICATION_INDEX_CHECKPOINT_NAME,
+        &records,
+    );
 }
 
 pub fn save_assistant_attention_policy(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     policy: &AssistantAttentionPolicy,
 ) {
-    let Ok(mut store) = scs.lock() else {
-        return;
-    };
-    write_latest_json(&mut store, ATTENTION_POLICY_KEY, policy);
+    persist_global_checkpoint_json(memory_runtime, ATTENTION_POLICY_CHECKPOINT_NAME, policy);
 }
 
 pub fn load_assistant_attention_policy(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
 ) -> AssistantAttentionPolicy {
-    if let Ok(store) = scs.lock() {
-        read_latest_json::<AssistantAttentionPolicy>(&store, &ATTENTION_POLICY_KEY)
-            .unwrap_or_default()
-    } else {
-        AssistantAttentionPolicy::default()
-    }
+    load_global_checkpoint_json(memory_runtime, ATTENTION_POLICY_CHECKPOINT_NAME)
+        .unwrap_or_default()
 }
 
 pub fn save_assistant_attention_profile(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     profile: &AssistantAttentionProfile,
 ) {
-    let Ok(mut store) = scs.lock() else {
-        return;
-    };
-    write_latest_json(&mut store, ATTENTION_PROFILE_KEY, profile);
+    persist_global_checkpoint_json(memory_runtime, ATTENTION_PROFILE_CHECKPOINT_NAME, profile);
 }
 
 pub fn load_assistant_attention_profile(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
 ) -> AssistantAttentionProfile {
-    if let Ok(store) = scs.lock() {
-        read_latest_json::<AssistantAttentionProfile>(&store, &ATTENTION_PROFILE_KEY)
-            .unwrap_or_default()
-    } else {
-        AssistantAttentionProfile::default()
-    }
+    load_global_checkpoint_json(memory_runtime, ATTENTION_PROFILE_CHECKPOINT_NAME)
+        .unwrap_or_default()
 }
 
 pub fn save_assistant_user_profile(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     profile: &AssistantUserProfile,
 ) {
-    let Ok(mut store) = scs.lock() else {
-        return;
-    };
-    write_latest_json(&mut store, ASSISTANT_USER_PROFILE_KEY, profile);
+    persist_global_checkpoint_json(
+        memory_runtime,
+        ASSISTANT_USER_PROFILE_CHECKPOINT_NAME,
+        profile,
+    );
 }
 
-pub fn load_assistant_user_profile(
-    scs: &Arc<Mutex<SovereignContextStore>>,
-) -> AssistantUserProfile {
-    if let Ok(store) = scs.lock() {
-        read_latest_json::<AssistantUserProfile>(&store, &ASSISTANT_USER_PROFILE_KEY)
-            .unwrap_or_default()
-    } else {
-        AssistantUserProfile::default()
-    }
+pub fn load_assistant_user_profile(memory_runtime: &Arc<MemoryRuntime>) -> AssistantUserProfile {
+    load_global_checkpoint_json(memory_runtime, ASSISTANT_USER_PROFILE_CHECKPOINT_NAME)
+        .unwrap_or_default()
 }

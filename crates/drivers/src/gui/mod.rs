@@ -12,6 +12,7 @@ use self::operator::NativeOperator;
 use self::vision::NativeVision;
 use async_trait::async_trait;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+use ioi_memory::MemoryRuntime;
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
 
@@ -26,7 +27,6 @@ use self::som::{assign_som_ids, draw_som_overlay, redact_sensitive_regions};
 
 use enigo::{Enigo, Mouse, Settings};
 use image::{load_from_memory, ImageFormat};
-use ioi_scs::SovereignContextStore;
 use ioi_types::app::KernelEvent;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -51,7 +51,7 @@ pub struct IoiGuiDriver {
 impl IoiGuiDriver {
     pub fn new() -> Self {
         // Default to Mock substrate.
-        // The real provider requires the SCS handle, which must be injected.
+        // The real provider can be enabled with a memory runtime for evidence persistence.
         let substrate: Box<dyn SovereignSubstrateProvider + Send + Sync> =
             Box::new(MockSubstrateProvider);
 
@@ -76,9 +76,9 @@ impl IoiGuiDriver {
         self
     }
 
-    // Builder method to inject SCS and switch to Native provider
-    pub fn with_scs(mut self, scs: Arc<Mutex<SovereignContextStore>>) -> Self {
-        self.substrate = Box::new(NativeSubstrateProvider::new(scs));
+    // Builder method to inject the memory runtime and switch to the native provider.
+    pub fn with_memory_runtime(mut self, memory_runtime: Arc<MemoryRuntime>) -> Self {
+        self.substrate = Box::new(NativeSubstrateProvider::new(Some(memory_runtime)));
         self
     }
 
@@ -280,19 +280,11 @@ impl GuiDriver for IoiGuiDriver {
             xml_content = serialize_tree_to_xml(&raw_tree, 0);
         }
 
-        // 4. Manually commit to Substrate (Active Observation)
-        // We use the substrate provider to handle the storage framing,
-        // but we inject our "Lensed" XML as the content.
-        let mut slice = self
-            .substrate
-            .get_intent_constrained_slice(intent, 0)
+        // 4. Persist the lensed XML as a context-slice evidence artifact when available.
+        self.substrate
+            .get_intent_constrained_slice(intent, 0, xml_content.as_bytes())
             .await
-            .map_err(|e| VmError::HostError(format!("Substrate error: {}", e)))?;
-
-        // Replace the chunks with our Lensed XML
-        slice.chunks = vec![xml_content.into_bytes()];
-
-        Ok(slice)
+            .map_err(|e| VmError::HostError(format!("Substrate error: {}", e)))
     }
 
     async fn inject_input(&self, event: InputEvent) -> Result<(), VmError> {

@@ -119,7 +119,7 @@ pub(super) fn map_routing_receipt(
         has_failure_class,
         stop_condition_hit: receipt.stop_condition_hit,
         escalation_path: receipt.escalation_path.unwrap_or_default(),
-        scs_lineage_ptr: receipt.scs_lineage_ptr.unwrap_or_default(),
+        lineage_ptr: receipt.lineage_ptr.unwrap_or_default(),
         mutation_receipt_ptr: receipt.mutation_receipt_ptr.unwrap_or_default(),
         policy_binding_hash,
         policy_binding_sig,

@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use super::repo_root;
+use super::support::repo_root;
 use crate::computer_use_suite::types::ComputerUseCaseResult;
 
 const TRACE_BUNDLE_VERSION: u32 = 1;

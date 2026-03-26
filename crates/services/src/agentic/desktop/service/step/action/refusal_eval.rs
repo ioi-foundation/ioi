@@ -1,6 +1,6 @@
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
-use crate::agentic::desktop::utils::goto_trace_log;
+use crate::agentic::desktop::utils::{goto_trace_log, persist_agent_state};
 use ioi_api::state::StateAccess;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -28,11 +28,12 @@ pub(super) async fn handle_refusal(
         "system::refusal".to_string(),
         service.event_sender.clone(),
         None,
+        service.memory_runtime.as_ref(),
     )?;
     agent_state.step_count += 1;
     agent_state.status = AgentStatus::Paused(format!("Model Refusal: {}", reason));
     agent_state.consecutive_failures = 0;
-    state.insert(key, &codec::to_bytes_canonical(agent_state)?)?;
+    persist_agent_state(state, key, agent_state, service.memory_runtime.as_ref())?;
     Ok(())
 }
 

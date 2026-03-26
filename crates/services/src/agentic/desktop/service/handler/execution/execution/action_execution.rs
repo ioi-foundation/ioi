@@ -319,6 +319,17 @@ pub async fn handle_action_execution(
         AgentTool::MemoryInspect { frame_id } => {
             Ok(handlers::handle_memory_inspect_tool(service, frame_id).await)
         }
+        AgentTool::MemoryReplaceCore { section, content } => Ok(
+            handlers::handle_memory_replace_core_tool(service, session_id, &section, &content)
+                .await,
+        ),
+        AgentTool::MemoryAppendCore { section, content } => Ok(
+            handlers::handle_memory_append_core_tool(service, session_id, &section, &content)
+                .await,
+        ),
+        AgentTool::MemoryClearCore { section } => {
+            Ok(handlers::handle_memory_clear_core_tool(service, session_id, &section).await)
+        }
         AgentTool::AgentDelegate { goal, budget } => {
             Ok(handlers::handle_agent_delegate_tool(goal, budget))
         }

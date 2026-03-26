@@ -14,7 +14,7 @@ use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::{SovereignContextStore, StoreConfig};
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::desktop::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX};
 use ioi_services::agentic::desktop::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::desktop::service::step::incident::IncidentState;
@@ -182,18 +182,8 @@ fn artifact_root() -> Result<PathBuf> {
     Ok(root)
 }
 
-fn build_scs(path_name: &str) -> Result<(SovereignContextStore, tempfile::TempDir)> {
-    let temp_dir = tempdir()?;
-    let scs_path = temp_dir.path().join(path_name);
-    let scs = SovereignContextStore::create(
-        &scs_path,
-        StoreConfig {
-            chain_id: 1,
-            owner_id: [0u8; 32],
-            identity_key: [0x11; 32],
-        },
-    )?;
-    Ok((scs, temp_dir))
+fn build_memory_runtime() -> Result<Arc<MemoryRuntime>> {
+    Ok(Arc::new(MemoryRuntime::open_sqlite_in_memory()?))
 }
 
 fn parse_hex_hash_32(raw: &str) -> Option<[u8; 32]> {
@@ -320,7 +310,7 @@ async fn browser_live_http_runtime_smoke() -> Result<()> {
     let browser = Arc::new(BrowserDriver::new());
     browser.set_lease(true);
     browser.navigate(&fixture_url).await?;
-    let (scs, _scs_dir) = build_scs("browser-live-runtime-smoke.scs")?;
+    let memory_runtime = build_memory_runtime()?;
 
     let (tx, mut rx) = broadcast::channel(512);
     let service = DesktopAgentService::new_hybrid(
@@ -330,7 +320,7 @@ async fn browser_live_http_runtime_smoke() -> Result<()> {
         runtime.clone(),
         runtime.clone(),
     )
-    .with_scs(Arc::new(Mutex::new(scs)))
+    .with_memory_runtime(memory_runtime)
     .with_event_sender(tx)
     .with_os_driver(Arc::new(NoopOsDriver));
 

@@ -213,20 +213,6 @@ fn apply_capabilities_policy(state: &mut IAVLTree<HashCommitmentScheme>, session
         .expect("policy insert should not fail");
 }
 
-fn build_scs(path_name: &str) -> Result<(SovereignContextStore, tempfile::TempDir)> {
-    let temp_dir = tempdir()?;
-    let scs_path = temp_dir.path().join(path_name);
-    let scs = SovereignContextStore::create(
-        &scs_path,
-        StoreConfig {
-            chain_id: 1,
-            owner_id: [0u8; 32],
-            identity_key: [0x11; 32],
-        },
-    )?;
-    Ok((scs, temp_dir))
-}
-
 fn drain_events(rx: &mut broadcast::Receiver<KernelEvent>, sink: &mut Vec<KernelEvent>) {
     while let Ok(event) = rx.try_recv() {
         sink.push(event);
@@ -449,7 +435,7 @@ pub async fn run_case(
 ) -> Result<RunObservation> {
     let (event_tx, mut event_rx) = broadcast::channel(1024);
     let gui = Arc::new(MockGuiDriver);
-    let (scs, _scs_tmp_dir) = build_scs(&format!("capabilities_{}_{}.scs", case.id, run_index))?;
+    let memory_runtime = build_memory_runtime()?;
     let service = DesktopAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
@@ -457,7 +443,7 @@ pub async fn run_case(
         agent_runtime.clone(),
         agent_runtime,
     )
-    .with_scs(Arc::new(Mutex::new(scs)))
+    .with_memory_runtime(memory_runtime)
     .with_event_sender(event_tx);
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
@@ -1113,7 +1099,7 @@ pub async fn run_case(
                         action_error_classes.insert(error_class.clone());
                     }
                 }
-                WorkloadReceipt::ScsRetrieve(scs) => {
+                WorkloadReceipt::MemoryRetrieve(scs) => {
                     workload_tools.insert(scs.tool_name.clone());
                     if let Some(error_class) = scs.error_class.as_ref() {
                         action_error_classes.insert(error_class.clone());

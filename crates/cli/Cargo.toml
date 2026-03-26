@@ -88,7 +88,7 @@ ioi-relayer = { path = "../plugins/relayer" } # [FIX] Updated path to plugins/re
 ioi-execution = { path = "../execution" }
 # [NEW] Add ioi-consensus for E2E tests verification logic
 ioi-consensus = { path = "../consensus", features = ["aft"] }
-ioi-scs = { path = "../scs" }
+ioi-memory = { path = "../memory" }
 ioi-drivers = { path = "../drivers" }
 
 once_cell = { workspace = true }

@@ -6,11 +6,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../../..");
 
-const playbookPath = path.join(repoRoot, "docs/computer-use-playbook-spec.md");
-const discoveryPath = path.join(
-  repoRoot,
-  "docs/computer-use-live-discovery-plan.md",
-);
 const diagnosticsRoot = path.join(
   repoRoot,
   "crates/cli/target/computer_use_suite",
@@ -24,12 +19,8 @@ const outputPaths = [
   path.join(repoRoot, "apps/benchmarks/public/generated/benchmark-data.json"),
 ];
 const liveDataPath = "/generated/benchmark-data.json";
-
-const DISCOVERY_PLAIN_HEADINGS = [
-  "Current frontier:",
-  "Current blocker:",
-  "Decision rule:",
-];
+const liveStorePath = "/generated/benchmark-store.json";
+const SUITE_ORDER = ["MiniWoB++", "OSWorld", "WorkArena", "Unknown"];
 
 const TRACE_LANE_ORDER = [
   "case",
@@ -69,6 +60,13 @@ function readJson(targetPath, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function resolveRepoPath(targetPath) {
+  if (!targetPath || typeof targetPath !== "string") {
+    return null;
+  }
+  return path.isAbsolute(targetPath) ? targetPath : path.join(repoRoot, targetPath);
 }
 
 function toFileHref(targetPath) {
@@ -250,7 +248,11 @@ function extractCodeBlock(markdown, heading, stopHeadings = []) {
 }
 
 function runSortValue(runId) {
-  const numeric = Number.parseInt(String(runId).replace(/^run-/, ""), 10);
+  const normalizedRunId = String(runId);
+  const numericMatch =
+    normalizedRunId.match(/(\d{10,13})$/) ??
+    normalizedRunId.match(/(\d{10,13})/);
+  const numeric = Number.parseInt(numericMatch?.[1] ?? "", 10);
   if (!Number.isFinite(numeric)) {
     return 0;
   }
@@ -1074,8 +1076,16 @@ function collectLatestCaseDiagnosticsFromStore() {
         continue;
       }
 
-      const diagnostic = readJson(entry.diagnostic_json_path, null);
-      const summaryBlob = readJson(entry.summary_json_path, null);
+      const caseDir = resolveRepoPath(entry.case_dir);
+      const summaryJsonPath = resolveRepoPath(entry.summary_json_path);
+      const summaryMarkdownPath = resolveRepoPath(entry.summary_markdown_path);
+      const diagnosticJsonPath = resolveRepoPath(entry.diagnostic_json_path);
+      const diagnosticMarkdownPath = resolveRepoPath(entry.diagnostic_markdown_path);
+      const inferenceCallsPath = resolveRepoPath(entry.inference_calls_path);
+      const inferenceTracePath = resolveRepoPath(entry.inference_trace_path);
+      const bridgeStatePath = resolveRepoPath(entry.bridge_state_path);
+      const diagnostic = readJson(diagnosticJsonPath, null);
+      const summaryBlob = readJson(summaryJsonPath, null);
       const source = diagnostic && typeof diagnostic === "object"
         ? diagnostic
         : summaryBlob && typeof summaryBlob === "object"
@@ -1086,24 +1096,24 @@ function collectLatestCaseDiagnosticsFromStore() {
       }
 
       const traceBundlePath =
-        entry.trace_bundle_path ??
-        (typeof entry.case_dir === "string"
-          ? path.join(entry.case_dir, "trace_bundle.json")
+        resolveRepoPath(entry.trace_bundle_path) ??
+        (caseDir
+          ? path.join(caseDir, "trace_bundle.json")
           : null);
       const traceAnalysisPath =
-        entry.trace_analysis_path ??
-        (typeof entry.case_dir === "string"
-          ? path.join(entry.case_dir, "trace_analysis.json")
+        resolveRepoPath(entry.trace_analysis_path) ??
+        (caseDir
+          ? path.join(caseDir, "trace_analysis.json")
           : null);
       const traceBundle = readJson(traceBundlePath, null);
       const summary = source.summary ?? {};
       const traceMetrics = summarizeTraceMetrics(readJson(traceAnalysisPath, null), summary);
       const candidate = {
-      suite: entry.suite || inferSuite(entry.case_id),
-      caseId: entry.case_id,
-      runId: run.run_id || "run-local",
-      runSort: runFreshnessValue(run.run_id || "run-local", run.updated_at_ms),
-        caseDir: entry.case_dir,
+        suite: entry.suite || inferSuite(entry.case_id),
+        caseId: entry.case_id,
+        runId: run.run_id || "run-local",
+        runSort: runFreshnessValue(run.run_id || "run-local", run.updated_at_ms),
+        caseDir,
         summary,
         findings: Array.isArray(source.findings) ? source.findings : [],
         detail: diagnostic && typeof diagnostic === "object"
@@ -1112,13 +1122,13 @@ function collectLatestCaseDiagnosticsFromStore() {
               phaseTiming: summarizePhaseTiming(source.timing),
               timeline: [],
             },
-        diagnosticJsonPath: entry.diagnostic_json_path ?? entry.summary_json_path,
-        diagnosticMarkdownPath: entry.diagnostic_markdown_path ?? entry.summary_markdown_path,
-        benchmarkSummaryJsonPath: entry.summary_json_path,
-        benchmarkSummaryMarkdownPath: entry.summary_markdown_path,
-        inferenceCallsPath: entry.inference_calls_path,
-        inferenceTracePath: entry.inference_trace_path,
-        bridgeStatePath: entry.bridge_state_path,
+        diagnosticJsonPath: diagnosticJsonPath ?? summaryJsonPath,
+        diagnosticMarkdownPath: diagnosticMarkdownPath ?? summaryMarkdownPath,
+        benchmarkSummaryJsonPath: summaryJsonPath,
+        benchmarkSummaryMarkdownPath: summaryMarkdownPath,
+        inferenceCallsPath,
+        inferenceTracePath,
+        bridgeStatePath,
         traceBundlePath,
         traceAnalysisPath,
         traceMetrics: traceMetrics.length > 0
@@ -1135,23 +1145,7 @@ function collectLatestCaseDiagnosticsFromStore() {
   }
 
   return Array.from(latestByCase.values())
-    .sort((left, right) => right.runSort - left.runSort)
-    .map((entry) => ({
-      ...entry,
-      result: resultLabel(entry.summary),
-      links: {
-        caseDir: toFileHref(entry.caseDir),
-        diagnosticJson: toFileHref(entry.diagnosticJsonPath),
-        diagnosticMarkdown: toFileHref(entry.diagnosticMarkdownPath),
-        benchmarkSummaryJson: toFileHref(entry.benchmarkSummaryJsonPath),
-        benchmarkSummaryMarkdown: toFileHref(entry.benchmarkSummaryMarkdownPath),
-        inferenceCalls: toFileHref(entry.inferenceCallsPath),
-        inferenceTrace: toFileHref(entry.inferenceTracePath),
-        bridgeState: toFileHref(entry.bridgeStatePath),
-        traceBundle: toFileHref(entry.traceBundlePath),
-        traceAnalysis: toFileHref(entry.traceAnalysisPath),
-      },
-    }));
+    .sort((left, right) => right.runSort - left.runSort);
 }
 
 function collectLiveRunsFromStore() {
@@ -1220,10 +1214,54 @@ function collectLiveRunsFromStore() {
 
 function collectLatestCaseDiagnostics() {
   const indexed = collectLatestCaseDiagnosticsFromStore();
-  if (indexed.length > 0) {
-    return indexed;
+  const fallback = collectLatestCaseDiagnosticsFromFilesystem();
+  const latestByCase = new Map();
+
+  for (const entry of fallback) {
+    if (!entry || typeof entry.caseId !== "string") {
+      continue;
+    }
+    const current = latestByCase.get(entry.caseId);
+    if (!current || entry.runSort >= current.runSort) {
+      latestByCase.set(entry.caseId, entry);
+    }
   }
 
+  // Treat store-backed runs as the authoritative retained source when the same
+  // case also exists in legacy run-* artifacts, since custom-named reruns only
+  // exist in the store path.
+  for (const entry of indexed) {
+    if (!entry || typeof entry.caseId !== "string") {
+      continue;
+    }
+    latestByCase.set(entry.caseId, entry);
+  }
+
+  if (latestByCase.size > 0) {
+    return Array.from(latestByCase.values())
+      .sort((left, right) => right.runSort - left.runSort)
+      .map((entry) => ({
+        ...entry,
+        result: resultLabel(entry.summary),
+        links: {
+          caseDir: toFileHref(entry.caseDir),
+          diagnosticJson: toFileHref(entry.diagnosticJsonPath),
+          diagnosticMarkdown: toFileHref(entry.diagnosticMarkdownPath),
+          benchmarkSummaryJson: toFileHref(entry.benchmarkSummaryJsonPath),
+          benchmarkSummaryMarkdown: toFileHref(entry.benchmarkSummaryMarkdownPath),
+          inferenceCalls: toFileHref(entry.inferenceCallsPath),
+          inferenceTrace: toFileHref(entry.inferenceTracePath),
+          bridgeState: toFileHref(entry.bridgeStatePath),
+          traceBundle: toFileHref(entry.traceBundlePath),
+          traceAnalysis: toFileHref(entry.traceAnalysisPath),
+        },
+      }));
+  }
+
+  return [];
+}
+
+function collectLatestCaseDiagnosticsFromFilesystem() {
   if (!fs.existsSync(diagnosticsRoot)) {
     return [];
   }
@@ -1289,27 +1327,31 @@ function collectLatestCaseDiagnostics() {
   }
 
   return Array.from(latestByCase.values())
-    .sort((left, right) => right.runSort - left.runSort)
-    .map((entry) => ({
-      ...entry,
-      result: resultLabel(entry.summary),
-      links: {
-        caseDir: toFileHref(entry.caseDir),
-        diagnosticJson: toFileHref(entry.diagnosticJsonPath),
-        diagnosticMarkdown: toFileHref(entry.diagnosticMarkdownPath),
-        inferenceCalls: toFileHref(entry.inferenceCallsPath),
-        inferenceTrace: toFileHref(entry.inferenceTracePath),
-        bridgeState: toFileHref(entry.bridgeStatePath),
-        traceBundle: toFileHref(entry.traceBundlePath),
-        traceAnalysis: toFileHref(entry.traceAnalysisPath),
-      },
-    }));
+    .sort((left, right) => right.runSort - left.runSort);
 }
 
-function buildSuiteSummaries(registry, latestCases, liveRuns) {
+function buildSuiteSummaries(latestCases, liveRuns) {
   const liveRunsBySuite = new Map(liveRuns.map((entry) => [entry.suite, entry]));
-  return registry.map((row) => {
-    const suiteCases = latestCases.filter((entry) => entry.suite === row.Surface);
+  const suites = new Set([
+    ...latestCases.map((entry) => entry.suite),
+    ...liveRuns.map((entry) => entry.suite),
+  ]);
+
+  return Array.from(suites)
+    .filter((suite) => typeof suite === "string" && suite.trim())
+    .sort((left, right) => {
+      const leftIndex = SUITE_ORDER.indexOf(left);
+      const rightIndex = SUITE_ORDER.indexOf(right);
+      if (leftIndex !== -1 || rightIndex !== -1) {
+        const leftRank = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+        const rightRank = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+        return leftRank - rightRank || left.localeCompare(right);
+      }
+      return left.localeCompare(right);
+    })
+    .map((suite) => {
+      const suiteCases = latestCases.filter((entry) => entry.suite === suite);
+      const liveRun = liveRunsBySuite.get(suite) ?? null;
     const counts = { pass: 0, "near-miss": 0, red: 0, unknown: 0 };
     for (const entry of suiteCases) {
       counts[entry.result] = (counts[entry.result] ?? 0) + 1;
@@ -1320,24 +1362,17 @@ function buildSuiteSummaries(registry, latestCases, liveRuns) {
       suiteCases[0] ??
       null;
     return {
-      suite: row.Surface,
-      maturity: row["Repo maturity"],
-      benchmarkStatus: row["Current benchmark status"],
-      workspaceStatus: row["Workspace status (last verified)"],
-      nextUnlock: row["Next unlock"],
+      suite,
       counts,
       focusCaseId: focusCase?.caseId ?? null,
       focusResult: focusCase?.result ?? "unknown",
-      latestRunId: focusCase?.runId ?? null,
-      liveRun: liveRunsBySuite.get(row.Surface) ?? null,
+      latestRunId: focusCase?.runId ?? liveRun?.runId ?? null,
+      liveRun,
     };
   });
 }
 
 function generate() {
-  const playbook = readText(playbookPath);
-  const discovery = readText(discoveryPath);
-  const registry = parseTableFromSection(playbook, "## 7. Benchmark Registry");
   const latestCases = collectLatestCaseDiagnostics();
   const liveRuns = collectLiveRunsFromStore();
 
@@ -1345,49 +1380,8 @@ function generate() {
     generatedAt: new Date().toISOString(),
     repoRoot,
     liveDataPath,
-    docs: {
-      playbook: {
-        path: playbookPath,
-        href: toFileHref(playbookPath),
-        content: playbook,
-      },
-      discovery: {
-        path: discoveryPath,
-        href: toFileHref(discoveryPath),
-        content: discovery,
-      },
-    },
-    registry,
-    suiteSummaries: buildSuiteSummaries(registry, latestCases, liveRuns),
-    discoverySections: {
-      scope: extractBulletLines(discovery, "## Scope"),
-      methodInvariants: extractBulletLines(discovery, "## Method Invariants"),
-      validationRules: extractBulletLines(discovery, "## Validation Rules", [
-        "## Status",
-      ]),
-      status: extractBulletLines(discovery, "## Status", ["Current frontier:"]),
-      currentFrontier: extractBulletLines(discovery, "Current frontier:", [
-        "Current blocker:",
-      ]),
-      currentBlocker: extractBulletLines(discovery, "Current blocker:", [
-        "Decision rule:",
-      ]),
-      decisionRule: extractBulletLines(discovery, "Decision rule:", [
-        "## Rolling Window",
-      ]),
-      rollingWindow: extractBulletLines(discovery, "## Rolling Window", [
-        "## Benchmark Snapshot",
-      ]),
-      currentNextMoveCommand: extractCodeBlock(discovery, "## Current Next Move"),
-    },
-    benchmarkSnapshot: parseTableFromSection(discovery, "## Benchmark Snapshot", [
-      "## Capability Gap Matrix",
-    ]),
-    capabilityGapMatrix: parseTableFromSection(
-      discovery,
-      "## Capability Gap Matrix",
-      ["## Benchmark Escalation Ladder"],
-    ),
+    liveStorePath,
+    suiteSummaries: buildSuiteSummaries(latestCases, liveRuns),
     liveRuns,
     latestCases,
   };

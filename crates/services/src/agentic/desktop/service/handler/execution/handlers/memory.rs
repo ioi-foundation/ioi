@@ -1,10 +1,11 @@
 use super::super::{no_visual, ActionExecutionOutcome};
 use crate::agentic::desktop::execution::workload;
+use crate::agentic::desktop::service::memory::{
+    append_core_memory_from_tool, archival_record_id_from_inspect_id,
+    clear_core_memory_from_tool, replace_core_memory_from_tool,
+};
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::types::RecordedMessage;
-use ioi_scs::FrameType;
-use ioi_types::app::{WorkloadActivityKind, WorkloadReceipt, WorkloadScsRetrieveReceipt};
-use ioi_types::codec;
+use ioi_types::app::{WorkloadActivityKind, WorkloadMemoryRetrieveReceipt, WorkloadReceipt};
 use serde_json::json;
 
 pub(crate) async fn handle_memory_search_tool(
@@ -13,12 +14,12 @@ pub(crate) async fn handle_memory_search_tool(
     step_index: u32,
     query: &str,
 ) -> ActionExecutionOutcome {
-    if service.scs.is_none() {
+    if service.memory_runtime.is_none() {
         return no_visual(
             false,
             None,
             Some(
-                "ERROR_CLASS=ToolUnavailable memory__search requires an SCS-backed memory store."
+                "ERROR_CLASS=ToolUnavailable memory__search requires a configured memory runtime."
                     .to_string(),
             ),
         );
@@ -72,9 +73,9 @@ pub(crate) async fn handle_memory_search_tool(
         out
     };
 
-    let receipt = retrieval.receipt.unwrap_or(WorkloadScsRetrieveReceipt {
+    let receipt = retrieval.receipt.unwrap_or(WorkloadMemoryRetrieveReceipt {
         tool_name: "memory__search".to_string(),
-        backend: "scs:mhnsw".to_string(),
+        backend: "ioi-memory:hybrid-archival".to_string(),
         query_hash: String::new(),
         index_root: String::new(),
         k: 5,
@@ -83,11 +84,11 @@ pub(crate) async fn handle_memory_search_tool(
         candidate_count_total: 0,
         candidate_count_reranked: 0,
         candidate_truncated: false,
-        distance_metric: "cosine_distance".to_string(),
-        embedding_normalized: true,
+        distance_metric: "hybrid_lexical_semantic".to_string(),
+        embedding_normalized: false,
         proof_ref: None,
         proof_hash: None,
-        certificate_mode: Some("single_level_lb".to_string()),
+        certificate_mode: Some("none".to_string()),
         success: false,
         error_class: Some("UnexpectedState".to_string()),
     });
@@ -112,7 +113,7 @@ pub(crate) async fn handle_memory_search_tool(
             session_id,
             step_index,
             workload_id,
-            WorkloadReceipt::ScsRetrieve(receipt.clone()),
+            WorkloadReceipt::MemoryRetrieve(receipt.clone()),
         );
     }
 
@@ -134,121 +135,155 @@ pub(crate) async fn handle_memory_inspect_tool(
     service: &DesktopAgentService,
     frame_id: u64,
 ) -> ActionExecutionOutcome {
-    let scs_mutex = match service.scs.as_ref() {
-        Some(m) => m,
-        None => {
-            return no_visual(
-                false,
-                None,
-                Some(
-                    "ERROR_CLASS=ToolUnavailable memory__inspect requires an SCS-backed memory store."
-                        .to_string(),
-                ),
-            );
-        }
-    };
-
-    let frame_type = {
-        let store = match scs_mutex.lock() {
-            Ok(store) => store,
-            Err(_) => {
-                return no_visual(
-                    false,
-                    None,
-                    Some("ERROR_CLASS=UnexpectedState SCS lock poisoned.".to_string()),
-                );
-            }
-        };
-
-        match store.toc.frames.get(frame_id as usize) {
-            Some(frame) => frame.frame_type,
-            None => {
-                return no_visual(
-                    false,
-                    None,
-                    Some(format!(
-                        "ERROR_CLASS=TargetNotFound Frame {} not found in memory store.",
-                        frame_id
-                    )),
-                );
-            }
-        }
-    };
-
-    match frame_type {
-        FrameType::Observation => match service.inspect_frame(frame_id).await {
-            Ok(desc) => no_visual(true, Some(desc), None),
-            Err(e) => no_visual(
-                false,
-                None,
-                Some(format!(
-                    "ERROR_CLASS=UnexpectedState memory__inspect failed: {}",
-                    e
-                )),
-            ),
-        },
-        FrameType::Thought | FrameType::Action => {
-            let payload = {
-                let store = match scs_mutex.lock() {
-                    Ok(store) => store,
-                    Err(_) => {
-                        return no_visual(
-                            false,
-                            None,
-                            Some("ERROR_CLASS=UnexpectedState SCS lock poisoned.".to_string()),
-                        );
-                    }
-                };
-
-                match store.read_frame_payload(frame_id) {
-                    Ok(payload) => payload,
-                    Err(e) => {
-                        return no_visual(
-                            false,
-                            None,
-                            Some(format!(
-                                "ERROR_CLASS=UnexpectedState Failed to read frame payload: {}",
-                                e
-                            )),
-                        );
-                    }
-                }
-            };
-
-            match codec::from_bytes_canonical::<RecordedMessage>(&payload) {
-                Ok(recorded) => {
-                    let content = if recorded.scrubbed_for_model.is_empty() {
-                        recorded.scrubbed_for_scs
-                    } else {
-                        recorded.scrubbed_for_model
-                    };
-                    let out = json!({
-                        "frame_id": frame_id,
-                        "frame_type": format!("{:?}", frame_type),
-                        "role": recorded.role,
-                        "timestamp_ms": recorded.timestamp_ms,
-                        "content": content,
-                    })
-                    .to_string();
-                    no_visual(true, Some(out), None)
-                }
-                Err(_) => no_visual(
-                    true,
-                    Some(format!(
-                        "{{\"frame_id\":{},\"frame_type\":\"{:?}\",\"content\":\"<Non-Recorded Payload>\"}}",
-                        frame_id, frame_type
-                    )),
-                    None,
-                ),
-            }
-        }
-        _ => no_visual(
-            true,
-            Some(format!(
-                "{{\"frame_id\":{},\"frame_type\":\"{:?}\",\"content\":\"<Unsupported Frame Type>\"}}",
-                frame_id, frame_type
-            )),
+    let Some(memory_runtime) = service.memory_runtime.as_ref() else {
+        return no_visual(
+            false,
             None,
+            Some(
+                "ERROR_CLASS=ToolUnavailable memory__inspect requires a configured memory runtime."
+                    .to_string(),
+            ),
+        );
+    };
+
+    let Some(record_id) = archival_record_id_from_inspect_id(frame_id) else {
+        return no_visual(
+            false,
+            None,
+            Some(
+                "ERROR_CLASS=TargetNotFound memory__inspect only supports archival IDs returned by memory__search."
+                    .to_string(),
+            ),
+        );
+    };
+
+    match memory_runtime.load_archival_record(record_id) {
+        Ok(Some(record)) => {
+            let metadata = serde_json::from_str::<serde_json::Value>(&record.metadata_json)
+                .unwrap_or_else(|_| json!({}));
+            let out = json!({
+                "frame_id": frame_id,
+                "frame_type": "ArchivalMemory",
+                "scope": record.scope,
+                "kind": record.kind,
+                "session_id": metadata.get("session_id").and_then(serde_json::Value::as_str),
+                "role": metadata.get("role").and_then(serde_json::Value::as_str),
+                "timestamp_ms": metadata
+                    .get("timestamp_ms")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(record.created_at_ms),
+                "content": record.content,
+            })
+            .to_string();
+            no_visual(true, Some(out), None)
+        }
+        Ok(None) => no_visual(
+            false,
+            None,
+            Some(format!(
+                "ERROR_CLASS=TargetNotFound Memory record {} not found.",
+                frame_id
+            )),
+        ),
+        Err(error) => no_visual(
+            false,
+            None,
+            Some(format!(
+                "ERROR_CLASS=UnexpectedState memory__inspect failed: {}",
+                error
+            )),
+        ),
+    }
+}
+
+pub(crate) async fn handle_memory_replace_core_tool(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    section: &str,
+    content: &str,
+) -> ActionExecutionOutcome {
+    let Some(memory_runtime) = service.memory_runtime.as_ref() else {
+        return no_visual(
+            false,
+            None,
+            Some(
+                "ERROR_CLASS=ToolUnavailable memory__replace_core requires a configured memory runtime."
+                    .to_string(),
+            ),
+        );
+    };
+
+    match replace_core_memory_from_tool(memory_runtime, session_id, section.trim(), content.trim()) {
+        Ok(()) => no_visual(
+            true,
+            Some(format!("Updated core memory section '{}'.", section.trim())),
+            None,
+        ),
+        Err(error) => no_visual(
+            false,
+            None,
+            Some(format!("ERROR_CLASS=PolicyDenied memory__replace_core failed: {}", error)),
+        ),
+    }
+}
+
+pub(crate) async fn handle_memory_append_core_tool(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    section: &str,
+    content: &str,
+) -> ActionExecutionOutcome {
+    let Some(memory_runtime) = service.memory_runtime.as_ref() else {
+        return no_visual(
+            false,
+            None,
+            Some(
+                "ERROR_CLASS=ToolUnavailable memory__append_core requires a configured memory runtime."
+                    .to_string(),
+            ),
+        );
+    };
+
+    match append_core_memory_from_tool(memory_runtime, session_id, section.trim(), content.trim()) {
+        Ok(()) => no_visual(
+            true,
+            Some(format!("Appended to core memory section '{}'.", section.trim())),
+            None,
+        ),
+        Err(error) => no_visual(
+            false,
+            None,
+            Some(format!("ERROR_CLASS=PolicyDenied memory__append_core failed: {}", error)),
+        ),
+    }
+}
+
+pub(crate) async fn handle_memory_clear_core_tool(
+    service: &DesktopAgentService,
+    session_id: [u8; 32],
+    section: &str,
+) -> ActionExecutionOutcome {
+    let Some(memory_runtime) = service.memory_runtime.as_ref() else {
+        return no_visual(
+            false,
+            None,
+            Some(
+                "ERROR_CLASS=ToolUnavailable memory__clear_core requires a configured memory runtime."
+                    .to_string(),
+            ),
+        );
+    };
+
+    match clear_core_memory_from_tool(memory_runtime, session_id, section.trim()) {
+        Ok(()) => no_visual(
+            true,
+            Some(format!("Cleared core memory section '{}'.", section.trim())),
+            None,
+        ),
+        Err(error) => no_visual(
+            false,
+            None,
+            Some(format!("ERROR_CLASS=PolicyDenied memory__clear_core failed: {}", error)),
         ),
     }
 }

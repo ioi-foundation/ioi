@@ -1,15 +1,13 @@
 // Path: crates/drivers/src/gui/platform.rs
 
-use super::accessibility::{
-    serialize_tree_to_xml, AccessibilityNode, Rect, SovereignSubstrateProvider,
-};
+use super::accessibility::{AccessibilityNode, Rect, SovereignSubstrateProvider};
 use anyhow::{anyhow, Result};
-use ioi_crypto::algorithms::hash::sha256;
-use ioi_scs::{FrameType, RetentionClass, SovereignContextStore};
-use ioi_types::app::{ActionRequest, ContextSlice};
-// [FIX] Removed VmError import as we are switching to anyhow::Result to match trait
 use async_trait::async_trait;
-use std::sync::{Arc, Mutex};
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_memory::MemoryRuntime;
+use ioi_types::app::{ActionRequest, ContextSlice};
+use serde_json::json;
+use std::sync::Arc;
 
 // Windows Dependencies
 #[cfg(target_os = "windows")]
@@ -655,80 +653,126 @@ pub async fn fetch_tree_direct() -> Result<AccessibilityNode> {
     return stub_impl::fetch_tree();
 }
 
-/// A real, persistent substrate provider backed by `ioi-scs`.
+const CONTEXT_SLICE_ARTIFACT_PREFIX: &str = "desktop.context_slice.";
+
+fn digest32(bytes: &[u8], label: &str) -> Result<[u8; 32]> {
+    let digest = sha256(bytes).map_err(|error| anyhow!("{} digest failed: {}", label, error))?;
+    let mut output = [0u8; 32];
+    let len = digest.as_ref().len().min(32);
+    output[..len].copy_from_slice(&digest.as_ref()[..len]);
+    Ok(output)
+}
+
+fn context_slice_artifact_id(slice_id: &[u8; 32]) -> String {
+    format!("{CONTEXT_SLICE_ARTIFACT_PREFIX}{}", hex::encode(slice_id))
+}
+
+/// A real desktop context provider backed by runtime-managed evidence artifacts.
 pub struct NativeSubstrateProvider {
-    scs: Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: Option<Arc<MemoryRuntime>>,
 }
 
 impl NativeSubstrateProvider {
-    pub fn new(scs: Arc<Mutex<SovereignContextStore>>) -> Self {
-        Self { scs }
-    }
-
-    /// Fetches the live accessibility tree from the OS using platform-specific APIs.
-    pub async fn get_raw_tree(&self) -> Result<AccessibilityNode> {
-        fetch_tree_direct().await
+    pub fn new(memory_runtime: Option<Arc<MemoryRuntime>>) -> Self {
+        Self { memory_runtime }
     }
 }
 
 #[async_trait]
 impl SovereignSubstrateProvider for NativeSubstrateProvider {
-    // [FIX] Changed return type to anyhow::Result to match trait definition in accessibility.rs
     async fn get_intent_constrained_slice(
         &self,
         intent: &ActionRequest,
-        _monitor_handle: u32,
+        monitor_handle: u32,
+        slice_bytes: &[u8],
     ) -> Result<ContextSlice, anyhow::Error> {
-        // 1. Capture Raw Context from OS
-        let raw_tree = self
-            .get_raw_tree()
-            .await
-            .map_err(|e| anyhow!("Failed to fetch raw tree: {}", e))?;
-
-        // 2. Apply Intent-Constraint (The Filter)
-        let xml_data = serialize_tree_to_xml(&raw_tree, 0).into_bytes();
-
-        // 3. Persist to Local SCS
-        // We write the raw (but filtered) XML to the local store as a new Frame.
-        let mut store = self.scs.lock().map_err(|_| anyhow!("SCS lock poisoned"))?;
-
+        let xml_data = slice_bytes.to_vec();
+        let slice_id = digest32(&xml_data, "context slice")?;
+        let intent_hash = intent.hash();
+        let mut proof_input = xml_data.clone();
+        proof_input.extend_from_slice(&intent_hash);
+        let proof = digest32(&proof_input, "context slice provenance")?;
         let session_id = intent.context.session_id.unwrap_or([0u8; 32]);
 
-        let frame_id = store
-            .append_frame(
-                FrameType::Observation,
-                &xml_data,
-                0,
-                [0u8; 32],
-                session_id,
-                RetentionClass::Ephemeral,
-            )
-            .map_err(|e| anyhow!("Failed to append frame: {}", e))?;
+        if let Some(memory_runtime) = self.memory_runtime.as_ref() {
+            let artifact_id = context_slice_artifact_id(&slice_id);
+            let metadata_json = serde_json::to_string(&json!({
+                "kind": "context_slice",
+                "artifact_id": artifact_id,
+                "session_id": hex::encode(session_id),
+                "intent_id": hex::encode(intent_hash),
+                "monitor_handle": monitor_handle,
+                "content_type": "application/xml",
+                "slice_id": hex::encode(slice_id),
+            }))
+            .map_err(|error| anyhow!("Failed to serialize context slice metadata: {}", error))?;
 
-        // 4. Generate Provenance (Binding to the Store)
-        let slice_id_digest = sha256(&xml_data).map_err(|e| anyhow!("SHA256 failed: {}", e))?;
-        let mut slice_id = [0u8; 32];
-        let len = slice_id_digest.as_ref().len().min(32);
-        slice_id[..len].copy_from_slice(&slice_id_digest.as_ref()[..len]);
-
-        let intent_hash = intent.hash();
-
-        let frame = store
-            .toc
-            .frames
-            .get(frame_id as usize)
-            .ok_or_else(|| anyhow!("Frame {} missing after append_frame", frame_id))?;
-        let mut proof = Vec::new();
-        proof.extend_from_slice(&frame.mhnsw_root);
-        proof.extend_from_slice(&frame.checksum);
+            memory_runtime
+                .upsert_artifact_json(session_id, &artifact_id, &metadata_json)
+                .map_err(|error| anyhow!("Failed to persist context slice metadata: {}", error))?;
+            memory_runtime
+                .put_artifact_blob(session_id, &artifact_id, &xml_data)
+                .map_err(|error| anyhow!("Failed to persist context slice blob: {}", error))?;
+        }
 
         Ok(ContextSlice {
             slice_id,
-            frame_id,
+            frame_id: 0,
             chunks: vec![xml_data],
-            mhnsw_root: frame.mhnsw_root,
-            traversal_proof: Some(proof),
+            mhnsw_root: [0u8; 32],
+            traversal_proof: Some(proof.to_vec()),
             intent_id: intent_hash,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_types::app::ActionTarget;
+    use serde_json::json;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn native_substrate_provider_persists_context_slice_artifacts() {
+        let tempdir = tempdir().expect("tempdir");
+        let runtime = Arc::new(
+            MemoryRuntime::open_sqlite(&tempdir.path().join("gui-memory.db"))
+                .expect("memory runtime"),
+        );
+        let provider = NativeSubstrateProvider::new(Some(runtime.clone()));
+        let session_id = [7u8; 32];
+        let intent = ActionRequest {
+            target: ActionTarget::GuiScreenshot,
+            params: serde_json::to_vec(&json!({})).expect("json params"),
+            context: ioi_types::app::ActionContext {
+                agent_id: "desktop_agent".to_string(),
+                session_id: Some(session_id),
+                window_id: None,
+            },
+            nonce: 1,
+        };
+        let xml = br#"<window id="root"><button id="confirm">Confirm</button></window>"#;
+
+        let slice = provider
+            .get_intent_constrained_slice(&intent, 0, xml)
+            .await
+            .expect("persisted slice");
+        let artifact_id = context_slice_artifact_id(&slice.slice_id);
+        let blobs = runtime
+            .load_artifact_blob(&artifact_id)
+            .expect("artifact blob lookup")
+            .expect("artifact blob present");
+        let artifact_records = runtime
+            .load_artifact_jsons(session_id)
+            .expect("artifact metadata lookup");
+
+        assert_eq!(slice.chunks, vec![xml.to_vec()]);
+        assert_eq!(slice.frame_id, 0);
+        assert_eq!(blobs, xml);
+        assert!(artifact_records.iter().any(|record| {
+            record.artifact_id == artifact_id
+                && record.payload_json.contains("\"kind\":\"context_slice\"")
+        }));
     }
 }

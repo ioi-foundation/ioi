@@ -168,8 +168,8 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
                 web.success,
                 web.error_class.as_deref().unwrap_or("none")
             ),
-            ioi_types::app::WorkloadReceipt::ScsRetrieve(scs) => format!(
-                "WorkloadReceipt(ScsRetrieve) session={} step_index={} workload_id={} tool_name={} backend={} query_hash={} index_root={} k={} ef_search={} candidate_limit={} candidate_count_total={} candidate_count_reranked={} candidate_truncated={} metric={} embedding_normalized={} success={} error_class={}",
+            ioi_types::app::WorkloadReceipt::MemoryRetrieve(scs) => format!(
+                "WorkloadReceipt(MemoryRetrieve) session={} step_index={} workload_id={} tool_name={} backend={} query_hash={} index_root={} k={} ef_search={} candidate_limit={} candidate_count_total={} candidate_count_reranked={} candidate_truncated={} metric={} embedding_normalized={} success={} error_class={}",
                 prefix_hex_4(&receipt.session_id),
                 receipt.step_index,
                 receipt.workload_id,

@@ -3,15 +3,19 @@ use crate::agentic::desktop::keys::{
 };
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_memory::ArchivalMemoryRecord;
 use ioi_types::app::agentic::{
-    AgentMacro, PublishedSkillDoc, SkillBenchmarkReport, SkillCatalogIndex, SkillLifecycleState,
-    SkillPublicationInfo, SkillRecord, SkillStats,
+    AgentMacro, LlmToolDefinition, PublishedSkillDoc, SkillBenchmarkReport, SkillCatalogIndex,
+    SkillLifecycleState, SkillPublicationInfo, SkillRecord, SkillStats,
 };
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const SKILL_DOC_GENERATOR_VERSION: &str = "ioi-skill-docs-v1";
+pub const SKILL_ARCHIVAL_SCOPE: &str = "desktop.skills";
+pub const SKILL_ARCHIVAL_KIND: &str = "skill.macro";
 const VALIDATED_MIN_SUCCESS_BPS: u32 = 8_000;
 const VALIDATED_MIN_SAMPLE_SIZE: u32 = 1;
 const PROMOTED_MIN_SUCCESS_BPS: u32 = 9_000;
@@ -32,6 +36,45 @@ pub fn canonical_skill_hash(skill: &AgentMacro) -> Result<[u8; 32], TransactionE
     let mut out = [0u8; 32];
     out.copy_from_slice(digest.as_ref());
     Ok(out)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillArchivalMetadata {
+    pub skill_hash_hex: String,
+    pub tool_name: String,
+    pub skill_json: serde_json::Value,
+}
+
+pub fn skill_archival_content(definition: &LlmToolDefinition) -> String {
+    format!("{}: {}", definition.name, definition.description)
+}
+
+pub fn build_skill_archival_metadata_json(
+    skill_hash: [u8; 32],
+    skill: &AgentMacro,
+) -> Result<String, TransactionError> {
+    let metadata = SkillArchivalMetadata {
+        skill_hash_hex: hex::encode(skill_hash),
+        tool_name: skill.definition.name.clone(),
+        skill_json: serde_json::to_value(skill)
+            .map_err(|e| TransactionError::Serialization(e.to_string()))?,
+    };
+    serde_json::to_string(&metadata).map_err(|e| TransactionError::Serialization(e.to_string()))
+}
+
+pub fn skill_hash_from_archival_metadata_json(metadata_json: &str) -> Option<[u8; 32]> {
+    let metadata = serde_json::from_str::<SkillArchivalMetadata>(metadata_json).ok()?;
+    let raw = hex::decode(metadata.skill_hash_hex).ok()?;
+    if raw.len() != 32 {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&raw);
+    Some(out)
+}
+
+pub fn skill_hash_from_archival_record(record: &ArchivalMemoryRecord) -> Option<[u8; 32]> {
+    skill_hash_from_archival_metadata_json(&record.metadata_json)
 }
 
 pub fn load_skill_catalog_index(
@@ -254,7 +297,10 @@ pub fn render_skill_markdown(record: &SkillRecord) -> String {
             hex::encode(evidence_hash)
         ));
     }
-    out.push_str(&format!("- Frame Id: `{}`\n", record.frame_id));
+    out.push_str(&format!(
+        "- Archival Record Id: `{}`\n",
+        record.archival_record_id
+    ));
 
     out
 }
@@ -302,7 +348,7 @@ mod tests {
     fn sample_record() -> SkillRecord {
         SkillRecord {
             skill_hash: [7u8; 32],
-            frame_id: 42,
+            archival_record_id: 42,
             macro_body: AgentMacro {
                 definition: ioi_types::app::agentic::LlmToolDefinition {
                     name: "browser__open_dashboard".to_string(),

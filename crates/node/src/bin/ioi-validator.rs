@@ -45,6 +45,7 @@ use ioi_state::tree::iavl::IAVLTree;
 
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_drivers::os::NativeOsDriver;
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 
 #[derive(Parser, Debug)]
@@ -213,7 +214,6 @@ async fn main() -> Result<()> {
         workload_config.clone(),
         None, // No GUI
         None, // No Browser
-        None, // No SCS
         None, // No Event Sender
         Some(os_driver.clone()),
     )
@@ -268,6 +268,9 @@ async fn main() -> Result<()> {
     let internal_sk = Ed25519PrivateKey::from_bytes(sk_bytes.as_ref())?;
     let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
     let signer = Arc::new(LocalSigner::new(internal_kp));
+    let memory_runtime = Arc::new(MemoryRuntime::open_sqlite(
+        &Path::new(&workload_config.state_file).with_extension("memory.db"),
+    )?);
 
     let deps = OrchestrationDependencies {
         syncer,
@@ -284,7 +287,7 @@ async fn main() -> Result<()> {
         safety_model,
         inference_runtime,
         os_driver,
-        scs: None,
+        memory_runtime: Some(memory_runtime),
         event_broadcaster: None,
     };
 

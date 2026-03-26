@@ -220,14 +220,14 @@ fn map_kernel_event(
                     )),
                 }),
             ),
-            ioi_types::app::WorkloadReceipt::ScsRetrieve(scs) => Some(
+            ioi_types::app::WorkloadReceipt::MemoryRetrieve(scs) => Some(
                 ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
                     session_id: hex::encode(receipt.session_id),
                     step_index: receipt.step_index,
                     workload_id: receipt.workload_id,
                     timestamp_ms: receipt.timestamp_ms,
-                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::ScsRetrieve(
-                        ioi_ipc::public::WorkloadScsRetrieveReceipt {
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::MemoryRetrieve(
+                        ioi_ipc::public::WorkloadMemoryRetrieveReceipt {
                             tool_name: scs.tool_name,
                             backend: scs.backend,
                             query_hash: scs.query_hash,

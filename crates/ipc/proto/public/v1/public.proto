@@ -33,7 +33,8 @@ service PublicApi {
   // This powers the "Commander Mode" search bar in the GUI.
   rpc DraftTransaction (DraftTransactionRequest) returns (DraftTransactionResponse);
 
-  // [NEW] Retrieve a raw context chunk (e.g. screenshot PNG) by its hash/ID from the SCS.
+  // [NEW] Retrieve a raw context artifact (e.g. screenshot PNG) by its hash/ID
+  // from the runtime-backed local artifact store.
   // This allows the GUI to display the agent's visual memory.
   rpc GetContextBlob (GetContextBlobRequest) returns (GetContextBlobResponse);
 
@@ -216,7 +217,7 @@ message WorkloadReceipt {
         WorkloadNetFetchReceipt net_fetch = 11;
         WorkloadWebRetrieveReceipt web_retrieve = 12;
         WorkloadFsWriteReceipt fs_write = 13;
-        WorkloadScsRetrieveReceipt scs_retrieve = 14;
+        WorkloadMemoryRetrieveReceipt memory_retrieve = 14;
         WorkloadAdapterReceipt adapter = 15;
     }
 }
@@ -304,9 +305,9 @@ message WorkloadFsWriteReceipt {
     bool has_error_class = 10;
 }
 
-message WorkloadScsRetrieveReceipt {
+message WorkloadMemoryRetrieveReceipt {
     string tool_name = 1; // "memory__search" / retrieval caller
-    string backend = 2;   // "scs:mhnsw"
+    string backend = 2;   // "memory:sqlite+semantic"
     string query_hash = 3;
     string index_root = 4;
 
@@ -430,7 +431,7 @@ message RoutingReceipt {
     bool has_failure_class = 12;
     bool stop_condition_hit = 13;
     string escalation_path = 14;
-    string scs_lineage_ptr = 15;
+    string lineage_ptr = 15;
     string mutation_receipt_ptr = 16;
     string policy_binding_hash = 17;
     string policy_binding_sig = 18;
@@ -468,7 +469,7 @@ message DraftTransactionResponse {
 // --- Blob Retrieval Types ---
 
 message GetContextBlobRequest {
-  // Hex-encoded SHA-256 hash of the blob (e.g., visual_hash).
+  // Artifact identifier or SHA-256 hash for a runtime-backed context blob.
   string blob_hash = 1; 
 }
 

@@ -54,13 +54,12 @@ where
     CS::Commitment: Debug + From<Vec<u8>>,
 {
     // 1. Run Shared Initialization
-    // [FIX] Pass None for GUI, Browser drivers, SCS, event_sender, AND os_driver.
+    // [FIX] Pass None for GUI, Browser drivers, event_sender, AND os_driver.
     // The standalone workload binary does not support local UI event streaming or OS policy enforcement.
     let (workload_container, machine_arc) = setup_workload(
         state_tree,
         commitment_scheme,
         config,
-        None,
         None,
         None,
         None,

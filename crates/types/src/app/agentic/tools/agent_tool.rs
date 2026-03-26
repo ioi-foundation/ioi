@@ -710,18 +710,43 @@ pub enum AgentTool {
         budget: u64,
     },
 
-    /// Memory Tool: Semantic search over the agent's long-term memory (SCS).
+    /// Memory Tool: Semantic search over the agent's long-term archival memory.
     #[serde(rename = "memory__search")]
     MemorySearch {
         /// Semantic search query.
         query: String,
     },
 
-    /// Memory Tool: Inspect a specific memory frame by ID.
+    /// Memory Tool: Inspect a specific memory record by frame/record ID.
     #[serde(rename = "memory__inspect")]
     MemoryInspect {
         /// Frame ID to inspect (from memory__search).
         frame_id: u64,
+    },
+
+    /// Memory Tool: Replace a typed core-memory register.
+    #[serde(rename = "memory__replace_core")]
+    MemoryReplaceCore {
+        /// Core-memory section name.
+        section: String,
+        /// New content for the section.
+        content: String,
+    },
+
+    /// Memory Tool: Append content to an appendable core-memory register.
+    #[serde(rename = "memory__append_core")]
+    MemoryAppendCore {
+        /// Core-memory section name.
+        section: String,
+        /// Content to append.
+        content: String,
+    },
+
+    /// Memory Tool: Clear a typed core-memory register.
+    #[serde(rename = "memory__clear_core")]
+    MemoryClearCore {
+        /// Core-memory section name.
+        section: String,
     },
 
     /// Meta Tool: Awaits result from a sub-agent.
@@ -828,6 +853,9 @@ impl AgentTool {
                 | "net__fetch"
                 | "memory__search"
                 | "memory__inspect"
+                | "memory__replace_core"
+                | "memory__append_core"
+                | "memory__clear_core"
                 | "gui__click"
                 | "gui__type"
                 | "gui__scroll"

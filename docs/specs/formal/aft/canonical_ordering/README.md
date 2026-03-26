@@ -142,8 +142,8 @@ To emit the omission-dominance trace directly:
 
 ```bash
 java -cp .artifacts/tla/tla2tools.jar tlc2.TLC -cleanup -deadlock \
-  -config formal/aft/canonical_ordering/CanonicalOrderingOmissionTrace.cfg \
-  formal/aft/canonical_ordering/CanonicalOrderingOmissionTrace.tla
+  -config docs/specs/formal/aft/canonical_ordering/CanonicalOrderingOmissionTrace.cfg \
+  docs/specs/formal/aft/canonical_ordering/CanonicalOrderingOmissionTrace.tla
 ```
 
 TLC is expected to exit with an invariant violation for
@@ -153,6 +153,6 @@ To run the recursive continuity model directly:
 
 ```bash
 java -cp .artifacts/tla/tla2tools.jar tlc2.TLC -cleanup -deadlock \
-  -config formal/aft/canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg \
-  formal/aft/canonical_ordering/CanonicalCollapseRecursiveContinuity.tla
+  -config docs/specs/formal/aft/canonical_ordering/CanonicalCollapseRecursiveContinuity.cfg \
+  docs/specs/formal/aft/canonical_ordering/CanonicalCollapseRecursiveContinuity.tla
 ```

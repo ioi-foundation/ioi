@@ -12,7 +12,7 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::{SovereignContextStore, StoreConfig};
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::desktop::keys::AGENT_POLICY_PREFIX;
 use ioi_services::agentic::desktop::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::desktop::types::PostMessageParams;
@@ -241,18 +241,8 @@ fn enable_intent_shadow_mode(state: &mut IAVLTree<HashCommitmentScheme>, session
         .expect("policy insert should not fail");
 }
 
-fn build_scs() -> Result<(SovereignContextStore, tempfile::TempDir)> {
-    let temp_dir = tempdir()?;
-    let scs_path = temp_dir.path().join("resilience.scs");
-    let scs = SovereignContextStore::create(
-        &scs_path,
-        StoreConfig {
-            chain_id: 1,
-            owner_id: [0u8; 32],
-            identity_key: [0x11; 32],
-        },
-    )?;
-    Ok((scs, temp_dir))
+fn build_memory_runtime() -> Result<Arc<MemoryRuntime>> {
+    Ok(Arc::new(MemoryRuntime::open_sqlite_in_memory()?))
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -263,7 +253,7 @@ async fn test_agent_self_healing() -> Result<()> {
         fail_count: Arc::new(Mutex::new(0)),
     });
     let brain = Arc::new(ResilientBrain);
-    let (scs, _scs_tmp_dir) = build_scs()?;
+    let memory_runtime = build_memory_runtime()?;
 
     let service = DesktopAgentService::new_hybrid(
         gui,
@@ -272,7 +262,7 @@ async fn test_agent_self_healing() -> Result<()> {
         brain.clone(),
         brain.clone(),
     )
-    .with_scs(Arc::new(Mutex::new(scs)));
+    .with_memory_runtime(memory_runtime);
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let services_dir = ServiceDirectory::new(vec![]);
     let mut ctx = build_ctx(&services_dir);
@@ -332,7 +322,7 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
         fail_count: Arc::new(Mutex::new(0)),
     });
     let brain = Arc::new(WebTimeoutBrain);
-    let (scs, _scs_tmp_dir) = build_scs()?;
+    let memory_runtime = build_memory_runtime()?;
 
     let service = DesktopAgentService::new_hybrid(
         gui,
@@ -341,7 +331,7 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
         brain.clone(),
         brain.clone(),
     )
-    .with_scs(Arc::new(Mutex::new(scs)))
+    .with_memory_runtime(memory_runtime)
     .with_event_sender(event_tx);
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());

@@ -1,44 +1,23 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs;
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::{Arc, Condvar, Mutex, OnceLock};
-use std::thread;
+use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::benchmark_trace;
-use super::repo_root;
+use super::support::repo_root;
 
 const STORE_VERSION: u32 = 3;
+const TRACE_BACKFILL_ENV: &str = "COMPUTER_USE_SUITE_BACKFILL_RETAINED_TRACES";
 
 #[derive(Clone, Copy)]
 pub(super) enum RefreshMode {
-    Background,
-    Blocking,
-}
-
-#[derive(Default)]
-struct RefreshState {
-    running: bool,
-    pending: bool,
-}
-
-struct RefreshScheduler {
-    state: Mutex<RefreshState>,
-    cv: Condvar,
-}
-
-fn refresh_scheduler() -> Arc<RefreshScheduler> {
-    static SCHEDULER: OnceLock<Arc<RefreshScheduler>> = OnceLock::new();
-    SCHEDULER
-        .get_or_init(|| {
-            Arc::new(RefreshScheduler {
-                state: Mutex::new(RefreshState::default()),
-                cv: Condvar::new(),
-            })
-        })
-        .clone()
+    StoreOnly,
+    FullBlocking,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -84,116 +63,62 @@ struct BenchmarkCaseRecord {
 }
 
 pub(super) fn request_generated_data_refresh(mode: RefreshMode) -> Result<()> {
-    match mode {
-        RefreshMode::Background => schedule_background_refresh(),
-        RefreshMode::Blocking => run_blocking_refresh(),
-    }
-}
-
-fn schedule_background_refresh() -> Result<()> {
-    let scheduler = refresh_scheduler();
-    let should_spawn = {
-        let mut state = scheduler
-            .state
-            .lock()
-            .map_err(|_| anyhow::anyhow!("benchmark refresh scheduler mutex poisoned"))?;
-        state.pending = true;
-        if state.running {
-            false
-        } else {
-            state.running = true;
-            true
-        }
-    };
-
-    if should_spawn {
-        let scheduler = scheduler.clone();
-        thread::spawn(move || {
-            if let Err(err) = drain_refresh_requests(&scheduler) {
-                eprintln!("warning: benchmark data refresh failed: {err:#}");
-            }
-        });
-    }
-
-    Ok(())
-}
-
-fn run_blocking_refresh() -> Result<()> {
-    let scheduler = refresh_scheduler();
-    loop {
-        let should_run = {
-            let mut state = scheduler
-                .state
-                .lock()
-                .map_err(|_| anyhow::anyhow!("benchmark refresh scheduler mutex poisoned"))?;
-            state.pending = true;
-            if state.running {
-                while state.running {
-                    state = scheduler.cv.wait(state).map_err(|_| {
-                        anyhow::anyhow!("benchmark refresh scheduler mutex poisoned")
-                    })?;
-                }
-            }
-            if state.pending {
-                state.running = true;
-                true
-            } else {
-                false
-            }
-        };
-
-        if !should_run {
-            return Ok(());
-        }
-
-        drain_refresh_requests(&scheduler)?;
-    }
-}
-
-fn drain_refresh_requests(scheduler: &RefreshScheduler) -> Result<()> {
-    loop {
-        {
-            let mut state = scheduler
-                .state
-                .lock()
-                .map_err(|_| anyhow::anyhow!("benchmark refresh scheduler mutex poisoned"))?;
-            state.pending = false;
-        }
-
-        let result = refresh_generated_data_once();
-
-        let mut state = scheduler
-            .state
-            .lock()
-            .map_err(|_| anyhow::anyhow!("benchmark refresh scheduler mutex poisoned"))?;
-        if state.pending {
-            drop(state);
-            result?;
-            continue;
-        }
-        state.running = false;
-        scheduler.cv.notify_all();
-        drop(state);
-        result?;
+    if matches!(mode, RefreshMode::StoreOnly) {
         return Ok(());
     }
+
+    spawn_generated_data_refresh(&repo_root())
 }
 
-fn refresh_generated_data_once() -> Result<()> {
-    let repo_root = repo_root();
-    backfill_retained_case_traces(&repo_root)?;
+fn spawn_generated_data_refresh(repo_root: &Path) -> Result<()> {
+    if retained_trace_backfill_enabled() {
+        backfill_retained_case_traces(repo_root)?;
+    }
 
     let package_path = repo_root.join("apps/benchmarks/package.json");
     if !package_path.exists() {
         return Ok(());
     }
 
-    let output = match Command::new("npm")
+    let log_dir = benchmark_refresh_log_dir(repo_root);
+    fs::create_dir_all(&log_dir)
+        .with_context(|| format!("create benchmark refresh log dir {}", log_dir.display()))?;
+
+    let log_stamp = format!("{}-{}", std::process::id(), now_ms());
+    let stdout_path = log_dir.join(format!("{log_stamp}.stdout.log"));
+    let stderr_path = log_dir.join(format!("{log_stamp}.stderr.log"));
+    let stdout = fs::File::create(&stdout_path).with_context(|| {
+        format!(
+            "create benchmark refresh stdout log {}",
+            stdout_path.display()
+        )
+    })?;
+    let stderr = fs::File::create(&stderr_path).with_context(|| {
+        format!(
+            "create benchmark refresh stderr log {}",
+            stderr_path.display()
+        )
+    })?;
+
+    let mut command = Command::new("npm");
+    command
         .args(["run", "generate:data", "--workspace=apps/benchmarks"])
-        .current_dir(&repo_root)
-        .output()
-    {
-        Ok(output) => output,
+        .current_dir(repo_root)
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr));
+    #[cfg(unix)]
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+
+    let child = match command.spawn() {
+        Ok(child) => child,
         Err(err) => {
             eprintln!(
                 "warning: benchmark data refresh skipped: failed to launch npm: {}",
@@ -203,18 +128,28 @@ fn refresh_generated_data_once() -> Result<()> {
         }
     };
 
-    if output.status.success() {
-        return Ok(());
-    }
+    let refresh_pid = child.id();
 
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let stdout = String::from_utf8_lossy(&output.stdout);
     eprintln!(
-        "warning: benchmark data refresh failed:\nstdout:\n{}\nstderr:\n{}",
-        stdout.trim(),
-        stderr.trim()
+        "info: spawned benchmark data refresh pid={} (stdout_log={} stderr_log={})",
+        refresh_pid,
+        stdout_path.display(),
+        stderr_path.display()
     );
     Ok(())
+}
+
+fn retained_trace_backfill_enabled() -> bool {
+    env::var(TRACE_BACKFILL_ENV)
+        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
+
+fn benchmark_refresh_log_dir(repo_root: &Path) -> PathBuf {
+    repo_root
+        .join("target")
+        .join("computer_use_suite")
+        .join("benchmark_refresh")
 }
 
 fn backfill_retained_case_traces(repo_root: &Path) -> Result<()> {

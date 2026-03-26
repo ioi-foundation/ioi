@@ -3,7 +3,6 @@ use crate::kernel::state::get_rpc_client;
 use crate::models::{AppState, SessionSummary};
 use crate::orchestrator;
 use ioi_ipc::blockchain::QueryRawStateRequest;
-use ioi_scs::{FrameType, RetentionClass};
 use ioi_types::app::{
     account_id_from_key_material, ChainId, ChainTransaction, SignHeader, SignatureProof,
     SignatureSuite, SystemPayload, SystemTransaction,
@@ -27,8 +26,8 @@ pub async fn get_session_history(
     let mut all_sessions = Vec::new();
 
     if let Ok(guard) = state.lock() {
-        if let Some(scs) = &guard.studio_scs {
-            all_sessions.extend(orchestrator::get_local_sessions(scs));
+        if let Some(memory_runtime) = guard.memory_runtime.as_ref() {
+            all_sessions.extend(orchestrator::get_local_sessions(memory_runtime));
         }
     }
 
@@ -82,14 +81,13 @@ pub async fn load_session(
     use std::collections::HashSet;
     use tauri::Emitter;
 
-    let mut loaded_task: Option<AgentTask> = None;
-
-    {
+    let mut loaded_task = {
         let guard = state.lock().map_err(|_| "Lock fail")?;
-        if let Some(scs) = &guard.studio_scs {
-            loaded_task = orchestrator::load_local_task(scs, &session_id);
-        }
-    }
+        guard
+            .memory_runtime
+            .as_ref()
+            .and_then(|memory_runtime| orchestrator::load_local_task(memory_runtime, &session_id))
+    };
 
     if loaded_task.is_none() {
         println!(
@@ -155,23 +153,8 @@ pub async fn delete_session(
     session_id: String,
 ) -> Result<(), String> {
     if let Ok(guard) = state.lock() {
-        if let Some(scs) = &guard.studio_scs {
-            let mut sessions = orchestrator::get_local_sessions(scs);
-            if let Some(pos) = sessions.iter().position(|s| s.session_id == session_id) {
-                sessions.remove(pos);
-                if let Ok(bytes) = serde_json::to_vec(&sessions) {
-                    if let Ok(mut store) = scs.lock() {
-                        let _ = store.append_frame(
-                            FrameType::System,
-                            &bytes,
-                            0,
-                            [0u8; 32],
-                            orchestrator::SESSION_INDEX_KEY,
-                            RetentionClass::Archival,
-                        );
-                    }
-                }
-            }
+        if let Some(memory_runtime) = guard.memory_runtime.as_ref() {
+            orchestrator::delete_local_session_summary(memory_runtime, &session_id);
         }
     }
 

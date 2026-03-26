@@ -322,17 +322,16 @@ pub fn start_task(
         fitness_score: 0.0,
     };
 
-    let scs_handle = {
+    let memory_runtime = {
         let app_state = state.lock().map_err(|_| "Failed to lock state")?;
-        app_state.studio_scs.clone()
+        app_state.memory_runtime.clone()
     };
 
-    if let Some(scs) = scs_handle.clone() {
+    if let Some(memory_runtime) = memory_runtime.as_ref() {
         let run_bundle =
-            crate::kernel::artifacts::create_run_bundle(&scs, &task_id, &task_id, vec![]);
+            crate::kernel::artifacts::create_run_bundle(memory_runtime, &task_id, &task_id, vec![]);
         task.run_bundle_id = Some(run_bundle.artifact_id.clone());
         task.artifacts.push(run_bundle.clone());
-
         let summary = SessionSummary {
             session_id: task_id.clone(),
             title: if intent.len() > 30 {
@@ -342,8 +341,8 @@ pub fn start_task(
             },
             timestamp: crate::kernel::state::now(),
         };
-        orchestrator::save_local_session_summary(&scs, summary);
-        orchestrator::save_local_task_state(&scs, &task);
+        orchestrator::save_local_session_summary(memory_runtime, summary);
+        orchestrator::save_local_task_state(memory_runtime, &task);
     }
 
     {
