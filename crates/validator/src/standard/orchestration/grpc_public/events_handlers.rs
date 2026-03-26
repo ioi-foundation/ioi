@@ -47,8 +47,8 @@ mod workload_event_mapping_tests {
     use ioi_types::app::{
         AdapterArtifactPointer, AdapterKind, AdapterReceipt, AdapterRedactionSummary, KernelEvent,
         WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt, WorkloadFsWriteReceipt,
-        WorkloadNetFetchReceipt, WorkloadReceipt, WorkloadReceiptEvent, WorkloadScsRetrieveReceipt,
-        WorkloadWebRetrieveReceipt,
+        WorkloadMemoryRetrieveReceipt, WorkloadNetFetchReceipt, WorkloadReceipt,
+        WorkloadReceiptEvent, WorkloadWebRetrieveReceipt,
     };
 
     #[test]
@@ -258,9 +258,9 @@ mod workload_event_mapping_tests {
             step_index: 42,
             workload_id: "wid-scs".to_string(),
             timestamp_ms: 127,
-            receipt: WorkloadReceipt::ScsRetrieve(WorkloadScsRetrieveReceipt {
+            receipt: WorkloadReceipt::MemoryRetrieve(WorkloadMemoryRetrieveReceipt {
                 tool_name: "memory__search".to_string(),
-                backend: "scs:mhnsw".to_string(),
+                backend: "memory:sqlite+semantic".to_string(),
                 query_hash: "abcd".to_string(),
                 index_root: "beef".to_string(),
                 k: 5,
@@ -271,7 +271,7 @@ mod workload_event_mapping_tests {
                 candidate_truncated: false,
                 distance_metric: "cosine_distance".to_string(),
                 embedding_normalized: false,
-                proof_ref: Some("scs://proof/123".to_string()),
+                proof_ref: Some("memory://proof/123".to_string()),
                 proof_hash: Some("deadbeef".to_string()),
                 certificate_mode: Some("single_level_lb".to_string()),
                 success: true,
@@ -282,9 +282,9 @@ mod workload_event_mapping_tests {
             .expect("scs-retrieve workload receipt should map");
         match mapped {
             ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
-                Some(ioi_ipc::public::workload_receipt::Receipt::ScsRetrieve(scs)) => {
+                Some(ioi_ipc::public::workload_receipt::Receipt::MemoryRetrieve(scs)) => {
                     assert_eq!(scs.tool_name, "memory__search");
-                    assert_eq!(scs.backend, "scs:mhnsw");
+                    assert_eq!(scs.backend, "memory:sqlite+semantic");
                     assert_eq!(scs.query_hash, "abcd");
                     assert_eq!(scs.index_root, "beef");
                     assert_eq!(scs.k, 5);
@@ -296,7 +296,7 @@ mod workload_event_mapping_tests {
                     assert_eq!(scs.distance_metric, "cosine_distance");
                     assert!(!scs.embedding_normalized);
                     assert!(scs.has_proof_ref);
-                    assert_eq!(scs.proof_ref, "scs://proof/123");
+                    assert_eq!(scs.proof_ref, "memory://proof/123");
                     assert!(scs.has_proof_hash);
                     assert_eq!(scs.proof_hash, "deadbeef");
                     assert!(scs.has_certificate_mode);
@@ -304,7 +304,7 @@ mod workload_event_mapping_tests {
                     assert!(scs.success);
                     assert!(!scs.has_error_class);
                 }
-                other => panic!("expected scs_retrieve receipt, got: {:?}", other),
+                other => panic!("expected memory_retrieve receipt, got: {:?}", other),
             },
             other => panic!("expected workload receipt chain event, got: {:?}", other),
         }

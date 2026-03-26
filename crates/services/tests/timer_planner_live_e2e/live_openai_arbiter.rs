@@ -17,19 +17,7 @@ async fn timer_query_live_openai_e2e_with_model_arbiter() -> Result<()> {
     let start = Instant::now();
 
     let (tx, mut rx) = tokio::sync::broadcast::channel(512);
-    let now_ns = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let scs_path = std::env::temp_dir().join(format!("timer_live_openai_e2e_{}.scs", now_ns));
-    let scs = SovereignContextStore::create(
-        &scs_path,
-        StoreConfig {
-            chain_id: 1,
-            owner_id: [0u8; 32],
-            identity_key: [0x55; 32],
-        },
-    )?;
+    let memory_runtime = build_memory_runtime();
 
     let service = DesktopAgentService::new_hybrid(
         Arc::new(NoopGuiDriver),
@@ -38,7 +26,7 @@ async fn timer_query_live_openai_e2e_with_model_arbiter() -> Result<()> {
         runtime.clone(),
         runtime.clone(),
     )
-    .with_scs(Arc::new(Mutex::new(scs)))
+    .with_memory_runtime(memory_runtime)
     .with_event_sender(tx)
     .with_os_driver(Arc::new(NoopOsDriver));
 

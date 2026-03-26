@@ -12,6 +12,7 @@ use ioi_consensus::util::engine_from_config;
 use ioi_crypto::sign::batch::CpuBatchVerifier;
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_execution::ExecutionMachine;
+use ioi_memory::MemoryRuntime;
 use ioi_networking::libp2p::Libp2pSync;
 use ioi_networking::metrics as network_metrics;
 use ioi_services::governance::GovernanceModule;
@@ -398,6 +399,9 @@ where
 
     let safety_model: Arc<dyn LocalSafetyModel> =
         Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
+    let memory_runtime = Arc::new(MemoryRuntime::open_sqlite(
+        &Path::new(&workload_config.state_file).with_extension("memory.db"),
+    )?);
 
     // [FIX] Initialize OS Driver
     let os_driver = Arc::new(NativeOsDriver::new());
@@ -415,7 +419,7 @@ where
         signer,
         batch_verifier,
         safety_model: safety_model.clone(),
-        scs: None,
+        memory_runtime: Some(memory_runtime),
         event_broadcaster: None,
         inference_runtime: inference_runtime.clone(),
         // [FIX] Pass os_driver

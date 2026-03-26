@@ -1,6 +1,6 @@
 use crate::kernel::connectors::{GoogleAutomationManager, ShieldPolicyManager};
 use crate::models::{AgentPhase, AppState, ResetAutopilotDataResult};
-use crate::{autopilot_data_dir_for, open_or_create_studio_scs};
+use crate::{autopilot_data_dir_for, open_or_create_memory_runtime};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
@@ -46,7 +46,7 @@ pub async fn reset_autopilot_data(
     google_manager.reset_registry().await?;
     policy_manager.reset_to_default()?;
 
-    let old_scs = {
+    let old_memory_runtime = {
         let mut app_state = state
             .lock()
             .map_err(|_| "Failed to lock app state".to_string())?;
@@ -55,21 +55,21 @@ pub async fn reset_autopilot_data(
         app_state.is_simulating = false;
         app_state.event_index.clear();
         app_state.artifact_index.clear();
-        app_state.studio_scs.take()
+        app_state.memory_runtime.take()
     };
-    drop(old_scs);
+    drop(old_memory_runtime);
 
     let data_dir = autopilot_data_dir_for(&app);
     let mut removed_paths = Vec::new();
-    remove_file_if_exists(&data_dir.join("studio.scs"), &mut removed_paths)?;
+    remove_file_if_exists(&data_dir.join("studio-memory.db"), &mut removed_paths)?;
     remove_dir_if_exists(&data_dir.join("spotlight-validation"), &mut removed_paths)?;
 
-    let fresh_store = open_or_create_studio_scs(&data_dir)?;
+    let fresh_memory_runtime = open_or_create_memory_runtime(&data_dir)?;
     {
         let mut app_state = state
             .lock()
             .map_err(|_| "Failed to lock app state".to_string())?;
-        app_state.studio_scs = Some(Arc::new(Mutex::new(fresh_store)));
+        app_state.memory_runtime = Some(Arc::new(fresh_memory_runtime));
     }
 
     let result = ResetAutopilotDataResult {

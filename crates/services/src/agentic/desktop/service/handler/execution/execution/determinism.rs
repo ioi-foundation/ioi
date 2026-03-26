@@ -6,48 +6,70 @@ fn no_visual(
     (success, history_entry, error, None)
 }
 
+fn visual_observation_artifact_id(checksum: &[u8; 32]) -> String {
+    format!("desktop.visual_observation.{}", hex::encode(checksum))
+}
+
+fn visual_observation_content_type(bytes: &[u8]) -> &'static str {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        "image/png"
+    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        "image/jpeg"
+    } else {
+        "application/octet-stream"
+    }
+}
+
 fn persist_visual_observation(
-    service: &DesktopAgentService,
+    _service: &DesktopAgentService,
     session_id: [u8; 32],
     block_height: u64,
     visual_observation: Vec<u8>,
 ) -> Result<[u8; 32], TransactionError> {
-    let scs_mutex = service.scs.as_ref().ok_or_else(|| {
-        TransactionError::Invalid(
-            "ERROR_CLASS=UnexpectedState Visual evidence store unavailable.".to_string(),
-        )
+    let checksum_bytes = sha256(&visual_observation).map_err(|error| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=UnexpectedState Failed to hash visual evidence: {}",
+            error
+        ))
     })?;
+    let mut checksum = [0u8; 32];
+    checksum.copy_from_slice(checksum_bytes.as_ref());
 
-    let mut store = scs_mutex
-        .lock()
-        .map_err(|_| TransactionError::Invalid("Internal: SCS lock poisoned".into()))?;
+    if let Some(memory_runtime) = _service.memory_runtime.as_ref() {
+        let artifact_id = visual_observation_artifact_id(&checksum);
+        let metadata_json = serde_json::to_string(&json!({
+            "kind": "visual_observation",
+            "artifact_id": artifact_id,
+            "session_id": hex::encode(session_id),
+            "block_height": block_height,
+            "content_type": visual_observation_content_type(&visual_observation),
+            "checksum": hex::encode(checksum),
+        }))
+        .map_err(|error| TransactionError::Serialization(error.to_string()))?;
 
-    let frame_id = store
-        .append_frame(
-            FrameType::Observation,
-            &visual_observation,
-            block_height,
-            [0u8; 32],
-            session_id,
-            RetentionClass::Ephemeral,
-        )
-        .map_err(|e| {
-            TransactionError::Invalid(format!(
-                "ERROR_CLASS=UnexpectedState Failed to persist visual evidence: {}",
-                e
-            ))
-        })?;
+        memory_runtime
+            .upsert_artifact_json(session_id, &artifact_id, &metadata_json)
+            .map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "ERROR_CLASS=UnexpectedState Failed to persist visual evidence metadata: {}",
+                    error
+                ))
+            })?;
+        memory_runtime
+            .put_artifact_blob(session_id, &artifact_id, &visual_observation)
+            .map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "ERROR_CLASS=UnexpectedState Failed to persist visual evidence blob: {}",
+                    error
+                ))
+            })?;
+        return Ok(checksum);
+    }
 
-    store
-        .toc
-        .frames
-        .get(frame_id as usize)
-        .map(|frame| frame.checksum)
-        .ok_or_else(|| {
-            TransactionError::Invalid(
-                "ERROR_CLASS=UnexpectedState Persisted visual evidence frame missing.".to_string(),
-            )
-        })
+    Err(TransactionError::Invalid(
+        "ERROR_CLASS=ToolUnavailable Visual evidence store requires a configured memory runtime."
+            .to_string(),
+    ))
 }
 
 fn resolved_intent_id(agent_state: &AgentState) -> String {
@@ -66,7 +88,7 @@ fn unix_timestamp_ms_now() -> u64 {
 }
 
 async fn build_determinism_context(
-    service: &DesktopAgentService,
+    _service: &DesktopAgentService,
     tool: &AgentTool,
     rules: &ActionRules,
     agent_state: &AgentState,
@@ -97,22 +119,7 @@ async fn build_determinism_context(
     let mut tool_hash = [0u8; 32];
     tool_hash.copy_from_slice(tool_hash_bytes.as_ref());
 
-    let mut target = tool.target();
-    // `FrameType::Observation` inspection can invoke screenshot captioning; gate it via a
-    // distinct policy target so default-safe rules can require explicit approval.
-    if let AgentTool::MemoryInspect { frame_id } = tool {
-        if let Some(scs_mutex) = service.scs.as_ref() {
-            if let Ok(store) = scs_mutex.lock() {
-                if let Some(frame) = store.toc.frames.get(*frame_id as usize) {
-                    if matches!(frame.frame_type, FrameType::Observation) {
-                        target = ioi_types::app::ActionTarget::Custom(
-                            "memory::inspect_observation".to_string(),
-                        );
-                    }
-                }
-            }
-        }
-    }
+    let target = tool.target();
 
     let window_binding =
         resolve_window_binding_for_target(os_driver, session_id, &target, "pre_determinism_commit")

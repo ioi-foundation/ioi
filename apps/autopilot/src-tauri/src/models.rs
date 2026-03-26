@@ -1,11 +1,12 @@
 // apps/autopilot/src-tauri/src/models.rs
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
+use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{LlmToolDefinition, PiiTarget};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tonic::transport::Channel;
 use ts_rs::TS;
 
@@ -160,7 +161,7 @@ pub struct SkillCatalogEntry {
     pub source_type: String,
     pub success_rate_bps: u32,
     pub sample_size: u32,
-    pub frame_id: u64,
+    pub archival_record_id: i64,
     #[serde(default)]
     pub source_session_id: Option<String>,
     #[serde(default)]
@@ -282,7 +283,7 @@ pub struct SkillDetailView {
     pub description: String,
     pub lifecycle_state: String,
     pub source_type: String,
-    pub frame_id: u64,
+    pub archival_record_id: i64,
     pub success_rate_bps: u32,
     pub sample_size: u32,
     #[serde(default)]
@@ -1148,17 +1149,11 @@ pub struct AppState {
     pub event_index: HashMap<String, Vec<String>>,
     pub artifact_index: HashMap<String, Vec<String>>,
 
-    // Persistent Store for Studio execution artifacts
-    // Note: SovereignContextStore is imported but used inside Arc<Mutex> here
-    // We don't need to import it if we don't name it in the struct field type explicitly if using fully qualified or alias,
-    // but here we use ioi_scs::SovereignContextStore implicitly via the module if not imported?
-    // Actually we need to import it to name it.
-    // In lib.rs we imported it. Here we need it too.
-    // The previous error was in ingestion.rs.
-    pub studio_scs: Option<Arc<Mutex<ioi_scs::SovereignContextStore>>>,
-
     // Shared Inference Runtime for Embedding/Indexing commands
     pub inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+
+    // Primary local runtime for checkpoints, memory, events, artifacts, and cache state.
+    pub memory_runtime: Option<Arc<MemoryRuntime>>,
 }
 
 #[cfg(test)]
@@ -1203,7 +1198,7 @@ mod tests {
             artifact_type: ArtifactType::Diff,
             title: "Large diff".to_string(),
             description: "Diff exceeded threshold".to_string(),
-            content_ref: "scs://artifact/art-1".to_string(),
+            content_ref: "ioi-memory://artifact/art-1".to_string(),
             metadata: json!({"files_touched": 4}),
             version: Some(1),
             parent_artifact_id: None,

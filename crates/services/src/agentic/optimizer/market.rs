@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeSet;
 
 impl OptimizerService {
     /// [NEW] Internal logic for asset hydration.
@@ -141,41 +142,14 @@ impl OptimizerService {
         params: OptimizeAgentParams,
         ctx: &TxContext<'_>,
     ) -> Result<(), TransactionError> {
-        let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
-        let full_key = [
-            ns_prefix.as_slice(),
-            b"agent::state::",
-            params.session_id.as_slice(),
-        ]
-        .concat();
+        let agent_state = self.load_agent_state_for_session(params.session_id)?;
 
-        let state_bytes = state
-            .get(&full_key)?
-            .ok_or(TransactionError::Invalid("Agent state not found".into()))?;
-        let agent_state: crate::agentic::desktop::AgentState =
-            codec::from_bytes_canonical(&state_bytes)?;
-
-        let scs_mutex = self
-            .scs
-            .as_ref()
-            .ok_or(TransactionError::Invalid("SCS not available".into()))?;
-        let store = scs_mutex
-            .lock()
-            .map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
-
-        let empty_vec = Vec::new();
-        let session_frames = store
-            .session_index
-            .get(&params.session_id)
-            .unwrap_or(&empty_vec);
-
-        let mut skill_hashes = Vec::new();
-        for &fid in session_frames {
-            let frame = store.toc.frames.get(fid as usize).unwrap();
-            if frame.frame_type == ioi_scs::FrameType::Skill {
-                skill_hashes.push(frame.checksum);
-            }
-        }
+        let skill_hashes = fetch_session_traces(state, params.session_id)?
+            .into_iter()
+            .filter_map(|trace| trace.skill_hash)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
 
         let manifest = AgentManifest {
             name: format!("Agent-{}", hex::encode(&params.session_id[0..4])),

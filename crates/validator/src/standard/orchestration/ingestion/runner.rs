@@ -7,6 +7,7 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_client::WorkloadClient;
+use ioi_memory::MemoryRuntime;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_tx::unified::UnifiedTransactionModel;
 use libp2p::PeerId;
@@ -44,6 +45,7 @@ pub async fn run_ingestion_worker<CS>(
     safety_model: Arc<dyn LocalSafetyModel>,
     // [NEW] Added os_driver to worker arguments
     os_driver: Arc<dyn OsDriver>,
+    memory_runtime: Option<Arc<MemoryRuntime>>,
     config: IngestionConfig,
     event_broadcaster: tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>,
 ) where
@@ -108,6 +110,7 @@ pub async fn run_ingestion_worker<CS>(
             &workload_client,
             &safety_model,
             &os_driver,
+            memory_runtime.as_ref(),
             &status_cache,
             &event_broadcaster,
         )

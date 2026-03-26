@@ -12,6 +12,10 @@ mod router;
 use crate::agentic::desktop::service::step::action::command_contract::{
     runtime_desktop_directory, runtime_home_directory, runtime_host_environment_receipt,
 };
+use crate::agentic::desktop::service::memory::{
+    persist_prompt_memory_diagnostics, prepare_prompt_memory_context, MemoryPromptDiagnostics,
+    MemoryPromptSectionDiagnostic,
+};
 use crate::agentic::desktop::service::step::perception::PerceptionContext;
 use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::service::DesktopAgentService;
@@ -54,6 +58,331 @@ const BROWSER_PROMPT_SCREENSHOT_JPEG_QUALITY: u8 = 60;
 pub struct CognitionResult {
     pub raw_output: String,
     pub strategy_used: String,
+}
+
+const PROMPT_SECTION_KERNEL_POLICY_MAX_CHARS: usize = 1_200;
+const PROMPT_SECTION_STATE_MAX_CHARS: usize = 1_600;
+const PROMPT_SECTION_CORE_MEMORY_MAX_CHARS: usize = 1_400;
+const PROMPT_SECTION_STRATEGY_MAX_CHARS: usize = 900;
+const PROMPT_SECTION_VERIFY_MAX_CHARS: usize = 500;
+const PROMPT_SECTION_SCOPE_CONTRACT_MAX_CHARS: usize = 2_800;
+const PROMPT_SECTION_AVAILABLE_TOOLS_MAX_CHARS: usize = 4_000;
+const PROMPT_SECTION_BROWSER_CONTEXT_MAX_CHARS: usize = 2_400;
+const PROMPT_SECTION_PENDING_BROWSER_STATE_MAX_CHARS: usize = 1_200;
+const PROMPT_SECTION_SUCCESS_SIGNAL_MAX_CHARS: usize = 600;
+const PROMPT_SECTION_RECENT_EVENTS_MAX_CHARS: usize = 1_800;
+const PROMPT_SECTION_COMMAND_HISTORY_MAX_CHARS: usize = 1_600;
+const PROMPT_SECTION_WORKSPACE_CONTEXT_MAX_CHARS: usize = 1_200;
+const PROMPT_SECTION_OPERATING_RULES_MAX_CHARS: usize = 3_200;
+const PROMPT_SECTION_SPECIALIZED_INSTRUCTION_MAX_CHARS: usize = 1_200;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PromptAssembly {
+    system_instructions: String,
+    report: PromptAssemblyReport,
+    rendered_sections: Vec<RenderedPromptSection>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PromptAssemblyReport {
+    sections: Vec<PromptSectionReport>,
+    total_chars: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PromptSectionReport {
+    name: &'static str,
+    included: bool,
+    budget_chars: Option<usize>,
+    original_chars: usize,
+    rendered_chars: usize,
+    truncated: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PromptSection {
+    name: &'static str,
+    content: String,
+    budget_chars: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RenderedPromptSection {
+    name: &'static str,
+    content: String,
+}
+
+impl PromptSection {
+    fn new(name: &'static str, content: impl Into<String>) -> Self {
+        Self {
+            name,
+            content: content.into(),
+            budget_chars: None,
+        }
+    }
+
+    fn with_budget(mut self, budget_chars: usize) -> Self {
+        self.budget_chars = Some(budget_chars);
+        self
+    }
+}
+
+fn truncate_prompt_section(content: &str, max_chars: usize) -> (String, bool) {
+    if max_chars == 0 {
+        return (String::new(), !content.trim().is_empty());
+    }
+
+    let trimmed = content.trim();
+    let original_chars = trimmed.chars().count();
+    if original_chars <= max_chars {
+        return (trimmed.to_string(), false);
+    }
+
+    if max_chars <= 3 {
+        return (trimmed.chars().take(max_chars).collect(), true);
+    }
+
+    let mut truncated: String = trimmed.chars().take(max_chars - 3).collect();
+    truncated.push_str("...");
+    (truncated, true)
+}
+
+fn assemble_prompt_sections(sections: Vec<PromptSection>) -> PromptAssembly {
+    let mut rendered_sections = Vec::new();
+    let mut report_sections = Vec::with_capacity(sections.len());
+
+    for section in sections {
+        let original_chars = section.content.trim().chars().count();
+        let (rendered, truncated) = match section.budget_chars {
+            Some(budget_chars) => truncate_prompt_section(&section.content, budget_chars),
+            None => (section.content.trim().to_string(), false),
+        };
+        let included = !rendered.trim().is_empty();
+        let rendered_chars = rendered.chars().count();
+
+        if included {
+            rendered_sections.push(RenderedPromptSection {
+                name: section.name,
+                content: rendered,
+            });
+        }
+
+        report_sections.push(PromptSectionReport {
+            name: section.name,
+            included,
+            budget_chars: section.budget_chars,
+            original_chars,
+            rendered_chars,
+            truncated,
+        });
+    }
+
+    let system_instructions = rendered_sections
+        .iter()
+        .map(|section| section.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let total_chars = system_instructions.chars().count();
+    PromptAssembly {
+        system_instructions,
+        report: PromptAssemblyReport {
+            sections: report_sections,
+            total_chars,
+        },
+        rendered_sections,
+    }
+}
+
+fn format_prompt_assembly_report(report: &PromptAssemblyReport) -> String {
+    report
+        .sections
+        .iter()
+        .map(|section| {
+            format!(
+                "{}:included={} chars={}/{} budget={} truncated={}",
+                section.name,
+                section.included,
+                section.rendered_chars,
+                section.original_chars,
+                section
+                    .budget_chars
+                    .map(|budget| budget.to_string())
+                    .unwrap_or_else(|| "none".to_string()),
+                section.truncated
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn stable_prompt_cache_section(section_name: &str) -> bool {
+    !matches!(
+        section_name,
+        "browser_context"
+            | "pending_browser_state"
+            | "success_signal"
+            | "recent_session_events"
+            | "command_history"
+            | "urgent_feedback"
+            | "failure_block"
+    )
+}
+
+fn prompt_section_hash(content: &str) -> String {
+    sha256(content.as_bytes())
+        .ok()
+        .map(hex::encode)
+        .unwrap_or_default()
+}
+
+fn build_prompt_memory_diagnostics(
+    session_id: [u8; 32],
+    assembly: &PromptAssembly,
+) -> MemoryPromptDiagnostics {
+    let stable_prefix = assembly
+        .rendered_sections
+        .iter()
+        .filter(|section| stable_prompt_cache_section(section.name))
+        .map(|section| section.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let dynamic_suffix = assembly
+        .rendered_sections
+        .iter()
+        .filter(|section| !stable_prompt_cache_section(section.name))
+        .map(|section| section.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    MemoryPromptDiagnostics {
+        updated_at_ms: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
+        session_id_hex: hex::encode(session_id),
+        total_chars: assembly.report.total_chars,
+        prompt_hash: prompt_section_hash(&assembly.system_instructions),
+        stable_prefix_hash: prompt_section_hash(&stable_prefix),
+        dynamic_suffix_hash: prompt_section_hash(&dynamic_suffix),
+        sections: assembly
+            .report
+            .sections
+            .iter()
+            .map(|section| MemoryPromptSectionDiagnostic {
+                name: section.name.to_string(),
+                included: section.included,
+                budget_chars: section.budget_chars,
+                original_chars: section.original_chars,
+                rendered_chars: section.rendered_chars,
+                truncated: section.truncated,
+            })
+            .collect(),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_standard_prompt_assembly(
+    kernel_guidance: &str,
+    active_window_title: &str,
+    goal: &str,
+    resolved_intent_summary: &str,
+    core_memory_section: &str,
+    urgent_feedback: &str,
+    failure_block: &str,
+    strategy_instruction: &str,
+    som_instruction: &str,
+    verify_instruction: &str,
+    command_scope_instruction: &str,
+    cognition_tool_desc: &str,
+    browser_observation_context: &str,
+    pending_browser_state_context: &str,
+    success_signal_context: &str,
+    recent_session_events_section: &str,
+    command_history_section: &str,
+    workspace_context: &str,
+    operating_rules: &str,
+    mailbox_instruction: Option<&str>,
+    workspace_scope_instruction: &str,
+    automation_monitor_instruction: &str,
+) -> PromptAssembly {
+    let mut sections = vec![
+        PromptSection::new(
+            "kernel_policy",
+            format!(
+                "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.\n\n\
+=== LAYER 1: KERNEL POLICY ===\n\
+You do NOT have blanket authority. Every action is mediated by the IOI Policy Engine.\n\
+Only take actions that directly advance the USER GOAL.\n\n{}",
+                kernel_guidance
+            ),
+        )
+        .with_budget(PROMPT_SECTION_KERNEL_POLICY_MAX_CHARS),
+        PromptSection::new(
+            "state",
+            format!(
+                "=== LAYER 2: STATE ===\n\
+- Active Window: {}\n\
+- Goal: {}\n\
+- Resolved Intent: {}",
+                active_window_title, goal, resolved_intent_summary
+            ),
+        )
+        .with_budget(PROMPT_SECTION_STATE_MAX_CHARS),
+        PromptSection::new("core_memory", core_memory_section)
+            .with_budget(PROMPT_SECTION_CORE_MEMORY_MAX_CHARS),
+        PromptSection::new("urgent_feedback", urgent_feedback)
+            .with_budget(PROMPT_SECTION_STATE_MAX_CHARS),
+        PromptSection::new("failure_block", failure_block)
+            .with_budget(PROMPT_SECTION_STATE_MAX_CHARS),
+        PromptSection::new("strategy_instruction", strategy_instruction)
+            .with_budget(PROMPT_SECTION_STRATEGY_MAX_CHARS),
+        PromptSection::new("som_instruction", som_instruction)
+            .with_budget(PROMPT_SECTION_STRATEGY_MAX_CHARS),
+        PromptSection::new("verify_instruction", verify_instruction)
+            .with_budget(PROMPT_SECTION_VERIFY_MAX_CHARS),
+        PromptSection::new("command_scope_contract", command_scope_instruction)
+            .with_budget(PROMPT_SECTION_SCOPE_CONTRACT_MAX_CHARS),
+        PromptSection::new(
+            "available_tools",
+            format!("[AVAILABLE TOOLS]\n{}", cognition_tool_desc),
+        )
+        .with_budget(PROMPT_SECTION_AVAILABLE_TOOLS_MAX_CHARS),
+        PromptSection::new("browser_observation", browser_observation_context)
+            .with_budget(PROMPT_SECTION_BROWSER_CONTEXT_MAX_CHARS),
+        PromptSection::new("pending_browser_state", pending_browser_state_context)
+            .with_budget(PROMPT_SECTION_PENDING_BROWSER_STATE_MAX_CHARS),
+        PromptSection::new("success_signal", success_signal_context)
+            .with_budget(PROMPT_SECTION_SUCCESS_SIGNAL_MAX_CHARS),
+        PromptSection::new("recent_session_events", recent_session_events_section)
+            .with_budget(PROMPT_SECTION_RECENT_EVENTS_MAX_CHARS),
+        PromptSection::new("command_history", command_history_section)
+            .with_budget(PROMPT_SECTION_COMMAND_HISTORY_MAX_CHARS),
+        PromptSection::new("workspace_context", workspace_context)
+            .with_budget(PROMPT_SECTION_WORKSPACE_CONTEXT_MAX_CHARS),
+        PromptSection::new("operating_rules", operating_rules)
+            .with_budget(PROMPT_SECTION_OPERATING_RULES_MAX_CHARS),
+    ];
+
+    if let Some(mailbox_instruction) = mailbox_instruction {
+        sections.push(
+            PromptSection::new("mailbox_instruction", mailbox_instruction)
+                .with_budget(PROMPT_SECTION_SPECIALIZED_INSTRUCTION_MAX_CHARS),
+        );
+    }
+
+    sections.push(
+        PromptSection::new("workspace_scope_contract", workspace_scope_instruction)
+            .with_budget(PROMPT_SECTION_SPECIALIZED_INSTRUCTION_MAX_CHARS),
+    );
+    sections.push(
+        PromptSection::new(
+            "automation_monitor_contract",
+            automation_monitor_instruction,
+        )
+        .with_budget(PROMPT_SECTION_SPECIALIZED_INSTRUCTION_MAX_CHARS),
+    );
+
+    assemble_prompt_sections(sections)
 }
 
 fn has_meaningful_visual_context(screenshot_base64: Option<&str>) -> bool {
@@ -842,11 +1171,76 @@ fn compact_browser_action_prompt_eligible(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn build_compact_browser_action_prompt_assembly(
+    kernel_guidance: &str,
+    active_window_title: &str,
+    goal: &str,
+    resolved_intent_summary: &str,
+    core_memory_section: &str,
+    urgent_feedback: &str,
+    failure_block: &str,
+    strategy_instruction: &str,
+    verify_instruction: &str,
+    cognition_tool_desc: &str,
+    browser_observation_context: &str,
+    pending_browser_state_context: &str,
+    success_signal_context: &str,
+    operating_rules: &str,
+) -> PromptAssembly {
+    assemble_prompt_sections(vec![
+        PromptSection::new(
+            "kernel_policy",
+            "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.",
+        )
+        .with_budget(PROMPT_SECTION_KERNEL_POLICY_MAX_CHARS),
+        PromptSection::new(
+            "compact_browser_contract",
+            "Follow policy. Output exactly one grounded browser tool call that advances the goal.",
+        )
+        .with_budget(PROMPT_SECTION_STRATEGY_MAX_CHARS),
+        PromptSection::new("kernel_guidance", kernel_guidance)
+            .with_budget(PROMPT_SECTION_KERNEL_POLICY_MAX_CHARS),
+        PromptSection::new(
+            "state",
+            format!(
+                "STATE:\n- Active Window: {}\n- Goal: {}\n- Resolved Intent: {}",
+                active_window_title, goal, resolved_intent_summary
+            ),
+        )
+        .with_budget(PROMPT_SECTION_STATE_MAX_CHARS),
+        PromptSection::new("core_memory", core_memory_section)
+            .with_budget(PROMPT_SECTION_CORE_MEMORY_MAX_CHARS),
+        PromptSection::new("urgent_feedback", urgent_feedback)
+            .with_budget(PROMPT_SECTION_STATE_MAX_CHARS),
+        PromptSection::new("failure_block", failure_block)
+            .with_budget(PROMPT_SECTION_STATE_MAX_CHARS),
+        PromptSection::new("strategy_instruction", strategy_instruction)
+            .with_budget(PROMPT_SECTION_STRATEGY_MAX_CHARS),
+        PromptSection::new("verify_instruction", verify_instruction)
+            .with_budget(PROMPT_SECTION_VERIFY_MAX_CHARS),
+        PromptSection::new(
+            "available_tools",
+            format!("[AVAILABLE TOOLS]\n{}", cognition_tool_desc),
+        )
+        .with_budget(PROMPT_SECTION_AVAILABLE_TOOLS_MAX_CHARS),
+        PromptSection::new("browser_observation", browser_observation_context)
+            .with_budget(PROMPT_SECTION_BROWSER_CONTEXT_MAX_CHARS),
+        PromptSection::new("pending_browser_state", pending_browser_state_context)
+            .with_budget(PROMPT_SECTION_PENDING_BROWSER_STATE_MAX_CHARS),
+        PromptSection::new("success_signal", success_signal_context)
+            .with_budget(PROMPT_SECTION_SUCCESS_SIGNAL_MAX_CHARS),
+        PromptSection::new("operating_rules", operating_rules)
+            .with_budget(PROMPT_SECTION_OPERATING_RULES_MAX_CHARS),
+    ])
+}
+
+#[allow(clippy::too_many_arguments)]
 fn build_compact_browser_action_system_instructions(
     kernel_guidance: &str,
     active_window_title: &str,
     goal: &str,
     resolved_intent_summary: &str,
+    core_memory_section: &str,
     urgent_feedback: &str,
     failure_block: &str,
     strategy_instruction: &str,
@@ -857,33 +1251,23 @@ fn build_compact_browser_action_system_instructions(
     success_signal_context: &str,
     operating_rules: &str,
 ) -> String {
-    let mut sections = vec![
-        "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.".to_string(),
-        "Follow policy. Output exactly one grounded browser tool call that advances the goal."
-            .to_string(),
-        kernel_guidance.to_string(),
-        format!(
-            "STATE:\n- Active Window: {}\n- Goal: {}\n- Resolved Intent: {}",
-            active_window_title, goal, resolved_intent_summary
-        ),
-        strategy_instruction.to_string(),
-        verify_instruction.to_string(),
-        format!("[AVAILABLE TOOLS]\n{}", cognition_tool_desc),
-        browser_observation_context.to_string(),
-        pending_browser_state_context.to_string(),
-        success_signal_context.to_string(),
-        operating_rules.to_string(),
-    ];
-
-    if !urgent_feedback.trim().is_empty() {
-        sections.insert(4, urgent_feedback.to_string());
-    }
-    if !failure_block.trim().is_empty() {
-        sections.insert(5, failure_block.to_string());
-    }
-
-    sections.retain(|section| !section.trim().is_empty());
-    sections.join("\n\n")
+    build_compact_browser_action_prompt_assembly(
+        kernel_guidance,
+        active_window_title,
+        goal,
+        resolved_intent_summary,
+        core_memory_section,
+        urgent_feedback,
+        failure_block,
+        strategy_instruction,
+        verify_instruction,
+        cognition_tool_desc,
+        browser_observation_context,
+        pending_browser_state_context,
+        success_signal_context,
+        operating_rules,
+    )
+    .system_instructions
 }
 
 pub async fn think(
@@ -1085,6 +1469,14 @@ pub async fn think(
         current_browser_snapshot.as_deref(),
         prefer_browser_semantics,
     );
+    let core_memory_section = prepare_prompt_memory_context(
+        service,
+        session_id,
+        agent_state,
+        perception,
+        current_browser_snapshot.as_deref(),
+    )
+    .await?;
     let mut pending_browser_state_context =
         build_recent_pending_browser_state_context_with_snapshot(
             &full_history,
@@ -1307,12 +1699,15 @@ Do not claim success for actions you did not verify.";
         String::new()
     };
 
-    let system_instructions = if compact_browser_action_prompt {
-        build_compact_browser_action_system_instructions(
+    let mailbox_instruction =
+        mailbox_connector_instruction(&agent_state.goal, &perception.available_tools);
+    let prompt_assembly = if compact_browser_action_prompt {
+        build_compact_browser_action_prompt_assembly(
             kernel_guidance,
             &perception.active_window_title,
             &agent_state.goal,
             &resolved_intent_summary,
+            &core_memory_section,
             &urgent_feedback,
             &failure_block,
             &strategy_instruction,
@@ -1324,75 +1719,46 @@ Do not claim success for actions you did not verify.";
             &operating_rules,
         )
     } else {
-        format!(
-            "SYSTEM: You are a local desktop assistant operating inside the IOI runtime.
-
-=== LAYER 1: KERNEL POLICY ===
-You do NOT have blanket authority. Every action is mediated by the IOI Policy Engine.
-Only take actions that directly advance the USER GOAL.
-
-{}
-
- === LAYER 2: STATE ===
- - Active Window: {}
- - Goal: {}
- - Resolved Intent: {}
- {}
- {}
-
-{}
-{}{}
-{}
-
-[AVAILABLE TOOLS]
-{}
-
-{}{}{}
-
-{}{}
-
-{}
-{}",
+        build_standard_prompt_assembly(
             kernel_guidance,
-            perception.active_window_title,
-            agent_state.goal,
-            resolved_intent_summary,
-            urgent_feedback,
-            failure_block,
-            strategy_instruction,
+            &perception.active_window_title,
+            &agent_state.goal,
+            &resolved_intent_summary,
+            &core_memory_section,
+            &urgent_feedback,
+            &failure_block,
+            &strategy_instruction,
             som_instruction,
-            verify_instruction,
-            command_scope_instruction,
-            cognition_tool_desc,
-            browser_observation_context,
-            pending_browser_state_context,
-            success_signal_context,
-            recent_session_events_section,
-            command_history_section,
-            workspace_context,
-            operating_rules
+            &verify_instruction,
+            &command_scope_instruction,
+            &cognition_tool_desc,
+            &browser_observation_context,
+            &pending_browser_state_context,
+            &success_signal_context,
+            &recent_session_events_section,
+            &command_history_section,
+            &workspace_context,
+            &operating_rules,
+            mailbox_instruction.as_deref(),
+            &workspace_scope_instruction,
+            &automation_monitor_instruction,
         )
     };
-    let system_instructions = if let Some(mailbox_instruction) =
-        mailbox_connector_instruction(&agent_state.goal, &perception.available_tools)
-    {
-        format!("{}\n{}", system_instructions, mailbox_instruction)
-    } else {
-        system_instructions
-    };
-    let system_instructions = if workspace_scope_instruction.is_empty() {
-        system_instructions
-    } else {
-        format!("{}\n{}", system_instructions, workspace_scope_instruction)
-    };
-    let system_instructions = if automation_monitor_instruction.is_empty() {
-        system_instructions
-    } else {
-        format!(
-            "{}\n{}",
-            system_instructions, automation_monitor_instruction
-        )
-    };
+    log::info!(
+        "CognitionPromptAssembly session={} total_chars={} sections={}",
+        session_prefix,
+        prompt_assembly.report.total_chars,
+        format_prompt_assembly_report(&prompt_assembly.report)
+    );
+    if let Some(memory_runtime) = service.memory_runtime.as_ref() {
+        let diagnostics = build_prompt_memory_diagnostics(session_id, &prompt_assembly);
+        if let Err(error) =
+            persist_prompt_memory_diagnostics(memory_runtime.as_ref(), session_id, &diagnostics)
+        {
+            log::warn!("Failed to persist prompt memory diagnostics: {}", error);
+        }
+    }
+    let system_instructions = prompt_assembly.system_instructions;
 
     let include_screenshot =
         has_prompt_visual_context && matches!(mode, AttentionMode::VisualAction);
@@ -1589,15 +1955,17 @@ Only take actions that directly advance the USER GOAL.
 mod tests {
     use super::router::AttentionMode;
     use super::{
-        browser_prompt_visual_grounding_required, browser_rule_relevant,
+        assemble_prompt_sections, browser_prompt_visual_grounding_required, browser_rule_relevant,
         browser_surface_requires_visual_grounding, build_browser_operating_rules,
+        build_compact_browser_action_prompt_assembly,
         build_compact_browser_action_system_instructions, build_operating_rules,
-        build_recent_command_history_context, build_strategy_instruction,
-        compact_browser_action_prompt_eligible, compact_browser_action_prompt_tools,
-        encode_browser_prompt_screenshot, filter_cognition_tools, has_meaningful_visual_context,
+        build_recent_command_history_context, build_standard_prompt_assembly,
+        build_strategy_instruction, compact_browser_action_prompt_eligible,
+        compact_browser_action_prompt_tools, encode_browser_prompt_screenshot,
+        filter_cognition_tools, format_prompt_assembly_report, has_meaningful_visual_context,
         inference_error_system_fail_reason, mailbox_connector_instruction,
         preflight_missing_capability, top_edge_jump_name, top_edge_jump_tool_call,
-        top_edge_jump_tool_call_with_grounded_selector, workspace_reference_context,
+        top_edge_jump_tool_call_with_grounded_selector, workspace_reference_context, PromptSection,
     };
     use crate::agentic::desktop::service::step::perception::PerceptionContext;
     use crate::agentic::desktop::types::{CommandExecution, ExecutionTier};
@@ -1689,6 +2057,122 @@ mod tests {
             instruction_contract: None,
             constrained: false,
         }
+    }
+
+    #[test]
+    fn prompt_assembly_enforces_section_budgets_and_reports_truncation() {
+        let assembly = assemble_prompt_sections(vec![
+            PromptSection::new("alpha", "abcdef").with_budget(4),
+            PromptSection::new("beta", "second section"),
+            PromptSection::new("empty", "   ").with_budget(10),
+        ]);
+
+        assert!(assembly.system_instructions.contains("a..."));
+        assert!(assembly.system_instructions.contains("second section"));
+        assert!(!assembly.system_instructions.contains("empty"));
+        assert_eq!(
+            assembly.report.total_chars,
+            assembly.system_instructions.chars().count()
+        );
+        assert_eq!(assembly.report.sections.len(), 3);
+        assert!(assembly.report.sections[0].truncated);
+        assert!(!assembly.report.sections[1].truncated);
+        assert!(!assembly.report.sections[2].included);
+
+        let report = format_prompt_assembly_report(&assembly.report);
+        assert!(report.contains("alpha:included=true"));
+        assert!(report.contains("truncated=true"));
+        assert!(report.contains("empty:included=false"));
+    }
+
+    #[test]
+    fn standard_prompt_assembly_omits_empty_sections_and_keeps_specialized_sections() {
+        let assembly = build_standard_prompt_assembly(
+            "Kernel guidance.",
+            "Chromium",
+            "Finish checkout",
+            "browser.checkout (scope=Browser band=High score=0.99)",
+            "CORE MEMORY:\n- Current Goal: Finish checkout",
+            "",
+            "",
+            "Strategy goes here.",
+            "",
+            "",
+            "COMMAND EXECUTION CONTRACT:\n- Use terminal evidence.",
+            "browser__snapshot",
+            "CURRENT BROWSER OBSERVATION:\n<button id=\"checkout\" />",
+            "",
+            "",
+            "RECENT SESSION EVENTS:\nclicked checkout",
+            "",
+            "WORKSPACE CONTEXT:\nrepo=ioi",
+            "OPERATING RULES:\n- verify success",
+            Some("MAILBOX CONNECTOR RULE:\n- stay mailbox-local"),
+            "WORKSPACE OPS CONTRACT:\n- prefer filesystem tools",
+            "",
+        );
+
+        assert!(assembly
+            .system_instructions
+            .contains("=== LAYER 1: KERNEL POLICY ==="));
+        assert!(assembly
+            .system_instructions
+            .contains("CURRENT BROWSER OBSERVATION"));
+        assert!(assembly
+            .system_instructions
+            .contains("RECENT SESSION EVENTS"));
+        assert!(assembly
+            .system_instructions
+            .contains("MAILBOX CONNECTOR RULE"));
+        assert!(assembly
+            .system_instructions
+            .contains("WORKSPACE OPS CONTRACT"));
+        assert!(!assembly.system_instructions.contains("automation.monitor"));
+
+        let included_sections: Vec<_> = assembly
+            .report
+            .sections
+            .iter()
+            .filter(|section| section.included)
+            .map(|section| section.name)
+            .collect();
+        assert!(included_sections.contains(&"mailbox_instruction"));
+        assert!(included_sections.contains(&"workspace_scope_contract"));
+        assert!(!included_sections.contains(&"automation_monitor_contract"));
+    }
+
+    #[test]
+    fn compact_browser_prompt_assembly_reports_named_sections() {
+        let assembly = build_compact_browser_action_prompt_assembly(
+            "Kernel guidance.",
+            "Chromium",
+            "Keep following the moving target.",
+            "browser.hover (scope=Browser band=High score=0.91)",
+            "CORE MEMORY:\n- Workflow Stage: Follow target",
+            "URGENT UPDATE: keep the cursor on the shape.",
+            "",
+            "Choose a grounded next tool call.",
+            "",
+            "browser__move_mouse",
+            "CURRENT BROWSER OBSERVATION:\n<canvas id=\"surface\" />",
+            "",
+            "",
+            "OPERATING RULES:\n- use grounded browser state",
+        );
+
+        assert!(assembly
+            .system_instructions
+            .contains("Follow policy. Output exactly one grounded browser tool call"));
+        assert!(assembly
+            .report
+            .sections
+            .iter()
+            .any(|section| section.name == "state"));
+        assert!(assembly
+            .report
+            .sections
+            .iter()
+            .any(|section| section.name == "available_tools" && section.included));
     }
 
     #[test]
@@ -2168,6 +2652,7 @@ mod tests {
             "Chromium",
             "Keep your mouse inside the circle as it moves around.",
             "computer_use_suite.browser (scope=UiInteraction band=High score=0.990)",
+            "CORE MEMORY:\n- Workflow Stage: Follow target",
             "",
             "",
             "MODE: BROWSER ACTION.",

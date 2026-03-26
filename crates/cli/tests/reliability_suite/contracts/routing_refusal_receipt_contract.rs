@@ -128,7 +128,7 @@ fn refusal_routing_receipt_uses_canonical_intent_and_complete_pre_state() {
         resolution_action: String::new(),
         stop_condition_hit: true,
         escalation_path: Some(escalation_path_for_failure(failure).to_string()),
-        scs_lineage_ptr: None,
+        lineage_ptr: None,
         mutation_receipt_ptr: None,
         policy_binding_hash: binding.clone(),
         policy_binding_sig: None,

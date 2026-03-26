@@ -1,6 +1,7 @@
 use crate::agentic::desktop::keys::get_state_key;
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
+use crate::agentic::desktop::utils::persist_agent_state;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::AgentTool;
@@ -45,7 +46,7 @@ pub async fn execute_worker_step(
     let Some(os_driver) = os_driver else {
         worker_state.step_count = worker_state.step_count.saturating_add(1);
         worker_state.status = AgentStatus::Failed("OS driver missing".to_string());
-        state.insert(&key, &codec::to_bytes_canonical(&worker_state)?)?;
+        persist_agent_state(state, &key, &worker_state, service.memory_runtime.as_ref())?;
         return Ok(WorkerExecutionResult {
             success: false,
             output: None,
@@ -96,7 +97,7 @@ pub async fn execute_worker_step(
                 .unwrap_or_else(|| "worker step failed".to_string()),
         )
     };
-    state.insert(&key, &codec::to_bytes_canonical(&worker_state)?)?;
+    persist_agent_state(state, &key, &worker_state, service.memory_runtime.as_ref())?;
 
     Ok(WorkerExecutionResult {
         success,

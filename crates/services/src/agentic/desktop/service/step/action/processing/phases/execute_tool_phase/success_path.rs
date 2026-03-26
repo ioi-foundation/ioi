@@ -1916,7 +1916,11 @@ pub(super) async fn handle_execution_success(
             }
             AgentTool::AgentAwait {
                 child_session_id_hex,
-            } => match child_session::await_child_session_status(state, child_session_id_hex) {
+            } => match child_session::await_child_session_status(
+                state,
+                service.memory_runtime.as_ref(),
+                child_session_id_hex,
+            ) {
                 Ok(out) => {
                     *history_entry = Some(out);
                     *error_msg = None;

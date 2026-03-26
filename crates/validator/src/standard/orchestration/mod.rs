@@ -64,7 +64,7 @@ use tonic::transport::Server;
 use crate::standard::orchestration::mempool::Mempool;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
-use ioi_scs::SovereignContextStore;
+use ioi_memory::MemoryRuntime;
 
 // --- Submodule Declarations ---
 pub(crate) mod aft_collapse;
@@ -163,8 +163,8 @@ pub struct OrchestrationDependencies<CE, V> {
     pub inference_runtime: Arc<dyn InferenceRuntime>,
     /// The OS driver for context-aware policy enforcement.
     pub os_driver: Arc<dyn OsDriver>,
-    /// The Sovereign Context Store handle (optional, for local nodes).
-    pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
+    /// Optional runtime-backed memory store for transcript and artifact retrieval.
+    pub memory_runtime: Option<Arc<MemoryRuntime>>,
     /// Shared event broadcaster
     pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
 }
@@ -278,8 +278,8 @@ where
     pub inference_runtime: Arc<dyn InferenceRuntime>,
     /// The OS driver for context-aware policy enforcement.
     pub os_driver: Arc<dyn OsDriver>,
-    /// The Sovereign Context Store handle.
-    pub scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
+    /// Optional runtime-backed memory store for transcript and artifact retrieval.
+    pub memory_runtime: Option<Arc<MemoryRuntime>>,
     /// Shared event broadcaster.
     pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
 }
@@ -357,7 +357,7 @@ where
             safety_model: deps.safety_model,
             inference_runtime: deps.inference_runtime,
             os_driver: deps.os_driver,
-            scs: deps.scs,
+            memory_runtime: deps.memory_runtime,
             event_broadcaster: deps.event_broadcaster,
         })
     }

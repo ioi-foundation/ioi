@@ -12,7 +12,7 @@ repository = "https://github.com/ioi-foundation/ioi-sdk"
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
 ioi-macros = { path = "../macros" }
-ioi-scs = { path = "../scs" }
+ioi-memory = { path = "../memory" }
 ioi-pii = { path = "../pii" }
 
 log = { workspace = true }

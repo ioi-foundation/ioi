@@ -1,6 +1,57 @@
 use super::*;
 use std::time::Instant;
 
+fn push_candidate_once(candidates: &mut Vec<String>, candidate: String) {
+    if !candidate.is_empty() && !candidates.iter().any(|existing| existing == &candidate) {
+        candidates.push(candidate);
+    }
+}
+
+fn context_blob_artifact_candidates(blob_ref: &str) -> Vec<String> {
+    let trimmed = blob_ref.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+
+    let mut candidates = Vec::new();
+    push_candidate_once(&mut candidates, trimmed.to_string());
+
+    let lowered = trimmed.to_ascii_lowercase();
+    if lowered != trimmed {
+        push_candidate_once(&mut candidates, lowered.clone());
+    }
+
+    for prefix in ["ioi-memory://artifact/", "memory://artifact/"] {
+        if let Some(rest) = trimmed.strip_prefix(prefix) {
+            push_candidate_once(&mut candidates, rest.to_string());
+            let rest_lowered = rest.to_ascii_lowercase();
+            if rest_lowered != rest {
+                push_candidate_once(&mut candidates, rest_lowered);
+            }
+        }
+    }
+
+    let normalized_hash = trimmed
+        .strip_prefix("sha256:")
+        .unwrap_or(trimmed)
+        .to_ascii_lowercase();
+    let looks_like_hex_hash =
+        normalized_hash.len() == 64 && normalized_hash.bytes().all(|byte| byte.is_ascii_hexdigit());
+
+    if looks_like_hex_hash {
+        push_candidate_once(
+            &mut candidates,
+            format!("desktop.visual_observation.{normalized_hash}"),
+        );
+        push_candidate_once(
+            &mut candidates,
+            format!("desktop.context_slice.{normalized_hash}"),
+        );
+    }
+
+    candidates
+}
+
 impl<CS, ST, CE, V> PublicApiImpl<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -136,37 +187,42 @@ where
         let req = request.into_inner();
         let ctx_arc = self.get_context().await?;
 
-        let scs_arc = {
+        let memory_runtime = {
             let ctx = ctx_arc.lock().await;
-            ctx.scs.clone()
+            ctx.memory_runtime.clone()
         };
 
-        let scs_arc =
-            scs_arc.ok_or_else(|| Status::unimplemented("SCS not available on this node"))?;
-        let scs = scs_arc
-            .lock()
-            .map_err(|_| Status::internal("SCS lock poisoned"))?;
+        let memory_runtime = memory_runtime
+            .ok_or_else(|| Status::unimplemented("memory runtime not available on this node"))?;
 
-        let hash_bytes = hex::decode(&req.blob_hash)
-            .map_err(|_| Status::invalid_argument("Invalid hex hash"))?;
+        for artifact_id in context_blob_artifact_candidates(&req.blob_hash) {
+            let payload = memory_runtime
+                .load_artifact_blob(&artifact_id)
+                .map_err(|error| Status::internal(error.to_string()))?;
+            if let Some(payload) = payload {
+                return Ok(Response::new(GetContextBlobResponse {
+                    data: payload,
+                    mime_type: "application/octet-stream".to_string(),
+                }));
+            }
+        }
 
-        let hash_arr: [u8; 32] = hash_bytes
-            .try_into()
-            .map_err(|_| Status::invalid_argument("Invalid hash length"))?;
+        Err(Status::not_found("Blob not found"))
+    }
+}
 
-        let frame_id = scs
-            .visual_index
-            .get(&hash_arr)
-            .copied()
-            .ok_or_else(|| Status::not_found("Blob not found"))?;
+#[cfg(test)]
+mod tests {
+    use super::context_blob_artifact_candidates;
 
-        let payload = scs
-            .read_frame_payload(frame_id)
-            .map_err(|e| Status::internal(format!("Failed to read frame: {}", e)))?;
-
-        Ok(Response::new(GetContextBlobResponse {
-            data: payload.to_vec(),
-            mime_type: "application/octet-stream".to_string(),
-        }))
+    #[test]
+    fn context_blob_candidates_expand_visual_hashes_into_memory_artifacts() {
+        let candidates = context_blob_artifact_candidates(
+            "sha256:ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD",
+        );
+        assert!(candidates.contains(
+            &"desktop.visual_observation.abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                .to_string()
+        ));
     }
 }

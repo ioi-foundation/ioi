@@ -44,7 +44,7 @@ ioi-crypto = { path = "../../../crates/crypto" }
 ioi-api = { path = "../../../crates/api" }
 ioi-services = { path = "../../../crates/services" }
 ioi-drivers = { path = "../../../crates/drivers" }
-ioi-scs = { path = "../../../crates/scs" }
+ioi-memory = { path = "../../../crates/memory" }
 ioi-pii = { path = "../../../crates/pii" }
 
 # Validator + key types for local identity loading.

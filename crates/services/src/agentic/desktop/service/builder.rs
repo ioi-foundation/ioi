@@ -13,10 +13,10 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::SovereignContextStore;
+use ioi_memory::MemoryRuntime;
 use ioi_types::app::KernelEvent;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 // [FIX] Import LensRegistry, ReactLens, and AutoLens fallback
@@ -56,7 +56,7 @@ impl DesktopAgentService {
             evaluator: Some(evaluator),
             optimizer: None,
             zk_verifier: None,
-            scs: None,
+            memory_runtime: None,
             event_sender: None,
             os_driver: Some(Arc::new(NativeOsDriver::new())),
             workspace_path: "./ioi-data".to_string(),
@@ -99,7 +99,7 @@ impl DesktopAgentService {
             evaluator: Some(evaluator),
             optimizer: None,
             zk_verifier: None,
-            scs: None,
+            memory_runtime: None,
             event_sender: None,
             os_driver: Some(Arc::new(NativeOsDriver::new())),
             workspace_path: "./ioi-data".to_string(),
@@ -137,8 +137,8 @@ impl DesktopAgentService {
         self
     }
 
-    pub fn with_scs(mut self, scs: Arc<Mutex<SovereignContextStore>>) -> Self {
-        self.scs = Some(scs);
+    pub fn with_memory_runtime(mut self, memory_runtime: Arc<MemoryRuntime>) -> Self {
+        self.memory_runtime = Some(memory_runtime);
         self
     }
 

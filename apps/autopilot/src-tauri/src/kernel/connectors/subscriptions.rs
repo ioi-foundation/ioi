@@ -1039,16 +1039,24 @@ impl GoogleAutomationManager {
         title: &str,
         payload: &Value,
     ) -> Vec<ArtifactRef> {
-        let scs = {
+        let memory_runtime = {
             let state = self.app.state::<Mutex<AppState>>();
-            state.lock().ok().and_then(|guard| guard.studio_scs.clone())
+            state
+                .lock()
+                .ok()
+                .and_then(|guard| guard.memory_runtime.clone())
         };
-        let Some(scs) = scs else {
+        let Some(memory_runtime) = memory_runtime else {
             return Vec::new();
         };
 
-        let artifact =
-            artifacts::create_report_artifact(&scs, thread_id, title, title_prefix, payload);
+        let artifact = artifacts::create_report_artifact(
+            &memory_runtime,
+            thread_id,
+            title,
+            title_prefix,
+            payload,
+        );
         let artifact_id = artifact.artifact_id.clone();
         register_artifact(&self.app, artifact);
         vec![ArtifactRef {

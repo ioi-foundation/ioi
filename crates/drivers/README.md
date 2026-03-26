@@ -36,4 +36,4 @@ The "Digital Wallet" driver for agentic commerce.
 
 Unlike standard automation libraries, `ioi-drivers` is designed for **Sovereignty**:
 *   **Policy Enforcement:** Drivers do not execute commands blindly. They require a valid `ActionRequest` authorized by the **Agency Firewall**.
-*   **SCS Integration:** Observations (Screenshots, DOM trees) are automatically hashed and committed to the **Sovereign Context Substrate (SCS)** for auditability.
+*   **Runtime Evidence Integration:** Observations (screenshots, DOM trees) are persisted into the runtime-backed artifact/evidence layer for auditability.

@@ -25,7 +25,10 @@ pub(crate) fn reward_meets_floor(observed_reward: f32, expected_reward_floor: f3
 
 fn parse_modes(raw: &str) -> Result<Vec<ComputerUseMode>> {
     let normalized = raw.trim().to_ascii_lowercase();
-    if normalized.is_empty() || normalized == "all" {
+    if normalized.is_empty() {
+        return Ok(vec![ComputerUseMode::Agent]);
+    }
+    if normalized == "all" {
         return Ok(vec![
             ComputerUseMode::Oracle,
             ComputerUseMode::Runtime,
@@ -77,10 +80,10 @@ fn parse_task_set(raw: &str) -> Result<TaskSet> {
 
 fn parse_agent_backend(raw: &str) -> Result<AgentBackend> {
     match raw.trim().to_ascii_lowercase().as_str() {
-        "" | "deterministic_miniwob" | "deterministic" => {
+        "" | "live_http" | "http" | "live" => Ok(AgentBackend::LiveHttp),
+        "deterministic_miniwob" | "deterministic" => {
             Ok(AgentBackend::DeterministicMiniwob)
         }
-        "live_http" | "http" | "live" => Ok(AgentBackend::LiveHttp),
         other => Err(anyhow!(
             "invalid COMPUTER_USE_SUITE_AGENT_BACKEND value '{}'; expected deterministic_miniwob|live_http",
             other
@@ -116,10 +119,9 @@ pub fn config_from_env() -> Result<SuiteConfig> {
     live_inference_support::load_env_from_workspace_dotenv_if_present();
 
     let modes =
-        parse_modes(&env::var("COMPUTER_USE_SUITE_MODE").unwrap_or_else(|_| "all".to_string()))?;
+        parse_modes(&env::var("COMPUTER_USE_SUITE_MODE").unwrap_or_else(|_| "agent".to_string()))?;
     let agent_backend = parse_agent_backend(
-        &env::var("COMPUTER_USE_SUITE_AGENT_BACKEND")
-            .unwrap_or_else(|_| "deterministic_miniwob".to_string()),
+        &env::var("COMPUTER_USE_SUITE_AGENT_BACKEND").unwrap_or_else(|_| "live_http".to_string()),
     )?;
     let task_set = parse_task_set(
         &env::var("COMPUTER_USE_SUITE_TASK_SET").unwrap_or_else(|_| "smoke".to_string()),
@@ -277,7 +279,7 @@ pub async fn run_computer_use_suite(config: SuiteConfig) -> Result<Vec<SuiteSumm
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_agent_backend, AgentBackend};
+    use super::{parse_agent_backend, parse_modes, AgentBackend, ComputerUseMode};
 
     #[test]
     fn parse_agent_backend_accepts_live_http_aliases() {
@@ -290,14 +292,24 @@ mod tests {
     }
 
     #[test]
-    fn parse_agent_backend_defaults_to_deterministic() {
+    fn parse_agent_backend_defaults_to_live_http() {
+        assert_eq!(parse_agent_backend("").unwrap(), AgentBackend::LiveHttp);
         assert_eq!(
             parse_agent_backend("deterministic_miniwob").unwrap(),
             AgentBackend::DeterministicMiniwob
         );
+    }
+
+    #[test]
+    fn parse_modes_defaults_to_agent() {
+        assert_eq!(parse_modes("").unwrap(), vec![ComputerUseMode::Agent]);
         assert_eq!(
-            parse_agent_backend("").unwrap(),
-            AgentBackend::DeterministicMiniwob
+            parse_modes("all").unwrap(),
+            vec![
+                ComputerUseMode::Oracle,
+                ComputerUseMode::Runtime,
+                ComputerUseMode::Agent
+            ]
         );
     }
 }

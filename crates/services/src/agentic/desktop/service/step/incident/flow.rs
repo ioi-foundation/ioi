@@ -656,7 +656,7 @@ pub async fn start_or_continue_incident_recovery(
     };
     let tools = discover_tools(
         state,
-        service.scs.as_deref(),
+        service.memory_runtime.as_deref(),
         service.mcp.as_deref(),
         &agent_state.goal,
         service.fast_inference.clone(),
@@ -1170,13 +1170,11 @@ mod tests {
             1,
         )];
 
-        assert!(
-            planner_pending_browser_state_from_history(
-                &test_incident_state("browser__snapshot", "NoEffectAfterAction"),
-                &history,
-            )
-            .is_none()
-        );
+        assert!(planner_pending_browser_state_from_history(
+            &test_incident_state("browser__snapshot", "NoEffectAfterAction"),
+            &history,
+        )
+        .is_none());
     }
 
     #[test]

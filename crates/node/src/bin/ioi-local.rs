@@ -12,7 +12,7 @@ use ioi_consensus::solo::SoloEngine;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::gui::IoiGuiDriver;
-use ioi_scs::{SovereignContextStore, StoreConfig};
+use ioi_memory::MemoryRuntime;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::flat::verifier::FlatVerifier;
 use ioi_state::tree::flat::RedbFlatStore;
@@ -34,7 +34,7 @@ use ioi_validator::standard::Orchestrator;
 use libp2p::identity;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{atomic::AtomicBool, Arc, Mutex};
+use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::Mutex as TokioMutex;
 use tokio::time::Duration;
 
@@ -130,33 +130,10 @@ async fn main() -> Result<()> {
         &local_key.public().encode_protobuf(),
     )?);
 
-    // 2. SCS Setup
-    let scs_path = opts.data_dir.join("context.scs");
-
-    // Derive identity key from the local node key for SCS encryption
-    let ed_kp = local_key
-        .clone()
-        .try_into_ed25519()
-        .map_err(|_| anyhow!("SCS requires Ed25519 key in local mode"))?;
-    let mut identity_key = [0u8; 32];
-    identity_key.copy_from_slice(ed_kp.secret().as_ref());
-
-    let scs_config = StoreConfig {
-        chain_id: 0,
-        owner_id: local_account_id.0,
-        identity_key, // Field added
-    };
-    let scs = if scs_path.exists() {
-        println!(
-            "Opening existing Sovereign Context Substrate at {:?}",
-            scs_path
-        );
-        SovereignContextStore::open_with_config(&scs_path, scs_config.clone())?
-    } else {
-        println!("Creating new Sovereign Context Substrate at {:?}", scs_path);
-        SovereignContextStore::create(&scs_path, scs_config)?
-    };
-    let scs_arc: Arc<Mutex<SovereignContextStore>> = Arc::new(Mutex::new(scs));
+    // 2. Memory Runtime Setup
+    let memory_runtime = Arc::new(MemoryRuntime::open_sqlite(
+        &opts.data_dir.join("desktop-memory.db"),
+    )?);
 
     // Agent Meta
     let mut agent_methods = std::collections::BTreeMap::new();
@@ -535,7 +512,7 @@ async fn main() -> Result<()> {
     // Create GUI driver mutably to register lenses
     let mut gui_driver = IoiGuiDriver::new()
         .with_event_sender(event_tx.clone())
-        .with_scs(scs_arc.clone())
+        .with_memory_runtime(memory_runtime.clone())
         .with_som(true); // Explicitly enable SoM Visual Grounding
 
     // Register Auto-Lens as the fallback for "LiDAR"
@@ -562,7 +539,6 @@ async fn main() -> Result<()> {
         workload_config.clone(),
         Some(gui_driver_arc.clone()),
         Some(browser_driver.clone()),
-        Some(scs_arc.clone()),
         Some(event_tx.clone()),
         Some(os_driver.clone()),
     )
@@ -697,7 +673,7 @@ async fn main() -> Result<()> {
         safety_model: safety_model,
         inference_runtime: inference_runtime.clone(),
         os_driver: os_driver.clone(),
-        scs: Some(scs_arc.clone()),
+        memory_runtime: Some(memory_runtime.clone()),
         event_broadcaster: Some(event_tx.clone()),
     };
 
@@ -713,7 +689,7 @@ async fn main() -> Result<()> {
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
     println!("   - Agency Firewall: User-in-the-Loop Mode (Interactive Gates)");
     println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
-    println!("   - SCS Storage: Active (.scs)");
+    println!("   - Memory Runtime: Active (SQLite)");
     println!("   - GUI Automation: Enabled (Visual Grounding Active + LiDAR)");
     println!("   - Browser Automation: Enabled");
     if workload_config.mcp_mode == McpMode::Disabled {
@@ -740,18 +716,18 @@ async fn main() -> Result<()> {
         inference_runtime.clone(),
     )
     .with_mcp_manager(Arc::new(ioi_drivers::mcp::McpManager::new()))
+    .with_memory_runtime(memory_runtime.clone())
     .with_workspace_path(abs_data_dir_str.clone())
-    .with_scs(scs_arc.clone())
     .with_event_sender(event_tx.clone())
     .with_os_driver(os_driver.clone())
     .with_som(true); // Enable SoM in Agent
 
-    // Configure Optimizer with SCS access
+    // Configure Optimizer with runtime-backed memory access
     let safety_adapter: Arc<dyn LocalSafetyModel> =
         Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
     let optimizer_service =
         OptimizerService::new(inference_runtime.clone(), safety_adapter.clone())
-            .with_scs(scs_arc.clone());
+            .with_memory_runtime(memory_runtime.clone());
     let optimizer_arc = Arc::new(optimizer_service);
 
     // Inject Optimizer into Agent Service for RSI
@@ -831,6 +807,7 @@ async fn main() -> Result<()> {
                         chain_id,
                         nonce_manager,
                         consensus_kick_tx,
+                        memory_runtime,
                     ) = {
                         let ctx_guard = ctx.lock().await;
                         let workload_client: Arc<dyn WorkloadClientApi> =
@@ -842,6 +819,7 @@ async fn main() -> Result<()> {
                             ctx_guard.chain_id,
                             ctx_guard.nonce_manager.clone(),
                             ctx_guard.consensus_kick_tx.clone(),
+                            ctx_guard.memory_runtime.clone(),
                         )
                     };
 
@@ -857,6 +835,7 @@ async fn main() -> Result<()> {
                         chain_id,
                         nonce_manager,
                         consensus_kick_tx,
+                        memory_runtime,
                     )
                     .await {
                         Ok(true) => {

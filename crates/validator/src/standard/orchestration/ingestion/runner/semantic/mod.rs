@@ -2,6 +2,7 @@ use crate::standard::orchestration::context::TxStatusEntry;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_client::WorkloadClient;
+use ioi_memory::MemoryRuntime;
 use ioi_types::app::{ChainTransaction, KernelEvent};
 use std::sync::Arc;
 
@@ -17,6 +18,7 @@ pub(crate) async fn select_semantically_valid_indices(
     workload_client: &Arc<WorkloadClient>,
     safety_model: &Arc<dyn LocalSafetyModel>,
     os_driver: &Arc<dyn OsDriver>,
+    memory_runtime: Option<&Arc<MemoryRuntime>>,
     status_cache: &std::sync::Arc<tokio::sync::Mutex<lru::LruCache<String, TxStatusEntry>>>,
     event_broadcaster: &tokio::sync::broadcast::Sender<KernelEvent>,
 ) -> Vec<usize> {
@@ -30,6 +32,7 @@ pub(crate) async fn select_semantically_valid_indices(
                 workload_client,
                 safety_model,
                 os_driver,
+                memory_runtime,
                 expected_ts,
                 &mut status_guard,
                 event_broadcaster,

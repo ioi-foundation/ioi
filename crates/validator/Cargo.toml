@@ -26,7 +26,7 @@ ioi-client = { path = "../client" }
 ioi-telemetry = { path = "../telemetry" }
 ioi-storage = { path = "../storage" }
 ioi-drivers = { path = "../drivers" }
-ioi-scs = { path = "../scs" }
+ioi-memory = { path = "../memory" }
 ioi-plugin-ibc-service = { path = "../plugins/ibc-service", optional = true }
 
 log = { workspace = true }

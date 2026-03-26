@@ -6,14 +6,16 @@
 //! It observes agent execution failures, synthesizes code patches (mutations),
 //! verifies them in a sandbox, and submits upgrade transactions to evolve the agent.
 
-use crate::agentic::desktop::keys::{get_state_key, TRACE_PREFIX};
+use crate::agentic::desktop::keys::TRACE_PREFIX;
 use crate::agentic::desktop::types::AgentState;
+use crate::agentic::desktop::utils::load_agent_state_checkpoint;
 use async_trait::async_trait;
 use ioi_api::services::UpgradableService;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
 use ioi_macros::service_interface;
+use ioi_memory::MemoryRuntime;
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, StepTrace};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
@@ -25,7 +27,6 @@ use std::sync::Arc;
 use crate::agentic::policy::PolicyEngine;
 use crate::agentic::rules::ActionRules;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_scs::{FrameType, RetentionClass, SovereignContextStore};
 use ioi_types::app::agentic::{
     AgentMacro, AgentManifest, ExternalSkillEvidence, InferenceOptions, IntelligenceAsset,
     LlmToolDefinition, ResourceRequirements, RuntimeEnvironment, SkillLifecycleState,
@@ -79,8 +80,7 @@ pub struct OptimizerService {
     // References to Kernel primitives needed for mutation
     inference: Option<Arc<dyn InferenceRuntime>>,
     safety_model: Option<Arc<dyn LocalSafetyModel>>,
-    // [NEW] SCS reference for persisting skills
-    scs: Option<Arc<std::sync::Mutex<SovereignContextStore>>>,
+    memory_runtime: Option<Arc<MemoryRuntime>>,
 }
 
 impl fmt::Debug for OptimizerService {
@@ -88,7 +88,7 @@ impl fmt::Debug for OptimizerService {
         f.debug_struct("OptimizerService")
             .field("inference", &self.inference.is_some())
             .field("safety_model", &self.safety_model.is_some())
-            .field("scs", &self.scs.is_some())
+            .field("memory_runtime", &self.memory_runtime.is_some())
             .finish()
     }
 }
@@ -104,13 +104,29 @@ impl OptimizerService {
         Self {
             inference: Some(inference),
             safety_model: Some(safety_model),
-            scs: None,
+            memory_runtime: None,
         }
     }
 
-    pub fn with_scs(mut self, scs: Arc<std::sync::Mutex<SovereignContextStore>>) -> Self {
-        self.scs = Some(scs);
+    pub fn with_memory_runtime(mut self, memory_runtime: Arc<MemoryRuntime>) -> Self {
+        self.memory_runtime = Some(memory_runtime);
         self
+    }
+
+    fn load_agent_state_for_session(
+        &self,
+        session_id: [u8; 32],
+    ) -> Result<AgentState, TransactionError> {
+        let memory_runtime = self
+            .memory_runtime
+            .as_ref()
+            .ok_or(TransactionError::Invalid(
+                "Optimizer requires memory runtime for agent-state access".into(),
+            ))?;
+
+        load_agent_state_checkpoint(memory_runtime.as_ref(), session_id)?.ok_or(
+            TransactionError::Invalid("Agent-state checkpoint not found".into()),
+        )
     }
 }
 #[service_interface(
@@ -267,11 +283,7 @@ impl OptimizerService {
                 "Cannot crystallize skill without session traces".into(),
             ));
         }
-        let state_key = get_state_key(&params.session_id);
-        let state_bytes = state
-            .get(&state_key)?
-            .ok_or(TransactionError::Invalid("Session state not found".into()))?;
-        let agent_state: AgentState = codec::from_bytes_canonical(&state_bytes)?;
+        let agent_state = self.load_agent_state_for_session(params.session_id)?;
         let trace_hash_bytes = sha256(&codec::to_bytes_canonical(&traces)?)
             .map_err(|e| TransactionError::Invalid(e.to_string()))?;
         let mut trace_hash = [0u8; 32];
@@ -341,7 +353,7 @@ impl OptimizerService {
         Ok(())
     }
 
-    /// [NEW] Hydrate an asset from the Market into local SCS memory.
+    /// [NEW] Hydrate an asset from the Market into local archival memory.
     #[method]
     pub async fn install_asset(
         &self,

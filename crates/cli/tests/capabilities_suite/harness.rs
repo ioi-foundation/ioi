@@ -9,7 +9,7 @@ use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::{SovereignContextStore, StoreConfig};
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::desktop::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX};
 use ioi_services::agentic::desktop::service::step::helpers::{
     default_safe_policy, is_mailbox_connector_goal,
@@ -118,6 +118,10 @@ const PROJECTS_ZIP_CASE_ID: &str =
 const PROJECTS_ZIP_FIXTURE_MODE: &str = "desktop_projects_zip_fixture_v1";
 const PROJECTS_ZIP_FIXTURE_PROBE_SOURCE: &str = "harness.projects_zip_fixture";
 const PROJECTS_ZIP_EXPECTED_ENTRIES: [&str; 3] = ["README.md", "docs/spec.txt", "src/main.rs"];
+
+fn build_memory_runtime() -> Result<Arc<MemoryRuntime>> {
+    Ok(Arc::new(MemoryRuntime::open_sqlite_in_memory()?))
+}
 const DOWNLOADS_LOWERCASE_CASE_ID: &str = "rename_every_file_in_my_downloads_folder_to_lowercase";
 const DOWNLOADS_LOWERCASE_FIXTURE_MODE: &str = "downloads_lowercase_fixture_v1";
 const DOWNLOADS_LOWERCASE_FIXTURE_PROBE_SOURCE: &str = "harness.downloads_lowercase_fixture";

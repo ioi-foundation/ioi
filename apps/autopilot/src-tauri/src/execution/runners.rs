@@ -1,7 +1,6 @@
 use super::*;
 use crate::template::interpolate_template;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_scs::RetrievalSearchPolicy;
 use ioi_types::app::{CapabilityLease, CapabilityLeaseMode, NetMode, RuntimeTarget, WorkloadSpec};
 use serde_json::json;
 
@@ -820,7 +819,7 @@ pub(super) async fn run_context_execution(
 pub(super) async fn run_retrieval_execution(
     config: &Value,
     input: &str,
-    scs: Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: Arc<MemoryRuntime>,
     inference: Arc<dyn InferenceRuntime>,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
     let start = std::time::Instant::now();
@@ -860,81 +859,84 @@ pub(super) async fn run_retrieval_execution(
         }
     };
 
-    // 3. Search SCS
+    // 3. Search archival memory
     let limit = config.get("limit").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
-    let ef_search = config
-        .get("ef_search")
-        .and_then(|v| v.as_u64())
-        .unwrap_or((limit as u64).saturating_mul(8).max(32));
     let candidate_limit = config
         .get("candidate_limit")
         .and_then(|v| v.as_u64())
-        .unwrap_or((limit as u64).saturating_mul(4).max(16));
-    let policy = RetrievalSearchPolicy {
-        k: limit.max(1).min(u32::MAX as usize) as u32,
-        ef_search: ef_search.max(1).min(u32::MAX as u64) as u32,
-        candidate_limit: candidate_limit.max(limit as u64).min(u32::MAX as u64) as u32,
-        distance_metric: "cosine_distance".to_string(),
-        embedding_normalized: true,
-    };
-
-    // Search logic requires unlocking SCS
-    let (results, retrieval_receipt) = {
-        let store = scs.lock().map_err(|_| "SCS lock poisoned")?;
-
-        // We need to access the index. Since get_vector_index returns a mutex, we must handle it.
-        // In ioi-scs crate, get_vector_index returns Result<Arc<Mutex<Option<VectorIndex>>>>.
-
-        let index_arc = store
-            .get_vector_index()
-            .map_err(|e| format!("Failed to get index: {}", e))?;
-        let mut index_guard = index_arc.lock().map_err(|_| "Index lock poisoned")?;
-
-        if let Some(index) = index_guard.as_mut() {
-            match index.search_hybrid_with_certificate(&embedding, &policy) {
-                Ok((hits, certificate)) => {
-                    let mut docs = Vec::new();
-                    for (frame_id, dist, _, _) in hits {
-                        // Read payload
-                        if let Ok(payload) = store.read_frame_payload(frame_id) {
-                            // Try UTF-8
-                            if let Ok(text) = String::from_utf8(payload.to_vec()) {
-                                docs.push(json!({
-                                    "content": text,
-                                    "score": 1.0 - dist,
-                                    "frame_id": frame_id
-                                }));
-                            }
-                        }
-                    }
-                    let receipt = json!({
-                        "tool_name": "retrieval",
-                        "backend": "scs:mhnsw",
-                        "query_hash": hex::encode(certificate.certificate.query_hash),
-                        "index_root": hex::encode(certificate.certificate.index_root),
-                        "k": policy.k,
-                        "ef_search": policy.ef_search,
-                        "candidate_limit": policy.candidate_limit,
-                        "candidate_count_total": certificate.candidate_count_total,
-                        "candidate_count_reranked": certificate.candidate_count_total,
-                        "candidate_truncated": false,
-                        "distance_metric": policy.distance_metric,
-                        "embedding_normalized": policy.embedding_normalized,
-                        "proof_hash": serde_json::to_vec(&certificate)
-                            .ok()
-                            .and_then(|bytes| ioi_crypto::algorithms::hash::sha256(&bytes).ok())
-                            .map(hex::encode),
-                        "certificate_mode": "single_level_lb"
-                    });
-                    (docs, Some(receipt))
-                }
-                Err(e) => return Err(format!("Index search failed: {}", e).into()),
+        .unwrap_or((limit as u64).saturating_mul(8).max(32))
+        .max(limit as u64) as usize;
+    let scope = config
+        .get("scope")
+        .and_then(Value::as_str)
+        .unwrap_or("autopilot.retrieval")
+        .to_string();
+    let lexical_filter = config
+        .get("text_filter")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| {
+            let trimmed = query.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
             }
-        } else {
-            // No index loaded/created yet
-            (Vec::new(), None)
-        }
-    };
+        });
+
+    let hits = memory_runtime
+        .hybrid_search_archival_memory(&ioi_memory::HybridArchivalMemoryQuery {
+            scopes: vec![scope.clone()],
+            thread_id: None,
+            text: lexical_filter.unwrap_or_else(|| query.clone()),
+            embedding: Some(embedding),
+            limit: limit.max(1),
+            candidate_limit,
+            allowed_trust_levels: vec![
+                "runtime_observed".to_string(),
+                "runtime_derived".to_string(),
+                "standard".to_string(),
+            ],
+        })
+        .map_err(|error| format!("Archival search failed: {}", error))?;
+
+    let total_hits = hits.len();
+    let query_hash = sha256(query.as_bytes())
+        .map(hex::encode)
+        .unwrap_or_else(|_| String::new());
+    let results = hits
+        .into_iter()
+        .take(limit.max(1))
+        .map(|hit| {
+            let metadata = serde_json::from_str::<Value>(&hit.record.metadata_json)
+                .unwrap_or_else(|_| json!({}));
+            json!({
+                "content": hit.record.content,
+                "score": hit.score,
+                "lexical_score": hit.lexical_score,
+                "semantic_score": hit.semantic_score,
+                "trust_level": hit.trust_level,
+                "record_id": hit.record.id,
+                "scope": hit.record.scope,
+                "kind": hit.record.kind,
+                "metadata": metadata
+            })
+        })
+        .collect::<Vec<_>>();
+    let retrieval_receipt = Some(json!({
+        "tool_name": "retrieval",
+        "backend": "ioi-memory:hybrid-archival",
+        "query_hash": query_hash,
+        "scope": scope,
+        "k": limit.max(1),
+        "candidate_limit": candidate_limit,
+        "candidate_count_total": total_hits,
+        "candidate_count_reranked": total_hits,
+        "candidate_truncated": (total_hits as usize) > limit.max(1),
+        "distance_metric": "hybrid_lexical_semantic",
+        "embedding_normalized": false,
+        "certificate_mode": "none"
+    }));
 
     // 4. Format Output
     let context_str = results
@@ -950,9 +952,8 @@ pub(super) async fn run_retrieval_execution(
         metrics: Some(json!({
             "latency_ms": start.elapsed().as_millis(),
             "hits": results.len(),
-            "k": policy.k,
-            "ef_search": policy.ef_search,
-            "candidate_limit": policy.candidate_limit
+            "k": limit.max(1),
+            "candidate_limit": candidate_limit
         })),
         input_snapshot: Some(input_obj),
         context_slice: Some(json!(results)),

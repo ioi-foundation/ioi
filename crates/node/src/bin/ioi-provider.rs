@@ -38,6 +38,7 @@ use tokio::time::Duration;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
 use ioi_drivers::os::NativeOsDriver;
+use ioi_memory::MemoryRuntime;
 use ioi_networking::libp2p::Libp2pSync;
 use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 
@@ -190,7 +191,6 @@ async fn main() -> Result<()> {
         None,
         None,
         None,
-        None,
         Some(os_driver.clone()),
     )
     .await?;
@@ -266,6 +266,9 @@ async fn main() -> Result<()> {
     });
 
     println!("   - Provider API: Active on port 9090");
+    let memory_runtime = Arc::new(MemoryRuntime::open_sqlite(
+        &Path::new(&workload_config.state_file).with_extension("memory.db"),
+    )?);
 
     let deps = OrchestrationDependencies {
         syncer,
@@ -282,7 +285,7 @@ async fn main() -> Result<()> {
         safety_model,
         inference_runtime,
         os_driver,
-        scs: None,
+        memory_runtime: Some(memory_runtime),
         event_broadcaster: None,
     };
 

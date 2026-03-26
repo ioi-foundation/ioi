@@ -14,12 +14,12 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
+use ioi_memory::MemoryRuntime;
 use ioi_pii::{
     build_decision_material, build_review_summary, compute_decision_hash,
     route_pii_decision_for_target, validate_review_request_compat, RiskSurface,
     REVIEW_REQUEST_VERSION,
 };
-use ioi_scs::{SovereignContextStore, StoreConfig};
 use ioi_services::agentic::desktop::keys::{get_incident_key, get_state_key, pii};
 use ioi_services::agentic::desktop::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::desktop::service::step::incident::{
@@ -226,17 +226,7 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
     let runtime = Arc::new(NoopRuntime);
     let gui = Arc::new(DummyGui);
 
-    let temp_dir = tempfile::tempdir()?;
-    let scs_path = temp_dir.path().join("review.scs");
-    let scs = SovereignContextStore::create(
-        &scs_path,
-        StoreConfig {
-            chain_id: chain_id.0,
-            owner_id: [0xAB; 32],
-            identity_key: [0xCD; 32],
-        },
-    )?;
-    let scs_arc = Arc::new(Mutex::new(scs));
+    let memory_runtime = Arc::new(MemoryRuntime::open_sqlite_in_memory()?);
 
     let service = DesktopAgentService::new_hybrid(
         gui,
@@ -245,7 +235,7 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         runtime.clone(),
         runtime.clone(),
     )
-    .with_scs(scs_arc)
+    .with_memory_runtime(memory_runtime)
     .with_os_driver(Arc::new(DummyOs));
 
     let tool = AgentTool::OsCopy {

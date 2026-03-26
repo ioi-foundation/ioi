@@ -77,6 +77,31 @@ fn policy_request_params(method: &str, params: &[u8]) -> Vec<u8> {
     .unwrap_or_else(|_| b"{\"__ioi_policy_non_json_params\":null}".to_vec())
 }
 
+/// Firewall policy must bind to committed, chain-visible desktop state.
+/// Runtime checkpoints are convenience mirrors and are intentionally not
+/// consulted here.
+fn load_committed_desktop_agent_state(
+    overlay: &StateOverlay<'_>,
+    session_id: &[u8; 32],
+) -> Option<AgentState> {
+    let ns_prefix = service_namespace_prefix("desktop_agent");
+    let state_key = get_state_key(session_id);
+    let full_key = [ns_prefix.as_slice(), state_key.as_slice()].concat();
+    let bytes = overlay.get(&full_key).ok()??;
+    codec::from_bytes_canonical::<AgentState>(&bytes).ok()
+}
+
+fn load_committed_incident_state(
+    overlay: &StateOverlay<'_>,
+    session_id: &[u8; 32],
+) -> Option<IncidentState> {
+    let ns_prefix = service_namespace_prefix("desktop_agent");
+    let incident_key = get_incident_key(session_id);
+    let full_key = [ns_prefix.as_slice(), incident_key.as_slice()].concat();
+    let bytes = overlay.get(&full_key).ok()??;
+    codec::from_bytes_canonical::<IncidentState>(&bytes).ok()
+}
+
 /// The main firewall entry point.
 pub async fn enforce_firewall(
     state: &mut dyn StateAccess,
@@ -174,17 +199,11 @@ pub async fn enforce_firewall(
                 if let Ok(p) = codec::from_bytes_canonical::<StepAgentParams>(params) {
                     session_id_opt = Some(p.session_id);
 
-                    // Look up agent state to see if approval token exists
-                    let key = get_state_key(&p.session_id);
-
-                    let ns_prefix = service_namespace_prefix("desktop_agent");
-                    let full_key = [ns_prefix.as_slice(), key.as_slice()].concat();
-
-                    if let Ok(Some(bytes)) = overlay.get(&full_key) {
-                        if let Ok(agent_state) = codec::from_bytes_canonical::<AgentState>(&bytes) {
-                            approval_token = agent_state.pending_approval.clone();
-                            agent_state_opt = Some(agent_state);
-                        }
+                    if let Some(agent_state) =
+                        load_committed_desktop_agent_state(&overlay, &p.session_id)
+                    {
+                        approval_token = agent_state.pending_approval.clone();
+                        agent_state_opt = Some(agent_state);
                     }
                 }
             } else if service_id == "desktop_agent" && method == "resume@v1" {
@@ -192,31 +211,22 @@ pub async fn enforce_firewall(
                     session_id_opt = Some(p.session_id);
                     approval_token = p.approval_token.clone();
 
-                    let key = get_state_key(&p.session_id);
-                    let ns_prefix = service_namespace_prefix("desktop_agent");
-                    let full_key = [ns_prefix.as_slice(), key.as_slice()].concat();
-                    if let Ok(Some(bytes)) = overlay.get(&full_key) {
-                        if let Ok(agent_state) = codec::from_bytes_canonical::<AgentState>(&bytes) {
-                            if approval_token.is_none() {
-                                approval_token = agent_state.pending_approval.clone();
-                            }
-                            agent_state_opt = Some(agent_state);
+                    if let Some(agent_state) =
+                        load_committed_desktop_agent_state(&overlay, &p.session_id)
+                    {
+                        if approval_token.is_none() {
+                            approval_token = agent_state.pending_approval.clone();
                         }
+                        agent_state_opt = Some(agent_state);
                     }
 
-                    let incident_key = get_incident_key(&p.session_id);
-                    let incident_full_key =
-                        [ns_prefix.as_slice(), incident_key.as_slice()].concat();
-                    if let Ok(Some(bytes)) = overlay.get(&incident_full_key) {
-                        if let Ok(incident_state) =
-                            codec::from_bytes_canonical::<IncidentState>(&bytes)
-                        {
-                            pending_gate_hash_opt = incident_state
+                    pending_gate_hash_opt = load_committed_incident_state(&overlay, &p.session_id)
+                        .and_then(|incident_state| {
+                            incident_state
                                 .pending_gate
                                 .as_ref()
-                                .and_then(|pending| parse_hash_hex(&pending.request_hash));
-                        }
-                    }
+                                .and_then(|pending| parse_hash_hex(&pending.request_hash))
+                        });
                 }
             }
 

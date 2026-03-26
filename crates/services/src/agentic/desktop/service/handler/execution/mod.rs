@@ -15,7 +15,6 @@ use ioi_crypto::sign::eddsa::{
     Ed25519KeyPair, Ed25519PrivateKey, Ed25519PublicKey, Ed25519Signature,
 };
 use ioi_drivers::mcp::McpManager;
-use ioi_scs::{FrameType, RetentionClass};
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{
     determinism_commit_state_key, determinism_evidence_state_key, AccountId, ActionRequest,

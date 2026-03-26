@@ -11,23 +11,24 @@
     )
 )]
 
-//! # IOI Kernel / Forge CLI Library
+//! # IOI Kernel / IOI CLI Library
 //!
 //! This library provides high-level APIs and helper functions to facilitate
 //! testing and interaction with chains built on the IOI Kernel.
 //!
 //! It is also the current kernel-adjacent CLI surface that is expected to
-//! evolve into `Forge`: the Web4 L0 developer/operator interface for
+//! evolve into `IOI CLI`: the Web4 L0 developer/operator interface for
 //! scaffolding, instantiating, publishing, upgrading, and inspecting
-//! intelligent blockchains and other sovereign domains on IOI.
+//! intelligent blockchains and other sovereign domains on IOI, with `forge`
+//! as a major command namespace.
 //!
 //! ## Architectural Boundary and Purpose
 //!
 //! **`cli` is designed to be the primary external consumer of the IOI Kernel.**
 //! Its purpose is to simulate the developer experience of someone building on,
 //! or with, the SDK while preserving the right architectural boundary for a
-//! future standalone `Forge` surface. To maintain this role, this crate must
-//! adhere to a strict boundary:
+//! future standalone `IOI CLI` surface. To maintain this role, this crate
+//! must adhere to a strict boundary:
 //!
 //! 1.  **Public API Only:** `cli` must **only** depend on the public APIs
 //!     exposed by the other `ioi-*` library crates (e.g., `ioi-api`,

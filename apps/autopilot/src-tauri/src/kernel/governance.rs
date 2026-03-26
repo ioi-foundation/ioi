@@ -44,13 +44,60 @@ fn decode_session_id_hex(session_id_hex: &str) -> Result<[u8; 32], String> {
     }
 }
 
-async fn wait_for_gate_ready(
+fn decode_hash_hex32(input: &str) -> Option<[u8; 32]> {
+    let normalized = input.trim().trim_start_matches("0x").replace('-', "");
+    let bytes = hex::decode(normalized).ok()?;
+    if bytes.len() != 32 {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&bytes);
+    Some(out)
+}
+
+async fn query_committed_agent_state(
+    client: &mut PublicApiClient<Channel>,
+    key: Vec<u8>,
+) -> Result<Option<AgentState>, String> {
+    let resp = client
+        .query_raw_state(tonic::Request::new(QueryRawStateRequest { key }))
+        .await
+        .map_err(|e| format!("Failed to query committed agent state: {}", e))?
+        .into_inner();
+
+    if !resp.found || resp.value.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(codec::from_bytes_canonical::<AgentState>(&resp.value).ok())
+}
+
+async fn query_committed_incident_state(
+    client: &mut PublicApiClient<Channel>,
+    key: Vec<u8>,
+) -> Result<Option<IncidentState>, String> {
+    let resp = client
+        .query_raw_state(tonic::Request::new(QueryRawStateRequest { key }))
+        .await
+        .map_err(|e| format!("Failed to query committed incident state: {}", e))?
+        .into_inner();
+
+    if !resp.found || resp.value.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(codec::from_bytes_canonical::<IncidentState>(&resp.value).ok())
+}
+
+async fn wait_for_committed_gate_ready(
     client: &mut PublicApiClient<Channel>,
     session_id: [u8; 32],
     expected_request_hash: [u8; 32],
 ) -> Result<(), String> {
     // Race fix: the UI can receive REQUIRE_APPROVAL before the agent state (pending_tool_hash/jcs)
     // is committed on-chain. Submitting a resume tx too early is rejected by the validator.
+    // This path intentionally polls committed raw state rather than runtime checkpoints because
+    // validator approval logic binds to chain-visible pending hashes, not local mirrors.
     let ns_prefix = service_namespace_prefix("desktop_agent");
     let agent_state_key_local = desktop_keys::get_state_key(&session_id);
     let agent_state_key = [ns_prefix.as_slice(), agent_state_key_local.as_slice()].concat();
@@ -62,73 +109,40 @@ async fn wait_for_gate_ready(
     let mut waited_ms = 0u64;
 
     loop {
-        let resp = client
-            .query_raw_state(tonic::Request::new(QueryRawStateRequest {
-                key: agent_state_key.clone(),
-            }))
-            .await
-            .map_err(|e| format!("Failed to query agent state for gate readiness: {}", e))?
-            .into_inner();
+        if let Some(agent_state) =
+            query_committed_agent_state(client, agent_state_key.clone()).await?
+        {
+            // Not ready until both pending_tool_hash and pending_tool_jcs are committed.
+            if let (Some(pending_tool_hash), Some(_pending_tool_jcs)) = (
+                agent_state.pending_tool_hash,
+                agent_state.pending_tool_jcs.as_ref(),
+            ) {
+                // Policy gates bind directly to the pending tool hash.
+                if pending_tool_hash == expected_request_hash {
+                    return Ok(());
+                }
 
-        if resp.found && !resp.value.is_empty() {
-            if let Ok(agent_state) = codec::from_bytes_canonical::<AgentState>(&resp.value) {
-                // Not ready until both pending_tool_hash and pending_tool_jcs are committed.
-                if let (Some(pending_tool_hash), Some(_pending_tool_jcs)) = (
-                    agent_state.pending_tool_hash,
-                    agent_state.pending_tool_jcs.as_ref(),
-                ) {
-                    // Policy gates bind directly to the pending tool hash.
-                    if pending_tool_hash == expected_request_hash {
+                // PII gates bind to an incident pending gate hash (decision hash), which can differ
+                // from the pending tool hash. Check committed incident state for a matching pending gate.
+                if let Some(incident) =
+                    query_committed_incident_state(client, incident_key.clone()).await?
+                {
+                    let pending_gate_hash = incident
+                        .pending_gate
+                        .as_ref()
+                        .and_then(|pending| decode_hash_hex32(&pending.request_hash));
+
+                    if pending_gate_hash == Some(expected_request_hash) {
                         return Ok(());
                     }
 
-                    // PII gates bind to an incident pending gate hash (decision hash), which can differ
-                    // from the pending tool hash. Check incident state for a matching pending gate.
-                    let incident_resp = client
-                        .query_raw_state(tonic::Request::new(QueryRawStateRequest {
-                            key: incident_key.clone(),
-                        }))
-                        .await
-                        .map_err(|e| {
-                            format!("Failed to query incident state for gate readiness: {}", e)
-                        })?
-                        .into_inner();
-
-                    if incident_resp.found && !incident_resp.value.is_empty() {
-                        if let Ok(incident) =
-                            codec::from_bytes_canonical::<IncidentState>(&incident_resp.value)
-                        {
-                            let pending_gate_hash =
-                                incident.pending_gate.as_ref().and_then(|pending| {
-                                    let normalized = pending
-                                        .request_hash
-                                        .trim()
-                                        .trim_start_matches("0x")
-                                        .to_string();
-                                    hex::decode(normalized).ok().and_then(|bytes| {
-                                        if bytes.len() == 32 {
-                                            let mut arr = [0u8; 32];
-                                            arr.copy_from_slice(&bytes);
-                                            Some(arr)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                });
-
-                            if pending_gate_hash == Some(expected_request_hash) {
-                                return Ok(());
-                            }
-
-                            if let Some(pending_gate_hash) = pending_gate_hash {
-                                return Err(format!(
-                                    "Approval request mismatch: expected {}, pending_gate {} (pending_tool {})",
-                                    hex::encode(expected_request_hash),
-                                    hex::encode(pending_gate_hash),
-                                    hex::encode(pending_tool_hash)
-                                ));
-                            }
-                        }
+                    if let Some(pending_gate_hash) = pending_gate_hash {
+                        return Err(format!(
+                            "Approval request mismatch: expected {}, pending_gate {} (pending_tool {})",
+                            hex::encode(expected_request_hash),
+                            hex::encode(pending_gate_hash),
+                            hex::encode(pending_tool_hash)
+                        ));
                     }
                 }
             }
@@ -286,7 +300,7 @@ pub async fn gate_respond(
     // Ensure the pending approval state is actually committed before submitting a resume tx.
     // This prevents "approved" cards re-appearing due to validator rejection races.
     let mut client = get_rpc_client(&state).await?;
-    wait_for_gate_ready(&mut client, session_id_arr, request_hash_arr).await?;
+    wait_for_committed_gate_ready(&mut client, session_id_arr, request_hash_arr).await?;
 
     // Decode visual hash if present
     let visual_hash_arr = if let Some(v_hex) = visual_hash_hex {

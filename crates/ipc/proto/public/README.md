@@ -15,7 +15,7 @@ This directory defines the user-facing API exposed by the **Orchestrator**. It s
 #### State & Data
 *   **`QueryState`**: Returns a Merkle proof for a specific key/root.
 *   **`GetBlockByHeight`**: Fetches block data.
-*   **`GetContextBlob`**: Retrieves raw context data (e.g., screenshots, large logs) stored in the Sovereign Context Substrate (SCS) by hash.
+*   **`GetContextBlob`**: Retrieves raw context data (e.g., screenshots, large logs) from the runtime-backed local artifact store by hash or artifact ID.
 
 #### Real-Time Telemetry
 *   **`SubscribeEvents`**: A streaming RPC that pushes `ChainEvent` messages to the UI. This powers the "Visual Sovereignty" features. Events include:

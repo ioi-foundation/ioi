@@ -2199,33 +2199,46 @@ impl BrowserDriver {
 
         let page = { self.active_page.lock().await.clone() };
         let p = page.ok_or(BrowserError::NoActivePage)?;
-
-        match tokio::time::timeout(
+        let tree = match tokio::time::timeout(
             ACCESSIBILITY_TREE_TIMEOUT,
             self.get_accessibility_tree_inner(&p),
         )
         .await
         {
-            Ok(result) => match result {
-                Ok(tree) => {
-                    self.remember_accessibility_snapshot(&tree).await;
-                    Ok(tree)
-                }
-                Err(error) => Err(error),
-            },
+            Ok(result) => result?,
             Err(_) => {
                 log::warn!(
                     target: "browser",
-                    "Browser accessibility snapshot timed out after {:?}; forcing session reset.",
+                    "Browser accessibility snapshot timed out after {:?}; falling back to DOM snapshot.",
                     ACCESSIBILITY_TREE_TIMEOUT
                 );
-                self.force_reset().await;
-                Err(BrowserError::Internal(format!(
-                    "Browser accessibility snapshot timed out after {:?}. Retry the action.",
-                    ACCESSIBILITY_TREE_TIMEOUT
-                )))
+                match self
+                    .dom_fallback_tree(
+                        &p,
+                        &format!("ax_timeout_{}ms", ACCESSIBILITY_TREE_TIMEOUT.as_millis()),
+                    )
+                    .await
+                {
+                    Ok(tree) => tree,
+                    Err(fallback_error) => {
+                        log::warn!(
+                            target: "browser",
+                            "Browser accessibility snapshot timed out after {:?} and DOM fallback failed ({}); forcing session reset.",
+                            ACCESSIBILITY_TREE_TIMEOUT,
+                            fallback_error
+                        );
+                        self.force_reset().await;
+                        return Err(BrowserError::Internal(format!(
+                            "Browser accessibility snapshot timed out after {:?}. DOM fallback capture failed: {}. Retry the action.",
+                            ACCESSIBILITY_TREE_TIMEOUT,
+                            fallback_error
+                        )));
+                    }
+                }
             }
-        }
+        };
+        self.remember_accessibility_snapshot(&tree).await;
+        Ok(tree)
     }
 
     pub async fn get_prompt_observation_tree(

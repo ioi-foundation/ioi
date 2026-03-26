@@ -156,17 +156,12 @@ pub fn fetch_session_traces(
 }
 
 pub async fn update_skill_reputation(
-    service: &DesktopAgentService,
+    _service: &DesktopAgentService,
     state: &mut dyn StateAccess,
     session_id: [u8; 32],
     session_success: bool,
     block_height: u64,
 ) -> Result<(), TransactionError> {
-    let _ = service
-        .scs
-        .as_ref()
-        .ok_or(TransactionError::Invalid("SCS required".into()))?;
-
     let session_outcome_key = get_skill_session_outcome_key(&session_id);
     if state.get(&session_outcome_key)?.is_some() {
         return Ok(());

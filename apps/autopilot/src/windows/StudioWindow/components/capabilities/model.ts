@@ -132,7 +132,7 @@ export function skillDetailFromCatalog(
     description: entry.description,
     lifecycle_state: entry.lifecycle_state,
     source_type: entry.source_type,
-    frame_id: entry.frame_id,
+    archival_record_id: entry.archival_record_id,
     success_rate_bps: entry.success_rate_bps,
     sample_size: entry.sample_size,
     source_session_id: entry.source_session_id,

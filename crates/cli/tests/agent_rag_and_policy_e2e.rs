@@ -8,13 +8,17 @@ use ioi_api::services::BlockchainService;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
-use ioi_api::vm::drivers::os::OsDriver;
+use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{
     InferenceRuntime, LocalSafetyModel, PiiInspection, PiiRiskSurface, SafetyVerdict,
 };
 use ioi_cli::testing::build_test_artifacts;
-use ioi_scs::{FrameType, SovereignContextStore, StoreConfig, VectorIndex};
-use ioi_services::agentic::desktop::{DesktopAgentService, StartAgentParams, StepAgentParams};
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::terminal::TerminalDriver;
+use ioi_memory::{MemoryRuntime, NewArchivalMemoryRecord};
+use ioi_services::agentic::desktop::{
+    AgentMode, DesktopAgentService, StartAgentParams, StepAgentParams,
+};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::{EvidenceGraph, InferenceOptions};
@@ -24,7 +28,6 @@ use ioi_types::error::VmError;
 use serde_json::json;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tempfile::tempdir;
 
 // [FIX] Imports for valid PNG generation
 use image::{ImageBuffer, ImageFormat, Rgba};
@@ -45,7 +48,10 @@ use std::collections::BTreeMap;
 struct MockGuiDriver;
 #[async_trait]
 impl GuiDriver for MockGuiDriver {
-    async fn capture_screen(&self) -> Result<Vec<u8>, VmError> {
+    async fn capture_screen(
+        &self,
+        _crop_rect: Option<(i32, i32, u32, u32)>,
+    ) -> Result<Vec<u8>, VmError> {
         // [FIX] Generate a valid 1x1 PNG image to satisfy image::load_from_memory
         let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(1, 1);
         img.put_pixel(0, 0, Rgba([255, 0, 0, 255]));
@@ -55,6 +61,9 @@ impl GuiDriver for MockGuiDriver {
             .map_err(|e| VmError::HostError(format!("Mock PNG encoding failed: {}", e)))?;
 
         Ok(bytes)
+    }
+    async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+        self.capture_screen(None).await
     }
     async fn capture_tree(&self) -> Result<String, VmError> {
         Ok("<root/>".into())
@@ -72,6 +81,9 @@ impl GuiDriver for MockGuiDriver {
     async fn inject_input(&self, _: InputEvent) -> Result<(), VmError> {
         Ok(())
     }
+    async fn get_element_center(&self, _: u32) -> Result<Option<(u32, u32)>, VmError> {
+        Ok(None)
+    }
 }
 
 struct MockOsDriver {
@@ -82,6 +94,26 @@ impl OsDriver for MockOsDriver {
     async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
         let title = self.active_window.lock().unwrap().clone();
         Ok(Some(title))
+    }
+    async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+        let title = self.active_window.lock().unwrap().clone();
+        Ok(Some(WindowInfo {
+            title,
+            x: 0,
+            y: 0,
+            width: 1024,
+            height: 768,
+            app_name: "MockApp".to_string(),
+        }))
+    }
+    async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+        Ok(true)
+    }
+    async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+        Ok(())
+    }
+    async fn get_clipboard(&self) -> Result<String, VmError> {
+        Ok(String::new())
     }
 }
 
@@ -143,35 +175,24 @@ impl InferenceRuntime for MockRagBrain {
 async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     build_test_artifacts();
 
-    // 1. Setup SCS (Sovereign Memory)
-    let temp_dir = tempdir()?;
-    let scs_path = temp_dir.path().join("context.scs");
-    let scs_config = StoreConfig {
-        chain_id: 1,
-        owner_id: [0u8; 32],
-    };
-    let mut scs = SovereignContextStore::create(&scs_path, scs_config)?;
+    // 1. Setup runtime-backed semantic memory.
+    let memory_runtime = Arc::new(MemoryRuntime::open_sqlite_in_memory()?);
+    let record_id = memory_runtime
+        .insert_archival_record(&NewArchivalMemoryRecord {
+            scope: "desktop.transcript".to_string(),
+            thread_id: None,
+            kind: "memory".to_string(),
+            content: "User Preference: Favorite color is Blue.".to_string(),
+            metadata_json: json!({ "role": "memory" }).to_string(),
+        })?
+        .expect("archival record id");
 
-    // 2. Inject Memory
-    // "The user's favorite color is Blue"
-    let memory_content = b"User Preference: Favorite color is Blue.";
-    let frame_id = scs.append_frame(FrameType::Observation, memory_content, 1, [0u8; 32])?;
-
-    // Index the memory
     // Embedding for "Blue" / "color" => [0.9, 0.0, ...]
     let mut vec = vec![0.0; 384];
     vec[0] = 0.9;
+    memory_runtime.upsert_archival_embedding(record_id, &vec)?;
 
-    let mut index = VectorIndex::new(16, 100);
-    index.insert(frame_id, vec)?;
-    scs.commit_index(&index)?;
-
-    // Close and re-open to ensure persistence worked and Arc<Mutex> can be shared
-    drop(scs);
-    let scs = SovereignContextStore::open(&scs_path)?;
-    let scs_arc = Arc::new(Mutex::new(scs));
-
-    // 3. Setup Components
+    // 2. Setup Components
     let active_window = Arc::new(Mutex::new("VS Code".to_string()));
     let os_driver = Arc::new(MockOsDriver {
         active_window: active_window.clone(),
@@ -183,16 +204,22 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     });
     let gui = Arc::new(MockGuiDriver);
 
-    // 4. Setup Service
-    let mut service = DesktopAgentService::new_hybrid(gui, brain.clone(), brain.clone());
-    service = service.with_scs(scs_arc.clone());
+    // 3. Setup Service
+    let service = DesktopAgentService::new_hybrid(
+        gui,
+        Arc::new(TerminalDriver::new()),
+        Arc::new(BrowserDriver::new()),
+        brain.clone(),
+        brain.clone(),
+    )
+    .with_memory_runtime(memory_runtime.clone());
 
-    // 5. Setup Chain State
+    // 4. Setup Chain State
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let services_dir = ServiceDirectory::new(vec![]);
     let mut ctx = TxContext {
         block_height: 2,
-        block_timestamp: ibc_primitives::Timestamp::now(),
+        block_timestamp: 0,
         chain_id: ioi_types::app::ChainId(1),
         signer_account_id: ioi_types::app::AccountId::default(),
         services: &services_dir,
@@ -210,6 +237,7 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,
+        mode: AgentMode::Agent,
     };
     service
         .handle_service_call(
@@ -288,6 +316,10 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
             activated_at: 0,
             methods,
             allowed_system_prefixes: vec![],
+            generation_id: 0,
+            parent_hash: None,
+            author: None,
+            context_filter: None,
         };
 
         let meta_bytes = codec::to_bytes_canonical(&meta).unwrap();
@@ -348,6 +380,7 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
         false,
         Arc::new(SafeModel),
         os_driver.clone(), // Pass our mock OS driver
+        &None,
     )
     .await;
 

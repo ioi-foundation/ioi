@@ -1,5 +1,16 @@
-use super::agent_runner::{run_agent_case, AgentRuntimeFactory, SharedAgentExecutionContext};
-use super::*;
+use anyhow::Result;
+use serde_json::json;
+use std::collections::BTreeMap;
+use std::fs;
+use std::time::Instant;
+
+use super::agent::runner::{run_agent_case, AgentExecutionContext};
+use super::bridge::BridgeProcess;
+use super::results::error_case_result;
+use super::support::{extract_error_class, write_json_file, write_text_file};
+use crate::computer_use_suite::types::{
+    AgentBackend, ComputerUseCase, ComputerUseCaseResult, ComputerUseMode, SuiteConfig, TaskSet,
+};
 
 pub struct ModeRunReport {
     pub results: Vec<ComputerUseCaseResult>,
@@ -25,16 +36,12 @@ fn configured_agent_backend(config: &SuiteConfig, mode: ComputerUseMode) -> Opti
     matches!(mode, ComputerUseMode::Agent).then_some(config.agent_backend)
 }
 
-fn bridge_start_failure_report(
+fn unsupported_mode_report(
     config: &SuiteConfig,
     mode: ComputerUseMode,
     cases: &[ComputerUseCase],
-    err: anyhow::Error,
+    message: &str,
 ) -> Result<ModeRunReport> {
-    let error_text = format!("{:#}", err);
-    let failure_class =
-        extract_error_class(&error_text).unwrap_or_else(|| "harness_error".to_string());
-    let agent_backend = configured_agent_backend(config, mode);
     let mut results = Vec::new();
     for case in cases {
         let case_artifact_root = config
@@ -42,17 +49,36 @@ fn bridge_start_failure_report(
             .join(mode.as_str())
             .join(case.id.clone());
         let error_path = case_artifact_root.join("error.txt");
-        write_text_file(&error_path, &error_text)?;
-        results.push(direct_case_error_result(
+        write_text_file(&error_path, message)?;
+        results.push(error_case_result(
             case,
             mode,
-            agent_backend,
+            configured_agent_backend(config, mode),
             case_artifact_root,
             0,
-            failure_class.clone(),
+            message.to_string(),
         ));
     }
     Ok(ModeRunReport { results })
+}
+
+fn startup_failure_report(
+    config: &SuiteConfig,
+    mode: ComputerUseMode,
+    cases: &[ComputerUseCase],
+    err: &anyhow::Error,
+) -> Result<ModeRunReport> {
+    unsupported_mode_report(
+        config,
+        mode,
+        cases,
+        &format!(
+            "ERROR_CLASS={} {}",
+            extract_error_class(&err.to_string())
+                .unwrap_or_else(|| "harness_startup_failure".to_string()),
+            err
+        ),
+    )
 }
 
 pub async fn run_mode_with_case_sink<F, G>(
@@ -66,39 +92,41 @@ where
     F: FnMut(&ComputerUseCase, usize) -> Result<()>,
     G: FnMut(&ComputerUseCase, &ComputerUseCaseResult, usize) -> Result<()>,
 {
+    if !matches!(mode, ComputerUseMode::Agent) {
+        let report = unsupported_mode_report(
+            config,
+            mode,
+            cases,
+            "ERROR_CLASS=mode_not_supported The modular MiniWoB harness currently supports agent mode only. Set COMPUTER_USE_SUITE_MODE=agent.",
+        )?;
+        let mut results = Vec::new();
+        for (index, case) in cases.iter().enumerate() {
+            on_case_started(case, index)?;
+            record_case_result(
+                case,
+                report.results[index].clone(),
+                &mut results,
+                &mut on_case_result,
+            )?;
+        }
+        return Ok(ModeRunReport { results });
+    }
+
+    let context = match AgentExecutionContext::start(config).await {
+        Ok(context) => context,
+        Err(err) => return startup_failure_report(config, mode, cases, &err),
+    };
     let mut bridge = match BridgeProcess::start(config).await {
         Ok(bridge) => bridge,
-        Err(err) => return bridge_start_failure_report(config, mode, cases, err),
-    };
-    let agent_runtime_factory = if matches!(mode, ComputerUseMode::Agent) {
-        Some(AgentRuntimeFactory::from_config(config).await?)
-    } else {
-        None
-    };
-    let agent_execution_context = if matches!(mode, ComputerUseMode::Agent) {
-        Some(SharedAgentExecutionContext::start(config).await?)
-    } else {
-        None
-    };
-    let direct_headless = if matches!(mode, ComputerUseMode::Oracle | ComputerUseMode::Runtime) {
-        Some(headless_for_run(config)?)
-    } else {
-        None
-    };
-    let mut direct_context = if let Some(headless) = direct_headless {
-        Some(DirectExecutionContext::start(headless).await?)
-    } else {
-        None
+        Err(err) => {
+            context.stop().await;
+            return startup_failure_report(config, mode, cases, &err);
+        }
     };
     let mut results = Vec::new();
     for case in cases {
         if let Err(err) = on_case_started(case, results.len()) {
-            if let Some(context) = &direct_context {
-                context.stop().await;
-            }
-            if let Some(context) = &agent_execution_context {
-                context.stop().await;
-            }
+            context.stop().await;
             bridge.stop().await;
             return Err(err);
         }
@@ -107,134 +135,32 @@ where
             .join(mode.as_str())
             .join(case.id.to_string());
         fs::create_dir_all(&case_root)?;
-        let result = match mode {
-            ComputerUseMode::Oracle | ComputerUseMode::Runtime => {
-                let started = Instant::now();
-                let result = timeout(
-                    Duration::from_secs(case.timeout_seconds.saturating_add(15)),
-                    Box::pin(run_direct_case(
-                        config,
-                        mode,
-                        bridge.client(),
-                        case,
-                        case_root.clone(),
-                        direct_context
-                            .as_ref()
-                            .expect("direct execution context should exist for direct modes"),
-                    )),
-                )
-                .await;
-                match result {
-                    Ok(result) => result,
-                    Err(_) => {
-                        let error_path = case_root.join("error.txt");
-                        let _ = write_text_file(
-                            &error_path,
-                            &format!(
-                                "direct case timed out after {}s wall clock; resetting bridge and browser context",
-                                case.timeout_seconds.saturating_add(15)
-                            ),
-                        );
-                        if let Some(context) = direct_context.take() {
-                            context.stop().await;
-                        }
-                        bridge.stop().await;
-                        bridge = BridgeProcess::start(config).await?;
-                        if let Some(headless) = direct_headless {
-                            direct_context = Some(DirectExecutionContext::start(headless).await?);
-                        }
-                        let timeout_result = direct_case_error_result(
-                            case,
-                            mode,
-                            configured_agent_backend(config, mode),
-                            case_root,
-                            started.elapsed().as_millis(),
-                            "TimeoutOrHang".to_string(),
-                        );
-                        if let Err(err) = record_case_result(
-                            case,
-                            timeout_result,
-                            &mut results,
-                            &mut on_case_result,
-                        ) {
-                            if let Some(context) = &direct_context {
-                                context.stop().await;
-                            }
-                            bridge.stop().await;
-                            return Err(err);
-                        }
-                        continue;
-                    }
-                }
-            }
-            ComputerUseMode::Agent => {
-                run_agent_case(
-                    config,
-                    agent_runtime_factory
-                        .as_ref()
-                        .expect("agent runtime factory should exist for agent mode"),
-                    agent_execution_context
-                        .as_ref()
-                        .expect("agent execution context should exist for agent mode"),
-                    bridge.client(),
-                    case,
-                    case_root,
-                )
-                .await
-            }
-        };
-        match result {
-            Ok(result) => {
-                if let Err(err) =
-                    record_case_result(case, result, &mut results, &mut on_case_result)
-                {
-                    if let Some(context) = &direct_context {
-                        context.stop().await;
-                    }
-                    if let Some(context) = &agent_execution_context {
-                        context.stop().await;
-                    }
-                    bridge.stop().await;
-                    return Err(err);
-                }
-            }
+        let started = Instant::now();
+        let result =
+            run_agent_case(config, &context, bridge.client(), case, case_root.clone()).await;
+        let case_result = match result {
+            Ok(result) => result,
             Err(err) => {
-                let case_artifact_root = config
-                    .artifact_root
-                    .join(mode.as_str())
-                    .join(case.id.clone());
-                let error_path = case_artifact_root.join("error.txt");
+                let error_path = case_root.join("error.txt");
                 let _ = write_text_file(&error_path, &format!("{:#}", err));
-                let error_result = direct_case_error_result(
+                error_case_result(
                     case,
                     mode,
                     configured_agent_backend(config, mode),
-                    case_artifact_root,
-                    0,
+                    case_root,
+                    started.elapsed().as_millis(),
                     extract_error_class(&err.to_string())
                         .unwrap_or_else(|| "harness_error".to_string()),
-                );
-                if let Err(callback_err) =
-                    record_case_result(case, error_result, &mut results, &mut on_case_result)
-                {
-                    if let Some(context) = &direct_context {
-                        context.stop().await;
-                    }
-                    if let Some(context) = &agent_execution_context {
-                        context.stop().await;
-                    }
-                    bridge.stop().await;
-                    return Err(callback_err);
-                }
+                )
             }
+        };
+        if let Err(err) = record_case_result(case, case_result, &mut results, &mut on_case_result) {
+            context.stop().await;
+            bridge.stop().await;
+            return Err(err);
         }
     }
-    if let Some(context) = &direct_context {
-        context.stop().await;
-    }
-    if let Some(context) = &agent_execution_context {
-        context.stop().await;
-    }
+    context.stop().await;
     bridge.stop().await;
     Ok(ModeRunReport { results })
 }

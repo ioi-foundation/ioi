@@ -331,7 +331,7 @@ export function ArtifactHubSidebar({
       if (event.event_type !== "RECEIPT") continue;
       const digest = event.digest || {};
       const kind = toEventString(digest.kind).trim().toLowerCase();
-      if (kind !== "scs_retrieve") continue;
+      if (kind !== "memory_retrieve") continue;
 
       const payload = (event.details?.payload || {}) as Record<string, unknown>;
       const proofHash = toEventString(payload.proof_hash).trim();
@@ -343,7 +343,7 @@ export function ArtifactHubSidebar({
         eventId: event.event_id,
         timestamp: formatTimestamp(event.timestamp),
         stepIndex: event.step_index,
-        toolName: toEventString(digest.tool_name).trim() || "scs_retrieve",
+        toolName: toEventString(digest.tool_name).trim() || "memory_retrieve",
         queryHash: toEventString(digest.query_hash).trim(),
         indexRoot: toEventString(digest.index_root).trim(),
         k: Math.max(1, Math.floor(toOptionalNumber(digest.k) || 1)),

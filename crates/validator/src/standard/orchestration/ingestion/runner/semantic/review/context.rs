@@ -3,12 +3,15 @@ use crate::standard::orchestration::ingestion::types::{parse_hash_hex, Processed
 use ioi_api::chain::WorkloadClientApi;
 use ioi_api::state::service_namespace_prefix;
 use ioi_client::WorkloadClient;
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::desktop::keys::{get_incident_key, get_state_key, pii};
 use ioi_services::agentic::desktop::service::step::incident::IncidentState;
+use ioi_services::agentic::desktop::utils::load_agent_state_checkpoint;
 use ioi_services::agentic::desktop::{AgentState, ResumeAgentParams};
 use ioi_types::app::agentic::PiiReviewRequest;
 use ioi_types::app::ApprovalToken;
 use ioi_types::codec;
+use ioi_types::error::TransactionError;
 use lru::LruCache;
 use std::sync::Arc;
 
@@ -23,6 +26,7 @@ pub(crate) struct ResumeContext {
 pub(crate) async fn resolve_resume_context(
     p_tx: &ProcessedTx,
     workload_client: &Arc<WorkloadClient>,
+    memory_runtime: Option<&Arc<MemoryRuntime>>,
     params: &[u8],
     status_guard: &mut LruCache<String, TxStatusEntry>,
 ) -> Option<ResumeContext> {
@@ -49,11 +53,11 @@ pub(crate) async fn resolve_resume_context(
     let incident_key = get_incident_key(&resume.session_id);
     let incident_full_key = [ns_prefix.as_slice(), incident_key.as_slice()].concat();
 
-    let agent_state = match workload_client.query_raw_state(&state_full_key).await {
-        Ok(Some(bytes)) => match codec::from_bytes_canonical::<AgentState>(&bytes) {
-            Ok(v) => Some(v),
-            Err(_) => {
-                let reason = "Invalid desktop agent state bytes";
+    let agent_state = if let Some(memory_runtime) = memory_runtime {
+        match load_agent_state_checkpoint(memory_runtime.as_ref(), resume.session_id) {
+            Ok(v) => v,
+            Err(TransactionError::Invalid(error)) => {
+                let reason = format!("Failed to load desktop agent checkpoint: {}", error);
                 tracing::warn!(target: "ingestion", "{}", reason);
                 status_guard.put(
                     p_tx.receipt_hash_hex.clone(),
@@ -65,32 +69,64 @@ pub(crate) async fn resolve_resume_context(
                 );
                 None
             }
-        },
-        Ok(None) => {
-            let reason = "Missing desktop agent state for resume";
-            tracing::warn!(target: "ingestion", "{}", reason);
-            status_guard.put(
-                p_tx.receipt_hash_hex.clone(),
-                TxStatusEntry {
-                    status: ioi_ipc::public::TxStatus::Rejected,
-                    error: Some(format!("Firewall: {}", reason)),
-                    block_height: None,
-                },
-            );
-            None
+            Err(error) => {
+                let reason = format!("Failed to load desktop agent checkpoint: {}", error);
+                tracing::warn!(target: "ingestion", "{}", reason);
+                status_guard.put(
+                    p_tx.receipt_hash_hex.clone(),
+                    TxStatusEntry {
+                        status: ioi_ipc::public::TxStatus::Rejected,
+                        error: Some(format!("Firewall: {}", reason)),
+                        block_height: None,
+                    },
+                );
+                None
+            }
         }
-        Err(e) => {
-            let reason = format!("Failed to query desktop agent state: {}", e);
-            tracing::warn!(target: "ingestion", "{}", reason);
-            status_guard.put(
-                p_tx.receipt_hash_hex.clone(),
-                TxStatusEntry {
-                    status: ioi_ipc::public::TxStatus::Rejected,
-                    error: Some(format!("Firewall: {}", reason)),
-                    block_height: None,
-                },
-            );
-            None
+    } else {
+        match workload_client.query_raw_state(&state_full_key).await {
+            Ok(Some(bytes)) => match codec::from_bytes_canonical::<AgentState>(&bytes) {
+                Ok(v) => Some(v),
+                Err(_) => {
+                    let reason = "Invalid desktop agent state bytes";
+                    tracing::warn!(target: "ingestion", "{}", reason);
+                    status_guard.put(
+                        p_tx.receipt_hash_hex.clone(),
+                        TxStatusEntry {
+                            status: ioi_ipc::public::TxStatus::Rejected,
+                            error: Some(format!("Firewall: {}", reason)),
+                            block_height: None,
+                        },
+                    );
+                    None
+                }
+            },
+            Ok(None) => {
+                let reason = "Missing desktop agent state for resume";
+                tracing::warn!(target: "ingestion", "{}", reason);
+                status_guard.put(
+                    p_tx.receipt_hash_hex.clone(),
+                    TxStatusEntry {
+                        status: ioi_ipc::public::TxStatus::Rejected,
+                        error: Some(format!("Firewall: {}", reason)),
+                        block_height: None,
+                    },
+                );
+                None
+            }
+            Err(e) => {
+                let reason = format!("Failed to query desktop agent state: {}", e);
+                tracing::warn!(target: "ingestion", "{}", reason);
+                status_guard.put(
+                    p_tx.receipt_hash_hex.clone(),
+                    TxStatusEntry {
+                        status: ioi_ipc::public::TxStatus::Rejected,
+                        error: Some(format!("Firewall: {}", reason)),
+                        block_height: None,
+                    },
+                );
+                None
+            }
         }
     };
 

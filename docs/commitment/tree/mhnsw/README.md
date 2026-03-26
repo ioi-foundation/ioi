@@ -1,6 +1,12 @@
-# mHNSW Retrieval Verification Spec
+# mHNSW Retrieval Verification Notes
 
-This document defines the implemented single-level retrieval contract for IOI mHNSW/SCS.
+Historical note: this document describes the retired certifying retrieval path
+that used to sit behind the removed `SCS` crate. The lower-level `mHNSW`
+structures still live in `crates/state`, but the product-memory crate and its
+public benchmark harness were removed during the `ioi-memory` migration.
+
+This document records the single-level certifying retrieval contract that was
+implemented for IOI `mHNSW`.
 
 All guarantees are scoped to the committed corpus/index state.
 
@@ -41,8 +47,8 @@ Implemented in:
 
 ## Certified Retrieval Flow
 
-Implemented in:
-`crates/scs/src/index.rs`
+Historical implementation:
+retired with the removal of the `SCS` crate
 
 `VectorIndex::search_hybrid_with_certificate(...)` executes:
 
@@ -60,8 +66,8 @@ If any step fails, retrieval fails.
 
 ## Lower-Bound Certificate Math
 
-Implemented in:
-`crates/scs/src/certificate.rs`
+Historical implementation:
+retired with the removal of the `SCS` crate
 
 Metric contract:
 
@@ -100,12 +106,12 @@ Committed structures:
 2. `CertifiedRetrievalProof`
    `LowerBoundCertificate`, `quantizer_root`, `visited_cluster_ids`, `candidate_count_total`
 
-Defined in:
-`crates/scs/src/index.rs`
+Historical implementation:
+retired with the removal of the `SCS` crate
 
 ## Retrieval Receipt Contract
 
-`WorkloadScsRetrieveReceipt` records:
+`WorkloadMemoryRetrieveReceipt` records:
 
 1. query and index roots
 2. policy params (`k`, `ef_search`, `candidate_limit`)
@@ -121,19 +127,20 @@ Defined in:
 2. `crates/ipc/proto/public/v1/public.proto`
 3. `crates/validator/src/standard/orchestration/grpc_public/events_handlers.rs`
 
-## SCS Artifact Integration
+## Historical Artifact Integration
 
-Implemented in:
-`crates/scs/src/index.rs`, `crates/scs/src/format.rs`, `crates/scs/src/store.rs`
+Historical implementation:
+retired with the removal of the `SCS` crate
 
 1. `VectorIndex` stores optional coarse quantizer metadata
 2. `VectorIndexArtifact` persists optional `coarse_quantizer`
 3. `VectorIndexManifest` stores optional quantizer summary reference
 4. `SovereignContextStore::commit_index(...)` writes quantizer summary into TOC manifest
 
-## Public API Surface
+## Historical Public API Surface
 
-`crates/scs/src/index.rs`
+Historical implementation:
+retired with the removal of the `SCS` crate
 
 1. `VectorIndex::search_hybrid_with_certificate(...)`
 2. `VectorIndex::set_coarse_quantizer(...)`
@@ -153,11 +160,8 @@ Implemented tests cover:
 
 ## Benchmark Harness
 
-Performance validation is implemented in:
-`crates/scs/tests/mhnsw_speed_profiles.rs`
-
-Run:
-`cargo test -p ioi-scs --test mhnsw_speed_profiles -- --ignored --nocapture`
+The old benchmark harness was removed together with the `SCS` crate during the
+memory-runtime migration.
 
 Datasets:
 

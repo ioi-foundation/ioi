@@ -2,6 +2,10 @@
 
 ## A Kernel-Native Canonical State, Projection, and Query Fabric for Agentic Applications
 
+Historical note: earlier revisions of this spec described `SCS` as a separate
+context plane. The live repository now uses `ioi-memory` for product-memory
+flows and no longer ships an `SCS` crate.
+
 ## 1. Executive Summary
 
 Fractal Query Fabric (`FQF`) is the proposed canonical state, projection, and query fabric for IOI-native applications.
@@ -11,7 +15,7 @@ It is not:
 - SQL on a blockchain
 - a decentralized Supabase clone
 - a replacement for every local UI store
-- a replacement for `SCS`
+- a resurrection of the old `SCS` memory story
 
 It is:
 
@@ -40,7 +44,7 @@ If successful, this is not "the death of Postgres" in general. It is the first c
 This spec adopts the following position:
 
 - `Yes`: build `FQF` as the shared canonical state and projection fabric for IOI-native apps.
-- `Yes`: keep `SCS` as a separate context plane.
+- `No`: do not reintroduce `SCS` as a separate context plane; live product memory uses `ioi-memory`.
 - `Yes`: support React apps via local-first app stores plus `FQF` sync/query/mutation.
 - `No`: do not make every query, cache, or UI interaction part of canonical state.
 - `No`: do not turn `FQF` into a universal replacement for every database workload.
@@ -70,16 +74,16 @@ IOI already has the beginnings of a better split:
 
 - kernel-managed canonical state and proofs in the chain/state APIs
 - durable storage via `redb` + WAL
-- `SCS` as a separate verifiable memory substrate
+- `ioi-memory` as the runtime-backed memory substrate for product flows
 
 Relevant current anchors in the repo:
 
-- kernel topology and SCS role: `README.md`
+- kernel topology and memory-runtime role: `README.md`
 - canonical chain and anchored state interfaces: `crates/api/src/chain/mod.rs`
 - state manager and verifier traits: `crates/api/src/state/mod.rs`
 - durable storage with WAL: `crates/storage/README.md`
 - deterministic execution and canonical flush: `crates/execution/README.md`
-- SCS as proof-oriented context memory: `crates/scs/README.md`
+- runtime-backed memory implementation: `crates/memory/src/lib.rs`
 - typed `ContextSlice` transport model: `crates/ipc/src/data.rs`
 - strict mHNSW certifying retrieval contract: `docs/commitment/tree/mhnsw/README.md`
 

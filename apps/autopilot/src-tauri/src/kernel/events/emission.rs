@@ -11,7 +11,7 @@ use tauri::{Emitter, Manager};
 use uuid::Uuid;
 
 pub(crate) fn register_event(app: &tauri::AppHandle, mut event: AgentEvent) {
-    let mut scs_handle = None;
+    let mut memory_runtime = None;
 
     {
         let state = app.state::<Mutex<AppState>>();
@@ -23,7 +23,7 @@ pub(crate) fn register_event(app: &tauri::AppHandle, mut event: AgentEvent) {
                 }
             }
             refs.push(event.event_id.clone());
-            scs_handle = s.studio_scs.clone();
+            memory_runtime = s.memory_runtime.clone();
         };
     }
 
@@ -34,8 +34,8 @@ pub(crate) fn register_event(app: &tauri::AppHandle, mut event: AgentEvent) {
         }
     });
 
-    if let Some(scs) = scs_handle {
-        orchestrator::append_event(&scs, &event);
+    if let Some(memory_runtime) = memory_runtime {
+        orchestrator::append_event(&memory_runtime, &event);
     }
 
     let _ = app.emit("agent-event", &event);
@@ -44,7 +44,7 @@ pub(crate) fn register_event(app: &tauri::AppHandle, mut event: AgentEvent) {
 pub(crate) fn register_artifact(app: &tauri::AppHandle, artifact: Artifact) {
     let thread_id = artifact.thread_id.clone();
     let mut run_bundle_id = None;
-    let mut scs_handle = None;
+    let mut memory_runtime = None;
 
     {
         let state = app.state::<Mutex<AppState>>();
@@ -59,7 +59,7 @@ pub(crate) fn register_artifact(app: &tauri::AppHandle, artifact: Artifact) {
                     run_bundle_id = task.run_bundle_id.clone();
                 }
             }
-            scs_handle = s.studio_scs.clone();
+            memory_runtime = s.memory_runtime.clone();
         };
     }
 
@@ -78,9 +78,9 @@ pub(crate) fn register_artifact(app: &tauri::AppHandle, artifact: Artifact) {
     let _ = app.emit("artifact-created", &artifact);
 
     if artifact.artifact_type != ArtifactType::RunBundle {
-        if let (Some(bundle_id), Some(scs)) = (run_bundle_id, scs_handle) {
+        if let (Some(bundle_id), Some(memory_runtime)) = (run_bundle_id, memory_runtime) {
             if let Some(updated_bundle) = artifact_store::append_run_bundle_ref(
-                &scs,
+                &memory_runtime,
                 &thread_id,
                 &bundle_id,
                 &artifact.artifact_id,
@@ -129,11 +129,11 @@ pub(super) fn create_macro_artifacts_for_action(
     tool_name: &str,
     output: &str,
 ) -> Vec<ArtifactRef> {
-    let scs = {
+    let memory_runtime = {
         let state = app.state::<Mutex<AppState>>();
-        state.lock().ok().and_then(|s| s.studio_scs.clone())
+        state.lock().ok().and_then(|s| s.memory_runtime.clone())
     };
-    let Some(scs) = scs else {
+    let Some(memory_runtime) = memory_runtime else {
         return Vec::new();
     };
 
@@ -148,7 +148,7 @@ pub(super) fn create_macro_artifacts_for_action(
                     .cloned()
                     .unwrap_or_else(|| format!("tool://{}", tool_name));
                 let artifact = artifact_store::create_web_artifact(
-                    &scs,
+                    &memory_runtime,
                     thread_id,
                     &primary_url,
                     output,
@@ -168,7 +168,7 @@ pub(super) fn create_macro_artifacts_for_action(
                     "files_touched": diff_files,
                 });
                 let artifact = artifact_store::create_diff_artifact(
-                    &scs,
+                    &memory_runtime,
                     thread_id,
                     "Large Diff",
                     "Diff exceeded inline thresholds",
@@ -187,7 +187,7 @@ pub(super) fn create_macro_artifacts_for_action(
                     "line_count": thresholds::line_count(output),
                 });
                 let artifact = artifact_store::create_log_artifact(
-                    &scs,
+                    &memory_runtime,
                     thread_id,
                     &format!("{} output", tool_name),
                     "Command output spilled due to threshold",

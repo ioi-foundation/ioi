@@ -12,7 +12,6 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::GetContextBlobRequest;
-use ioi_scs::SovereignContextStore;
 use ioi_services::agentic::desktop::keys::{
     get_skill_doc_key, get_skill_external_evidence_key, get_skill_record_key, get_state_key,
     get_trace_key, SKILL_CATALOG_INDEX_KEY,
@@ -25,7 +24,7 @@ use ioi_types::app::agentic::{
 use ioi_types::codec;
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use tauri::State;
 use tonic::transport::Channel;
 use tonic::Code;
@@ -227,7 +226,7 @@ fn skill_catalog_entry_from_bundle(bundle: &SkillBundle) -> SkillCatalogEntry {
         source_type: format!("{:?}", bundle.record.source_type),
         success_rate_bps: benchmark.success_rate_bps,
         sample_size: benchmark.sample_size,
-        frame_id: bundle.record.frame_id,
+        archival_record_id: bundle.record.archival_record_id,
         source_session_id: bundle.record.source_session_id.map(hex::encode),
         source_evidence_hash: bundle.record.source_evidence_hash.map(hex::encode),
         relative_path: bundle_relative_path(bundle),
@@ -542,7 +541,7 @@ fn build_substrate_receipts(events: &[crate::models::AgentEvent]) -> Vec<Substra
         }
         let digest = event.digest.as_object().cloned().unwrap_or_default();
         let kind = to_event_string(digest.get("kind")).to_ascii_lowercase();
-        if kind != "scs_retrieve" {
+        if kind != "memory_retrieve" {
             continue;
         }
         let payload = event
@@ -558,7 +557,7 @@ fn build_substrate_receipts(events: &[crate::models::AgentEvent]) -> Vec<Substra
             tool_name: {
                 let tool_name = to_event_string(digest.get("tool_name"));
                 if tool_name.is_empty() {
-                    "scs_retrieve".to_string()
+                    "memory_retrieve".to_string()
                 } else {
                     tool_name
                 }
@@ -821,7 +820,7 @@ fn build_skill_detail(bundle: &SkillBundle, all_bundles: &[SkillBundle]) -> Skil
         description: bundle.record.macro_body.definition.description.clone(),
         lifecycle_state: format!("{:?}", bundle.record.lifecycle_state),
         source_type: format!("{:?}", bundle.record.source_type),
-        frame_id: bundle.record.frame_id,
+        archival_record_id: bundle.record.archival_record_id,
         success_rate_bps: benchmark.success_rate_bps,
         sample_size: benchmark.sample_size,
         source_session_id: bundle.record.source_session_id.map(hex::encode),
@@ -837,16 +836,4 @@ fn build_skill_detail(bundle: &SkillBundle, all_bundles: &[SkillBundle]) -> Skil
             .map(|doc| doc.markdown.clone()),
         neighborhood: build_skill_neighborhood(all_bundles, &bundle.record.skill_hash),
     }
-}
-
-fn get_scs(
-    state: &State<'_, Mutex<AppState>>,
-) -> Result<Arc<Mutex<SovereignContextStore>>, String> {
-    let guard = state
-        .lock()
-        .map_err(|_| "Failed to lock state".to_string())?;
-    guard
-        .studio_scs
-        .clone()
-        .ok_or_else(|| "Studio SCS is not available".to_string())
 }

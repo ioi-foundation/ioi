@@ -104,6 +104,9 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
 
         AgentTool::MemorySearch { .. } => ActionTarget::Custom("memory::search".into()),
         AgentTool::MemoryInspect { .. } => ActionTarget::Custom("memory::inspect".into()),
+        AgentTool::MemoryReplaceCore { .. } => ActionTarget::Custom("memory::replace_core".into()),
+        AgentTool::MemoryAppendCore { .. } => ActionTarget::Custom("memory::append_core".into()),
+        AgentTool::MemoryClearCore { .. } => ActionTarget::Custom("memory::clear_core".into()),
 
         AgentTool::AgentDelegate { .. } => ActionTarget::Custom("agent__delegate".into()),
         AgentTool::AgentAwait { .. } => ActionTarget::Custom("agent__await_result".into()),

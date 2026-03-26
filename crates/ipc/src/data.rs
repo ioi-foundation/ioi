@@ -99,8 +99,8 @@ pub struct ContextSlice {
     /// Unique content-addressed identifier for this slice.
     pub slice_id: [u8; 32],
 
-    /// The ID of the frame in the SCS that this slice corresponds to.
-    /// This allows the Provider to request the surrounding context if needed.
+    /// Legacy archival frame/record identifier associated with this slice.
+    /// This allows the Provider to request surrounding context if needed.
     pub frame_id: u64,
 
     /// The actual data chunks (e.g. XML fragments, JSON objects).

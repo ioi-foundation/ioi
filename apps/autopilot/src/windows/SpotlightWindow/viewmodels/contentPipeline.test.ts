@@ -124,7 +124,7 @@ function activitySummaryTest(): void {
       artifact_type: "LOG",
       title: "Log",
       description: "",
-      content_ref: "scs://artifact/art-1",
+      content_ref: "ioi-memory://artifact/art-1",
       metadata: {},
       version: 1,
       parent_artifact_id: null,

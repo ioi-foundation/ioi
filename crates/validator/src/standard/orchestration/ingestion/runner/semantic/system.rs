@@ -4,6 +4,7 @@ use ioi_api::chain::WorkloadClientApi;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_client::WorkloadClient;
+use ioi_memory::MemoryRuntime;
 use ioi_pii::validate_resume_review_contract;
 use ioi_services::agentic::rules::ActionRules;
 use ioi_types::app::{ChainTransaction, KernelEvent};
@@ -20,6 +21,7 @@ pub(crate) async fn evaluate_system_transaction(
     workload_client: &Arc<WorkloadClient>,
     safety_model: &Arc<dyn LocalSafetyModel>,
     os_driver: &Arc<dyn OsDriver>,
+    memory_runtime: Option<&Arc<MemoryRuntime>>,
     expected_ts: u64,
     status_guard: &mut LruCache<String, TxStatusEntry>,
     event_broadcaster: &tokio::sync::broadcast::Sender<KernelEvent>,
@@ -58,11 +60,18 @@ pub(crate) async fn evaluate_system_transaction(
     let mut pii_request_opt = None;
 
     if service_id == "desktop_agent" && method == "resume@v1" {
-        let context =
-            match resolve_resume_context(p_tx, workload_client, params, status_guard).await {
-                Some(v) => v,
-                None => return false,
-            };
+        let context = match resolve_resume_context(
+            p_tx,
+            workload_client,
+            memory_runtime,
+            params,
+            status_guard,
+        )
+        .await
+        {
+            Some(v) => v,
+            None => return false,
+        };
 
         approval_token = context.approval_token;
         resume_session_id = context.resume_session_id;

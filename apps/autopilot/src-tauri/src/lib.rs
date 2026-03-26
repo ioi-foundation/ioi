@@ -19,8 +19,7 @@ mod template;
 mod windows;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
-use ioi_scs::{SovereignContextStore, StoreConfig};
-use ioi_types::app::{account_id_from_key_material, SignatureSuite};
+use ioi_memory::MemoryRuntime;
 use models::AppState;
 
 #[cfg(target_os = "linux")]
@@ -45,61 +44,20 @@ fn is_env_var_truthy(key: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn derive_studio_scs_config(data_dir: &Path) -> StoreConfig {
-    let mut config = StoreConfig {
-        chain_id: 0,
-        owner_id: [0u8; 32],
-        identity_key: [0u8; 32],
-    };
-
-    let key_path = data_dir.join("identity.key");
-    if !key_path.exists() {
-        return config;
-    }
-
-    let keypair = match identity::load_identity_keypair_from_file(&key_path) {
-        Ok(kp) => kp,
-        Err(e) => {
-            eprintln!(
-                "[Autopilot] Failed to load identity key for SCS config (fallback active): {}",
-                e
-            );
-            return config;
-        }
-    };
-
-    if let Ok(ed_kp) = keypair.clone().try_into_ed25519() {
-        config.identity_key.copy_from_slice(ed_kp.secret().as_ref());
-    }
-
-    if let Ok(owner_id) =
-        account_id_from_key_material(SignatureSuite::ED25519, &keypair.public().encode_protobuf())
-    {
-        config.owner_id = owner_id;
-    }
-
-    config
-}
-
 pub(crate) fn autopilot_data_dir_for(app: &AppHandle) -> PathBuf {
     app.path()
         .app_data_dir()
         .unwrap_or_else(|_| PathBuf::from("./ioi-data"))
 }
 
-pub(crate) fn open_or_create_studio_scs(data_dir: &Path) -> Result<SovereignContextStore, String> {
-    let scs_path = data_dir.join("studio.scs");
-    let scs_config = derive_studio_scs_config(data_dir);
-
-    if scs_path.exists() {
-        SovereignContextStore::open_with_config(&scs_path, scs_config.clone())
-            .map_err(|error| format!("Failed to open studio store: {}", error))
-    } else {
+pub(crate) fn open_or_create_memory_runtime(data_dir: &Path) -> Result<MemoryRuntime, String> {
+    let memory_path = data_dir.join("studio-memory.db");
+    if !data_dir.exists() {
         std::fs::create_dir_all(data_dir)
             .map_err(|error| format!("Failed to create app data directory: {}", error))?;
-        SovereignContextStore::create(&scs_path, scs_config)
-            .map_err(|error| format!("Failed to create studio store: {}", error))
     }
+    MemoryRuntime::open_sqlite(&memory_path)
+        .map_err(|error| format!("Failed to open memory runtime: {}", error))
 }
 
 fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
@@ -174,14 +132,24 @@ pub fn run() {
             let app_handle = app.handle();
             let data_dir = autopilot_data_dir_for(&app_handle);
 
-            let studio_scs = open_or_create_studio_scs(&data_dir).ok();
+            let memory_runtime = match open_or_create_memory_runtime(&data_dir) {
+                Ok(runtime) => Some(Arc::new(runtime)),
+                Err(error) => {
+                    eprintln!("[Studio] Failed to initialize memory runtime: {}", error);
+                    None
+                }
+            };
 
-            if let Some(scs) = studio_scs {
+            {
                 let state: State<Mutex<AppState>> = app_handle.state();
                 let mut s = state.lock().expect("Failed to lock app state during init");
-                s.studio_scs = Some(Arc::new(Mutex::new(scs)));
+                s.memory_runtime = memory_runtime.clone();
+            }
+
+            if memory_runtime.is_some() {
+                println!("[Studio] Initialized memory runtime.");
             } else {
-                eprintln!("[Studio] Failed to initialize SCS. Persistence disabled.");
+                eprintln!("[Studio] Local persistence unavailable.");
             }
 
             let google_automation_manager = kernel::connectors::GoogleAutomationManager::new(
@@ -396,6 +364,7 @@ pub fn run() {
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,
             kernel::data::get_skill_catalog,
+            kernel::data::get_memory_runtime_session_status,
             kernel::data::get_active_context,
             kernel::data::get_atlas_neighborhood,
             kernel::data::get_skill_detail,

@@ -1,5 +1,6 @@
 use super::super::*;
 use crate::agentic::desktop::service::step::action::verified_command_probe_completion_summary;
+use crate::agentic::desktop::utils::persist_agent_state;
 
 pub(crate) struct LifecycleStatusPhaseContext<'a, 's> {
     pub service: &'a DesktopAgentService,
@@ -224,6 +225,7 @@ pub(crate) async fn run_lifecycle_status_phase(
         "resumed_action".to_string(),
         service.event_sender.clone(),
         agent_state.active_skill_hash,
+        service.memory_runtime.as_ref(),
     )?;
 
     let content = if success {
@@ -1221,7 +1223,7 @@ pub(crate) async fn run_lifecycle_status_phase(
         resolution_action: incident_fields.resolution_action,
         stop_condition_hit,
         escalation_path,
-        scs_lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
+        lineage_ptr: lineage_pointer(agent_state.active_skill_hash),
         mutation_receipt_ptr: mutation_receipt_pointer(state, &session_id),
         policy_binding_hash: policy_binding,
         policy_binding_sig: None,
@@ -1235,7 +1237,7 @@ pub(crate) async fn run_lifecycle_status_phase(
             .await;
     }
 
-    state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+    persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
 
     Ok(())
 }
@@ -1257,7 +1259,7 @@ mod tests {
     use ioi_api::vm::inference::InferenceRuntime;
     use ioi_drivers::browser::BrowserDriver;
     use ioi_drivers::terminal::TerminalDriver;
-    use ioi_scs::{SovereignContextStore, StoreConfig};
+    use ioi_memory::MemoryRuntime;
     use ioi_types::app::agentic::{
         AgentTool, CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
     };
@@ -1265,8 +1267,7 @@ mod tests {
     use ioi_types::error::{StateError, VmError};
     use serde_json::json;
     use std::collections::{BTreeMap, VecDeque};
-    use std::sync::{Arc, Mutex};
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::Arc;
 
     #[derive(Debug, Default, Clone)]
     struct MockState {
@@ -1509,29 +1510,19 @@ mod tests {
         }
     }
 
-    fn build_resume_test_service() -> (DesktopAgentService, std::path::PathBuf) {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |value| value.as_nanos());
-        let path =
-            std::env::temp_dir().join(format!("ioi_resume_lifecycle_status_tests_{timestamp}.scs"));
-        let config = StoreConfig {
-            chain_id: 1,
-            owner_id: [9u8; 32],
-            identity_key: [8u8; 32],
-        };
-        let store = SovereignContextStore::create(&path, config).expect("scs create");
+    fn build_resume_test_service() -> DesktopAgentService {
         let (tx, _rx) = tokio::sync::broadcast::channel(32);
         let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
-        let service = DesktopAgentService::new(
+        DesktopAgentService::new(
             Arc::new(NoopGuiDriver),
             Arc::new(TerminalDriver::new()),
             Arc::new(BrowserDriver::new()),
             inference,
         )
-        .with_scs(Arc::new(Mutex::new(store)))
-        .with_event_sender(tx);
-        (service, path)
+        .with_memory_runtime(Arc::new(
+            MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
+        ))
+        .with_event_sender(tx)
     }
 
     #[test]
@@ -1570,7 +1561,7 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn approved_automation_monitor_resume_terminalizes_instead_of_looping() {
-        let (service, scs_path) = build_resume_test_service();
+        let service = build_resume_test_service();
         let mut receiver = service
             .event_sender
             .as_ref()
@@ -1698,7 +1689,5 @@ mod tests {
 
         assert!(saw_chat_reply);
         assert!(!saw_running_automation_result);
-
-        let _ = std::fs::remove_file(scs_path);
     }
 }

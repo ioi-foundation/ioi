@@ -1,10 +1,12 @@
 use super::*;
 use crate::agentic::desktop::keys::get_skill_external_evidence_key;
 use crate::agentic::skill_registry::{
-    canonical_skill_hash, generate_published_skill_doc, now_ms, upsert_published_skill_doc,
-    upsert_skill_record,
+    build_skill_archival_metadata_json, canonical_skill_hash, generate_published_skill_doc, now_ms,
+    skill_archival_content, upsert_published_skill_doc, upsert_skill_record, SKILL_ARCHIVAL_KIND,
+    SKILL_ARCHIVAL_SCOPE,
 };
 use ioi_api::state::StateAccess;
+use ioi_memory::NewArchivalMemoryRecord;
 use ioi_types::app::agentic::{
     ExternalSkillEvidence, SkillLifecycleState, SkillRecord, SkillSourceType,
 };
@@ -114,48 +116,48 @@ fn macro_step_params_with_queue_metadata(
 }
 
 impl OptimizerService {
-    /// [NEW] Helper to index a skill in the vector store for semantic retrieval.
-    pub(crate) async fn index_skill(
+    /// Persists a skill to archival memory and indexes it for semantic retrieval.
+    pub(crate) async fn archive_skill(
         &self,
-        frame_id: u64,
+        skill: &AgentMacro,
         definition: &LlmToolDefinition,
         skill_hash: [u8; 32],
-    ) -> Result<(), TransactionError> {
+    ) -> Result<i64, TransactionError> {
         let runtime = self.inference.as_ref().ok_or(TransactionError::Invalid(
             "Optimizer has no inference runtime for embedding".into(),
         ))?;
-
-        let scs_mutex = self
-            .scs
+        let memory_runtime = self
+            .memory_runtime
             .as_ref()
-            .ok_or(TransactionError::Invalid("SCS not available".into()))?;
+            .ok_or(TransactionError::Invalid(
+                "Memory runtime not available".into(),
+            ))?;
 
-        // Create a semantic representation: "Name: Description"
-        let text_to_embed = format!("{}: {}", definition.name, definition.description);
-
-        // Generate embedding
+        let text_to_embed = skill_archival_content(definition);
         let vector = runtime
             .embed_text(&text_to_embed)
             .await
             .map_err(|e| TransactionError::Invalid(format!("Failed to embed skill: {}", e)))?;
+        let metadata_json = build_skill_archival_metadata_json(skill_hash, skill)?;
+        let archival_record_id = memory_runtime
+            .insert_archival_record(&NewArchivalMemoryRecord {
+                scope: SKILL_ARCHIVAL_SCOPE.to_string(),
+                thread_id: None,
+                kind: SKILL_ARCHIVAL_KIND.to_string(),
+                content: text_to_embed,
+                metadata_json,
+            })
+            .map_err(|e| TransactionError::Invalid(format!("Skill archival insert failed: {}", e)))?
+            .ok_or(TransactionError::Invalid(
+                "Memory runtime archival store unavailable".into(),
+            ))?;
+        memory_runtime
+            .upsert_archival_embedding(archival_record_id, &vector)
+            .map_err(|e| {
+                TransactionError::Invalid(format!("Skill archival index failed: {}", e))
+            })?;
 
-        // Insert into mHNSW
-        let store = scs_mutex
-            .lock()
-            .map_err(|_| TransactionError::Invalid("SCS lock poisoned".into()))?;
-        if let Ok(index_arc) = store.get_vector_index() {
-            let mut index = index_arc
-                .lock()
-                .map_err(|_| TransactionError::Invalid("Index lock".into()))?;
-            if let Some(idx) = index.as_mut() {
-                idx.insert_with_metadata(frame_id, vector, FrameType::Skill, skill_hash)
-                    .map_err(|e| {
-                        TransactionError::Invalid(format!("Index insert failed: {}", e))
-                    })?;
-            }
-        }
-
-        Ok(())
+        Ok(archival_record_id)
     }
 
     pub(crate) async fn persist_skill_record(
@@ -169,37 +171,15 @@ impl OptimizerService {
     ) -> Result<SkillRecord, TransactionError> {
         self.validate_skill(&skill)?;
 
-        let scs_mutex = self
-            .scs
-            .as_ref()
-            .ok_or(TransactionError::Invalid("SCS not available".into()))?;
         let skill_hash = canonical_skill_hash(&skill)?;
-        let skill_bytes =
-            codec::to_bytes_canonical(&skill).map_err(TransactionError::Serialization)?;
-
-        let frame_id = {
-            let mut store = scs_mutex
-                .lock()
-                .map_err(|_| TransactionError::Invalid("SCS lock".into()))?;
-            store
-                .append_frame(
-                    FrameType::Skill,
-                    &skill_bytes,
-                    0,
-                    [0u8; 32],
-                    source_session_id.unwrap_or([0u8; 32]),
-                    RetentionClass::Archival,
-                )
-                .map_err(|e| TransactionError::Invalid(e.to_string()))?
-        };
-
-        self.index_skill(frame_id, &skill.definition, skill_hash)
+        let archival_record_id = self
+            .archive_skill(&skill, &skill.definition, skill_hash)
             .await?;
 
         let timestamp = now_ms();
         let mut record = SkillRecord {
             skill_hash,
-            frame_id,
+            archival_record_id,
             macro_body: skill,
             lifecycle_state,
             source_type,

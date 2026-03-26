@@ -23,8 +23,8 @@ pub use model::{
     RETRY_GUARD_WINDOW,
 };
 pub use receipts::{
-    emit_routing_receipt, extract_artifacts, lineage_pointer, mutation_receipt_pointer,
-    policy_binding_hash,
+    emit_routing_receipt, extract_artifacts, lineage_pointer, mutation_receipt_artifact_id,
+    mutation_receipt_pointer, mutation_receipt_pointer_for_artifact_id, policy_binding_hash,
 };
 pub use routing::{
     build_post_state_summary, build_state_summary, choose_routing_tier, escalation_path_for_failure,

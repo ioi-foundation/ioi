@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::agentic::desktop::utils::persist_agent_state;
 use ioi_api::vm::drivers::os::OsDriver;
 use std::sync::Arc;
 
@@ -68,6 +69,7 @@ pub(crate) async fn run_visual_prechecks_phase(
             "resumed_action".to_string(),
             service.event_sender.clone(),
             agent_state.active_skill_hash,
+            service.memory_runtime.as_ref(),
         )?;
 
         let deny_msg = ioi_types::app::agentic::ChatMessage {
@@ -91,7 +93,7 @@ pub(crate) async fn run_visual_prechecks_phase(
         agent_state.status = AgentStatus::Running;
         agent_state.step_count = agent_state.step_count.saturating_add(1);
         agent_state.consecutive_failures = agent_state.consecutive_failures.saturating_add(1);
-        state.insert(&key, &codec::to_bytes_canonical(&agent_state)?)?;
+        persist_agent_state(state, &key, &agent_state, service.memory_runtime.as_ref())?;
         return Ok(VisualPrecheckPhaseResult::EarlyReturn);
     }
 

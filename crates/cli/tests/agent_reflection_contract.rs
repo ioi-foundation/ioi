@@ -3,7 +3,7 @@ use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::{SovereignContextStore, StoreConfig};
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::desktop::service::step::cognition::think;
 use ioi_services::agentic::desktop::service::step::perception::PerceptionContext;
 use ioi_services::agentic::desktop::types::{AgentState, AgentStatus, ExecutionTier};
@@ -14,7 +14,6 @@ use ioi_types::error::VmError;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tempfile::tempdir;
 
 #[derive(Clone, Default)]
 struct NoOpGui;
@@ -131,18 +130,6 @@ fn reflection_test_agent_state(session_id: [u8; 32]) -> AgentState {
 
 #[tokio::test]
 async fn cognition_injects_failure_analysis_block_on_error() {
-    let temp_dir = tempdir().expect("tempdir should be created");
-    let scs_path = temp_dir.path().join("reflection.scs");
-    let scs = SovereignContextStore::create(
-        &scs_path,
-        StoreConfig {
-            chain_id: 1,
-            owner_id: [0u8; 32],
-            identity_key: [0x11; 32],
-        },
-    )
-    .expect("SCS store should be created");
-
     let runtime = Arc::new(MockReflectionRuntime::default());
     let service = DesktopAgentService::new_hybrid(
         Arc::new(NoOpGui),
@@ -151,7 +138,9 @@ async fn cognition_injects_failure_analysis_block_on_error() {
         runtime.clone(),
         runtime.clone(),
     )
-    .with_scs(Arc::new(Mutex::new(scs)));
+    .with_memory_runtime(Arc::new(
+        MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
+    ));
 
     let session_id = [0x44; 32];
     let state = reflection_test_agent_state(session_id);

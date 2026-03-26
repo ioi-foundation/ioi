@@ -26,7 +26,7 @@ ioi-client = { path = "../client" }
 ioi-telemetry = { path = "../telemetry" }
 ioi-ipc = { path = "../ipc" }
 ioi-drivers = { path = "../drivers" }
-ioi-scs = { path = "../scs" }
+ioi-memory = { path = "../memory" }
 
 # [FIX] Plugins are now optional
 http-rpc-gateway = { path = "../plugins/http-rpc-gateway", optional = true }

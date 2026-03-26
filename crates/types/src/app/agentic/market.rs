@@ -32,7 +32,7 @@ pub enum IntelligenceAsset {
 /// Represents a listing for a single atomic capability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct SkillManifest {
-    /// Unique hash of the AgentMacro (definition + steps) stored in SCS.
+    /// Unique hash of the AgentMacro (definition + steps) stored in archival memory.
     pub skill_hash: [u8; 32],
     /// Human-readable name (e.g. "Stripe Login v2").
     pub name: String,

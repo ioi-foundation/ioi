@@ -11,7 +11,7 @@ use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_scs::{SovereignContextStore, StoreConfig};
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use ioi_services::agentic::desktop::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::desktop::{AgentMode, AgentState, AgentStatus, DesktopAgentService};
@@ -29,7 +29,7 @@ use serde_json::json;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -45,6 +45,10 @@ const APPROVAL_TOKEN_TTL_MS: u64 = 120_000;
 const LIVE_MAX_AUTO_APPROVAL_RESUMES: usize = 8;
 const LIVE_TIMER_EXPECTED_DELAY_SECS: i64 = 15 * 60;
 const LIVE_TIMER_DELAY_TOLERANCE_SECS: i64 = 120;
+
+fn build_memory_runtime() -> Arc<MemoryRuntime> {
+    Arc::new(MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"))
+}
 
 #[derive(Debug, Clone, Serialize)]
 struct QueryFacets {

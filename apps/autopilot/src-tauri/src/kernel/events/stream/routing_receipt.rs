@@ -190,8 +190,8 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
     if !receipt.escalation_path.is_empty() {
         summary.push_str(&format!(", escalation={}", receipt.escalation_path));
     }
-    if !receipt.scs_lineage_ptr.is_empty() {
-        summary.push_str(&format!(", lineage={}", receipt.scs_lineage_ptr));
+    if !receipt.lineage_ptr.is_empty() {
+        summary.push_str(&format!(", lineage={}", receipt.lineage_ptr));
     }
     if !receipt.mutation_receipt_ptr.is_empty() {
         summary.push_str(&format!(
@@ -323,8 +323,8 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
 
     let report_ref = {
         let state = app.state::<Mutex<AppState>>();
-        let scs = state.lock().ok().and_then(|s| s.studio_scs.clone());
-        if let Some(scs) = scs {
+        let memory_runtime = state.lock().ok().and_then(|s| s.memory_runtime.clone());
+        if let Some(memory_runtime) = memory_runtime {
             let report_payload = json!({
                 "receipt_id": receipt_id,
                 "session_id": receipt.session_id,
@@ -349,7 +349,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
                     .unwrap_or_default(),
             });
             let report = artifact_store::create_report_artifact(
-                &scs,
+                &memory_runtime,
                 &thread_id,
                 &format!("Receipt {}", receipt.step_index),
                 "Routing policy decision receipt",

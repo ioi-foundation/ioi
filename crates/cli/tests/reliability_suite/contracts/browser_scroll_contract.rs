@@ -223,7 +223,7 @@ fn routing_receipt_contract_for_browser_scroll_stays_tool_first() {
         resolution_action: String::new(),
         stop_condition_hit: false,
         escalation_path: None,
-        scs_lineage_ptr: None,
+        lineage_ptr: None,
         mutation_receipt_ptr: None,
         policy_binding_hash: "binding-hash".to_string(),
         policy_binding_sig: None,

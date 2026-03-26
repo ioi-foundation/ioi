@@ -1,4 +1,14 @@
 use super::*;
+use ioi_services::agentic::desktop::utils::load_agent_state_checkpoint;
+
+fn app_memory_runtime(
+    state: &State<'_, Mutex<AppState>>,
+) -> Option<std::sync::Arc<ioi_memory::MemoryRuntime>> {
+    state
+        .lock()
+        .ok()
+        .and_then(|guard| guard.memory_runtime.clone())
+}
 
 #[tauri::command]
 pub async fn get_available_tools(
@@ -38,6 +48,21 @@ pub async fn get_skill_catalog(
 ) -> Result<Vec<SkillCatalogEntry>, String> {
     let mut client = get_rpc_client(&state).await?;
     load_skill_catalog_entries(&mut client).await
+}
+
+#[tauri::command]
+pub async fn get_memory_runtime_session_status(
+    state: State<'_, Mutex<AppState>>,
+    session_id: String,
+) -> Result<ioi_services::agentic::desktop::service::memory::MemorySessionStatus, String> {
+    let parsed_session_id = parse_hex_32(&session_id)?;
+    let memory_runtime =
+        app_memory_runtime(&state).ok_or_else(|| "Memory runtime unavailable".to_string())?;
+    ioi_services::agentic::desktop::service::memory::load_memory_session_status(
+        memory_runtime.as_ref(),
+        parsed_session_id,
+    )
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -164,8 +189,18 @@ fn load_thread_events_for_session(
     state: &State<'_, Mutex<AppState>>,
     session_id: &str,
 ) -> Result<Vec<crate::models::AgentEvent>, String> {
-    let scs = get_scs(state)?;
-    Ok(orchestrator::load_events(&scs, session_id, None, None))
+    let memory_runtime = state
+        .lock()
+        .map_err(|_| "Failed to lock state".to_string())?
+        .memory_runtime
+        .clone()
+        .ok_or_else(|| "Memory runtime unavailable".to_string())?;
+    Ok(orchestrator::load_events(
+        &memory_runtime,
+        session_id,
+        None,
+        None,
+    ))
 }
 
 fn active_tool_items(active_bundles: &[SkillBundle]) -> Vec<ActiveContextItem> {
@@ -545,15 +580,39 @@ async fn load_active_context_snapshot(
     session_id: &str,
 ) -> Result<ActiveContextSnapshot, String> {
     let normalized_session_id = normalize_hex_id(session_id);
-    let session_key = get_state_key(&parse_hex_32(&normalized_session_id)?);
-    let Some(agent_state_bytes) = query_raw_state(client, session_key).await? else {
-        return Err(format!(
-            "No agent state found for session {}",
-            normalized_session_id
-        ));
+    let parsed_session_id = parse_hex_32(&normalized_session_id)?;
+    let agent_state = if let Some(memory_runtime) = app_memory_runtime(state) {
+        match load_agent_state_checkpoint(memory_runtime.as_ref(), parsed_session_id) {
+            Ok(Some(agent_state)) => agent_state,
+            Ok(None) => {
+                let session_key = get_state_key(&parsed_session_id);
+                let Some(agent_state_bytes) = query_raw_state(client, session_key).await? else {
+                    return Err(format!(
+                        "No agent state found for session {}",
+                        normalized_session_id
+                    ));
+                };
+                codec::from_bytes_canonical::<DesktopAgentState>(&agent_state_bytes)
+                    .map_err(|e| format!("Failed to decode agent state: {}", e))?
+            }
+            Err(error) => {
+                return Err(format!(
+                    "Failed to load runtime agent state for session {}: {}",
+                    normalized_session_id, error
+                ));
+            }
+        }
+    } else {
+        let session_key = get_state_key(&parsed_session_id);
+        let Some(agent_state_bytes) = query_raw_state(client, session_key).await? else {
+            return Err(format!(
+                "No agent state found for session {}",
+                normalized_session_id
+            ));
+        };
+        codec::from_bytes_canonical::<DesktopAgentState>(&agent_state_bytes)
+            .map_err(|e| format!("Failed to decode agent state: {}", e))?
     };
-    let agent_state = codec::from_bytes_canonical::<DesktopAgentState>(&agent_state_bytes)
-        .map_err(|e| format!("Failed to decode agent state: {}", e))?;
 
     let mut trace_hashes = BTreeSet::new();
     for step_index in 0..=agent_state.step_count {

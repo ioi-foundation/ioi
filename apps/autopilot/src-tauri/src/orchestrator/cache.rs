@@ -1,6 +1,6 @@
 use crate::execution::ExecutionResult;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_scs::{FrameType, RetentionClass, SovereignContextStore};
+use ioi_memory::MemoryRuntime;
 use once_cell::sync::Lazy;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -24,40 +24,27 @@ pub fn compute_cache_key(node_id: &str, config: &Value, input_str: &str) -> [u8;
 }
 
 fn fetch_cached_result(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     cache_key: [u8; 32],
 ) -> Option<ExecutionResult> {
-    let store = scs.lock().ok()?;
-    let frame_ids = store.session_index.get(&cache_key)?;
-    let last_id = *frame_ids.last()?;
-    let payload = store.read_frame_payload(last_id).ok()?;
-    serde_json::from_slice::<ExecutionResult>(&payload).ok()
+    let payload_json = memory_runtime.load_execution_cache_json(cache_key).ok()??;
+    serde_json::from_str::<ExecutionResult>(&payload_json).ok()
 }
 
 fn persist_execution_result(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     cache_key: [u8; 32],
     result: &ExecutionResult,
 ) {
-    let Ok(mut store) = scs.lock() else {
-        return;
-    };
-    let Ok(bytes) = serde_json::to_vec(result) else {
+    let Ok(payload_json) = serde_json::to_string(result) else {
         return;
     };
 
-    let _ = store.append_frame(
-        FrameType::System,
-        &bytes,
-        0,
-        [0u8; 32],
-        cache_key,
-        RetentionClass::Ephemeral,
-    );
+    let _ = memory_runtime.upsert_execution_cache_json(cache_key, &payload_json);
 }
 
 pub fn query_cache(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     node_id: String,
     config: Value,
     input_str: String,
@@ -71,7 +58,7 @@ pub fn query_cache(
         }
     }
 
-    let res = fetch_cached_result(scs, key_bytes);
+    let res = fetch_cached_result(memory_runtime, key_bytes);
     if let Some(r) = &res {
         if let Ok(mut cache) = GLOBAL_EXECUTION_CACHE.lock() {
             cache.insert(key_hex, r.clone());
@@ -82,7 +69,7 @@ pub fn query_cache(
 }
 
 pub fn inject_execution_result(
-    scs: &Arc<Mutex<SovereignContextStore>>,
+    memory_runtime: &Arc<MemoryRuntime>,
     node_id: String,
     config: Value,
     input_str: String,
@@ -95,5 +82,5 @@ pub fn inject_execution_result(
         cache.insert(key_hex, result.clone());
     }
 
-    persist_execution_result(scs, key_bytes, &result);
+    persist_execution_result(memory_runtime, key_bytes, &result);
 }

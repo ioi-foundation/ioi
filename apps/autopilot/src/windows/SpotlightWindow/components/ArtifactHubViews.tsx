@@ -405,7 +405,7 @@ function SubstrateView({
               <span>{receipt.success ? "success" : "failure"}</span>
             </div>
             <div className="artifact-hub-generic-title">
-              {receipt.toolName || "scs_retrieve"} · k={receipt.k} · ef={receipt.efSearch}
+              {receipt.toolName || "memory_retrieve"} · k={receipt.k} · ef={receipt.efSearch}
             </div>
             <p className="artifact-hub-generic-summary">
               candidates={receipt.candidateReranked}/{receipt.candidateTotal} (limit{" "}

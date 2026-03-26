@@ -15,26 +15,25 @@ pub async fn run_studio_graph(
         payload.nodes.len()
     );
 
-    let (scs, inference) = {
+    let (memory_runtime, inference) = {
         let guard = state.lock().map_err(|_| "Failed to lock state")?;
-        let s = guard
-            .studio_scs
-            .clone()
-            .ok_or("Studio SCS not initialized")?;
+        let memory_runtime = guard.memory_runtime.clone();
         let i = guard
             .inference_runtime
             .clone()
             .ok_or("Inference runtime not initialized")?;
-        (s, i)
+        let memory_runtime = memory_runtime.ok_or("Memory runtime not initialized")?;
+        (memory_runtime, i)
     };
 
     let app_handle = app.clone();
 
     tauri::async_runtime::spawn(async move {
-        let result = orchestrator::run_local_graph(scs, inference, payload, move |event| {
-            let _ = app_handle.emit("graph-event", event);
-        })
-        .await;
+        let result =
+            orchestrator::run_local_graph(memory_runtime, inference, payload, move |event| {
+                let _ = app_handle.emit("graph-event", event);
+            })
+            .await;
 
         if let Err(e) = result {
             eprintln!("[Studio] Orchestrator Runtime Error: {}", e);
@@ -60,17 +59,17 @@ pub async fn test_node_execution(
         node_type, session_id
     );
 
-    let (scs, inference) = {
+    let (memory_runtime, inference) = {
         let guard = state.lock().map_err(|_| "Failed to lock state")?;
-        let s = guard
-            .studio_scs
+        let memory_runtime = guard
+            .memory_runtime
             .clone()
-            .ok_or("Studio SCS not initialized")?;
+            .ok_or("Memory runtime not initialized")?;
         let i = guard
             .inference_runtime
             .clone()
             .ok_or("Inference runtime not initialized")?;
-        (s, i)
+        (memory_runtime, i)
     };
 
     let input_str = if let Some(s) = input.as_str() {
@@ -86,7 +85,7 @@ pub async fn test_node_execution(
         &config,
         &input_str,
         session_id,
-        scs.clone(),
+        memory_runtime.clone(),
         inference,
         tier,
     )
@@ -96,7 +95,7 @@ pub async fn test_node_execution(
             if result.status == "success" {
                 if let Some(nid) = node_id {
                     orchestrator::inject_execution_result(
-                        &scs,
+                        &memory_runtime,
                         nid,
                         config,
                         input_str,
@@ -125,13 +124,18 @@ pub async fn check_node_cache(
     config: serde_json::Value,
     input: String,
 ) -> Result<Option<execution::ExecutionResult>, String> {
-    let scs = {
+    let memory_runtime = {
         let guard = state.lock().map_err(|_| "Failed to lock state")?;
         guard
-            .studio_scs
+            .memory_runtime
             .clone()
-            .ok_or("Studio SCS not initialized")?
+            .ok_or("Memory runtime not initialized")?
     };
 
-    Ok(orchestrator::query_cache(&scs, node_id, config, input))
+    Ok(orchestrator::query_cache(
+        &memory_runtime,
+        node_id,
+        config,
+        input,
+    ))
 }

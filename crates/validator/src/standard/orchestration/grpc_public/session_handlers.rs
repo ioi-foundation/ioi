@@ -1,6 +1,16 @@
 use super::*;
 use ioi_ipc::public::SessionHistoryMessage;
 
+fn transcript_surface_content(message: &ioi_memory::StoredTranscriptMessage) -> String {
+    if !message.model_content.trim().is_empty() {
+        message.model_content.clone()
+    } else if !message.store_content.trim().is_empty() {
+        message.store_content.clone()
+    } else {
+        message.raw_content.clone()
+    }
+}
+
 impl<CS, ST, CE, V> PublicApiImpl<CS, ST, CE, V>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -35,48 +45,30 @@ where
         let req = request.into_inner();
         let session_id = parse_session_id_hex(&req.session_id_hex)?;
         let ctx_arc = self.get_context().await?;
-        let scs_arc = {
+        let memory_runtime = {
             let ctx = ctx_arc.lock().await;
-            ctx.scs.clone()
+            ctx.memory_runtime.clone()
         };
 
-        let Some(scs_arc) = scs_arc else {
+        let Some(memory_runtime) = memory_runtime else {
             return Ok(Response::new(GetSessionHistoryResponse {
                 messages: vec![],
             }));
         };
 
-        let scs = scs_arc
-            .lock()
-            .map_err(|_| Status::internal("SCS lock poisoned"))?;
-
-        let mut messages = Vec::<SessionHistoryMessage>::new();
-        if let Some(frame_ids) = scs.session_index.get(&session_id) {
-            for &frame_id in frame_ids {
-                let Some(frame) = scs.toc.frames.get(frame_id as usize) else {
-                    continue;
-                };
-                if frame.frame_type != FrameType::Thought {
-                    continue;
+        let mut messages = memory_runtime
+            .load_transcript_messages(session_id)
+            .map_err(|error| Status::internal(error.to_string()))?
+            .into_iter()
+            .map(|message| {
+                let content = transcript_surface_content(&message);
+                SessionHistoryMessage {
+                    role: message.role,
+                    content,
+                    timestamp: message.timestamp_ms,
                 }
-                let payload = match scs.read_frame_payload(frame_id) {
-                    Ok(payload) => payload,
-                    Err(_) => continue,
-                };
-                let decoded = match codec::from_bytes_canonical::<
-                    ioi_types::app::agentic::ChatMessage,
-                >(&payload)
-                {
-                    Ok(msg) => msg,
-                    Err(_) => continue,
-                };
-                messages.push(SessionHistoryMessage {
-                    role: decoded.role,
-                    content: decoded.content,
-                    timestamp: decoded.timestamp,
-                });
-            }
-        }
+            })
+            .collect::<Vec<_>>();
 
         messages.sort_by_key(|msg| msg.timestamp);
         if !req.ascending {
@@ -118,5 +110,22 @@ where
         .map_err(Status::invalid_argument)?;
 
         Ok(Response::new(SetRuntimeSecretResponse { accepted: true }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::transcript_surface_content;
+
+    #[test]
+    fn transcript_surface_prefers_model_content() {
+        let message = ioi_memory::StoredTranscriptMessage {
+            model_content: "model".to_string(),
+            store_content: "store".to_string(),
+            raw_content: "raw".to_string(),
+            ..Default::default()
+        };
+
+        assert_eq!(transcript_surface_content(&message), "model");
     }
 }
