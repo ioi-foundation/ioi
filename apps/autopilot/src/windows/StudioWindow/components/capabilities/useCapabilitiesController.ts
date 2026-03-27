@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { listen } from "@tauri-apps/api/event";
 import {
   type ConnectorConfigureResult,
   type ConnectorSummary,
@@ -17,10 +18,12 @@ import {
   STARTER_SKILL_BUNDLES,
 } from "../capabilitiesCatalog";
 import {
+  cloneLocalEngineControlPlane,
   CUSTOM_CONNECTIONS_STORAGE_KEY,
   SKILL_SWITCH_STORAGE_KEY,
   connectionDraftFromCatalog,
   connectorFromDraft,
+  type EngineDetailSection,
   extensionStatusFromConnectors,
   humanize,
   loadStoredConnectionDrafts,
@@ -29,6 +32,7 @@ import {
   patchMailConnectorFromConfiguredAccount,
   skillDetailFromCatalog,
   type CapabilitySurface,
+  type LocalEnginePanel,
   type StoredConnectionDraft,
   type WorkspaceExtension,
   type WorkspaceSkill,
@@ -53,6 +57,15 @@ export function useCapabilitiesController({
     Record<string, SkillDetailView>
   >({});
   const [toolCount, setToolCount] = useState<number | null>(null);
+  const [localEnginePanel, setLocalEnginePanel] = useState<LocalEnginePanel>({
+    snapshot: null,
+    loading: true,
+    error: null,
+    configDraft: null,
+    configSaving: false,
+    configMessage: null,
+    stagingBusy: false,
+  });
   const [storedConnections, setStoredConnections] = useState<
     StoredConnectionDraft[]
   >(() => loadStoredConnectionDrafts());
@@ -68,6 +81,11 @@ export function useCapabilitiesController({
   const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(
     null,
   );
+  const [engineDetailSection, setEngineDetailSection] =
+    useState<EngineDetailSection>("overview");
+  const [selectedEngineFamilyId, setSelectedEngineFamilyId] = useState<
+    string | null
+  >(null);
   const [skillDetailSection, setSkillDetailSection] = useState<
     "overview" | "guide" | "procedure"
   >("guide");
@@ -130,6 +148,35 @@ export function useCapabilitiesController({
       });
 
     void runtime
+      .getLocalEngineSnapshot()
+      .then((snapshot) => {
+        if (!cancelled) {
+          setLocalEnginePanel({
+            snapshot,
+            loading: false,
+            error: null,
+            configDraft: cloneLocalEngineControlPlane(snapshot.controlPlane),
+            configSaving: false,
+            configMessage: null,
+            stagingBusy: false,
+          });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setLocalEnginePanel({
+            snapshot: null,
+            loading: false,
+            error: String(error),
+            configDraft: null,
+            configSaving: false,
+            configMessage: null,
+            stagingBusy: false,
+          });
+        }
+      });
+
+    void runtime
       .getAvailableTools()
       .then((items) => {
         if (!cancelled && Array.isArray(items)) {
@@ -169,6 +216,12 @@ export function useCapabilitiesController({
   }, [surface]);
 
   useEffect(() => {
+    if (surface === "engine") {
+      setEngineDetailSection("overview");
+    }
+  }, [surface]);
+
+  useEffect(() => {
     setSkillDetailSection("guide");
   }, [selectedSkillHash]);
 
@@ -180,6 +233,23 @@ export function useCapabilitiesController({
   useEffect(() => {
     setExtensionDetailSection("overview");
   }, [selectedExtensionId]);
+
+  const filteredEngineFamilies = useMemo(() => {
+    const families = localEnginePanel.snapshot?.capabilities ?? [];
+    if (!deferredQuery.trim()) return families;
+    const lowered = deferredQuery.trim().toLowerCase();
+    return families.filter((family) =>
+      [
+        family.label,
+        family.description,
+        family.operatorSummary,
+        family.toolNames.join(" "),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(lowered),
+    );
+  }, [deferredQuery, localEnginePanel.snapshot]);
 
   useEffect(() => {
     if (!connectionsMenuOpen) return;
@@ -218,7 +288,9 @@ export function useCapabilitiesController({
       detail:
         runtimeSkillDetails[entry.skill_hash] ?? skillDetailFromCatalog(entry),
       origin: "runtime",
-      addedBy: "Observed runtime",
+      addedBy:
+        runtimeSkillDetails[entry.skill_hash]?.source_registry_label ??
+        "Observed runtime",
       invokedBy: "Worker or workflow",
     }));
 
@@ -359,6 +431,17 @@ export function useCapabilitiesController({
     ({ connector }) => connector.status === "connected",
   ).length;
 
+  useEffect(() => {
+    if (surface !== "engine") return;
+    const next = filteredEngineFamilies[0]?.id ?? null;
+    if (
+      !selectedEngineFamilyId ||
+      !filteredEngineFamilies.some((family) => family.id === selectedEngineFamilyId)
+    ) {
+      setSelectedEngineFamilyId(next);
+    }
+  }, [filteredEngineFamilies, selectedEngineFamilyId, surface]);
+
   const openSurface = (nextSurface: CapabilitySurface) => {
     setSurface(nextSurface);
   };
@@ -413,6 +496,10 @@ export function useCapabilitiesController({
   const selectedExtension =
     extensions.find((extension) => extension.id === selectedExtensionId) ??
     null;
+  const selectedEngineFamily =
+    localEnginePanel.snapshot?.capabilities.find(
+      (family) => family.id === selectedEngineFamilyId,
+    ) ?? filteredEngineFamilies[0] ?? null;
 
   useEffect(() => {
     if (!selectedSkill || selectedSkill.origin !== "runtime") return;
@@ -580,6 +667,363 @@ export function useCapabilitiesController({
     );
   };
 
+  const refreshLocalEngineSnapshot = async () => {
+    setLocalEnginePanel((current) => ({
+      ...current,
+      loading: true,
+      error: null,
+      configMessage: null,
+    }));
+    try {
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setLocalEnginePanel((current) => ({
+        ...current,
+        snapshot,
+        loading: false,
+        error: null,
+        configDraft:
+          current.configDraft &&
+          current.snapshot &&
+          JSON.stringify(current.configDraft) !==
+            JSON.stringify(current.snapshot.controlPlane)
+            ? current.configDraft
+            : cloneLocalEngineControlPlane(snapshot.controlPlane),
+        configSaving: false,
+        stagingBusy: false,
+      }));
+    } catch (error) {
+      setLocalEnginePanel((current) => ({
+        ...current,
+        loading: false,
+        error: String(error),
+      }));
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    const unlistenPromise = listen("local-engine-updated", () => {
+      if (!active) return;
+      void runtime
+        .getLocalEngineSnapshot()
+        .then((snapshot) => {
+          if (!active) return;
+          setLocalEnginePanel((current) => ({
+            ...current,
+            snapshot,
+            loading: false,
+            error: null,
+            configDraft:
+              current.configDraft &&
+              current.snapshot &&
+              JSON.stringify(current.configDraft) !==
+                JSON.stringify(current.snapshot.controlPlane)
+                ? current.configDraft
+                : cloneLocalEngineControlPlane(snapshot.controlPlane),
+          }));
+        })
+        .catch(() => undefined);
+    });
+
+    return () => {
+      active = false;
+      void unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, [runtime]);
+
+  const setEngineConfigDraft = (
+    next:
+      | LocalEnginePanel["configDraft"]
+      | ((current: NonNullable<LocalEnginePanel["configDraft"]>) => NonNullable<LocalEnginePanel["configDraft"]>),
+  ) => {
+    setLocalEnginePanel((current) => {
+      if (!current.configDraft) return current;
+      const resolved =
+        typeof next === "function"
+          ? next(current.configDraft)
+          : next;
+      return {
+        ...current,
+        configDraft: resolved
+          ? cloneLocalEngineControlPlane(resolved)
+          : current.configDraft,
+        configMessage: null,
+      };
+    });
+  };
+
+  const resetEngineConfigDraft = () => {
+    setLocalEnginePanel((current) =>
+      current.snapshot
+        ? {
+            ...current,
+            configDraft: cloneLocalEngineControlPlane(current.snapshot.controlPlane),
+            configMessage: null,
+          }
+        : current,
+    );
+  };
+
+  const saveEngineConfigDraft = async () => {
+    const draft = localEnginePanel.configDraft;
+    if (!draft) return;
+    setLocalEnginePanel((current) => ({
+      ...current,
+      configSaving: true,
+      configMessage: null,
+      error: null,
+    }));
+    try {
+      const saved = await runtime.saveLocalEngineControlPlane(draft);
+      setLocalEnginePanel((current) => ({
+        ...current,
+        snapshot: current.snapshot
+          ? { ...current.snapshot, controlPlane: saved }
+          : current.snapshot,
+        configDraft: cloneLocalEngineControlPlane(saved),
+        configSaving: false,
+        configMessage: "Local engine settings saved to the kernel control plane.",
+      }));
+    } catch (error) {
+      setLocalEnginePanel((current) => ({
+        ...current,
+        configSaving: false,
+        configMessage: String(error),
+      }));
+    }
+  };
+
+  const stageEngineOperation = async (input: {
+    subjectKind: string;
+    operation: string;
+    sourceUri?: string | null;
+    subjectId?: string | null;
+    notes?: string | null;
+  }) => {
+    setLocalEnginePanel((current) => ({
+      ...current,
+      stagingBusy: true,
+      configMessage: null,
+      error: null,
+    }));
+    try {
+      await runtime.stageLocalEngineOperation(input);
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setLocalEnginePanel((current) => ({
+        ...current,
+        snapshot,
+        loading: false,
+        error: null,
+        configDraft:
+          current.configDraft ??
+          cloneLocalEngineControlPlane(snapshot.controlPlane),
+        stagingBusy: false,
+        configMessage:
+          "Staged operation added to the Local Engine queue for later native execution.",
+      }));
+    } catch (error) {
+      setLocalEnginePanel((current) => ({
+        ...current,
+        stagingBusy: false,
+        configMessage: String(error),
+      }));
+    }
+  };
+
+  const removeEngineOperation = async (operationId: string) => {
+    setLocalEnginePanel((current) => ({
+      ...current,
+      stagingBusy: true,
+      configMessage: null,
+      error: null,
+    }));
+    try {
+      await runtime.removeLocalEngineOperation(operationId);
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setLocalEnginePanel((current) => ({
+        ...current,
+        snapshot,
+        loading: false,
+        error: null,
+        configDraft:
+          current.configDraft ??
+          cloneLocalEngineControlPlane(snapshot.controlPlane),
+        stagingBusy: false,
+        configMessage: "Staged operation removed from the Local Engine queue.",
+      }));
+    } catch (error) {
+      setLocalEnginePanel((current) => ({
+        ...current,
+        stagingBusy: false,
+        configMessage: String(error),
+      }));
+    }
+  };
+
+  const promoteEngineOperation = async (operationId: string) => {
+    setLocalEnginePanel((current) => ({
+      ...current,
+      stagingBusy: true,
+      configMessage: null,
+      error: null,
+    }));
+    try {
+      await runtime.promoteLocalEngineOperation(operationId);
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setLocalEnginePanel((current) => ({
+        ...current,
+        snapshot,
+        loading: false,
+        error: null,
+        configDraft:
+          current.configDraft ??
+          cloneLocalEngineControlPlane(snapshot.controlPlane),
+        stagingBusy: false,
+        configMessage:
+          "Staged plan promoted into the live Local Engine job queue.",
+      }));
+    } catch (error) {
+      setLocalEnginePanel((current) => ({
+        ...current,
+        stagingBusy: false,
+        configMessage: String(error),
+      }));
+    }
+  };
+
+  const updateEngineJobStatus = async (jobId: string, status: string) => {
+    setLocalEnginePanel((current) => ({
+      ...current,
+      stagingBusy: true,
+      configMessage: null,
+      error: null,
+    }));
+    try {
+      await runtime.updateLocalEngineJobStatus({ jobId, status });
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setLocalEnginePanel((current) => ({
+        ...current,
+        snapshot,
+        loading: false,
+        error: null,
+        configDraft:
+          current.configDraft ??
+          cloneLocalEngineControlPlane(snapshot.controlPlane),
+        stagingBusy: false,
+        configMessage:
+          "Local Engine job state updated in the kernel control plane.",
+      }));
+    } catch (error) {
+      setLocalEnginePanel((current) => ({
+        ...current,
+        stagingBusy: false,
+        configMessage: String(error),
+      }));
+    }
+  };
+
+  const retryParentPlaybookRun = async (runId: string) => {
+    setLocalEnginePanel((current) => ({
+      ...current,
+      stagingBusy: true,
+      configMessage: null,
+      error: null,
+    }));
+    try {
+      await runtime.retryLocalEngineParentPlaybookRun(runId);
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setLocalEnginePanel((current) => ({
+        ...current,
+        snapshot,
+        loading: false,
+        error: null,
+        configDraft:
+          current.configDraft ??
+          cloneLocalEngineControlPlane(snapshot.controlPlane),
+        stagingBusy: false,
+        configMessage:
+          "Retry request sent to the active parent playbook step.",
+      }));
+    } catch (error) {
+      setLocalEnginePanel((current) => ({
+        ...current,
+        stagingBusy: false,
+        configMessage: String(error),
+      }));
+    }
+  };
+
+  const resumeParentPlaybookRun = async (
+    runId: string,
+    stepId?: string | null,
+  ) => {
+    setLocalEnginePanel((current) => ({
+      ...current,
+      stagingBusy: true,
+      configMessage: null,
+      error: null,
+    }));
+    try {
+      await runtime.resumeLocalEngineParentPlaybookRun(runId, stepId);
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setLocalEnginePanel((current) => ({
+        ...current,
+        snapshot,
+        loading: false,
+        error: null,
+        configDraft:
+          current.configDraft ??
+          cloneLocalEngineControlPlane(snapshot.controlPlane),
+        stagingBusy: false,
+        configMessage: stepId
+          ? "Resume request sent for the selected parent playbook step."
+          : "Resume request sent for the current parent playbook step.",
+      }));
+    } catch (error) {
+      setLocalEnginePanel((current) => ({
+        ...current,
+        stagingBusy: false,
+        configMessage: String(error),
+      }));
+    }
+  };
+
+  const dismissParentPlaybookRun = async (runId: string) => {
+    setLocalEnginePanel((current) => ({
+      ...current,
+      stagingBusy: true,
+      configMessage: null,
+      error: null,
+    }));
+    try {
+      await runtime.dismissLocalEngineParentPlaybookRun(runId);
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setLocalEnginePanel((current) => ({
+        ...current,
+        snapshot,
+        loading: false,
+        error: null,
+        configDraft:
+          current.configDraft ??
+          cloneLocalEngineControlPlane(snapshot.controlPlane),
+        stagingBusy: false,
+        configMessage:
+          "Parent playbook run dismissed from the Runtime Deck.",
+      }));
+    } catch (error) {
+      setLocalEnginePanel((current) => ({
+        ...current,
+        stagingBusy: false,
+        configMessage: String(error),
+      }));
+    }
+  };
+
+  const engineConfigDirty =
+    !!localEnginePanel.snapshot &&
+    JSON.stringify(localEnginePanel.snapshot.controlPlane) !==
+      JSON.stringify(localEnginePanel.configDraft);
+
   return {
     runtime,
     connectionsMenuRef,
@@ -591,6 +1035,27 @@ export function useCapabilitiesController({
     toolCount,
     connectedConnectionCount,
     mail,
+    engine: {
+      ...localEnginePanel,
+      detailSection: engineDetailSection,
+      setDetailSection: setEngineDetailSection,
+      selectedFamily: selectedEngineFamily,
+      selectedFamilyId: selectedEngineFamilyId,
+      setSelectedFamilyId: setSelectedEngineFamilyId,
+      filteredFamilies: filteredEngineFamilies,
+      refreshSnapshot: refreshLocalEngineSnapshot,
+      configDirty: engineConfigDirty,
+      setConfigDraft: setEngineConfigDraft,
+      resetConfigDraft: resetEngineConfigDraft,
+      saveConfigDraft: saveEngineConfigDraft,
+      stageOperation: stageEngineOperation,
+      removeOperation: removeEngineOperation,
+      promoteOperation: promoteEngineOperation,
+      updateJobStatus: updateEngineJobStatus,
+      retryParentPlaybookRun,
+      resumeParentPlaybookRun,
+      dismissParentPlaybookRun,
+    },
     skills: {
       items: workspaceSkills,
       filteredItems: filteredSkills,

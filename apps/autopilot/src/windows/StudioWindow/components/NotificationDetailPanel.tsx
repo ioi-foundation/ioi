@@ -18,6 +18,7 @@ interface NotificationDetailPanelProps {
   item: AssistantNotificationRecord | InterventionRecord | null;
   onClose: () => void;
   onOpenAutopilot: () => void;
+  onOpenLocalEngine: () => void;
   onOpenReplyComposer: (
     session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
   ) => void;
@@ -47,7 +48,7 @@ function arrayValue(value: unknown): unknown[] {
 }
 
 function humanize(value: string): string {
-  return value.replace(/_/g, " ");
+  return value.replace(/::/g, " ").replace(/_/g, " ");
 }
 
 function timestampCopy(raw?: string): string {
@@ -147,10 +148,33 @@ function isInterventionRecord(
   return "interventionType" in item;
 }
 
+function isLocalEngineIntervention(item: InterventionRecord): boolean {
+  if (item.approvalScope === "model::control") return true;
+  const text = [
+    item.title,
+    item.summary,
+    item.reason ?? "",
+    item.sensitiveActionType ?? "",
+    item.approvalScope ?? "",
+    item.recoveryHint ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  return (
+    text.includes("local engine") ||
+    text.includes("model::control") ||
+    text.includes("model_registry") ||
+    text.includes("model control") ||
+    text.includes("backend control") ||
+    text.includes("gallery control")
+  );
+}
+
 export function NotificationDetailPanel({
   item,
   onClose,
   onOpenAutopilot,
+  onOpenLocalEngine,
   onOpenReplyComposer,
   onOpenMeetingPrep,
   onOpenIntegrations,
@@ -328,6 +352,30 @@ export function NotificationDetailPanel({
       </div>
 
       <div className="notifications-detail-section">
+        {isInterventionRecord(item) && isLocalEngineIntervention(item) ? (
+          <article className="notifications-detail-card notifications-detail-card-engine">
+            <div className="notifications-detail-card-head">
+              <strong>Local engine control plane</strong>
+              <span>Kernel-managed</span>
+            </div>
+            <p>
+              This intervention belongs to the absorbed local engine surface, so
+              approvals and lifecycle receipts route through the kernel rather
+              than a connector adapter.
+            </p>
+            <div className="notifications-detail-tags">
+              <span>{item.approvalScope || "model::control"}</span>
+              {item.sensitiveActionType ? (
+                <span>{humanize(item.sensitiveActionType)}</span>
+              ) : null}
+              {item.requestHash ? (
+                <span>Request {item.requestHash.slice(0, 12)}</span>
+              ) : null}
+            </div>
+            {item.recoveryHint ? <p>{item.recoveryHint}</p> : null}
+          </article>
+        ) : null}
+
         <article className="notifications-detail-card">
           <div className="notifications-detail-card-head">
             <strong>Why this surfaced</strong>
@@ -392,9 +440,22 @@ export function NotificationDetailPanel({
         </article>
 
         <div className="notifications-detail-actions">
+          {isInterventionRecord(item) && isLocalEngineIntervention(item) ? (
+            <button
+              type="button"
+              className="notifications-primary-button"
+              onClick={onOpenLocalEngine}
+            >
+              Open local engine
+            </button>
+          ) : null}
           <button
             type="button"
-            className="notifications-primary-button"
+            className={
+              isInterventionRecord(item) && isLocalEngineIntervention(item)
+                ? "notifications-secondary-button"
+                : "notifications-primary-button"
+            }
             onClick={onOpenAutopilot}
           >
             Open chat

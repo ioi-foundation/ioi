@@ -42,9 +42,9 @@ export function MissionControlControlView({
   onFocusConnector,
   onOpenConnections,
 }: MissionControlControlViewProps) {
-  const title = surface === "policy" ? "Policy" : "Settings";
+  const title = surface === "policy" ? "Policy" : "System Settings";
   const kicker = surface === "policy" ? "Govern" : "Configure";
-  const surfaceLabel = surface === "policy" ? "Policy" : "Settings";
+  const surfaceLabel = surface === "policy" ? "Policy" : "Control plane";
 
   return (
     <div className="mission-control-view mission-control-view--control">

@@ -2,15 +2,48 @@ use crate::agentic::desktop::keys::{get_incident_key, get_remediation_key, get_s
 use crate::agentic::desktop::service::step::signals::infer_interaction_target;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
-    AgentMode, AgentState, AgentStatus, ExecutionTier, SessionSummary,
+    AgentMode, AgentState, AgentStatus, ExecutionTier, SessionSummary, WorkerAssignment,
 };
 use crate::agentic::desktop::utils::persist_agent_state;
+use crate::agentic::desktop::worker_templates::default_worker_role_label;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::KernelEvent;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use super::{
+    load_worker_assignment, persist_worker_assignment, register_parent_playbook_step_spawn,
+    resolve_worker_assignment,
+};
+
+#[derive(Debug, Clone)]
+pub struct DelegatedChildSpawnOutcome {
+    pub child_session_id: [u8; 32],
+    pub assignment: WorkerAssignment,
+}
+
+fn resolve_worker_role(template_id: Option<&str>, requested_role: Option<&str>) -> String {
+    requested_role
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| default_worker_role_label(template_id).to_string())
+}
+
+fn resolve_worker_name(role: &str, child_session_id: &[u8; 32]) -> String {
+    let compact = role
+        .split_whitespace()
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    if compact.is_empty() {
+        format!("Agent-{}", hex::encode(&child_session_id[0..2]))
+    } else {
+        format!("{}-{}", compact, hex::encode(&child_session_id[0..2]))
+    }
+}
 
 pub async fn spawn_delegated_child_session(
     service: &DesktopAgentService,
@@ -19,9 +52,16 @@ pub async fn spawn_delegated_child_session(
     tool_hash: [u8; 32],
     goal: &str,
     budget: u64,
+    playbook_id: Option<&str>,
+    template_id: Option<&str>,
+    workflow_id: Option<&str>,
+    requested_role: Option<&str>,
+    success_criteria: Option<&str>,
+    merge_mode: Option<&str>,
+    expected_output: Option<&str>,
     step_index: u32,
     block_height: u64,
-) -> Result<[u8; 32], TransactionError> {
+) -> Result<DelegatedChildSpawnOutcome, TransactionError> {
     let mut payload = Vec::new();
     payload.extend_from_slice(b"ioi::agent_delegate_child::v1::");
     payload.extend_from_slice(parent_state.session_id.as_slice());
@@ -34,7 +74,18 @@ pub async fn spawn_delegated_child_session(
     let child_key = get_state_key(&child_session_id);
     if state.get(&child_key)?.is_some() {
         if parent_state.child_session_ids.contains(&child_session_id) {
-            return Ok(child_session_id);
+            let assignment = load_worker_assignment(state, child_session_id)
+                .map_err(TransactionError::Invalid)?
+                .ok_or_else(|| {
+                    TransactionError::Invalid(format!(
+                        "ERROR_CLASS=UnexpectedState Delegated child session {} exists without a worker assignment artifact.",
+                        hex::encode(child_session_id)
+                    ))
+                })?;
+            return Ok(DelegatedChildSpawnOutcome {
+                child_session_id,
+                assignment,
+            });
         }
 
         return Err(TransactionError::Invalid(format!(
@@ -44,14 +95,28 @@ pub async fn spawn_delegated_child_session(
         )));
     }
 
-    if parent_state.budget < budget {
+    let assignment = resolve_worker_assignment(
+        child_session_id,
+        step_index,
+        budget,
+        goal,
+        playbook_id,
+        template_id,
+        workflow_id,
+        requested_role,
+        success_criteria,
+        merge_mode,
+        expected_output,
+    );
+
+    if parent_state.budget < assignment.budget {
         return Err(TransactionError::Invalid(format!(
             "ERROR_CLASS=UnexpectedState Insufficient parent budget for delegation (needed {}, have {}).",
-            budget, parent_state.budget
+            assignment.budget, parent_state.budget
         )));
     }
 
-    let target = infer_interaction_target(goal);
+    let target = infer_interaction_target(&assignment.goal);
 
     // Initialize transcript BEFORE mutating chain state so failures do not burn budget.
     let timestamp_ms = SystemTime::now()
@@ -61,7 +126,7 @@ pub async fn spawn_delegated_child_session(
         .unwrap_or(0);
     let initial_message = ioi_types::app::agentic::ChatMessage {
         role: "user".to_string(),
-        content: goal.to_string(),
+        content: assignment.goal.clone(),
         timestamp: timestamp_ms,
         trace_hash: None,
     };
@@ -75,7 +140,7 @@ pub async fn spawn_delegated_child_session(
 
     let child_state = AgentState {
         session_id: child_session_id,
-        goal: goal.to_string(),
+        goal: assignment.goal.clone(),
         transcript_root,
         status: AgentStatus::Running,
         step_count: 0,
@@ -83,7 +148,7 @@ pub async fn spawn_delegated_child_session(
         last_action_type: None,
         parent_session_id: Some(parent_state.session_id),
         child_session_ids: Vec::new(),
-        budget,
+        budget: assignment.budget,
         tokens_used: 0,
         consecutive_failures: 0,
         pending_approval: None,
@@ -118,6 +183,7 @@ pub async fn spawn_delegated_child_session(
         &child_state,
         service.memory_runtime.as_ref(),
     )?;
+    persist_worker_assignment(state, child_session_id, &assignment)?;
 
     // Update session history if present; best-effort to avoid blocking delegation on history corruption.
     let history_key = b"agent::history".to_vec();
@@ -126,7 +192,7 @@ pub async fn spawn_delegated_child_session(
         .and_then(|bytes| codec::from_bytes_canonical(&bytes).ok())
         .unwrap_or_default();
 
-    let title_line = goal.lines().next().unwrap_or("Agent Task");
+    let title_line = assignment.goal.lines().next().unwrap_or("Agent Task");
     let title = if title_line.len() > 30 {
         format!("{}...", &title_line[..30])
     } else {
@@ -154,19 +220,60 @@ pub async fn spawn_delegated_child_session(
         }
     }
 
-    parent_state.budget -= budget;
+    parent_state.budget -= assignment.budget;
     parent_state.child_session_ids.push(child_session_id);
+    register_parent_playbook_step_spawn(
+        service,
+        state,
+        parent_state,
+        step_index,
+        child_session_id,
+        &assignment,
+    )
+    .map_err(TransactionError::Invalid)?;
 
     if let Some(tx) = &service.event_sender {
+        let resolved_role = resolve_worker_role(template_id, requested_role);
         let _ = tx.send(KernelEvent::AgentSpawn {
             parent_session_id: parent_state.session_id,
             new_session_id: child_session_id,
-            name: format!("Agent-{}", hex::encode(&child_session_id[0..2])),
-            role: "Sub-Worker".to_string(),
-            budget,
-            goal: goal.to_string(),
+            name: resolve_worker_name(&resolved_role, &child_session_id),
+            role: resolved_role,
+            budget: assignment.budget,
+            goal: assignment.goal.clone(),
         });
     }
 
-    Ok(child_session_id)
+    Ok(DelegatedChildSpawnOutcome {
+        child_session_id,
+        assignment,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{resolve_worker_name, resolve_worker_role};
+
+    #[test]
+    fn researcher_template_defaults_to_research_worker_role() {
+        assert_eq!(
+            resolve_worker_role(Some("researcher"), None),
+            "Research Worker"
+        );
+        assert_eq!(
+            resolve_worker_role(Some("researcher"), Some("")),
+            "Research Worker"
+        );
+        assert_eq!(
+            resolve_worker_role(Some("researcher"), Some("Source Analyst")),
+            "Source Analyst"
+        );
+    }
+
+    #[test]
+    fn worker_name_uses_role_prefix_when_available() {
+        let child_session_id = [0xabu8; 32];
+        let name = resolve_worker_name("Research Worker", &child_session_id);
+        assert!(name.starts_with("Research-Worker-"));
+    }
 }

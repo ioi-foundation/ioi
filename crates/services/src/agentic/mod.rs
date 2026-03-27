@@ -11,6 +11,7 @@ pub mod fitness;
 pub mod grounding;
 pub mod intent;
 pub mod leakage;
+pub mod media_runtime;
 pub mod normaliser;
 pub mod optimizer;
 pub mod pii_adapter;

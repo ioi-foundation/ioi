@@ -1,8 +1,8 @@
 use super::super::{no_visual, ActionExecutionOutcome};
 use crate::agentic::desktop::execution::workload;
 use crate::agentic::desktop::service::memory::{
-    append_core_memory_from_tool, archival_record_id_from_inspect_id,
-    clear_core_memory_from_tool, replace_core_memory_from_tool,
+    append_core_memory_from_tool, archival_record_id_from_inspect_id, clear_core_memory_from_tool,
+    replace_core_memory_from_tool,
 };
 use crate::agentic::desktop::service::DesktopAgentService;
 use ioi_types::app::{WorkloadActivityKind, WorkloadMemoryRetrieveReceipt, WorkloadReceipt};
@@ -213,7 +213,8 @@ pub(crate) async fn handle_memory_replace_core_tool(
         );
     };
 
-    match replace_core_memory_from_tool(memory_runtime, session_id, section.trim(), content.trim()) {
+    match replace_core_memory_from_tool(memory_runtime, session_id, section.trim(), content.trim())
+    {
         Ok(()) => no_visual(
             true,
             Some(format!("Updated core memory section '{}'.", section.trim())),
@@ -222,7 +223,10 @@ pub(crate) async fn handle_memory_replace_core_tool(
         Err(error) => no_visual(
             false,
             None,
-            Some(format!("ERROR_CLASS=PolicyDenied memory__replace_core failed: {}", error)),
+            Some(format!(
+                "ERROR_CLASS=PolicyDenied memory__replace_core failed: {}",
+                error
+            )),
         ),
     }
 }
@@ -247,13 +251,19 @@ pub(crate) async fn handle_memory_append_core_tool(
     match append_core_memory_from_tool(memory_runtime, session_id, section.trim(), content.trim()) {
         Ok(()) => no_visual(
             true,
-            Some(format!("Appended to core memory section '{}'.", section.trim())),
+            Some(format!(
+                "Appended to core memory section '{}'.",
+                section.trim()
+            )),
             None,
         ),
         Err(error) => no_visual(
             false,
             None,
-            Some(format!("ERROR_CLASS=PolicyDenied memory__append_core failed: {}", error)),
+            Some(format!(
+                "ERROR_CLASS=PolicyDenied memory__append_core failed: {}",
+                error
+            )),
         ),
     }
 }
@@ -283,7 +293,10 @@ pub(crate) async fn handle_memory_clear_core_tool(
         Err(error) => no_visual(
             false,
             None,
-            Some(format!("ERROR_CLASS=PolicyDenied memory__clear_core failed: {}", error)),
+            Some(format!(
+                "ERROR_CLASS=PolicyDenied memory__clear_core failed: {}",
+                error
+            )),
         ),
     }
 }

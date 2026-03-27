@@ -76,6 +76,42 @@ IntentMatrixEntry {
     ],
 },
 IntentMatrixEntry {
+    intent_id: "memory.recall".to_string(),
+    semantic_descriptor:
+        "retrieve previously stored durable memory workflow notes learned constraints or remembered project context and answer from that recalled state"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("memory.access"),
+    ],
+    risk_class: "low".to_string(),
+    scope: IntentScopeProfile::Conversation,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::DynamicSynthesis),
+    required_receipts: vec![
+        "provider_selection".to_string(),
+        "provider_selection_commit".to_string(),
+        "execution".to_string(),
+        "verification".to_string(),
+    ],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "remember".to_string(),
+        "recall".to_string(),
+        "memory".to_string(),
+        "what did we learn".to_string(),
+    ],
+    exemplars: vec![
+        "what do you remember about this project".to_string(),
+        "search memory for the previous localai plan".to_string(),
+    ],
+},
+IntentMatrixEntry {
     intent_id: "web.research".to_string(),
     semantic_descriptor:
         "research live information on the web including latest news headlines and current events then synthesize sourced findings"
@@ -419,6 +455,310 @@ IntentMatrixEntry {
     ],
 },
 IntentMatrixEntry {
+    intent_id: "model.registry.load".to_string(),
+    semantic_descriptor:
+        "load activate or warm an already installed local model into the kernel inference runtime so it becomes resident and ready for subsequent use"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::ModelRegistryControl,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("model.registry.manage"),
+    ],
+    risk_class: "medium".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "load model".to_string(),
+        "activate model".to_string(),
+        "warm model".to_string(),
+        "bring model online".to_string(),
+    ],
+    exemplars: vec![
+        "load the codex oss model into the local runtime".to_string(),
+        "activate llama3.1 so it is ready for use".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "model.registry.unload".to_string(),
+    semantic_descriptor:
+        "unload deactivate evict or release an already loaded local model from the kernel inference runtime to free memory or vram"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::ModelRegistryControl,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("model.registry.manage"),
+    ],
+    risk_class: "medium".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "unload model".to_string(),
+        "deactivate model".to_string(),
+        "evict model".to_string(),
+        "free vram".to_string(),
+    ],
+    exemplars: vec![
+        "unload the whisper model from the local runtime".to_string(),
+        "evict the image model to free memory".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "model.registry.install".to_string(),
+    semantic_descriptor:
+        "install import register or apply a local model artifact gallery entry or model package into the kernel registry and control plane"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::ModelRegistryControl,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("model.registry.manage"),
+    ],
+    risk_class: "medium".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "install model".to_string(),
+        "import model".to_string(),
+        "register model".to_string(),
+        "apply model".to_string(),
+    ],
+    exemplars: vec![
+        "install codex oss into the local kernel registry".to_string(),
+        "import this gguf model into the local engine".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "backend.registry.manage".to_string(),
+    semantic_descriptor:
+        "install start stop apply delete or health-check a local inference backend or sidecar inside the kernel control plane"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::ModelRegistryControl,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("model.registry.manage"),
+    ],
+    risk_class: "medium".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "install backend".to_string(),
+        "start backend".to_string(),
+        "stop backend".to_string(),
+        "backend health".to_string(),
+    ],
+    exemplars: vec![
+        "install the vllm backend into the local engine".to_string(),
+        "health check the whisper backend".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "gallery.sync".to_string(),
+    semantic_descriptor:
+        "synchronize refresh or update a local model or backend gallery catalog inside the kernel control plane"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::ModelRegistryControl,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("model.registry.manage"),
+    ],
+    risk_class: "medium".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "sync gallery".to_string(),
+        "refresh gallery".to_string(),
+        "update model catalog".to_string(),
+    ],
+    exemplars: vec![
+        "sync the primary model gallery".to_string(),
+        "refresh backend catalogs from the local engine".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "media.transcribe".to_string(),
+    semantic_descriptor:
+        "transcribe local audio speech or spoken media into text through the kernel media substrate"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("media.transcribe"),
+    ],
+    risk_class: "low".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "transcribe audio".to_string(),
+        "speech to text".to_string(),
+        "transcript this recording".to_string(),
+    ],
+    exemplars: vec![
+        "transcribe this wav file".to_string(),
+        "turn the meeting audio into text".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "media.synthesize".to_string(),
+    semantic_descriptor:
+        "generate speech or text to speech audio artifacts from text through the kernel media runtime"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("media.synthesize"),
+    ],
+    risk_class: "low".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "text to speech".to_string(),
+        "generate narration".to_string(),
+        "synthesize voice".to_string(),
+    ],
+    exemplars: vec![
+        "turn this script into speech".to_string(),
+        "generate a spoken version of the release notes".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "media.vision".to_string(),
+    semantic_descriptor:
+        "inspect an image screenshot or multimodal artifact and answer about its contents through the kernel vision runtime"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("media.vision"),
+    ],
+    risk_class: "low".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "inspect image".to_string(),
+        "look at screenshot".to_string(),
+        "vision read".to_string(),
+    ],
+    exemplars: vec![
+        "describe what is in this image".to_string(),
+        "read the screenshot and answer the question".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "media.generate.image".to_string(),
+    semantic_descriptor:
+        "generate edit or inpaint an image artifact from text prompts through the kernel image runtime"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("media.generate.image"),
+    ],
+    risk_class: "low".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "generate image".to_string(),
+        "make an image".to_string(),
+        "edit image".to_string(),
+    ],
+    exemplars: vec![
+        "generate an image of the launch poster".to_string(),
+        "inpaint this screenshot background".to_string(),
+    ],
+},
+IntentMatrixEntry {
+    intent_id: "media.generate.video".to_string(),
+    semantic_descriptor:
+        "generate a video artifact from prompts through the kernel video runtime"
+            .to_string(),
+    query_binding: IntentQueryBindingClass::None,
+    required_capabilities: vec![
+        CapabilityId::from("agent.lifecycle"),
+        CapabilityId::from("conversation.reply"),
+        CapabilityId::from("media.generate.video"),
+    ],
+    risk_class: "low".to_string(),
+    scope: IntentScopeProfile::CommandExecution,
+    preferred_tier: "tool_first".to_string(),
+    applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+    requires_host_discovery: Some(false),
+    provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+    required_receipts: vec!["execution".to_string(), "verification".to_string()],
+    required_postconditions: vec![],
+    verification_mode: Some(VerificationMode::DeterministicCheck),
+    aliases: vec![
+        "generate video".to_string(),
+        "make a video".to_string(),
+        "render video".to_string(),
+    ],
+    exemplars: vec![
+        "generate a short product teaser video".to_string(),
+        "render a local video clip from this prompt".to_string(),
+    ],
+},
+IntentMatrixEntry {
     intent_id: "command.probe".to_string(),
     semantic_descriptor:
         "check whether a binary or tool is available in PATH without mutating host state"
@@ -658,5 +998,111 @@ mod tests {
                 .any(|postcondition| postcondition == "mail.reply.completed"),
             "mail.reply should require verified completion postconditions"
         );
+    }
+
+    #[test]
+    fn memory_recall_defaults_to_local_memory_capability_surface() {
+        let entry = default_intent_matrix()
+            .into_iter()
+            .find(|entry| entry.intent_id == "memory.recall")
+            .expect("memory.recall entry should exist");
+
+        assert_eq!(entry.scope, IntentScopeProfile::Conversation);
+        assert!(
+            entry
+                .required_capabilities
+                .iter()
+                .any(|capability| capability.as_str() == "memory.access"),
+            "memory.recall should require memory.access"
+        );
+        assert!(
+            entry
+                .required_capabilities
+                .iter()
+                .any(|capability| capability.as_str() == "conversation.reply"),
+            "memory.recall should preserve chat completion capability"
+        );
+        assert_eq!(
+            entry.verification_mode,
+            Some(VerificationMode::DeterministicCheck)
+        );
+    }
+
+    #[test]
+    fn model_registry_control_intents_use_kernel_managed_capability_surface() {
+        let entries = default_intent_matrix();
+        for intent_id in [
+            "model.registry.load",
+            "model.registry.unload",
+            "model.registry.install",
+            "backend.registry.manage",
+            "gallery.sync",
+        ] {
+            let entry = entries
+                .iter()
+                .find(|entry| entry.intent_id == intent_id)
+                .unwrap_or_else(|| panic!("{intent_id} entry should exist"));
+
+            assert_eq!(entry.scope, IntentScopeProfile::CommandExecution);
+            assert_eq!(
+                entry.query_binding,
+                IntentQueryBindingClass::ModelRegistryControl
+            );
+            assert!(
+                entry
+                    .required_capabilities
+                    .iter()
+                    .any(|capability| capability.as_str() == "model.registry.manage"),
+                "{intent_id} should require model.registry.manage"
+            );
+            assert!(
+                entry
+                    .required_capabilities
+                    .iter()
+                    .any(|capability| capability.as_str() == "conversation.reply"),
+                "{intent_id} should preserve chat completion capability"
+            );
+            assert_eq!(
+                entry.provider_selection_mode,
+                Some(ProviderSelectionMode::CapabilityOnly)
+            );
+        }
+    }
+
+    #[test]
+    fn media_generation_and_analysis_intents_use_kernel_media_capabilities() {
+        let entries = default_intent_matrix();
+        for (intent_id, capability) in [
+            ("media.transcribe", "media.transcribe"),
+            ("media.synthesize", "media.synthesize"),
+            ("media.vision", "media.vision"),
+            ("media.generate.image", "media.generate.image"),
+            ("media.generate.video", "media.generate.video"),
+        ] {
+            let entry = entries
+                .iter()
+                .find(|entry| entry.intent_id == intent_id)
+                .unwrap_or_else(|| panic!("{intent_id} entry should exist"));
+
+            assert_eq!(entry.scope, IntentScopeProfile::CommandExecution);
+            assert!(
+                entry
+                    .required_capabilities
+                    .iter()
+                    .any(|required| required.as_str() == capability),
+                "{intent_id} should require {capability}"
+            );
+            assert!(
+                entry
+                    .required_capabilities
+                    .iter()
+                    .any(|required| required.as_str() == "conversation.reply"),
+                "{intent_id} should preserve chat completion capability"
+            );
+            assert_eq!(
+                entry.provider_selection_mode,
+                Some(ProviderSelectionMode::CapabilityOnly)
+            );
+        }
     }
 }

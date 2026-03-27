@@ -59,6 +59,115 @@ fn connector_gate_presentation(
     ))
 }
 
+#[derive(Clone)]
+struct NativeControlGatePresentation {
+    title: String,
+    description: String,
+    risk: String,
+    approve_label: Option<String>,
+    deny_label: Option<String>,
+    surface_label: Option<String>,
+    scope_label: Option<String>,
+    operation_label: Option<String>,
+    target_label: Option<String>,
+    operator_note: Option<String>,
+    approval_scope: Option<String>,
+    sensitive_action_type: Option<String>,
+    recovery_hint: Option<String>,
+}
+
+fn title_case_segment(segment: &str) -> String {
+    let mut chars = segment.chars();
+    match chars.next() {
+        Some(first) => first.to_ascii_uppercase().to_string() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
+fn humanize_control_target(target: &str) -> String {
+    target
+        .split("__")
+        .flat_map(|segment| segment.split('_'))
+        .filter(|segment| !segment.is_empty())
+        .map(title_case_segment)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn native_control_gate_presentation(target: &str) -> Option<NativeControlGatePresentation> {
+    let normalized = target.trim().to_ascii_lowercase();
+
+    let (scope_label, approval_scope) = if normalized.starts_with("model_registry__") {
+        ("Model control", "model::control")
+    } else if normalized.starts_with("backend__") {
+        ("Backend control", "model::control")
+    } else if normalized.starts_with("gallery__") {
+        ("Gallery control", "model::control")
+    } else {
+        return None;
+    };
+
+    let action_label = normalized
+        .rsplit("__")
+        .next()
+        .filter(|value| !value.is_empty())
+        .unwrap_or("manage");
+
+    let target_label = humanize_control_target(&normalized);
+    let operation_label = title_case_segment(action_label);
+    let risk = match action_label {
+        "install" | "import" | "delete" | "remove" | "apply" | "activate" | "update" | "start"
+        | "stop" => "high",
+        "health" | "health_check" | "probe" | "sync" | "sync_gallery" | "refresh" => "medium",
+        _ => "medium",
+    }
+    .to_string();
+
+    let description = if normalized.starts_with("model_registry__") {
+        format!(
+            "Kernel policy paused before {} in the local model registry. Review the residency change before execution continues.",
+            operation_label.to_ascii_lowercase()
+        )
+    } else if normalized.starts_with("backend__") {
+        format!(
+            "Kernel policy paused before {} on a managed local backend. Confirm the runtime change before execution continues.",
+            operation_label.to_ascii_lowercase()
+        )
+    } else {
+        format!(
+            "Kernel policy paused before {} against the local engine gallery surface. Confirm the catalog mutation before execution continues.",
+            operation_label.to_ascii_lowercase()
+        )
+    };
+
+    Some(NativeControlGatePresentation {
+        title: format!("Approve {}", scope_label.to_ascii_lowercase()),
+        description,
+        risk,
+        approve_label: Some("Authorize control".to_string()),
+        deny_label: Some("Deny".to_string()),
+        surface_label: Some("Local Engine".to_string()),
+        scope_label: Some(scope_label.to_string()),
+        operation_label: Some(operation_label),
+        target_label: Some(target_label),
+        operator_note: Some(
+            "This route is kernel-managed and emits typed lifecycle receipts instead of adapter output."
+                .to_string(),
+        ),
+        approval_scope: Some(approval_scope.to_string()),
+        sensitive_action_type: Some(
+            normalized
+                .replace("__", "_")
+                .trim_matches('_')
+                .to_string(),
+        ),
+        recovery_hint: Some(
+            "Open Local Engine to inspect pending registry actions, recent lifecycle receipts, and control-plane posture."
+                .to_string(),
+        ),
+    })
+}
+
 pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercepted) {
     if action.verdict == "PII_REVIEW_REQUESTED" {
         let pii_info = fetch_pii_review_info(&app, &action.reason).await;
@@ -80,6 +189,11 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                     approve_label: Some("Approve transform".to_string()),
                     deny_label: Some("Deny".to_string()),
                     deadline_ms: Some(pii.deadline_ms),
+                    surface_label: None,
+                    scope_label: None,
+                    operation_label: None,
+                    target_label: None,
+                    operator_note: None,
                     pii: Some(pii.clone()),
                 });
                 t.pending_request_hash = Some(action.reason.clone());
@@ -149,8 +263,22 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
         if !already_gating && !suppress_gate_for_wait && !hard_terminal_task {
             println!("[Autopilot] Policy Gate Triggered for {}", action.target);
             let thread_id = thread_id_from_session(&app, &action.session_id);
+            let native_control_presentation = native_control_gate_presentation(&action.target);
+            let severity = native_control_presentation
+                .as_ref()
+                .map(|presentation| match presentation.risk.as_str() {
+                    "medium" => NotificationSeverity::Medium,
+                    "low" => NotificationSeverity::Low,
+                    _ => NotificationSeverity::High,
+                })
+                .unwrap_or(NotificationSeverity::High);
             let summary = connector_gate_presentation(&action.target)
                 .map(|(_, description, _, _, _)| description)
+                .or_else(|| {
+                    native_control_presentation
+                        .as_ref()
+                        .map(|presentation| presentation.description.clone())
+                })
                 .unwrap_or_else(|| {
                     format!("The agent is attempting to execute: {}", action.target)
                 });
@@ -161,8 +289,17 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                 &action.reason,
                 "Approval required",
                 &summary,
-                NotificationSeverity::High,
+                severity,
                 None,
+                native_control_presentation
+                    .as_ref()
+                    .and_then(|presentation| presentation.approval_scope.clone()),
+                native_control_presentation
+                    .as_ref()
+                    .and_then(|presentation| presentation.sensitive_action_type.clone()),
+                native_control_presentation
+                    .as_ref()
+                    .and_then(|presentation| presentation.recovery_hint.clone()),
             );
 
             update_task_state(app, |t| {
@@ -185,7 +322,27 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                         approve_label: Some("Approve transform".to_string()),
                         deny_label: Some("Deny".to_string()),
                         deadline_ms: Some(pii.deadline_ms),
+                        surface_label: None,
+                        scope_label: None,
+                        operation_label: None,
+                        target_label: None,
+                        operator_note: None,
                         pii: Some(pii),
+                    }
+                } else if let Some(presentation) = native_control_presentation.clone() {
+                    GateInfo {
+                        title: presentation.title,
+                        description: presentation.description,
+                        risk: presentation.risk,
+                        approve_label: presentation.approve_label,
+                        deny_label: presentation.deny_label,
+                        deadline_ms: None,
+                        surface_label: presentation.surface_label,
+                        scope_label: presentation.scope_label,
+                        operation_label: presentation.operation_label,
+                        target_label: presentation.target_label,
+                        operator_note: presentation.operator_note,
+                        pii: None,
                     }
                 } else if let Some((title, description, risk, approve_label, deny_label)) =
                     connector_presentation.clone()
@@ -197,6 +354,11 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                         approve_label,
                         deny_label,
                         deadline_ms: None,
+                        surface_label: None,
+                        scope_label: None,
+                        operation_label: None,
+                        target_label: None,
+                        operator_note: None,
                         pii: None,
                     }
                 } else {
@@ -210,6 +372,11 @@ pub(super) async fn handle_action(app: &tauri::AppHandle, action: ActionIntercep
                         approve_label: Some("Approve action".to_string()),
                         deny_label: Some("Deny action".to_string()),
                         deadline_ms: None,
+                        surface_label: None,
+                        scope_label: None,
+                        operation_label: None,
+                        target_label: None,
+                        operator_note: None,
                         pii: None,
                     }
                 });

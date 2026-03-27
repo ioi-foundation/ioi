@@ -271,6 +271,341 @@ fn enrich_instruction_contract_from_query(query: &str, contract: &mut Instructio
         .collect();
 }
 
+fn normalized_query_text(query: &str) -> String {
+    let normalized_chars = query
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_') {
+                ch.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>();
+    format!(
+        " {} ",
+        normalized_chars
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    )
+}
+
+fn query_contains_any(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| haystack.contains(needle))
+}
+
+fn query_requests_code_change_work(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    let code_action = query_contains_any(
+        &normalized,
+        &[
+            " fix ",
+            " patch ",
+            " implement ",
+            " refactor ",
+            " port ",
+            " bug ",
+            " regression ",
+            " code ",
+            " write ",
+            " add ",
+            " update ",
+            " modify ",
+            " edit ",
+            " failing test ",
+            " failing tests ",
+            " broken test ",
+            " broken tests ",
+            " compile error ",
+        ],
+    );
+    let code_context = query_contains_any(
+        &normalized,
+        &[
+            " repo ",
+            " repository ",
+            " codebase ",
+            " function ",
+            " module ",
+            " component ",
+            " class ",
+            " method ",
+            " crate ",
+            " rust ",
+            " typescript ",
+            " javascript ",
+            " python ",
+            " test ",
+            " tests ",
+            " file ",
+            " source ",
+            " workspace ",
+        ],
+    );
+    code_action && code_context
+}
+
+fn query_requests_verification_work(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    query_contains_any(
+        &normalized,
+        &[
+            " verify ",
+            " verification ",
+            " validate ",
+            " validation ",
+            " check ",
+            " double-check ",
+            " audit ",
+            " review ",
+            " confirm ",
+            " inspect ",
+        ],
+    )
+}
+
+fn query_requests_research_work(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    query_contains_any(
+        &normalized,
+        &[
+            " research ",
+            " investigate ",
+            " look up ",
+            " find sources ",
+            " gather evidence ",
+            " latest ",
+            " current ",
+            " compare sources ",
+            " fact-check ",
+        ],
+    )
+}
+
+fn query_requests_port_or_parity_work(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    query_contains_any(&normalized, &[" port ", " parity ", " clone ", " absorb "])
+}
+
+fn preferred_agent_playbook_for_intent(query: &str, intent_id: &str) -> Option<&'static str> {
+    match intent_id.trim() {
+        "workspace.ops" | "delegation.task"
+            if query_requests_code_change_work(query)
+                && (query_requests_research_work(query)
+                    || query_requests_verification_work(query)
+                    || query_requests_port_or_parity_work(query)) =>
+        {
+            Some("evidence_audited_patch")
+        }
+        _ => None,
+    }
+}
+
+fn preferred_delegation_template_for_intent(query: &str, intent_id: &str) -> Option<&'static str> {
+    if matches!(
+        preferred_agent_playbook_for_intent(query, intent_id),
+        Some("evidence_audited_patch")
+    ) {
+        return Some("researcher");
+    }
+
+    match intent_id.trim() {
+        "web.research" | "memory.recall" => Some("researcher"),
+        "workspace.ops" if query_requests_code_change_work(query) => Some("coder"),
+        "delegation.task" if query_requests_verification_work(query) => Some("verifier"),
+        "delegation.task" if query_requests_code_change_work(query) => Some("coder"),
+        "delegation.task" if query_requests_research_work(query) => Some("researcher"),
+        _ => None,
+    }
+}
+
+fn preferred_delegation_workflow_for_intent(
+    query: &str,
+    intent_id: &str,
+    template_id: &str,
+) -> Option<&'static str> {
+    if matches!(
+        preferred_agent_playbook_for_intent(query, intent_id),
+        Some("evidence_audited_patch")
+    ) && template_id.trim() == "researcher"
+    {
+        return Some("live_research_brief");
+    }
+
+    match (intent_id.trim(), template_id.trim()) {
+        ("web.research", "researcher") | ("memory.recall", "researcher") => {
+            Some("live_research_brief")
+        }
+        ("workspace.ops", "coder") if query_requests_code_change_work(query) => {
+            Some("patch_build_verify")
+        }
+        ("delegation.task", "researcher") if query_requests_research_work(query) => {
+            Some("live_research_brief")
+        }
+        ("delegation.task", "verifier") if query_requests_verification_work(query) => {
+            Some("postcondition_audit")
+        }
+        ("delegation.task", "coder") if query_requests_code_change_work(query) => {
+            Some("patch_build_verify")
+        }
+        _ => None,
+    }
+}
+
+fn ensure_preferred_agent_playbook_slot(
+    query: &str,
+    intent_id: &str,
+    contract: &mut InstructionContract,
+) {
+    let Some(playbook_id) = preferred_agent_playbook_for_intent(query, intent_id) else {
+        return;
+    };
+
+    if let Some(binding) = contract
+        .slot_bindings
+        .iter_mut()
+        .find(|binding| binding.slot.trim().eq_ignore_ascii_case("playbook_id"))
+    {
+        let has_explicit_value = binding
+            .value
+            .as_deref()
+            .map(str::trim)
+            .map(|value| !value.is_empty())
+            .unwrap_or(false);
+        if has_explicit_value {
+            return;
+        }
+        binding.binding_kind = ioi_types::app::agentic::InstructionBindingKind::UserLiteral;
+        binding.value = Some(playbook_id.to_string());
+        binding.origin = ioi_types::app::agentic::ArgumentOrigin::ModelInferred;
+        binding.protected_slot_kind = ioi_types::app::agentic::ProtectedSlotKind::Unknown;
+        return;
+    }
+
+    contract
+        .slot_bindings
+        .push(ioi_types::app::agentic::InstructionSlotBinding {
+            slot: "playbook_id".to_string(),
+            binding_kind: ioi_types::app::agentic::InstructionBindingKind::UserLiteral,
+            value: Some(playbook_id.to_string()),
+            origin: ioi_types::app::agentic::ArgumentOrigin::ModelInferred,
+            protected_slot_kind: ioi_types::app::agentic::ProtectedSlotKind::Unknown,
+        });
+}
+
+fn ensure_preferred_delegation_template_slot(
+    query: &str,
+    intent_id: &str,
+    contract: &mut InstructionContract,
+) {
+    let Some(template_id) = preferred_delegation_template_for_intent(query, intent_id) else {
+        return;
+    };
+
+    if let Some(binding) = contract
+        .slot_bindings
+        .iter_mut()
+        .find(|binding| binding.slot.trim().eq_ignore_ascii_case("template_id"))
+    {
+        let has_explicit_value = binding
+            .value
+            .as_deref()
+            .map(str::trim)
+            .map(|value| !value.is_empty())
+            .unwrap_or(false);
+        if has_explicit_value {
+            return;
+        }
+        binding.binding_kind = ioi_types::app::agentic::InstructionBindingKind::UserLiteral;
+        binding.value = Some(template_id.to_string());
+        binding.origin = ioi_types::app::agentic::ArgumentOrigin::ModelInferred;
+        binding.protected_slot_kind = ioi_types::app::agentic::ProtectedSlotKind::Unknown;
+        return;
+    }
+
+    contract
+        .slot_bindings
+        .push(ioi_types::app::agentic::InstructionSlotBinding {
+            slot: "template_id".to_string(),
+            binding_kind: ioi_types::app::agentic::InstructionBindingKind::UserLiteral,
+            value: Some(template_id.to_string()),
+            origin: ioi_types::app::agentic::ArgumentOrigin::ModelInferred,
+            protected_slot_kind: ioi_types::app::agentic::ProtectedSlotKind::Unknown,
+        });
+}
+
+fn template_binding_value(contract: &InstructionContract) -> Option<&str> {
+    contract
+        .slot_bindings
+        .iter()
+        .find(|binding| binding.slot.trim().eq_ignore_ascii_case("template_id"))
+        .and_then(|binding| binding.value.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn ensure_preferred_delegation_workflow_slot(
+    query: &str,
+    intent_id: &str,
+    contract: &mut InstructionContract,
+) {
+    let Some(template_id) = template_binding_value(contract)
+        .or_else(|| preferred_delegation_template_for_intent(query, intent_id))
+    else {
+        return;
+    };
+    let Some(workflow_id) = preferred_delegation_workflow_for_intent(query, intent_id, template_id)
+    else {
+        return;
+    };
+
+    if let Some(binding) = contract
+        .slot_bindings
+        .iter_mut()
+        .find(|binding| binding.slot.trim().eq_ignore_ascii_case("workflow_id"))
+    {
+        let has_explicit_value = binding
+            .value
+            .as_deref()
+            .map(str::trim)
+            .map(|value| !value.is_empty())
+            .unwrap_or(false);
+        if has_explicit_value {
+            return;
+        }
+        binding.binding_kind = ioi_types::app::agentic::InstructionBindingKind::UserLiteral;
+        binding.value = Some(workflow_id.to_string());
+        binding.origin = ioi_types::app::agentic::ArgumentOrigin::ModelInferred;
+        binding.protected_slot_kind = ioi_types::app::agentic::ProtectedSlotKind::Unknown;
+        return;
+    }
+
+    contract
+        .slot_bindings
+        .push(ioi_types::app::agentic::InstructionSlotBinding {
+            slot: "workflow_id".to_string(),
+            binding_kind: ioi_types::app::agentic::InstructionBindingKind::UserLiteral,
+            value: Some(workflow_id.to_string()),
+            origin: ioi_types::app::agentic::ArgumentOrigin::ModelInferred,
+            protected_slot_kind: ioi_types::app::agentic::ProtectedSlotKind::Unknown,
+        });
+}
+
+fn finalize_instruction_contract(query: &str, intent_id: &str, contract: &mut InstructionContract) {
+    enrich_instruction_contract_from_query(query, contract);
+    ensure_preferred_agent_playbook_slot(query, intent_id, contract);
+    ensure_preferred_delegation_template_slot(query, intent_id, contract);
+    ensure_preferred_delegation_workflow_slot(query, intent_id, contract);
+}
+
+fn fallback_instruction_contract(query: &str, intent_id: &str) -> Option<InstructionContract> {
+    preferred_delegation_template_for_intent(query, intent_id)?;
+    let mut contract = InstructionContract::default();
+    finalize_instruction_contract(query, intent_id, &mut contract);
+    Some(contract)
+}
+
 pub(super) async fn synthesize_instruction_contract(
     service: &DesktopAgentService,
     runtime: &Arc<dyn InferenceRuntime>,
@@ -303,7 +638,7 @@ pub(super) async fn synthesize_instruction_contract(
                 "IntentResolver instruction contract payload encode failed error={}",
                 error
             );
-            return None;
+            return fallback_instruction_contract(query, intent_id);
         }
     };
     let airlocked_input = match service
@@ -322,7 +657,7 @@ pub(super) async fn synthesize_instruction_contract(
                 hex::encode(&session_id[..4]),
                 error
             );
-            return None;
+            return fallback_instruction_contract(query, intent_id);
         }
     };
     let output = match runtime
@@ -344,13 +679,13 @@ pub(super) async fn synthesize_instruction_contract(
                 "IntentResolver instruction contract inference failed error={}",
                 vm_error_to_tx(error)
             );
-            return None;
+            return fallback_instruction_contract(query, intent_id);
         }
     };
     let raw = String::from_utf8_lossy(&output).to_string();
     match parse_instruction_contract_payload(&raw) {
         Ok(mut parsed) => {
-            enrich_instruction_contract_from_query(query, &mut parsed);
+            finalize_instruction_contract(query, intent_id, &mut parsed);
             Some(parsed)
         }
         Err(error) => {
@@ -358,7 +693,7 @@ pub(super) async fn synthesize_instruction_contract(
                 "IntentResolver instruction contract parse failed error={}",
                 error
             );
-            None
+            fallback_instruction_contract(query, intent_id)
         }
     }
 }
@@ -432,6 +767,203 @@ mod tests {
         assert_eq!(
             contract.success_criteria,
             vec!["toast.equals_saved_successfully"]
+        );
+    }
+
+    #[test]
+    fn seeds_researcher_template_for_web_research_intent() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Find the latest kernel scheduling benchmarks.",
+            "web.research",
+            &mut contract,
+        );
+
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("template binding should be added");
+        assert_eq!(
+            template_binding.binding_kind,
+            ioi_types::app::agentic::InstructionBindingKind::UserLiteral
+        );
+        assert_eq!(template_binding.value.as_deref(), Some("researcher"));
+        let workflow_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .expect("workflow binding should be added");
+        assert_eq!(
+            workflow_binding.value.as_deref(),
+            Some("live_research_brief")
+        );
+    }
+
+    #[test]
+    fn preserves_existing_template_binding_when_present() {
+        let mut contract = InstructionContract {
+            operation: "delegate".to_string(),
+            side_effect_mode: InstructionSideEffectMode::ReadOnly,
+            slot_bindings: vec![ioi_types::app::agentic::InstructionSlotBinding {
+                slot: "template_id".to_string(),
+                binding_kind: ioi_types::app::agentic::InstructionBindingKind::UserLiteral,
+                value: Some("verifier".to_string()),
+                origin: ioi_types::app::agentic::ArgumentOrigin::UserSpan,
+                protected_slot_kind: ioi_types::app::agentic::ProtectedSlotKind::Unknown,
+            }],
+            negative_constraints: vec![],
+            success_criteria: vec![],
+        };
+
+        finalize_instruction_contract(
+            "Research and verify the latest kernel scheduling benchmarks.",
+            "web.research",
+            &mut contract,
+        );
+
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("template binding should exist");
+        assert_eq!(template_binding.value.as_deref(), Some("verifier"));
+    }
+
+    #[test]
+    fn seeds_coder_template_for_workspace_code_change_intent() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Implement a patch in the Rust workspace to fix the failing test.",
+            "workspace.ops",
+            &mut contract,
+        );
+
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("coder template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("coder"));
+        let workflow_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .expect("coder workflow binding should be added");
+        assert_eq!(
+            workflow_binding.value.as_deref(),
+            Some("patch_build_verify")
+        );
+    }
+
+    #[test]
+    fn seeds_evidence_audited_parent_playbook_for_workspace_port_task() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Port LocalAI parity into the Rust workspace, research the current behavior first, and verify the final postcondition.",
+            "workspace.ops",
+            &mut contract,
+        );
+
+        let playbook_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "playbook_id")
+            .expect("parent playbook binding should be added");
+        assert_eq!(
+            playbook_binding.value.as_deref(),
+            Some("evidence_audited_patch")
+        );
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("researcher template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("researcher"));
+        let workflow_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .expect("researcher workflow binding should be added");
+        assert_eq!(
+            workflow_binding.value.as_deref(),
+            Some("live_research_brief")
+        );
+    }
+
+    #[test]
+    fn does_not_seed_coder_template_for_generic_workspace_file_task() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Rename every file in my Downloads folder to lowercase.",
+            "workspace.ops",
+            &mut contract,
+        );
+
+        assert!(
+            contract
+                .slot_bindings
+                .iter()
+                .all(|binding| binding.slot != "template_id"),
+            "generic file-management tasks should not default to coder"
+        );
+    }
+
+    #[test]
+    fn seeds_verifier_template_for_explicit_verification_delegation() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Delegate a worker to verify whether the evidence bundle supports the claim.",
+            "delegation.task",
+            &mut contract,
+        );
+
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("verifier template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("verifier"));
+        let workflow_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .expect("verifier workflow binding should be added");
+        assert_eq!(
+            workflow_binding.value.as_deref(),
+            Some("postcondition_audit")
+        );
+    }
+
+    #[test]
+    fn seeds_coder_workflow_for_explicit_code_change_delegation() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Delegate a worker to patch the parser bug, run the focused tests, and report what changed.",
+            "delegation.task",
+            &mut contract,
+        );
+
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("coder template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("coder"));
+        let workflow_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .expect("coder workflow binding should be added");
+        assert_eq!(
+            workflow_binding.value.as_deref(),
+            Some("patch_build_verify")
         );
     }
 }

@@ -78,13 +78,13 @@ impl AgentTool {
             }],
             AgentTool::MediaExtractTranscript { .. } => vec![PiiEgressSpec {
                 field: PiiEgressField::MediaExtractTranscriptUrl,
-                target: PiiTarget::Action(ActionTarget::WebRetrieve),
+                target: PiiTarget::Action(ActionTarget::MediaExtractTranscript),
                 supports_transform: false,
                 risk_surface: PiiEgressRiskSurface::Egress,
             }],
             AgentTool::MediaExtractMultimodalEvidence { .. } => vec![PiiEgressSpec {
                 field: PiiEgressField::MediaExtractMultimodalEvidenceUrl,
-                target: PiiTarget::Action(ActionTarget::WebRetrieve),
+                target: PiiTarget::Action(ActionTarget::MediaExtractMultimodalEvidence),
                 supports_transform: false,
                 risk_surface: PiiEgressRiskSurface::Egress,
             }],

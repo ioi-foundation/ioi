@@ -160,6 +160,8 @@ pub enum IntentQueryBindingClass {
     DesktopScreenshot,
     /// Query must request a durable local automation or monitor that keeps running.
     DurableAutomation,
+    /// Query must request local model registry or residency control.
+    ModelRegistryControl,
 }
 
 /// A single canonical intent matrix row.

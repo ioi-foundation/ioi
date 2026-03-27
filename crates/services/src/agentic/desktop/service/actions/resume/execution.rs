@@ -1,10 +1,12 @@
-use crate::agentic::desktop::service::lifecycle::spawn_delegated_child_session;
+use crate::agentic::desktop::service::lifecycle::{
+    await_child_worker_result, spawn_delegated_child_session,
+};
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::AgentState;
-use crate::agentic::desktop::utils::await_child_session_status_for_inspection;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_types::app::agentic::AgentTool;
+use serde_json::json;
 use std::sync::Arc;
 
 pub(super) struct ExecutionOutcome {
@@ -55,7 +57,17 @@ pub(super) async fn execute(
 
     if !has_precheck_error && success {
         match tool {
-            AgentTool::AgentDelegate { goal, budget } => {
+            AgentTool::AgentDelegate {
+                goal,
+                budget,
+                playbook_id,
+                template_id,
+                workflow_id,
+                role,
+                success_criteria,
+                merge_mode,
+                expected_output,
+            } => {
                 match spawn_delegated_child_session(
                     service,
                     state,
@@ -63,16 +75,34 @@ pub(super) async fn execute(
                     tool_hash,
                     goal,
                     *budget,
+                    playbook_id.as_deref(),
+                    template_id.as_deref(),
+                    workflow_id.as_deref(),
+                    role.as_deref(),
+                    success_criteria.as_deref(),
+                    merge_mode.as_deref(),
+                    expected_output.as_deref(),
                     pre_state_step_index,
                     block_height,
                 )
                 .await
                 {
-                    Ok(child_session_id) => {
-                        out = Some(format!(
-                            "{{\"child_session_id_hex\":\"{}\"}}",
-                            hex::encode(child_session_id)
-                        ));
+                    Ok(spawned) => {
+                        let assignment = &spawned.assignment;
+                        out = Some(
+                            json!({
+                                "child_session_id_hex": hex::encode(spawned.child_session_id),
+                                "budget": assignment.budget,
+                                "playbook_id": assignment.playbook_id,
+                                "template_id": assignment.template_id,
+                                "workflow_id": assignment.workflow_id,
+                                "role": assignment.role,
+                                "success_criteria": assignment.completion_contract.success_criteria,
+                                "merge_mode": assignment.completion_contract.merge_mode.as_label(),
+                                "expected_output": assignment.completion_contract.expected_output,
+                            })
+                            .to_string(),
+                        );
                         err = None;
                     }
                     Err(e) => {
@@ -84,11 +114,16 @@ pub(super) async fn execute(
             }
             AgentTool::AgentAwait {
                 child_session_id_hex,
-            } => match await_child_session_status_for_inspection(
+            } => match await_child_worker_result(
+                service,
                 state,
-                service.memory_runtime.as_ref(),
+                agent_state,
+                pre_state_step_index,
+                block_height,
                 child_session_id_hex,
-            ) {
+            )
+            .await
+            {
                 Ok(child_status) => {
                     out = Some(child_status);
                     err = None;

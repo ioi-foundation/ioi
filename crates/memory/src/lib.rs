@@ -543,7 +543,12 @@ impl MemoryRuntime {
         let mut combined = std::collections::BTreeMap::<i64, CombinedHit>::new();
         let mut seen_scopes = std::collections::HashSet::<String>::new();
 
-        for scope in query.scopes.iter().map(|scope| scope.trim()).filter(|scope| !scope.is_empty()) {
+        for scope in query
+            .scopes
+            .iter()
+            .map(|scope| scope.trim())
+            .filter(|scope| !scope.is_empty())
+        {
             if !seen_scopes.insert(scope.to_string()) {
                 continue;
             }
@@ -573,7 +578,11 @@ impl MemoryRuntime {
                 }
             }
 
-            if let Some(embedding) = query.embedding.as_ref().filter(|embedding| !embedding.is_empty()) {
+            if let Some(embedding) = query
+                .embedding
+                .as_ref()
+                .filter(|embedding| !embedding.is_empty())
+            {
                 for hit in self.semantic_search_archival_memory(&SemanticArchivalMemoryQuery {
                     scope: scope.to_string(),
                     thread_id: query.thread_id,
@@ -1708,7 +1717,8 @@ impl EnrichmentQueueStore for SqliteMemoryStore {
                 LIMIT ?2
                 ",
             )?;
-            let rows = stmt.query_map(params![status.as_str(), limit], map_stored_enrichment_job)?;
+            let rows =
+                stmt.query_map(params![status.as_str(), limit], map_stored_enrichment_job)?;
             for row in rows {
                 jobs.push(row?);
             }

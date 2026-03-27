@@ -217,6 +217,35 @@ pub async fn resolve_step_intent_with_state(
     } else {
         selection_top_k.clone()
     };
+    let preferred_selection_top_k = if query_binding_profile.available
+        && query_binding_profile.model_registry_control_requested
+    {
+        let model_control_candidates = preferred_selection_top_k
+            .iter()
+            .filter_map(|candidate| {
+                let entry = matrix
+                    .iter()
+                    .find(|entry| entry.intent_id == candidate.intent_id)?;
+                matches!(
+                    entry.query_binding,
+                    IntentQueryBindingClass::ModelRegistryControl
+                )
+                .then_some(candidate.clone())
+            })
+            .collect::<Vec<_>>();
+        if model_control_candidates.is_empty() {
+            preferred_selection_top_k
+        } else {
+            log::info!(
+                "IntentResolver narrowed winner candidates to local engine control intents session={} candidate_count={}",
+                session_prefix,
+                model_control_candidates.len()
+            );
+            model_control_candidates
+        }
+    } else {
+        preferred_selection_top_k
+    };
     let mut resolver_error_class: Option<String> = None;
     if selection_top_k.is_empty() {
         log::warn!(

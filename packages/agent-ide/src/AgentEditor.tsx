@@ -18,19 +18,69 @@ import "./styles/theme.css";
 
 export interface AgentEditorProps {
   runtime: AgentRuntime;
-  initialFile?: any; 
+  initialFile?: any;
+  onOpenSystemSettings?: () => void;
 }
+
+const DEFAULT_MODEL_BINDINGS = {
+  reasoning: { modelId: "", required: false },
+  vision: { modelId: "", required: false },
+  embedding: { modelId: "", required: false },
+  image: { modelId: "", required: false },
+};
+
+const DEFAULT_CAPABILITY_REQUIREMENTS = {
+  reasoning: { required: false, bindingKey: "reasoning" },
+  vision: { required: false, bindingKey: "vision" },
+  embedding: { required: false, bindingKey: "embedding" },
+  image: { required: false, bindingKey: "image" },
+  speech: { required: false },
+  video: { required: false },
+};
 
 const DEFAULT_GLOBAL_CONFIG: GraphGlobalConfig = {
   env: "{}",
+  modelBindings: DEFAULT_MODEL_BINDINGS,
+  requiredCapabilities: DEFAULT_CAPABILITY_REQUIREMENTS,
   policy: { maxBudget: 5.0, maxSteps: 50, timeoutMs: 30000 },
   contract: { developerBond: 0, adjudicationRubric: "" },
   meta: { name: "Untitled Agent", description: "" }
 };
 
+function normalizeGlobalConfig(config?: Partial<GraphGlobalConfig> | null): GraphGlobalConfig {
+  return {
+    ...DEFAULT_GLOBAL_CONFIG,
+    ...config,
+    modelBindings: {
+      ...DEFAULT_MODEL_BINDINGS,
+      ...(config?.modelBindings ?? {}),
+    },
+    requiredCapabilities: {
+      ...DEFAULT_CAPABILITY_REQUIREMENTS,
+      ...(config?.requiredCapabilities ?? {}),
+    },
+    policy: {
+      ...DEFAULT_GLOBAL_CONFIG.policy,
+      ...(config?.policy ?? {}),
+    },
+    contract: {
+      ...DEFAULT_GLOBAL_CONFIG.contract,
+      ...(config?.contract ?? {}),
+    },
+    meta: {
+      ...DEFAULT_GLOBAL_CONFIG.meta,
+      ...(config?.meta ?? {}),
+    },
+  };
+}
+
 const CONSOLE_HEIGHT = 220;
 
-function AgentEditorContent({ runtime, initialFile }: AgentEditorProps) {
+function AgentEditorContent({
+  runtime,
+  initialFile,
+  onOpenSystemSettings,
+}: AgentEditorProps) {
   const { 
     nodes, edges, setNodes, setEdges, 
     onNodesChange, onEdgesChange, onConnect, 
@@ -61,7 +111,7 @@ function AgentEditorContent({ runtime, initialFile }: AgentEditorProps) {
 
   const loadProjectIntoEditor = useCallback((project: ProjectFile) => {
     replaceGraph(project);
-    setGlobalConfig(project.global_config ?? DEFAULT_GLOBAL_CONFIG);
+    setGlobalConfig(normalizeGlobalConfig(project.global_config ?? DEFAULT_GLOBAL_CONFIG));
     requestAnimationFrame(() => {
       fitView({ padding: 0.2 });
     });
@@ -89,8 +139,12 @@ function AgentEditorContent({ runtime, initialFile }: AgentEditorProps) {
           <Explorer 
               runtime={runtime} 
               onLoadProject={loadProjectIntoEditor}
-              onDragStart={(e, type) => {
+              onDragStart={(e, type, name, schema) => {
                   e.dataTransfer.setData("nodeType", type);
+                  e.dataTransfer.setData("nodeName", name);
+                  if (schema) {
+                    e.dataTransfer.setData("nodeSchema", schema);
+                  }
               }} 
           />
         </div>
@@ -146,7 +200,26 @@ function AgentEditorContent({ runtime, initialFile }: AgentEditorProps) {
               runtime={runtime}
               // @ts-ignore
               onUpdateNode={(id, cfg) => handleNodeUpdate(id, 'logic', cfg.logic)}
-              onUpdateGlobal={(updates) => setGlobalConfig(prev => ({ ...prev, ...updates }))}
+              onUpdateGlobal={(updates) =>
+                setGlobalConfig((prev) =>
+                  normalizeGlobalConfig({
+                    ...prev,
+                    ...updates,
+                    modelBindings: {
+                      ...prev.modelBindings,
+                      ...(updates.modelBindings ?? {}),
+                    },
+                    requiredCapabilities: {
+                      ...prev.requiredCapabilities,
+                      ...(updates.requiredCapabilities ?? {}),
+                    },
+                    policy: { ...prev.policy, ...(updates.policy ?? {}) },
+                    contract: { ...prev.contract, ...(updates.contract ?? {}) },
+                    meta: { ...prev.meta, ...(updates.meta ?? {}) },
+                  })
+                )
+              }
+              onOpenSystemSettings={onOpenSystemSettings}
               // [NEW] Pass context to inspector
               upstreamContext={upstreamContext}
           />

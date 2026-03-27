@@ -1,4 +1,5 @@
 use crate::agentic::desktop::keys::get_state_key;
+use crate::agentic::desktop::service::lifecycle::load_worker_assignment;
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{AgentState, AgentStatus};
 use crate::agentic::desktop::utils::persist_agent_state;
@@ -34,11 +35,38 @@ pub async fn execute_worker_step(
     })?;
     let mut worker_state: AgentState = codec::from_bytes_canonical(&bytes)?;
     let os_driver = service.os_driver.clone();
+    let worker_assignment =
+        load_worker_assignment(state, worker_session_id).map_err(TransactionError::Invalid)?;
 
     let mut output: Option<String> = None;
     let mut error: Option<String> = None;
     let mut success = false;
     let mut attempts: u8 = 0;
+
+    if let Some(assignment) = worker_assignment.as_ref() {
+        let tool_name = tool.name_string();
+        if !assignment.allowed_tools.is_empty()
+            && !assignment
+                .allowed_tools
+                .iter()
+                .any(|allowed| allowed == &tool_name)
+        {
+            let failure = format!(
+                "ERROR_CLASS=PolicyBlocked Worker playbook disallows tool '{}'. Allowed tools: {}.",
+                tool_name,
+                assignment.allowed_tools.join(", ")
+            );
+            worker_state.step_count = worker_state.step_count.saturating_add(1);
+            worker_state.status = AgentStatus::Failed(failure.clone());
+            persist_agent_state(state, &key, &worker_state, service.memory_runtime.as_ref())?;
+            return Ok(WorkerExecutionResult {
+                success: false,
+                output: None,
+                error: Some(failure),
+                attempts: 0,
+            });
+        }
+    }
 
     // A delegated worker must never stay Running because of infrastructure gaps.
     // If no OS driver is configured, mark this worker failed and return a terminal result
@@ -111,6 +139,9 @@ pub async fn execute_worker_step(
 mod tests {
     use super::execute_worker_step;
     use crate::agentic::desktop::keys::get_state_key;
+    use crate::agentic::desktop::service::lifecycle::{
+        persist_worker_assignment, resolve_worker_assignment,
+    };
     use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
     use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
     use crate::agentic::rules::ActionRules;
@@ -287,5 +318,79 @@ mod tests {
         let updated: AgentState = codec::from_bytes_canonical(&bytes).expect("decode worker state");
         assert!(matches!(updated.status, AgentStatus::Failed(_)));
         assert_eq!(updated.step_count, 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn verifier_playbook_blocks_disallowed_worker_tool_execution() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let runtime = Arc::new(MockInferenceRuntime);
+        let mut service = DesktopAgentService::new_hybrid(
+            gui,
+            Arc::new(TerminalDriver::new()),
+            Arc::new(BrowserDriver::new()),
+            runtime.clone(),
+            runtime,
+        );
+        service.os_driver = None;
+
+        let mut state = IAVLTree::new(HashCommitmentScheme::new());
+        let worker_session_id = [0x22; 32];
+        let key = get_state_key(&worker_session_id);
+        let worker_state = build_worker_state(worker_session_id);
+        state
+            .insert(
+                &key,
+                &codec::to_bytes_canonical(&worker_state).expect("encode worker state"),
+            )
+            .expect("insert worker state");
+        let assignment = resolve_worker_assignment(
+            worker_session_id,
+            1,
+            90,
+            "Verify whether the receipt proves the claimed postcondition.",
+            None,
+            Some("verifier"),
+            Some("postcondition_audit"),
+            None,
+            None,
+            None,
+            None,
+        );
+        persist_worker_assignment(&mut state, worker_session_id, &assignment)
+            .expect("persist worker assignment");
+
+        let services_dir = ServiceDirectory::new(vec![]);
+        let call_context = ServiceCallContext {
+            block_height: 1,
+            block_timestamp: 1,
+            chain_id: ChainId(0),
+            signer_account_id: AccountId::default(),
+            services: &services_dir,
+            simulation: false,
+            is_internal: false,
+        };
+
+        let result = execute_worker_step(
+            &service,
+            &mut state,
+            call_context,
+            &ActionRules::default(),
+            worker_session_id,
+            ioi_types::app::agentic::AgentTool::Dynamic(serde_json::json!({
+                "tool_name": "model__responses",
+                "input": [{ "role": "user", "content": "audit the receipt" }]
+            })),
+            assignment.max_retries,
+        )
+        .await
+        .expect("worker execution should return terminal result");
+
+        assert!(!result.success);
+        assert_eq!(result.attempts, 0);
+        assert!(result
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Worker playbook disallows tool 'model__responses'"));
     }
 }

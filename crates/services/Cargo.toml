@@ -71,6 +71,7 @@ ioi-drivers = { path = "../drivers" }
 imap = { version = "2.4.1" }
 native-tls = "0.2.18"
 lettre = { version = "0.11.19" }
+tempfile = { workspace = true }
 
 [features]
 default = [] 

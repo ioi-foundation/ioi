@@ -388,6 +388,16 @@ pub enum WorkloadReceipt {
     WebRetrieve(WorkloadWebRetrieveReceipt),
     /// A legacy-named governed memory retrieval receipt ("memory__search" / retrieval pipelines).
     MemoryRetrieve(WorkloadMemoryRetrieveReceipt),
+    /// A first-party inference receipt for text generation, embeddings, rerank, or classification.
+    Inference(crate::app::WorkloadInferenceReceipt),
+    /// A first-party media receipt for transcription, TTS, vision, image, or video workloads.
+    Media(crate::app::WorkloadMediaReceipt),
+    /// A first-party model and backend lifecycle receipt.
+    ModelLifecycle(crate::app::WorkloadModelLifecycleReceipt),
+    /// A first-party child-worker completion and merge receipt.
+    Worker(crate::app::WorkloadWorkerReceipt),
+    /// A first-party parent-playbook lifecycle receipt.
+    ParentPlaybook(crate::app::WorkloadParentPlaybookReceipt),
     /// A generic external adapter receipt.
     Adapter(crate::app::AdapterReceipt),
 }
@@ -545,6 +555,83 @@ pub struct WorkloadMemoryRetrieveReceipt {
     /// Success flag as surfaced by the retriever.
     pub success: bool,
     /// Optional error class when retrieval fails.
+    #[serde(default)]
+    pub error_class: Option<String>,
+}
+
+/// Audit receipt for child-worker completion and deterministic parent merge.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkloadWorkerReceipt {
+    /// Tool that initiated the worker flow ("agent__delegate" or "agent__await_result").
+    pub tool_name: String,
+    /// Phase label ("completed" or "merged").
+    pub phase: String,
+    /// Child session id in hex format.
+    pub child_session_id: String,
+    /// Parent session id in hex format.
+    pub parent_session_id: String,
+    /// Human-readable worker role.
+    pub role: String,
+    /// Optional higher-order parent playbook id coordinating this delegation sequence.
+    #[serde(default)]
+    pub playbook_id: Option<String>,
+    /// Optional template id when the worker was spawned from a named archetype.
+    #[serde(default)]
+    pub template_id: Option<String>,
+    /// Optional playbook id when the worker was spawned from a template workflow.
+    #[serde(default)]
+    pub workflow_id: Option<String>,
+    /// Deterministic merge mode label.
+    pub merge_mode: String,
+    /// Terminal worker status string.
+    pub status: String,
+    /// Success flag for the child worker lifecycle.
+    pub success: bool,
+    /// Human-readable summary or merged handoff preview.
+    pub summary: String,
+    /// Optional verification hint carried from the worker contract.
+    #[serde(default)]
+    pub verification_hint: Option<String>,
+    /// Optional error class when worker completion failed.
+    #[serde(default)]
+    pub error_class: Option<String>,
+}
+
+/// Audit receipt for parent-playbook lifecycle, step advancement, and terminal outcome.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkloadParentPlaybookReceipt {
+    /// Tool that initiated the playbook lifecycle edge ("agent__delegate" or "agent__await_result").
+    pub tool_name: String,
+    /// Phase label ("started", "step_spawned", "step_completed", "blocked", "completed").
+    pub phase: String,
+    /// Parent session id in hex format.
+    pub parent_session_id: String,
+    /// Stable parent playbook id.
+    pub playbook_id: String,
+    /// Human-readable playbook label.
+    pub playbook_label: String,
+    /// Terminal or current playbook status label.
+    pub status: String,
+    /// Whether the parent playbook lifecycle edge succeeded.
+    pub success: bool,
+    /// Optional step id associated with this lifecycle edge.
+    #[serde(default)]
+    pub step_id: Option<String>,
+    /// Optional step label associated with this lifecycle edge.
+    #[serde(default)]
+    pub step_label: Option<String>,
+    /// Optional child session id in hex format for step-bound phases.
+    #[serde(default)]
+    pub child_session_id: Option<String>,
+    /// Optional worker template id for the active step.
+    #[serde(default)]
+    pub template_id: Option<String>,
+    /// Optional worker workflow id for the active step.
+    #[serde(default)]
+    pub workflow_id: Option<String>,
+    /// Human-readable summary or block reason.
+    pub summary: String,
+    /// Optional error class when the parent playbook blocks or fails.
     #[serde(default)]
     pub error_class: Option<String>,
 }

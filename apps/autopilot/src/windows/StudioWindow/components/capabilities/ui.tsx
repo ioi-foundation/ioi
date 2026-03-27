@@ -54,6 +54,22 @@ export function BlocksIcon() {
   );
 }
 
+export function CpuIcon() {
+  return (
+    <IconBase>
+      <rect x="7" y="7" width="10" height="10" rx="2" />
+      <path d="M9 3v3" />
+      <path d="M15 3v3" />
+      <path d="M9 18v3" />
+      <path d="M15 18v3" />
+      <path d="M21 9h-3" />
+      <path d="M21 15h-3" />
+      <path d="M6 9H3" />
+      <path d="M6 15H3" />
+    </IconBase>
+  );
+}
+
 export function SearchIcon() {
   return (
     <IconBase>

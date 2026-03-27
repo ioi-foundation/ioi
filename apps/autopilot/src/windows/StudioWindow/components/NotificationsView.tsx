@@ -15,6 +15,7 @@ import type {
 interface NotificationsViewProps {
   onOpenAutopilot: () => void;
   onOpenIntegrations: (connectorId?: string | null) => void;
+  onOpenLocalEngine: () => void;
   onOpenShield: (connectorId?: string | null) => void;
   onOpenSettings: () => void;
   onOpenReplyComposer: (
@@ -82,7 +83,7 @@ const INBOX_LANES: Array<{
 ];
 
 function humanize(value: string): string {
-  return value.replace(/_/g, " ");
+  return value.replace(/::/g, " ").replace(/_/g, " ");
 }
 
 function isResolvedIntervention(status: InterventionStatus): boolean {
@@ -243,6 +244,7 @@ function buildInterventionQueueItem(item: InterventionRecord): InboxQueueItem {
   const meta: string[] = [];
 
   if (item.blocking) meta.push("Blocking");
+  if (isLocalEngineIntervention(item)) meta.push("Kernel-managed");
   if (item.approvalScope) meta.push(humanize(item.approvalScope));
   if (item.workflowId) meta.push(`Workflow ${item.workflowId}`);
   if (item.runId) meta.push(`Run ${item.runId}`);
@@ -253,7 +255,9 @@ function buildInterventionQueueItem(item: InterventionRecord): InboxQueueItem {
     lane: interventionLane(item),
     typeLabel: interventionTypeLabel(item),
     record: item,
-    sourceLabel: item.source.serviceName,
+    sourceLabel: isLocalEngineIntervention(item)
+      ? "Local Engine"
+      : item.source.serviceName,
     statusLabel: humanize(item.status),
     meta,
   };
@@ -299,9 +303,32 @@ function displayActionLabel(label: string | null | undefined): string {
   return label;
 }
 
+function isLocalEngineIntervention(item: InterventionRecord): boolean {
+  if (item.approvalScope === "model::control") return true;
+  const text = [
+    item.title,
+    item.summary,
+    item.reason ?? "",
+    item.sensitiveActionType ?? "",
+    item.approvalScope ?? "",
+    item.recoveryHint ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  return (
+    text.includes("local engine") ||
+    text.includes("model::control") ||
+    text.includes("model_registry") ||
+    text.includes("model control") ||
+    text.includes("backend control") ||
+    text.includes("gallery control")
+  );
+}
+
 export function NotificationsView({
   onOpenAutopilot,
   onOpenIntegrations,
+  onOpenLocalEngine,
   onOpenShield,
   onOpenSettings,
   onOpenReplyComposer,
@@ -502,6 +529,12 @@ export function NotificationsView({
     return {
       needsAction: queueItems.filter((item) => item.lane === "needs_action")
         .length,
+      localEngine: queueItems.filter(
+        (item) =>
+          item.kind === "intervention" &&
+          isLocalEngineIntervention(item.record as InterventionRecord) &&
+          item.lane !== "resolved",
+      ).length,
       readyForReview: queueItems.filter(
         (item) => item.lane === "ready_for_review",
       ).length,
@@ -612,11 +645,15 @@ export function NotificationsView({
             <strong>{summaryCounts.needsAction}</strong>
           </div>
           <div className="notifications-stat-card">
+            <span>Local engine</span>
+            <strong>{summaryCounts.localEngine}</strong>
+          </div>
+          <div className="notifications-stat-card">
             <span>Ready for review</span>
             <strong>{summaryCounts.readyForReview}</strong>
           </div>
           <div className="notifications-stat-card">
-            <span>Anomalies</span>
+            <span>Monitor</span>
             <strong>{summaryCounts.anomalies}</strong>
           </div>
           <div className="notifications-stat-card">
@@ -704,6 +741,11 @@ export function NotificationsView({
                   <article
                     key={item.key}
                     className={`notifications-card notifications-card-${item.record.severity}${
+                      item.kind === "intervention" &&
+                      isLocalEngineIntervention(item.record as InterventionRecord)
+                        ? " notifications-card-engine"
+                        : ""
+                    }${
                       selectedItemKey === item.key
                         ? " notifications-card-selected"
                         : ""
@@ -824,10 +866,22 @@ export function NotificationsView({
                             className="notifications-primary-button"
                             onClick={(event) => {
                               event.stopPropagation();
+                              if (
+                                isLocalEngineIntervention(
+                                  item.record as InterventionRecord,
+                                )
+                              ) {
+                                onOpenLocalEngine();
+                                return;
+                              }
                               void onOpenAutopilot();
                             }}
                           >
-                            Open chat
+                            {isLocalEngineIntervention(
+                              item.record as InterventionRecord,
+                            )
+                              ? "Open local engine"
+                              : "Open chat"}
                           </button>
                           {!isResolvedIntervention(
                             (item.record as InterventionRecord).status,
@@ -872,6 +926,7 @@ export function NotificationsView({
           item={selectedQueueItem?.record ?? null}
           onClose={() => setSelectedItemKey(null)}
           onOpenAutopilot={onOpenAutopilot}
+          onOpenLocalEngine={onOpenLocalEngine}
           onOpenReplyComposer={onOpenReplyComposer}
           onOpenMeetingPrep={onOpenMeetingPrep}
           onOpenIntegrations={onOpenIntegrations}

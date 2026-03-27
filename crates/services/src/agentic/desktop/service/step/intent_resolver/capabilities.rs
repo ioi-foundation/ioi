@@ -1,5 +1,6 @@
 use super::*;
 use crate::agentic::desktop::connectors::{connector_tool_route_bindings, google_workspace};
+use crate::agentic::policy::policy_target_aliases;
 
 pub(super) fn capability(id: &str) -> CapabilityId {
     CapabilityId::from(id)
@@ -67,6 +68,84 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             tool_name: "memory__inspect".to_string(),
             action_target: ActionTarget::Custom("memory::inspect".to_string()),
             capabilities: vec![capability("memory.access")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "model__responses".to_string(),
+            action_target: ActionTarget::ModelRespond,
+            capabilities: vec![
+                capability("conversation.reply"),
+                capability("model.respond"),
+            ],
+        },
+        ToolCapabilityBinding {
+            tool_name: "model__embeddings".to_string(),
+            action_target: ActionTarget::ModelEmbed,
+            capabilities: vec![capability("memory.access"), capability("model.embed")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "model__rerank".to_string(),
+            action_target: ActionTarget::ModelRerank,
+            capabilities: vec![capability("memory.access"), capability("model.rerank")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "model_registry__load".to_string(),
+            action_target: ActionTarget::Custom("model_registry__load".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "model_registry__unload".to_string(),
+            action_target: ActionTarget::Custom("model_registry__unload".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "model_registry__install".to_string(),
+            action_target: ActionTarget::Custom("model_registry__install".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "model_registry__apply".to_string(),
+            action_target: ActionTarget::Custom("model_registry__apply".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "model_registry__delete".to_string(),
+            action_target: ActionTarget::Custom("model_registry__delete".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "backend__install".to_string(),
+            action_target: ActionTarget::Custom("backend__install".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "backend__apply".to_string(),
+            action_target: ActionTarget::Custom("backend__apply".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "backend__delete".to_string(),
+            action_target: ActionTarget::Custom("backend__delete".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "backend__start".to_string(),
+            action_target: ActionTarget::Custom("backend__start".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "backend__stop".to_string(),
+            action_target: ActionTarget::Custom("backend__stop".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "backend__health".to_string(),
+            action_target: ActionTarget::Custom("backend__health".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "gallery__sync".to_string(),
+            action_target: ActionTarget::Custom("gallery__sync".to_string()),
+            capabilities: vec![capability("model.registry.manage")],
         },
         ToolCapabilityBinding {
             tool_name: "agent__delegate".to_string(),
@@ -304,13 +383,51 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         },
         ToolCapabilityBinding {
             tool_name: "media__extract_transcript".to_string(),
-            action_target: ActionTarget::WebRetrieve,
-            capabilities: vec![capability("web.retrieve"), capability("sys.time.read")],
+            action_target: ActionTarget::MediaExtractTranscript,
+            capabilities: vec![
+                capability("web.retrieve"),
+                capability("sys.time.read"),
+                capability("media.extract"),
+            ],
         },
         ToolCapabilityBinding {
             tool_name: "media__extract_multimodal_evidence".to_string(),
-            action_target: ActionTarget::WebRetrieve,
-            capabilities: vec![capability("web.retrieve"), capability("sys.time.read")],
+            action_target: ActionTarget::MediaExtractMultimodalEvidence,
+            capabilities: vec![
+                capability("web.retrieve"),
+                capability("sys.time.read"),
+                capability("media.extract"),
+            ],
+        },
+        ToolCapabilityBinding {
+            tool_name: "media__transcribe_audio".to_string(),
+            action_target: ActionTarget::Custom("media__transcribe_audio".to_string()),
+            capabilities: vec![capability("media.transcribe")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "media__synthesize_speech".to_string(),
+            action_target: ActionTarget::Custom("media__synthesize_speech".to_string()),
+            capabilities: vec![capability("media.synthesize")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "media__vision_read".to_string(),
+            action_target: ActionTarget::Custom("media__vision_read".to_string()),
+            capabilities: vec![capability("media.vision")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "media__generate_image".to_string(),
+            action_target: ActionTarget::Custom("media__generate_image".to_string()),
+            capabilities: vec![capability("media.generate.image")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "media__edit_image".to_string(),
+            action_target: ActionTarget::Custom("media__edit_image".to_string()),
+            capabilities: vec![capability("media.generate.image")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "media__generate_video".to_string(),
+            action_target: ActionTarget::Custom("media__generate_video".to_string()),
+            capabilities: vec![capability("media.generate.video")],
         },
         ToolCapabilityBinding {
             tool_name: "net__fetch".to_string(),
@@ -562,9 +679,10 @@ fn is_unconditional_resolution_tool(tool_name: &str) -> bool {
 }
 
 pub(super) fn policy_explicitly_blocks_target(rules: &ActionRules, target: &ActionTarget) -> bool {
-    let canonical = target.canonical_label();
+    let aliases = policy_target_aliases(target);
     rules.rules.iter().any(|rule| {
-        rule.action == Verdict::Block && (rule.target == "*" || rule.target == canonical)
+        rule.action == Verdict::Block
+            && (rule.target == "*" || aliases.iter().any(|alias| rule.target == *alias))
     })
 }
 
@@ -752,6 +870,7 @@ pub fn is_tool_allowed_for_selected_provider(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::rules::{Rule, RuleConditions, Verdict};
     use ioi_types::app::agentic::{
         IntentQueryBindingClass, ProviderSelectionMode, VerificationMode,
     };
@@ -818,6 +937,26 @@ mod tests {
         }
     }
 
+    fn model_registry_load_entry() -> IntentMatrixEntry {
+        IntentMatrixEntry {
+            intent_id: "model.registry.load".to_string(),
+            semantic_descriptor: "load a local model into the kernel runtime".to_string(),
+            query_binding: IntentQueryBindingClass::ModelRegistryControl,
+            required_capabilities: vec![capability("model.registry.manage")],
+            risk_class: "medium".to_string(),
+            scope: IntentScopeProfile::CommandExecution,
+            preferred_tier: "tool_first".to_string(),
+            applicability_class: ExecutionApplicabilityClass::DeterministicLocal,
+            requires_host_discovery: Some(false),
+            provider_selection_mode: Some(ProviderSelectionMode::CapabilityOnly),
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            verification_mode: Some(VerificationMode::DeterministicCheck),
+            aliases: vec![],
+            exemplars: vec![],
+        }
+    }
+
     fn temporal_files_profile() -> QueryBindingProfile {
         QueryBindingProfile {
             available: true,
@@ -833,6 +972,14 @@ mod tests {
             remote_public_fact_required: true,
             command_directed: true,
             durable_automation_requested: true,
+            ..Default::default()
+        }
+    }
+
+    fn model_registry_control_profile() -> QueryBindingProfile {
+        QueryBindingProfile {
+            available: true,
+            model_registry_control_requested: true,
             ..Default::default()
         }
     }
@@ -872,6 +1019,25 @@ mod tests {
 
         assert!(intent_feasible_without_policy(&entry, &bindings, &profile));
         assert!(intent_feasible_for_execution(
+            &entry, &bindings, &rules, &profile
+        ));
+    }
+
+    #[test]
+    fn model_control_family_block_makes_registry_intent_infeasible() {
+        let entry = model_registry_load_entry();
+        let profile = model_registry_control_profile();
+        let bindings = tool_capability_bindings();
+        let mut rules = ActionRules::default();
+        rules.rules.push(Rule {
+            rule_id: Some("block-model-control".to_string()),
+            target: "model::control".to_string(),
+            conditions: RuleConditions::default(),
+            action: Verdict::Block,
+        });
+
+        assert!(intent_feasible_without_policy(&entry, &bindings, &profile));
+        assert!(!intent_feasible_for_execution(
             &entry, &bindings, &rules, &profile
         ));
     }

@@ -53,6 +53,7 @@ pub async fn test_node_execution(
     input: serde_json::Value,
     node_id: Option<String>,
     session_id: Option<String>,
+    global_config: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
     println!(
         "[Studio] Running Ephemeral Execution: {} (Session: {:?})",
@@ -72,6 +73,24 @@ pub async fn test_node_execution(
         (memory_runtime, i)
     };
 
+    let registry_state = orchestrator::load_local_engine_registry_state(&memory_runtime);
+    let resolved_config = match orchestrator::resolve_node_execution_config(
+        &node_type,
+        &config,
+        global_config.as_ref(),
+        registry_state.as_ref(),
+    ) {
+        Ok(resolved) => resolved,
+        Err(error) => {
+            return Ok(serde_json::json!({
+                "status": "error",
+                "output": error,
+                "data": null,
+                "metrics": { "latency_ms": 0 }
+            }));
+        }
+    };
+
     let input_str = if let Some(s) = input.as_str() {
         s.to_string()
     } else {
@@ -82,7 +101,7 @@ pub async fn test_node_execution(
 
     match execution::execute_ephemeral_node(
         &node_type,
-        &config,
+        &resolved_config,
         &input_str,
         session_id,
         memory_runtime.clone(),
@@ -97,7 +116,7 @@ pub async fn test_node_execution(
                     orchestrator::inject_execution_result(
                         &memory_runtime,
                         nid,
-                        config,
+                        resolved_config,
                         input_str,
                         result.clone(),
                     );

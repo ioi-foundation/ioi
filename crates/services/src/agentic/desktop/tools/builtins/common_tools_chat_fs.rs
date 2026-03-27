@@ -23,7 +23,7 @@
     tools.push(LlmToolDefinition {
         name: "agent__await_result".to_string(),
         description:
-            "Check if a child agent has completed its task. Returns 'Running' if not finished."
+            "Check whether a delegated child worker has completed its bounded task. Returns 'Running' if not finished, otherwise returns the worker handoff rendered through its deterministic merge contract."
                 .to_string(),
         parameters: await_params.to_string(),
     });

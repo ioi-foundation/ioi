@@ -17,6 +17,7 @@ use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
 use ioi_memory::MemoryRuntime;
 use ioi_services::{
     agentic::desktop::DesktopAgentService,
+    agentic::media_runtime::KernelMediaRuntime,
     agentic::optimizer::OptimizerService, // Import Optimizer
     governance::GovernanceModule,
     guardian_registry::GuardianRegistry,
@@ -105,7 +106,7 @@ async fn build_runtime_from_config(
     driver: Arc<dyn ioi_api::vm::inference::HardwareDriver>,
     workload_config: &WorkloadConfig,
 ) -> Result<Arc<dyn InferenceRuntime>> {
-    if let Some(key_ref) = &cfg.connector_ref {
+    let runtime: Arc<dyn InferenceRuntime> = if let Some(key_ref) = &cfg.connector_ref {
         if let Some(conn_cfg) = workload_config.connectors.get(key_ref) {
             if !conn_cfg.enabled {
                 return Err(anyhow!("Connector '{}' is disabled", key_ref));
@@ -121,56 +122,56 @@ async fn build_runtime_from_config(
             let certs_dir = std::env::var("CERTS_DIR").map_err(|_| anyhow!("CERTS_DIR not set"))?;
             let channel = create_guardian_channel(&certs_dir).await?;
 
-            return Ok(Arc::new(VerifiedHttpRuntime::new(
+            Arc::new(VerifiedHttpRuntime::new(
                 channel,
                 cfg.provider.clone(),
                 secret_id.clone(),
                 cfg.model_name.clone().unwrap_or_default(),
-            )) as Arc<dyn InferenceRuntime>);
+            )) as Arc<dyn InferenceRuntime>
         } else {
             return Err(anyhow!(
                 "Connector '{}' not found in configuration",
                 key_ref
             ));
         }
-    }
+    } else {
+        match cfg.provider.as_str() {
+            "openai" | "local" => {
+                let api_url = cfg.api_url.clone().ok_or_else(|| {
+                    anyhow!("API URL required for 'openai' or 'local' inference provider")
+                })?;
+                let api_key = cfg.api_key.clone().unwrap_or_default();
+                let model_name = cfg
+                    .model_name
+                    .clone()
+                    .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
 
-    match cfg.provider.as_str() {
-        "openai" | "local" => {
-            let api_url = cfg.api_url.clone().ok_or_else(|| {
-                anyhow!("API URL required for 'openai' or 'local' inference provider")
-            })?;
-            let api_key = cfg.api_key.clone().unwrap_or_default();
-            let model_name = cfg
-                .model_name
-                .clone()
-                .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
+                tracing::info!(
+                    target: "workload",
+                    "Initializing HTTP Inference Runtime (Provider: {}, URL: {}, Model: {})",
+                    cfg.provider, api_url, model_name
+                );
 
-            tracing::info!(
-                target: "workload",
-                "Initializing HTTP Inference Runtime (Provider: {}, URL: {}, Model: {})",
-                cfg.provider, api_url, model_name
-            );
-
-            Ok(
                 Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name))
-                    as Arc<dyn InferenceRuntime>,
-            )
-        }
-        "mock" => {
-            tracing::info!(target: "workload", "Initializing Mock Inference Runtime");
-            Ok(Arc::new(MockInferenceRuntime) as Arc<dyn InferenceRuntime>)
-        }
-        other => {
-            if other == "standard" {
-                tracing::info!(target: "workload", "Initializing Standard Inference Runtime (Local Hardware)");
-                Ok(Arc::new(StandardInferenceRuntime::new(hydrator, driver))
-                    as Arc<dyn InferenceRuntime>)
-            } else {
-                Err(anyhow!("Unknown inference provider: {}", other))
+                    as Arc<dyn InferenceRuntime>
+            }
+            "mock" => {
+                tracing::info!(target: "workload", "Initializing Mock Inference Runtime");
+                Arc::new(MockInferenceRuntime) as Arc<dyn InferenceRuntime>
+            }
+            other => {
+                if other == "standard" {
+                    tracing::info!(target: "workload", "Initializing Standard Inference Runtime (Local Hardware)");
+                    Arc::new(StandardInferenceRuntime::new(hydrator, driver))
+                        as Arc<dyn InferenceRuntime>
+                } else {
+                    return Err(anyhow!("Unknown inference provider: {}", other));
+                }
             }
         }
-    }
+    };
+
+    Ok(Arc::new(KernelMediaRuntime::new(runtime)) as Arc<dyn InferenceRuntime>)
 }
 
 /// Sets up the Workload components including State, VM, Services, ExecutionMachine, and background tasks.

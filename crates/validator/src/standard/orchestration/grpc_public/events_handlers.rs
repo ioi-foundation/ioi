@@ -45,10 +45,12 @@ mod workload_event_mapping_tests {
     use super::map_kernel_event;
     use ioi_ipc::public::chain_event::Event as ChainEventEnum;
     use ioi_types::app::{
-        AdapterArtifactPointer, AdapterKind, AdapterReceipt, AdapterRedactionSummary, KernelEvent,
-        WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt, WorkloadFsWriteReceipt,
-        WorkloadMemoryRetrieveReceipt, WorkloadNetFetchReceipt, WorkloadReceipt,
-        WorkloadReceiptEvent, WorkloadWebRetrieveReceipt,
+        AdapterArtifactPointer, AdapterKind, AdapterReceipt, AdapterRedactionSummary,
+        InferenceOperationKind, KernelEvent, MediaOperationKind, ModelLifecycleOperationKind,
+        RegistrySubjectKind, WorkloadActivityEvent, WorkloadActivityKind, WorkloadExecReceipt,
+        WorkloadFsWriteReceipt, WorkloadInferenceReceipt, WorkloadMediaReceipt,
+        WorkloadMemoryRetrieveReceipt, WorkloadModelLifecycleReceipt, WorkloadNetFetchReceipt,
+        WorkloadReceipt, WorkloadReceiptEvent, WorkloadWebRetrieveReceipt,
     };
 
     #[test]
@@ -305,6 +307,152 @@ mod workload_event_mapping_tests {
                     assert!(!scs.has_error_class);
                 }
                 other => panic!("expected memory_retrieve receipt, got: {:?}", other),
+            },
+            other => panic!("expected workload receipt chain event, got: {:?}", other),
+        }
+
+        let receipt = KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid-inference".to_string(),
+            timestamp_ms: 129,
+            receipt: WorkloadReceipt::Inference(WorkloadInferenceReceipt {
+                tool_name: "model__responses".to_string(),
+                operation: InferenceOperationKind::TextGeneration,
+                backend: "inference:local".to_string(),
+                model_id: "qwen3-8b".to_string(),
+                model_family: Some("qwen3".to_string()),
+                prompt_token_count: Some(128),
+                completion_token_count: Some(64),
+                total_token_count: Some(192),
+                vector_dimensions: None,
+                result_item_count: 1,
+                candidate_count_total: None,
+                candidate_count_scored: None,
+                streaming: true,
+                latency_ms: Some(850),
+                success: true,
+                error_class: None,
+            }),
+        });
+        let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
+            .expect("inference workload receipt should map");
+        match mapped {
+            ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
+                Some(ioi_ipc::public::workload_receipt::Receipt::Inference(inference)) => {
+                    assert_eq!(inference.tool_name, "model__responses");
+                    assert_eq!(inference.operation, "text_generation");
+                    assert_eq!(inference.backend, "inference:local");
+                    assert_eq!(inference.model_id, "qwen3-8b");
+                    assert!(inference.has_model_family);
+                    assert_eq!(inference.model_family, "qwen3");
+                    assert!(inference.has_prompt_token_count);
+                    assert_eq!(inference.prompt_token_count, 128);
+                    assert!(inference.has_completion_token_count);
+                    assert_eq!(inference.completion_token_count, 64);
+                    assert!(inference.has_total_token_count);
+                    assert_eq!(inference.total_token_count, 192);
+                    assert_eq!(inference.result_item_count, 1);
+                    assert!(inference.streaming);
+                    assert!(inference.has_latency_ms);
+                    assert_eq!(inference.latency_ms, 850);
+                    assert!(inference.success);
+                    assert!(!inference.has_error_class);
+                }
+                other => panic!("expected inference receipt, got: {:?}", other),
+            },
+            other => panic!("expected workload receipt chain event, got: {:?}", other),
+        }
+
+        let receipt = KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid-media".to_string(),
+            timestamp_ms: 130,
+            receipt: WorkloadReceipt::Media(WorkloadMediaReceipt {
+                tool_name: "media__extract_transcript".to_string(),
+                operation: MediaOperationKind::Transcription,
+                backend: "audio:whisper".to_string(),
+                model_id: Some("whisper-large-v3".to_string()),
+                source_uri: Some("https://example.test/audio".to_string()),
+                input_artifact_count: 1,
+                output_artifact_count: 1,
+                output_bytes: Some(2048),
+                duration_ms: Some(1_250),
+                output_mime_types: vec!["text/plain".to_string()],
+                success: true,
+                error_class: None,
+            }),
+        });
+        let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
+            .expect("media workload receipt should map");
+        match mapped {
+            ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
+                Some(ioi_ipc::public::workload_receipt::Receipt::Media(media)) => {
+                    assert_eq!(media.tool_name, "media__extract_transcript");
+                    assert_eq!(media.operation, "transcription");
+                    assert_eq!(media.backend, "audio:whisper");
+                    assert!(media.has_model_id);
+                    assert_eq!(media.model_id, "whisper-large-v3");
+                    assert!(media.has_source_uri);
+                    assert_eq!(media.source_uri, "https://example.test/audio");
+                    assert_eq!(media.input_artifact_count, 1);
+                    assert_eq!(media.output_artifact_count, 1);
+                    assert!(media.has_output_bytes);
+                    assert_eq!(media.output_bytes, 2048);
+                    assert!(media.has_duration_ms);
+                    assert_eq!(media.duration_ms, 1_250);
+                    assert_eq!(media.output_mime_types, vec!["text/plain".to_string()]);
+                    assert!(media.success);
+                    assert!(!media.has_error_class);
+                }
+                other => panic!("expected media receipt, got: {:?}", other),
+            },
+            other => panic!("expected workload receipt chain event, got: {:?}", other),
+        }
+
+        let receipt = KernelEvent::WorkloadReceipt(WorkloadReceiptEvent {
+            session_id: [7u8; 32],
+            step_index: 42,
+            workload_id: "wid-model".to_string(),
+            timestamp_ms: 131,
+            receipt: WorkloadReceipt::ModelLifecycle(WorkloadModelLifecycleReceipt {
+                tool_name: "model_registry__install".to_string(),
+                operation: ModelLifecycleOperationKind::Install,
+                subject_kind: RegistrySubjectKind::Model,
+                subject_id: "qwen3-8b".to_string(),
+                backend_id: Some("llama-cpp".to_string()),
+                source_uri: Some("oci://localai/qwen3:8b".to_string()),
+                job_id: Some("job-123".to_string()),
+                bytes_transferred: Some(1_024),
+                hardware_profile: Some("cpu-only".to_string()),
+                success: true,
+                error_class: None,
+            }),
+        });
+        let mapped = map_kernel_event(receipt, &keypair, signer_pk.as_str())
+            .expect("model lifecycle workload receipt should map");
+        match mapped {
+            ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
+                Some(ioi_ipc::public::workload_receipt::Receipt::ModelLifecycle(model)) => {
+                    assert_eq!(model.tool_name, "model_registry__install");
+                    assert_eq!(model.operation, "install");
+                    assert_eq!(model.subject_kind, "model");
+                    assert_eq!(model.subject_id, "qwen3-8b");
+                    assert!(model.has_backend_id);
+                    assert_eq!(model.backend_id, "llama-cpp");
+                    assert!(model.has_source_uri);
+                    assert_eq!(model.source_uri, "oci://localai/qwen3:8b");
+                    assert!(model.has_job_id);
+                    assert_eq!(model.job_id, "job-123");
+                    assert!(model.has_bytes_transferred);
+                    assert_eq!(model.bytes_transferred, 1_024);
+                    assert!(model.has_hardware_profile);
+                    assert_eq!(model.hardware_profile, "cpu-only");
+                    assert!(model.success);
+                    assert!(!model.has_error_class);
+                }
+                other => panic!("expected model lifecycle receipt, got: {:?}", other),
             },
             other => panic!("expected workload receipt chain event, got: {:?}", other),
         }

@@ -60,7 +60,16 @@ const initialOntology: TreeItem[] = [
 
 const staticLibrary: LibraryItem[] = [
   { id: "action", name: "Action Node", icon: <Icons.Action />, type: "action", description: "Generic execution step" },
-  { id: "model", name: "LLM Model", icon: <Icons.Brain />, type: "model", description: "Inference node" },
+  { id: "responses", name: "Responses", icon: <Icons.Brain />, type: "responses", description: "Kernel-backed text generation and reasoning" },
+  { id: "embeddings", name: "Embeddings", icon: <span>🧬</span>, type: "embeddings", description: "Generate text embeddings through the absorbed runtime" },
+  { id: "rerank", name: "Rerank", icon: <span>📊</span>, type: "rerank", description: "Score and order candidate passages or outputs" },
+  { id: "transcribe_audio", name: "Transcribe Audio", icon: <span>🎙️</span>, type: "transcribe_audio", description: "Transcribe local audio into text" },
+  { id: "synthesize_speech", name: "Synthesize Speech", icon: <span>🔊</span>, type: "synthesize_speech", description: "Render spoken audio artifacts from text through the absorbed media runtime" },
+  { id: "vision_read", name: "Vision Read", icon: <span>👁️</span>, type: "vision_read", description: "Inspect an image or screenshot with the kernel vision surface" },
+  { id: "generate_image", name: "Generate Image", icon: <span>🖼️</span>, type: "generate_image", description: "Create an image artifact with the absorbed media runtime" },
+  { id: "edit_image", name: "Edit Image", icon: <span>✂️</span>, type: "edit_image", description: "Edit or inpaint an existing image artifact through the absorbed media runtime" },
+  { id: "generate_video", name: "Generate Video", icon: <span>🎞️</span>, type: "generate_video", description: "Create a video artifact with the absorbed media runtime" },
+  { id: "model", name: "Model (Legacy)", icon: <Icons.Brain />, type: "model", description: "Compatibility alias for responses nodes" },
   { id: "trigger", name: "Trigger", icon: <Icons.Trigger />, type: "trigger", description: "Event source" },
   { id: "gate", name: "Logic Gate", icon: <Icons.Gate />, type: "gate", description: "Governance control" },
   { id: "web_search", name: "Web Search", icon: <span>🌐</span>, type: "web_search", description: "Edge web search (typed evidence bundle with sources + provenance)" },

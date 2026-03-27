@@ -24,10 +24,11 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
         AgentTool::SysInstallPackage { .. } => ActionTarget::SysInstallPackage,
 
-        AgentTool::WebSearch { .. }
-        | AgentTool::WebRead { .. }
-        | AgentTool::MediaExtractTranscript { .. }
-        | AgentTool::MediaExtractMultimodalEvidence { .. } => ActionTarget::WebRetrieve,
+        AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } => ActionTarget::WebRetrieve,
+        AgentTool::MediaExtractTranscript { .. } => ActionTarget::MediaExtractTranscript,
+        AgentTool::MediaExtractMultimodalEvidence { .. } => {
+            ActionTarget::MediaExtractMultimodalEvidence
+        }
         AgentTool::NetFetch { .. } => ActionTarget::NetFetch,
 
         AgentTool::BrowserNavigate { .. }
@@ -119,10 +120,14 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                 match name {
                     "ui__click_component" | "gui__click_element" => ActionTarget::GuiClick,
                     "gui__snapshot" => ActionTarget::GuiInspect,
-                    "web__search"
-                    | "web__read"
-                    | "media__extract_transcript"
-                    | "media__extract_multimodal_evidence" => ActionTarget::WebRetrieve,
+                    "web__search" | "web__read" => ActionTarget::WebRetrieve,
+                    "model__responses" => ActionTarget::ModelRespond,
+                    "model__embeddings" => ActionTarget::ModelEmbed,
+                    "model__rerank" => ActionTarget::ModelRerank,
+                    "media__extract_transcript" => ActionTarget::MediaExtractTranscript,
+                    "media__extract_multimodal_evidence" => {
+                        ActionTarget::MediaExtractMultimodalEvidence
+                    }
                     "browser__snapshot" => ActionTarget::BrowserInspect,
                     "browser__navigate"
                     | "browser__click"

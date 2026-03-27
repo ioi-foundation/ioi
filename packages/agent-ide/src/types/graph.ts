@@ -6,10 +6,18 @@
 
 export interface NodeLogic {
   // --- Model Nodes ---
+  modelRef?: string;
   provider?: string;
   model?: string;
+  modelId?: string;
+  modelHash?: string;
   temperature?: number;
   systemPrompt?: string;
+  prompt?: string;
+  text?: string;
+  jsonMode?: boolean;
+  maxTokens?: number;
+  stream?: boolean;
   
   // --- Tool Nodes ---
   endpoint?: string;
@@ -23,7 +31,7 @@ export interface NodeLogic {
   arguments?: Record<string, any>;
 
   // --- Code / Function ---
-  language?: "python" | "javascript" | "typescript" | "shell";
+  language?: string;
   code?: string;
 
   // --- Flow Control ---
@@ -43,6 +51,16 @@ export interface NodeLogic {
   limit?: number;
   url?: string;
   max_chars?: number;
+  topK?: number;
+  candidatesText?: string;
+
+  // --- Media ---
+  mimeType?: string;
+  audioPath?: string;
+  imagePath?: string;
+  maskImagePath?: string;
+  audioLanguage?: string;
+  voice?: string;
 
   // --- Logic ---
   conditionScript?: string;
@@ -108,8 +126,24 @@ export interface Edge {
 // File Format
 // ============================================
 
+export type GraphCapabilityId =
+  | "reasoning"
+  | "vision"
+  | "embedding"
+  | "image"
+  | "speech"
+  | "video";
+
+export interface GraphCapabilityRequirement {
+  required?: boolean;
+  bindingKey?: string;
+  notes?: string;
+}
+
 export interface GraphGlobalConfig {
   env: string;
+  modelBindings: Record<string, GraphModelBinding>;
+  requiredCapabilities: Record<string, GraphCapabilityRequirement>;
   policy: {
     maxBudget: number;
     maxSteps: number;
@@ -124,6 +158,12 @@ export interface GraphGlobalConfig {
     name: string;
     description: string;
   };
+}
+
+export interface GraphModelBinding {
+  modelId: string;
+  modelHash?: string;
+  required?: boolean;
 }
 
 export interface ProjectFile {

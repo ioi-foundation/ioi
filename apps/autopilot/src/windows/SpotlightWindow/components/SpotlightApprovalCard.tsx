@@ -13,7 +13,11 @@ interface ApprovalProps {
   denyLabel?: string;
   showDeny?: boolean;
   deadlineMs?: number;
+  surfaceLabel?: string;
+  scopeLabel?: string;
+  operationLabel?: string;
   targetLabel?: string;
+  operatorNote?: string;
   spanSummary?: string;
   classCounts?: Record<string, number>;
   severityCounts?: Record<string, number>;
@@ -33,7 +37,11 @@ export function SpotlightApprovalCard({
   denyLabel = "Deny",
   showDeny = true,
   deadlineMs,
+  surfaceLabel,
+  scopeLabel,
+  operationLabel,
   targetLabel,
+  operatorNote,
   spanSummary,
   classCounts,
   severityCounts,
@@ -93,7 +101,16 @@ export function SpotlightApprovalCard({
         {remainingMs !== null && (
           <p className="gate-desc"><strong>Deadline:</strong> {Math.ceil(remainingMs / 1000)}s</p>
         )}
-        {(targetLabel || spanSummary || stage2Prompt || targetId || classCounts || severityCounts) && (
+        {(surfaceLabel ||
+          scopeLabel ||
+          operationLabel ||
+          targetLabel ||
+          operatorNote ||
+          spanSummary ||
+          stage2Prompt ||
+          targetId ||
+          classCounts ||
+          severityCounts) && (
           <>
             <button
               className="gate-details-toggle"
@@ -103,7 +120,15 @@ export function SpotlightApprovalCard({
             </button>
             {showDetails && (
               <div className="gate-details">
+                {(surfaceLabel || scopeLabel || operationLabel) && (
+                  <div className="gate-detail-badges">
+                    {surfaceLabel ? <span>{surfaceLabel}</span> : null}
+                    {scopeLabel ? <span>{scopeLabel}</span> : null}
+                    {operationLabel ? <span>{operationLabel}</span> : null}
+                  </div>
+                )}
                 {targetLabel && <p className="gate-desc"><strong>Target:</strong> {targetLabel}</p>}
+                {operatorNote && <p className="gate-desc"><strong>Operator note:</strong> {operatorNote}</p>}
                 {spanSummary && <p className="gate-desc"><strong>Evidence:</strong> {spanSummary}</p>}
                 {stage2Prompt && <p className="gate-desc"><strong>Prompt:</strong> {stage2Prompt}</p>}
                 {classCounts && Object.keys(classCounts).length > 0 && (

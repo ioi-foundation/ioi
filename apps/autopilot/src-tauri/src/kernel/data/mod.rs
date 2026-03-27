@@ -201,6 +201,69 @@ fn bundle_relative_path(bundle: &SkillBundle) -> Option<String> {
         })
 }
 
+fn normalized_relative_path(value: &str) -> String {
+    value
+        .trim()
+        .replace('\\', "/")
+        .trim_start_matches("./")
+        .trim_start_matches('/')
+        .to_ascii_lowercase()
+}
+
+fn relative_paths_match(left: &str, right: &str) -> bool {
+    let left = normalized_relative_path(left);
+    let right = normalized_relative_path(right);
+    if left.is_empty() || right.is_empty() {
+        return false;
+    }
+    left == right
+        || left.ends_with(&format!("/{}", right))
+        || right.ends_with(&format!("/{}", left))
+}
+
+fn match_skill_source_for_bundle<'a>(
+    bundle: &SkillBundle,
+    sources: &'a [crate::models::SkillSourceRecord],
+) -> Option<(
+    &'a crate::models::SkillSourceRecord,
+    &'a crate::models::SkillSourceDiscoveredSkill,
+)> {
+    if let Some(relative_path) = bundle_relative_path(bundle) {
+        for source in sources {
+            if let Some(discovered) = source
+                .discovered_skills
+                .iter()
+                .find(|skill| relative_paths_match(&skill.relative_path, &relative_path))
+            {
+                return Some((source, discovered));
+            }
+        }
+    }
+
+    let name = bundle
+        .record
+        .macro_body
+        .definition
+        .name
+        .trim()
+        .to_ascii_lowercase();
+    if name.is_empty() {
+        return None;
+    }
+
+    for source in sources {
+        if let Some(discovered) = source
+            .discovered_skills
+            .iter()
+            .find(|skill| skill.name.trim().to_ascii_lowercase() == name)
+        {
+            return Some((source, discovered));
+        }
+    }
+
+    None
+}
+
 fn bundle_stale(bundle: &SkillBundle) -> bool {
     bundle
         .published_doc
@@ -826,6 +889,12 @@ fn build_skill_detail(bundle: &SkillBundle, all_bundles: &[SkillBundle]) -> Skil
         source_session_id: bundle.record.source_session_id.map(hex::encode),
         source_evidence_hash: bundle.record.source_evidence_hash.map(hex::encode),
         relative_path: bundle_relative_path(bundle),
+        source_registry_id: None,
+        source_registry_label: None,
+        source_registry_uri: None,
+        source_registry_kind: None,
+        source_registry_sync_status: None,
+        source_registry_relative_path: None,
         stale: bundle_stale(bundle),
         used_tools: used_tools_for_record(&bundle.record),
         steps,

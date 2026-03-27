@@ -93,6 +93,9 @@ export function StudioWindowMainContent({
                   onOpenPolicy={() =>
                     controller.policy.openPolicyCenter(null)
                   }
+                  onOpenSettings={() =>
+                    controller.changePrimaryView("settings")
+                  }
                   onOpenAgent={controller.agents.openBuilder}
                   onCloseAgent={controller.agents.closeBuilder}
                   onInstallAgent={controller.agents.openInstallModalForAgent}
@@ -115,7 +118,10 @@ export function StudioWindowMainContent({
                     controller.chat.showPane();
                   }}
                   onOpenIntegrations={() =>
-                    controller.changePrimaryView("capabilities")
+                    controller.capabilities.openSurface(null)
+                  }
+                  onOpenLocalEngine={() =>
+                    controller.capabilities.openSurface("engine")
                   }
                   onOpenShield={(connectorId) =>
                     controller.policy.openPolicyCenter(connectorId)
@@ -139,6 +145,12 @@ export function StudioWindowMainContent({
                   }
                   onOpenPolicyCenter={(connector) =>
                     controller.policy.openPolicyCenter(connector.id)
+                  }
+                  onOpenInbox={() => controller.changePrimaryView("inbox")}
+                  onOpenSettings={() => controller.changePrimaryView("settings")}
+                  seedSurface={controller.capabilities.seedSurface}
+                  onConsumeSeedSurface={
+                    controller.capabilities.consumeSeedSurface
                   }
                 />
               ) : null}

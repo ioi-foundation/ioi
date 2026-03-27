@@ -23,6 +23,21 @@ pub enum ActionTarget {
     /// Read from the local filesystem.
     #[serde(rename = "fs::read")]
     FsRead,
+    /// Text-generation or responses-style model execution.
+    #[serde(rename = "model::respond")]
+    ModelRespond,
+    /// Embedding generation over text, image, or similar inputs.
+    #[serde(rename = "model::embed")]
+    ModelEmbed,
+    /// Candidate reranking over retrieval or planning results.
+    #[serde(rename = "model::rerank")]
+    ModelRerank,
+    /// Transcript extraction from a media source with provenance.
+    #[serde(rename = "media::extract_transcript")]
+    MediaExtractTranscript,
+    /// Multimodal media evidence extraction with provenance.
+    #[serde(rename = "media::extract_multimodal_evidence")]
+    MediaExtractMultimodalEvidence,
     /// Simulate a UI click event.
     #[serde(rename = "ui::click")]
     UiClick,
@@ -111,6 +126,13 @@ impl ActionTarget {
             ActionTarget::WebRetrieve => "web::retrieve".to_string(),
             ActionTarget::FsWrite => "fs::write".to_string(),
             ActionTarget::FsRead => "fs::read".to_string(),
+            ActionTarget::ModelRespond => "model::respond".to_string(),
+            ActionTarget::ModelEmbed => "model::embed".to_string(),
+            ActionTarget::ModelRerank => "model::rerank".to_string(),
+            ActionTarget::MediaExtractTranscript => "media::extract_transcript".to_string(),
+            ActionTarget::MediaExtractMultimodalEvidence => {
+                "media::extract_multimodal_evidence".to_string()
+            }
             ActionTarget::UiClick => "ui::click".to_string(),
             ActionTarget::UiType => "ui::type".to_string(),
             ActionTarget::SysExec => "sys::exec".to_string(),

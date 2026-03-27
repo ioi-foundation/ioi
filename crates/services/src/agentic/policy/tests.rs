@@ -75,6 +75,13 @@ fn custom_copy_target_keeps_exact_name_and_fs_write_alias() {
 }
 
 #[test]
+fn model_registry_target_keeps_exact_name_and_model_control_alias() {
+    let aliases = policy_target_aliases(&ActionTarget::Custom("model_registry__load".into()));
+    assert_eq!(aliases[0], "model_registry__load");
+    assert!(aliases.iter().any(|alias| alias == "model::control"));
+}
+
+#[test]
 fn copy_and_move_require_source_and_destination_paths() {
     let keys =
         required_filesystem_path_keys(&ActionTarget::Custom("filesystem__move_path".to_string()))

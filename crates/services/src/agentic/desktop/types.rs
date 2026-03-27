@@ -69,15 +69,283 @@ pub enum SessionRole {
     Worker,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkerMergeMode {
+    #[default]
+    AppendSummaryToParent,
+    AppendAsEvidence,
+    ReplaceParentDraft,
+    CompletionMessage,
+}
+
+impl WorkerMergeMode {
+    pub fn as_label(&self) -> &'static str {
+        match self {
+            WorkerMergeMode::AppendSummaryToParent => "append_summary_to_parent",
+            WorkerMergeMode::AppendAsEvidence => "append_as_evidence",
+            WorkerMergeMode::ReplaceParentDraft => "replace_parent_draft",
+            WorkerMergeMode::CompletionMessage => "completion_message",
+        }
+    }
+
+    pub fn parse_label(raw: Option<&str>) -> Option<Self> {
+        match raw.map(str::trim).filter(|value| !value.is_empty()) {
+            Some("append_summary_to_parent") | Some("append-summary-to-parent") => {
+                Some(WorkerMergeMode::AppendSummaryToParent)
+            }
+            Some("append_as_evidence") | Some("append-as-evidence") => {
+                Some(WorkerMergeMode::AppendAsEvidence)
+            }
+            Some("replace_parent_draft") | Some("replace-parent-draft") => {
+                Some(WorkerMergeMode::ReplaceParentDraft)
+            }
+            Some("completion_message") | Some("completion-message") => {
+                Some(WorkerMergeMode::CompletionMessage)
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct WorkerCompletionContract {
+    pub success_criteria: String,
+    pub expected_output: String,
+    pub merge_mode: WorkerMergeMode,
+    pub verification_hint: Option<String>,
+}
+
+impl Default for WorkerCompletionContract {
+    fn default() -> Self {
+        Self {
+            success_criteria: String::new(),
+            expected_output: String::new(),
+            merge_mode: WorkerMergeMode::AppendSummaryToParent,
+            verification_hint: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+#[serde(default)]
+pub struct WorkerTemplateWorkflowDefinition {
+    pub workflow_id: String,
+    pub label: String,
+    pub summary: String,
+    pub goal_template: String,
+    pub trigger_intents: Vec<String>,
+    #[serde(default)]
+    pub default_budget: Option<u64>,
+    #[serde(default)]
+    pub max_retries: Option<u8>,
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    #[serde(default)]
+    pub completion_contract: Option<WorkerCompletionContract>,
+}
+
+impl Default for WorkerTemplateWorkflowDefinition {
+    fn default() -> Self {
+        Self {
+            workflow_id: String::new(),
+            label: String::new(),
+            summary: String::new(),
+            goal_template: String::new(),
+            trigger_intents: Vec::new(),
+            default_budget: None,
+            max_retries: None,
+            allowed_tools: Vec::new(),
+            completion_contract: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkerTemplateDefinition {
+    pub template_id: String,
+    pub label: String,
+    pub role: String,
+    pub summary: String,
+    pub default_budget: u64,
+    pub max_retries: u8,
+    pub allowed_tools: Vec<String>,
+    pub completion_contract: WorkerCompletionContract,
+    #[serde(default)]
+    pub workflows: Vec<WorkerTemplateWorkflowDefinition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct AgentPlaybookStepDefinition {
+    pub step_id: String,
+    pub label: String,
+    pub summary: String,
+    pub worker_template_id: String,
+    pub worker_workflow_id: String,
+    pub goal_template: String,
+    #[serde(default)]
+    pub depends_on: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct AgentPlaybookDefinition {
+    pub playbook_id: String,
+    pub label: String,
+    pub summary: String,
+    pub goal_template: String,
+    #[serde(default)]
+    pub trigger_intents: Vec<String>,
+    #[serde(default)]
+    pub recommended_for: Vec<String>,
+    pub default_budget: u64,
+    pub completion_contract: WorkerCompletionContract,
+    #[serde(default)]
+    pub steps: Vec<AgentPlaybookStepDefinition>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ParentPlaybookStatus {
+    #[default]
+    Running,
+    Completed,
+    Blocked,
+    Failed,
+}
+
+impl ParentPlaybookStatus {
+    pub fn as_label(&self) -> &'static str {
+        match self {
+            ParentPlaybookStatus::Running => "running",
+            ParentPlaybookStatus::Completed => "completed",
+            ParentPlaybookStatus::Blocked => "blocked",
+            ParentPlaybookStatus::Failed => "failed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ParentPlaybookStepStatus {
+    #[default]
+    Pending,
+    Running,
+    Completed,
+    Blocked,
+    Failed,
+}
+
+impl ParentPlaybookStepStatus {
+    pub fn as_label(&self) -> &'static str {
+        match self {
+            ParentPlaybookStepStatus::Pending => "pending",
+            ParentPlaybookStepStatus::Running => "running",
+            ParentPlaybookStepStatus::Completed => "completed",
+            ParentPlaybookStepStatus::Blocked => "blocked",
+            ParentPlaybookStepStatus::Failed => "failed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ParentPlaybookStepRun {
+    pub step_id: String,
+    pub label: String,
+    pub summary: String,
+    pub status: ParentPlaybookStepStatus,
+    #[serde(default)]
+    pub child_session_id: Option<[u8; 32]>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub workflow_id: Option<String>,
+    #[serde(default)]
+    pub goal: Option<String>,
+    #[serde(default)]
+    pub output_preview: Option<String>,
+    #[serde(default)]
+    pub error: Option<String>,
+    #[serde(default)]
+    pub spawned_at_ms: Option<u64>,
+    #[serde(default)]
+    pub completed_at_ms: Option<u64>,
+    #[serde(default)]
+    pub merged_at_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ParentPlaybookRun {
+    pub parent_session_id: [u8; 32],
+    pub playbook_id: String,
+    pub playbook_label: String,
+    pub topic: String,
+    pub status: ParentPlaybookStatus,
+    pub current_step_index: u32,
+    #[serde(default)]
+    pub active_child_session_id: Option<[u8; 32]>,
+    pub started_at_ms: u64,
+    pub updated_at_ms: u64,
+    #[serde(default)]
+    pub completed_at_ms: Option<u64>,
+    #[serde(default)]
+    pub steps: Vec<ParentPlaybookStepRun>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct WorkerAssignment {
     pub step_key: String,
+    pub budget: u64,
     pub goal: String,
     pub success_criteria: String,
     pub max_retries: u8,
     pub retries_used: u8,
     pub assigned_session_id: Option<[u8; 32]>,
     pub status: String,
+    #[serde(default)]
+    pub playbook_id: Option<String>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub workflow_id: Option<String>,
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    #[serde(default)]
+    pub completion_contract: WorkerCompletionContract,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
+pub struct WorkerSessionResult {
+    pub child_session_id: [u8; 32],
+    pub parent_session_id: [u8; 32],
+    pub budget: u64,
+    #[serde(default)]
+    pub playbook_id: Option<String>,
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub workflow_id: Option<String>,
+    pub role: String,
+    pub goal: String,
+    pub status: String,
+    pub success: bool,
+    #[serde(default)]
+    pub error: Option<String>,
+    #[serde(default)]
+    pub raw_output: Option<String>,
+    pub merged_output: String,
+    pub completion_contract: WorkerCompletionContract,
+    pub completed_at_ms: u64,
+    #[serde(default)]
+    pub merged_at_ms: Option<u64>,
+    #[serde(default)]
+    pub merged_step_index: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]

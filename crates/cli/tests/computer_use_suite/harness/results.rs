@@ -114,6 +114,11 @@ pub(super) fn collect_agent_kernel_observations(
                         WorkloadReceipt::NetFetch(item) => item.error_class.clone(),
                         WorkloadReceipt::WebRetrieve(item) => item.error_class.clone(),
                         WorkloadReceipt::MemoryRetrieve(item) => item.error_class.clone(),
+                        WorkloadReceipt::Inference(item) => item.error_class.clone(),
+                        WorkloadReceipt::Media(item) => item.error_class.clone(),
+                        WorkloadReceipt::ModelLifecycle(item) => item.error_class.clone(),
+                        WorkloadReceipt::Worker(item) => item.error_class.clone(),
+                        WorkloadReceipt::ParentPlaybook(item) => item.error_class.clone(),
                         WorkloadReceipt::Adapter(item) => item.error_class.clone(),
                     };
                 }

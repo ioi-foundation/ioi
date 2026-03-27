@@ -5,22 +5,37 @@ use super::query_active_window_with_timeout;
 use super::target_requires_window_binding;
 use super::{normalize_web_research_tool_call, reconcile_pending_web_research_tool_call};
 use crate::agentic::desktop::runtime_secret;
+use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, PendingSearchCompletion,
     PendingSearchReadSummary,
 };
 use async_trait::async_trait;
 use ioi_api::state::StateScanIter;
+use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
+use ioi_api::vm::inference::{
+    ImageEditRequest, ImageGenerationRequest, ImageGenerationResult, InferenceRuntime,
+    SpeechSynthesisRequest, SpeechSynthesisResult, TextGenerationRequest, TextGenerationResult,
+    TranscriptionRequest, TranscriptionResult, VideoGenerationRequest, VideoGenerationResult,
+    VisionReadRequest, VisionReadResult,
+};
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::terminal::TerminalDriver;
 use ioi_types::app::agentic::{
     AgentTool, ComputerAction, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
     WebRetrievalContract,
 };
-use ioi_types::app::{AccountId, ActionTarget, ChainId, NetMode, RuntimeTarget};
+use ioi_types::app::{
+    AccountId, ActionRequest, ActionTarget, ChainId, ContextSlice, InferenceOperationKind,
+    KernelEvent, ModelLifecycleOperationKind, NetMode, RegistrySubjectKind, RuntimeTarget,
+    WorkloadActivityKind, WorkloadReceipt,
+};
 use ioi_types::error::StateError;
 use ioi_types::error::VmError;
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, Duration, Instant};
 
 fn test_agent_state() -> AgentState {
@@ -140,6 +155,196 @@ impl OsDriver for SlowWindowOsDriver {
     async fn get_clipboard(&self) -> Result<String, VmError> {
         Ok(String::new())
     }
+}
+
+struct NoopGuiDriver;
+
+#[async_trait]
+impl GuiDriver for NoopGuiDriver {
+    async fn capture_screen(
+        &self,
+        _crop_rect: Option<(i32, i32, u32, u32)>,
+    ) -> Result<Vec<u8>, VmError> {
+        Err(VmError::HostError("noop gui".into()))
+    }
+
+    async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+        Err(VmError::HostError("noop gui".into()))
+    }
+
+    async fn capture_tree(&self) -> Result<String, VmError> {
+        Err(VmError::HostError("noop gui".into()))
+    }
+
+    async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+        Err(VmError::HostError("noop gui".into()))
+    }
+
+    async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
+        Err(VmError::HostError("noop gui".into()))
+    }
+
+    async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+        Ok(None)
+    }
+
+    async fn register_som_overlay(
+        &self,
+        _map: std::collections::HashMap<u32, (i32, i32, i32, i32)>,
+    ) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct RecordingInferenceRuntime {
+    generated_inputs: Mutex<Vec<Vec<u8>>>,
+    load_calls: Mutex<Vec<([u8; 32], String)>>,
+    transcription_calls: Mutex<Vec<String>>,
+}
+
+#[async_trait]
+impl InferenceRuntime for RecordingInferenceRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        _input_context: &[u8],
+        _options: ioi_types::app::InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        Ok(Vec::new())
+    }
+
+    async fn generate_text(
+        &self,
+        request: TextGenerationRequest,
+    ) -> Result<TextGenerationResult, VmError> {
+        self.generated_inputs
+            .lock()
+            .expect("generated_inputs mutex poisoned")
+            .push(request.input_context.clone());
+        Ok(TextGenerationResult {
+            output: b"kernel-native output".to_vec(),
+            model_id: request
+                .model_id
+                .or_else(|| Some("recorded-model".to_string())),
+            streamed: request.stream,
+        })
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        Ok(vec![text.len() as f32, 1.0])
+    }
+
+    async fn transcribe_audio(
+        &self,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionResult, VmError> {
+        self.transcription_calls
+            .lock()
+            .expect("transcription_calls mutex poisoned")
+            .push(request.mime_type.clone());
+        Ok(TranscriptionResult {
+            text: "kernel transcript".to_string(),
+            language: request.language.or_else(|| Some("en".to_string())),
+            model_id: request
+                .model_id
+                .or_else(|| Some("recorded-transcriber".to_string())),
+        })
+    }
+
+    async fn synthesize_speech(
+        &self,
+        request: SpeechSynthesisRequest,
+    ) -> Result<SpeechSynthesisResult, VmError> {
+        Ok(SpeechSynthesisResult {
+            audio_bytes: request.text.into_bytes(),
+            mime_type: request.mime_type.unwrap_or_else(|| "audio/wav".to_string()),
+            model_id: request
+                .model_id
+                .or_else(|| Some("recorded-tts".to_string())),
+        })
+    }
+
+    async fn vision_read(&self, request: VisionReadRequest) -> Result<VisionReadResult, VmError> {
+        Ok(VisionReadResult {
+            output_text: format!(
+                "vision:{}:{}",
+                request.mime_type,
+                request.prompt.unwrap_or_else(|| "no-prompt".to_string())
+            ),
+            model_id: request
+                .model_id
+                .or_else(|| Some("recorded-vision".to_string())),
+        })
+    }
+
+    async fn generate_image(
+        &self,
+        request: ImageGenerationRequest,
+    ) -> Result<ImageGenerationResult, VmError> {
+        Ok(ImageGenerationResult {
+            image_bytes: request.prompt.into_bytes(),
+            mime_type: request.mime_type.unwrap_or_else(|| "image/png".to_string()),
+            model_id: request
+                .model_id
+                .or_else(|| Some("recorded-image".to_string())),
+        })
+    }
+
+    async fn edit_image(
+        &self,
+        request: ImageEditRequest,
+    ) -> Result<ImageGenerationResult, VmError> {
+        Ok(ImageGenerationResult {
+            image_bytes: request
+                .prompt
+                .unwrap_or_else(|| "recorded-image-edit".to_string())
+                .into_bytes(),
+            mime_type: request.source_mime_type,
+            model_id: request
+                .model_id
+                .or_else(|| Some("recorded-image-edit".to_string())),
+        })
+    }
+
+    async fn generate_video(
+        &self,
+        request: VideoGenerationRequest,
+    ) -> Result<VideoGenerationResult, VmError> {
+        Ok(VideoGenerationResult {
+            video_bytes: request.prompt.into_bytes(),
+            mime_type: request.mime_type.unwrap_or_else(|| "video/mp4".to_string()),
+            model_id: request
+                .model_id
+                .or_else(|| Some("recorded-video".to_string())),
+        })
+    }
+
+    async fn load_model(&self, model_hash: [u8; 32], path: &Path) -> Result<(), VmError> {
+        self.load_calls
+            .lock()
+            .expect("load_calls mutex poisoned")
+            .push((model_hash, path.display().to_string()));
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+fn build_test_service(
+    inference: Arc<dyn InferenceRuntime>,
+    event_sender: Option<tokio::sync::broadcast::Sender<KernelEvent>>,
+) -> DesktopAgentService {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let mut service = DesktopAgentService::new(gui, terminal, browser, inference);
+    if let Some(sender) = event_sender {
+        service = service.with_event_sender(sender);
+    }
+    service
 }
 
 #[tokio::test]
@@ -917,6 +1122,52 @@ fn runtime_target_maps_dynamic_tools_to_adapter() {
 }
 
 #[test]
+fn runtime_target_maps_model_dynamic_tools_to_inference() {
+    let tool = AgentTool::Dynamic(serde_json::json!({
+        "name": "model__responses",
+        "arguments": { "prompt": "hello" }
+    }));
+    assert_eq!(
+        super::runtime_target_for_tool(&tool),
+        RuntimeTarget::Inference
+    );
+}
+
+#[test]
+fn runtime_target_maps_media_tools_to_media() {
+    let typed_tool = AgentTool::MediaExtractTranscript {
+        url: "https://example.com/video".to_string(),
+        language: Some("en".to_string()),
+        max_chars: Some(512),
+    };
+    assert_eq!(
+        super::runtime_target_for_tool(&typed_tool),
+        RuntimeTarget::Media
+    );
+
+    let dynamic_tool = AgentTool::Dynamic(serde_json::json!({
+        "name": "media__extract_multimodal_evidence",
+        "arguments": { "url": "https://example.com/video" }
+    }));
+    assert_eq!(
+        super::runtime_target_for_tool(&dynamic_tool),
+        RuntimeTarget::Media
+    );
+}
+
+#[test]
+fn runtime_target_maps_model_registry_dynamic_tools_to_model_registry() {
+    let tool = AgentTool::Dynamic(serde_json::json!({
+        "name": "model_registry__install",
+        "arguments": { "source_uri": "https://models.example.com/demo.gguf" }
+    }));
+    assert_eq!(
+        super::runtime_target_for_tool(&tool),
+        RuntimeTarget::ModelRegistry
+    );
+}
+
+#[test]
 fn runtime_target_maps_google_connector_dynamic_tools_to_adapter() {
     let tool = AgentTool::Dynamic(serde_json::json!({
         "name": "connector__google__gmail_read_emails",
@@ -947,6 +1198,579 @@ fn build_workload_spec_binds_domain_and_allowlisted_net_mode_for_net_fetch() {
         .expect("net fetch should mint capability lease");
     assert!(lease.allows_capability("net::fetch"));
     assert!(lease.allows_domain("status.api.example.com"));
+}
+
+#[test]
+fn build_workload_spec_binds_media_runtime_and_allowlisted_net_mode_for_remote_media_tool() {
+    let tool = AgentTool::MediaExtractTranscript {
+        url: "https://media.example.com/watch/demo".to_string(),
+        language: Some("en".to_string()),
+        max_chars: Some(256),
+    };
+    let (spec, observed_domain) = super::build_workload_spec(
+        &tool,
+        &ActionTarget::MediaExtractTranscript,
+        [6u8; 32],
+        None,
+        None,
+        2_500,
+    );
+
+    assert_eq!(spec.runtime_target, RuntimeTarget::Media);
+    assert_eq!(spec.net_mode, NetMode::AllowListed);
+    assert_eq!(observed_domain.as_deref(), Some("media.example.com"));
+
+    let lease = spec
+        .capability_lease
+        .as_ref()
+        .expect("media tool should mint capability lease");
+    assert!(lease.allows_capability("media::extract_transcript"));
+    assert!(lease.allows_domain("cdn.media.example.com"));
+}
+
+#[test]
+fn build_workload_spec_observes_model_registry_source_domains() {
+    let tool = AgentTool::Dynamic(serde_json::json!({
+        "name": "model_registry__install",
+        "arguments": { "source_uri": "https://models.example.com/demo.gguf" }
+    }));
+    let (spec, observed_domain) = super::build_workload_spec(
+        &tool,
+        &ActionTarget::Custom("model_registry__install".to_string()),
+        [4u8; 32],
+        None,
+        None,
+        3_000,
+    );
+
+    assert_eq!(spec.runtime_target, RuntimeTarget::ModelRegistry);
+    assert_eq!(spec.net_mode, NetMode::AllowListed);
+    assert_eq!(observed_domain.as_deref(), Some("models.example.com"));
+
+    let lease = spec
+        .capability_lease
+        .as_ref()
+        .expect("registry install should mint capability lease");
+    assert!(lease.allows_domain("cdn.models.example.com"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_dynamic_model_responses_execute_and_emit_inference_receipt() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let service = build_test_service(runtime.clone(), Some(tx));
+
+    let dynamic_tool = serde_json::json!({
+        "name": "model__responses",
+        "arguments": {
+            "prompt": "hello from kernel",
+            "model_id": "codex-oss-local",
+            "stream": true
+        }
+    });
+
+    let result = super::handlers::handle_native_dynamic_tool(
+        &service,
+        &dynamic_tool,
+        [7u8; 32],
+        3,
+        &test_agent_state(),
+    )
+    .await
+    .expect("native handler should not fail transaction")
+    .expect("tool should be admitted natively");
+
+    assert!(result.0);
+    let history = result.1.expect("successful tool should emit history");
+    assert!(history.contains("kernel-native output"));
+
+    let generated_inputs = runtime
+        .generated_inputs
+        .lock()
+        .expect("generated_inputs mutex poisoned");
+    assert_eq!(generated_inputs.len(), 1);
+    assert_eq!(
+        String::from_utf8(generated_inputs[0].clone()).expect("prompt should be utf8"),
+        "hello from kernel"
+    );
+    drop(generated_inputs);
+
+    let mut activity_phases = Vec::new();
+    let mut saw_receipt = false;
+    while let Ok(event) = rx.try_recv() {
+        match event {
+            KernelEvent::WorkloadActivity(activity) => {
+                if let WorkloadActivityKind::Lifecycle { phase, .. } = activity.kind {
+                    activity_phases.push(phase);
+                }
+            }
+            KernelEvent::WorkloadReceipt(receipt_event) => match receipt_event.receipt {
+                WorkloadReceipt::Inference(receipt) => {
+                    assert_eq!(receipt.tool_name, "model__responses");
+                    assert_eq!(receipt.operation, InferenceOperationKind::TextGeneration);
+                    assert_eq!(receipt.model_id, "codex-oss-local");
+                    assert!(receipt.streaming);
+                    assert!(receipt.success);
+                    saw_receipt = true;
+                }
+                other => panic!("expected inference receipt, got {:?}", other),
+            },
+            _ => {}
+        }
+    }
+
+    assert_eq!(
+        activity_phases,
+        vec!["started".to_string(), "completed".to_string()]
+    );
+    assert!(saw_receipt, "expected inference workload receipt");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_dynamic_model_registry_load_executes_and_emits_lifecycle_receipt() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let service = build_test_service(runtime.clone(), Some(tx));
+
+    let dynamic_tool = serde_json::json!({
+        "name": "model_registry__load",
+        "arguments": {
+            "model_id": "demo-model",
+            "path": "/tmp/demo.gguf"
+        }
+    });
+
+    let result = super::handlers::handle_native_dynamic_tool(
+        &service,
+        &dynamic_tool,
+        [8u8; 32],
+        4,
+        &test_agent_state(),
+    )
+    .await
+    .expect("native handler should not fail transaction")
+    .expect("registry load should be admitted natively");
+
+    assert!(result.0);
+    let load_calls = runtime
+        .load_calls
+        .lock()
+        .expect("load_calls mutex poisoned");
+    assert_eq!(load_calls.len(), 1);
+    assert_eq!(load_calls[0].1, "/tmp/demo.gguf");
+    drop(load_calls);
+
+    let mut saw_receipt = false;
+    while let Ok(event) = rx.try_recv() {
+        if let KernelEvent::WorkloadReceipt(receipt_event) = event {
+            match receipt_event.receipt {
+                WorkloadReceipt::ModelLifecycle(receipt) => {
+                    assert_eq!(receipt.tool_name, "model_registry__load");
+                    assert_eq!(receipt.operation, ModelLifecycleOperationKind::Load);
+                    assert_eq!(receipt.subject_kind, RegistrySubjectKind::Model);
+                    assert_eq!(receipt.subject_id, "demo-model");
+                    assert!(receipt.success);
+                    saw_receipt = true;
+                }
+                other => panic!("expected model lifecycle receipt, got {:?}", other),
+            }
+        }
+    }
+
+    assert!(saw_receipt, "expected lifecycle workload receipt");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn model_registry_install_is_accepted_as_kernel_control_plane_job() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let service = build_test_service(runtime, Some(tx));
+
+    let dynamic_tool = serde_json::json!({
+        "name": "model_registry__install",
+        "arguments": {
+            "model_id": "demo-model",
+            "source_uri": "https://models.example.com/demo.gguf"
+        }
+    });
+
+    let result = super::handlers::handle_native_dynamic_tool(
+        &service,
+        &dynamic_tool,
+        [9u8; 32],
+        5,
+        &test_agent_state(),
+    )
+    .await
+    .expect("native handler should not fail transaction")
+    .expect("reserved registry family should be admitted natively");
+
+    assert!(result.0);
+    let history = result
+        .1
+        .expect("accepted registry install should emit history");
+    assert!(history.contains("\"status\":\"accepted\""));
+
+    let mut saw_receipt = false;
+    while let Ok(event) = rx.try_recv() {
+        if let KernelEvent::WorkloadReceipt(receipt_event) = event {
+            match receipt_event.receipt {
+                WorkloadReceipt::ModelLifecycle(receipt) => {
+                    assert_eq!(receipt.tool_name, "model_registry__install");
+                    assert_eq!(receipt.operation, ModelLifecycleOperationKind::Install);
+                    assert_eq!(receipt.subject_kind, RegistrySubjectKind::Model);
+                    assert_eq!(receipt.subject_id, "demo-model");
+                    assert_eq!(
+                        receipt.source_uri.as_deref(),
+                        Some("https://models.example.com/demo.gguf")
+                    );
+                    assert!(receipt.success);
+                    assert!(receipt.job_id.is_some());
+                    assert!(receipt.error_class.is_none());
+                    saw_receipt = true;
+                }
+                other => panic!("expected model lifecycle receipt, got {:?}", other),
+            }
+        }
+    }
+
+    assert!(saw_receipt, "expected typed acceptance receipt");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_dynamic_media_transcription_executes_and_emits_media_receipt() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let service = build_test_service(runtime.clone(), Some(tx));
+
+    let dynamic_tool = serde_json::json!({
+        "name": "media__transcribe_audio",
+        "arguments": {
+            "audio_base64": "aGVsbG8=",
+            "mime_type": "audio/wav",
+            "language": "en"
+        }
+    });
+
+    let result = super::handlers::handle_native_dynamic_tool(
+        &service,
+        &dynamic_tool,
+        [10u8; 32],
+        6,
+        &test_agent_state(),
+    )
+    .await
+    .expect("native handler should not fail transaction")
+    .expect("media transcription should be admitted natively");
+
+    assert!(result.0);
+    let history = result
+        .1
+        .expect("successful transcription should emit history");
+    assert!(history.contains("kernel transcript"));
+
+    let transcription_calls = runtime
+        .transcription_calls
+        .lock()
+        .expect("transcription_calls mutex poisoned");
+    assert_eq!(transcription_calls.as_slice(), ["audio/wav"]);
+    drop(transcription_calls);
+
+    let mut saw_receipt = false;
+    while let Ok(event) = rx.try_recv() {
+        if let KernelEvent::WorkloadReceipt(receipt_event) = event {
+            match receipt_event.receipt {
+                WorkloadReceipt::Media(receipt) => {
+                    assert_eq!(receipt.tool_name, "media__transcribe_audio");
+                    assert_eq!(
+                        receipt.operation,
+                        ioi_types::app::MediaOperationKind::Transcription
+                    );
+                    assert_eq!(receipt.output_mime_types, vec!["text/plain".to_string()]);
+                    assert!(receipt.success);
+                    saw_receipt = true;
+                }
+                other => panic!("expected media receipt, got {:?}", other),
+            }
+        }
+    }
+
+    assert!(saw_receipt, "expected media workload receipt");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_dynamic_media_speech_executes_and_emits_media_receipt() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let service = build_test_service(runtime, Some(tx));
+
+    let dynamic_tool = serde_json::json!({
+        "name": "media__synthesize_speech",
+        "arguments": {
+            "text": "hello from the speech substrate",
+            "mime_type": "audio/wav",
+            "voice": "alloy"
+        }
+    });
+
+    let result = super::handlers::handle_native_dynamic_tool(
+        &service,
+        &dynamic_tool,
+        [11u8; 32],
+        7,
+        &test_agent_state(),
+    )
+    .await
+    .expect("native handler should not fail transaction")
+    .expect("media speech synthesis should be admitted natively");
+
+    assert!(result.0);
+    let history = result
+        .1
+        .expect("successful speech synthesis should emit history");
+    assert!(history.contains("\"mime_type\":\"audio/wav\""));
+    assert!(history.contains("\"byte_count\":31"));
+
+    let mut saw_receipt = false;
+    while let Ok(event) = rx.try_recv() {
+        if let KernelEvent::WorkloadReceipt(receipt_event) = event {
+            match receipt_event.receipt {
+                WorkloadReceipt::Media(receipt) => {
+                    assert_eq!(receipt.tool_name, "media__synthesize_speech");
+                    assert_eq!(
+                        receipt.operation,
+                        ioi_types::app::MediaOperationKind::SpeechSynthesis
+                    );
+                    assert_eq!(receipt.output_mime_types, vec!["audio/wav".to_string()]);
+                    assert_eq!(receipt.output_bytes, Some(31));
+                    assert!(receipt.success);
+                    saw_receipt = true;
+                }
+                other => panic!("expected media receipt, got {:?}", other),
+            }
+        }
+    }
+
+    assert!(saw_receipt, "expected media workload receipt");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_dynamic_media_vision_executes_and_emits_media_receipt() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let service = build_test_service(runtime, Some(tx));
+
+    let dynamic_tool = serde_json::json!({
+        "name": "media__vision_read",
+        "arguments": {
+            "image_base64": "aGVsbG8=",
+            "mime_type": "image/png",
+            "prompt": "inspect the screenshot"
+        }
+    });
+
+    let result = super::handlers::handle_native_dynamic_tool(
+        &service,
+        &dynamic_tool,
+        [12u8; 32],
+        8,
+        &test_agent_state(),
+    )
+    .await
+    .expect("native handler should not fail transaction")
+    .expect("media vision should be admitted natively");
+
+    assert!(result.0);
+    let history = result
+        .1
+        .expect("successful vision read should emit history");
+    assert!(history.contains("vision:image/png:inspect the screenshot"));
+
+    let mut saw_receipt = false;
+    while let Ok(event) = rx.try_recv() {
+        if let KernelEvent::WorkloadReceipt(receipt_event) = event {
+            match receipt_event.receipt {
+                WorkloadReceipt::Media(receipt) => {
+                    assert_eq!(receipt.tool_name, "media__vision_read");
+                    assert_eq!(
+                        receipt.operation,
+                        ioi_types::app::MediaOperationKind::VisionRead
+                    );
+                    assert_eq!(receipt.output_mime_types, vec!["text/plain".to_string()]);
+                    assert!(receipt.success);
+                    saw_receipt = true;
+                }
+                other => panic!("expected media receipt, got {:?}", other),
+            }
+        }
+    }
+
+    assert!(saw_receipt, "expected media workload receipt");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_dynamic_media_image_generation_executes_and_emits_media_receipt() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let service = build_test_service(runtime, Some(tx));
+
+    let dynamic_tool = serde_json::json!({
+        "name": "media__generate_image",
+        "arguments": {
+            "prompt": "paint a neon skyline",
+            "mime_type": "image/png"
+        }
+    });
+
+    let result = super::handlers::handle_native_dynamic_tool(
+        &service,
+        &dynamic_tool,
+        [13u8; 32],
+        9,
+        &test_agent_state(),
+    )
+    .await
+    .expect("native handler should not fail transaction")
+    .expect("media image generation should be admitted natively");
+
+    assert!(result.0);
+    let history = result
+        .1
+        .expect("successful image generation should emit history");
+    assert!(history.contains("\"mime_type\":\"image/png\""));
+    assert!(history.contains("\"byte_count\":20"));
+
+    let mut saw_receipt = false;
+    while let Ok(event) = rx.try_recv() {
+        if let KernelEvent::WorkloadReceipt(receipt_event) = event {
+            match receipt_event.receipt {
+                WorkloadReceipt::Media(receipt) => {
+                    assert_eq!(receipt.tool_name, "media__generate_image");
+                    assert_eq!(
+                        receipt.operation,
+                        ioi_types::app::MediaOperationKind::ImageGeneration
+                    );
+                    assert_eq!(receipt.output_mime_types, vec!["image/png".to_string()]);
+                    assert_eq!(receipt.output_bytes, Some(20));
+                    assert!(receipt.success);
+                    saw_receipt = true;
+                }
+                other => panic!("expected media receipt, got {:?}", other),
+            }
+        }
+    }
+
+    assert!(saw_receipt, "expected media workload receipt");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_dynamic_media_image_edit_executes_and_emits_media_receipt() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let service = build_test_service(runtime, Some(tx));
+
+    let dynamic_tool = serde_json::json!({
+        "name": "media__edit_image",
+        "arguments": {
+            "source_image_base64": "aGVsbG8=",
+            "source_mime_type": "image/png",
+            "prompt": "sepia"
+        }
+    });
+
+    let result = super::handlers::handle_native_dynamic_tool(
+        &service,
+        &dynamic_tool,
+        [14u8; 32],
+        10,
+        &test_agent_state(),
+    )
+    .await
+    .expect("native handler should not fail transaction")
+    .expect("media image edit should be admitted natively");
+
+    assert!(result.0);
+    let history = result.1.expect("successful image edit should emit history");
+    assert!(history.contains("\"mime_type\":\"image/png\""));
+    assert!(history.contains("\"byte_count\":5"));
+
+    let mut saw_receipt = false;
+    while let Ok(event) = rx.try_recv() {
+        if let KernelEvent::WorkloadReceipt(receipt_event) = event {
+            match receipt_event.receipt {
+                WorkloadReceipt::Media(receipt) => {
+                    assert_eq!(receipt.tool_name, "media__edit_image");
+                    assert_eq!(
+                        receipt.operation,
+                        ioi_types::app::MediaOperationKind::ImageEdit
+                    );
+                    assert_eq!(receipt.output_mime_types, vec!["image/png".to_string()]);
+                    assert_eq!(receipt.output_bytes, Some(5));
+                    assert!(receipt.success);
+                    saw_receipt = true;
+                }
+                other => panic!("expected media receipt, got {:?}", other),
+            }
+        }
+    }
+
+    assert!(saw_receipt, "expected media workload receipt");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn native_dynamic_media_video_generation_executes_and_emits_media_receipt() {
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let (tx, mut rx) = tokio::sync::broadcast::channel(16);
+    let service = build_test_service(runtime, Some(tx));
+
+    let dynamic_tool = serde_json::json!({
+        "name": "media__generate_video",
+        "arguments": {
+            "prompt": "video prompt",
+            "mime_type": "video/mp4",
+            "duration_ms": 1800
+        }
+    });
+
+    let result = super::handlers::handle_native_dynamic_tool(
+        &service,
+        &dynamic_tool,
+        [15u8; 32],
+        11,
+        &test_agent_state(),
+    )
+    .await
+    .expect("native handler should not fail transaction")
+    .expect("media video generation should be admitted natively");
+
+    assert!(result.0);
+    let history = result
+        .1
+        .expect("successful video generation should emit history");
+    assert!(history.contains("\"mime_type\":\"video/mp4\""));
+    assert!(history.contains("\"byte_count\":12"));
+
+    let mut saw_receipt = false;
+    while let Ok(event) = rx.try_recv() {
+        if let KernelEvent::WorkloadReceipt(receipt_event) = event {
+            match receipt_event.receipt {
+                WorkloadReceipt::Media(receipt) => {
+                    assert_eq!(receipt.tool_name, "media__generate_video");
+                    assert_eq!(
+                        receipt.operation,
+                        ioi_types::app::MediaOperationKind::VideoGeneration
+                    );
+                    assert_eq!(receipt.output_mime_types, vec!["video/mp4".to_string()]);
+                    assert_eq!(receipt.output_bytes, Some(12));
+                    assert!(receipt.success);
+                    saw_receipt = true;
+                }
+                other => panic!("expected media receipt, got {:?}", other),
+            }
+        }
+    }
+
+    assert!(saw_receipt, "expected media workload receipt");
 }
 
 #[test]

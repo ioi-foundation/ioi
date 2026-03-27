@@ -30,7 +30,15 @@ pub(super) fn synthesize_node_policy(node_type: &str, law_config: &Value) -> Act
         "browser" => "browser::interact",
         "web_search" | "web_read" => "web::retrieve",
         "tool" => "net::fetch",
-        "model" => "model::inference",
+        "model" | "responses" => "model::respond",
+        "embeddings" => "model::embed",
+        "rerank" => "model::rerank",
+        "transcribe_audio" => "media::extract_transcript",
+        "synthesize_speech" => "media::synthesize_speech",
+        "vision_read" => "media::extract_multimodal_evidence",
+        "generate_image" => "media::generate_image",
+        "edit_image" => "media::edit_image",
+        "generate_video" => "media::generate_video",
         "gate" => "gov::gate",
         "code" => "sys::exec",
         _ => "*",
@@ -71,6 +79,15 @@ pub(super) fn map_to_action_request(
     let target = match node_type {
         "browser" => ActionTarget::BrowserInteract,
         "web_search" | "web_read" => ActionTarget::WebRetrieve,
+        "model" | "responses" => ActionTarget::ModelRespond,
+        "embeddings" => ActionTarget::ModelEmbed,
+        "rerank" => ActionTarget::ModelRerank,
+        "transcribe_audio" => ActionTarget::MediaExtractTranscript,
+        "synthesize_speech" => ActionTarget::Custom("media::synthesize_speech".into()),
+        "vision_read" => ActionTarget::MediaExtractMultimodalEvidence,
+        "generate_image" => ActionTarget::Custom("media::generate_image".into()),
+        "edit_image" => ActionTarget::Custom("media::edit_image".into()),
+        "generate_video" => ActionTarget::Custom("media::generate_video".into()),
         "tool" => {
             if let Some(endpoint) = logic_config.get("endpoint").and_then(|s| s.as_str()) {
                 if endpoint.starts_with("http") {

@@ -2,12 +2,25 @@ import type {
   ConnectorConfigureResult,
   ConnectorSummary,
 } from "@ioi/agent-ide";
-import type { SkillCatalogEntry, SkillDetailView } from "../../../../types";
+import type {
+  LocalEngineControlPlane,
+  LocalEngineSnapshot,
+  SkillCatalogEntry,
+  SkillDetailView,
+} from "../../../../types";
 import type { ConnectionCatalogItem } from "../capabilitiesCatalog";
 
-export type CapabilitySurface = "skills" | "connections" | "extensions";
+export type CapabilitySurface = "engine" | "skills" | "connections" | "extensions";
 export type SkillOrigin = "starter" | "runtime";
 export type ConnectionOrigin = "runtime" | "workspace";
+export type EngineDetailSection =
+  | "overview"
+  | "runtime"
+  | "configuration"
+  | "catalogs"
+  | "registry"
+  | "activity"
+  | "families";
 
 export interface WorkspaceSkill {
   hash: string;
@@ -25,6 +38,16 @@ export interface WorkspaceExtension {
   status: string;
   meta: string;
   surfaces: string[];
+}
+
+export interface LocalEnginePanel {
+  snapshot: LocalEngineSnapshot | null;
+  loading: boolean;
+  error: string | null;
+  configDraft: LocalEngineControlPlane | null;
+  configSaving: boolean;
+  configMessage: string | null;
+  stagingBusy: boolean;
 }
 
 export interface StoredConnectionDraft {
@@ -57,6 +80,7 @@ export const SKILL_SWITCH_STORAGE_KEY =
 export function humanize(value: string): string {
   return value
     .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/::/g, " ")
     .replace(/[_-]/g, " ")
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
@@ -123,6 +147,12 @@ export function loadStoredSkillSwitches(): Record<string, boolean> {
   }
 }
 
+export function cloneLocalEngineControlPlane(
+  controlPlane: LocalEngineControlPlane,
+): LocalEngineControlPlane {
+  return JSON.parse(JSON.stringify(controlPlane)) as LocalEngineControlPlane;
+}
+
 export function skillDetailFromCatalog(
   entry: SkillCatalogEntry,
 ): SkillDetailView {
@@ -138,6 +168,12 @@ export function skillDetailFromCatalog(
     source_session_id: entry.source_session_id,
     source_evidence_hash: entry.source_evidence_hash,
     relative_path: entry.relative_path,
+    source_registry_id: null,
+    source_registry_label: null,
+    source_registry_uri: null,
+    source_registry_kind: null,
+    source_registry_sync_status: null,
+    source_registry_relative_path: null,
     stale: entry.stale,
     used_tools: [entry.definition.name],
     steps: [],

@@ -288,6 +288,11 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
                     approve_label: Some("Approve action".to_string()),
                     deny_label: Some("Deny action".to_string()),
                     deadline_ms: None,
+                    surface_label: None,
+                    scope_label: None,
+                    operation_label: None,
+                    target_label: None,
+                    operator_note: None,
                     pii: None,
                 });
             }

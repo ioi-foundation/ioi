@@ -44,6 +44,7 @@ struct QueryBindingProfile {
     host_local_clock_targeted: bool,
     command_directed: bool,
     durable_automation_requested: bool,
+    model_registry_control_requested: bool,
     app_launch_directed: bool,
     direct_ui_input: bool,
     desktop_screenshot_requested: bool,

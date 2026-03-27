@@ -3,11 +3,29 @@ use ioi_types::app::ActionTarget;
 
 use super::filesystem::filesystem_scope_policy_target;
 
-pub(super) fn policy_target_aliases(target: &ActionTarget) -> Vec<String> {
+fn model_control_policy_target(target: &ActionTarget) -> Option<&'static str> {
+    match target {
+        ActionTarget::Custom(name)
+            if name.starts_with("model_registry__")
+                || name.starts_with("backend__")
+                || name.starts_with("gallery__") =>
+        {
+            Some("model::control")
+        }
+        _ => None,
+    }
+}
+
+pub(crate) fn policy_target_aliases(target: &ActionTarget) -> Vec<String> {
     let mut aliases = vec![target.canonical_label()];
     if let Some(scope_target) = filesystem_scope_policy_target(target) {
         if !aliases.iter().any(|alias| alias == scope_target) {
             aliases.push(scope_target.to_string());
+        }
+    }
+    if let Some(model_control_target) = model_control_policy_target(target) {
+        if !aliases.iter().any(|alias| alias == model_control_target) {
+            aliases.push(model_control_target.to_string());
         }
     }
     aliases

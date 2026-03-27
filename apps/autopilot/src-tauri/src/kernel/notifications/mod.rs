@@ -593,6 +593,9 @@ pub(crate) fn record_approval_intervention(
     summary: &str,
     severity: NotificationSeverity,
     due_at_ms: Option<u64>,
+    approval_scope: Option<String>,
+    sensitive_action_type: Option<String>,
+    recovery_hint: Option<String>,
 ) {
     let request_hash = normalize_request_hash(request_hash);
     let now = now_ms();
@@ -653,12 +656,12 @@ pub(crate) fn record_approval_intervention(
             target: None,
             request_hash: Some(request_hash),
             policy_hash: None,
-            approval_scope: None,
-            sensitive_action_type: None,
+            approval_scope,
+            sensitive_action_type,
             error_class: None,
             blocked_stage: None,
             retry_available: None,
-            recovery_hint: None,
+            recovery_hint,
         },
     );
 }

@@ -15,6 +15,12 @@ pub mod events;
 pub mod guardianized;
 /// Data structures for on-chain identity, including the canonical AccountId.
 pub mod identity;
+/// Typed first-party inference workload contracts.
+pub mod inference;
+/// Typed first-party media workload contracts.
+pub mod media;
+/// Typed first-party model and backend lifecycle contracts.
+pub mod model_registry;
 /// Data structures for reporting and penalizing misbehavior.
 pub mod penalties;
 /// Data structures for economic settlement.
@@ -42,6 +48,9 @@ pub use identity::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, BinaryMeasurement, BootAttestation,
     ChainId, Credential, GuardianReport, SignatureSuite,
 };
+pub use inference::*;
+pub use media::*;
+pub use model_registry::*;
 pub use penalties::*;
 pub use settlement::*;
 pub use timing::*; // [NEW]

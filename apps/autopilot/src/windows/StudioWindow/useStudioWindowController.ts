@@ -28,6 +28,7 @@ import {
   type PrimaryView,
   type ProjectFileDocument,
 } from "./studioWindowModel";
+import type { CapabilitySurface } from "./components/capabilities/model";
 
 type ToastCandidate = Pick<
   InterventionRecord,
@@ -166,6 +167,8 @@ export function useStudioWindowController() {
   );
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [installModalOpen, setInstallModalOpen] = useState(false);
+  const [capabilitiesSurfaceSeed, setCapabilitiesSurfaceSeed] =
+    useState<CapabilitySurface | null>(null);
 
   const lastPersistedShieldPolicyRef = useRef<string>(
     JSON.stringify(loadShieldPolicyState()),
@@ -440,6 +443,11 @@ export function useStudioWindowController() {
 
   const changePrimaryView = (view: PrimaryView) => {
     setActiveView(view);
+  };
+
+  const openCapabilitiesSurface = (surface: CapabilitySurface | null = null) => {
+    setCapabilitiesSurfaceSeed(surface);
+    setActiveView("capabilities");
   };
 
   const loadEditorDocument = async (relativePath: string) => {
@@ -754,6 +762,11 @@ export function useStudioWindowController() {
       focusedConnectorId: focusedPolicyConnectorId,
       focusConnector: setFocusedPolicyConnectorId,
       openPolicyCenter,
+    },
+    capabilities: {
+      seedSurface: capabilitiesSurfaceSeed,
+      openSurface: openCapabilitiesSurface,
+      consumeSeedSurface: () => setCapabilitiesSurfaceSeed(null),
     },
     profile: {
       value: profile,

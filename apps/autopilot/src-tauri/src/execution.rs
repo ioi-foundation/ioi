@@ -165,7 +165,35 @@ pub async fn execute_ephemeral_node(
     let logic_config = full_config.get("logic").unwrap_or(full_config);
 
     match node_type {
-        "model" => runners::run_llm_inference(logic_config, input_json).await,
+        "model" | "responses" => {
+            runners::run_responses_execution(logic_config, input_json, inference.clone()).await
+        }
+        "embeddings" => {
+            runners::run_embeddings_execution(logic_config, input_json, inference.clone()).await
+        }
+        "rerank" => {
+            runners::run_rerank_execution(logic_config, input_json, inference.clone()).await
+        }
+        "transcribe_audio" => {
+            runners::run_transcribe_audio_execution(logic_config, input_json, inference.clone())
+                .await
+        }
+        "synthesize_speech" => {
+            runners::run_synthesize_speech_execution(logic_config, input_json, inference.clone())
+                .await
+        }
+        "vision_read" => {
+            runners::run_vision_read_execution(logic_config, input_json, inference.clone()).await
+        }
+        "generate_image" => {
+            runners::run_generate_image_execution(logic_config, input_json, inference.clone()).await
+        }
+        "edit_image" => {
+            runners::run_edit_image_execution(logic_config, input_json, inference.clone()).await
+        }
+        "generate_video" => {
+            runners::run_generate_video_execution(logic_config, input_json, inference.clone()).await
+        }
         "gate" => runners::run_gate_execution(logic_config, input_json).await,
         "browser" => runners::run_browser_execution(logic_config, input_json).await,
         "web_search" => runners::run_web_search_execution(logic_config, input_json).await,

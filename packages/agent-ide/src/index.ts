@@ -13,8 +13,12 @@ export { useMailConnectorActions } from "./features/Connectors/hooks/useMailConn
 
 export type {
   AgentRuntime,
+  GraphCapabilityCatalog,
+  GraphModelBindingCatalog,
   GraphPayload,
   GraphEvent,
+  GraphRuntimeCapabilityOption,
+  GraphRuntimeModelOption,
   CacheResult,
   AgentSummary,
   FleetState,

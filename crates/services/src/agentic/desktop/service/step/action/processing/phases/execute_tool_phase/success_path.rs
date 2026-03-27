@@ -12,6 +12,7 @@ use ioi_types::app::agentic::{
     MediaFrameEvidence, MediaMultimodalBundle, MediaTimelineOutlineBundle, MediaTranscriptBundle,
     MediaVisualEvidenceBundle,
 };
+use serde_json::json;
 use std::collections::HashSet;
 
 const TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT: usize = 3_200;
@@ -1860,7 +1861,17 @@ pub(super) async fn handle_execution_success(
     // on the primary path here instead of the stateless ToolExecutor.
     if *success {
         match tool {
-            AgentTool::AgentDelegate { goal, budget } => {
+            AgentTool::AgentDelegate {
+                goal,
+                budget,
+                playbook_id,
+                template_id,
+                workflow_id,
+                role,
+                success_criteria,
+                merge_mode,
+                expected_output,
+            } => {
                 let tool_jcs = match serde_jcs::to_vec(tool) {
                     Ok(bytes) => bytes,
                     Err(err) => {
@@ -1884,16 +1895,34 @@ pub(super) async fn handle_execution_success(
                                 tool_hash,
                                 goal,
                                 *budget,
+                                playbook_id.as_deref(),
+                                template_id.as_deref(),
+                                workflow_id.as_deref(),
+                                role.as_deref(),
+                                success_criteria.as_deref(),
+                                merge_mode.as_deref(),
+                                expected_output.as_deref(),
                                 step_index,
                                 block_height,
                             )
                             .await
                             {
-                                Ok(child_session_id) => {
-                                    *history_entry = Some(format!(
-                                        "{{\"child_session_id_hex\":\"{}\"}}",
-                                        hex::encode(child_session_id)
-                                    ));
+                                Ok(spawned) => {
+                                    let assignment = &spawned.assignment;
+                                    *history_entry = Some(
+                                        json!({
+                                            "child_session_id_hex": hex::encode(spawned.child_session_id),
+                                            "budget": assignment.budget,
+                                            "playbook_id": assignment.playbook_id,
+                                            "template_id": assignment.template_id,
+                                            "workflow_id": assignment.workflow_id,
+                                            "role": assignment.role,
+                                            "success_criteria": assignment.completion_contract.success_criteria,
+                                            "merge_mode": assignment.completion_contract.merge_mode.as_label(),
+                                            "expected_output": assignment.completion_contract.expected_output,
+                                        })
+                                        .to_string(),
+                                    );
                                     *error_msg = None;
                                 }
                                 Err(err) => {
@@ -1917,10 +1946,15 @@ pub(super) async fn handle_execution_success(
             AgentTool::AgentAwait {
                 child_session_id_hex,
             } => match child_session::await_child_session_status(
+                service,
                 state,
-                service.memory_runtime.as_ref(),
+                agent_state,
+                step_index,
+                block_height,
                 child_session_id_hex,
-            ) {
+            )
+            .await
+            {
                 Ok(out) => {
                     *history_entry = Some(out);
                     *error_msg = None;
