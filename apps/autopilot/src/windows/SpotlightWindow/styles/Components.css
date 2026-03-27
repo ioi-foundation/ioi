@@ -396,6 +396,165 @@
 }
 
 /* ============================================
+   SLASH MENU - Composer Command Surface
+   ============================================ */
+.spot-slash-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 10px);
+  padding: 7px;
+  border-radius: 18px;
+  background: rgba(34, 33, 31, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 24px 44px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 45;
+  animation: dropdownSlide 150ms ease-out;
+}
+
+.spot-slash-menu-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.spot-slash-menu-scroll::-webkit-scrollbar,
+.spot-dropdown-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.spot-slash-menu-scroll::-webkit-scrollbar-track,
+.spot-dropdown-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.spot-slash-menu-scroll::-webkit-scrollbar-thumb,
+.spot-dropdown-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+.spot-slash-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spot-slash-section-label {
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--spot-text-dim);
+}
+
+.spot-slash-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spot-slash-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--spot-text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--spot-transition-fast),
+    color var(--spot-transition-fast),
+    border-color var(--spot-transition-fast);
+}
+
+.spot-slash-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--spot-text-primary);
+}
+
+.spot-slash-item.active {
+  background: var(--spot-accent-subtle);
+  color: var(--spot-text-primary);
+}
+
+.spot-slash-item--static {
+  cursor: default;
+}
+
+.spot-slash-item--static:hover {
+  background: transparent;
+  color: var(--spot-text-secondary);
+}
+
+.spot-slash-item-icon {
+  width: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--spot-text-muted);
+}
+
+.spot-slash-item.active .spot-slash-item-icon {
+  color: var(--spot-accent);
+}
+
+.spot-slash-item-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spot-slash-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: inherit;
+}
+
+.spot-slash-item-description {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--spot-text-dim);
+}
+
+.spot-slash-item-meta {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--spot-text-dim);
+}
+
+.spot-slash-item-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--spot-accent);
+}
+
+.spot-slash-empty {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--spot-text-dim);
+  font-size: 12px;
+}
+
+/* ============================================
    THINKING INDICATOR - Minimal Loader
    ============================================ */
 .spot-thinking-indicator {

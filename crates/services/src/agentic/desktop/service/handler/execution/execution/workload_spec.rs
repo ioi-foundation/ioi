@@ -1,3 +1,21 @@
+fn runtime_target_for_dynamic_tool(value: &serde_json::Value) -> RuntimeTarget {
+    let Some(name) = value.get("name").and_then(|entry| entry.as_str()) else {
+        return RuntimeTarget::Adapter;
+    };
+
+    match name {
+        "model__responses" | "model__embeddings" | "model__rerank" => RuntimeTarget::Inference,
+        name if name.starts_with("media__") => RuntimeTarget::Media,
+        name if name.starts_with("model_registry__")
+            || name.starts_with("backend__")
+            || name.starts_with("gallery__") =>
+        {
+            RuntimeTarget::ModelRegistry
+        }
+        _ => RuntimeTarget::Adapter,
+    }
+}
+
 fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
     match tool {
         AgentTool::FsWrite { .. }
@@ -53,19 +71,17 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         | AgentTool::BrowserTabList {}
         | AgentTool::BrowserTabSwitch { .. }
         | AgentTool::BrowserTabClose { .. } => RuntimeTarget::Browser,
-        AgentTool::WebSearch { .. }
-        | AgentTool::WebRead { .. }
-        | AgentTool::MediaExtractTranscript { .. }
-        | AgentTool::MediaExtractMultimodalEvidence { .. }
-        | AgentTool::NetFetch { .. } => {
+        AgentTool::WebSearch { .. } | AgentTool::WebRead { .. } | AgentTool::NetFetch { .. } => {
             RuntimeTarget::Network
         }
+        AgentTool::MediaExtractTranscript { .. }
+        | AgentTool::MediaExtractMultimodalEvidence { .. } => RuntimeTarget::Media,
         AgentTool::MemorySearch { .. }
         | AgentTool::MemoryInspect { .. }
         | AgentTool::MemoryReplaceCore { .. }
         | AgentTool::MemoryAppendCore { .. }
         | AgentTool::MemoryClearCore { .. } => RuntimeTarget::Memory,
-        AgentTool::Dynamic(_) => RuntimeTarget::Adapter,
+        AgentTool::Dynamic(value) => runtime_target_for_dynamic_tool(value),
         AgentTool::MathEval { .. }
         | AgentTool::ChatReply { .. }
         | AgentTool::AutomationCreateMonitor { .. }
@@ -82,6 +98,8 @@ fn target_requires_network_lease(target: &ActionTarget) -> bool {
     match target {
         ActionTarget::NetFetch
         | ActionTarget::WebRetrieve
+        | ActionTarget::MediaExtractTranscript
+        | ActionTarget::MediaExtractMultimodalEvidence
         | ActionTarget::BrowserInteract
         | ActionTarget::BrowserInspect
         | ActionTarget::CommerceDiscovery
@@ -111,6 +129,27 @@ fn normalize_domain_from_url(raw: &str) -> Option<String> {
 fn observed_domain_for_dynamic_tool(value: &serde_json::Value) -> Option<String> {
     let arguments = value.get("arguments")?;
     if let Some(url) = arguments.get("url").and_then(|entry| entry.as_str()) {
+        return normalize_domain_from_url(url);
+    }
+    if let Some(url) = arguments.get("source_uri").and_then(|entry| entry.as_str()) {
+        return normalize_domain_from_url(url);
+    }
+    if let Some(url) = arguments
+        .get("artifact_url")
+        .and_then(|entry| entry.as_str())
+    {
+        return normalize_domain_from_url(url);
+    }
+    if let Some(url) = arguments
+        .get("download_url")
+        .and_then(|entry| entry.as_str())
+    {
+        return normalize_domain_from_url(url);
+    }
+    if let Some(url) = arguments
+        .get("registry_url")
+        .and_then(|entry| entry.as_str())
+    {
         return normalize_domain_from_url(url);
     }
     if let Some(url) = arguments
@@ -147,7 +186,7 @@ fn build_workload_spec(
     now_ms: u64,
 ) -> (WorkloadSpec, Option<String>) {
     let observed_domain = observed_domain_for_tool(tool);
-    let net_mode = if target_requires_network_lease(target) {
+    let net_mode = if target_requires_network_lease(target) || observed_domain.is_some() {
         if observed_domain.is_some() {
             NetMode::AllowListed
         } else {

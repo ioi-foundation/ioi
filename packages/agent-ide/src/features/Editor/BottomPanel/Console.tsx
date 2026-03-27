@@ -11,6 +11,54 @@ interface ConsoleProps {
 
 export function Console({ logs, height, selectedArtifact, onCollapse }: ConsoleProps) {
   const [activeTab, setActiveTab] = useState<'logs' | 'trace' | 'receipts'>('logs');
+  const imagePreviewBase64 =
+    typeof selectedArtifact?.data?.image_base64 === "string"
+      ? selectedArtifact.data.image_base64
+      : null;
+  const imagePreviewMimeType =
+    typeof selectedArtifact?.data?.mime_type === "string"
+      ? selectedArtifact.data.mime_type
+      : "image/png";
+  const audioPreviewBase64 =
+    typeof selectedArtifact?.data?.audio_base64 === "string"
+      ? selectedArtifact.data.audio_base64
+      : null;
+  const audioPreviewMimeType =
+    typeof selectedArtifact?.data?.mime_type === "string"
+      ? selectedArtifact.data.mime_type
+      : "audio/wav";
+  const videoPreviewBase64 =
+    typeof selectedArtifact?.data?.video_base64 === "string"
+      ? selectedArtifact.data.video_base64
+      : null;
+  const videoPreviewMimeType =
+    typeof selectedArtifact?.data?.mime_type === "string"
+      ? selectedArtifact.data.mime_type
+      : "video/mp4";
+  const sanitizedArtifact =
+    selectedArtifact
+      ? {
+          ...selectedArtifact,
+          data: {
+            ...selectedArtifact.data,
+            ...(imagePreviewBase64
+              ? {
+                  image_base64: `[omitted ${imagePreviewBase64.length} base64 chars; preview rendered above]`,
+                }
+              : {}),
+            ...(audioPreviewBase64
+              ? {
+                  audio_base64: `[omitted ${audioPreviewBase64.length} base64 chars; preview rendered above]`,
+                }
+              : {}),
+            ...(videoPreviewBase64
+              ? {
+                  video_base64: `[omitted ${videoPreviewBase64.length} base64 chars; preview rendered above]`,
+                }
+              : {}),
+          },
+        }
+      : selectedArtifact;
 
   // Convert logs to mock traces for visualization
   const traces: TraceSpan[] = logs.map(l => ({
@@ -65,7 +113,58 @@ export function Console({ logs, height, selectedArtifact, onCollapse }: ConsoleP
         {activeTab === 'receipts' && (
             <div style={{ padding: '8px', color: 'var(--text-primary)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
                 {selectedArtifact ? (
-                    <pre>{JSON.stringify(selectedArtifact, null, 2)}</pre>
+                    <>
+                      {imagePreviewBase64 ? (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ marginBottom: 6, fontFamily: 'var(--font-sans, sans-serif)', fontSize: '12px' }}>
+                            Artifact Preview
+                          </div>
+                          <img
+                            src={`data:${imagePreviewMimeType};base64,${imagePreviewBase64}`}
+                            alt="Receipt artifact preview"
+                            style={{
+                              width: '100%',
+                              maxHeight: 240,
+                              objectFit: 'contain',
+                              borderRadius: 8,
+                              border: '1px solid var(--border-subtle)',
+                              background: 'var(--surface-2)',
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      {audioPreviewBase64 ? (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ marginBottom: 6, fontFamily: 'var(--font-sans, sans-serif)', fontSize: '12px' }}>
+                            Audio Preview
+                          </div>
+                          <audio
+                            controls
+                            src={`data:${audioPreviewMimeType};base64,${audioPreviewBase64}`}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                      ) : null}
+                      {videoPreviewBase64 ? (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ marginBottom: 6, fontFamily: 'var(--font-sans, sans-serif)', fontSize: '12px' }}>
+                            Video Preview
+                          </div>
+                          <video
+                            controls
+                            src={`data:${videoPreviewMimeType};base64,${videoPreviewBase64}`}
+                            style={{
+                              width: '100%',
+                              maxHeight: 260,
+                              borderRadius: 8,
+                              border: '1px solid var(--border-subtle)',
+                              background: 'var(--surface-2)',
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      <pre>{JSON.stringify(sanitizedArtifact, null, 2)}</pre>
+                    </>
                 ) : (
                     <div className="empty-logs">Select a node with execution results.</div>
                 )}

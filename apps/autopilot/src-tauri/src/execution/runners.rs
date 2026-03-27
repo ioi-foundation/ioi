@@ -1,6 +1,13 @@
 use super::*;
 use crate::template::interpolate_template;
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+use ioi_api::vm::inference::{
+    ImageEditRequest, ImageGenerationRequest, RerankRequest, SpeechSynthesisRequest,
+    TextEmbeddingRequest, TextGenerationRequest, TranscriptionRequest, VideoGenerationRequest,
+    VisionReadRequest,
+};
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::InferenceOptions;
 use ioi_types::app::{CapabilityLease, CapabilityLeaseMode, NetMode, RuntimeTarget, WorkloadSpec};
 use serde_json::json;
 
@@ -18,6 +25,438 @@ fn unix_ms_now() -> u64 {
         .ok()
         .map(|duration| duration.as_millis() as u64)
         .unwrap_or(0)
+}
+
+fn optional_string_value(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .map(str::to_string)
+}
+
+fn optional_u32_value(value: &Value, key: &str) -> Option<u32> {
+    value
+        .get(key)
+        .and_then(Value::as_u64)
+        .map(|entry| entry.min(u64::from(u32::MAX)) as u32)
+}
+
+fn optional_f32_value(value: &Value, key: &str) -> Option<f32> {
+    value
+        .get(key)
+        .and_then(Value::as_f64)
+        .map(|entry| entry as f32)
+}
+
+fn optional_bool_value(value: &Value, key: &str) -> Option<bool> {
+    value.get(key).and_then(Value::as_bool)
+}
+
+fn first_non_empty_string(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| optional_string_value(value, key))
+}
+
+fn interpolate_config_string(config: &Value, input_obj: &Value, keys: &[&str]) -> Option<String> {
+    first_non_empty_string(config, keys).map(|template| {
+        if template.contains("{{") {
+            interpolate_template(&template, input_obj)
+        } else {
+            template
+        }
+    })
+}
+
+fn preferred_model_id(config: &Value) -> Option<String> {
+    first_non_empty_string(config, &["model_id", "modelId", "model"])
+}
+
+fn resolve_graph_model_hash(config: &Value) -> Result<[u8; 32], String> {
+    if let Some(raw_hash) = first_non_empty_string(config, &["model_hash", "modelHash"]) {
+        let decoded = hex::decode(raw_hash.trim())
+            .map_err(|error| format!("invalid model hash: {}", error))?;
+        if decoded.len() != 32 {
+            return Err(format!(
+                "model hash must decode to 32 bytes, got {}",
+                decoded.len()
+            ));
+        }
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&decoded);
+        return Ok(out);
+    }
+
+    if let Some(model_id) = preferred_model_id(config) {
+        let digest = sha256(format!("model_id:{model_id}").as_bytes())
+            .map_err(|error| format!("failed to derive model hash: {}", error))?;
+        let mut out = [0u8; 32];
+        out.copy_from_slice(digest.as_ref());
+        return Ok(out);
+    }
+
+    Ok([0u8; 32])
+}
+
+fn graph_inference_options(config: &Value) -> InferenceOptions {
+    InferenceOptions {
+        temperature: optional_f32_value(config, "temperature")
+            .or_else(|| optional_f32_value(config, "temp"))
+            .unwrap_or(0.2),
+        json_mode: optional_bool_value(config, "json_mode")
+            .or_else(|| optional_bool_value(config, "jsonMode"))
+            .unwrap_or(false),
+        max_tokens: optional_u32_value(config, "max_tokens")
+            .or_else(|| optional_u32_value(config, "maxTokens"))
+            .unwrap_or(512),
+        ..Default::default()
+    }
+}
+
+fn candidate_string_from_value(value: &Value) -> Option<String> {
+    if let Some(text) = value.as_str() {
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    let object = value.as_object()?;
+    [
+        "content",
+        "text",
+        "summary",
+        "output",
+        "output_text",
+        "response",
+        "title",
+        "raw",
+    ]
+    .iter()
+    .find_map(|key| object.get(*key).and_then(Value::as_str))
+    .map(str::trim)
+    .filter(|entry| !entry.is_empty())
+    .map(str::to_string)
+}
+
+fn infer_text_payload(input_obj: &Value) -> Option<String> {
+    if let Some(text) = input_obj.as_str() {
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    first_non_empty_string(
+        input_obj,
+        &[
+            "text",
+            "prompt",
+            "input",
+            "query",
+            "output",
+            "response",
+            "output_text",
+            "transcript",
+            "content",
+        ],
+    )
+    .or_else(|| {
+        input_obj
+            .get("results")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(candidate_string_from_value)
+                    .collect::<Vec<_>>()
+                    .join("\n\n")
+            })
+            .filter(|joined| !joined.trim().is_empty())
+    })
+    .or_else(|| {
+        if input_obj.is_object() && input_obj.as_object().is_some_and(|map| map.is_empty()) {
+            None
+        } else {
+            Some(input_obj.to_string())
+        }
+    })
+}
+
+fn graph_user_content_value(config: &Value, input_obj: &Value) -> Value {
+    if let Some(prompt) = interpolate_config_string(
+        config,
+        input_obj,
+        &["prompt", "user_prompt", "userPrompt", "text", "query"],
+    ) {
+        return Value::String(prompt);
+    }
+
+    if let Some(text) = infer_text_payload(input_obj) {
+        return Value::String(text);
+    }
+
+    input_obj.clone()
+}
+
+fn graph_prompt_with_context(config: &Value, input_obj: &Value) -> Option<String> {
+    let prompt = interpolate_config_string(
+        config,
+        input_obj,
+        &["prompt", "user_prompt", "userPrompt", "text", "query"],
+    )
+    .or_else(|| infer_text_payload(input_obj));
+
+    prompt.map(|mut value| {
+        let rag_context = format_context_for_llm(input_obj);
+        if !rag_context.is_empty()
+            && !value.contains("Retrieved Context")
+            && !value.contains("Additional Context")
+        {
+            value.push_str(&rag_context);
+        }
+        value
+    })
+}
+
+fn serialize_graph_response_input(config: &Value, input_obj: &Value) -> Result<Vec<u8>, String> {
+    let system_prompt =
+        interpolate_config_string(config, input_obj, &["systemPrompt", "system_prompt"]);
+
+    if let Some(messages) = input_obj.get("messages").and_then(Value::as_array) {
+        let mut final_messages = Vec::new();
+        if let Some(system_prompt) = system_prompt.filter(|entry| !entry.trim().is_empty()) {
+            final_messages.push(json!({
+                "role": "system",
+                "content": system_prompt
+            }));
+        }
+        final_messages.extend(messages.iter().cloned());
+        return serde_json::to_vec(&final_messages)
+            .map_err(|error| format!("failed to serialize message input: {}", error));
+    }
+
+    if system_prompt.is_some()
+        || first_non_empty_string(
+            config,
+            &["prompt", "user_prompt", "userPrompt", "text", "query"],
+        )
+        .is_some()
+    {
+        let mut messages = Vec::new();
+        if let Some(system_prompt) = system_prompt.filter(|entry| !entry.trim().is_empty()) {
+            messages.push(json!({
+                "role": "system",
+                "content": system_prompt
+            }));
+        }
+        messages.push(json!({
+            "role": "user",
+            "content": graph_user_content_value(config, input_obj)
+        }));
+        return serde_json::to_vec(&messages)
+            .map_err(|error| format!("failed to serialize response input: {}", error));
+    }
+
+    if let Some(text) = infer_text_payload(input_obj) {
+        return Ok(text.into_bytes());
+    }
+
+    serde_json::to_vec(input_obj).map_err(|error| format!("failed to serialize input: {}", error))
+}
+
+fn string_candidates_from_array(items: &[Value]) -> Vec<String> {
+    items
+        .iter()
+        .filter_map(candidate_string_from_value)
+        .collect::<Vec<_>>()
+}
+
+fn resolve_rerank_candidates(config: &Value, input_obj: &Value) -> Vec<String> {
+    if let Some(items) = config.get("candidates").and_then(Value::as_array) {
+        let candidates = string_candidates_from_array(items);
+        if !candidates.is_empty() {
+            return candidates;
+        }
+    }
+
+    if let Some(text) = first_non_empty_string(config, &["candidatesText", "candidates_text"]) {
+        let candidates = text
+            .lines()
+            .map(str::trim)
+            .filter(|entry| !entry.is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if !candidates.is_empty() {
+            return candidates;
+        }
+    }
+
+    if let Some(items) = input_obj.get("candidates").and_then(Value::as_array) {
+        let candidates = string_candidates_from_array(items);
+        if !candidates.is_empty() {
+            return candidates;
+        }
+    }
+
+    if let Some(items) = input_obj.get("results").and_then(Value::as_array) {
+        let candidates = string_candidates_from_array(items);
+        if !candidates.is_empty() {
+            return candidates;
+        }
+    }
+
+    if let Some(items) = input_obj.as_array() {
+        let candidates = string_candidates_from_array(items);
+        if !candidates.is_empty() {
+            return candidates;
+        }
+    }
+
+    Vec::new()
+}
+
+fn read_binary_file(path: &str, label: &str) -> Result<Vec<u8>, String> {
+    std::fs::read(path).map_err(|error| format!("failed to read {} '{}': {}", label, path, error))
+}
+
+fn byte_array_value(value: &Value, key: &str, label: &str) -> Option<Result<Vec<u8>, String>> {
+    let values = value.get(key).and_then(Value::as_array)?;
+    Some(
+        values
+            .iter()
+            .map(|entry| {
+                entry
+                    .as_u64()
+                    .and_then(|raw| u8::try_from(raw).ok())
+                    .ok_or_else(|| format!("{label} '{key}' must contain byte values (0-255)"))
+            })
+            .collect(),
+    )
+}
+
+fn base64_value(value: &Value, key: &str, label: &str) -> Option<Result<Vec<u8>, String>> {
+    let raw = optional_string_value(value, key)?;
+    Some(
+        BASE64_STANDARD
+            .decode(raw.trim())
+            .map_err(|error| format!("invalid base64 {} payload: {}", label, error)),
+    )
+}
+
+fn resolve_binary_input(
+    config: &Value,
+    input_obj: &Value,
+    path_keys: &[&str],
+    base64_keys: &[&str],
+    byte_keys: &[&str],
+    label: &str,
+) -> Result<(Vec<u8>, Option<String>), String> {
+    for key in path_keys {
+        if let Some(path) =
+            optional_string_value(config, key).or_else(|| optional_string_value(input_obj, key))
+        {
+            return read_binary_file(&path, label).map(|bytes| (bytes, Some(path)));
+        }
+    }
+
+    for key in base64_keys {
+        if let Some(result) =
+            base64_value(config, key, label).or_else(|| base64_value(input_obj, key, label))
+        {
+            return result.map(|bytes| (bytes, None));
+        }
+    }
+
+    for key in byte_keys {
+        if let Some(result) =
+            byte_array_value(config, key, label).or_else(|| byte_array_value(input_obj, key, label))
+        {
+            return result.map(|bytes| (bytes, None));
+        }
+    }
+
+    Err(format!(
+        "missing {label} input; provide a path, base64 payload, or byte array"
+    ))
+}
+
+fn resolve_optional_binary_input(
+    config: &Value,
+    input_obj: &Value,
+    path_keys: &[&str],
+    base64_keys: &[&str],
+    byte_keys: &[&str],
+    label: &str,
+) -> Result<Option<(Vec<u8>, Option<String>)>, String> {
+    for key in path_keys {
+        if let Some(path) =
+            optional_string_value(config, key).or_else(|| optional_string_value(input_obj, key))
+        {
+            return read_binary_file(&path, label).map(|bytes| Some((bytes, Some(path))));
+        }
+    }
+
+    for key in base64_keys {
+        if let Some(result) =
+            base64_value(config, key, label).or_else(|| base64_value(input_obj, key, label))
+        {
+            return result.map(|bytes| Some((bytes, None)));
+        }
+    }
+
+    for key in byte_keys {
+        if let Some(result) =
+            byte_array_value(config, key, label).or_else(|| byte_array_value(input_obj, key, label))
+        {
+            return result.map(|bytes| Some((bytes, None)));
+        }
+    }
+
+    Ok(None)
+}
+
+fn mime_type_from_path(path: &str, default: &str) -> String {
+    let lower = path.to_ascii_lowercase();
+    if lower.ends_with(".wav") {
+        "audio/wav".to_string()
+    } else if lower.ends_with(".mp3") {
+        "audio/mpeg".to_string()
+    } else if lower.ends_with(".m4a") {
+        "audio/mp4".to_string()
+    } else if lower.ends_with(".ogg") {
+        "audio/ogg".to_string()
+    } else if lower.ends_with(".flac") {
+        "audio/flac".to_string()
+    } else if lower.ends_with(".png") {
+        "image/png".to_string()
+    } else if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        "image/jpeg".to_string()
+    } else if lower.ends_with(".webp") {
+        "image/webp".to_string()
+    } else if lower.ends_with(".gif") {
+        "image/gif".to_string()
+    } else if lower.ends_with(".bmp") {
+        "image/bmp".to_string()
+    } else {
+        default.to_string()
+    }
+}
+
+fn resolve_media_mime_type(
+    config: &Value,
+    input_obj: &Value,
+    path_hint: Option<&str>,
+    default: &str,
+) -> String {
+    first_non_empty_string(config, &["mime_type", "mimeType"])
+        .or_else(|| first_non_empty_string(input_obj, &["mime_type", "mimeType"]))
+        .unwrap_or_else(|| {
+            path_hint
+                .map(|path| mime_type_from_path(path, default))
+                .unwrap_or_else(|| default.to_string())
+        })
 }
 
 fn build_result(
@@ -548,105 +987,674 @@ fn format_context_for_llm(input_obj: &Value) -> String {
     context_str
 }
 
+#[allow(dead_code)]
 pub(super) async fn run_llm_inference(
     config: &Value,
     input_json: &str,
 ) -> Result<ExecutionResult, Box<dyn Error>> {
-    let system_prompt = config
-        .get("systemPrompt")
-        .or_else(|| config.get("system_prompt"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("You are a helpful assistant.");
+    let input_obj = parse_input_object(input_json);
+    let model = preferred_model_id(config).unwrap_or_else(|| "default".to_string());
+    Ok(build_result(
+        "error",
+        format!(
+            "Legacy run_llm_inference is deprecated for model '{}'; execute this node through the kernel-backed responses path instead",
+            model
+        ),
+        Some(json!({
+            "deprecated": true,
+            "replacement_node_type": "responses"
+        })),
+        None,
+        Some(input_obj),
+        None,
+    ))
+}
 
-    let model = config
-        .get("model")
-        .and_then(|v| v.as_str())
-        .unwrap_or("llama3");
-
-    let input_obj: Value = serde_json::from_str(input_json).unwrap_or(serde_json::json!({}));
-
-    // Intelligent Context Injection
-    // 1. Interpolate variables as before
-    let mut interpolated_prompt = if system_prompt.contains("{{") {
-        interpolate_template(system_prompt, &input_obj)
-    } else {
-        // Default behavior if no template: append input
-        format!("System: {}\n\nUser Input: {}", system_prompt, input_json)
+pub(super) async fn run_responses_execution(
+    config: &Value,
+    input_json: &str,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj = parse_input_object(input_json);
+    let model_id = preferred_model_id(config);
+    let model_hash = match resolve_graph_model_hash(config) {
+        Ok(value) => value,
+        Err(error) => {
+            return Ok(build_result(
+                "error",
+                error,
+                None,
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ));
+        }
     };
 
-    // 2. Append formatted RAG context if present (and not already interpolated)
-    let rag_context = format_context_for_llm(&input_obj);
-    if !rag_context.is_empty() && !interpolated_prompt.contains("Retrieved Context") {
-        interpolated_prompt.push_str(&rag_context);
-
-        // Add instruction to use context if not present
-        if !interpolated_prompt.to_lowercase().contains("context") {
-            interpolated_prompt.push_str(
-                "\n\nINSTRUCTION: Answer the user's request using the Retrieved Context above.",
-            );
+    let input_context = match serialize_graph_response_input(config, &input_obj) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return Ok(build_result(
+                "error",
+                error,
+                None,
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ));
         }
+    };
+
+    let request = TextGenerationRequest {
+        model_hash,
+        model_id: model_id.clone(),
+        input_context,
+        options: graph_inference_options(config),
+        stream: optional_bool_value(config, "stream").unwrap_or(false),
+    };
+
+    match inference.generate_text(request).await {
+        Ok(result) => {
+            let response = String::from_utf8_lossy(&result.output).into_owned();
+            let final_prompt_snapshot = graph_prompt_with_context(config, &input_obj);
+            Ok(build_result(
+                "success",
+                response.clone(),
+                Some(json!({
+                    "response": response,
+                    "model_id": result.model_id,
+                    "streamed": result.streamed,
+                })),
+                Some(json!({
+                    "latency_ms": start.elapsed().as_millis(),
+                    "final_prompt_snapshot": final_prompt_snapshot,
+                })),
+                Some(input_obj),
+                None,
+            ))
+        }
+        Err(error) => Ok(build_result(
+            "error",
+            format!("Responses execution failed: {}", error),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+    }
+}
+
+pub(super) async fn run_embeddings_execution(
+    config: &Value,
+    input_json: &str,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj = parse_input_object(input_json);
+    let text = graph_prompt_with_context(config, &input_obj)
+        .or_else(|| infer_text_payload(&input_obj))
+        .filter(|value| !value.trim().is_empty());
+
+    let Some(text) = text else {
+        return Ok(build_result(
+            "error",
+            "Embeddings node needs text, query, or input content".to_string(),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        ));
+    };
+
+    let request = TextEmbeddingRequest {
+        text: text.clone(),
+        model_id: preferred_model_id(config),
+    };
+
+    match inference.embed_text_typed(request).await {
+        Ok(result) => Ok(build_result(
+            "success",
+            format!("Embedded text into {} dimensions", result.dimensions),
+            Some(json!({
+                "values": result.values,
+                "dimensions": result.dimensions,
+                "model_id": result.model_id,
+                "text": text,
+            })),
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+        Err(error) => Ok(build_result(
+            "error",
+            format!("Embedding execution failed: {}", error),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+    }
+}
+
+pub(super) async fn run_rerank_execution(
+    config: &Value,
+    input_json: &str,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj = parse_input_object(input_json);
+    let query = interpolate_config_string(config, &input_obj, &["query", "prompt", "text"])
+        .or_else(|| first_non_empty_string(&input_obj, &["query", "prompt", "text", "input"]))
+        .or_else(|| infer_text_payload(&input_obj))
+        .filter(|value| !value.trim().is_empty());
+
+    let Some(query) = query else {
+        return Ok(build_result(
+            "error",
+            "Rerank node needs a query or prompt".to_string(),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        ));
+    };
+
+    let candidates = resolve_rerank_candidates(config, &input_obj);
+    if candidates.is_empty() {
+        return Ok(build_result(
+            "error",
+            "Rerank node needs candidates or upstream results".to_string(),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        ));
     }
 
-    let client = reqwest::Client::new();
-    let start = std::time::Instant::now();
+    let request = RerankRequest {
+        query: query.clone(),
+        candidates,
+        top_k: optional_u32_value(config, "top_k").or_else(|| optional_u32_value(config, "topK")),
+        model_id: preferred_model_id(config),
+    };
 
-    let res = client.post("http://127.0.0.1:11434/api/generate")
-        .json(&serde_json::json!({
-            "model": model, 
-            "system": "You are an automated agent executing a specific task based on the provided context.",
-            "prompt": interpolated_prompt, // Use enriched prompt
-            "stream": false
-        }))
-        .send()
-        .await;
-
-    let duration = start.elapsed();
-
-    match res {
-        Ok(response) => {
-            if response.status().is_success() {
-                let body: Value = response.json().await?;
-                let response_text = body["response"]
-                    .as_str()
-                    .unwrap_or("No response content")
-                    .to_string();
-
-                Ok(ExecutionResult {
-                    status: "success".to_string(),
-                    output: response_text,
-                    data: Some(serde_json::json!({ "raw_response": body })),
-                    metrics: Some(serde_json::json!({
-                        "latency_ms": duration.as_millis(),
-                        "eval_count": body.get("eval_count").unwrap_or(&serde_json::json!(0)),
-                        "final_prompt_snapshot": interpolated_prompt // Capture full prompt for debug
-                    })),
-                    input_snapshot: Some(input_obj),
-                    context_slice: None,
-                })
-            } else {
-                Ok(ExecutionResult {
-                    status: "failed".to_string(),
-                    output: format!("LLM Provider Error: {}", response.status()),
-                    data: None,
-                    metrics: Some(serde_json::json!({ "latency_ms": duration.as_millis() })),
-                    input_snapshot: Some(input_obj),
-                    context_slice: None,
-                })
-            }
+    match inference.rerank(request).await {
+        Ok(result) => {
+            let top_candidate = result
+                .items
+                .first()
+                .map(|item| item.candidate.clone())
+                .unwrap_or_else(|| "No reranked candidates returned".to_string());
+            Ok(build_result(
+                "success",
+                top_candidate,
+                Some(json!({
+                    "items": result.items,
+                    "model_id": result.model_id,
+                    "query": query,
+                })),
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ))
         }
-        Err(e) => Ok(ExecutionResult {
-            status: "simulated".to_string(),
-            output: format!(
-                "[Simulated Output - Ollama Offline]\nModel: {}\nPrompt Used: {}\nError: {}",
-                model,
-                interpolated_prompt.chars().take(150).collect::<String>(),
-                e
-            ),
-            data: Some(serde_json::json!({ "final_prompt_snapshot": interpolated_prompt })),
-            metrics: Some(serde_json::json!({ "latency_ms": 15, "error": e.to_string() })),
-            input_snapshot: Some(input_obj),
-            context_slice: None,
-        }),
+        Err(error) => Ok(build_result(
+            "error",
+            format!("Rerank execution failed: {}", error),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+    }
+}
+
+pub(super) async fn run_transcribe_audio_execution(
+    config: &Value,
+    input_json: &str,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj = parse_input_object(input_json);
+    let (audio_bytes, path_hint) = match resolve_binary_input(
+        config,
+        &input_obj,
+        &["audioPath", "audio_path", "path"],
+        &["audioBase64", "audio_base64", "base64"],
+        &["audioBytes", "audio_bytes", "bytes"],
+        "audio",
+    ) {
+        Ok(value) => value,
+        Err(error) => {
+            return Ok(build_result(
+                "error",
+                error,
+                None,
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ));
+        }
+    };
+
+    let mime_type = resolve_media_mime_type(config, &input_obj, path_hint.as_deref(), "audio/wav");
+    let request = TranscriptionRequest {
+        audio_bytes,
+        mime_type: mime_type.clone(),
+        language: first_non_empty_string(config, &["language", "audioLanguage", "audio_language"])
+            .or_else(|| {
+                first_non_empty_string(&input_obj, &["language", "audioLanguage", "audio_language"])
+            }),
+        model_id: preferred_model_id(config),
+    };
+
+    match inference.transcribe_audio(request).await {
+        Ok(result) => Ok(build_result(
+            "success",
+            result.text.clone(),
+            Some(json!({
+                "text": result.text,
+                "language": result.language,
+                "model_id": result.model_id,
+                "mime_type": mime_type,
+            })),
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+        Err(error) => Ok(build_result(
+            "error",
+            format!("Audio transcription failed: {}", error),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+    }
+}
+
+pub(super) async fn run_synthesize_speech_execution(
+    config: &Value,
+    input_json: &str,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj = parse_input_object(input_json);
+    let text = graph_prompt_with_context(config, &input_obj)
+        .or_else(|| infer_text_payload(&input_obj))
+        .filter(|value| !value.trim().is_empty());
+
+    let Some(text) = text else {
+        return Ok(build_result(
+            "error",
+            "Speech synthesis node needs prompt, text, or input content".to_string(),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        ));
+    };
+
+    let request = SpeechSynthesisRequest {
+        text: text.clone(),
+        voice: first_non_empty_string(config, &["voice"])
+            .or_else(|| first_non_empty_string(&input_obj, &["voice"])),
+        mime_type: first_non_empty_string(config, &["mime_type", "mimeType"])
+            .or_else(|| first_non_empty_string(&input_obj, &["mime_type", "mimeType"])),
+        model_id: preferred_model_id(config),
+    };
+
+    match inference.synthesize_speech(request).await {
+        Ok(result) => {
+            let mime_type = result.mime_type.clone();
+            let model_id = result.model_id.clone();
+            let byte_length = result.audio_bytes.len();
+            let audio_base64 = BASE64_STANDARD.encode(&result.audio_bytes);
+            Ok(build_result(
+                "success",
+                format!("Synthesized audio artifact ({mime_type}, {byte_length} bytes)"),
+                Some(json!({
+                    "artifact_kind": "audio",
+                    "audio_base64": audio_base64,
+                    "mime_type": mime_type,
+                    "model_id": model_id,
+                    "text": text,
+                    "byte_length": byte_length,
+                })),
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                Some(json!({
+                    "artifact_kind": "audio",
+                    "mime_type": mime_type,
+                    "model_id": model_id,
+                    "byte_length": byte_length,
+                })),
+            ))
+        }
+        Err(error) => Ok(build_result(
+            "error",
+            format!("Speech synthesis failed: {}", error),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+    }
+}
+
+pub(super) async fn run_vision_read_execution(
+    config: &Value,
+    input_json: &str,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj = parse_input_object(input_json);
+    let (image_bytes, path_hint) = match resolve_binary_input(
+        config,
+        &input_obj,
+        &["imagePath", "image_path", "path"],
+        &["imageBase64", "image_base64", "base64"],
+        &["imageBytes", "image_bytes", "bytes"],
+        "image",
+    ) {
+        Ok(value) => value,
+        Err(error) => {
+            return Ok(build_result(
+                "error",
+                error,
+                None,
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ));
+        }
+    };
+
+    let mime_type = resolve_media_mime_type(config, &input_obj, path_hint.as_deref(), "image/png");
+    let request = VisionReadRequest {
+        image_bytes,
+        mime_type: mime_type.clone(),
+        prompt: interpolate_config_string(config, &input_obj, &["prompt", "query", "text"])
+            .or_else(|| first_non_empty_string(&input_obj, &["prompt", "query", "text"])),
+        model_id: preferred_model_id(config),
+    };
+
+    match inference.vision_read(request).await {
+        Ok(result) => Ok(build_result(
+            "success",
+            result.output_text.clone(),
+            Some(json!({
+                "output_text": result.output_text,
+                "model_id": result.model_id,
+                "mime_type": mime_type,
+            })),
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+        Err(error) => Ok(build_result(
+            "error",
+            format!("Vision read failed: {}", error),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+    }
+}
+
+pub(super) async fn run_generate_image_execution(
+    config: &Value,
+    input_json: &str,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj = parse_input_object(input_json);
+    let prompt = graph_prompt_with_context(config, &input_obj)
+        .or_else(|| infer_text_payload(&input_obj))
+        .filter(|value| !value.trim().is_empty());
+
+    let Some(prompt) = prompt else {
+        return Ok(build_result(
+            "error",
+            "Image generation node needs a prompt or text input".to_string(),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        ));
+    };
+
+    let request = ImageGenerationRequest {
+        prompt: prompt.clone(),
+        mime_type: first_non_empty_string(config, &["mime_type", "mimeType"])
+            .or_else(|| first_non_empty_string(&input_obj, &["mime_type", "mimeType"])),
+        model_id: preferred_model_id(config),
+    };
+
+    match inference.generate_image(request).await {
+        Ok(result) => {
+            let mime_type = result.mime_type.clone();
+            let model_id = result.model_id.clone();
+            let byte_length = result.image_bytes.len();
+            let image_base64 = BASE64_STANDARD.encode(&result.image_bytes);
+            Ok(build_result(
+                "success",
+                format!("Generated image artifact ({mime_type}, {byte_length} bytes)"),
+                Some(json!({
+                    "artifact_kind": "image",
+                    "image_base64": image_base64,
+                    "mime_type": mime_type,
+                    "model_id": model_id,
+                    "prompt": prompt,
+                    "byte_length": byte_length,
+                })),
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                Some(json!({
+                    "artifact_kind": "image",
+                    "mime_type": mime_type,
+                    "model_id": model_id,
+                    "byte_length": byte_length,
+                })),
+            ))
+        }
+        Err(error) => Ok(build_result(
+            "error",
+            format!("Image generation failed: {}", error),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+    }
+}
+
+pub(super) async fn run_edit_image_execution(
+    config: &Value,
+    input_json: &str,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj = parse_input_object(input_json);
+    let (source_image_bytes, source_path_hint) = match resolve_binary_input(
+        config,
+        &input_obj,
+        &["imagePath", "image_path", "path"],
+        &["imageBase64", "image_base64", "base64"],
+        &["imageBytes", "image_bytes", "bytes"],
+        "image",
+    ) {
+        Ok(value) => value,
+        Err(error) => {
+            return Ok(build_result(
+                "error",
+                error,
+                None,
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ));
+        }
+    };
+
+    let source_mime_type =
+        resolve_media_mime_type(config, &input_obj, source_path_hint.as_deref(), "image/png");
+    let prompt = interpolate_config_string(config, &input_obj, &["prompt", "query", "text"])
+        .or_else(|| first_non_empty_string(&input_obj, &["prompt", "query", "text"]));
+    let mask = match resolve_optional_binary_input(
+        config,
+        &input_obj,
+        &["maskImagePath", "mask_image_path", "maskPath", "mask_path"],
+        &[
+            "maskImageBase64",
+            "mask_image_base64",
+            "maskBase64",
+            "mask_base64",
+        ],
+        &[
+            "maskImageBytes",
+            "mask_image_bytes",
+            "maskBytes",
+            "mask_bytes",
+        ],
+        "mask image",
+    ) {
+        Ok(value) => value,
+        Err(error) => {
+            return Ok(build_result(
+                "error",
+                error,
+                None,
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                None,
+            ));
+        }
+    };
+
+    let used_mask = mask.is_some();
+    let request = ImageEditRequest {
+        source_image_bytes,
+        source_mime_type: source_mime_type.clone(),
+        prompt: prompt.clone(),
+        mask_image_bytes: mask.map(|(bytes, _)| bytes),
+        model_id: preferred_model_id(config),
+    };
+
+    match inference.edit_image(request).await {
+        Ok(result) => {
+            let mime_type = result.mime_type.clone();
+            let model_id = result.model_id.clone();
+            let byte_length = result.image_bytes.len();
+            let image_base64 = BASE64_STANDARD.encode(&result.image_bytes);
+            Ok(build_result(
+                "success",
+                format!("Edited image artifact ({mime_type}, {byte_length} bytes)"),
+                Some(json!({
+                    "artifact_kind": "image",
+                    "image_base64": image_base64,
+                    "mime_type": mime_type,
+                    "model_id": model_id,
+                    "prompt": prompt,
+                    "source_mime_type": source_mime_type,
+                    "used_mask": used_mask,
+                    "byte_length": byte_length,
+                })),
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                Some(json!({
+                    "artifact_kind": "image",
+                    "mime_type": mime_type,
+                    "model_id": model_id,
+                    "used_mask": used_mask,
+                    "byte_length": byte_length,
+                })),
+            ))
+        }
+        Err(error) => Ok(build_result(
+            "error",
+            format!("Image edit failed: {}", error),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
+    }
+}
+
+pub(super) async fn run_generate_video_execution(
+    config: &Value,
+    input_json: &str,
+    inference: Arc<dyn InferenceRuntime>,
+) -> Result<ExecutionResult, Box<dyn Error>> {
+    let start = std::time::Instant::now();
+    let input_obj = parse_input_object(input_json);
+    let prompt = graph_prompt_with_context(config, &input_obj)
+        .or_else(|| infer_text_payload(&input_obj))
+        .filter(|value| !value.trim().is_empty());
+
+    let Some(prompt) = prompt else {
+        return Ok(build_result(
+            "error",
+            "Video generation node needs a prompt or text input".to_string(),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        ));
+    };
+
+    let duration_ms = config
+        .get("durationMs")
+        .and_then(Value::as_u64)
+        .or_else(|| input_obj.get("durationMs").and_then(Value::as_u64));
+    let request = VideoGenerationRequest {
+        prompt: prompt.clone(),
+        mime_type: first_non_empty_string(config, &["mime_type", "mimeType"])
+            .or_else(|| first_non_empty_string(&input_obj, &["mime_type", "mimeType"])),
+        duration_ms,
+        model_id: preferred_model_id(config),
+    };
+
+    match inference.generate_video(request).await {
+        Ok(result) => {
+            let mime_type = result.mime_type.clone();
+            let model_id = result.model_id.clone();
+            let byte_length = result.video_bytes.len();
+            let video_base64 = BASE64_STANDARD.encode(&result.video_bytes);
+            Ok(build_result(
+                "success",
+                format!("Generated video artifact ({mime_type}, {byte_length} bytes)"),
+                Some(json!({
+                    "artifact_kind": "video",
+                    "video_base64": video_base64,
+                    "mime_type": mime_type,
+                    "model_id": model_id,
+                    "prompt": prompt,
+                    "duration_ms": duration_ms,
+                    "byte_length": byte_length,
+                })),
+                Some(latency_metrics(start)),
+                Some(input_obj),
+                Some(json!({
+                    "artifact_kind": "video",
+                    "mime_type": mime_type,
+                    "model_id": model_id,
+                    "duration_ms": duration_ms,
+                    "byte_length": byte_length,
+                })),
+            ))
+        }
+        Err(error) => Ok(build_result(
+            "error",
+            format!("Video generation failed: {}", error),
+            None,
+            Some(latency_metrics(start)),
+            Some(input_obj),
+            None,
+        )),
     }
 }
 
@@ -958,4 +1966,80 @@ pub(super) async fn run_retrieval_execution(
         input_snapshot: Some(input_obj),
         context_slice: Some(json!(results)),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialize_graph_response_input_wraps_system_prompt_and_prompt_template() {
+        let config = json!({
+            "systemPrompt": "Operate carefully.",
+            "prompt": "Summarize {{topic}}."
+        });
+        let input = json!({
+            "topic": "kernel receipts"
+        });
+
+        let serialized = serialize_graph_response_input(&config, &input)
+            .expect("response input should serialize");
+        let messages: Value =
+            serde_json::from_slice(&serialized).expect("serialized messages should parse");
+
+        assert_eq!(messages[0]["role"], "system");
+        assert_eq!(messages[0]["content"], "Operate carefully.");
+        assert_eq!(messages[1]["role"], "user");
+        assert_eq!(messages[1]["content"], "Summarize kernel receipts.");
+    }
+
+    #[test]
+    fn resolve_rerank_candidates_prefers_upstream_results() {
+        let config = json!({});
+        let input = json!({
+            "results": [
+                { "content": "kernel-native responses" },
+                { "summary": "typed media receipts" },
+                { "output_text": "parent playbook visibility" }
+            ]
+        });
+
+        let candidates = resolve_rerank_candidates(&config, &input);
+
+        assert_eq!(
+            candidates,
+            vec![
+                "kernel-native responses".to_string(),
+                "typed media receipts".to_string(),
+                "parent playbook visibility".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn infer_text_payload_uses_scalar_strings_without_extra_quotes() {
+        let input = Value::String("hello world".to_string());
+
+        let payload = infer_text_payload(&input);
+
+        assert_eq!(payload.as_deref(), Some("hello world"));
+    }
+
+    #[test]
+    fn resolve_optional_binary_input_returns_none_when_absent() {
+        let config = json!({});
+        let input = json!({});
+
+        let resolved = resolve_optional_binary_input(
+            &config,
+            &input,
+            &["maskImagePath"],
+            &["maskImageBase64"],
+            &["maskImageBytes"],
+            "mask image",
+        )
+        .expect("optional binary lookup should succeed");
+
+        assert!(resolved.is_none());
+    }
 }

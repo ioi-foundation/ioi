@@ -1105,6 +1105,36 @@ pub async fn run_case(
                         action_error_classes.insert(error_class.clone());
                     }
                 }
+                WorkloadReceipt::Inference(inference) => {
+                    workload_tools.insert(inference.tool_name.clone());
+                    if let Some(error_class) = inference.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
+                WorkloadReceipt::Media(media) => {
+                    workload_tools.insert(media.tool_name.clone());
+                    if let Some(error_class) = media.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
+                WorkloadReceipt::ModelLifecycle(lifecycle) => {
+                    workload_tools.insert(lifecycle.tool_name.clone());
+                    if let Some(error_class) = lifecycle.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
+                WorkloadReceipt::Worker(worker) => {
+                    workload_tools.insert(worker.tool_name.clone());
+                    if let Some(error_class) = worker.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
+                WorkloadReceipt::ParentPlaybook(playbook) => {
+                    workload_tools.insert(playbook.tool_name.clone());
+                    if let Some(error_class) = playbook.error_class.as_ref() {
+                        action_error_classes.insert(error_class.clone());
+                    }
+                }
                 WorkloadReceipt::Adapter(adapter) => {
                     workload_tools.insert(adapter.tool_name.clone());
                     if let Some(error_class) = adapter.error_class.as_ref() {

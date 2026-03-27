@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { StudioFileTypeIcon } from "./StudioFileTypeIcon";
+import { StudioLeftSidebarShell } from "./StudioLeftSidebarShell";
 
 interface ProjectScope {
   id: string;
@@ -350,9 +351,12 @@ export function StudioExplorerPane({
     });
 
   return (
-    <aside className="studio-explorer-pane" aria-label="Project explorer">
-      <div className="studio-explorer-pane-controls">
-        <span className="studio-explorer-pane-title">Explorer</span>
+    <StudioLeftSidebarShell
+      ariaLabel="Project explorer"
+      title="Explorer"
+      className="studio-explorer-pane"
+      bodyClassName="studio-explorer-body"
+      actions={
         <button
           type="button"
           className="studio-chat-pane-control studio-explorer-pane-control"
@@ -361,9 +365,8 @@ export function StudioExplorerPane({
         >
           <MoreActionsIcon />
         </button>
-      </div>
-
-      <div className="studio-explorer-body">
+      }
+    >
         <section className="studio-explorer-meta">
           <div className="studio-explorer-meta-row">
             <span className="studio-explorer-chip">{branchLabel}</span>
@@ -424,7 +427,6 @@ export function StudioExplorerPane({
             </div>
           ) : null}
         </section>
-      </div>
-    </aside>
+    </StudioLeftSidebarShell>
   );
 }

@@ -28,6 +28,7 @@ interface MissionControlWorkflowsViewProps {
   onOpenInbox: () => void;
   onOpenCapabilities: () => void;
   onOpenPolicy: () => void;
+  onOpenSettings: () => void;
   onOpenAgent: (agent: AgentSummary | null) => void;
   onCloseAgent: () => void;
   onInstallAgent: (agent: any) => void;
@@ -59,6 +60,7 @@ export function MissionControlWorkflowsView({
   onOpenInbox,
   onOpenCapabilities,
   onOpenPolicy,
+  onOpenSettings,
   onOpenAgent,
   onCloseAgent,
   onInstallAgent,
@@ -141,7 +143,7 @@ export function MissionControlWorkflowsView({
         {surface === "canvas" ? (
           <div className="mission-control-stage-frame mission-control-stage-frame--workflow">
             <div className="mission-control-workflow-plane">
-              <AgentEditor runtime={runtime} />
+              <AgentEditor runtime={runtime} onOpenSystemSettings={onOpenSettings} />
             </div>
           </div>
         ) : null}

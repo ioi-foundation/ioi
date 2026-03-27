@@ -13,12 +13,23 @@ interface InspectorProps {
   selectedNode: Node | null;
   selectedEdge: any | null; 
   globalConfig?: GraphGlobalConfig;
+  upstreamContext?: any;
   runtime: AgentRuntime;
+  onOpenSystemSettings?: () => void;
   onUpdateNode: (id: string, config: any) => void;
   onUpdateGlobal?: (config: Partial<GraphGlobalConfig>) => void;
 }
 
-export function Inspector({ selectedNode, selectedEdge, globalConfig, runtime, onUpdateNode, onUpdateGlobal }: InspectorProps) {
+export function Inspector({
+  selectedNode,
+  selectedEdge,
+  globalConfig,
+  upstreamContext,
+  runtime,
+  onOpenSystemSettings,
+  onUpdateNode,
+  onUpdateGlobal,
+}: InspectorProps) {
   const [activeTab, setActiveTab] = useState<'logic' | 'law' | 'run' | 'dna'>('logic');
 
   // Reset tab when selection changes
@@ -32,6 +43,8 @@ export function Inspector({ selectedNode, selectedEdge, globalConfig, runtime, o
         <aside className="inspector-panel">
             <GraphConfigView 
                 config={globalConfig || {} as any} 
+                runtime={runtime}
+                onOpenSystemSettings={onOpenSystemSettings}
                 onChange={(updates) => onUpdateGlobal?.(updates)}
             />
         </aside>
@@ -69,6 +82,7 @@ export function Inspector({ selectedNode, selectedEdge, globalConfig, runtime, o
         {activeTab === 'logic' && (
             <LogicView 
                 type={selectedNode!.type}
+                availableModelRefs={Object.keys(globalConfig?.modelBindings ?? {})}
                 config={config.logic} 
                 // @ts-ignore
                 onChange={(updates) => onUpdateNode(selectedNode!.id, { ...config, logic: { ...config.logic, ...updates } })}
@@ -84,6 +98,8 @@ export function Inspector({ selectedNode, selectedEdge, globalConfig, runtime, o
         {activeTab === 'run' && (
             <SimulationView 
                 node={selectedNode!}
+                globalConfig={globalConfig}
+                upstreamContext={upstreamContext}
                 runtime={runtime}
                 onRunComplete={(res) => console.log("Run complete", res)}
             />

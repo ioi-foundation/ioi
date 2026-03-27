@@ -129,6 +129,8 @@ struct QueryBindingProfilePayload {
     #[serde(default)]
     durable_automation_requested: bool,
     #[serde(default)]
+    model_registry_control_requested: bool,
+    #[serde(default)]
     app_launch_directed: bool,
     #[serde(default)]
     direct_ui_input: bool,
@@ -159,6 +161,7 @@ fn parse_query_binding_profile(raw: &str) -> Result<QueryBindingProfile, Transac
         host_local_clock_targeted: parsed.host_local_clock_targeted,
         command_directed: parsed.command_directed,
         durable_automation_requested: parsed.durable_automation_requested,
+        model_registry_control_requested: parsed.model_registry_control_requested,
         app_launch_directed: parsed.app_launch_directed,
         direct_ui_input: parsed.direct_ui_input,
         desktop_screenshot_requested: parsed.desktop_screenshot_requested,
@@ -180,7 +183,7 @@ pub(super) async fn infer_query_binding_profile(
         {
             "role": "user",
             "content": format!(
-                "Query:\n{}\n\nReturn exactly one JSON object with this schema:\n{{\"remote_public_fact_required\":<bool>,\"host_local_clock_targeted\":<bool>,\"command_directed\":<bool>,\"durable_automation_requested\":<bool>,\"app_launch_directed\":<bool>,\"direct_ui_input\":<bool>,\"desktop_screenshot_requested\":<bool>,\"temporal_filesystem_filter\":<bool>}}\nRules:\n1) remote_public_fact_required=true only when current/public external grounding is required.\n2) host_local_clock_targeted=true only when the user explicitly asks for this host machine/system clock.\n3) command_directed=true for local shell/terminal or host automation tasks.\n4) durable_automation_requested=true only when the user is asking for an installed recurring watch/monitor/notify-later workflow rather than a one-shot command.\n5) app_launch_directed=true for opening/launching a local application.\n6) direct_ui_input=true for click/type/scroll-like interaction in an active UI.\n7) desktop_screenshot_requested=true for screenshot capture intent.\n8) temporal_filesystem_filter=true for recency filters on local files/folders.\n9) Keep decisions semantic; do not keyword-match mechanically.",
+                "Query:\n{}\n\nReturn exactly one JSON object with this schema:\n{{\"remote_public_fact_required\":<bool>,\"host_local_clock_targeted\":<bool>,\"command_directed\":<bool>,\"durable_automation_requested\":<bool>,\"model_registry_control_requested\":<bool>,\"app_launch_directed\":<bool>,\"direct_ui_input\":<bool>,\"desktop_screenshot_requested\":<bool>,\"temporal_filesystem_filter\":<bool>}}\nRules:\n1) remote_public_fact_required=true only when current/public external grounding is required.\n2) host_local_clock_targeted=true only when the user explicitly asks for this host machine/system clock.\n3) command_directed=true for local shell/terminal or host automation tasks.\n4) durable_automation_requested=true only when the user is asking for an installed recurring watch/monitor/notify-later workflow rather than a one-shot command.\n5) model_registry_control_requested=true only when the user is explicitly asking to load unload install import activate deactivate warm sync or otherwise manage local model backend or gallery lifecycle inside the kernel control plane.\n6) app_launch_directed=true for opening/launching a local application.\n7) direct_ui_input=true for click/type/scroll-like interaction in an active UI.\n8) desktop_screenshot_requested=true for screenshot capture intent.\n9) temporal_filesystem_filter=true for recency filters on local files/folders.\n10) Keep decisions semantic; do not keyword-match mechanically.",
                 query
             )
         }
@@ -255,12 +258,13 @@ pub(super) async fn infer_query_binding_profile(
                 INTENT_QUERY_BINDING_SCHEMA_ID
             );
             log::info!(
-                "IntentResolver query binding profile session={} remote_public_fact_required={} host_local_clock_targeted={} command_directed={} durable_automation_requested={} app_launch_directed={} direct_ui_input={} desktop_screenshot_requested={} temporal_filesystem_filter={}",
+                "IntentResolver query binding profile session={} remote_public_fact_required={} host_local_clock_targeted={} command_directed={} durable_automation_requested={} model_registry_control_requested={} app_launch_directed={} direct_ui_input={} desktop_screenshot_requested={} temporal_filesystem_filter={}",
                 hex::encode(&session_id[..4]),
                 profile.remote_public_fact_required,
                 profile.host_local_clock_targeted,
                 profile.command_directed,
                 profile.durable_automation_requested,
+                profile.model_registry_control_requested,
                 profile.app_launch_directed,
                 profile.direct_ui_input,
                 profile.desktop_screenshot_requested,
@@ -298,6 +302,9 @@ pub(super) fn query_binding_satisfied(
         IntentQueryBindingClass::CommandDirected => query_binding_profile.command_directed,
         IntentQueryBindingClass::DurableAutomation => {
             query_binding_profile.durable_automation_requested
+        }
+        IntentQueryBindingClass::ModelRegistryControl => {
+            query_binding_profile.model_registry_control_requested
         }
         IntentQueryBindingClass::DirectUiInput => query_binding_profile.direct_ui_input,
         IntentQueryBindingClass::DesktopScreenshot => {

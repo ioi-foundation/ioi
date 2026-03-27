@@ -20,6 +20,7 @@ mod windows;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
 use ioi_memory::MemoryRuntime;
+use ioi_services::agentic::media_runtime::KernelMediaRuntime;
 use models::AppState;
 
 #[cfg(target_os = "linux")]
@@ -64,7 +65,7 @@ fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
     let openai_key = std::env::var("OPENAI_API_KEY").ok();
     let local_url = std::env::var("LOCAL_LLM_URL").ok();
 
-    if let Some(key) = openai_key {
+    let runtime: Arc<dyn InferenceRuntime> = if let Some(key) = openai_key {
         let model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
         let api_url = "https://api.openai.com/v1/chat/completions".to_string();
         Arc::new(HttpInferenceRuntime::new(api_url, key, model))
@@ -76,6 +77,21 @@ fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
         ))
     } else {
         Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
+    };
+
+    Arc::new(KernelMediaRuntime::new(runtime))
+}
+
+fn configure_media_tool_home(data_dir: &Path) {
+    let existing = std::env::var("IOI_MEDIA_TOOL_HOME")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    if existing.is_none() {
+        std::env::set_var(
+            "IOI_MEDIA_TOOL_HOME",
+            data_dir.join("local-engine").join("media"),
+        );
     }
 }
 
@@ -131,6 +147,7 @@ pub fn run() {
 
             let app_handle = app.handle();
             let data_dir = autopilot_data_dir_for(&app_handle);
+            configure_media_tool_home(&data_dir);
 
             let memory_runtime = match open_or_create_memory_runtime(&data_dir) {
                 Ok(runtime) => Some(Arc::new(runtime)),
@@ -219,6 +236,10 @@ pub fn run() {
             let notification_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 kernel::notifications::spawn_notification_scheduler(notification_handle).await;
+            });
+            let local_engine_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                kernel::local_engine::spawn_local_engine_executor(local_engine_handle).await;
             });
 
             let inference_runtime = create_inference_runtime();
@@ -363,6 +384,15 @@ pub fn run() {
             kernel::notifications::assistant_attention_policy_apply_query,
             kernel::data::get_context_blob,
             kernel::data::get_available_tools,
+            kernel::data::get_local_engine_snapshot,
+            kernel::data::save_local_engine_control_plane,
+            kernel::data::stage_local_engine_operation,
+            kernel::data::remove_local_engine_operation,
+            kernel::data::promote_local_engine_operation,
+            kernel::data::update_local_engine_job_status,
+            kernel::data::retry_local_engine_parent_playbook_run,
+            kernel::data::resume_local_engine_parent_playbook_run,
+            kernel::data::dismiss_local_engine_parent_playbook_run,
             kernel::data::get_skill_catalog,
             kernel::data::get_memory_runtime_session_status,
             kernel::data::get_active_context,
@@ -370,6 +400,23 @@ pub fn run() {
             kernel::data::get_skill_detail,
             kernel::data::get_substrate_proof,
             kernel::data::search_atlas,
+            kernel::knowledge::get_knowledge_collections,
+            kernel::knowledge::create_knowledge_collection,
+            kernel::knowledge::reset_knowledge_collection,
+            kernel::knowledge::delete_knowledge_collection,
+            kernel::knowledge::add_knowledge_text_entry,
+            kernel::knowledge::import_knowledge_file,
+            kernel::knowledge::remove_knowledge_collection_entry,
+            kernel::knowledge::get_knowledge_collection_entry_content,
+            kernel::knowledge::search_knowledge_collection,
+            kernel::knowledge::add_knowledge_collection_source,
+            kernel::knowledge::remove_knowledge_collection_source,
+            kernel::skill_sources::get_skill_sources,
+            kernel::skill_sources::add_skill_source,
+            kernel::skill_sources::update_skill_source,
+            kernel::skill_sources::remove_skill_source,
+            kernel::skill_sources::set_skill_source_enabled,
+            kernel::skill_sources::sync_skill_source,
             observability::get_local_benchmark_trace_feed,
             kernel::artifacts::get_thread_events,
             kernel::artifacts::get_thread_artifacts,

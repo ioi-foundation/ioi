@@ -68,6 +68,9 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::ChatReply { .. }
         | AgentTool::MemorySearch { .. }
         | AgentTool::MemoryInspect { .. }
+        | AgentTool::MemoryReplaceCore { .. }
+        | AgentTool::MemoryAppendCore { .. }
+        | AgentTool::MemoryClearCore { .. }
         | AgentTool::AgentDelegate { .. }
         | AgentTool::AgentAwait { .. }
         | AgentTool::AgentPause { .. }
@@ -109,24 +112,30 @@ fn web_read_target_maps_to_web_retrieve_scope() {
 }
 
 #[test]
-fn media_extract_transcript_target_maps_to_web_retrieve_scope() {
+fn media_extract_transcript_target_maps_to_media_extract_transcript_scope() {
     let tool = AgentTool::MediaExtractTranscript {
         url: "https://example.com/video".to_string(),
         language: Some("en".to_string()),
         max_chars: Some(4096),
     };
-    assert_eq!(tool.target(), crate::app::ActionTarget::WebRetrieve);
+    assert_eq!(
+        tool.target(),
+        crate::app::ActionTarget::MediaExtractTranscript
+    );
 }
 
 #[test]
-fn media_extract_multimodal_target_maps_to_web_retrieve_scope() {
+fn media_extract_multimodal_target_maps_to_media_extract_multimodal_scope() {
     let tool = AgentTool::MediaExtractMultimodalEvidence {
         url: "https://example.com/video".to_string(),
         language: Some("en".to_string()),
         max_chars: Some(4096),
         frame_limit: Some(6),
     };
-    assert_eq!(tool.target(), crate::app::ActionTarget::WebRetrieve);
+    assert_eq!(
+        tool.target(),
+        crate::app::ActionTarget::MediaExtractMultimodalEvidence
+    );
 }
 
 #[test]
@@ -752,7 +761,7 @@ fn pii_egress_specs_cover_known_egress_tools() {
     assert!(!media_specs[0].supports_transform);
     assert_eq!(
         media_specs[0].target,
-        PiiTarget::Action(ActionTarget::WebRetrieve)
+        PiiTarget::Action(ActionTarget::MediaExtractTranscript)
     );
 
     let multimodal_specs = AgentTool::MediaExtractMultimodalEvidence {
@@ -770,7 +779,7 @@ fn pii_egress_specs_cover_known_egress_tools() {
     assert!(!multimodal_specs[0].supports_transform);
     assert_eq!(
         multimodal_specs[0].target,
-        PiiTarget::Action(ActionTarget::WebRetrieve)
+        PiiTarget::Action(ActionTarget::MediaExtractMultimodalEvidence)
     );
 
     let net_fetch_specs = AgentTool::NetFetch {
@@ -893,4 +902,14 @@ fn pii_egress_field_mut_maps_to_expected_text_slots() {
         }
         _ => panic!("unexpected tool variant"),
     }
+}
+
+#[test]
+fn media_extract_tools_are_reserved_native_names() {
+    assert!(AgentTool::is_reserved_tool_name(
+        "media__extract_transcript"
+    ));
+    assert!(AgentTool::is_reserved_tool_name(
+        "media__extract_multimodal_evidence"
+    ));
 }

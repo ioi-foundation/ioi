@@ -187,6 +187,59 @@ fn tool_name_for_grounding(tool_value: &Value) -> Option<&str> {
     tool_value.get("name").and_then(Value::as_str)
 }
 
+fn apply_delegate_template_binding(
+    tool_name: Option<&str>,
+    arguments: &mut Map<String, Value>,
+    bindings: &mut BTreeMap<String, InstructionSlotBinding>,
+    grounded_slots: &mut Vec<Value>,
+    verification_checks: &mut Vec<String>,
+) -> bool {
+    if !matches!(tool_name, Some("agent__delegate")) {
+        return false;
+    }
+
+    let mut applied = false;
+    for slot_name in ["playbook_id", "template_id", "workflow_id"] {
+        let Some(binding) = bindings.get(slot_name).cloned() else {
+            continue;
+        };
+        if !matches!(binding.binding_kind, InstructionBindingKind::UserLiteral)
+            || !matches!(binding.protected_slot_kind, ProtectedSlotKind::Unknown)
+        {
+            continue;
+        }
+        if current_argument_literal(arguments, slot_name)
+            .map(str::trim)
+            .map(|value| !value.is_empty())
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        let Some(value) = binding
+            .value
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+
+        arguments.insert(slot_name.to_string(), Value::String(value.to_string()));
+        grounded_slots.push(json!({
+            "slot": slot_name,
+            "bindingKind": "user_literal",
+            "value": value,
+            "origin": binding.origin,
+            "protectedSlotKind": binding.protected_slot_kind,
+        }));
+        verification_checks.push(format!("grounding_slot={}::user_literal", slot_name));
+        bindings.remove(slot_name);
+        applied = true;
+    }
+
+    applied
+}
+
 fn merge_slot_binding_with_protected_slot_metadata(
     mut existing: InstructionSlotBinding,
     protected_slot: &ConnectorProtectedSlotBinding,
@@ -347,9 +400,6 @@ pub(super) async fn apply_instruction_contract_grounding(
         return Ok(tool);
     };
     let requires_grounding = contract_requires_receipt_with_rules(agent_state, rules, "grounding");
-    if !requires_grounding {
-        return Ok(tool);
-    }
 
     let mut tool_value =
         serde_json::to_value(&tool).map_err(|e| TransactionError::Serialization(e.to_string()))?;
@@ -363,6 +413,30 @@ pub(super) async fn apply_instruction_contract_grounding(
                 .to_string(),
         ));
     };
+
+    let mut grounded_slots = Vec::<Value>::new();
+    let mut bindings = protected_slot_bindings_by_name(resolved, tool_name.as_deref(), arguments);
+    let applied_delegate_template = apply_delegate_template_binding(
+        tool_name.as_deref(),
+        arguments,
+        &mut bindings,
+        &mut grounded_slots,
+        verification_checks,
+    );
+    if !requires_grounding {
+        if applied_delegate_template {
+            return serde_json::from_value::<AgentTool>(Value::Object(
+                tool_value.as_object().cloned().unwrap_or_else(Map::new),
+            ))
+            .map_err(|error| {
+                TransactionError::Invalid(format!(
+                    "ERROR_CLASS=GroundingMissing Failed to rebuild grounded tool payload: {}",
+                    error
+                ))
+            });
+        }
+        return Ok(tool);
+    }
 
     let connector_id = selected_connector_id(resolved, tool_name.as_deref()).ok_or_else(|| {
         TransactionError::Invalid(
@@ -379,10 +453,7 @@ pub(super) async fn apply_instruction_contract_grounding(
     let inference_binding = lookup_symbolic_reference_inference_binding(&connector_id);
     let user_query = agent_state.goal.clone();
 
-    let mut grounded_slots = Vec::<Value>::new();
-    for binding in
-        protected_slot_bindings_by_name(resolved, tool_name.as_deref(), arguments).into_values()
-    {
+    for binding in bindings.into_values() {
         match binding.binding_kind {
             InstructionBindingKind::SymbolicRef => {
                 let reference = binding.value.as_deref().ok_or_else(|| {
@@ -575,9 +646,20 @@ pub(super) async fn apply_instruction_contract_grounding(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::desktop::service::DesktopAgentService;
+    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use crate::agentic::rules::ActionRules;
+    use async_trait::async_trait;
+    use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
+    use ioi_api::vm::inference::mock::MockInferenceRuntime;
+    use ioi_drivers::browser::BrowserDriver;
+    use ioi_drivers::terminal::TerminalDriver;
     use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
+    use ioi_types::app::{ActionRequest, ContextSlice};
+    use ioi_types::error::VmError;
     use serde_json::json;
     use std::collections::BTreeMap;
+    use std::sync::Arc;
 
     fn slot(slot: &str, protected_slot_kind: ProtectedSlotKind) -> InstructionSlotBinding {
         InstructionSlotBinding {
@@ -614,6 +696,86 @@ mod tests {
             required_receipts: vec!["grounding".to_string()],
             required_postconditions: vec!["mail.reply.completed".to_string()],
             instruction_contract: None,
+        }
+    }
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [0u8; 32],
+            goal: "test".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 1,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_request_nonce: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: vec![],
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            active_lens: None,
+            pending_search_completion: None,
+            planner_state: None,
+            command_history: Default::default(),
+        }
+    }
+
+    struct NoopGuiDriver;
+
+    #[async_trait]
+    impl GuiDriver for NoopGuiDriver {
+        async fn capture_screen(
+            &self,
+            _crop_rect: Option<(i32, i32, u32, u32)>,
+        ) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_tree(&self) -> Result<String, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn capture_context(&self, _intent: &ActionRequest) -> Result<ContextSlice, VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn inject_input(&self, _event: InputEvent) -> Result<(), VmError> {
+            Err(VmError::HostError("noop gui".into()))
+        }
+
+        async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+            Ok(None)
+        }
+
+        async fn register_som_overlay(
+            &self,
+            _map: std::collections::HashMap<u32, (i32, i32, i32, i32)>,
+        ) -> Result<(), VmError> {
+            Ok(())
         }
     }
 
@@ -677,5 +839,156 @@ mod tests {
             to.value.as_deref(),
             Some("your-connected-email@example.com")
         );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn delegate_template_binding_applies_without_grounding_receipt() {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let terminal = Arc::new(TerminalDriver::new());
+        let browser = Arc::new(BrowserDriver::new());
+        let inference = Arc::new(MockInferenceRuntime);
+        let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "Research the latest kernel scheduler benchmarks.".to_string();
+        let mut resolved = resolved_without_contract();
+        resolved.intent_id = "web.research".to_string();
+        resolved.scope = IntentScopeProfile::WebResearch;
+        resolved.instruction_contract = Some(ioi_types::app::agentic::InstructionContract {
+            operation: "delegate".to_string(),
+            side_effect_mode: ioi_types::app::agentic::InstructionSideEffectMode::ReadOnly,
+            slot_bindings: vec![
+                ioi_types::app::agentic::InstructionSlotBinding {
+                    slot: "template_id".to_string(),
+                    binding_kind: InstructionBindingKind::UserLiteral,
+                    value: Some("researcher".to_string()),
+                    origin: ArgumentOrigin::ModelInferred,
+                    protected_slot_kind: ProtectedSlotKind::Unknown,
+                },
+                ioi_types::app::agentic::InstructionSlotBinding {
+                    slot: "workflow_id".to_string(),
+                    binding_kind: InstructionBindingKind::UserLiteral,
+                    value: Some("live_research_brief".to_string()),
+                    origin: ArgumentOrigin::ModelInferred,
+                    protected_slot_kind: ProtectedSlotKind::Unknown,
+                },
+            ],
+            negative_constraints: vec![],
+            success_criteria: vec![],
+        });
+        resolved.required_receipts = vec!["execution".to_string(), "verification".to_string()];
+        agent_state.resolved_intent = Some(resolved);
+
+        let mut verification_checks = Vec::new();
+        let grounded = apply_instruction_contract_grounding(
+            &service,
+            &mut agent_state,
+            AgentTool::AgentDelegate {
+                goal: "Find the most recent benchmarks and summarize them.".to_string(),
+                budget: 1,
+                playbook_id: None,
+                template_id: None,
+                workflow_id: None,
+                role: None,
+                success_criteria: None,
+                merge_mode: None,
+                expected_output: None,
+            },
+            &ActionRules::default(),
+            [0u8; 32],
+            0,
+            "web.research",
+            None,
+            &mut verification_checks,
+        )
+        .await
+        .expect("delegate template grounding should succeed");
+
+        let AgentTool::AgentDelegate {
+            playbook_id,
+            template_id,
+            workflow_id,
+            ..
+        } = grounded
+        else {
+            panic!("expected grounded delegate tool");
+        };
+        assert_eq!(playbook_id.as_deref(), None);
+        assert_eq!(template_id.as_deref(), Some("researcher"));
+        assert_eq!(workflow_id.as_deref(), Some("live_research_brief"));
+        assert!(verification_checks
+            .iter()
+            .any(|check| check == "grounding_slot=template_id::user_literal"));
+        assert!(verification_checks
+            .iter()
+            .any(|check| check == "grounding_slot=workflow_id::user_literal"));
+        assert!(
+            !agent_state.tool_execution_log.contains_key("grounding"),
+            "non-grounding delegate template injection should not fabricate a grounding receipt"
+        );
+    }
+
+    #[test]
+    fn delegate_playbook_binding_applies_for_workspace_port_task() {
+        let mut arguments = Map::new();
+        let mut bindings = BTreeMap::from([
+            (
+                "playbook_id".to_string(),
+                InstructionSlotBinding {
+                    slot: "playbook_id".to_string(),
+                    binding_kind: InstructionBindingKind::UserLiteral,
+                    value: Some("evidence_audited_patch".to_string()),
+                    origin: ArgumentOrigin::ModelInferred,
+                    protected_slot_kind: ProtectedSlotKind::Unknown,
+                },
+            ),
+            (
+                "template_id".to_string(),
+                InstructionSlotBinding {
+                    slot: "template_id".to_string(),
+                    binding_kind: InstructionBindingKind::UserLiteral,
+                    value: Some("researcher".to_string()),
+                    origin: ArgumentOrigin::ModelInferred,
+                    protected_slot_kind: ProtectedSlotKind::Unknown,
+                },
+            ),
+            (
+                "workflow_id".to_string(),
+                InstructionSlotBinding {
+                    slot: "workflow_id".to_string(),
+                    binding_kind: InstructionBindingKind::UserLiteral,
+                    value: Some("live_research_brief".to_string()),
+                    origin: ArgumentOrigin::ModelInferred,
+                    protected_slot_kind: ProtectedSlotKind::Unknown,
+                },
+            ),
+        ]);
+        let mut grounded_slots = Vec::new();
+        let mut verification_checks = Vec::new();
+
+        let applied = apply_delegate_template_binding(
+            Some("agent__delegate"),
+            &mut arguments,
+            &mut bindings,
+            &mut grounded_slots,
+            &mut verification_checks,
+        );
+
+        assert!(applied);
+        assert_eq!(
+            arguments.get("playbook_id").and_then(Value::as_str),
+            Some("evidence_audited_patch")
+        );
+        assert_eq!(
+            arguments.get("template_id").and_then(Value::as_str),
+            Some("researcher")
+        );
+        assert_eq!(
+            arguments.get("workflow_id").and_then(Value::as_str),
+            Some("live_research_brief")
+        );
+        assert!(verification_checks
+            .iter()
+            .any(|check| check == "grounding_slot=playbook_id::user_literal"));
     }
 }

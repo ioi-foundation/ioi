@@ -274,6 +274,36 @@ async fn submit_continue_authenticated(
         .await
 }
 
+pub(crate) async fn send_message_to_session(
+    app: &AppHandle,
+    session_id: &str,
+    user_input: String,
+) -> Result<(), String> {
+    let session_arr = normalize_session_id(session_id)?;
+    let params_bytes = encode_post_message_params(session_arr, user_input.clone())?;
+    let fallback_params_bytes = params_bytes.clone();
+    let mut client = PublicApiClient::connect("http://127.0.0.1:9000")
+        .await
+        .map_err(|error| format!("Failed to connect for session message: {}", error))?;
+
+    if let Err(base_err) = submit_continue_authenticated(&mut client, app, params_bytes).await {
+        eprintln!(
+            "[Autopilot] post_message@v1 session message did not converge. Falling back to ephemeral post_message flow: {}",
+            base_err
+        );
+        submit_continue_via_ephemeral_post_message(&mut client, fallback_params_bytes)
+            .await
+            .map_err(|fallback_err| {
+                format!(
+                    "Failed to send message to session {}: {} | fallback: {}",
+                    session_id, base_err, fallback_err
+                )
+            })?;
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 pub fn start_task(
     state: State<Mutex<AppState>>,
@@ -450,37 +480,17 @@ pub async fn continue_task(
         &app,
         &format!("clarification:{}:", normalized_session_id),
     );
-    let params_bytes = encode_post_message_params(session_arr, user_input)?;
-    let fallback_params_bytes = params_bytes.clone();
+    let user_input_for_send = user_input.clone();
 
     let app_clone = app.clone();
     tauri::async_runtime::spawn(async move {
-        let mut client = match PublicApiClient::connect("http://127.0.0.1:9000").await {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("[Autopilot] Failed to connect for continue_task: {}", e);
-                return;
-            }
-        };
-
-        if let Err(base_err) =
-            submit_continue_authenticated(&mut client, &app_clone, params_bytes.clone()).await
+        if let Err(error) =
+            send_message_to_session(&app_clone, &normalized_session_id, user_input_for_send).await
         {
-            eprintln!(
-                "[Autopilot] post_message@v1 submission did not converge. Falling back to ephemeral post_message flow: {}",
-                base_err
-            );
-            if let Err(fallback_err) =
-                submit_continue_via_ephemeral_post_message(&mut client, fallback_params_bytes).await
-            {
-                update_task_state(&app_clone, move |t| {
-                    t.phase = AgentPhase::Failed;
-                    t.current_step = format!(
-                        "Failed to send message: {} | fallback: {}",
-                        base_err, fallback_err
-                    );
-                });
-            }
+            update_task_state(&app_clone, move |t| {
+                t.phase = AgentPhase::Failed;
+                t.current_step = format!("Failed to send message: {}", error);
+            });
         }
     });
 

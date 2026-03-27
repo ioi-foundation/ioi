@@ -16,6 +16,8 @@ pub const SKILL_SESSION_OUTCOME_PREFIX: &[u8] = b"skills::session_outcome::";
 pub const MUTATION_RECEIPT_PTR_PREFIX: &[u8] = b"agent::mutation_receipt_ptr::";
 pub const REMEDIATION_PREFIX: &[u8] = b"agent::remediation::";
 pub const INCIDENT_PREFIX: &[u8] = b"agent::incident::";
+pub const WORKER_ASSIGNMENT_PREFIX: &[u8] = b"agent::worker_assignment::";
+pub const PARENT_PLAYBOOK_RUN_PREFIX: &[u8] = b"agent::parent_playbook_run::";
 
 // [NEW] Prefix for storing results of completed child sessions
 // Key: session::result::{child_session_id}
@@ -66,6 +68,20 @@ pub fn get_skill_session_outcome_key(session_id: &[u8; 32]) -> Vec<u8> {
 
 pub fn get_session_result_key(session_id: &[u8; 32]) -> Vec<u8> {
     [SESSION_RESULT_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_worker_assignment_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [WORKER_ASSIGNMENT_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_parent_playbook_run_key(session_id: &[u8; 32], playbook_id: &str) -> Vec<u8> {
+    [
+        PARENT_PLAYBOOK_RUN_PREFIX,
+        session_id.as_slice(),
+        b"::",
+        playbook_id.as_bytes(),
+    ]
+    .concat()
 }
 
 pub fn get_mutation_receipt_ptr_key(session_id: &[u8; 32]) -> Vec<u8> {

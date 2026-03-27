@@ -13,10 +13,9 @@ use ioi_types::app::agentic::{
 
 fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> ActionTarget {
     match target {
-        "web__search"
-        | "web__read"
-        | "media__extract_transcript"
-        | "media__extract_multimodal_evidence" => ActionTarget::WebRetrieve,
+        "web__search" | "web__read" => ActionTarget::WebRetrieve,
+        "media__extract_transcript" => ActionTarget::MediaExtractTranscript,
+        "media__extract_multimodal_evidence" => ActionTarget::MediaExtractMultimodalEvidence,
         "net__fetch" => ActionTarget::NetFetch,
         "browser__snapshot" => ActionTarget::BrowserInspect,
         "gui__snapshot" => ActionTarget::GuiInspect,
@@ -757,10 +756,10 @@ mod tests {
     }
 
     #[test]
-    fn macro_step_media_extract_transcript_maps_to_web_retrieve_and_injects_queue_tool_name() {
+    fn macro_step_media_extract_transcript_maps_to_media_scope_and_injects_queue_tool_name() {
         let params = json!({"url": "https://example.com/video", "language": "en"});
         let target = action_target_for_macro_step("media__extract_transcript", &params);
-        assert_eq!(target, ActionTarget::WebRetrieve);
+        assert_eq!(target, ActionTarget::MediaExtractTranscript);
 
         let args = macro_step_params_with_queue_metadata("media__extract_transcript", &params);
         assert_eq!(
@@ -774,11 +773,11 @@ mod tests {
     }
 
     #[test]
-    fn macro_step_media_extract_multimodal_maps_to_web_retrieve_and_injects_queue_tool_name() {
+    fn macro_step_media_extract_multimodal_maps_to_media_scope_and_injects_queue_tool_name() {
         let params =
             json!({"url": "https://example.com/video", "language": "en", "frame_limit": 6});
         let target = action_target_for_macro_step("media__extract_multimodal_evidence", &params);
-        assert_eq!(target, ActionTarget::WebRetrieve);
+        assert_eq!(target, ActionTarget::MediaExtractMultimodalEvidence);
 
         let args =
             macro_step_params_with_queue_metadata("media__extract_multimodal_evidence", &params);

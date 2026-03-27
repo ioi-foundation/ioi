@@ -253,6 +253,179 @@ fn map_kernel_event(
                     )),
                 }),
             ),
+            ioi_types::app::WorkloadReceipt::Inference(inference) => Some(
+                ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::Inference(
+                        ioi_ipc::public::WorkloadInferenceReceipt {
+                            tool_name: inference.tool_name,
+                            operation: inference.operation.as_label().to_string(),
+                            backend: inference.backend,
+                            model_id: inference.model_id,
+                            model_family: inference.model_family.clone().unwrap_or_default(),
+                            has_model_family: inference.model_family.is_some(),
+                            prompt_token_count: inference.prompt_token_count.unwrap_or_default(),
+                            has_prompt_token_count: inference.prompt_token_count.is_some(),
+                            completion_token_count: inference
+                                .completion_token_count
+                                .unwrap_or_default(),
+                            has_completion_token_count: inference.completion_token_count.is_some(),
+                            total_token_count: inference.total_token_count.unwrap_or_default(),
+                            has_total_token_count: inference.total_token_count.is_some(),
+                            vector_dimensions: inference.vector_dimensions.unwrap_or_default(),
+                            has_vector_dimensions: inference.vector_dimensions.is_some(),
+                            result_item_count: inference.result_item_count,
+                            candidate_count_total: inference
+                                .candidate_count_total
+                                .unwrap_or_default(),
+                            has_candidate_count_total: inference.candidate_count_total.is_some(),
+                            candidate_count_scored: inference
+                                .candidate_count_scored
+                                .unwrap_or_default(),
+                            has_candidate_count_scored: inference.candidate_count_scored.is_some(),
+                            streaming: inference.streaming,
+                            latency_ms: inference.latency_ms.unwrap_or_default(),
+                            has_latency_ms: inference.latency_ms.is_some(),
+                            success: inference.success,
+                            error_class: inference.error_class.clone().unwrap_or_default(),
+                            has_error_class: inference.error_class.is_some(),
+                        },
+                    )),
+                }),
+            ),
+            ioi_types::app::WorkloadReceipt::Media(media) => Some(ChainEventEnum::WorkloadReceipt(
+                ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::Media(
+                        ioi_ipc::public::WorkloadMediaReceipt {
+                            tool_name: media.tool_name,
+                            operation: media.operation.as_label().to_string(),
+                            backend: media.backend,
+                            model_id: media.model_id.clone().unwrap_or_default(),
+                            has_model_id: media.model_id.is_some(),
+                            source_uri: media.source_uri.clone().unwrap_or_default(),
+                            has_source_uri: media.source_uri.is_some(),
+                            input_artifact_count: media.input_artifact_count,
+                            output_artifact_count: media.output_artifact_count,
+                            output_bytes: media.output_bytes.unwrap_or_default(),
+                            has_output_bytes: media.output_bytes.is_some(),
+                            duration_ms: media.duration_ms.unwrap_or_default(),
+                            has_duration_ms: media.duration_ms.is_some(),
+                            output_mime_types: media.output_mime_types,
+                            success: media.success,
+                            error_class: media.error_class.clone().unwrap_or_default(),
+                            has_error_class: media.error_class.is_some(),
+                        },
+                    )),
+                },
+            )),
+            ioi_types::app::WorkloadReceipt::ModelLifecycle(lifecycle) => Some(
+                ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::ModelLifecycle(
+                        ioi_ipc::public::WorkloadModelLifecycleReceipt {
+                            tool_name: lifecycle.tool_name,
+                            operation: lifecycle.operation.as_label().to_string(),
+                            subject_kind: lifecycle.subject_kind.as_label().to_string(),
+                            subject_id: lifecycle.subject_id,
+                            backend_id: lifecycle.backend_id.clone().unwrap_or_default(),
+                            has_backend_id: lifecycle.backend_id.is_some(),
+                            source_uri: lifecycle.source_uri.clone().unwrap_or_default(),
+                            has_source_uri: lifecycle.source_uri.is_some(),
+                            job_id: lifecycle.job_id.clone().unwrap_or_default(),
+                            has_job_id: lifecycle.job_id.is_some(),
+                            bytes_transferred: lifecycle.bytes_transferred.unwrap_or_default(),
+                            has_bytes_transferred: lifecycle.bytes_transferred.is_some(),
+                            hardware_profile: lifecycle
+                                .hardware_profile
+                                .clone()
+                                .unwrap_or_default(),
+                            has_hardware_profile: lifecycle.hardware_profile.is_some(),
+                            success: lifecycle.success,
+                            error_class: lifecycle.error_class.clone().unwrap_or_default(),
+                            has_error_class: lifecycle.error_class.is_some(),
+                        },
+                    )),
+                }),
+            ),
+            ioi_types::app::WorkloadReceipt::Worker(worker) => Some(
+                ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::Worker(
+                        ioi_ipc::public::WorkloadWorkerReceipt {
+                            tool_name: worker.tool_name,
+                            phase: worker.phase,
+                            child_session_id: worker.child_session_id,
+                            parent_session_id: worker.parent_session_id,
+                            role: worker.role,
+                            template_id: worker.template_id.clone().unwrap_or_default(),
+                            has_template_id: worker.template_id.is_some(),
+                            workflow_id: worker.workflow_id.clone().unwrap_or_default(),
+                            has_workflow_id: worker.workflow_id.is_some(),
+                            merge_mode: worker.merge_mode,
+                            status: worker.status,
+                            success: worker.success,
+                            summary: worker.summary,
+                            verification_hint: worker
+                                .verification_hint
+                                .clone()
+                                .unwrap_or_default(),
+                            has_verification_hint: worker.verification_hint.is_some(),
+                            error_class: worker.error_class.clone().unwrap_or_default(),
+                            has_error_class: worker.error_class.is_some(),
+                            playbook_id: worker.playbook_id.clone().unwrap_or_default(),
+                            has_playbook_id: worker.playbook_id.is_some(),
+                        },
+                    )),
+                }),
+            ),
+            ioi_types::app::WorkloadReceipt::ParentPlaybook(playbook) => Some(
+                ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
+                    session_id: hex::encode(receipt.session_id),
+                    step_index: receipt.step_index,
+                    workload_id: receipt.workload_id,
+                    timestamp_ms: receipt.timestamp_ms,
+                    receipt: Some(ioi_ipc::public::workload_receipt::Receipt::ParentPlaybook(
+                        ioi_ipc::public::WorkloadParentPlaybookReceipt {
+                            tool_name: playbook.tool_name,
+                            phase: playbook.phase,
+                            parent_session_id: playbook.parent_session_id,
+                            playbook_id: playbook.playbook_id,
+                            playbook_label: playbook.playbook_label,
+                            status: playbook.status,
+                            success: playbook.success,
+                            step_id: playbook.step_id.clone().unwrap_or_default(),
+                            has_step_id: playbook.step_id.is_some(),
+                            step_label: playbook.step_label.clone().unwrap_or_default(),
+                            has_step_label: playbook.step_label.is_some(),
+                            child_session_id: playbook
+                                .child_session_id
+                                .clone()
+                                .unwrap_or_default(),
+                            has_child_session_id: playbook.child_session_id.is_some(),
+                            template_id: playbook.template_id.clone().unwrap_or_default(),
+                            has_template_id: playbook.template_id.is_some(),
+                            workflow_id: playbook.workflow_id.clone().unwrap_or_default(),
+                            has_workflow_id: playbook.workflow_id.is_some(),
+                            summary: playbook.summary,
+                            error_class: playbook.error_class.clone().unwrap_or_default(),
+                            has_error_class: playbook.error_class.is_some(),
+                        },
+                    )),
+                }),
+            ),
             ioi_types::app::WorkloadReceipt::Adapter(adapter) => Some(
                 ChainEventEnum::WorkloadReceipt(ioi_ipc::public::WorkloadReceipt {
                     session_id: hex::encode(receipt.session_id),

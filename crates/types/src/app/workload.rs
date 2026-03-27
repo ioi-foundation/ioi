@@ -8,6 +8,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 #[serde(rename_all = "snake_case")]
 pub enum RuntimeTarget {
+    /// Local or managed model inference substrate.
+    Inference,
+    /// Local or managed media processing substrate.
+    Media,
+    /// Model, backend, and gallery lifecycle control substrate.
+    ModelRegistry,
     /// Local filesystem mutation/read substrate.
     Filesystem,
     /// Local system command/session substrate.
@@ -32,6 +38,9 @@ impl RuntimeTarget {
     /// Returns a stable, deterministic label for receipts and policy checks.
     pub fn as_label(self) -> &'static str {
         match self {
+            Self::Inference => "inference",
+            Self::Media => "media",
+            Self::ModelRegistry => "model_registry",
             Self::Filesystem => "filesystem",
             Self::System => "system",
             Self::DesktopUi => "desktop_ui",
@@ -294,6 +303,8 @@ fn is_network_target(target: &ActionTarget) -> bool {
     match target {
         ActionTarget::NetFetch
         | ActionTarget::WebRetrieve
+        | ActionTarget::MediaExtractTranscript
+        | ActionTarget::MediaExtractMultimodalEvidence
         | ActionTarget::BrowserInteract
         | ActionTarget::BrowserInspect
         | ActionTarget::CommerceDiscovery
@@ -363,5 +374,12 @@ mod tests {
         let check = spec.evaluate_lease(&ActionTarget::NetFetch, Some("api.example.com"), 500);
         assert!(check.satisfied);
         assert!(check.reason.is_none());
+    }
+
+    #[test]
+    fn runtime_target_labels_include_absorbed_localai_capability_families() {
+        assert_eq!(RuntimeTarget::Inference.as_label(), "inference");
+        assert_eq!(RuntimeTarget::Media.as_label(), "media");
+        assert_eq!(RuntimeTarget::ModelRegistry.as_label(), "model_registry");
     }
 }

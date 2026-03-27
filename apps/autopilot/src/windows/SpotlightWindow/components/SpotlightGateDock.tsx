@@ -56,12 +56,19 @@ export function SpotlightGateDock({
             showDeny={true}
             denyLabel={gateInfo.deny_label || "Deny action"}
             deadlineMs={gateDeadlineMs}
-            targetLabel={gateInfo.pii?.target_label}
+            surfaceLabel={gateInfo.surface_label}
+            scopeLabel={gateInfo.scope_label}
+            operationLabel={gateInfo.operation_label}
+            targetLabel={gateInfo.target_label || gateInfo.pii?.target_label}
+            operatorNote={gateInfo.operator_note}
             spanSummary={gateInfo.pii?.span_summary}
             classCounts={gateInfo.pii?.class_counts}
             severityCounts={gateInfo.pii?.severity_counts}
             stage2Prompt={gateInfo.pii?.stage2_prompt}
-            targetId={(gateInfo.pii?.target_id as Record<string, unknown> | null) ?? null}
+            targetId={
+              (gateInfo.pii?.target_id as Record<string, unknown> | null) ??
+              null
+            }
             errorMessage={gateActionError}
             onApproveTransform={onApprove}
             onGrantScopedException={isPiiGate ? onGrantScopedException : undefined}

@@ -228,10 +228,8 @@ body.spotlight-shell-host,
 .spot-input-wrapper,
 .spot-input,
 .spot-controls,
-.spot-toggles,
 .spot-sidebar-toggle,
 .spot-action-btn,
-.spot-context-btn,
 .spot-send-btn,
 .spot-stop-btn,
 .spot-toggle,
@@ -455,33 +453,17 @@ body.spotlight-shell-host,
   transform: scale(0.92);
 }
 
+.spot-action-btn--slash {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.spot-slash-trigger-text {
+  line-height: 1;
+}
+
 /* Context Button - Pill */
-.spot-context-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border-radius: var(--spot-radius-full);
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--spot-text-muted);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--spot-transition-fast);
-}
-
-.spot-context-btn:hover {
-  background: var(--bg-hover);
-  color: var(--spot-text-secondary);
-}
-
-.spot-context-btn.active {
-  background: var(--spot-accent-subtle);
-  border-color: var(--interactive-selected-border);
-  color: var(--spot-text-primary);
-}
-
 /* Send Button - Primary CTA */
 .spot-send-btn {
   width: 34px;
@@ -537,16 +519,6 @@ body.spotlight-shell-host,
 
 .spot-stop-btn:active {
   transform: scale(0.97);
-}
-
-/* Toggle Row - Compact */
-.spot-toggles {
-  grid-column: 2;
-  display: flex;
-  gap: 6px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--spot-border-subtle);
 }
 
 /* ============================================

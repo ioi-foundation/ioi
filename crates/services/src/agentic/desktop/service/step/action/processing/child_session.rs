@@ -1,12 +1,23 @@
-use crate::agentic::desktop::utils::await_child_session_status_for_inspection;
+use crate::agentic::desktop::service::lifecycle::await_child_worker_result;
+use crate::agentic::desktop::service::DesktopAgentService;
+use crate::agentic::desktop::types::AgentState;
 use ioi_api::state::StateAccess;
-use ioi_memory::MemoryRuntime;
-use std::sync::Arc;
 
-pub(super) fn await_child_session_status(
-    state: &dyn StateAccess,
-    memory_runtime: Option<&Arc<MemoryRuntime>>,
+pub(super) async fn await_child_session_status(
+    service: &DesktopAgentService,
+    state: &mut dyn StateAccess,
+    parent_state: &mut AgentState,
+    step_index: u32,
+    block_height: u64,
     child_session_id_hex: &str,
 ) -> Result<String, String> {
-    await_child_session_status_for_inspection(state, memory_runtime, child_session_id_hex)
+    await_child_worker_result(
+        service,
+        state,
+        parent_state,
+        step_index,
+        block_height,
+        child_session_id_hex,
+    )
+    .await
 }

@@ -509,6 +509,7 @@ export function SpotlightWindow({
               inputLockedByCredential={inputLockedByCredential}
               showPasswordPrompt={showPasswordPrompt}
               intent={intent}
+              setIntent={setIntent}
               onInputChange={handleInputChange}
               onInputKeyDown={handleInputKeyDown}
               autoContext={autoContext}

@@ -1,6 +1,9 @@
 use crate::models::{
     AgentEvent, AgentTask, Artifact, AssistantAttentionPolicy, AssistantAttentionProfile,
-    AssistantNotificationRecord, AssistantUserProfile, InterventionRecord, SessionSummary,
+    AssistantNotificationRecord, AssistantUserProfile, InterventionRecord,
+    KnowledgeCollectionRecord, LocalEngineControlPlane, LocalEngineJobRecord,
+    LocalEngineRegistryState, LocalEngineStagedOperation, LocalEngineWorkerTemplateRecord,
+    SessionSummary, SkillSourceRecord,
 };
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_memory::MemoryRuntime;
@@ -14,6 +17,17 @@ const ASSISTANT_NOTIFICATION_INDEX_CHECKPOINT_NAME: &str = "autopilot.assistant_
 const ATTENTION_POLICY_CHECKPOINT_NAME: &str = "autopilot.assistant_attention_policy.v1";
 const ATTENTION_PROFILE_CHECKPOINT_NAME: &str = "autopilot.assistant_attention_profile.v1";
 const ASSISTANT_USER_PROFILE_CHECKPOINT_NAME: &str = "autopilot.assistant_user_profile.v1";
+const LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME: &str = "autopilot.local_engine_control_plane.v1";
+const LOCAL_ENGINE_STAGED_OPERATIONS_CHECKPOINT_NAME: &str =
+    "autopilot.local_engine_staged_operations.v1";
+const LOCAL_ENGINE_JOBS_CHECKPOINT_NAME: &str = "autopilot.local_engine_jobs.v1";
+const LOCAL_ENGINE_REGISTRY_STATE_CHECKPOINT_NAME: &str =
+    "autopilot.local_engine_registry_state.v1";
+const LOCAL_ENGINE_PARENT_PLAYBOOK_DISMISSALS_CHECKPOINT_NAME: &str =
+    "autopilot.local_engine_parent_playbook_dismissals.v1";
+const KNOWLEDGE_COLLECTIONS_CHECKPOINT_NAME: &str = "ioi.knowledge.collections.v1";
+const SKILL_SOURCES_CHECKPOINT_NAME: &str = "ioi.skills.sources.v1";
+const WORKER_TEMPLATES_CHECKPOINT_NAME: &str = "ioi.workers.templates.v1";
 
 fn scoped_storage_key(scope: &str, id: &str) -> Option<[u8; 32]> {
     let preimage = format!("autopilot::{}::{}", scope, id);
@@ -53,7 +67,7 @@ fn load_global_checkpoint_json<T: DeserializeOwned>(
     }
 }
 
-fn persist_global_checkpoint_json<T: Serialize>(
+fn persist_global_checkpoint_json<T: Serialize + ?Sized>(
     memory_runtime: &Arc<MemoryRuntime>,
     checkpoint_name: &str,
     value: &T,
@@ -327,5 +341,146 @@ pub fn save_assistant_user_profile(
 
 pub fn load_assistant_user_profile(memory_runtime: &Arc<MemoryRuntime>) -> AssistantUserProfile {
     load_global_checkpoint_json(memory_runtime, ASSISTANT_USER_PROFILE_CHECKPOINT_NAME)
+        .unwrap_or_default()
+}
+
+pub fn save_local_engine_control_plane(
+    memory_runtime: &Arc<MemoryRuntime>,
+    control_plane: &LocalEngineControlPlane,
+) {
+    persist_global_checkpoint_json(
+        memory_runtime,
+        LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME,
+        control_plane,
+    );
+}
+
+pub fn load_local_engine_control_plane(
+    memory_runtime: &Arc<MemoryRuntime>,
+) -> Option<LocalEngineControlPlane> {
+    load_global_checkpoint_json(memory_runtime, LOCAL_ENGINE_CONTROL_PLANE_CHECKPOINT_NAME)
+}
+
+pub fn save_local_engine_staged_operations(
+    memory_runtime: &Arc<MemoryRuntime>,
+    operations: &[LocalEngineStagedOperation],
+) {
+    persist_global_checkpoint_json(
+        memory_runtime,
+        LOCAL_ENGINE_STAGED_OPERATIONS_CHECKPOINT_NAME,
+        operations,
+    );
+}
+
+pub fn load_local_engine_staged_operations(
+    memory_runtime: &Arc<MemoryRuntime>,
+) -> Vec<LocalEngineStagedOperation> {
+    load_global_checkpoint_json(
+        memory_runtime,
+        LOCAL_ENGINE_STAGED_OPERATIONS_CHECKPOINT_NAME,
+    )
+    .unwrap_or_default()
+}
+
+pub fn save_local_engine_jobs(memory_runtime: &Arc<MemoryRuntime>, jobs: &[LocalEngineJobRecord]) {
+    persist_global_checkpoint_json(memory_runtime, LOCAL_ENGINE_JOBS_CHECKPOINT_NAME, jobs);
+}
+
+pub fn load_local_engine_jobs(memory_runtime: &Arc<MemoryRuntime>) -> Vec<LocalEngineJobRecord> {
+    load_global_checkpoint_json(memory_runtime, LOCAL_ENGINE_JOBS_CHECKPOINT_NAME)
+        .unwrap_or_default()
+}
+
+pub fn save_local_engine_registry_state(
+    memory_runtime: &Arc<MemoryRuntime>,
+    state: &LocalEngineRegistryState,
+) {
+    persist_global_checkpoint_json(
+        memory_runtime,
+        LOCAL_ENGINE_REGISTRY_STATE_CHECKPOINT_NAME,
+        state,
+    );
+}
+
+pub fn load_local_engine_registry_state(
+    memory_runtime: &Arc<MemoryRuntime>,
+) -> Option<LocalEngineRegistryState> {
+    load_global_checkpoint_json(memory_runtime, LOCAL_ENGINE_REGISTRY_STATE_CHECKPOINT_NAME)
+}
+
+pub fn save_local_engine_parent_playbook_dismissals(
+    memory_runtime: &Arc<MemoryRuntime>,
+    run_ids: &[String],
+) {
+    let mut normalized = run_ids
+        .iter()
+        .map(|entry| entry.trim().to_string())
+        .filter(|entry| !entry.is_empty())
+        .collect::<Vec<_>>();
+    normalized.sort();
+    normalized.dedup();
+    persist_global_checkpoint_json(
+        memory_runtime,
+        LOCAL_ENGINE_PARENT_PLAYBOOK_DISMISSALS_CHECKPOINT_NAME,
+        &normalized,
+    );
+}
+
+pub fn load_local_engine_parent_playbook_dismissals(
+    memory_runtime: &Arc<MemoryRuntime>,
+) -> Vec<String> {
+    load_global_checkpoint_json(
+        memory_runtime,
+        LOCAL_ENGINE_PARENT_PLAYBOOK_DISMISSALS_CHECKPOINT_NAME,
+    )
+    .unwrap_or_default()
+}
+
+pub fn save_knowledge_collections(
+    memory_runtime: &Arc<MemoryRuntime>,
+    collections: &[KnowledgeCollectionRecord],
+) {
+    let mut normalized = collections.to_vec();
+    normalized.sort_by(|left, right| {
+        right
+            .updated_at_ms
+            .cmp(&left.updated_at_ms)
+            .then_with(|| left.label.cmp(&right.label))
+    });
+    persist_global_checkpoint_json(
+        memory_runtime,
+        KNOWLEDGE_COLLECTIONS_CHECKPOINT_NAME,
+        &normalized,
+    );
+}
+
+pub fn load_knowledge_collections(
+    memory_runtime: &Arc<MemoryRuntime>,
+) -> Vec<KnowledgeCollectionRecord> {
+    load_global_checkpoint_json(memory_runtime, KNOWLEDGE_COLLECTIONS_CHECKPOINT_NAME)
+        .unwrap_or_default()
+}
+
+pub fn save_skill_sources(memory_runtime: &Arc<MemoryRuntime>, sources: &[SkillSourceRecord]) {
+    let mut normalized = sources.to_vec();
+    normalized.sort_by(|left, right| left.label.cmp(&right.label));
+    persist_global_checkpoint_json(memory_runtime, SKILL_SOURCES_CHECKPOINT_NAME, &normalized);
+}
+
+pub fn load_skill_sources(memory_runtime: &Arc<MemoryRuntime>) -> Vec<SkillSourceRecord> {
+    load_global_checkpoint_json(memory_runtime, SKILL_SOURCES_CHECKPOINT_NAME).unwrap_or_default()
+}
+
+pub fn save_worker_templates(
+    memory_runtime: &Arc<MemoryRuntime>,
+    templates: &[LocalEngineWorkerTemplateRecord],
+) {
+    persist_global_checkpoint_json(memory_runtime, WORKER_TEMPLATES_CHECKPOINT_NAME, templates);
+}
+
+pub fn load_worker_templates(
+    memory_runtime: &Arc<MemoryRuntime>,
+) -> Vec<LocalEngineWorkerTemplateRecord> {
+    load_global_checkpoint_json(memory_runtime, WORKER_TEMPLATES_CHECKPOINT_NAME)
         .unwrap_or_default()
 }

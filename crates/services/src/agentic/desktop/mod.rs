@@ -1,6 +1,7 @@
 // crates/services/src/agentic/desktop/mod.rs
 
 pub mod adapters;
+pub mod agent_playbooks;
 pub mod cloud_airlock;
 pub mod connectors;
 pub mod execution; // Points to execution/mod.rs now
@@ -11,6 +12,7 @@ pub mod service;
 pub mod tools;
 pub mod types;
 pub mod utils;
+pub mod worker_templates;
 
 pub use service::DesktopAgentService;
 pub use types::{

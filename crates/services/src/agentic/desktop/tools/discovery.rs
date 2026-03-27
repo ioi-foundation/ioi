@@ -288,6 +288,8 @@ mod tests {
         assert!(!tools.iter().any(|t| t.name == "web__read"));
         assert!(!tools.iter().any(|t| t.name == "os__copy"));
         assert!(!tools.iter().any(|t| t.name == "os__paste"));
+        assert!(!tools.iter().any(|t| t.name == "model__embeddings"));
+        assert!(!tools.iter().any(|t| t.name == "model__rerank"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -358,6 +360,107 @@ mod tests {
             .any(|tool| tool.name == "automation__create_monitor"));
         assert!(!tools.iter().any(|tool| tool.name == "sys__exec"));
         assert!(!tools.iter().any(|tool| tool.name == "sys__exec_session"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn memory_recall_intent_exposes_native_model_memory_tools() {
+        let intent = resolved_with_capability("memory.recall", "memory.access");
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "what do you remember about the previous migration plan",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools.iter().any(|tool| tool.name == "memory__search"));
+        assert!(tools.iter().any(|tool| tool.name == "memory__inspect"));
+        assert!(tools.iter().any(|tool| tool.name == "model__embeddings"));
+        assert!(tools.iter().any(|tool| tool.name == "model__rerank"));
+        assert!(!tools.iter().any(|tool| tool.name == "browser__navigate"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn model_registry_control_intent_exposes_native_lifecycle_tools() {
+        let intent = resolved_with_capability("model.registry.load", "model.registry.manage");
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "load the codex oss model into the local kernel runtime",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools.iter().any(|tool| tool.name == "model_registry__load"));
+        assert!(tools
+            .iter()
+            .any(|tool| tool.name == "model_registry__unload"));
+        assert!(tools
+            .iter()
+            .any(|tool| tool.name == "model_registry__install"));
+        assert!(tools.iter().any(|tool| tool.name == "backend__install"));
+        assert!(tools.iter().any(|tool| tool.name == "gallery__sync"));
+        assert!(!tools.iter().any(|tool| tool.name == "sys__exec"));
+        assert!(!tools.iter().any(|tool| tool.name == "sys__install_package"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn media_generation_intent_exposes_native_media_tools() {
+        let intent = resolved_with_capability("media.generate.image", "media.generate.image");
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "generate an image for the launch deck",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools
+            .iter()
+            .any(|tool| tool.name == "media__generate_image"));
+        assert!(tools.iter().any(|tool| tool.name == "media__edit_image"));
+        assert!(!tools.iter().any(|tool| tool.name == "browser__navigate"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn media_transcription_intent_exposes_native_transcription_tool() {
+        let intent = resolved_with_capability("media.transcribe", "media.transcribe");
+        let state = IAVLTree::new(HashCommitmentScheme::new());
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
+        let tools = discover_tools(
+            &state,
+            None,
+            None,
+            "transcribe this audio note",
+            runtime,
+            ExecutionTier::DomHeadless,
+            "terminal",
+            Some(&intent),
+        )
+        .await;
+
+        assert!(tools
+            .iter()
+            .any(|tool| tool.name == "media__transcribe_audio"));
+        assert!(!tools.iter().any(|tool| tool.name == "sys__exec"));
     }
 
     #[tokio::test(flavor = "current_thread")]

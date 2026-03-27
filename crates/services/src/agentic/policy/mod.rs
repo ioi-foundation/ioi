@@ -10,3 +10,4 @@ mod targets;
 mod tests;
 
 pub use engine::PolicyEngine;
+pub(crate) use targets::policy_target_aliases;

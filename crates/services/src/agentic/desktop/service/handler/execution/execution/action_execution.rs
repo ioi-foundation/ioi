@@ -324,15 +324,32 @@ pub async fn handle_action_execution(
                 .await,
         ),
         AgentTool::MemoryAppendCore { section, content } => Ok(
-            handlers::handle_memory_append_core_tool(service, session_id, &section, &content)
-                .await,
+            handlers::handle_memory_append_core_tool(service, session_id, &section, &content).await,
         ),
         AgentTool::MemoryClearCore { section } => {
             Ok(handlers::handle_memory_clear_core_tool(service, session_id, &section).await)
         }
-        AgentTool::AgentDelegate { goal, budget } => {
-            Ok(handlers::handle_agent_delegate_tool(goal, budget))
-        }
+        AgentTool::AgentDelegate {
+            goal,
+            budget,
+            playbook_id,
+            template_id,
+            workflow_id,
+            role,
+            success_criteria,
+            merge_mode,
+            expected_output,
+        } => Ok(handlers::handle_agent_delegate_tool(
+            goal,
+            budget,
+            playbook_id,
+            template_id,
+            workflow_id,
+            role,
+            success_criteria,
+            merge_mode,
+            expected_output,
+        )),
         AgentTool::AgentAwait { .. } => Ok(handlers::handle_agent_await_tool()),
         AgentTool::AgentPause { .. } => Ok(handlers::handle_agent_pause_tool()),
         AgentTool::AgentComplete { .. } => Ok(handlers::handle_agent_complete_tool()),
@@ -360,6 +377,18 @@ pub async fn handle_action_execution(
         }
         AgentTool::OsPaste {} => Ok(handlers::handle_os_paste_tool(os_driver).await),
         AgentTool::Dynamic(value) => {
+            if let Some(result) = handlers::handle_native_dynamic_tool(
+                service,
+                &value,
+                session_id,
+                step_index,
+                agent_state,
+            )
+            .await?
+            {
+                return Ok(result);
+            }
+
             let latest_user_message_raw = service
                 .hydrate_session_history_raw(agent_state.session_id)
                 .ok()

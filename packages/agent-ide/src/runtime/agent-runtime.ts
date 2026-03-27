@@ -29,6 +29,33 @@ export interface CacheResult {
   input_snapshot?: any;
 }
 
+export interface GraphRuntimeModelOption {
+  modelId: string;
+  status: string;
+  residency?: string;
+  backendId?: string | null;
+}
+
+export interface GraphModelBindingCatalog {
+  refreshedAtMs: number;
+  models: GraphRuntimeModelOption[];
+}
+
+export interface GraphRuntimeCapabilityOption {
+  capabilityId: string;
+  familyId: string;
+  label: string;
+  status: string;
+  availableCount: number;
+  operatorSummary: string;
+}
+
+export interface GraphCapabilityCatalog {
+  refreshedAtMs: number;
+  capabilities: GraphRuntimeCapabilityOption[];
+  activeIssueCount?: number;
+}
+
 // Agent Summary for Dashboard
 export interface AgentSummary {
   id: string;
@@ -374,9 +401,16 @@ export interface AgentRuntime {
   // Data & Tools
   getAvailableTools(): Promise<any[]>;
   checkNodeCache(nodeId: string, config: any, input: string): Promise<CacheResult | null>;
+  getGraphModelBindingCatalog?(): Promise<GraphModelBindingCatalog>;
+  getGraphCapabilityCatalog?(): Promise<GraphCapabilityCatalog>;
   
   // Unit Testing (Ephemeral Node Run)
-  runNode(nodeType: string, config: any, input: string): Promise<any>;
+  runNode(
+    nodeType: string,
+    config: any,
+    input: string,
+    globalConfig?: GraphGlobalConfig
+  ): Promise<any>;
 
   // Project Management
   loadProject(path?: string): Promise<ProjectFile | null>;

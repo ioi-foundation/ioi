@@ -9,17 +9,19 @@ mod inference;
 #[path = "cognition/router.rs"]
 mod router;
 
-use crate::agentic::desktop::service::step::action::command_contract::{
-    runtime_desktop_directory, runtime_home_directory, runtime_host_environment_receipt,
-};
+use crate::agentic::desktop::agent_playbooks::render_agent_playbook_catalog;
 use crate::agentic::desktop::service::memory::{
     persist_prompt_memory_diagnostics, prepare_prompt_memory_context, MemoryPromptDiagnostics,
     MemoryPromptSectionDiagnostic,
+};
+use crate::agentic::desktop::service::step::action::command_contract::{
+    runtime_desktop_directory, runtime_home_directory, runtime_host_environment_receipt,
 };
 use crate::agentic::desktop::service::step::perception::PerceptionContext;
 use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentState, ExecutionTier, MAX_PROMPT_HISTORY};
+use crate::agentic::desktop::worker_templates::render_worker_template_catalog;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use capability::{mailbox_connector_instruction, preflight_missing_capability};
 use hex;
@@ -42,7 +44,7 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::gui::accessibility::serialize_tree_to_xml;
 use ioi_drivers::gui::lenses::{auto::AutoLens, AppLens};
 use ioi_types::app::agentic::{
-    ChatMessage, InferenceOptions, IntentScopeProfile, LlmToolDefinition,
+    ChatMessage, InferenceOptions, IntentScopeProfile, LlmToolDefinition, ResolvedIntentState,
 };
 use ioi_types::error::TransactionError;
 use router::{determine_attention_mode, AttentionMode};
@@ -819,7 +821,12 @@ fn strip_tool_schema_prompt_metadata(value: &mut Value, strip_descriptions: bool
     }
 }
 
-fn format_tool_desc(tools: &[LlmToolDefinition], prefer_browser_semantics: bool) -> String {
+fn format_tool_desc(
+    tools: &[LlmToolDefinition],
+    prefer_browser_semantics: bool,
+    goal: &str,
+    resolved_intent: Option<&ResolvedIntentState>,
+) -> String {
     if prefer_browser_semantics {
         return tools
             .iter()
@@ -828,11 +835,22 @@ fn format_tool_desc(tools: &[LlmToolDefinition], prefer_browser_semantics: bool)
             .join("\n");
     }
 
-    tools
+    let mut sections = vec![tools
         .iter()
         .map(|tool| format!("- {}: {}", tool.name, tool.description))
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n")];
+
+    if let Some(worker_catalog) = render_worker_template_catalog(tools) {
+        sections.push(worker_catalog);
+    }
+    if let Some(agent_playbook_catalog) =
+        render_agent_playbook_catalog(tools, goal, resolved_intent)
+    {
+        sections.push(agent_playbook_catalog);
+    }
+
+    sections.join("\n")
 }
 
 fn workspace_reference_context(
@@ -1123,6 +1141,7 @@ fn build_operating_rules(
 8a. WEB RETRIEVAL RULE: For retrieval (look up, latest, sources, citations), use `web__search` and `web__read` first. Do NOT open search engine SERP pages via `browser__navigate` when `web__search` is available. Use `browser__*` only when the page requires interaction (auth/forms/CAPTCHA). If a human-verification challenge appears, stop and ask the user to complete it manually, then retry.\n\
 8aa. DIRECT FETCH RULE: Use `net__fetch` only when the user explicitly provides an exact URL/endpoint and asks for raw response text/headers or API diagnostics. For exact webpage/article URLs that the user wants summarized or read, prefer direct `web__read` before `web__search`. For exact audio/video URLs that the user wants summarized or generally analyzed, prefer `media__extract_multimodal_evidence` before `web__read`. Use `media__extract_transcript` when the user explicitly wants a transcript/transcription. Do not silently replace media-content requests with page-description summaries when direct media evidence extraction is available.\n\
 8ab. FETCH HYGIENE RULE: Never invent API keys, placeholder credentials (for example `YOUR_API_KEY`), or auto-IP endpoints. If credentials or endpoint details are missing, switch to source-grounded web retrieval and cite the sources.\n\
+8ac. MEMORY RETRIEVAL RULE: For questions about prior durable workflow, remembered constraints, or stored project context, use `memory__search` and `memory__inspect` before answering. If you need to order candidate snippets by relevance, use `model__rerank`. Use `model__embeddings` only for semantic comparison inputs, not as a final answer.\n\
 8b. BROWSER CLICK RULE: In a browser window, never use `gui__click` on web content. Prefer `browser__click_element` with IDs from `browser__snapshot`; use `browser__click` with concrete CSS selectors only as fallback. Use GUI clicks only for OS chrome (address bar/system dialogs) when browser tools cannot target it.\n\
 8c. PACKAGE INSTALL RULE: Only use `sys__install_package` when the user explicitly asked to install something.\n\
 8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors, retry `browser__navigate` once. If it still fails, switch to visual tools.\n\
@@ -1133,7 +1152,7 @@ fn build_operating_rules(
    - APP LAUNCH VERIFICATION: After launching, verify the app is actually open/focused before calling `agent__complete`.\n\
      If launch cannot be verified, mark the launch as failed and continue recovery.\n\
    - NEVER try to click random ID #1 (the background) hoping it opens a menu.\n\
-10. DELEGATION RULE: Do NOT use 'agent__delegate' for simple, atomic actions like opening an app, clicking a button, or typing text. Use the direct tool.\n\
+10. DELEGATION RULE: Do NOT use 'agent__delegate' for simple, atomic actions like opening an app, clicking a button, or typing text. Use the direct tool. When a bounded worker is justified, prefer `researcher` for evidence gathering, `verifier` for postcondition checks, and `coder` for narrow implementation slices.\n\
 11. CAPABILITY CHECK: If a preferred tool is unavailable, first use an equivalent available tool (e.g. use `gui__click_element` when `computer` is unavailable). Only call `system__fail` when no equivalent tool can achieve the action.\n\
 12. CHAT RULE: Do NOT use 'chat__reply' to announce planned actions (e.g. \"I will now open...\"). Use chat only for final user-facing answers or explicit clarification requests.\n\
 13. RECOVERY RULE: If you previously failed with `DELEGATION_REJECTED` or `MISSING_CAPABILITY`, do not retry the same strategy. Use `system__fail` to request a tier upgrade.\n\
@@ -1552,7 +1571,12 @@ pub async fn think(
     } else {
         cognition_tools
     };
-    let cognition_tool_desc = format_tool_desc(&cognition_tools, prefer_browser_semantics);
+    let cognition_tool_desc = format_tool_desc(
+        &cognition_tools,
+        prefer_browser_semantics,
+        &agent_state.goal,
+        agent_state.resolved_intent.as_ref(),
+    );
     let som_instruction = if !prefer_browser_semantics
         && has_prompt_visual_context
         && perception.tier != ExecutionTier::DomHeadless
@@ -3056,5 +3080,26 @@ mod tests {
         assert!(context.contains("grp_start"), "{context}");
         assert!(!context.contains("btn_one"), "{context}");
         assert!(!context.contains("btn_two"), "{context}");
+    }
+
+    #[test]
+    fn format_tool_desc_appends_worker_template_catalog_when_delegate_is_available() {
+        let formatted = super::format_tool_desc(
+            &[LlmToolDefinition {
+                name: "agent__delegate".to_string(),
+                description: "Spawn a bounded child worker.".to_string(),
+                parameters: "{}".to_string(),
+            }],
+            false,
+            "Port the LocalAI parity fix in the Rust crate, research the current behavior, patch the workspace, and verify the postcondition.",
+            Some(&automation_resolved_intent()),
+        );
+
+        assert!(formatted.contains("[WORKER TEMPLATES]"));
+        assert!(formatted.contains("[PARENT PLAYBOOKS]"));
+        assert!(formatted.contains("`researcher`"));
+        assert!(formatted.contains("`verifier`"));
+        assert!(formatted.contains("`coder`"));
+        assert!(formatted.contains("Playbook `live_research_brief`"));
     }
 }

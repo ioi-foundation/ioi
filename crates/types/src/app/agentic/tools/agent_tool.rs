@@ -708,6 +708,27 @@ pub enum AgentTool {
         goal: String,
         /// Budget allocated.
         budget: u64,
+        /// Optional higher-order parent playbook id coordinating this delegation sequence.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        playbook_id: Option<String>,
+        /// Optional worker template id for bounded specialist spawning.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        template_id: Option<String>,
+        /// Optional playbook/workflow id within the selected worker template.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        workflow_id: Option<String>,
+        /// Optional role label when the delegation does not use a named template.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        role: Option<String>,
+        /// Optional explicit success criteria for the child worker.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        success_criteria: Option<String>,
+        /// Optional merge policy label for parent collapse semantics.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        merge_mode: Option<String>,
+        /// Optional expected output artifact or payload shape.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        expected_output: Option<String>,
     },
 
     /// Memory Tool: Semantic search over the agent's long-term archival memory.
@@ -801,6 +822,25 @@ pub enum AgentTool {
 
 // Keep `crate::app::ActionTarget` referenced here so consumers get a stable, discoverable API.
 impl AgentTool {
+    /// Returns the canonical serialized tool name for policy checks and receipts.
+    pub fn name_string(&self) -> String {
+        serde_json::to_value(self)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("name")
+                    .and_then(|name| name.as_str())
+                    .map(str::to_string)
+                    .or_else(|| {
+                        value
+                            .get("tool_name")
+                            .and_then(|name| name.as_str())
+                            .map(str::to_string)
+                    })
+            })
+            .unwrap_or_else(|| "unknown_tool".to_string())
+    }
+
     /// Returns true when `name` is reserved by a typed/native tool.
     pub fn is_reserved_tool_name(name: &str) -> bool {
         matches!(
@@ -850,6 +890,8 @@ impl AgentTool {
                 | "browser__tab_close"
                 | "web__search"
                 | "web__read"
+                | "media__extract_transcript"
+                | "media__extract_multimodal_evidence"
                 | "net__fetch"
                 | "memory__search"
                 | "memory__inspect"

@@ -14,12 +14,14 @@ import {
   CableIcon,
   CheckCircleIcon,
   ChevronRightIcon,
+  CpuIcon,
   MenuButton,
   PlusIcon,
   SearchIcon,
   SparklesIcon,
   XIcon,
 } from "./ui";
+import { StudioLeftSidebarShell } from "../StudioLeftSidebarShell";
 
 function renderTreeEntries(entries: CapabilityTreeEntry[]) {
   return (
@@ -341,36 +343,222 @@ function renderExtensionList(controller: CapabilitiesController) {
   );
 }
 
+function renderEngineList(controller: CapabilitiesController) {
+  const snapshot = controller.engine.snapshot;
+
+  if (controller.engine.loading) {
+    return (
+      <div className="capabilities-empty-state">
+        Loading kernel-native engine posture…
+      </div>
+    );
+  }
+
+  if (controller.engine.error) {
+    return (
+      <div className="capabilities-empty-state">
+        {controller.engine.error}
+      </div>
+    );
+  }
+
+  const overviewEntries: CapabilityTreeEntry[] = [
+    {
+      id: "overview",
+      label: "Overview",
+      note: "Operator-facing posture for the absorbed local engine",
+      meta: snapshot ? `${snapshot.totalNativeTools} tools` : "Unavailable",
+      active: controller.engine.detailSection === "overview",
+      onSelect: () => controller.engine.setDetailSection("overview"),
+    },
+    {
+      id: "runtime",
+      label: "Runtime",
+      note: "Execution mode, compatibility facades, launcher parity, and residency",
+      meta: snapshot ? humanize(snapshot.controlPlane.runtime.mode) : "Runtime",
+      active: controller.engine.detailSection === "runtime",
+      onSelect: () => controller.engine.setDetailSection("runtime"),
+    },
+    {
+      id: "configuration",
+      label: "Settings bridge",
+      note: "Review runtime config posture here, then edit authoritative values in System Settings",
+      meta: controller.engine.configDirty ? "Draft differs" : "Synced",
+      active: controller.engine.detailSection === "configuration",
+      onSelect: () => controller.engine.setDetailSection("configuration"),
+    },
+    {
+      id: "catalogs",
+      label: "Catalogs",
+      note: "Gallery parity, migration lanes, and staged plans waiting for promotion",
+      meta: snapshot
+        ? `${snapshot.stagedOperations.length} staged`
+        : "0 staged",
+      active: controller.engine.detailSection === "catalogs",
+      onSelect: () => controller.engine.setDetailSection("catalogs"),
+    },
+    {
+      id: "registry",
+      label: "Registry Queue",
+      note: "Promoted jobs plus pending model, backend, and gallery control actions",
+      meta: snapshot ? `${snapshot.jobs.length} jobs` : "0 jobs",
+      active: controller.engine.detailSection === "registry",
+      onSelect: () => controller.engine.setDetailSection("registry"),
+    },
+    {
+      id: "activity",
+      label: "Recent Activity",
+      note: "Latest lifecycle and workload receipts emitted by the kernel",
+      meta: snapshot ? `${snapshot.recentActivity.length} receipts` : "0 receipts",
+      active: controller.engine.detailSection === "activity",
+      onSelect: () => controller.engine.setDetailSection("activity"),
+    },
+  ];
+
+  return (
+    <>
+      <section className="capabilities-list-group">
+        <div className="capabilities-list-group-head">
+          <h3>Operator deck</h3>
+          <span>{overviewEntries.length}</span>
+        </div>
+        <div className="capabilities-list-rows">
+          {overviewEntries.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              className={`capabilities-list-row ${entry.active ? "is-selected" : ""}`}
+              onClick={entry.onSelect}
+            >
+              <span className="capabilities-row-icon capabilities-row-icon-engine">
+                <CpuIcon />
+              </span>
+              <span className="capabilities-row-copy">
+                <strong>{entry.label}</strong>
+                <small>{entry.note}</small>
+              </span>
+              <span className="capabilities-row-meta">{entry.meta}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="capabilities-list-group">
+        <div className="capabilities-list-group-head">
+          <h3>Kernel-native families</h3>
+          <span>{controller.engine.filteredFamilies.length}</span>
+        </div>
+        <div className="capabilities-list-rows">
+          {controller.engine.filteredFamilies.map((family) => {
+            const isSelected =
+              controller.engine.detailSection === "families" &&
+              controller.engine.selectedFamilyId === family.id;
+            return (
+              <button
+                key={family.id}
+                type="button"
+                className={`capabilities-list-row ${isSelected ? "is-selected" : ""}`}
+                onClick={() => {
+                  controller.engine.setDetailSection("families");
+                  controller.engine.setSelectedFamilyId(family.id);
+                }}
+              >
+                <span className="capabilities-row-icon capabilities-row-icon-engine">
+                  <CpuIcon />
+                </span>
+                <span className="capabilities-row-copy">
+                  <strong>{family.label}</strong>
+                  <small>{family.description}</small>
+                </span>
+                <span className="capabilities-row-meta">
+                  {family.availableCount > 0
+                    ? `${family.availableCount} tools`
+                    : family.status}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </>
+  );
+}
+
 function CapabilitiesHomePane({
+  pendingEngineControls,
   skillCount,
   connectedCount,
   connectionCount,
   extensionCount,
+  onOpenSurface,
 }: {
+  pendingEngineControls: number;
   skillCount: number;
   connectedCount: number;
   connectionCount: number;
   extensionCount: number;
+  onOpenSurface: (surface: "engine" | "skills" | "connections" | "extensions") => void;
 }) {
   return (
     <section className="capabilities-home-pane">
       <div className="capabilities-home-shell">
         <div className="capabilities-home-hero">
-          <div className="capabilities-home-icon">
-            <BlocksIcon />
+          <div className="capabilities-home-icon capabilities-home-icon-engine">
+            <CpuIcon />
           </div>
-          <h2>Manage capabilities</h2>
+          <h2>Equip workers without fragmenting the runtime.</h2>
           <p>
-            Choose one top-level surface from the left, then drill into the
-            nested browser only when you need the deeper controls.
+            Capabilities is for what the workspace can use: reusable skills,
+            governed connections, packaged extensions, and the runtime deck for
+            monitoring absorbed local-engine behavior. Authoritative runtime
+            configuration now lives in System Settings.
           </p>
           <div className="capabilities-home-meta" aria-label="Capability summary">
+            <span>{pendingEngineControls} pending engine controls</span>
             <span>{skillCount} skills available</span>
             <span>
               {connectedCount}/{connectionCount} connections active
             </span>
             <span>{extensionCount} extensions installed</span>
           </div>
+        </div>
+        <div className="capabilities-home-grid">
+          <button
+            type="button"
+            className="capabilities-home-surface capabilities-home-surface-engine"
+            onClick={() => onOpenSurface("engine")}
+          >
+            <span className="capabilities-home-surface-kicker">Monitor</span>
+            <strong>Runtime deck</strong>
+            <p>Inspect queue state, capability families, lifecycle receipts, and control actions without burying skills or connections.</p>
+          </button>
+          <button
+            type="button"
+            className="capabilities-home-surface"
+            onClick={() => onOpenSurface("skills")}
+          >
+            <span className="capabilities-home-surface-kicker">Reusable</span>
+            <strong>Skills</strong>
+            <p>Review benchmark posture, worker procedures, and attached tool bundles.</p>
+          </button>
+          <button
+            type="button"
+            className="capabilities-home-surface"
+            onClick={() => onOpenSurface("connections")}
+          >
+            <span className="capabilities-home-surface-kicker">Governed</span>
+            <strong>Connections</strong>
+            <p>Bind live auth surfaces and keep connector policy within the same control plane.</p>
+          </button>
+          <button
+            type="button"
+            className="capabilities-home-surface"
+            onClick={() => onOpenSurface("extensions")}
+          >
+            <span className="capabilities-home-surface-kicker">Packaged</span>
+            <strong>Extensions</strong>
+            <p>See which packages widen the workspace surface without fragmenting the operator model.</p>
+          </button>
         </div>
       </div>
     </section>
@@ -384,60 +572,80 @@ export function CapabilitiesNavigationPane({
 }) {
   return (
     <>
-      <aside className="capabilities-sidebar">
-        <div className="capabilities-sidebar-head">
-          <div className="capabilities-sidebar-titlebar">
+      <StudioLeftSidebarShell
+        ariaLabel="Capabilities navigation"
+        title="Capabilities"
+        className="capabilities-sidebar"
+        bodyClassName="capabilities-sidebar-body"
+        actions={
+          controller.surface !== null ? (
             <button
               type="button"
-              className="capabilities-sidebar-backdrop"
+              className="studio-chat-pane-control capabilities-sidebar-backdrop"
               onClick={controller.returnToHome}
-              disabled={controller.surface === null}
               aria-label="Back to capabilities home"
               title="Back to capabilities home"
             >
               <ArrowLeftIcon />
             </button>
-            <span>Capabilities</span>
-          </div>
+          ) : null
+        }
+      >
+        <div className="capabilities-nav-shell">
+          <nav className="capabilities-nav">
+            <MenuButton
+              active={controller.surface === "engine"}
+              icon={<CpuIcon />}
+              label="Runtime Deck"
+              onClick={() => controller.openSurface("engine")}
+            />
+            <MenuButton
+              active={controller.surface === "skills"}
+              icon={<SparklesIcon />}
+              label="Skills"
+              onClick={() => controller.openSurface("skills")}
+            />
+            <MenuButton
+              active={controller.surface === "connections"}
+              icon={<CableIcon />}
+              label="Connections"
+              onClick={() => controller.openSurface("connections")}
+            />
+            <MenuButton
+              active={controller.surface === "extensions"}
+              icon={<BlocksIcon />}
+              label="Extensions"
+              onClick={() => controller.openSurface("extensions")}
+            />
+          </nav>
         </div>
-
-        <nav className="capabilities-nav">
-          <MenuButton
-            active={controller.surface === "skills"}
-            icon={<SparklesIcon />}
-            label="Skills"
-            onClick={() => controller.openSurface("skills")}
-          />
-          <MenuButton
-            active={controller.surface === "connections"}
-            icon={<CableIcon />}
-            label="Connections"
-            onClick={() => controller.openSurface("connections")}
-          />
-          <MenuButton
-            active={controller.surface === "extensions"}
-            icon={<BlocksIcon />}
-            label="Extensions"
-            onClick={() => controller.openSurface("extensions")}
-          />
-        </nav>
-      </aside>
+      </StudioLeftSidebarShell>
 
       {controller.surface === null ? (
         <CapabilitiesHomePane
+          pendingEngineControls={controller.engine.snapshot?.pendingControlCount ?? 0}
           skillCount={controller.skills.items.length}
           connectedCount={controller.connectedConnectionCount}
           connectionCount={controller.connections.items.length}
           extensionCount={controller.extensions.items.length}
+          onOpenSurface={controller.openSurface}
         />
       ) : (
         <section className="capabilities-list-pane">
           <header className="capabilities-pane-header">
             <div className="capabilities-pane-title">
               <span className="capabilities-pane-kicker">Workspace</span>
-              <h2>{humanize(controller.surface)}</h2>
+              <h2>
+                {controller.surface === "engine"
+                  ? "Runtime Deck"
+                  : humanize(controller.surface)}
+              </h2>
               <span className="capabilities-pane-count">
-                {controller.surface === "skills"
+                {controller.surface === "engine"
+                  ? controller.engine.loading
+                    ? "Loading posture"
+                    : `${controller.engine.snapshot?.totalNativeTools ?? 0} native tools`
+                  : controller.surface === "skills"
                   ? `${controller.skills.items.length} available`
                   : controller.surface === "connections"
                     ? `${controller.connections.items.length} total`
@@ -521,6 +729,7 @@ export function CapabilitiesNavigationPane({
           ) : null}
 
           <div className="capabilities-list-scroll">
+            {controller.surface === "engine" ? renderEngineList(controller) : null}
             {controller.surface === "skills" ? renderSkillList(controller) : null}
             {controller.surface === "connections"
               ? renderConnectionList(controller)

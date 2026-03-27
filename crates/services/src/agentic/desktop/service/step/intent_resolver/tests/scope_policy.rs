@@ -95,6 +95,160 @@ fn mail_connector_setup_tools_do_not_inherit_conversation_capability() {
 }
 
 #[test]
+fn memory_access_scope_allows_native_model_memory_tools() {
+    let state = ResolvedIntentState {
+        intent_id: "memory.recall".to_string(),
+        scope: IntentScopeProfile::Conversation,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("memory.access")],
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [1u8; 32],
+        receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    };
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "model__embeddings"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "model__rerank"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "memory__search"
+    ));
+    assert!(!is_tool_allowed_for_resolution(
+        Some(&state),
+        "model_registry__load"
+    ));
+}
+
+#[test]
+fn model_registry_scope_allows_native_control_tools_without_shell_exec() {
+    let state = ResolvedIntentState {
+        intent_id: "model.registry.load".to_string(),
+        scope: IntentScopeProfile::CommandExecution,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![CapabilityId::from("model.registry.manage")],
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "medium".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [1u8; 32],
+        receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    };
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "model_registry__load"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "model_registry__unload"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "model_registry__install"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "backend__install"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "gallery__sync"
+    ));
+    assert!(!is_tool_allowed_for_resolution(Some(&state), "sys__exec"));
+    assert!(!is_tool_allowed_for_resolution(
+        Some(&state),
+        "model__responses"
+    ));
+}
+
+#[test]
+fn media_extract_tools_use_specific_action_targets() {
+    let transcript_binding = super::tool_capability_bindings()
+        .into_iter()
+        .find(|binding| binding.tool_name == "media__extract_transcript")
+        .expect("media__extract_transcript binding should exist");
+    assert_eq!(
+        transcript_binding.action_target,
+        ioi_types::app::ActionTarget::MediaExtractTranscript
+    );
+    assert!(transcript_binding
+        .capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "media.extract"));
+
+    let multimodal_binding = super::tool_capability_bindings()
+        .into_iter()
+        .find(|binding| binding.tool_name == "media__extract_multimodal_evidence")
+        .expect("media__extract_multimodal_evidence binding should exist");
+    assert_eq!(
+        multimodal_binding.action_target,
+        ioi_types::app::ActionTarget::MediaExtractMultimodalEvidence
+    );
+    assert!(multimodal_binding
+        .capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "media.extract"));
+}
+
+#[test]
+fn media_generation_and_analysis_tools_bind_to_kernel_media_capabilities() {
+    let bindings = super::tool_capability_bindings();
+    for (tool_name, capability) in [
+        ("media__transcribe_audio", "media.transcribe"),
+        ("media__synthesize_speech", "media.synthesize"),
+        ("media__vision_read", "media.vision"),
+        ("media__generate_image", "media.generate.image"),
+        ("media__edit_image", "media.generate.image"),
+        ("media__generate_video", "media.generate.video"),
+    ] {
+        let binding = bindings
+            .iter()
+            .find(|binding| binding.tool_name == tool_name)
+            .unwrap_or_else(|| panic!("{tool_name} binding should exist"));
+        assert_eq!(
+            binding.action_target,
+            ioi_types::app::ActionTarget::Custom(tool_name.to_string())
+        );
+        assert!(binding
+            .capabilities
+            .iter()
+            .any(|required| required.as_str() == capability));
+    }
+}
+
+#[test]
 fn google_gmail_send_tool_satisfies_mail_reply_intent() {
     let state = ResolvedIntentState {
         intent_id: "mail.reply".to_string(),

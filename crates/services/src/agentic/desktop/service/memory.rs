@@ -349,7 +349,9 @@ struct EnrichmentJobOutcome {
 }
 
 fn core_memory_schema(section: &str) -> Option<&'static CoreMemorySectionSchema> {
-    CORE_MEMORY_SCHEMAS.iter().find(|schema| schema.section == section)
+    CORE_MEMORY_SCHEMAS
+        .iter()
+        .find(|schema| schema.section == section)
 }
 
 fn normalize_core_memory_content(content: &str, max_chars: usize) -> String {
@@ -414,8 +416,8 @@ fn persist_checkpoint_json<T: Serialize>(
     checkpoint_name: &str,
     value: &T,
 ) -> Result<(), TransactionError> {
-    let payload =
-        serde_json::to_vec(value).map_err(|error| TransactionError::Serialization(error.to_string()))?;
+    let payload = serde_json::to_vec(value)
+        .map_err(|error| TransactionError::Serialization(error.to_string()))?;
     memory_runtime
         .upsert_checkpoint_blob(thread_id, checkpoint_name, &payload)
         .map_err(|error| TransactionError::Invalid(format!("Internal: {}", error)))
@@ -456,8 +458,8 @@ fn persist_core_memory_pin_state(
     thread_id: [u8; 32],
     pin_state: &CoreMemoryPinState,
 ) -> Result<(), TransactionError> {
-    let payload =
-        serde_json::to_vec(pin_state).map_err(|error| TransactionError::Serialization(error.to_string()))?;
+    let payload = serde_json::to_vec(pin_state)
+        .map_err(|error| TransactionError::Serialization(error.to_string()))?;
     memory_runtime
         .upsert_checkpoint_blob(thread_id, MEMORY_RUNTIME_CORE_PINS_CHECKPOINT, &payload)
         .map_err(|error| TransactionError::Invalid(format!("Internal: {}", error)))
@@ -808,7 +810,10 @@ fn update_enrichment_diagnostics_success(
         .entry(job_kind.to_string())
         .or_insert(0) += 1;
     for (scope, count) in &outcome.inserted_scopes {
-        *diagnostics.inserted_by_scope.entry(scope.clone()).or_insert(0) += *count as u64;
+        *diagnostics
+            .inserted_by_scope
+            .entry(scope.clone())
+            .or_insert(0) += *count as u64;
     }
     for (reason, count) in &outcome.rejected_by_reason {
         *diagnostics
@@ -1145,7 +1150,14 @@ fn summarize_ui_snapshot_for_memory(
         snapshot_hash
     );
     if structural_lines.is_empty() {
-        summary.push_str(snapshot_xml.lines().take(12).collect::<Vec<_>>().join("\n").as_str());
+        summary.push_str(
+            snapshot_xml
+                .lines()
+                .take(12)
+                .collect::<Vec<_>>()
+                .join("\n")
+                .as_str(),
+        );
     } else {
         summary.push_str(&structural_lines.join("\n"));
     }
@@ -1259,7 +1271,9 @@ fn enqueue_transcript_enrichment_jobs(
             thread_id: Some(session_id),
             kind: "transcript.procedure_extraction".to_string(),
             payload_json: payload.clone(),
-            dedupe_key: Some(format!("transcript.procedure_extraction:{source_record_id}")),
+            dedupe_key: Some(format!(
+                "transcript.procedure_extraction:{source_record_id}"
+            )),
         },
         NewEnrichmentJob {
             thread_id: Some(session_id),
@@ -1427,7 +1441,10 @@ async fn persist_structured_ui_memory(
     let Some(memory_runtime) = service.memory_runtime.as_ref() else {
         return Ok(false);
     };
-    let Some(snapshot_xml) = current_browser_snapshot.map(str::trim).filter(|value| !value.is_empty()) else {
+    let Some(snapshot_xml) = current_browser_snapshot
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
         return Ok(false);
     };
 
@@ -1496,10 +1513,14 @@ async fn persist_structured_ui_memory(
         archival_record_id: record_id,
         active_url,
     };
-    let payload =
-        serde_json::to_vec(&checkpoint).map_err(|error| TransactionError::Serialization(error.to_string()))?;
+    let payload = serde_json::to_vec(&checkpoint)
+        .map_err(|error| TransactionError::Serialization(error.to_string()))?;
     memory_runtime
-        .upsert_checkpoint_blob(session_id, MEMORY_RUNTIME_LAST_UI_SNAPSHOT_CHECKPOINT, &payload)
+        .upsert_checkpoint_blob(
+            session_id,
+            MEMORY_RUNTIME_LAST_UI_SNAPSHOT_CHECKPOINT,
+            &payload,
+        )
         .map_err(|error| TransactionError::Invalid(format!("Internal: {}", error)))?;
 
     if let Some(record_id) = record_id {
@@ -1565,7 +1586,8 @@ fn extract_entity_candidates(text: &str) -> Vec<String> {
     let mut entities = Vec::new();
     let mut seen = HashSet::new();
     for token in text.split_whitespace() {
-        let trimmed = token.trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '.' && ch != '/' && ch != '_');
+        let trimmed = token
+            .trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '.' && ch != '/' && ch != '_');
         if trimmed.is_empty() {
             continue;
         }
@@ -1630,7 +1652,8 @@ fn extract_ui_relationship_candidates(
     source: &ioi_memory::ArchivalMemoryRecord,
     xml: &str,
 ) -> Vec<String> {
-    let metadata = serde_json::from_str::<Value>(&source.metadata_json).unwrap_or_else(|_| json!({}));
+    let metadata =
+        serde_json::from_str::<Value>(&source.metadata_json).unwrap_or_else(|_| json!({}));
     let active_window_title = metadata
         .get("active_window_title")
         .and_then(Value::as_str)
@@ -1644,16 +1667,17 @@ fn extract_ui_relationship_candidates(
         .and_then(Value::as_str)
         .unwrap_or_default();
 
-    let contextual_tags = ["dialog", "modal", "heading", "tab", "tabpanel", "menu", "navigation"];
-    let control_tags = [
-        "button",
-        "link",
-        "textbox",
-        "combobox",
-        "checkbox",
-        "radio",
-        "menuitem",
+    let contextual_tags = [
+        "dialog",
+        "modal",
+        "heading",
         "tab",
+        "tabpanel",
+        "menu",
+        "navigation",
+    ];
+    let control_tags = [
+        "button", "link", "textbox", "combobox", "checkbox", "radio", "menuitem", "tab",
     ];
     let mut contexts: Vec<String> = Vec::new();
     let mut seen = HashSet::new();
@@ -1774,15 +1798,22 @@ pub async fn process_pending_memory_enrichment_jobs_once(
         let result: anyhow::Result<EnrichmentJobOutcome> = async {
             match job.kind.as_str() {
                 "archival.embedding" => {
-                    let payload = serde_json::from_str::<ArchivalEmbeddingPayload>(&job.payload_json)?;
-                    embed_archival_record_content(&memory_runtime, &inference, payload.source_record_id)
-                        .await?;
+                    let payload =
+                        serde_json::from_str::<ArchivalEmbeddingPayload>(&job.payload_json)?;
+                    embed_archival_record_content(
+                        &memory_runtime,
+                        &inference,
+                        payload.source_record_id,
+                    )
+                    .await?;
                     Ok(EnrichmentJobOutcome::default())
                 }
                 "transcript.fact_extraction" => {
                     let payload =
                         serde_json::from_str::<TranscriptEnrichmentPayload>(&job.payload_json)?;
-                    let Some(source) = memory_runtime.load_archival_record(payload.source_record_id)? else {
+                    let Some(source) =
+                        memory_runtime.load_archival_record(payload.source_record_id)?
+                    else {
                         return Ok(EnrichmentJobOutcome::default());
                     };
                     let mut outcome = EnrichmentJobOutcome::default();
@@ -1810,7 +1841,9 @@ pub async fn process_pending_memory_enrichment_jobs_once(
                 "transcript.entity_extraction" => {
                     let payload =
                         serde_json::from_str::<TranscriptEnrichmentPayload>(&job.payload_json)?;
-                    let Some(source) = memory_runtime.load_archival_record(payload.source_record_id)? else {
+                    let Some(source) =
+                        memory_runtime.load_archival_record(payload.source_record_id)?
+                    else {
                         return Ok(EnrichmentJobOutcome::default());
                     };
                     let mut outcome = EnrichmentJobOutcome::default();
@@ -1838,7 +1871,9 @@ pub async fn process_pending_memory_enrichment_jobs_once(
                 "transcript.procedure_extraction" => {
                     let payload =
                         serde_json::from_str::<TranscriptEnrichmentPayload>(&job.payload_json)?;
-                    let Some(source) = memory_runtime.load_archival_record(payload.source_record_id)? else {
+                    let Some(source) =
+                        memory_runtime.load_archival_record(payload.source_record_id)?
+                    else {
                         return Ok(EnrichmentJobOutcome::default());
                     };
                     let Some(procedure) = extract_procedure_candidate(&source.content) else {
@@ -1867,19 +1902,18 @@ pub async fn process_pending_memory_enrichment_jobs_once(
                 "ui.observation.summary" => {
                     let payload =
                         serde_json::from_str::<UiObservationEnrichmentPayload>(&job.payload_json)?;
-                    let Some(source) = memory_runtime.load_archival_record(payload.source_record_id)? else {
+                    let Some(source) =
+                        memory_runtime.load_archival_record(payload.source_record_id)?
+                    else {
                         return Ok(EnrichmentJobOutcome::default());
                     };
-                    let Some(blob) = memory_runtime.load_artifact_blob(&payload.artifact_id)? else {
+                    let Some(blob) = memory_runtime.load_artifact_blob(&payload.artifact_id)?
+                    else {
                         return Ok(EnrichmentJobOutcome::default());
                     };
                     let xml = String::from_utf8_lossy(&blob);
-                    let summary = summarize_ui_snapshot_for_memory(
-                        "Browser",
-                        None,
-                        &digest_hex(&xml),
-                        &xml,
-                    );
+                    let summary =
+                        summarize_ui_snapshot_for_memory("Browser", None, &digest_hex(&xml), &xml);
                     let insert = insert_derived_archival_record(
                         &memory_runtime,
                         &inference,
@@ -1903,10 +1937,13 @@ pub async fn process_pending_memory_enrichment_jobs_once(
                 "ui.relationship_extraction" => {
                     let payload =
                         serde_json::from_str::<UiObservationEnrichmentPayload>(&job.payload_json)?;
-                    let Some(source) = memory_runtime.load_archival_record(payload.source_record_id)? else {
+                    let Some(source) =
+                        memory_runtime.load_archival_record(payload.source_record_id)?
+                    else {
                         return Ok(EnrichmentJobOutcome::default());
                     };
-                    let Some(blob) = memory_runtime.load_artifact_blob(&payload.artifact_id)? else {
+                    let Some(blob) = memory_runtime.load_artifact_blob(&payload.artifact_id)?
+                    else {
                         return Ok(EnrichmentJobOutcome::default());
                     };
                     let xml = String::from_utf8_lossy(&blob);
@@ -2053,43 +2090,42 @@ pub async fn retrieve_context_hybrid_with_receipt(
         }
     };
 
-    let matches =
-        match memory_runtime.hybrid_search_archival_memory(&HybridArchivalMemoryQuery {
-            scopes: vec![
-                MEMORY_RUNTIME_TRANSCRIPT_SCOPE.to_string(),
-                MEMORY_RUNTIME_COMPACTION_SCOPE.to_string(),
-                MEMORY_RUNTIME_FACT_SCOPE.to_string(),
-                MEMORY_RUNTIME_ENTITY_SCOPE.to_string(),
-                MEMORY_RUNTIME_PROCEDURE_SCOPE.to_string(),
-                MEMORY_RUNTIME_UI_SCOPE.to_string(),
-            ],
-            thread_id: None,
-            text: query.to_string(),
-            embedding: Some(embedding),
-            limit: default_policy.k as usize,
-            candidate_limit: default_policy.candidate_limit as usize,
-            allowed_trust_levels: vec![
-                "runtime_observed".to_string(),
-                "runtime_derived".to_string(),
-                "runtime_controlled".to_string(),
-                "standard".to_string(),
-            ],
-        }) {
-            Ok(matches) => matches,
-            Err(error) => {
-                log::warn!("Memory runtime retrieval failed: {}", error);
-                return HybridRetrievalResult {
-                    output: String::new(),
-                    receipt: Some(empty_failure_receipt(
-                        "ioi-memory:hybrid-archival",
-                        "hybrid_lexical_semantic",
-                        false,
-                        Some("none"),
-                        Some("UnexpectedState".to_string()),
-                    )),
-                };
-            }
-        };
+    let matches = match memory_runtime.hybrid_search_archival_memory(&HybridArchivalMemoryQuery {
+        scopes: vec![
+            MEMORY_RUNTIME_TRANSCRIPT_SCOPE.to_string(),
+            MEMORY_RUNTIME_COMPACTION_SCOPE.to_string(),
+            MEMORY_RUNTIME_FACT_SCOPE.to_string(),
+            MEMORY_RUNTIME_ENTITY_SCOPE.to_string(),
+            MEMORY_RUNTIME_PROCEDURE_SCOPE.to_string(),
+            MEMORY_RUNTIME_UI_SCOPE.to_string(),
+        ],
+        thread_id: None,
+        text: query.to_string(),
+        embedding: Some(embedding),
+        limit: default_policy.k as usize,
+        candidate_limit: default_policy.candidate_limit as usize,
+        allowed_trust_levels: vec![
+            "runtime_observed".to_string(),
+            "runtime_derived".to_string(),
+            "runtime_controlled".to_string(),
+            "standard".to_string(),
+        ],
+    }) {
+        Ok(matches) => matches,
+        Err(error) => {
+            log::warn!("Memory runtime retrieval failed: {}", error);
+            return HybridRetrievalResult {
+                output: String::new(),
+                receipt: Some(empty_failure_receipt(
+                    "ioi-memory:hybrid-archival",
+                    "hybrid_lexical_semantic",
+                    false,
+                    Some("none"),
+                    Some("UnexpectedState".to_string()),
+                )),
+            };
+        }
+    };
 
     let mut output = String::new();
     let mut top_snippet_included = false;
@@ -2487,10 +2523,10 @@ mod tests {
     use ioi_drivers::browser::BrowserDriver;
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_memory::{ArchivalMemoryQuery, MemoryRuntime};
+    use ioi_types::app::action::ApprovalToken;
     use ioi_types::app::agentic::{
         InferenceOptions, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
     };
-    use ioi_types::app::action::ApprovalToken;
     use ioi_types::app::{ActionRequest, ContextSlice};
     use ioi_types::error::VmError;
     use std::collections::{BTreeMap, VecDeque};
@@ -3042,15 +3078,10 @@ mod tests {
         pin_core_memory_section(memory_runtime, session_id, "workflow.notes", true)
             .expect("pin workflow notes");
 
-        let prompt_memory = prepare_prompt_memory_context(
-            &service,
-            session_id,
-            &agent_state,
-            &perception,
-            None,
-        )
-        .await
-        .expect("prepare prompt memory");
+        let prompt_memory =
+            prepare_prompt_memory_context(&service, session_id, &agent_state, &perception, None)
+                .await
+                .expect("prepare prompt memory");
         assert!(prompt_memory.contains("Current Goal: Complete checkout flow"));
         assert!(prompt_memory.contains("Workflow Stage: Logged in and navigating to cart."));
         assert!(prompt_memory.contains("Workflow Notes: Cart modal appears"));
@@ -3181,7 +3212,11 @@ mod tests {
             })
             .expect("insert source")
             .expect("source id");
-        assert!(enqueue_transcript_enrichment_jobs(&runtime, session_id, source_record_id));
+        assert!(enqueue_transcript_enrichment_jobs(
+            &runtime,
+            session_id,
+            source_record_id
+        ));
 
         let report = process_pending_memory_enrichment_jobs_once(
             runtime.clone(),
@@ -3226,7 +3261,11 @@ mod tests {
             })
             .expect("insert source")
             .expect("source id");
-        assert!(enqueue_transcript_enrichment_jobs(&runtime, session_id, source_record_id));
+        assert!(enqueue_transcript_enrichment_jobs(
+            &runtime,
+            session_id,
+            source_record_id
+        ));
 
         let report = process_pending_memory_enrichment_jobs_once(
             runtime.clone(),
@@ -3307,7 +3346,8 @@ mod tests {
             .load_archival_record(source_record_id)
             .expect("load source")
             .expect("source record");
-        let extracted = extract_ui_relationship_candidates(&source, &String::from_utf8_lossy(&blob));
+        let extracted =
+            extract_ui_relationship_candidates(&source, &String::from_utf8_lossy(&blob));
         assert!(extracted
             .iter()
             .any(|record| record.contains("Checkout") && record.contains("Cart Modal")));

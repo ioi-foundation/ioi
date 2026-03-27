@@ -343,6 +343,8 @@ impl PolicyEngine {
         if let Some(allowed_domains) = &conditions.allow_domains {
             if let ActionTarget::NetFetch
             | ActionTarget::WebRetrieve
+            | ActionTarget::MediaExtractTranscript
+            | ActionTarget::MediaExtractMultimodalEvidence
             | ActionTarget::BrowserInteract
             | ActionTarget::CommerceDiscovery
             | ActionTarget::CommerceCheckout = target
@@ -354,6 +356,8 @@ impl PolicyEngine {
                     target,
                     ActionTarget::NetFetch
                         | ActionTarget::WebRetrieve
+                        | ActionTarget::MediaExtractTranscript
+                        | ActionTarget::MediaExtractMultimodalEvidence
                         | ActionTarget::CommerceDiscovery
                         | ActionTarget::CommerceCheckout
                 );

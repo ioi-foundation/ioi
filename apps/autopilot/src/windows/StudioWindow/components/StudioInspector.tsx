@@ -222,7 +222,7 @@ function summaryForView(props: StudioInspectorProps): {
     case "settings":
       return {
         title: "System configuration",
-        body: "Settings hold local shell identity, diagnostics, storage, and reset operations without collapsing them into the policy model.",
+        body: "Settings are now the kernel-backed control plane for local runtime posture, compatibility facades, galleries, storage, environment bindings, and shell identity.",
         items: [
           `Surface: ${surfaceLabel(activeView, props)}`,
           operatorPaneOpen
@@ -232,6 +232,7 @@ function summaryForView(props: StudioInspectorProps): {
                   : chatSurface.replace(/-/g, " ")
               }`
             : "Operator pane: hidden",
+          "Runtime: local engine control documents",
           `Locale: ${props.profile.locale}`,
           `Timezone: ${props.profile.timezone}`,
         ],

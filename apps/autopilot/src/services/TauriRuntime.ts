@@ -2,7 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { 
-  AgentRuntime, GraphPayload, GraphEvent, ProjectFile, AgentSummary, 
+  AgentRuntime, GraphCapabilityCatalog, GraphModelBindingCatalog, GraphPayload, GraphEvent, GraphGlobalConfig, ProjectFile, AgentSummary, 
   FleetState, Zone, Container, MarketplaceAgent, ConnectorSummary, ConnectorStatus,
   ConnectorActionDefinition, ConnectorActionRequest, ConnectorActionResult,
   ConnectorConfigureRequest, ConnectorConfigureResult, ConnectorSubscriptionSummary,
@@ -18,9 +18,17 @@ import type {
   AtlasNeighborhood,
   AtlasSearchResult,
   BenchmarkTraceFeed,
+  KnowledgeCollectionEntryContent,
+  KnowledgeCollectionEntryRecord,
+  KnowledgeCollectionRecord,
+  KnowledgeCollectionSearchHit,
+  KnowledgeCollectionSourceRecord,
+  LocalEngineControlPlane,
+  LocalEngineSnapshot,
   ResetAutopilotDataResult,
   SkillCatalogEntry,
   SkillDetailView,
+  SkillSourceRecord,
   SubstrateProofView,
 } from "../types";
 
@@ -287,6 +295,211 @@ export class TauriRuntime implements AgentRuntime {
         return invoke("get_available_tools");
     }
 
+    async getLocalEngineSnapshot(): Promise<LocalEngineSnapshot> {
+        return invoke("get_local_engine_snapshot");
+    }
+
+    async getGraphModelBindingCatalog(): Promise<GraphModelBindingCatalog> {
+        const snapshot = await this.getLocalEngineSnapshot();
+        return {
+            refreshedAtMs: snapshot.generatedAtMs,
+            models: snapshot.registryModels.map((record) => ({
+                modelId: record.modelId,
+                status: record.status,
+                residency: record.residency,
+                backendId: record.backendId ?? null,
+            })),
+        };
+    }
+
+    async getGraphCapabilityCatalog(): Promise<GraphCapabilityCatalog> {
+        const snapshot = await this.getLocalEngineSnapshot();
+        const familyMap = new Map(snapshot.capabilities.map((family) => [family.id, family] as const));
+        const capabilityMappings = [
+            { capabilityId: "reasoning", familyId: "responses" },
+            { capabilityId: "vision", familyId: "vision" },
+            { capabilityId: "embedding", familyId: "embeddings" },
+            { capabilityId: "image", familyId: "image" },
+            { capabilityId: "speech", familyId: "speech" },
+            { capabilityId: "video", familyId: "video" },
+        ];
+
+        return {
+            refreshedAtMs: snapshot.generatedAtMs,
+            activeIssueCount: snapshot.activeIssueCount,
+            capabilities: capabilityMappings.map(({ capabilityId, familyId }) => {
+                const family = familyMap.get(familyId);
+                return {
+                    capabilityId,
+                    familyId,
+                    label: family?.label ?? capabilityId,
+                    status: family?.status ?? "Unavailable",
+                    availableCount: family?.availableCount ?? 0,
+                    operatorSummary:
+                        family?.operatorSummary ??
+                        "This capability is not yet surfaced in the current Local Engine snapshot.",
+                };
+            }),
+        };
+    }
+
+    async saveLocalEngineControlPlane(
+      controlPlane: LocalEngineControlPlane,
+    ): Promise<LocalEngineControlPlane> {
+        return invoke("save_local_engine_control_plane", { controlPlane });
+    }
+
+    async stageLocalEngineOperation(input: {
+      subjectKind: string;
+      operation: string;
+      sourceUri?: string | null;
+      subjectId?: string | null;
+      notes?: string | null;
+    }): Promise<void> {
+        await invoke("stage_local_engine_operation", { draft: input });
+    }
+
+    async removeLocalEngineOperation(operationId: string): Promise<void> {
+        await invoke("remove_local_engine_operation", { operationId });
+    }
+
+    async promoteLocalEngineOperation(operationId: string): Promise<void> {
+        await invoke("promote_local_engine_operation", { operationId });
+    }
+
+    async updateLocalEngineJobStatus(input: {
+      jobId: string;
+      status: string;
+    }): Promise<void> {
+        await invoke("update_local_engine_job_status", { input });
+    }
+
+    async retryLocalEngineParentPlaybookRun(runId: string): Promise<void> {
+        await invoke("retry_local_engine_parent_playbook_run", { runId });
+    }
+
+    async resumeLocalEngineParentPlaybookRun(
+      runId: string,
+      stepId?: string | null,
+    ): Promise<void> {
+        await invoke("resume_local_engine_parent_playbook_run", {
+          input: { runId, stepId: stepId ?? null },
+        });
+    }
+
+    async dismissLocalEngineParentPlaybookRun(runId: string): Promise<void> {
+        await invoke("dismiss_local_engine_parent_playbook_run", { runId });
+    }
+
+    async getKnowledgeCollections(): Promise<KnowledgeCollectionRecord[]> {
+        return invoke("get_knowledge_collections");
+    }
+
+    async createKnowledgeCollection(
+      name: string,
+      description?: string | null,
+    ): Promise<KnowledgeCollectionRecord> {
+        return invoke("create_knowledge_collection", { name, description });
+    }
+
+    async resetKnowledgeCollection(collectionId: string): Promise<void> {
+        await invoke("reset_knowledge_collection", { collectionId });
+    }
+
+    async deleteKnowledgeCollection(collectionId: string): Promise<void> {
+        await invoke("delete_knowledge_collection", { collectionId });
+    }
+
+    async addKnowledgeTextEntry(
+      collectionId: string,
+      title: string,
+      content: string,
+    ): Promise<KnowledgeCollectionEntryRecord> {
+        return invoke("add_knowledge_text_entry", { collectionId, title, content });
+    }
+
+    async importKnowledgeFile(
+      collectionId: string,
+      filePath: string,
+    ): Promise<KnowledgeCollectionEntryRecord> {
+        return invoke("import_knowledge_file", { collectionId, filePath });
+    }
+
+    async removeKnowledgeCollectionEntry(
+      collectionId: string,
+      entryId: string,
+    ): Promise<void> {
+        await invoke("remove_knowledge_collection_entry", { collectionId, entryId });
+    }
+
+    async getKnowledgeCollectionEntryContent(
+      collectionId: string,
+      entryId: string,
+    ): Promise<KnowledgeCollectionEntryContent> {
+        return invoke("get_knowledge_collection_entry_content", { collectionId, entryId });
+    }
+
+    async searchKnowledgeCollection(
+      collectionId: string,
+      query: string,
+      limit?: number,
+    ): Promise<KnowledgeCollectionSearchHit[]> {
+        return invoke("search_knowledge_collection", { collectionId, query, limit });
+    }
+
+    async addKnowledgeCollectionSource(
+      collectionId: string,
+      uri: string,
+      pollIntervalMinutes?: number | null,
+    ): Promise<KnowledgeCollectionSourceRecord> {
+        return invoke("add_knowledge_collection_source", {
+          collectionId,
+          uri,
+          pollIntervalMinutes,
+        });
+    }
+
+    async removeKnowledgeCollectionSource(
+      collectionId: string,
+      sourceId: string,
+    ): Promise<void> {
+        await invoke("remove_knowledge_collection_source", { collectionId, sourceId });
+    }
+
+    async getSkillSources(): Promise<SkillSourceRecord[]> {
+        return invoke("get_skill_sources");
+    }
+
+    async addSkillSource(
+      uri: string,
+      label?: string | null,
+    ): Promise<SkillSourceRecord> {
+        return invoke("add_skill_source", { uri, label });
+    }
+
+    async updateSkillSource(
+      sourceId: string,
+      uri: string,
+      label?: string | null,
+    ): Promise<SkillSourceRecord> {
+        return invoke("update_skill_source", { sourceId, uri, label });
+    }
+
+    async removeSkillSource(sourceId: string): Promise<void> {
+        await invoke("remove_skill_source", { sourceId });
+    }
+
+    async setSkillSourceEnabled(
+      sourceId: string,
+      enabled: boolean,
+    ): Promise<SkillSourceRecord> {
+        return invoke("set_skill_source_enabled", { sourceId, enabled });
+    }
+
+    async syncSkillSource(sourceId: string): Promise<SkillSourceRecord> {
+        return invoke("sync_skill_source", { sourceId });
+    }
+
     async getSkillCatalog(): Promise<SkillCatalogEntry[]> {
         return invoke("get_skill_catalog");
     }
@@ -326,13 +539,19 @@ export class TauriRuntime implements AgentRuntime {
         return invoke("get_local_benchmark_trace_feed", { limit });
     }
 
-    async runNode(nodeType: string, config: any, input: string): Promise<any> {
+    async runNode(
+        nodeType: string,
+        config: any,
+        input: string,
+        globalConfig?: GraphGlobalConfig
+    ): Promise<any> {
         return invoke("test_node_execution", { 
             nodeType, 
             config, 
             input, 
             nodeId: null, 
-            sessionId: null 
+            sessionId: null,
+            globalConfig: globalConfig ?? null,
         });
     }
 

@@ -4,8 +4,16 @@ mod selection;
 use anyhow::{anyhow, Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
-use image::{DynamicImage, GenericImageView, ImageBuffer, ImageFormat, Rgb};
-use ioi_api::vm::inference::InferenceRuntime;
+use image::{
+    codecs::{
+        gif::{GifEncoder, Repeat},
+        jpeg::JpegEncoder,
+    },
+    Delay, DynamicImage, Frame, GenericImageView, ImageBuffer, ImageFormat, Rgb, Rgba, RgbaImage,
+};
+use ioi_api::vm::inference::{
+    ImageEditRequest, ImageGenerationRequest, InferenceRuntime, VideoGenerationRequest,
+};
 use ioi_drivers::browser::BrowserDriver;
 use ioi_types::app::agentic::{
     InferenceOptions, MediaFrameEvidence, MediaMultimodalBundle, MediaProviderCandidate,
@@ -15,6 +23,7 @@ use ioi_types::app::agentic::{
 use reqwest::{header, redirect};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::fs::File;
 use std::io::Cursor;
@@ -72,4 +81,10 @@ include!("execution.rs");
 include!("transcript.rs");
 include!("visual.rs");
 
-pub use api::{edge_media_extract_multimodal_evidence, edge_media_extract_transcript};
+pub use api::{
+    edge_media_extract_multimodal_evidence, edge_media_extract_transcript, kernel_media_edit_image,
+    kernel_media_generate_image, kernel_media_generate_video, kernel_media_synthesize_speech,
+    kernel_media_transcribe_audio, kernel_media_vision_read, KernelMediaImageGeneration,
+    KernelMediaSpeechSynthesis, KernelMediaTranscription, KernelMediaVideoGeneration,
+    KernelMediaVisionRead,
+};

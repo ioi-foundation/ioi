@@ -154,18 +154,6 @@
   background: rgba(255, 255, 255, 0.08) !important;
 }
 
-.spot-context-btn.spot-context-btn.spot-context-btn {
-  background: transparent !important;
-}
-
-.spot-context-btn.spot-context-btn.spot-context-btn:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
-}
-
-.spot-context-btn.active.active.active {
-  background: var(--spot-accent-subtle) !important;
-}
-
 .spot-stop-btn.spot-stop-btn.spot-stop-btn {
   background: rgba(255, 255, 255, 0.08) !important;
 }

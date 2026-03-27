@@ -1,5 +1,6 @@
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::types::ExecutionTier;
+use crate::agentic::desktop::worker_templates::delegation_template_hint;
 use ioi_types::app::agentic::{LlmToolDefinition, ResolvedIntentState};
 use serde_json::json;
 
@@ -32,6 +33,9 @@ pub(super) fn push_builtin_tools(
     include!("builtins/global_scroll_capability.rs");
     include!("builtins/browser_interaction_conditional.rs");
     include!("builtins/memory_tools.rs");
+    include!("builtins/native_model_memory_capabilities.rs");
+    include!("builtins/native_media_capabilities.rs");
+    include!("builtins/native_model_registry_control.rs");
     include!("builtins/only_expose_computer_tools_in_visualforeground_tier_3.rs");
     include!("builtins/deterministic_system_tools_are_available_across_all_tiers.rs");
     include!("builtins/deterministic_system_tools_are_available_across_all_tiers_13.rs");
@@ -190,5 +194,42 @@ mod tests {
             "{}",
             move_mouse.description
         );
+    }
+
+    #[test]
+    fn delegate_tool_surfaces_builtin_worker_templates() {
+        let resolved = resolved_ui_intent();
+        let mut tools = Vec::new();
+        push_builtin_tools(
+            &mut tools,
+            ExecutionTier::DomHeadless,
+            false,
+            false,
+            true,
+            true,
+            Some(&resolved),
+        );
+
+        let delegate = tools
+            .iter()
+            .find(|tool| tool.name == "agent__delegate")
+            .expect("agent__delegate should be available");
+        assert!(
+            delegate.description.contains("researcher"),
+            "{}",
+            delegate.description
+        );
+        assert!(
+            delegate.description.contains("verifier"),
+            "{}",
+            delegate.description
+        );
+        assert!(
+            delegate.description.contains("coder"),
+            "{}",
+            delegate.description
+        );
+        assert!(delegation_template_hint().contains("researcher"));
+        assert!(delegation_template_hint().contains("live_research_brief"));
     }
 }

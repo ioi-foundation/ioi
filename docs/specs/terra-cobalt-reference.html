@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terra Cobalt — Design System Reference</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sand-0:#0d0c0a;--sand-50:#131210;--sand-100:#1a1916;--sand-150:#21201c;
+  --sand-200:#2a2824;--sand-250:#33312c;--sand-300:#3d3b35;--sand-400:#56534b;
+  --sand-500:#706c63;--sand-600:#8a867d;--sand-700:#a8a49b;--sand-800:#c4c0b7;
+  --sand-900:#dddad3;--sand-950:#eceae5;--sand-1000:#faf8f4;
+  --warm-a3:rgba(250,248,244,.035);--warm-a5:rgba(250,248,244,.06);
+  --warm-a7:rgba(250,248,244,.08);--warm-a14:rgba(250,248,244,.15);--warm-a22:rgba(250,248,244,.22);
+  --ink-a3:rgba(13,12,10,.03);--ink-a5:rgba(13,12,10,.05);--ink-a7:rgba(13,12,10,.07);--ink-a14:rgba(13,12,10,.14);--ink-a22:rgba(13,12,10,.22);
+  --cb-50:#edf2fd;--cb-100:#c8dcfd;--cb-200:#93bef8;--cb-300:#759ce8;
+  --cb-400:#5a8cec;--cb-500:#3b5eda;--cb-600:#3650c0;--cb-700:#2740a8;--cb-800:#1c2d78;
+  --cb-bg:rgba(90,140,236,.1);
+  --sage:#6b9a7d;--sage-bg:rgba(107,154,125,.1);--sage-lt:#e8f0eb;--sage-dk:#2a3d30;
+  --amber:#c49a3c;--amber-bg:rgba(196,154,60,.1);--amber-lt:#f5efe0;--amber-dk:#3a3020;
+  --clay:#b85c5c;--clay-bg:rgba(184,92,92,.1);--clay-lt:#f5eaea;--clay-dk:#3a2424;
+  --slate:#6b87a8;--slate-bg:rgba(107,135,168,.1);--slate-lt:#e8eef4;
+  --plum:#8e72a8;--plum-bg:rgba(142,114,168,.1);
+}
+:root{
+  color-scheme:dark;
+  --bg:var(--sand-100);--bg-r:var(--sand-150);--bg-i:var(--sand-0);
+  --bg-s:var(--warm-a3);--bg-m:var(--warm-a5);
+  --tx:var(--sand-1000);--tx2:var(--sand-700);--tx3:var(--sand-500);--tx4:var(--sand-400);
+  --bd:var(--warm-a7);--bd2:var(--warm-a14);--bd3:var(--warm-a22);
+  --ac:var(--cb-400);--ac-h:var(--cb-300);--ac-m:var(--cb-bg);--ac-t:var(--cb-200);
+  --ok:var(--sage);--ok-b:var(--sage-bg);
+  --wn:var(--amber);--wn-b:var(--amber-bg);
+  --er:var(--clay);--er-b:var(--clay-bg);
+  --info:var(--slate);--info-b:var(--slate-bg);
+  --sh:0 12px 40px rgba(0,0,0,.35);
+}
+html[data-theme="light"]{
+  color-scheme:light;
+  --bg:var(--sand-1000);--bg-r:#fff;--bg-i:var(--sand-950);
+  --bg-s:var(--ink-a3);--bg-m:var(--ink-a5);
+  --tx:var(--sand-100);--tx2:var(--sand-500);--tx3:var(--sand-600);--tx4:var(--sand-700);
+  --bd:var(--ink-a7);--bd2:var(--ink-a14);--bd3:var(--ink-a22);
+  --ac:var(--cb-500);--ac-h:var(--cb-400);--ac-m:var(--cb-50);--ac-t:var(--cb-700);
+  --ok:#4a8560;--ok-b:var(--sage-lt);
+  --wn:#a07820;--wn-b:var(--amber-lt);
+  --er:#a04040;--er-b:var(--clay-lt);
+  --info:#4a6a8a;--info-b:var(--slate-lt);
+  --sh:0 6px 20px rgba(0,0,0,.08);
+}
+
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;background:var(--bg);color:var(--tx);font-family:"DM Sans",-apple-system,sans-serif;font-size:13.5px;line-height:1.55;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+a{color:inherit;text-decoration:none}
+button{font:inherit;border:none;background:none;cursor:pointer;color:inherit}
+pre,code,kbd{font-family:"JetBrains Mono","SF Mono",monospace;font-size:.88em}
+
+.page{max-width:880px;margin:0 auto;padding:48px 32px 72px}
+.hero{margin-bottom:48px}
+.hero h1{font-size:36px;font-weight:700;letter-spacing:-.04em;line-height:1;margin-bottom:4px;color:var(--ac)}
+.hero .tl{font-family:"Lora",Georgia,serif;font-size:16px;font-style:italic;color:var(--tx2);margin-bottom:14px}
+.hero p{color:var(--tx3);font-size:13px;line-height:1.6}
+.hb{margin-top:14px;padding:10px 14px;border:1px solid var(--bd);border-left:3px solid var(--ac);border-radius:10px;background:var(--bg-s);font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--tx2);line-height:1.7}
+
+.mt{position:fixed;top:16px;right:16px;display:flex;gap:4px;padding:3px;border:1px solid var(--bd);border-radius:999px;background:var(--bg-r);z-index:100;transition:background .3s}
+.mb{padding:5px 12px;border-radius:999px;font-size:11px;font-weight:500;color:var(--tx3);transition:all .16s}
+.mb:hover{color:var(--tx)}.mb.on{background:var(--ac);color:#fff}
+
+.section{margin-bottom:40px}
+h2{font-size:11px;font-weight:600;color:var(--ac);letter-spacing:.14em;text-transform:uppercase;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid var(--bd)}
+h3{font-size:11px;font-weight:600;color:var(--tx3);letter-spacing:.08em;text-transform:uppercase;margin:16px 0 8px}
+.note{font-size:11px;color:var(--tx3);margin-top:6px;line-height:1.5}
+
+.ramp{display:flex;gap:3px;margin-bottom:3px}
+.sw{flex:1;height:46px;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:5px;font-size:9px;font-family:"JetBrains Mono",monospace;line-height:1.3;border:1px solid var(--bd);gap:1px}
+.sw-n{opacity:.8}.sw-h{opacity:.45}
+.lr{display:flex;gap:3px}.lr span{flex:1;text-align:center;font-size:8px;color:var(--tx4);font-family:"JetBrains Mono",monospace}
+
+.ar{display:flex;gap:4px}
+.as{flex:1;height:30px;border-radius:5px;border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:9px;font-family:"JetBrains Mono",monospace;color:var(--tx3)}
+
+.cr{display:flex;gap:3px}
+.cs{flex:1;height:44px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:4px;font-size:9px;font-family:"JetBrains Mono",monospace;line-height:1.3;border:1px solid var(--bd)}
+
+.sr{display:flex;gap:6px;flex-wrap:wrap}
+.sc{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;font-size:12px}
+.sd{width:10px;height:10px;border-radius:50%}
+.sn{font-weight:600}.sh2{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--tx3)}
+
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cf{grid-column:1/-1}
+.sp{padding:14px;border:1px solid var(--bd);border-radius:10px;background:var(--bg-r);transition:background .3s}
+.sl{font-size:9px;color:var(--ac);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;font-weight:600}
+
+.br{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.db{padding:6px 14px;border:1px solid var(--bd);border-radius:8px;background:var(--bg-s);color:var(--tx2);font-size:12px;font-weight:500;transition:all .16s}
+.db:hover{border-color:var(--bd2);color:var(--tx)}
+.db-on{border-color:var(--bd2);background:var(--bg-m);color:var(--tx)}
+.db-ac{border-color:var(--ac);background:var(--ac);color:#fff}.db-ac:hover{background:var(--ac-h);border-color:var(--ac-h)}
+.db-gh{border-color:transparent;background:transparent}.db-gh:hover{background:var(--bg-s)}
+.db-pl{border-radius:999px}.db-sm{padding:3px 8px;font-size:11px}
+.db-dn{border-color:rgba(184,92,92,.2);color:var(--er)}.db-dn:hover{background:var(--er-b)}
+
+.pr{display:flex;gap:5px;flex-wrap:wrap}
+.dp{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+.dp-i{font-size:9px}
+
+.di{width:100%;padding:8px 12px;border:1px solid var(--bd);border-radius:6px;background:var(--bg-i);color:var(--tx);font:inherit;font-size:12px;outline:none;transition:border-color .16s}
+.di::placeholder{color:var(--tx4)}.di:focus{border-color:var(--ac)}
+
+.dc{padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--bg-i);color:var(--tx2);font-family:"JetBrains Mono",monospace;font-size:11px;line-height:1.6;overflow-x:auto;white-space:pre}
+
+.dd{border:1px solid var(--bd);border-radius:6px;background:var(--bg-i);font-family:"JetBrains Mono",monospace;font-size:11px;overflow:hidden}
+.ddl{padding:3px 12px;line-height:1.5}
+.da{background:var(--ok-b);color:var(--ok)}
+.dr{background:var(--er-b);color:var(--er);text-decoration:line-through;text-decoration-color:var(--er-b)}
+.dch{background:var(--wn-b);color:var(--wn)}
+
+.dco{padding:10px 14px;border:1px solid var(--bd);border-left:3px solid var(--tx3);border-radius:8px;background:var(--bg-s);font-size:12px;color:var(--tx2)}
+.dco-ac{border-left-color:var(--ac)}.dco-ok{border-left-color:var(--ok)}
+.dco-wn{border-left-color:var(--wn)}.dco-er{border-left-color:var(--er)}
+.dco-in{border-left-color:var(--info)}
+
+.bt{height:5px;border-radius:3px;background:var(--bg-m);overflow:hidden;margin-bottom:8px}
+.bf{height:100%;border-radius:3px}.bl{font-size:11px;margin-bottom:2px}
+
+.dtbl{width:100%;border-collapse:collapse;font-size:12px}
+.dtbl th{padding:6px 8px;border-bottom:1px solid var(--bd);text-align:left;color:var(--tx3);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.dtbl td{padding:6px 8px;border-bottom:1px solid var(--bd);color:var(--tx2)}
+.dtbl code{padding:1px 5px;border-radius:3px;background:var(--bg-s);font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--tx2)}
+
+.dk{display:inline-flex;padding:2px 7px;border:1px solid var(--bd);border-bottom-width:2px;border-radius:4px;background:var(--bg-s);font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--tx3);line-height:1.4}
+
+.dtr{display:flex;gap:3px;align-items:center}
+.dot{width:14px;height:8px;border-radius:3px}
+
+.eye{color:var(--ac);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+
+.dcard{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg-s);transition:border-color .16s}
+.dcard:hover{border-color:var(--bd2)}.dcard-on{border-color:var(--bd2);background:var(--bg-m)}
+.dcard h4{font-size:13px;font-weight:600;margin-bottom:2px}.dcard p{font-size:11px;color:var(--tx3);margin:0}
+
+.trow{display:flex;align-items:baseline;gap:14px;padding:5px 0}
+.tsz{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--tx4);min-width:50px;text-align:right}
+.ttk{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--tx4);min-width:70px}
+
+.srow{display:flex;align-items:center;gap:10px;margin:3px 0}
+.sbar{height:8px;border-radius:3px;background:var(--bd2)}
+.slbl{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--tx3);min-width:70px}
+
+.rr{display:flex;gap:10px;align-items:end}
+.rd{border:1px solid var(--bd2);background:var(--bg-s);width:48px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:"JetBrains Mono",monospace;font-size:9px;color:var(--tx3);gap:1px;line-height:1.2}
+.rn{font-size:8px;color:var(--tx4)}
+
+.shr{display:flex;gap:16px}
+.shd{width:100px;height:60px;border-radius:10px;background:var(--bg-r);display:flex;align-items:center;justify-content:center;font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--tx3)}
+
+.logo-row{display:flex;align-items:center;gap:16px;margin-top:16px;padding:12px 16px;border:1px solid var(--bd);border-radius:10px;background:var(--bg-s)}
+.logo-row svg{width:48px;height:48px;flex-shrink:0}
+.logo-hex{display:flex;gap:4px;flex-wrap:wrap}
+.logo-chip{padding:2px 8px;border-radius:4px;font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:500}
+
+@media(max-width:680px){.page{padding:24px 16px 48px}.cg{grid-template-columns:1fr}.hero h1{font-size:26px}.sw{height:38px}.sw .sw-h{display:none}.sr{flex-direction:column}.cr{flex-wrap:wrap}.cs{min-width:40px}}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--bd2)}
+</style>
+</head>
+<body>
+<div class="mt"><button class="mb on" id="bd" onclick="setM('dark')">Dark</button><button class="mb" id="bl" onclick="setM('light')">Light</button></div>
+<script>function setM(m){document.documentElement.setAttribute('data-theme',m);document.getElementById('bd').classList.toggle('on',m==='dark');document.getElementById('bl').classList.toggle('on',m==='light')}</script>
+
+<div class="page">
+
+<div class="hero">
+  <h1>Terra Cobalt</h1>
+  <p class="tl">Warm ground, cool signal.</p>
+  <p>Sand-toned surfaces from Terra paired with a cobalt blue accent ramp extracted from the IOI logo. The warmth stays in the surfaces; the blue carries the signal.</p>
+  <div class="hb">@import url("terra-cobalt.css");<br>/* accent ramp: #1c2d78 → #5a8cec → #edf2fd */</div>
+  <div class="logo-row">
+    <svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg"><polygon points="48 70 48 105 78.5 87.5" fill="#3650c0"/><polygon points="80 86 112 70 80 54 48 70" fill="#b0c6f4"/><polygon points="115 106 137 119 140 112 115 68 115 106" fill="#3b5eda"/><polygon points="83 87.5 113.5 105 113.5 70" fill="#93bef8"/><polygon points="46 108.5 24 121 27 126 76 126 46 108.5" fill="#5b86de"/><polygon points="82 47 115 66 86 17 82 17 82 47" fill="#759ce8"/><polygon points="45 106 45 68 20 112 23 119" fill="#e8e9ed"/><polygon points="114 108.5 85 126 134 126 137 121" fill="#5a8cec"/><polygon points="79 47 79 17 75 17 46 66" fill="#b2c8f4"/><polygon points="49 107 80 126 80 126 80 89" fill="#4a6bdf"/><polygon points="80 89 80 126 112 107" fill="#5698ea"/></svg>
+    <div>
+      <div style="font-size:11px;color:var(--tx3);margin-bottom:4px">Extracted from logo gradients</div>
+      <div class="logo-hex">
+        <span class="logo-chip" style="background:#1c2d78;color:#93bef8">#1c2d78</span>
+        <span class="logo-chip" style="background:#2740a8;color:#c8dcfd">#2740a8</span>
+        <span class="logo-chip" style="background:#3650c0;color:#c8dcfd">#3650c0</span>
+        <span class="logo-chip" style="background:#3b5eda;color:#edf2fd">#3b5eda</span>
+        <span class="logo-chip" style="background:#5a8cec;color:#fff">#5a8cec</span>
+        <span class="logo-chip" style="background:#759ce8;color:#1c2d78">#759ce8</span>
+        <span class="logo-chip" style="background:#93bef8;color:#1c2d78">#93bef8</span>
+        <span class="logo-chip" style="background:#c8dcfd;color:#1c2d78">#c8dcfd</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- §1 Sand -->
+<div class="section">
+  <h2>§1 Sand ramp — warm neutrals (unchanged)</h2>
+  <div class="ramp">
+    <div class="sw" style="background:#0d0c0a;color:#56534b"><span class="sw-n">0</span><span class="sw-h">#0d0c0a</span></div>
+    <div class="sw" style="background:#131210;color:#56534b"><span class="sw-n">50</span></div>
+    <div class="sw" style="background:#1a1916;color:#56534b"><span class="sw-n">100</span><span class="sw-h">bg◾</span></div>
+    <div class="sw" style="background:#21201c;color:#56534b"><span class="sw-n">150</span><span class="sw-h">raised</span></div>
+    <div class="sw" style="background:#2a2824;color:#706c63"><span class="sw-n">200</span></div>
+    <div class="sw" style="background:#33312c;color:#706c63"><span class="sw-n">250</span></div>
+    <div class="sw" style="background:#3d3b35;color:#8a867d"><span class="sw-n">300</span></div>
+    <div class="sw" style="background:#56534b;color:#a8a49b"><span class="sw-n">400</span></div>
+    <div class="sw" style="background:#706c63;color:#c4c0b7"><span class="sw-n">500</span><span class="sw-h">tert.</span></div>
+    <div class="sw" style="background:#8a867d;color:#dddad3"><span class="sw-n">600</span></div>
+    <div class="sw" style="background:#a8a49b;color:#faf8f4"><span class="sw-n">700</span><span class="sw-h">sec.</span></div>
+    <div class="sw" style="background:#c4c0b7;color:#2a2824"><span class="sw-n">800</span></div>
+    <div class="sw" style="background:#dddad3;color:#2a2824"><span class="sw-n">900</span></div>
+    <div class="sw" style="background:#eceae5;color:#2a2824"><span class="sw-n">950</span></div>
+    <div class="sw" style="background:#faf8f4;color:#2a2824"><span class="sw-n">1000</span><span class="sw-h">bg◻</span></div>
+  </div>
+</div>
+
+<!-- §2 Cobalt ramp -->
+<div class="section">
+  <h2>§2 Cobalt accent ramp — from logo</h2>
+  <div class="cr">
+    <div class="cs" style="background:#edf2fd;color:#1c2d78"><span class="sw-n">50</span></div>
+    <div class="cs" style="background:#c8dcfd;color:#1c2d78"><span class="sw-n">100</span></div>
+    <div class="cs" style="background:#93bef8;color:#1c2d78"><span class="sw-n">200</span></div>
+    <div class="cs" style="background:#759ce8;color:#1c2d78"><span class="sw-n">300</span></div>
+    <div class="cs" style="background:#5a8cec;color:#fff"><span class="sw-n">400</span></div>
+    <div class="cs" style="background:#3b5eda;color:#edf2fd"><span class="sw-n">500</span></div>
+    <div class="cs" style="background:#3650c0;color:#c8dcfd"><span class="sw-n">600</span></div>
+    <div class="cs" style="background:#2740a8;color:#c8dcfd"><span class="sw-n">700</span></div>
+    <div class="cs" style="background:#1c2d78;color:#93bef8"><span class="sw-n">800</span></div>
+  </div>
+  <div class="lr" style="max-width:calc(9*(100%/9 + 3px))">
+    <span>muted◻</span><span></span><span>text◾</span><span>hover◾</span>
+    <span>accent◾</span><span>accent◻</span><span></span><span>text◻</span><span></span>
+  </div>
+  <p class="note">Every stop is sourced directly from the logo's gradient definitions. 400 is the dark-mode accent; 500 for light mode.</p>
+</div>
+
+<!-- §3 Status -->
+<div class="section">
+  <h2>§3 Status palette</h2>
+  <div class="sr">
+    <div class="sc" style="background:var(--ok-b)"><div class="sd" style="background:var(--ok)"></div><span class="sn" style="color:var(--ok)">Success / Sage</span><span class="sh2">#6b9a7d</span></div>
+    <div class="sc" style="background:var(--wn-b)"><div class="sd" style="background:var(--wn)"></div><span class="sn" style="color:var(--wn)">Warning / Amber</span><span class="sh2">#c49a3c</span></div>
+    <div class="sc" style="background:var(--er-b)"><div class="sd" style="background:var(--er)"></div><span class="sn" style="color:var(--er)">Danger / Clay</span><span class="sh2">#b85c5c</span></div>
+    <div class="sc" style="background:var(--info-b)"><div class="sd" style="background:var(--info)"></div><span class="sn" style="color:var(--info)">Info / Slate</span><span class="sh2">#6b87a8</span></div>
+    <div class="sc" style="background:var(--plum-bg)"><div class="sd" style="background:var(--plum)"></div><span class="sn" style="color:var(--plum)">Extra / Plum</span><span class="sh2">#8e72a8</span></div>
+  </div>
+</div>
+
+<!-- §4 Components -->
+<div class="section">
+  <h2>§4 Component specimens</h2>
+  <div class="cg">
+
+    <div class="sp"><div class="sl">Buttons</div>
+      <div class="br">
+        <span class="db">Default</span>
+        <span class="db db-on">Active</span>
+        <span class="db db-ac">Accent</span>
+        <span class="db db-gh">Ghost</span>
+        <span class="db db-pl">Pill</span>
+        <span class="db db-sm">Small</span>
+        <span class="db db-dn">Danger</span>
+      </div>
+    </div>
+
+    <div class="sp"><div class="sl">Pills / Badges</div>
+      <div class="pr">
+        <span class="dp" style="background:var(--ok-b);color:var(--ok)"><span class="dp-i">✓</span> success</span>
+        <span class="dp" style="background:var(--wn-b);color:var(--wn)"><span class="dp-i">◐</span> warning</span>
+        <span class="dp" style="background:var(--er-b);color:var(--er)"><span class="dp-i">✗</span> danger</span>
+        <span class="dp" style="background:var(--info-b);color:var(--info)"><span class="dp-i">●</span> info</span>
+        <span class="dp" style="background:var(--ac-m);color:var(--ac)"><span class="dp-i">◆</span> accent</span>
+        <span class="dp" style="background:var(--bg-m);color:var(--tx3)"><span class="dp-i">?</span> neutral</span>
+      </div>
+    </div>
+
+    <div class="sp"><div class="sl">Input — focus ring uses cobalt</div>
+      <input type="text" class="di" placeholder="Search or filter…">
+    </div>
+
+    <div class="sp"><div class="sl">Keyboard shortcuts</div>
+      <div class="br"><span class="dk">⌘</span><span class="dk">K</span><span style="color:var(--tx4);font-size:11px;margin:0 4px">then</span><span class="dk">1</span><span class="dk">2</span><span class="dk">3</span><span class="dk">Esc</span></div>
+    </div>
+
+    <div class="sp"><div class="sl">Code block</div>
+      <pre class="dc">const theme = "terra-cobalt";
+const accent = getVar("--accent");
+// #5a8cec in dark, #3b5eda in light</pre>
+    </div>
+
+    <div class="sp"><div class="sl">Git-style diff</div>
+      <div class="dd">
+        <div class="ddl da">+ added: new handler registered</div>
+        <div class="ddl dr">− removed: deprecated callback</div>
+        <div class="ddl dch">~ changed: threshold updated</div>
+      </div>
+    </div>
+
+    <div class="sp"><div class="sl">Callouts</div>
+      <div style="display:grid;gap:6px">
+        <div class="dco">Neutral — default border.</div>
+        <div class="dco dco-ac">Accent — primary guidance.</div>
+        <div class="dco dco-ok">Success — completed.</div>
+        <div class="dco dco-wn">Warning — approaching limit.</div>
+        <div class="dco dco-er">Danger — failure detected.</div>
+        <div class="dco dco-in">Info — supplementary context.</div>
+      </div>
+    </div>
+
+    <div class="sp"><div class="sl">Metric bars</div>
+      <div style="display:grid;gap:2px">
+        <div><span class="bl" style="color:var(--tx3)">Neutral 60%</span><div class="bt"><div class="bf" style="width:60%;background:linear-gradient(90deg,var(--sand-500),var(--sand-700))"></div></div></div>
+        <div><span class="bl" style="color:var(--ac)">Accent 75%</span><div class="bt"><div class="bf" style="width:75%;background:linear-gradient(90deg,#1c2d78,var(--ac))"></div></div></div>
+        <div><span class="bl" style="color:var(--ok)">Success 85%</span><div class="bt"><div class="bf" style="width:85%;background:linear-gradient(90deg,var(--sage-dk),var(--ok))"></div></div></div>
+        <div><span class="bl" style="color:var(--wn)">Warning 45%</span><div class="bt"><div class="bf" style="width:45%;background:linear-gradient(90deg,var(--amber-dk),var(--wn))"></div></div></div>
+        <div><span class="bl" style="color:var(--er)">Danger 25%</span><div class="bt"><div class="bf" style="width:25%;background:linear-gradient(90deg,var(--clay-dk),var(--er))"></div></div></div>
+      </div>
+    </div>
+
+    <div class="sp"><div class="sl">Step minimap</div>
+      <div class="dtr">
+        <div class="dot" style="background:var(--bd2)"></div>
+        <div class="dot" style="background:var(--bd2)"></div>
+        <div class="dot" style="background:var(--wn)"></div>
+        <div class="dot" style="background:var(--bd2)"></div>
+        <div class="dot" style="background:var(--er)"></div>
+        <div class="dot" style="background:var(--bd2)"></div>
+        <div class="dot" style="background:var(--ac)"></div>
+        <div class="dot" style="background:var(--bd2)"></div>
+        <div class="dot" style="background:var(--ok)"></div>
+        <div class="dot" style="background:var(--bd2)"></div>
+      </div>
+      <p class="note">neutral · yellow = slow · red = error · blue = accent · green = pass</p>
+    </div>
+
+    <div class="sp"><div class="sl">Eyebrow + editorial serif</div>
+      <div style="display:grid;gap:8px">
+        <span class="eye">Section identifier</span>
+        <div>
+          <span class="eye">Featured</span>
+          <div style="font-family:'Lora',Georgia,serif;font-size:18px;font-weight:500;margin-top:4px;letter-spacing:-.02em">Warm surfaces, cool conviction</div>
+          <div style="font-size:12px;color:var(--tx3);margin-top:3px;font-family:'Lora',Georgia,serif;font-style:italic">Serif for editorial emphasis.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sp cf"><div class="sl">Cards — default / selected / accent</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div class="dcard"><h4>Default card</h4><p>Hover for border shift.</p></div>
+        <div class="dcard dcard-on"><h4>Selected card</h4><p>Active selection state.</p></div>
+        <div class="dcard" style="border-left:3px solid var(--ac);border-radius:0 10px 10px 0"><h4>Accent card</h4><p>Cobalt accent border.</p></div>
+      </div>
+    </div>
+
+    <div class="sp cf"><div class="sl">Table</div>
+      <table class="dtbl">
+        <thead><tr><th>Token</th><th>Dark</th><th>Light</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><code>--accent</code></td><td><code>#5a8cec</code> (cb-400)</td><td><code>#3b5eda</code> (cb-500)</td><td>Brand accent</td></tr>
+          <tr><td><code>--accent-muted</code></td><td><code>rgba(90,140,236,.1)</code></td><td><code>#edf2fd</code> (cb-50)</td><td>Accent pills, selection</td></tr>
+          <tr><td><code>--color-bg</code></td><td><code>#1a1916</code> (sand-100)</td><td><code>#faf8f4</code> (sand-1000)</td><td>Page background</td></tr>
+          <tr><td><code>--color-border</code></td><td colspan="2" style="text-align:center"><code>warm-a7 / ink-a7</code></td><td>Default borders</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- §5 Type -->
+<div class="section">
+  <h2>§5 Type scale</h2>
+  <div style="display:grid;gap:1px">
+    <div class="trow"><span class="tsz">36px</span><span class="ttk">--text-3xl</span><span style="font-size:36px;font-weight:700;letter-spacing:-.04em;color:var(--ac)">Brand</span></div>
+    <div class="trow"><span class="tsz">28px</span><span class="ttk">--text-2xl</span><span style="font-size:28px;font-weight:700;letter-spacing:-.04em">Heading</span></div>
+    <div class="trow"><span class="tsz">21px</span><span class="ttk">--text-xl</span><span style="font-size:21px;font-weight:600;letter-spacing:-.03em">Section</span></div>
+    <div class="trow"><span class="tsz">17px</span><span class="ttk">--text-lg</span><span style="font-size:17px;font-weight:600">Subsection</span></div>
+    <div class="trow"><span class="tsz">14px</span><span class="ttk">--text-md</span><span style="font-size:14px;font-weight:500">Control label</span></div>
+    <div class="trow"><span class="tsz">13px</span><span class="ttk">--text-base</span><span style="font-size:13px;color:var(--tx2)">Body text lives here.</span></div>
+    <div class="trow"><span class="tsz">11px</span><span class="ttk">--text-sm</span><span style="font-size:11px;color:var(--tx3)">Metadata, labels</span></div>
+    <div class="trow"><span class="tsz">10px</span><span class="ttk">--text-xs</span><span style="font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ac)">eyebrow</span></div>
+  </div>
+</div>
+
+<!-- §6 Spacing -->
+<div class="section">
+  <h2>§6 Spacing · radii · shadows</h2>
+  <h3>Spacing</h3>
+  <div style="display:grid;gap:1px">
+    <div class="srow"><span class="slbl">--space-1</span><div class="sbar" style="width:4px"></div><span class="slbl">4px</span></div>
+    <div class="srow"><span class="slbl">--space-2</span><div class="sbar" style="width:8px"></div><span class="slbl">8px</span></div>
+    <div class="srow"><span class="slbl">--space-4</span><div class="sbar" style="width:16px"></div><span class="slbl">16px</span></div>
+    <div class="srow"><span class="slbl">--space-8</span><div class="sbar" style="width:32px"></div><span class="slbl">32px</span></div>
+    <div class="srow"><span class="slbl">--space-16</span><div class="sbar" style="width:64px"></div><span class="slbl">64px</span></div>
+  </div>
+  <h3>Radii</h3>
+  <div class="rr">
+    <div class="rd" style="border-radius:4px"><span class="rn">xs</span>4</div>
+    <div class="rd" style="border-radius:6px"><span class="rn">sm</span>6</div>
+    <div class="rd" style="border-radius:10px"><span class="rn">md</span>10</div>
+    <div class="rd" style="border-radius:14px"><span class="rn">lg</span>14</div>
+    <div class="rd" style="border-radius:20px"><span class="rn">xl</span>20</div>
+    <div class="rd" style="border-radius:999px;width:64px"><span class="rn">full</span>∞</div>
+  </div>
+  <h3>Shadows</h3>
+  <div class="shr">
+    <div class="shd" style="box-shadow:0 1px 3px rgba(0,0,0,.15)">sm</div>
+    <div class="shd" style="box-shadow:0 8px 24px rgba(0,0,0,.25)">md</div>
+    <div class="shd" style="box-shadow:0 20px 56px rgba(0,0,0,.4)">lg</div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 use super::{
     is_ambiguity_abstain_exempt, is_tool_allowed_for_resolution, resolve_band, resolve_step_intent,
     resolve_step_intent_with_state, should_abstain_for_ambiguity, should_pause_for_clarification,
-    tool_capabilities, IntentCandidateScore,
+    tool_capabilities, tool_capability_bindings, IntentCandidateScore,
 };
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
@@ -183,6 +183,9 @@ struct AutomationMonitorIntentRuntime;
 #[derive(Debug, Default, Clone)]
 struct AutomationMonitorVsWebResearchRuntime;
 
+#[derive(Debug, Default, Clone)]
+struct ModelRegistryIntentRuntime;
+
 #[async_trait]
 impl InferenceRuntime for NoEmbeddingModelRankRuntime {
     async fn execute_inference(
@@ -219,6 +222,89 @@ impl InferenceRuntime for NoEmbeddingModelRankRuntime {
                     {"intent_id": "command.exec", "score": 0.96},
                     {"intent_id": "workspace.ops", "score": 0.44},
                     {"intent_id": "app.launch", "score": 0.05}
+                ]
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Ok(serde_json::json!({
+            "scores": []
+        })
+        .to_string()
+        .into_bytes())
+    }
+
+    async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+        Err(VmError::HostError("embeddings unavailable".to_string()))
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl InferenceRuntime for ModelRegistryIntentRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        let query_padded = format!(" {} ", query);
+        if prompt.contains("model_registry_control_requested") {
+            let wants_unload = query_padded.contains(" unload ")
+                || query_padded.contains(" evict ")
+                || query_padded.contains(" deactivate ");
+            let wants_load = !wants_unload
+                && (query_padded.contains(" load ")
+                    || query_padded.contains(" activate ")
+                    || query_padded.contains(" warm "));
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": wants_load || wants_unload,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if query_padded.contains(" unload ")
+            && query.contains("model")
+            && (query.contains("whisper")
+                || query.contains("free memory")
+                || query.contains("vram"))
+        {
+            return Ok(serde_json::json!({
+                "scores": [
+                    {"intent_id": "model.registry.unload", "score": 0.98},
+                    {"intent_id": "model.registry.load", "score": 0.31},
+                    {"intent_id": "command.exec", "score": 0.21}
+                ]
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if query_padded.contains(" load ")
+            && query.contains("model")
+            && (query.contains("codex") || query.contains("llama") || query.contains("runtime"))
+        {
+            return Ok(serde_json::json!({
+                "scores": [
+                    {"intent_id": "model.registry.load", "score": 0.98},
+                    {"intent_id": "model.registry.unload", "score": 0.37},
+                    {"intent_id": "command.exec", "score": 0.22}
                 ]
             })
             .to_string()

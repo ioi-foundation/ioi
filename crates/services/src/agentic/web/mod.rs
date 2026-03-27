@@ -21,7 +21,13 @@ pub(crate) use contract::{
     normalize_web_retrieval_contract, query_matching_source_urls, WEB_SOURCE_ALIGNMENT_MAX_SOURCES,
 };
 pub(crate) use media::media_provider_candidate_receipt;
-pub use media::{edge_media_extract_multimodal_evidence, edge_media_extract_transcript};
+pub use media::{
+    edge_media_extract_multimodal_evidence, edge_media_extract_transcript, kernel_media_edit_image,
+    kernel_media_generate_image, kernel_media_generate_video, kernel_media_synthesize_speech,
+    kernel_media_transcribe_audio, kernel_media_vision_read, KernelMediaImageGeneration,
+    KernelMediaSpeechSynthesis, KernelMediaTranscription, KernelMediaVideoGeneration,
+    KernelMediaVisionRead,
+};
 pub(crate) use parsers::parse_json_ld_item_list_sources_from_html;
 pub(crate) use parsers::parse_same_host_child_collection_sources_from_html;
 pub use readability::edge_web_read;

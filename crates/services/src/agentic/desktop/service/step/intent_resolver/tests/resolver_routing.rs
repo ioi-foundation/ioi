@@ -2,6 +2,7 @@ use super::*;
 use ioi_api::state::StateAccess;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
+use ioi_types::app::agentic::InstructionBindingKind;
 use ioi_types::app::wallet_network::{
     MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
     MailConnectorRecord, MailConnectorSecretAliases, MailConnectorTlsMode,
@@ -110,6 +111,49 @@ async fn resolver_routes_latest_headlines_queries_to_web_research_via_descriptor
             .first()
             .map(|candidate| candidate.intent_id.as_str()),
         Some("web.research")
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_seeds_researcher_template_for_web_research_intent() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(WeatherVsClockRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "What's the weather like right now?".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v2-web-research-template-test".into();
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "web.research");
+    let contract = resolved
+        .instruction_contract
+        .expect("web research should synthesize a contract");
+    let template_binding = contract
+        .slot_bindings
+        .iter()
+        .find(|binding| binding.slot == "template_id")
+        .expect("web research contract should seed a template");
+    assert_eq!(
+        template_binding.binding_kind,
+        InstructionBindingKind::UserLiteral
+    );
+    assert_eq!(template_binding.value.as_deref(), Some("researcher"));
+    let workflow_binding = contract
+        .slot_bindings
+        .iter()
+        .find(|binding| binding.slot == "workflow_id")
+        .expect("web research contract should seed a workflow");
+    assert_eq!(
+        workflow_binding.value.as_deref(),
+        Some("live_research_brief")
     );
 }
 
@@ -241,6 +285,86 @@ async fn resolver_routes_vlc_install_query_to_install_dependency_intent() {
         .required_capabilities
         .iter()
         .any(|capability| { capability.as_str() == "system.install_package" }));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_routes_model_load_queries_to_model_registry_load_intent() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(ModelRegistryIntentRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Load the codex-oss model into the local kernel runtime.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v16-model-registry-load-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "model.registry.load" | "model.registry.unload" | "command.exec"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "model.registry.load");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    assert!(resolved
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "model.registry.manage"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_routes_model_unload_queries_to_model_registry_unload_intent() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(ModelRegistryIntentRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Unload the whisper model to free memory.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v16-model-registry-unload-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "model.registry.load" | "model.registry.unload" | "command.exec"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "model.registry.unload");
+    assert_eq!(resolved.scope, IntentScopeProfile::CommandExecution);
+    assert!(resolved
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "model.registry.manage"));
 }
 
 #[tokio::test(flavor = "current_thread")]

@@ -82,16 +82,20 @@ export function useGraphState(initialNodes: Node[] = [], initialEdges: Edge[] = 
   const handleCanvasDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const type = e.dataTransfer.getData("nodeType");
+    const name = e.dataTransfer.getData("nodeName");
+    const schema = e.dataTransfer.getData("nodeSchema");
     const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    const nodeId = `node-${Date.now()}`;
     
     const newNode: FlowNode = {
-        id: `node-${Date.now()}`,
+        id: nodeId,
         type: type || 'action',
         position: pos,
         data: { 
-            id: `node-${Date.now()}`, 
+            id: nodeId, 
             type: type || 'action', 
-            name: "New Node",
+            name: name || "New Node",
+            schema: schema || undefined,
             config: { logic: {}, law: {} }
         }
     };
