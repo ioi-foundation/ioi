@@ -1,0 +1,2 @@
+Materialized artifact package 'a Mermaid diagram of an approval pipeline' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/materialized'.
+Packaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/materialized/artifact-manifest.json'.

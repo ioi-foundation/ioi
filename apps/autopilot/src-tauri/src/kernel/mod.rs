@@ -14,6 +14,7 @@ pub mod notifications;
 pub mod session;
 pub mod skill_sources;
 pub mod state;
+pub mod studio;
 pub mod task;
 pub mod thresholds;
 pub mod workflows;

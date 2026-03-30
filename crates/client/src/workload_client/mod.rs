@@ -15,6 +15,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use tokio::sync::Mutex;
+use tokio::time::timeout;
 use tonic::transport::Channel;
 
 // Import generated gRPC clients
@@ -39,6 +40,7 @@ use ioi_ipc::blockchain::{
 const BLOCK_SHMEM_THRESHOLD: usize = 64 * 1024;
 const WORKLOAD_GRPC_MAX_MESSAGE_BYTES: usize = 64 * 1024 * 1024;
 const SINGLE_BLOCK_FETCH_MAX_BYTES: u32 = 64 * 1024 * 1024;
+const DEFAULT_WORKLOAD_GRPC_REQUEST_TIMEOUT_MS: u64 = 10_000;
 
 /// Helper to distinguish logic errors (from the remote) vs transport errors (from tonic)
 fn map_grpc_error(status: tonic::Status) -> ChainError {
@@ -52,6 +54,34 @@ fn map_grpc_error(status: tonic::Status) -> ChainError {
         // suggests the infrastructure failed, not the logic.
         _ => ChainError::ExecutionClient(status.to_string()),
     }
+}
+
+fn workload_grpc_request_timeout_ms() -> u64 {
+    std::env::var("IOI_WORKLOAD_GRPC_TIMEOUT_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_WORKLOAD_GRPC_REQUEST_TIMEOUT_MS)
+}
+
+fn workload_grpc_request_timeout() -> Duration {
+    Duration::from_millis(workload_grpc_request_timeout_ms())
+}
+
+fn workload_timeout_anyhow(label: &str) -> anyhow::Error {
+    anyhow!(
+        "gRPC {} timed out after {}ms",
+        label,
+        workload_grpc_request_timeout_ms()
+    )
+}
+
+fn workload_timeout_chain(label: &str) -> ChainError {
+    ChainError::ExecutionClient(format!(
+        "gRPC {} timed out after {}ms",
+        label,
+        workload_grpc_request_timeout_ms()
+    ))
 }
 
 /// A client for communicating with the Workload container via gRPC and Shared Memory.
@@ -82,6 +112,26 @@ impl std::fmt::Debug for WorkloadClient {
 }
 
 impl WorkloadClient {
+    async fn clone_chain_client(&self) -> ChainControlClient<Channel> {
+        self.chain.lock().await.clone()
+    }
+
+    async fn clone_state_client(&self) -> StateQueryClient<Channel> {
+        self.state.lock().await.clone()
+    }
+
+    async fn clone_staking_client(&self) -> StakingControlClient<Channel> {
+        self.staking.lock().await.clone()
+    }
+
+    async fn clone_system_client(&self) -> SystemControlClient<Channel> {
+        self.system.lock().await.clone()
+    }
+
+    async fn clone_contract_client(&self) -> ContractControlClient<Channel> {
+        self.contract.lock().await.clone()
+    }
+
     fn try_connect_data_plane(
         shmem_id: &str,
         connect_retries: u32,
@@ -184,12 +234,15 @@ impl WorkloadClient {
     }
 
     pub async fn get_status(&self) -> Result<ChainStatus> {
-        let mut client = self.chain.lock().await;
-        let resp = client
-            .get_status(GetStatusRequest {})
-            .await
-            .map_err(|e| anyhow!("gRPC get_status failed: {}", e))?
-            .into_inner();
+        let mut client = self.clone_chain_client().await;
+        let resp = timeout(
+            workload_grpc_request_timeout(),
+            client.get_status(GetStatusRequest {}),
+        )
+        .await
+        .map_err(|_| workload_timeout_anyhow("get_status"))?
+        .map_err(|e| anyhow!("gRPC get_status failed: {}", e))?
+        .into_inner();
 
         Ok(ChainStatus {
             height: resp.height,
@@ -203,12 +256,15 @@ impl WorkloadClient {
     pub async fn get_genesis_status_details(
         &self,
     ) -> Result<ioi_ipc::blockchain::GetGenesisStatusResponse> {
-        let mut client = self.chain.lock().await;
-        let resp = client
-            .get_genesis_status(GetGenesisStatusRequest {})
-            .await
-            .map_err(|e| anyhow!("gRPC get_genesis_status failed: {}", e))?
-            .into_inner();
+        let mut client = self.clone_chain_client().await;
+        let resp = timeout(
+            workload_grpc_request_timeout(),
+            client.get_genesis_status(GetGenesisStatusRequest {}),
+        )
+        .await
+        .map_err(|_| workload_timeout_anyhow("get_genesis_status"))?
+        .map_err(|e| anyhow!("gRPC get_genesis_status failed: {}", e))?
+        .into_inner();
         Ok(resp)
     }
 
@@ -218,7 +274,7 @@ impl WorkloadClient {
         sender: Vec<u8>,
     ) -> Result<(Vec<u8>, HashMap<Vec<u8>, Vec<u8>>)> {
         let req = DeployContractRequest { code, sender };
-        let mut client = self.contract.lock().await;
+        let mut client = self.clone_contract_client().await;
         let resp = client
             .deploy_contract(req)
             .await
@@ -245,7 +301,7 @@ impl WorkloadClient {
             input_data,
             context_bytes,
         };
-        let mut client = self.contract.lock().await;
+        let mut client = self.clone_contract_client().await;
         let resp = client
             .call_contract(req)
             .await
@@ -274,7 +330,7 @@ impl WorkloadClient {
             input_data,
             context_bytes,
         };
-        let mut client = self.contract.lock().await;
+        let mut client = self.clone_contract_client().await;
         let resp = client
             .query_contract(req)
             .await
@@ -287,7 +343,7 @@ impl WorkloadClient {
     }
 
     pub async fn get_expected_model_hash(&self) -> Result<Vec<u8>> {
-        let mut client = self.system.lock().await;
+        let mut client = self.clone_system_client().await;
         let resp = client
             .get_expected_model_hash(())
             .await
@@ -297,7 +353,7 @@ impl WorkloadClient {
     }
 
     pub async fn check_and_tally_proposals(&self, current_height: u64) -> Result<Vec<String>> {
-        let mut client = self.system.lock().await;
+        let mut client = self.clone_system_client().await;
         let resp = client
             .check_and_tally_proposals(CheckAndTallyProposalsRequest { current_height })
             .await
@@ -307,7 +363,7 @@ impl WorkloadClient {
     }
 
     pub async fn debug_pin_height(&self, height: u64) -> Result<()> {
-        let mut client = self.system.lock().await;
+        let mut client = self.clone_system_client().await;
         client
             .debug_pin_height(DebugPinHeightRequest { height })
             .await
@@ -316,7 +372,7 @@ impl WorkloadClient {
     }
 
     pub async fn debug_unpin_height(&self, height: u64) -> Result<()> {
-        let mut client = self.system.lock().await;
+        let mut client = self.clone_system_client().await;
         client
             .debug_unpin_height(DebugUnpinHeightRequest { height })
             .await
@@ -325,7 +381,7 @@ impl WorkloadClient {
     }
 
     pub async fn debug_trigger_gc(&self) -> Result<ioi_types::app::DebugTriggerGcResponse> {
-        let mut client = self.system.lock().await;
+        let mut client = self.clone_system_client().await;
         let resp = client
             .debug_trigger_gc(())
             .await
@@ -339,12 +395,15 @@ impl WorkloadClient {
     }
 
     pub async fn get_next_staked_validators(&self) -> Result<BTreeMap<AccountId, u64>> {
-        let mut client = self.staking.lock().await;
-        let resp = client
-            .get_next_staked_validators(GetNextStakedValidatorsRequest {})
-            .await
-            .map_err(|e| anyhow!("gRPC get_next_staked_validators failed: {}", e))?
-            .into_inner();
+        let mut client = self.clone_staking_client().await;
+        let resp = timeout(
+            workload_grpc_request_timeout(),
+            client.get_next_staked_validators(GetNextStakedValidatorsRequest {}),
+        )
+        .await
+        .map_err(|_| workload_timeout_anyhow("get_next_staked_validators"))?
+        .map_err(|e| anyhow!("gRPC get_next_staked_validators failed: {}", e))?
+        .into_inner();
 
         let mut result = BTreeMap::new();
         for (hex_key, stake) in resp.validators {
@@ -380,12 +439,15 @@ impl WorkloadClient {
             max_bytes: SINGLE_BLOCK_FETCH_MAX_BYTES,
         };
 
-        let mut client = self.chain.lock().await;
-        let response = client
-            .get_blocks_range(req)
-            .await
-            .map_err(|e| anyhow!("gRPC get_blocks_range failed: {}", e))?
-            .into_inner();
+        let mut client = self.clone_chain_client().await;
+        let response = timeout(
+            workload_grpc_request_timeout(),
+            client.get_blocks_range(req),
+        )
+        .await
+        .map_err(|_| workload_timeout_anyhow("get_blocks_range"))?
+        .map_err(|e| anyhow!("gRPC get_blocks_range failed: {}", e))?
+        .into_inner();
 
         // Process response logic copied from get_blocks_range to avoid &self borrow conflict
         let raw_blocks = match response.data {
@@ -492,12 +554,15 @@ impl WorkloadClientApi for WorkloadClient {
             max_bytes,
         };
 
-        let mut client = self.chain.lock().await;
-        let response = client
-            .get_blocks_range(request)
-            .await
-            .map_err(map_grpc_error)?
-            .into_inner();
+        let mut client = self.clone_chain_client().await;
+        let response = timeout(
+            workload_grpc_request_timeout(),
+            client.get_blocks_range(request),
+        )
+        .await
+        .map_err(|_| workload_timeout_chain("get_blocks_range"))?
+        .map_err(map_grpc_error)?
+        .into_inner();
 
         let raw_blocks = match response.data {
             Some(BlocksData::Inline(list)) => list.blocks,
@@ -567,12 +632,15 @@ impl WorkloadClientApi for WorkloadClient {
             txs: encoded_txs,
         };
 
-        let mut client = self.state.lock().await;
-        let response = client
-            .check_transactions(request)
-            .await
-            .map_err(map_grpc_error)?
-            .into_inner();
+        let mut client = self.clone_state_client().await;
+        let response = timeout(
+            workload_grpc_request_timeout(),
+            client.check_transactions(request),
+        )
+        .await
+        .map_err(|_| workload_timeout_chain("check_transactions"))?
+        .map_err(map_grpc_error)?
+        .into_inner();
 
         let results = response
             .results
@@ -593,12 +661,15 @@ impl WorkloadClientApi for WorkloadClient {
             key: key.to_vec(),
         };
 
-        let mut client = self.state.lock().await;
-        let response = client
-            .query_state_at(request)
-            .await
-            .map_err(map_grpc_error)?
-            .into_inner();
+        let mut client = self.clone_state_client().await;
+        let response = timeout(
+            workload_grpc_request_timeout(),
+            client.query_state_at(request),
+        )
+        .await
+        .map_err(|_| workload_timeout_chain("query_state_at"))?
+        .map_err(map_grpc_error)?
+        .into_inner();
 
         codec::from_bytes_canonical(&response.response_bytes).map_err(|e| {
             ChainError::Transaction(format!("Failed to decode QueryStateResponse: {}", e))
@@ -608,12 +679,15 @@ impl WorkloadClientApi for WorkloadClient {
     async fn query_raw_state(&self, key: &[u8]) -> ioi_types::Result<Option<Vec<u8>>, ChainError> {
         let request = QueryRawStateRequest { key: key.to_vec() };
 
-        let mut client = self.state.lock().await;
-        let response = client
-            .query_raw_state(request)
-            .await
-            .map_err(map_grpc_error)?
-            .into_inner();
+        let mut client = self.clone_state_client().await;
+        let response = timeout(
+            workload_grpc_request_timeout(),
+            client.query_raw_state(request),
+        )
+        .await
+        .map_err(|_| workload_timeout_chain("query_raw_state"))?
+        .map_err(map_grpc_error)?
+        .into_inner();
 
         if response.found {
             Ok(Some(response.value))
@@ -630,10 +704,10 @@ impl WorkloadClientApi for WorkloadClient {
             prefix: prefix.to_vec(),
         };
 
-        let mut client = self.state.lock().await;
-        let response = client
-            .prefix_scan(request)
+        let mut client = self.clone_state_client().await;
+        let response = timeout(workload_grpc_request_timeout(), client.prefix_scan(request))
             .await
+            .map_err(|_| workload_timeout_chain("prefix_scan"))?
             .map_err(map_grpc_error)?
             .into_inner();
 
@@ -649,12 +723,15 @@ impl WorkloadClientApi for WorkloadClient {
         &self,
     ) -> ioi_types::Result<BTreeMap<AccountId, u64>, ChainError> {
         let request = GetStakedValidatorsRequest {};
-        let mut client = self.staking.lock().await;
-        let response = client
-            .get_staked_validators(request)
-            .await
-            .map_err(map_grpc_error)?
-            .into_inner();
+        let mut client = self.clone_staking_client().await;
+        let response = timeout(
+            workload_grpc_request_timeout(),
+            client.get_staked_validators(request),
+        )
+        .await
+        .map_err(|_| workload_timeout_chain("get_staked_validators"))?
+        .map_err(map_grpc_error)?
+        .into_inner();
 
         let mut result = BTreeMap::new();
         for (hex_key, stake) in response.validators {
@@ -672,12 +749,15 @@ impl WorkloadClientApi for WorkloadClient {
 
     async fn get_genesis_status(&self) -> ioi_types::Result<bool, ChainError> {
         let request = GetGenesisStatusRequest {};
-        let mut client = self.chain.lock().await;
-        let response = client
-            .get_genesis_status(request)
-            .await
-            .map_err(map_grpc_error)?
-            .into_inner();
+        let mut client = self.clone_chain_client().await;
+        let response = timeout(
+            workload_grpc_request_timeout(),
+            client.get_genesis_status(request),
+        )
+        .await
+        .map_err(|_| workload_timeout_chain("get_genesis_status"))?
+        .map_err(map_grpc_error)?
+        .into_inner();
         Ok(response.ready)
     }
 

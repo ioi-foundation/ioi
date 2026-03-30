@@ -1,22 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  ComposeIcon,
-  ExplorerIcon,
   FleetIcon,
   IntegrationsIcon,
   NotificationsIcon,
   SettingsIcon,
   ShieldIcon,
+  SparklesIcon,
 } from "./ActivityBarIcons";
-
-type ActivityView =
-  | "explorer"
-  | "workflows"
-  | "runs"
-  | "inbox"
-  | "capabilities"
-  | "policy"
-  | "settings";
+import type { PrimaryView } from "../studioWindowModel";
 
 interface ProjectScope {
   id: string;
@@ -26,8 +17,8 @@ interface ProjectScope {
 }
 
 interface ActivityBarProps {
-  activeView: ActivityView;
-  onViewChange: (view: ActivityView) => void;
+  activeView: PrimaryView;
+  onViewChange: (view: PrimaryView) => void;
   notificationCount: number;
   currentProject: ProjectScope;
 }
@@ -49,55 +40,48 @@ interface ActivityButtonProps {
   onClick: () => void;
 }
 
-const NAV_ITEMS: Array<NavItem & { id: ActivityView }> = [
+const NAV_ITEMS: Array<NavItem & { id: PrimaryView }> = [
   {
-    id: "explorer",
-    label: "Explorer",
-    icon: <ExplorerIcon />,
-    description: "Browse the workspace, open files, and edit project sources.",
+    id: "studio",
+    label: "Studio",
+    icon: <SparklesIcon />,
+    description: "Control query outcomes, open artifact tabs, and only drop into renderer-specific lenses when the work requires it.",
     shortcut: "⌘1",
-  },
-  {
-    id: "workflows",
-    label: "Workflows",
-    icon: <ComposeIcon />,
-    description: "Build workers, logic, and reusable procedures.",
-    shortcut: "⌘2",
   },
   {
     id: "runs",
     label: "Runs",
     icon: <FleetIcon />,
-    description: "Supervise runtime health, evidence, and receipts.",
-    shortcut: "⌘3",
+    description: "Inspect runtime health, verification evidence, and supervised receipts.",
+    shortcut: "⌘2",
   },
   {
     id: "inbox",
     label: "Inbox",
     icon: <NotificationsIcon />,
     description: "Review ranked prompts, approvals, and interventions.",
-    shortcut: "⌘4",
+    shortcut: "⌘3",
   },
   {
     id: "capabilities",
     label: "Capabilities",
     icon: <IntegrationsIcon />,
     description: "Equip workers with connections, skills, and extensions.",
-    shortcut: "⌘5",
+    shortcut: "⌘4",
   },
   {
     id: "policy",
     label: "Policy",
     icon: <ShieldIcon />,
     description: "Set governance, approvals, and execution posture.",
-    shortcut: "⌘6",
+    shortcut: "⌘5",
   },
   {
     id: "settings",
     label: "Settings",
     icon: <SettingsIcon />,
     description: "Manage shell identity, diagnostics, and local system state.",
-    shortcut: "⌘7",
+    shortcut: "⌘6",
   },
 ];
 

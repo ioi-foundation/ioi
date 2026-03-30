@@ -49,7 +49,9 @@ pub fn create_cli_tx(
         signature_proof: Default::default(),
     };
 
-    let bytes = ioi_types::codec::to_bytes_canonical(&tx).unwrap();
+    let bytes = tx
+        .to_sign_bytes()
+        .expect("failed to encode transaction sign bytes");
     let sig = kp.private_key().sign(&bytes).unwrap();
 
     tx.signature_proof = SignatureProof {

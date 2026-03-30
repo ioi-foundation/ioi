@@ -67,8 +67,7 @@ export function useGateState({
   const showClarificationPrompt =
     !!clarificationRequest &&
     !!(task?.session_id || task?.id) &&
-    waitingForClarificationByStep &&
-    task?.phase === "Complete";
+    (waitingForClarificationByStep || task?.phase === "Complete");
   const inputLockedByCredential = showPasswordPrompt || showClarificationPrompt;
 
   const gateInfo: GateInfo | undefined = useMemo(() => {

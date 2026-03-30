@@ -1,0 +1,21 @@
+{
+  "inspection": {
+    "artifact_id": "0f261744-cee8-4569-9a40-92dac511cc41",
+    "title": "an SVG hero concept for an AI tools brand",
+    "artifact_class": "visual",
+    "renderer": "svg",
+    "verification_status": "ready",
+    "lifecycle_state": "ready",
+    "verification_summary": "The candidate stays grounded in an AI tools brand, covers the required concepts, and is strong enough to lead the stage.",
+    "primary_tab": "render",
+    "tab_count": 3,
+    "file_count": 1,
+    "renderable_file_count": 1,
+    "downloadable_file_count": 1,
+    "repo_centric_package": false,
+    "render_surface_available": true,
+    "preferred_stage_mode": "render"
+  },
+  "valid": true,
+  "validation_errors": []
+}

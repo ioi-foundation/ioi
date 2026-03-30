@@ -1,0 +1,1494 @@
+{
+  "id": "studio-proof-task",
+  "intent": "Create a Mermaid diagram of an approval pipeline",
+  "agent": "Autopilot",
+  "phase": "Running",
+  "progress": 0,
+  "total_steps": 20,
+  "current_step": "Initializing...",
+  "gate_info": null,
+  "receipt": null,
+  "visual_hash": null,
+  "pending_request_hash": null,
+  "session_id": "studio-proof-task",
+  "credential_request": null,
+  "clarification_request": null,
+  "history": [],
+  "events": [
+    {
+      "event_id": "507096df-ff44-43db-b1ee-283047a11e13",
+      "timestamp": "2026-03-30T13:02:27.238758334+00:00",
+      "thread_id": "studio-proof-task",
+      "step_index": 0,
+      "event_type": "RECEIPT",
+      "title": "Studio created Create a Mermaid diagram of an approval pipeline",
+      "digest": {
+        "artifact_class": "visual",
+        "build_session_id": null,
+        "navigator_backing_mode": "logical"
+      },
+      "details": {
+        "activeRevisionId": "5347174e-7698-4a2e-a3f4-dd1b8eed5910",
+        "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+        "artifactManifest": {
+          "artifactClass": "visual",
+          "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+          "files": [
+            {
+              "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+              "downloadable": true,
+              "externalUrl": null,
+              "mime": "text/plain",
+              "path": "approval_pipeline.mermaid",
+              "renderable": true,
+              "role": "primary"
+            }
+          ],
+          "primaryTab": "render",
+          "renderer": "mermaid",
+          "storage": {
+            "apiLabel": "artifact storage",
+            "mode": "shared_artifact_scoped"
+          },
+          "tabs": [
+            {
+              "filePath": null,
+              "id": "render",
+              "kind": "render",
+              "label": "Render",
+              "lens": "render",
+              "renderer": "mermaid"
+            },
+            {
+              "filePath": null,
+              "id": "source",
+              "kind": "source",
+              "label": "Source",
+              "lens": "source",
+              "renderer": null
+            },
+            {
+              "filePath": null,
+              "id": "evidence",
+              "kind": "evidence",
+              "label": "Evidence",
+              "lens": "evidence",
+              "renderer": null
+            }
+          ],
+          "title": "Create a Mermaid diagram of an approval pipeline",
+          "verification": {
+            "acceptanceProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b"
+            },
+            "failure": null,
+            "lifecycleState": "ready",
+            "productionProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b"
+            },
+            "status": "ready",
+            "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+          }
+        },
+        "attachedArtifactIds": [
+          "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+          "9d9585bb-dbda-4764-a588-015fdde5b6d0"
+        ],
+        "availableLenses": [
+          "render",
+          "source",
+          "evidence"
+        ],
+        "buildSessionId": null,
+        "createdAt": "2026-03-30T13:01:54.800480487+00:00",
+        "currentLens": "render",
+        "lifecycleState": "ready",
+        "materialization": {
+          "acceptanceProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b"
+          },
+          "artifactBrief": {
+            "artifactThesis": "Create a Mermaid diagram illustrating the steps in an approval pipeline",
+            "audience": "Project stakeholders and team members",
+            "factualAnchors": [
+              "Approval stages include: request, review, decision, and final approval"
+            ],
+            "jobToBeDone": "Visualize the approval pipeline process for better understanding and communication",
+            "referenceHints": [],
+            "requiredConcepts": [
+              "approval",
+              "pipeline",
+              "stages",
+              "workflow"
+            ],
+            "requiredInteractions": [],
+            "styleDirectives": [
+              "Use arrows to indicate the flow of the pipeline",
+              "Label each stage clearly",
+              "Maintain a linear sequence from start to finish"
+            ],
+            "subjectDomain": "Approval Pipeline",
+            "visualTone": [
+              "clear",
+              "concise",
+              "sequential"
+            ]
+          },
+          "candidateSummaries": [
+            {
+              "candidateId": "candidate-1",
+              "failure": null,
+              "fallback": false,
+              "judge": {
+                "classification": "pass",
+                "completeness": 5,
+                "conceptCoverage": 5,
+                "continuityRevisionUx": null,
+                "deservesPrimaryArtifactView": true,
+                "genericShellDetected": false,
+                "interactionRelevance": 4,
+                "layoutCoherence": 5,
+                "patchedExistingArtifact": null,
+                "rationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow.",
+                "requestFaithfulness": 5,
+                "strongestContradiction": "",
+                "trivialShellDetected": false,
+                "visualHierarchy": 5
+              },
+              "model": "qwen2.5:7b",
+              "origin": "live_inference",
+              "provenance": {
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen2.5:7b"
+              },
+              "rawOutputPreview": null,
+              "renderablePaths": [
+                "approval_pipeline.mermaid"
+              ],
+              "seed": 13456912572052702997,
+              "selected": true,
+              "strategy": "pipeline-first_mermaid",
+              "summary": "Mermaid diagram of an approval pipeline",
+              "temperature": 0.18000000715255737
+            }
+          ],
+          "commandIntents": [],
+          "editIntent": null,
+          "failure": null,
+          "fallbackUsed": false,
+          "fileWrites": [
+            {
+              "contentPreview": "graph TD\n    A[Request] --> B[Review]\n    B --> C[Decision]\n    C --> D[Final Approval]",
+              "kind": "primary",
+              "path": "approval_pipeline.mermaid"
+            }
+          ],
+          "judge": {
+            "classification": "pass",
+            "completeness": 5,
+            "conceptCoverage": 5,
+            "continuityRevisionUx": null,
+            "deservesPrimaryArtifactView": true,
+            "genericShellDetected": false,
+            "interactionRelevance": 4,
+            "layoutCoherence": 5,
+            "patchedExistingArtifact": null,
+            "rationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow.",
+            "requestFaithfulness": 5,
+            "strongestContradiction": "",
+            "trivialShellDetected": false,
+            "visualHierarchy": 5
+          },
+          "navigatorNodes": [
+            {
+              "badge": null,
+              "children": [],
+              "description": "Interact with the artifact through its renderer-specific presentation.",
+              "id": "render",
+              "kind": "render",
+              "label": "Render",
+              "lens": "render",
+              "path": null,
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Inspect the source form of the artifact.",
+              "id": "source",
+              "kind": "source",
+              "label": "Source",
+              "lens": "source",
+              "path": null,
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Inspect verification state, receipts, and evidence.",
+              "id": "evidence",
+              "kind": "evidence",
+              "label": "Evidence",
+              "lens": "evidence",
+              "path": null,
+              "status": null
+            }
+          ],
+          "normalizedIntent": "Create a Mermaid diagram of an approval pipeline",
+          "notes": [
+            "Conversation remains the control plane; this artifact is the work product.",
+            "Renderer choice is explicit in the typed outcome request.",
+            "Verification state, not worker prose, authorizes the final Studio summary.",
+            "Visualizes the steps in an approval pipeline with clear and concise labels.",
+            "Uses arrows to indicate the flow of the pipeline.",
+            "Winning candidate candidate-1 selected via typed judging."
+          ],
+          "outputOrigin": "live_inference",
+          "pipelineSteps": [
+            {
+              "id": "intake",
+              "label": "Intake",
+              "outputs": [
+                "Create a Mermaid diagram of an approval pipeline"
+              ],
+              "stage": "intake",
+              "status": "complete",
+              "summary": "Studio captured the request and established the active artifact context.",
+              "verificationGate": null
+            },
+            {
+              "id": "routing",
+              "label": "Outcome routing",
+              "outputs": [
+                "artifact",
+                "visual",
+                "mermaid"
+              ],
+              "stage": "routing",
+              "status": "complete",
+              "summary": "The typed router chose the artifact branch intentionally.",
+              "verificationGate": null
+            },
+            {
+              "id": "requirements",
+              "label": "Requirements",
+              "outputs": [
+                "approval_pipeline"
+              ],
+              "stage": "requirements",
+              "status": "complete",
+              "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+              "verificationGate": null
+            },
+            {
+              "id": "specification",
+              "label": "Artifact spec",
+              "outputs": [
+                "visual",
+                "mermaid",
+                "side_panel",
+                "shared_artifact_scoped"
+              ],
+              "stage": "specification",
+              "status": "complete",
+              "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+              "verificationGate": null
+            },
+            {
+              "id": "materialization",
+              "label": "Materialization",
+              "outputs": [
+                "approval_pipeline.mermaid"
+              ],
+              "stage": "materialization",
+              "status": "complete",
+              "summary": "Studio is creating the files or workspace required by the manifest.",
+              "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+            },
+            {
+              "id": "execution",
+              "label": "Execution",
+              "outputs": [
+                "approval_pipeline.mermaid"
+              ],
+              "stage": "execution",
+              "status": "complete",
+              "summary": "Single-file generation completed inside the selected renderer substrate.",
+              "verificationGate": "Execution receipts must exist for every command-backed step."
+            },
+            {
+              "id": "verification",
+              "label": "Verification",
+              "outputs": [
+                "Materialize artifact (success)",
+                "Verify artifact contract (success)"
+              ],
+              "stage": "verification",
+              "status": "complete",
+              "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+              "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+            },
+            {
+              "id": "presentation",
+              "label": "Presentation",
+              "outputs": [
+                "render",
+                "1 file(s)"
+              ],
+              "stage": "presentation",
+              "status": "complete",
+              "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+              "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+            },
+            {
+              "id": "reply",
+              "label": "Verified reply",
+              "outputs": [
+                "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+              ],
+              "stage": "reply",
+              "status": "complete",
+              "summary": "Studio composes the user-facing summary from artifact state and verification.",
+              "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+            }
+          ],
+          "previewIntent": null,
+          "productionProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b"
+          },
+          "requestKind": "visual",
+          "summary": "Studio created 'Create a Mermaid diagram of an approval pipeline' as a mermaid diagram artifact with a renderable graph surface.",
+          "uxLifecycle": "judged",
+          "verificationSteps": [
+            {
+              "id": "materialize",
+              "kind": "materialize",
+              "label": "Materialize artifact",
+              "status": "success"
+            },
+            {
+              "id": "verify",
+              "kind": "verify",
+              "label": "Verify artifact contract",
+              "status": "success"
+            }
+          ],
+          "version": 3,
+          "winningCandidateId": "candidate-1",
+          "winningCandidateRationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow."
+        },
+        "navigatorBackingMode": "logical",
+        "navigatorNodes": [
+          {
+            "badge": null,
+            "children": [],
+            "description": "Interact with the artifact through its renderer-specific presentation.",
+            "id": "render",
+            "kind": "render",
+            "label": "Render",
+            "lens": "render",
+            "path": null,
+            "status": null
+          },
+          {
+            "badge": null,
+            "children": [],
+            "description": "Inspect the source form of the artifact.",
+            "id": "source",
+            "kind": "source",
+            "label": "Source",
+            "lens": "source",
+            "path": null,
+            "status": null
+          },
+          {
+            "badge": null,
+            "children": [],
+            "description": "Inspect verification state, receipts, and evidence.",
+            "id": "evidence",
+            "kind": "evidence",
+            "label": "Evidence",
+            "lens": "evidence",
+            "path": null,
+            "status": null
+          }
+        ],
+        "outcomeRequest": {
+          "activeArtifactId": null,
+          "artifact": {
+            "artifactClass": "visual",
+            "deliverableShape": "single_file",
+            "executionSubstrate": "client_sandbox",
+            "persistence": "shared_artifact_scoped",
+            "presentationSurface": "side_panel",
+            "presentationVariantId": null,
+            "renderer": "mermaid",
+            "scope": {
+              "createNewWorkspace": false,
+              "mutationBoundary": [
+                "approval_pipeline"
+              ],
+              "targetProject": null
+            },
+            "verification": {
+              "requireBuild": false,
+              "requireDiffReview": false,
+              "requireExport": false,
+              "requirePreview": false,
+              "requireRender": true
+            },
+            "workspaceRecipeId": null
+          },
+          "clarificationQuestions": [],
+          "confidence": 1.0,
+          "needsClarification": false,
+          "outcomeKind": "artifact",
+          "rawPrompt": "Create a Mermaid diagram of an approval pipeline",
+          "requestId": "6fd78cb8-25d1-4d3c-819a-c441575243ed"
+        },
+        "rendererSessionId": null,
+        "revisions": [
+          {
+            "acceptanceProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b"
+            },
+            "artifactBrief": {
+              "artifactThesis": "Create a Mermaid diagram illustrating the steps in an approval pipeline",
+              "audience": "Project stakeholders and team members",
+              "factualAnchors": [
+                "Approval stages include: request, review, decision, and final approval"
+              ],
+              "jobToBeDone": "Visualize the approval pipeline process for better understanding and communication",
+              "referenceHints": [],
+              "requiredConcepts": [
+                "approval",
+                "pipeline",
+                "stages",
+                "workflow"
+              ],
+              "requiredInteractions": [],
+              "styleDirectives": [
+                "Use arrows to indicate the flow of the pipeline",
+                "Label each stage clearly",
+                "Maintain a linear sequence from start to finish"
+              ],
+              "subjectDomain": "Approval Pipeline",
+              "visualTone": [
+                "clear",
+                "concise",
+                "sequential"
+              ]
+            },
+            "artifactManifest": {
+              "artifactClass": "visual",
+              "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+              "files": [
+                {
+                  "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+                  "downloadable": true,
+                  "externalUrl": null,
+                  "mime": "text/plain",
+                  "path": "approval_pipeline.mermaid",
+                  "renderable": true,
+                  "role": "primary"
+                }
+              ],
+              "primaryTab": "render",
+              "renderer": "mermaid",
+              "storage": {
+                "apiLabel": "artifact storage",
+                "mode": "shared_artifact_scoped"
+              },
+              "tabs": [
+                {
+                  "filePath": null,
+                  "id": "render",
+                  "kind": "render",
+                  "label": "Render",
+                  "lens": "render",
+                  "renderer": "mermaid"
+                },
+                {
+                  "filePath": null,
+                  "id": "source",
+                  "kind": "source",
+                  "label": "Source",
+                  "lens": "source",
+                  "renderer": null
+                },
+                {
+                  "filePath": null,
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "label": "Evidence",
+                  "lens": "evidence",
+                  "renderer": null
+                }
+              ],
+              "title": "Create a Mermaid diagram of an approval pipeline",
+              "verification": {
+                "acceptanceProvenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:14b"
+                },
+                "failure": null,
+                "lifecycleState": "ready",
+                "productionProvenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "status": "ready",
+                "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+              }
+            },
+            "branchId": "main",
+            "branchLabel": "Main",
+            "candidateSummaries": [
+              {
+                "candidateId": "candidate-1",
+                "failure": null,
+                "fallback": false,
+                "judge": {
+                  "classification": "pass",
+                  "completeness": 5,
+                  "conceptCoverage": 5,
+                  "continuityRevisionUx": null,
+                  "deservesPrimaryArtifactView": true,
+                  "genericShellDetected": false,
+                  "interactionRelevance": 4,
+                  "layoutCoherence": 5,
+                  "patchedExistingArtifact": null,
+                  "rationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow.",
+                  "requestFaithfulness": 5,
+                  "strongestContradiction": "",
+                  "trivialShellDetected": false,
+                  "visualHierarchy": 5
+                },
+                "model": "qwen2.5:7b",
+                "origin": "live_inference",
+                "provenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "rawOutputPreview": null,
+                "renderablePaths": [
+                  "approval_pipeline.mermaid"
+                ],
+                "seed": 13456912572052702997,
+                "selected": true,
+                "strategy": "pipeline-first_mermaid",
+                "summary": "Mermaid diagram of an approval pipeline",
+                "temperature": 0.18000000715255737
+              }
+            ],
+            "createdAt": "2026-03-30T13:02:27.238195438+00:00",
+            "editIntent": null,
+            "failure": null,
+            "fileWrites": [
+              {
+                "contentPreview": "graph TD\n    A[Request] --> B[Review]\n    B --> C[Decision]\n    C --> D[Final Approval]",
+                "kind": "primary",
+                "path": "approval_pipeline.mermaid"
+              }
+            ],
+            "judge": {
+              "classification": "pass",
+              "completeness": 5,
+              "conceptCoverage": 5,
+              "continuityRevisionUx": null,
+              "deservesPrimaryArtifactView": true,
+              "genericShellDetected": false,
+              "interactionRelevance": 4,
+              "layoutCoherence": 5,
+              "patchedExistingArtifact": null,
+              "rationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow.",
+              "requestFaithfulness": 5,
+              "strongestContradiction": "",
+              "trivialShellDetected": false,
+              "visualHierarchy": 5
+            },
+            "outputOrigin": "live_inference",
+            "parentRevisionId": null,
+            "productionProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b"
+            },
+            "prompt": "Create a Mermaid diagram of an approval pipeline",
+            "revisionId": "5347174e-7698-4a2e-a3f4-dd1b8eed5910",
+            "selectedTargets": [],
+            "uxLifecycle": "judged",
+            "winningCandidateId": "candidate-1"
+          }
+        ],
+        "selectedTargets": [],
+        "sessionId": "d25b6bd0-b2e3-4f54-9534-8ff7e3cf5c0b",
+        "status": "ready",
+        "summary": "Studio created 'Create a Mermaid diagram of an approval pipeline' as a mermaid diagram artifact with a renderable graph surface.",
+        "tasteMemory": {
+          "directives": [
+            "clear",
+            "concise",
+            "sequential",
+            "Use arrows to indicate the flow of the pipeline",
+            "Label each stage clearly",
+            "Maintain a linear sequence from start to finish"
+          ],
+          "summary": "Session taste memory is steering this artifact toward clear, concise, sequential, Use arrows to indicate the flow of the pipeline."
+        },
+        "threadId": "studio-proof-task",
+        "title": "Create a Mermaid diagram of an approval pipeline",
+        "updatedAt": "2026-03-30T13:01:54.800480487+00:00",
+        "uxLifecycle": "judged",
+        "verifiedReply": {
+          "acceptanceProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b"
+          },
+          "evidence": [
+            "approval_pipeline.mermaid",
+            "production provenance: openai-compatible (qwen2.5:7b)",
+            "acceptance provenance: openai-compatible (qwen2.5:14b)"
+          ],
+          "failure": null,
+          "lifecycleState": "ready",
+          "productionProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b"
+          },
+          "status": "ready",
+          "summary": "Create a Mermaid diagram of an approval pipeline Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "title": "Studio outcome: Create a Mermaid diagram of an approval pipeline",
+          "updatedAt": "2026-03-30T13:02:27.238144331+00:00"
+        },
+        "workspaceRoot": null
+      },
+      "artifact_refs": [
+        {
+          "artifact_id": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+          "artifact_type": "FILE"
+        },
+        {
+          "artifact_id": "9d9585bb-dbda-4764-a588-015fdde5b6d0",
+          "artifact_type": "REPORT"
+        }
+      ],
+      "receipt_ref": null,
+      "input_refs": [],
+      "status": "SUCCESS",
+      "duration_ms": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+      "created_at": "2026-03-30T13:02:27.212007656+00:00",
+      "thread_id": "studio-proof-task",
+      "artifact_type": "FILE",
+      "title": "File: approval_pipeline.mermaid",
+      "description": "File snapshot",
+      "content_ref": "ioi-memory://artifact/53cce884-40f8-4fcf-84ba-0bec33b38b18",
+      "metadata": {
+        "mime": "text/plain",
+        "path": "approval_pipeline.mermaid",
+        "revision": null
+      },
+      "version": 1,
+      "parent_artifact_id": null
+    },
+    {
+      "artifact_id": "9d9585bb-dbda-4764-a588-015fdde5b6d0",
+      "created_at": "2026-03-30T13:02:27.227329861+00:00",
+      "thread_id": "studio-proof-task",
+      "artifact_type": "REPORT",
+      "title": "Studio artifact: Create a Mermaid diagram of an approval pipeline",
+      "description": "Machine-routable Studio artifact materialization contract",
+      "content_ref": "ioi-memory://artifact/9d9585bb-dbda-4764-a588-015fdde5b6d0",
+      "metadata": {
+        "acceptanceProvenance": null,
+        "artifactBrief": null,
+        "candidateSummaries": [],
+        "commandIntents": [],
+        "editIntent": null,
+        "failure": null,
+        "fallbackUsed": false,
+        "fileWrites": [
+          {
+            "contentPreview": "graph TD\n    A[Request] --> B[Review]\n    B --> C[Decision]\n    C --> D[Final Approval]",
+            "kind": "primary",
+            "path": "approval_pipeline.mermaid"
+          }
+        ],
+        "judge": null,
+        "navigatorNodes": [],
+        "normalizedIntent": "Create a Mermaid diagram of an approval pipeline",
+        "notes": [
+          "Conversation remains the control plane; this artifact is the work product.",
+          "Renderer choice is explicit in the typed outcome request.",
+          "Verification state, not worker prose, authorizes the final Studio summary.",
+          "Visualizes the steps in an approval pipeline with clear and concise labels.",
+          "Uses arrows to indicate the flow of the pipeline.",
+          "Winning candidate candidate-1 selected via typed judging."
+        ],
+        "outputOrigin": null,
+        "pipelineSteps": [],
+        "previewIntent": null,
+        "productionProvenance": null,
+        "requestKind": "visual",
+        "summary": "Studio created 'Create a Mermaid diagram of an approval pipeline' as a mermaid diagram artifact with a renderable graph surface.",
+        "uxLifecycle": null,
+        "verificationSteps": [
+          {
+            "id": "materialize",
+            "kind": "materialize",
+            "label": "Materialize artifact",
+            "status": "success"
+          },
+          {
+            "id": "verify",
+            "kind": "verify",
+            "label": "Verify artifact contract",
+            "status": "success"
+          }
+        ],
+        "version": 3,
+        "winningCandidateId": null,
+        "winningCandidateRationale": null
+      },
+      "version": 1,
+      "parent_artifact_id": null
+    }
+  ],
+  "studio_session": {
+    "sessionId": "d25b6bd0-b2e3-4f54-9534-8ff7e3cf5c0b",
+    "threadId": "studio-proof-task",
+    "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+    "title": "Create a Mermaid diagram of an approval pipeline",
+    "summary": "Studio created 'Create a Mermaid diagram of an approval pipeline' as a mermaid diagram artifact with a renderable graph surface.",
+    "currentLens": "render",
+    "navigatorBackingMode": "logical",
+    "navigatorNodes": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "description": "Interact with the artifact through its renderer-specific presentation.",
+        "badge": null,
+        "status": null,
+        "lens": "render",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "description": "Inspect the source form of the artifact.",
+        "badge": null,
+        "status": null,
+        "lens": "source",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "description": "Inspect verification state, receipts, and evidence.",
+        "badge": null,
+        "status": null,
+        "lens": "evidence",
+        "path": null,
+        "children": []
+      }
+    ],
+    "attachedArtifactIds": [
+      "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+      "9d9585bb-dbda-4764-a588-015fdde5b6d0"
+    ],
+    "availableLenses": [
+      "render",
+      "source",
+      "evidence"
+    ],
+    "materialization": {
+      "version": 3,
+      "requestKind": "visual",
+      "normalizedIntent": "Create a Mermaid diagram of an approval pipeline",
+      "summary": "Studio created 'Create a Mermaid diagram of an approval pipeline' as a mermaid diagram artifact with a renderable graph surface.",
+      "artifactBrief": {
+        "audience": "Project stakeholders and team members",
+        "jobToBeDone": "Visualize the approval pipeline process for better understanding and communication",
+        "subjectDomain": "Approval Pipeline",
+        "artifactThesis": "Create a Mermaid diagram illustrating the steps in an approval pipeline",
+        "requiredConcepts": [
+          "approval",
+          "pipeline",
+          "stages",
+          "workflow"
+        ],
+        "requiredInteractions": [],
+        "visualTone": [
+          "clear",
+          "concise",
+          "sequential"
+        ],
+        "factualAnchors": [
+          "Approval stages include: request, review, decision, and final approval"
+        ],
+        "styleDirectives": [
+          "Use arrows to indicate the flow of the pipeline",
+          "Label each stage clearly",
+          "Maintain a linear sequence from start to finish"
+        ],
+        "referenceHints": []
+      },
+      "editIntent": null,
+      "candidateSummaries": [
+        {
+          "candidateId": "candidate-1",
+          "seed": 13456912572052702997,
+          "model": "qwen2.5:7b",
+          "temperature": 0.18,
+          "strategy": "pipeline-first_mermaid",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "Mermaid diagram of an approval pipeline",
+          "renderablePaths": [
+            "approval_pipeline.mermaid"
+          ],
+          "selected": true,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "pass",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 5,
+            "interactionRelevance": 4,
+            "layoutCoherence": 5,
+            "visualHierarchy": 5,
+            "completeness": 5,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "",
+            "rationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow."
+          }
+        }
+      ],
+      "winningCandidateId": "candidate-1",
+      "winningCandidateRationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow.",
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 4,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow."
+      },
+      "outputOrigin": "live_inference",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "fallbackUsed": false,
+      "uxLifecycle": "judged",
+      "failure": null,
+      "navigatorNodes": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "description": "Interact with the artifact through its renderer-specific presentation.",
+          "badge": null,
+          "status": null,
+          "lens": "render",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "fileWrites": [
+        {
+          "path": "approval_pipeline.mermaid",
+          "kind": "primary",
+          "contentPreview": "graph TD\n    A[Request] --> B[Review]\n    B --> C[Decision]\n    C --> D[Final Approval]"
+        }
+      ],
+      "commandIntents": [],
+      "previewIntent": null,
+      "verificationSteps": [
+        {
+          "id": "materialize",
+          "label": "Materialize artifact",
+          "kind": "materialize",
+          "status": "success"
+        },
+        {
+          "id": "verify",
+          "label": "Verify artifact contract",
+          "kind": "verify",
+          "status": "success"
+        }
+      ],
+      "pipelineSteps": [
+        {
+          "id": "intake",
+          "stage": "intake",
+          "label": "Intake",
+          "status": "complete",
+          "summary": "Studio captured the request and established the active artifact context.",
+          "outputs": [
+            "Create a Mermaid diagram of an approval pipeline"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "routing",
+          "stage": "routing",
+          "label": "Outcome routing",
+          "status": "complete",
+          "summary": "The typed router chose the artifact branch intentionally.",
+          "outputs": [
+            "artifact",
+            "visual",
+            "mermaid"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "requirements",
+          "stage": "requirements",
+          "label": "Requirements",
+          "status": "complete",
+          "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+          "outputs": [
+            "approval_pipeline"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "specification",
+          "stage": "specification",
+          "label": "Artifact spec",
+          "status": "complete",
+          "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+          "outputs": [
+            "visual",
+            "mermaid",
+            "side_panel",
+            "shared_artifact_scoped"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "materialization",
+          "stage": "materialization",
+          "label": "Materialization",
+          "status": "complete",
+          "summary": "Studio is creating the files or workspace required by the manifest.",
+          "outputs": [
+            "approval_pipeline.mermaid"
+          ],
+          "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+        },
+        {
+          "id": "execution",
+          "stage": "execution",
+          "label": "Execution",
+          "status": "complete",
+          "summary": "Single-file generation completed inside the selected renderer substrate.",
+          "outputs": [
+            "approval_pipeline.mermaid"
+          ],
+          "verificationGate": "Execution receipts must exist for every command-backed step."
+        },
+        {
+          "id": "verification",
+          "stage": "verification",
+          "label": "Verification",
+          "status": "complete",
+          "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "outputs": [
+            "Materialize artifact (success)",
+            "Verify artifact contract (success)"
+          ],
+          "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+        },
+        {
+          "id": "presentation",
+          "stage": "presentation",
+          "label": "Presentation",
+          "status": "complete",
+          "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+          "outputs": [
+            "render",
+            "1 file(s)"
+          ],
+          "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+        },
+        {
+          "id": "reply",
+          "stage": "reply",
+          "label": "Verified reply",
+          "status": "complete",
+          "summary": "Studio composes the user-facing summary from artifact state and verification.",
+          "outputs": [
+            "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+          ],
+          "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+        }
+      ],
+      "notes": [
+        "Conversation remains the control plane; this artifact is the work product.",
+        "Renderer choice is explicit in the typed outcome request.",
+        "Verification state, not worker prose, authorizes the final Studio summary.",
+        "Visualizes the steps in an approval pipeline with clear and concise labels.",
+        "Uses arrows to indicate the flow of the pipeline.",
+        "Winning candidate candidate-1 selected via typed judging."
+      ]
+    },
+    "outcomeRequest": {
+      "requestId": "6fd78cb8-25d1-4d3c-819a-c441575243ed",
+      "rawPrompt": "Create a Mermaid diagram of an approval pipeline",
+      "activeArtifactId": null,
+      "outcomeKind": "artifact",
+      "confidence": 1.0,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "artifact": {
+        "artifactClass": "visual",
+        "deliverableShape": "single_file",
+        "renderer": "mermaid",
+        "presentationSurface": "side_panel",
+        "persistence": "shared_artifact_scoped",
+        "executionSubstrate": "client_sandbox",
+        "workspaceRecipeId": null,
+        "presentationVariantId": null,
+        "scope": {
+          "targetProject": null,
+          "createNewWorkspace": false,
+          "mutationBoundary": [
+            "approval_pipeline"
+          ]
+        },
+        "verification": {
+          "requireRender": true,
+          "requireBuild": false,
+          "requirePreview": false,
+          "requireExport": false,
+          "requireDiffReview": false
+        }
+      }
+    },
+    "artifactManifest": {
+      "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+      "title": "Create a Mermaid diagram of an approval pipeline",
+      "artifactClass": "visual",
+      "renderer": "mermaid",
+      "primaryTab": "render",
+      "tabs": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "renderer": "mermaid",
+          "filePath": null,
+          "lens": "render"
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "renderer": null,
+          "filePath": null,
+          "lens": "source"
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "renderer": null,
+          "filePath": null,
+          "lens": "evidence"
+        }
+      ],
+      "files": [
+        {
+          "path": "approval_pipeline.mermaid",
+          "mime": "text/plain",
+          "role": "primary",
+          "renderable": true,
+          "downloadable": true,
+          "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+          "externalUrl": null
+        }
+      ],
+      "verification": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null
+      },
+      "storage": {
+        "mode": "shared_artifact_scoped",
+        "apiLabel": "artifact storage"
+      }
+    },
+    "verifiedReply": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "title": "Studio outcome: Create a Mermaid diagram of an approval pipeline",
+      "summary": "Create a Mermaid diagram of an approval pipeline Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "evidence": [
+        "approval_pipeline.mermaid",
+        "production provenance: openai-compatible (qwen2.5:7b)",
+        "acceptance provenance: openai-compatible (qwen2.5:14b)"
+      ],
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null,
+      "updatedAt": "2026-03-30T13:02:27.238144331+00:00"
+    },
+    "lifecycleState": "ready",
+    "status": "ready",
+    "activeRevisionId": "5347174e-7698-4a2e-a3f4-dd1b8eed5910",
+    "revisions": [
+      {
+        "revisionId": "5347174e-7698-4a2e-a3f4-dd1b8eed5910",
+        "parentRevisionId": null,
+        "branchId": "main",
+        "branchLabel": "Main",
+        "prompt": "Create a Mermaid diagram of an approval pipeline",
+        "createdAt": "2026-03-30T13:02:27.238195438+00:00",
+        "uxLifecycle": "judged",
+        "artifactManifest": {
+          "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+          "title": "Create a Mermaid diagram of an approval pipeline",
+          "artifactClass": "visual",
+          "renderer": "mermaid",
+          "primaryTab": "render",
+          "tabs": [
+            {
+              "id": "render",
+              "label": "Render",
+              "kind": "render",
+              "renderer": "mermaid",
+              "filePath": null,
+              "lens": "render"
+            },
+            {
+              "id": "source",
+              "label": "Source",
+              "kind": "source",
+              "renderer": null,
+              "filePath": null,
+              "lens": "source"
+            },
+            {
+              "id": "evidence",
+              "label": "Evidence",
+              "kind": "evidence",
+              "renderer": null,
+              "filePath": null,
+              "lens": "evidence"
+            }
+          ],
+          "files": [
+            {
+              "path": "approval_pipeline.mermaid",
+              "mime": "text/plain",
+              "role": "primary",
+              "renderable": true,
+              "downloadable": true,
+              "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+              "externalUrl": null
+            }
+          ],
+          "verification": {
+            "status": "ready",
+            "lifecycleState": "ready",
+            "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+            },
+            "failure": null
+          },
+          "storage": {
+            "mode": "shared_artifact_scoped",
+            "apiLabel": "artifact storage"
+          }
+        },
+        "artifactBrief": {
+          "audience": "Project stakeholders and team members",
+          "jobToBeDone": "Visualize the approval pipeline process for better understanding and communication",
+          "subjectDomain": "Approval Pipeline",
+          "artifactThesis": "Create a Mermaid diagram illustrating the steps in an approval pipeline",
+          "requiredConcepts": [
+            "approval",
+            "pipeline",
+            "stages",
+            "workflow"
+          ],
+          "requiredInteractions": [],
+          "visualTone": [
+            "clear",
+            "concise",
+            "sequential"
+          ],
+          "factualAnchors": [
+            "Approval stages include: request, review, decision, and final approval"
+          ],
+          "styleDirectives": [
+            "Use arrows to indicate the flow of the pipeline",
+            "Label each stage clearly",
+            "Maintain a linear sequence from start to finish"
+          ],
+          "referenceHints": []
+        },
+        "editIntent": null,
+        "candidateSummaries": [
+          {
+            "candidateId": "candidate-1",
+            "seed": 13456912572052702997,
+            "model": "qwen2.5:7b",
+            "temperature": 0.18,
+            "strategy": "pipeline-first_mermaid",
+            "origin": "live_inference",
+            "provenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "summary": "Mermaid diagram of an approval pipeline",
+            "renderablePaths": [
+              "approval_pipeline.mermaid"
+            ],
+            "selected": true,
+            "fallback": false,
+            "failure": null,
+            "rawOutputPreview": null,
+            "judge": {
+              "classification": "pass",
+              "requestFaithfulness": 5,
+              "conceptCoverage": 5,
+              "interactionRelevance": 4,
+              "layoutCoherence": 5,
+              "visualHierarchy": 5,
+              "completeness": 5,
+              "genericShellDetected": false,
+              "trivialShellDetected": false,
+              "deservesPrimaryArtifactView": true,
+              "patchedExistingArtifact": null,
+              "continuityRevisionUx": null,
+              "strongestContradiction": "",
+              "rationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow."
+            }
+          }
+        ],
+        "winningCandidateId": "candidate-1",
+        "judge": {
+          "classification": "pass",
+          "requestFaithfulness": 5,
+          "conceptCoverage": 5,
+          "interactionRelevance": 4,
+          "layoutCoherence": 5,
+          "visualHierarchy": 5,
+          "completeness": 5,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": true,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "",
+          "rationale": "Candidate accurately represents the approval pipeline stages with clear labels and flow."
+        },
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null,
+        "fileWrites": [
+          {
+            "path": "approval_pipeline.mermaid",
+            "kind": "primary",
+            "contentPreview": "graph TD\n    A[Request] --> B[Review]\n    B --> C[Decision]\n    C --> D[Final Approval]"
+          }
+        ],
+        "selectedTargets": []
+      }
+    ],
+    "tasteMemory": {
+      "directives": [
+        "clear",
+        "concise",
+        "sequential",
+        "Use arrows to indicate the flow of the pipeline",
+        "Label each stage clearly",
+        "Maintain a linear sequence from start to finish"
+      ],
+      "summary": "Session taste memory is steering this artifact toward clear, concise, sequential, Use arrows to indicate the flow of the pipeline."
+    },
+    "selectedTargets": [],
+    "uxLifecycle": "judged",
+    "createdAt": "2026-03-30T13:01:54.800480487+00:00",
+    "updatedAt": "2026-03-30T13:01:54.800480487+00:00",
+    "buildSessionId": null,
+    "workspaceRoot": null,
+    "rendererSessionId": null
+  },
+  "studio_outcome": {
+    "requestId": "6fd78cb8-25d1-4d3c-819a-c441575243ed",
+    "rawPrompt": "Create a Mermaid diagram of an approval pipeline",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 1.0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "visual",
+      "deliverableShape": "single_file",
+      "renderer": "mermaid",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "approval_pipeline"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "renderer_session": null,
+  "build_session": null,
+  "run_bundle_id": null,
+  "swarm_tree": [],
+  "generation": 0,
+  "lineage_id": "genesis",
+  "fitness_score": 0.0
+}

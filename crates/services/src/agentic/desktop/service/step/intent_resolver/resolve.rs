@@ -1,6 +1,149 @@
 use super::*;
 use ioi_api::state::StateAccess;
 
+fn matrix_contains_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> bool {
+    matrix.iter().any(|entry| entry.intent_id == intent_id)
+}
+
+fn obvious_casual_conversation_query(
+    query: &str,
+    query_binding_profile: &QueryBindingProfile,
+    matrix: &[IntentMatrixEntry],
+) -> bool {
+    if !matrix_contains_intent(matrix, "conversation.reply") {
+        return false;
+    }
+
+    if query_binding_profile.remote_public_fact_required
+        || query_binding_profile.host_local_clock_targeted
+        || query_binding_profile.durable_automation_requested
+        || query_binding_profile.model_registry_control_requested
+        || query_binding_profile.app_launch_directed
+        || query_binding_profile.desktop_screenshot_requested
+        || query_binding_profile.temporal_filesystem_filter
+    {
+        return false;
+    }
+
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    if normalized.contains("http://")
+        || normalized.contains("https://")
+        || normalized.contains("www.")
+        || normalized.contains("```")
+        || normalized.contains("~/")
+        || normalized.contains("./")
+        || normalized.contains('/')
+        || normalized.contains('\\')
+    {
+        return false;
+    }
+
+    let words = normalized
+        .split_whitespace()
+        .map(|word| word.trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '\''))
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>();
+    if words.is_empty() || words.len() > 14 {
+        return false;
+    }
+
+    let first_two = words.iter().take(2).copied().collect::<Vec<_>>().join(" ");
+    let first_three = words.iter().take(3).copied().collect::<Vec<_>>().join(" ");
+    let first_word = words.first().copied().unwrap_or_default();
+
+    let action_verbs = [
+        "open",
+        "launch",
+        "run",
+        "execute",
+        "create",
+        "build",
+        "make",
+        "install",
+        "search",
+        "find",
+        "look",
+        "click",
+        "type",
+        "scroll",
+        "copy",
+        "paste",
+        "download",
+        "load",
+        "unload",
+        "sync",
+        "monitor",
+        "set",
+        "list",
+        "show",
+        "navigate",
+        "read",
+        "edit",
+        "write",
+        "summarize",
+        "draft",
+        "transcribe",
+        "generate",
+        "remove",
+        "delete",
+        "rename",
+        "move",
+    ];
+    if action_verbs.contains(&first_word) {
+        return false;
+    }
+
+    let greeting_like = matches!(
+        first_word,
+        "hi" | "hello" | "hey" | "yo" | "thanks" | "thank"
+    ) || matches!(
+        first_two.as_str(),
+        "good morning" | "good afternoon" | "good evening" | "thank you"
+    );
+    if greeting_like {
+        return true;
+    }
+
+    let explicit_reply_format = normalized.starts_with("reply with ")
+        || normalized.starts_with("answer with ")
+        || normalized.starts_with("respond with ")
+        || normalized.starts_with("say ")
+        || normalized.starts_with("tell me ");
+    if explicit_reply_format {
+        return true;
+    }
+
+    let conversational_question = matches!(
+        first_two.as_str(),
+        "do you"
+            | "did you"
+            | "are you"
+            | "can you"
+            | "could you"
+            | "would you"
+            | "will you"
+            | "have you"
+            | "how are"
+            | "who are"
+    ) || matches!(
+        first_three.as_str(),
+        "what do you" | "what are you" | "what is your" | "how do you" | "why do you"
+    );
+    if conversational_question {
+        return true;
+    }
+
+    normalized.ends_with('?')
+        && words
+            .iter()
+            .any(|word| matches!(*word, "you" | "your" | "we" | "i" | "me"))
+}
+
 pub async fn resolve_step_intent(
     service: &DesktopAgentService,
     agent_state: &AgentState,
@@ -122,41 +265,63 @@ pub async fn resolve_step_intent_with_state(
         );
     }
 
-    let rank_result = match timeout(
-        INTENT_EMBED_RANK_TIMEOUT,
-        runtime.embed_or_rank(
-            &ranking_query,
-            &policy.matrix_version,
-            matrix_hash,
-            &matrix,
-            Some(service),
-            Some(agent_state.session_id),
-        ),
-    )
-    .await
-    {
-        Ok(Ok(result)) => Some(result),
-        Ok(Err(e)) => {
-            log::warn!(
-                "IntentResolver semantic rank failed session={} error={}",
-                session_prefix,
-                e
-            );
-            None
-        }
-        Err(_) => {
-            log::warn!(
-                "IntentResolver semantic rank timed out session={} timeout_ms={}",
-                session_prefix,
-                INTENT_EMBED_RANK_TIMEOUT.as_millis()
-            );
-            None
+    let forced_intent_id =
+        obvious_casual_conversation_query(&query, &query_binding_profile, &matrix)
+            .then_some("conversation.reply");
+    if forced_intent_id.is_some() {
+        log::info!(
+            "IntentResolver forced obvious casual conversation to conversation.reply session={} query_hash={}",
+            session_prefix,
+            query_hash
+        );
+    }
+
+    let rank_result = if forced_intent_id.is_some() {
+        None
+    } else {
+        match timeout(
+            INTENT_EMBED_RANK_TIMEOUT,
+            runtime.embed_or_rank(
+                &ranking_query,
+                &policy.matrix_version,
+                matrix_hash,
+                &matrix,
+                Some(service),
+                Some(agent_state.session_id),
+            ),
+        )
+        .await
+        {
+            Ok(Ok(result)) => Some(result),
+            Ok(Err(e)) => {
+                log::warn!(
+                    "IntentResolver semantic rank failed session={} error={}",
+                    session_prefix,
+                    e
+                );
+                None
+            }
+            Err(_) => {
+                log::warn!(
+                    "IntentResolver semantic rank timed out session={} timeout_ms={}",
+                    session_prefix,
+                    INTENT_EMBED_RANK_TIMEOUT.as_millis()
+                );
+                None
+            }
         }
     };
-    let mut ranked_candidates = rank_result
-        .as_ref()
-        .map(|result| result.scores.clone())
-        .unwrap_or_default();
+    let mut ranked_candidates = if let Some(intent_id) = forced_intent_id {
+        vec![IntentCandidateScore {
+            intent_id: intent_id.to_string(),
+            score: 1.0,
+        }]
+    } else {
+        rank_result
+            .as_ref()
+            .map(|result| result.scores.clone())
+            .unwrap_or_default()
+    };
     let rank_model_id = rank_result
         .as_ref()
         .map(|result| result.model_id.clone())

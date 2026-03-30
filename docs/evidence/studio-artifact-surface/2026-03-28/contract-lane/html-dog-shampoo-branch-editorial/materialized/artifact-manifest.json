@@ -1,0 +1,66 @@
+{
+  "artifactId": "f4cff871-e4e7-4c7b-a141-b286b2d80841",
+  "title": "Branch this artifact into a more editorial launch story with sharper pro",
+  "artifactClass": "interactive_single_file",
+  "renderer": "html_iframe",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "html_iframe",
+      "filePath": "product_launch_story.html",
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": "product_launch_story.html",
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "product_launch_story.html",
+      "mime": "text/html",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": false,
+      "artifactId": "generated-product_launch_story.html",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Candidate meets all requirements with sharp language, engaging narrative, and interactive elements.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

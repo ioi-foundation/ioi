@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Dog Shampoo Product Rollout</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .hero { background-color: #f0f8ff; padding: 2rem; text-align: center; }
+    .controls { margin-bottom: 1rem; display: flex; gap: 1rem; }
+    .chart-view { display: none; }
+    .chart-view.active { display: block; }
+    #detail-copy { background-color: #f9d4e0; padding: 0.5rem; margin-top: 2rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <h1>Technical Overview of the New Dog Shampoo Launch</h1>
+  </header>
+  <nav class="controls">
+    <button type="button" data-view="latest-market-trends-in" aria-controls="latest-market-trends-in-panel">Latest Market Trends in Dog Grooming Products</button>
+    <button type="button" data-view="company-s-previous-product-launches" aria-controls="company-s-previous-product-launches-panel">Company's Previous Product Launches and Their Success Metrics</button>
+    <button type="button" data-view="company-history" aria-controls="company-history-panel">Company History and Development Milestones</button>
+  </nav>
+  <main>
+    <section id="latest-market-trends-in-panel" class="chart-view active">
+      <h2>Latest Market Trends in Dog Grooming Products</h2>
+      <p>According to the latest market research reports, there has been a significant increase in demand for natural and hypoallergenic dog shampoos. The following chart provides an overview of these trends:</p>
+      <svg width="500" height="300">
+        <rect x="10" y="280" width="480" height="20" fill="#A9A9A9" tabindex="0" data-detail="2018"></rect>
+        <text x="25" y="260">2018</text>
+        <text x="350" y="260">2023</text>
+      </svg>
+    </section>
+    <section id="company-s-previous-product-launches-panel" class="chart-view">
+      <h2>Company's Previous Product Launches and Their Success Metrics</h2>
+      <p>Our company has a history of successful product launches, with the following being notable examples:</p>
+      <table>
+        <thead>
+          <tr><th>Product Name</th><th>Sales Figures (in USD)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Dog Shampoo A</td><td>$2,000,000</td></tr>
+          <tr><td>Dog Shampoo B</td><td>$3,500,000</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section id="company-history-panel" class="chart-view">
+      <h2>Company History and Development Milestones</h2>
+      <p>The company was founded in 1990 with a mission to provide high-quality grooming solutions for pets. Key milestones include:</p>
+      <ul>
+        <li>Introduced the first hypoallergenic dog shampoo in 2005.</li>
+        <li>Received ISO certification in 2012, ensuring consistent quality standards.</li>
+      </ul>
+    </section>
+  <aside data-studio-normalized="true" data-studio-shared-detail="true"><h2>Detail</h2><p id="detail-copy">Latest Market Trends in Dog Grooming Products is selected by default.</p></aside><section data-studio-normalized="true" data-studio-rollover-chip-rail="true"><h2>Evidence highlights</h2><div class="studio-rollover-chip-rail"><button type="button" class="studio-rollover-chip" data-detail="latest market research reports">latest market research reports</button><button type="button" class="studio-rollover-chip" data-detail="historical sales data of">historical sales data of</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>
+  <script>
+(function() {
+  document.querySelectorAll('[data-detail]').forEach((mark) => {
+    if (!mark.hasAttribute('tabindex')) {
+      mark.setAttribute('tabindex', '0');
+    }
+    const updateDetail = () => {
+      const detail = mark.getAttribute('data-detail') || '';
+      if (detail) {
+        document.getElementById('detail-copy').textContent = detail;
+      }
+    };
+    mark.addEventListener('click', updateDetail);
+    mark.addEventListener('mouseenter', updateDetail);
+    mark.addEventListener('focus', updateDetail);
+  });
+})();
+</script>
+<script data-studio-normalized="true" data-studio-view-switch-repair="true">(() => {
+  const controls = Array.from(document.querySelectorAll('button[data-view], [role="tab"][data-view]'));
+  if (controls.length < 2) {
+    return;
+  }
+  const explicitPanels = Array.from(document.querySelectorAll('[data-view-panel]'));
+  const mappedPanels = controls
+    .map((button) => {
+      const ariaTarget = button.getAttribute('aria-controls');
+      if (ariaTarget) {
+        return document.getElementById(ariaTarget);
+      }
+      const dataTarget = button.getAttribute('data-target') || '';
+      if (dataTarget.startsWith('#')) {
+        return document.querySelector(dataTarget);
+      }
+      return null;
+    })
+    .filter((panel, index, panels) => panel && panels.indexOf(panel) === index);
+  const panels = explicitPanels.length
+    ? explicitPanels
+    : (mappedPanels.length
+      ? mappedPanels
+      : Array.from(document.querySelectorAll('[data-panel], [role="tabpanel"]')));
+  if (panels.length < 2) {
+    return;
+  }
+  const detailCopy = document.getElementById('detail-copy');
+  const selectView = (activeControl) => {
+    const targetView = activeControl.dataset.view || '';
+    const rawTarget = activeControl.getAttribute('data-target') || '';
+    const targetId = activeControl.getAttribute('aria-controls') || (rawTarget.startsWith('#') ? rawTarget.slice(1) : rawTarget);
+    panels.forEach((panel) => {
+      const panelView = panel.dataset.viewPanel || panel.dataset.panel || '';
+      const panelId = panel.id || '';
+      const isActive = (targetView && panelView === targetView) || (targetId && panelId === targetId);
+      panel.hidden = !isActive;
+      panel.setAttribute('aria-hidden', String(!isActive));
+    });
+    controls.forEach((control) => {
+      control.setAttribute('aria-selected', String(control === activeControl));
+    });
+    if (detailCopy && activeControl.textContent) {
+      detailCopy.textContent = `${activeControl.textContent.trim()} selected.`;
+    }
+  };
+  controls.forEach((button) => {
+    button.addEventListener('click', () => selectView(button));
+  });
+  const defaultControl = controls.find((button) => button.getAttribute('aria-selected') === 'true') || controls[0];
+  if (defaultControl) {
+    selectView(defaultControl);
+  }
+})();</script></body>
+</html>

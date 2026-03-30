@@ -2,8 +2,9 @@ use crate::kernel::events::clarification::build_clarification_request_with_infer
 use crate::kernel::events::emission::{emit_command_stream, register_event};
 use crate::kernel::events::support::{
     bind_task_session, clarification_prompt_for_preset, clarification_wait_step_for_preset,
-    detect_clarification_preset, is_hard_terminal_task, is_sudo_password_required_install,
-    thread_id_from_session, ClarificationPreset,
+    detect_clarification_preset, explicit_clarification_preset_for_tool, is_hard_terminal_task,
+    is_identity_resolution_kind, is_sudo_password_required_install,
+    is_waiting_for_identity_clarification_step, thread_id_from_session, ClarificationPreset,
 };
 use crate::kernel::notifications;
 use crate::kernel::state::update_task_state;
@@ -213,6 +214,7 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                 stdio.is_final && is_sudo_password_required_install(&tool_name, &stdio.chunk);
             let stream_clarification_preset = if stdio.is_final {
                 detect_clarification_preset(&tool_name, &stdio.chunk)
+                    .or_else(|| explicit_clarification_preset_for_tool(&tool_name))
             } else {
                 None
             };
@@ -245,7 +247,24 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                 ) {
                     t.phase = crate::models::AgentPhase::Running;
                 }
-                if !stream_password_required && !stream_clarification_required {
+                let already_waiting_for_password = t
+                    .credential_request
+                    .as_ref()
+                    .map(|req| req.kind == "sudo_password")
+                    .unwrap_or(false)
+                    || t.current_step
+                        .eq_ignore_ascii_case("Waiting for sudo password");
+                let already_waiting_for_clarification = t
+                    .clarification_request
+                    .as_ref()
+                    .map(|req| is_identity_resolution_kind(&req.kind))
+                    .unwrap_or(false)
+                    || is_waiting_for_identity_clarification_step(&t.current_step);
+                if !stream_password_required
+                    && !stream_clarification_required
+                    && !already_waiting_for_password
+                    && !already_waiting_for_clarification
+                {
                     t.credential_request = None;
                     t.clarification_request = None;
                 }

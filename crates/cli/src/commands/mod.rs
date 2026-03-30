@@ -1,6 +1,7 @@
 // Path: crates/cli/src/commands/mod.rs
 
 pub mod agent;
+pub mod artifact;
 pub mod config;
 pub mod dev;
 pub mod ghost;

@@ -1,0 +1,338 @@
+{
+  "prompt": "Create a workspace project for a billing settings surface",
+  "title": "Create a workspace project for a billing settings surface",
+  "route": {
+    "requestId": "2cfafa0f-ed69-4bd4-876d-148e31562d14",
+    "rawPrompt": "Create a workspace project for a billing settings surface",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 0.8,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "workspace_project",
+      "deliverableShape": "workspace_project",
+      "renderer": "workspace_surface",
+      "presentationSurface": "tabbed_panel",
+      "persistence": "workspace_filesystem",
+      "executionSubstrate": "workspace_runtime",
+      "workspaceRecipeId": "react-vite",
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": true,
+        "mutationBoundary": [
+          "billing-settings"
+        ]
+      },
+      "verification": {
+        "requireRender": false,
+        "requireBuild": true,
+        "requirePreview": true,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": null,
+  "editIntent": null,
+  "candidateSummaries": [],
+  "winningCandidateId": null,
+  "winningCandidateRationale": null,
+  "judge": {
+    "classification": "blocked",
+    "requestFaithfulness": 1,
+    "conceptCoverage": 1,
+    "interactionRelevance": 1,
+    "layoutCoherence": 1,
+    "visualHierarchy": 1,
+    "completeness": 1,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": false,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "Preview verified and workspace lenses are ready.",
+    "rationale": "Preview verified and workspace lenses are ready."
+  },
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:14b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": null,
+  "failure": null,
+  "manifest": {
+    "artifactId": "22f003d9-9083-4be1-a8a3-1a0690e03b64",
+    "title": "Create a workspace project for a billing settings surface",
+    "artifactClass": "workspace_project",
+    "renderer": "workspace_surface",
+    "primaryTab": "preview",
+    "tabs": [
+      {
+        "id": "preview",
+        "label": "Preview",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": null,
+        "lens": "preview"
+      },
+      {
+        "id": "workspace",
+        "label": "Workspace",
+        "kind": "workspace",
+        "renderer": "workspace_surface",
+        "filePath": "src/App.tsx",
+        "lens": "code"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "src/App.tsx",
+        "mime": "text/jsx",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": null,
+        "externalUrl": null
+      },
+      {
+        "path": "artifact-manifest.json",
+        "mime": "application/json",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": null,
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Preview verified and workspace lenses are ready.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": null
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create a workspace project for a billing settings surface",
+    "summary": "Create a workspace project for a billing settings surface Preview verified and workspace lenses are ready.",
+    "evidence": [
+      "src/App.tsx",
+      "artifact-manifest.json",
+      "production provenance: openai-compatible (qwen2.5:7b)",
+      "acceptance provenance: openai-compatible (qwen2.5:14b)"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null,
+    "updatedAt": "2026-03-30T14:48:35.869699937+00:00"
+  },
+  "materializedFiles": [
+    "src/App.tsx",
+    "artifact-manifest.json"
+  ],
+  "renderableFiles": [
+    "src/App.tsx"
+  ],
+  "selectedTargets": [],
+  "tasteMemory": null,
+  "revisions": [
+    {
+      "revisionId": "aedb720f-eebc-4c43-b607-7d0efe18e0a3",
+      "parentRevisionId": null,
+      "branchId": "main",
+      "branchLabel": "Main",
+      "prompt": "Create a workspace project for a billing settings surface",
+      "createdAt": "2026-03-30T14:48:35.869887104+00:00",
+      "uxLifecycle": "judged",
+      "artifactManifest": {
+        "artifactId": "22f003d9-9083-4be1-a8a3-1a0690e03b64",
+        "title": "Create a workspace project for a billing settings surface",
+        "artifactClass": "workspace_project",
+        "renderer": "workspace_surface",
+        "primaryTab": "preview",
+        "tabs": [
+          {
+            "id": "preview",
+            "label": "Preview",
+            "kind": "render",
+            "renderer": "html_iframe",
+            "filePath": null,
+            "lens": "preview"
+          },
+          {
+            "id": "workspace",
+            "label": "Workspace",
+            "kind": "workspace",
+            "renderer": "workspace_surface",
+            "filePath": "src/App.tsx",
+            "lens": "code"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [
+          {
+            "path": "src/App.tsx",
+            "mime": "text/jsx",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": true,
+            "artifactId": null,
+            "externalUrl": null
+          },
+          {
+            "path": "artifact-manifest.json",
+            "mime": "application/json",
+            "role": "supporting",
+            "renderable": false,
+            "downloadable": true,
+            "artifactId": null,
+            "externalUrl": null
+          }
+        ],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Preview verified and workspace lenses are ready.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "artifactBrief": null,
+      "editIntent": null,
+      "candidateSummaries": [],
+      "winningCandidateId": null,
+      "judge": null,
+      "outputOrigin": "live_inference",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null,
+      "fileWrites": [
+        {
+          "path": "package.json",
+          "kind": "write",
+          "contentPreview": "{   \"name\": \"create-a-workspace-project-for-a-billing-settings-surface\",   \"private\": true,"
+        },
+        {
+          "path": "tsconfig.json",
+          "kind": "write",
+          "contentPreview": "{   \"files\": [],   \"references\": ["
+        },
+        {
+          "path": "tsconfig.app.json",
+          "kind": "write",
+          "contentPreview": "{   \"compilerOptions\": {     \"target\": \"ES2020\","
+        },
+        {
+          "path": "tsconfig.node.json",
+          "kind": "write",
+          "contentPreview": "{   \"compilerOptions\": {     \"composite\": true,"
+        },
+        {
+          "path": "vite.config.ts",
+          "kind": "write",
+          "contentPreview": "import { defineConfig } from 'vite' import react from '@vitejs/plugin-react' "
+        },
+        {
+          "path": "index.html",
+          "kind": "write",
+          "contentPreview": "<!doctype html> <html lang=\"en\">   <head>"
+        },
+        {
+          "path": "src/main.tsx",
+          "kind": "write",
+          "contentPreview": "import React from 'react' import ReactDOM from 'react-dom/client' import App from './App'"
+        },
+        {
+          "path": "src/App.tsx",
+          "kind": "write",
+          "contentPreview": "import './App.css'  export default function App() {"
+        },
+        {
+          "path": "src/App.css",
+          "kind": "write",
+          "contentPreview": ".shell {   min-height: 100vh;   padding: 4rem clamp(1.5rem, 4vw, 4rem);"
+        },
+        {
+          "path": "src/index.css",
+          "kind": "write",
+          "contentPreview": ":root {   color-scheme: dark;   font-family: Inter, system-ui, sans-serif;"
+        }
+      ],
+      "selectedTargets": []
+    }
+  ],
+  "activeRevisionId": "aedb720f-eebc-4c43-b607-7d0efe18e0a3",
+  "fullStudioPath": true
+}

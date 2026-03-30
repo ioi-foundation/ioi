@@ -1,0 +1,66 @@
+{
+  "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+  "title": "Create a PDF artifact that summarizes a launch brief",
+  "artifactClass": "document",
+  "renderer": "pdf_embed",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "pdf_embed",
+      "filePath": null,
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": null,
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "summary.pdf",
+      "mime": "application/pdf",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "shared_artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

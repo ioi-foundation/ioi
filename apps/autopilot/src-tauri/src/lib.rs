@@ -15,13 +15,17 @@ mod models;
 mod observability;
 mod orchestrator;
 mod project;
+pub mod studio_proof;
 mod template;
 mod windows;
+mod workspace;
 
-use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
+use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, UnavailableInferenceRuntime};
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::media_runtime::KernelMediaRuntime;
+use ioi_types::app::{StudioRuntimeProvenance, StudioRuntimeProvenanceKind};
 use models::AppState;
+use std::time::Duration;
 
 #[cfg(target_os = "linux")]
 fn init_x11_threads() {
@@ -45,10 +49,44 @@ fn is_env_var_truthy(key: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn env_text(key: &str) -> Option<String> {
+    std::env::var(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn apply_dev_profile_defaults() {
+    let profile_is_local_gpu = env_text("AUTOPILOT_DATA_PROFILE")
+        .map(|profile| profile == "desktop-localgpu")
+        .unwrap_or(false);
+
+    if is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV") || profile_is_local_gpu {
+        std::env::set_var("AUTOPILOT_LOCAL_GPU_DEV", "1");
+        if env_text("AUTOPILOT_DATA_PROFILE").is_none() {
+            std::env::set_var("AUTOPILOT_DATA_PROFILE", "desktop-localgpu");
+        }
+        if env_text("AUTOPILOT_RESET_DATA_ON_BOOT").is_none() {
+            std::env::set_var("AUTOPILOT_RESET_DATA_ON_BOOT", "1");
+        }
+    }
+}
+
 pub(crate) fn autopilot_data_dir_for(app: &AppHandle) -> PathBuf {
-    app.path()
+    if let Some(override_path) = env_text("AUTOPILOT_DATA_DIR") {
+        return PathBuf::from(override_path);
+    }
+
+    let base = app
+        .path()
         .app_data_dir()
-        .unwrap_or_else(|_| PathBuf::from("./ioi-data"))
+        .unwrap_or_else(|_| PathBuf::from("./ioi-data"));
+
+    if let Some(profile) = env_text("AUTOPILOT_DATA_PROFILE") {
+        return base.join("profiles").join(profile);
+    }
+
+    base
 }
 
 pub(crate) fn open_or_create_memory_runtime(data_dir: &Path) -> Result<MemoryRuntime, String> {
@@ -61,25 +99,229 @@ pub(crate) fn open_or_create_memory_runtime(data_dir: &Path) -> Result<MemoryRun
         .map_err(|error| format!("Failed to open memory runtime: {}", error))
 }
 
-fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
-    let openai_key = std::env::var("OPENAI_API_KEY").ok();
-    let local_url = std::env::var("LOCAL_LLM_URL").ok();
+fn wrap_kernel_runtime(runtime: Arc<dyn InferenceRuntime>) -> Arc<dyn InferenceRuntime> {
+    Arc::new(KernelMediaRuntime::new(runtime))
+}
 
-    let runtime: Arc<dyn InferenceRuntime> = if let Some(key) = openai_key {
+fn runtime_provenance_matches(
+    left: &StudioRuntimeProvenance,
+    right: &StudioRuntimeProvenance,
+) -> bool {
+    left.kind == right.kind
+        && left.label == right.label
+        && left.model == right.model
+        && left.endpoint == right.endpoint
+}
+
+pub(crate) fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {
+    let openai_key = std::env::var("OPENAI_API_KEY").ok();
+    let local_url = env_text("LOCAL_LLM_URL").or_else(|| env_text("AUTOPILOT_LOCAL_RUNTIME_URL"));
+    let local_health_url = env_text("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL").or_else(|| {
+        local_url
+            .as_deref()
+            .and_then(derive_health_url_from_runtime_url)
+    });
+    let local_model = env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+        .or_else(|| env_text("OPENAI_MODEL"))
+        .unwrap_or_else(|| "llama3".to_string());
+    let local_gpu_dev = is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV");
+
+    let runtime: Arc<dyn InferenceRuntime> = if let Some(url) = local_url.clone() {
+        let local_ready = local_health_url
+            .as_deref()
+            .map(http_endpoint_healthy)
+            .unwrap_or(true);
+        if local_ready {
+            Arc::new(HttpInferenceRuntime::new(url, "".to_string(), local_model))
+        } else if local_gpu_dev {
+            println!(
+                "[Studio] Local GPU dev mode is enabled, but the local runtime at {} is not healthy yet. Studio will surface inference_unavailable until the runtime becomes healthy.",
+                local_health_url
+                    .as_deref()
+                    .unwrap_or(url.as_str())
+            );
+            Arc::new(UnavailableInferenceRuntime::new(format!(
+                "Inference is unavailable because the configured local runtime at {} is not healthy.",
+                local_health_url.as_deref().unwrap_or(url.as_str())
+            )))
+        } else if let Some(key) = openai_key.clone() {
+            let model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+            let api_url = "https://api.openai.com/v1/chat/completions".to_string();
+            Arc::new(HttpInferenceRuntime::new(api_url, key, model))
+        } else {
+            Arc::new(HttpInferenceRuntime::new(url, "".to_string(), local_model))
+        }
+    } else if let Some(key) = openai_key {
         let model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
         let api_url = "https://api.openai.com/v1/chat/completions".to_string();
         Arc::new(HttpInferenceRuntime::new(api_url, key, model))
-    } else if let Some(url) = local_url {
-        Arc::new(HttpInferenceRuntime::new(
-            url,
-            "".to_string(),
-            "llama3".to_string(),
-        ))
     } else {
-        Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
+        if local_gpu_dev {
+            println!(
+                "[Studio] Local GPU dev mode is enabled, but no LOCAL_LLM_URL/AUTOPILOT_LOCAL_RUNTIME_URL was provided. Studio will surface inference_unavailable until a runtime is configured."
+            );
+        }
+        Arc::new(UnavailableInferenceRuntime::new(
+            "Inference is unavailable because no Studio inference runtime is configured.",
+        ))
     };
 
-    Arc::new(KernelMediaRuntime::new(runtime))
+    wrap_kernel_runtime(runtime)
+}
+
+pub(crate) fn create_studio_routing_inference_runtime(
+    production_runtime: &Arc<dyn InferenceRuntime>,
+) -> Arc<dyn InferenceRuntime> {
+    let routing_url = env_text("AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL");
+    let routing_health_url =
+        env_text("AUTOPILOT_STUDIO_ROUTING_RUNTIME_HEALTH_URL").or_else(|| {
+            routing_url
+                .as_deref()
+                .and_then(derive_health_url_from_runtime_url)
+        });
+    let routing_api_key = env_text("AUTOPILOT_STUDIO_ROUTING_RUNTIME_API_KEY");
+    let routing_model = env_text("AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL");
+    let routing_openai_key = env_text("AUTOPILOT_STUDIO_ROUTING_OPENAI_API_KEY");
+    let local_gpu_dev = is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV");
+
+    let runtime: Arc<dyn InferenceRuntime> = if let Some(url) = routing_url.clone() {
+        let routing_ready = routing_health_url
+            .as_deref()
+            .map(http_endpoint_healthy)
+            .unwrap_or(true);
+        if routing_ready {
+            Arc::new(HttpInferenceRuntime::new(
+                url.clone(),
+                routing_api_key.unwrap_or_default(),
+                routing_model
+                    .clone()
+                    .or_else(|| production_runtime.studio_runtime_provenance().model.clone())
+                    .unwrap_or_else(|| "studio-router".to_string()),
+            ))
+        } else if local_gpu_dev {
+            println!(
+                "[Studio] Local GPU dev mode is enabled, but the Studio routing runtime at {} is not healthy yet. Studio routing will surface inference_unavailable until it becomes healthy.",
+                routing_health_url
+                    .as_deref()
+                    .unwrap_or(url.as_str())
+            );
+            Arc::new(UnavailableInferenceRuntime::new(format!(
+                "Studio routing is unavailable because the configured runtime at {} is not healthy.",
+                routing_health_url.as_deref().unwrap_or(url.as_str())
+            )))
+        } else if let Some(key) = routing_openai_key {
+            Arc::new(HttpInferenceRuntime::new(
+                "https://api.openai.com/v1/chat/completions".to_string(),
+                key,
+                routing_model.unwrap_or_else(|| "gpt-4o-mini".to_string()),
+            ))
+        } else {
+            Arc::new(HttpInferenceRuntime::new(
+                url,
+                routing_api_key.unwrap_or_default(),
+                routing_model.unwrap_or_else(|| "studio-router".to_string()),
+            ))
+        }
+    } else if let Some(key) = routing_openai_key {
+        Arc::new(HttpInferenceRuntime::new(
+            "https://api.openai.com/v1/chat/completions".to_string(),
+            key,
+            routing_model.unwrap_or_else(|| "gpt-4o-mini".to_string()),
+        ))
+    } else {
+        return Arc::clone(production_runtime);
+    };
+
+    wrap_kernel_runtime(runtime)
+}
+
+pub(crate) fn create_acceptance_inference_runtime(
+    production_runtime: &Arc<dyn InferenceRuntime>,
+) -> Arc<dyn InferenceRuntime> {
+    let production_provenance = production_runtime.studio_runtime_provenance();
+    let acceptance_url = env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_URL");
+    let acceptance_health_url = env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL").or_else(|| {
+        acceptance_url
+            .as_deref()
+            .and_then(derive_health_url_from_runtime_url)
+    });
+    let acceptance_api_key = env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_API_KEY");
+    let acceptance_model = env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL")
+        .or_else(|| env_text("AUTOPILOT_ACCEPTANCE_OPENAI_MODEL"));
+    let acceptance_openai_key =
+        env_text("AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY").or_else(|| env_text("OPENAI_API_KEY"));
+
+    let runtime: Arc<dyn InferenceRuntime> = if let Some(url) = acceptance_url.clone() {
+        let runtime_ready = acceptance_health_url
+            .as_deref()
+            .map(http_endpoint_healthy)
+            .unwrap_or(true);
+        if runtime_ready {
+            Arc::new(HttpInferenceRuntime::new(
+                url.clone(),
+                acceptance_api_key.unwrap_or_default(),
+                acceptance_model
+                    .clone()
+                    .or_else(|| production_provenance.model.clone())
+                    .unwrap_or_else(|| "acceptance-judge".to_string()),
+            ))
+        } else {
+            Arc::new(UnavailableInferenceRuntime::new(format!(
+                "Acceptance judging is unavailable because the configured runtime at {} is not healthy.",
+                acceptance_health_url.as_deref().unwrap_or(url.as_str())
+            )))
+        }
+    } else if production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        || acceptance_model.is_some()
+    {
+        if let Some(key) = acceptance_openai_key {
+            Arc::new(HttpInferenceRuntime::new(
+                "https://api.openai.com/v1/chat/completions".to_string(),
+                key,
+                acceptance_model
+                    .or_else(|| env_text("OPENAI_MODEL"))
+                    .unwrap_or_else(|| "gpt-4o".to_string()),
+            ))
+        } else {
+            Arc::new(UnavailableInferenceRuntime::new(
+                "Acceptance judging requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
+            ))
+        }
+    } else {
+        Arc::new(UnavailableInferenceRuntime::new(
+            "Acceptance judging requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
+        ))
+    };
+
+    let acceptance_provenance = runtime.studio_runtime_provenance();
+    if acceptance_provenance.kind != StudioRuntimeProvenanceKind::InferenceUnavailable
+        && runtime_provenance_matches(&acceptance_provenance, &production_provenance)
+    {
+        return wrap_kernel_runtime(Arc::new(UnavailableInferenceRuntime::new(
+            "Acceptance judging requires runtime provenance distinct from the production artifact runtime. Configure AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL so the acceptance judge does not collapse into production.",
+        )));
+    }
+
+    wrap_kernel_runtime(runtime)
+}
+
+fn derive_health_url_from_runtime_url(runtime_url: &str) -> Option<String> {
+    if runtime_url.trim().is_empty() {
+        return None;
+    }
+    if runtime_url.contains("/v1/chat/completions") {
+        return Some(runtime_url.replace("/v1/chat/completions", "/v1/models"));
+    }
+    Some(runtime_url.to_string())
+}
+
+fn http_endpoint_healthy(url: &str) -> bool {
+    reqwest::blocking::Client::builder()
+        .timeout(Duration::from_millis(600))
+        .build()
+        .and_then(|client| client.get(url).send())
+        .map(|response| response.status().is_success() || response.status().is_redirection())
+        .unwrap_or(false)
 }
 
 fn configure_media_tool_home(data_dir: &Path) {
@@ -93,6 +335,28 @@ fn configure_media_tool_home(data_dir: &Path) {
             data_dir.join("local-engine").join("media"),
         );
     }
+}
+
+fn reset_data_dir_on_boot_if_requested(data_dir: &Path) -> Result<(), String> {
+    if !is_env_var_truthy("AUTOPILOT_RESET_DATA_ON_BOOT") {
+        return Ok(());
+    }
+
+    if data_dir.exists() {
+        std::fs::remove_dir_all(data_dir).map_err(|error| {
+            format!(
+                "Failed to reset Autopilot data directory '{}': {}",
+                data_dir.display(),
+                error
+            )
+        })?;
+    }
+
+    println!(
+        "[Studio] Reset Autopilot data directory on boot: {}",
+        data_dir.display()
+    );
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]
@@ -137,6 +401,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(models::AppState::default()))
+        .manage(workspace::WorkspaceTerminalManager::default())
         .setup(|app| {
             println!("[Autopilot] Initializing...");
 
@@ -145,9 +410,26 @@ pub fn run() {
                 kernel::cosmic::ensure_cosmic_window_rules();
             }
 
+            apply_dev_profile_defaults();
             let app_handle = app.handle();
             let data_dir = autopilot_data_dir_for(&app_handle);
+            if let Err(error) = reset_data_dir_on_boot_if_requested(&data_dir) {
+                eprintln!("[Studio] Failed to reset data directory on boot: {}", error);
+            }
+            if let Some(profile) = env_text("AUTOPILOT_DATA_PROFILE") {
+                println!(
+                    "[Studio] Using Autopilot data profile '{}' at {}",
+                    profile,
+                    data_dir.display()
+                );
+            }
             configure_media_tool_home(&data_dir);
+            if let Err(error) = identity::ensure_identity_keypair_for_app(&app_handle) {
+                eprintln!(
+                    "[Studio] Failed to provision app identity for authenticated kernel sessions: {}",
+                    error
+                );
+            }
 
             let memory_runtime = match open_or_create_memory_runtime(&data_dir) {
                 Ok(runtime) => Some(Arc::new(runtime)),
@@ -167,6 +449,17 @@ pub fn run() {
                 println!("[Studio] Initialized memory runtime.");
             } else {
                 eprintln!("[Studio] Local persistence unavailable.");
+            }
+
+            if let Some(memory_runtime) = memory_runtime.as_ref() {
+                if let Err(error) =
+                    kernel::local_engine::bootstrap_local_engine_dev_support(memory_runtime)
+                {
+                    eprintln!(
+                        "[Studio] Failed to bootstrap local engine dev support: {}",
+                        error
+                    );
+                }
             }
 
             let google_automation_manager = kernel::connectors::GoogleAutomationManager::new(
@@ -210,28 +503,39 @@ pub fn run() {
                     );
                 }
             });
-            tauri::async_runtime::spawn(async move {
-                let state: State<Mutex<AppState>> = wallet_auth_handle.state();
-                if let Err(error) = kernel::connectors::bootstrap_google_wallet_auth(&state).await {
-                    eprintln!(
-                        "[Autopilot] Failed to bootstrap wallet-backed Google auth state: {}",
-                        error
-                    );
-                }
-            });
-            tauri::async_runtime::spawn(async move {
-                let state: State<Mutex<AppState>> = wallet_policy_handle.state();
-                let policy_manager: State<kernel::connectors::ShieldPolicyManager> =
-                    wallet_policy_handle.state();
-                if let Err(error) =
-                    kernel::connectors::bootstrap_wallet_policy_state(&state, &policy_manager).await
-                {
-                    eprintln!(
-                        "[Autopilot] Failed to bootstrap wallet-backed Shield policy state: {}",
-                        error
-                    );
-                }
-            });
+            if kernel::connectors::wallet_backed_bootstrap_enabled() {
+                tauri::async_runtime::spawn(async move {
+                    let state: State<Mutex<AppState>> = wallet_auth_handle.state();
+                    if let Err(error) =
+                        kernel::connectors::bootstrap_google_wallet_auth(&state).await
+                    {
+                        eprintln!(
+                            "[Autopilot] Failed to bootstrap wallet-backed Google auth state: {}",
+                            error
+                        );
+                    }
+                });
+                tauri::async_runtime::spawn(async move {
+                    let state: State<Mutex<AppState>> = wallet_policy_handle.state();
+                    let policy_manager: State<kernel::connectors::ShieldPolicyManager> =
+                        wallet_policy_handle.state();
+                    if let Err(error) = kernel::connectors::bootstrap_wallet_policy_state(
+                        &state,
+                        &policy_manager,
+                    )
+                    .await
+                    {
+                        eprintln!(
+                            "[Autopilot] Failed to bootstrap wallet-backed Shield policy state: {}",
+                            error
+                        );
+                    }
+                });
+            } else {
+                println!(
+                    "[Studio] Skipping wallet-backed connector bootstrap for this local dev profile."
+                );
+            }
             kernel::notifications::bootstrap_notification_defaults(&app.handle());
             let notification_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -243,10 +547,15 @@ pub fn run() {
             });
 
             let inference_runtime = create_inference_runtime();
+            let studio_routing_inference_runtime =
+                create_studio_routing_inference_runtime(&inference_runtime);
+            let acceptance_inference_runtime = create_acceptance_inference_runtime(&inference_runtime);
             {
                 let state: State<Mutex<AppState>> = app_handle.state();
                 let mut s = state.lock().expect("Failed to lock app state");
                 s.inference_runtime = Some(inference_runtime);
+                s.studio_routing_inference_runtime = Some(studio_routing_inference_runtime);
+                s.acceptance_inference_runtime = Some(acceptance_inference_runtime);
             }
 
             let handle = app.handle().clone();
@@ -340,6 +649,11 @@ pub fn run() {
             windows::hide_gate,
             windows::show_studio,
             windows::hide_studio,
+            kernel::studio::studio_retry_renderer_session,
+            kernel::studio::studio_attach_artifact_selection,
+            kernel::studio::studio_compare_artifact_revisions,
+            kernel::studio::studio_restore_artifact_revision,
+            kernel::studio::studio_branch_artifact_revision,
             kernel::task::start_task,
             kernel::task::continue_task,
             kernel::task::update_task,
@@ -446,7 +760,47 @@ pub fn run() {
             project::project_initialize_repository,
             project::project_shell_list_directory,
             project::project_read_file,
-            project::project_write_file
+            project::project_write_file,
+            workspace::workspace_inspect,
+            workspace::studio_workspace_inspect,
+            workspace::workspace_list_directory,
+            workspace::studio_workspace_list_directory,
+            workspace::workspace_read_file,
+            workspace::studio_workspace_read_file,
+            workspace::workspace_write_file,
+            workspace::studio_workspace_write_file,
+            workspace::workspace_create_file,
+            workspace::studio_workspace_create_file,
+            workspace::workspace_create_directory,
+            workspace::studio_workspace_create_directory,
+            workspace::workspace_stat_path,
+            workspace::studio_workspace_stat_path,
+            workspace::workspace_rename_path,
+            workspace::studio_workspace_rename_path,
+            workspace::workspace_delete_path,
+            workspace::studio_workspace_delete_path,
+            workspace::workspace_search_text,
+            workspace::studio_workspace_search_text,
+            workspace::workspace_git_status,
+            workspace::studio_workspace_git_status,
+            workspace::workspace_git_diff,
+            workspace::studio_workspace_git_diff,
+            workspace::workspace_git_stage,
+            workspace::studio_workspace_git_stage,
+            workspace::workspace_git_unstage,
+            workspace::studio_workspace_git_unstage,
+            workspace::workspace_git_discard,
+            workspace::studio_workspace_git_discard,
+            workspace::workspace_terminal_create,
+            workspace::studio_workspace_terminal_create,
+            workspace::workspace_terminal_read,
+            workspace::studio_workspace_terminal_read,
+            workspace::workspace_terminal_write,
+            workspace::studio_workspace_terminal_write,
+            workspace::workspace_terminal_resize,
+            workspace::studio_workspace_terminal_resize,
+            workspace::workspace_terminal_close,
+            workspace::studio_workspace_terminal_close
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

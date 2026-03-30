@@ -1,0 +1,2 @@
+Materialized artifact package 'Make it feel more enterprise' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-enterprise/materialized'.
+Packaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-enterprise/materialized/artifact-manifest.json'.

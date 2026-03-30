@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import "@ioi/agent-ide/dist/style.css"; // Use shared theme
+import "@ioi/workspace-substrate/style.css";
 import "./styles/global.css"; // Autopilot theme overrides
 
 // [REMOVED] import { PillWindow } from "./windows/PillWindow";

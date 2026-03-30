@@ -1,0 +1,1500 @@
+{
+  "id": "studio-proof-task",
+  "intent": "Create a markdown artifact that documents a release checklist",
+  "agent": "Autopilot",
+  "phase": "Running",
+  "progress": 0,
+  "total_steps": 20,
+  "current_step": "Initializing...",
+  "gate_info": null,
+  "receipt": null,
+  "visual_hash": null,
+  "pending_request_hash": null,
+  "session_id": "studio-proof-task",
+  "credential_request": null,
+  "clarification_request": null,
+  "history": [],
+  "events": [
+    {
+      "event_id": "295962a5-f17b-4d86-a8e2-fcc7678d2985",
+      "timestamp": "2026-03-30T13:16:10.675279922+00:00",
+      "thread_id": "studio-proof-task",
+      "step_index": 0,
+      "event_type": "RECEIPT",
+      "title": "Studio created Create a markdown artifact that documents a release checklist",
+      "digest": {
+        "artifact_class": "document",
+        "build_session_id": null,
+        "navigator_backing_mode": "logical"
+      },
+      "details": {
+        "activeRevisionId": "87c693a4-7313-49b1-beb0-f0e5b21fb2f7",
+        "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+        "artifactManifest": {
+          "artifactClass": "document",
+          "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+          "files": [
+            {
+              "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+              "downloadable": true,
+              "externalUrl": null,
+              "mime": "text/markdown",
+              "path": "release_checklist.md",
+              "renderable": true,
+              "role": "primary"
+            }
+          ],
+          "primaryTab": "render",
+          "renderer": "markdown",
+          "storage": {
+            "apiLabel": "artifact storage",
+            "mode": "shared_artifact_scoped"
+          },
+          "tabs": [
+            {
+              "filePath": null,
+              "id": "render",
+              "kind": "render",
+              "label": "Render",
+              "lens": "render",
+              "renderer": "markdown"
+            },
+            {
+              "filePath": null,
+              "id": "source",
+              "kind": "source",
+              "label": "Source",
+              "lens": "source",
+              "renderer": null
+            },
+            {
+              "filePath": null,
+              "id": "evidence",
+              "kind": "evidence",
+              "label": "Evidence",
+              "lens": "evidence",
+              "renderer": null
+            }
+          ],
+          "title": "Create a markdown artifact that documents a release checklist",
+          "verification": {
+            "acceptanceProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b"
+            },
+            "failure": null,
+            "lifecycleState": "ready",
+            "productionProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b"
+            },
+            "status": "ready",
+            "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+          }
+        },
+        "attachedArtifactIds": [
+          "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+          "ed6310ac-df37-4d73-a7f5-3873e1f4021e"
+        ],
+        "availableLenses": [
+          "render",
+          "source",
+          "evidence"
+        ],
+        "buildSessionId": null,
+        "createdAt": "2026-03-30T13:14:14.169912032+00:00",
+        "currentLens": "render",
+        "lifecycleState": "ready",
+        "materialization": {
+          "acceptanceProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b"
+          },
+          "artifactBrief": {
+            "artifactThesis": "Create a markdown document that serves as a detailed release checklist, guiding the team through the entire process from preparation to deployment",
+            "audience": "Development team members involved in the software release process",
+            "factualAnchors": [
+              "The release checklist should cover all stages of the software development lifecycle, from planning to post-release monitoring.",
+              "It must include steps for version control management and deployment strategies."
+            ],
+            "jobToBeDone": "Document a comprehensive checklist for preparing and executing a software release to ensure all necessary steps are covered and tracked",
+            "referenceHints": [],
+            "requiredConcepts": [
+              "release checklist",
+              "software development lifecycle",
+              "version control",
+              "deployment",
+              "quality assurance"
+            ],
+            "requiredInteractions": [
+              "team collaboration",
+              "code review",
+              "testing",
+              "environment setup"
+            ],
+            "styleDirectives": [
+              "Use clear and concise language",
+              "Organize content in a logical order that reflects the typical sequence of events during a software release",
+              "Include examples or templates where appropriate"
+            ],
+            "subjectDomain": "Software development and release management",
+            "visualTone": []
+          },
+          "candidateSummaries": [
+            {
+              "candidateId": "candidate-1",
+              "failure": null,
+              "fallback": false,
+              "judge": {
+                "classification": "pass",
+                "completeness": 5,
+                "conceptCoverage": 5,
+                "continuityRevisionUx": null,
+                "deservesPrimaryArtifactView": true,
+                "genericShellDetected": false,
+                "interactionRelevance": 4,
+                "layoutCoherence": 5,
+                "patchedExistingArtifact": null,
+                "rationale": "Candidate comprehensively covers all stages of release, aligns with brief.",
+                "requestFaithfulness": 5,
+                "strongestContradiction": "",
+                "trivialShellDetected": false,
+                "visualHierarchy": 1
+              },
+              "model": "qwen2.5:7b",
+              "origin": "live_inference",
+              "provenance": {
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen2.5:7b"
+              },
+              "rawOutputPreview": null,
+              "renderablePaths": [
+                "release_checklist.md"
+              ],
+              "seed": 16698630269616841021,
+              "selected": true,
+              "strategy": "outline-first_markdown",
+              "summary": "Markdown document for a comprehensive release checklist",
+              "temperature": 0.2199999988079071
+            }
+          ],
+          "commandIntents": [],
+          "editIntent": null,
+          "failure": null,
+          "fallbackUsed": false,
+          "fileWrites": [
+            {
+              "contentPreview": "# Release Checklist\n\n## Preparation\n1. **Version Control**\n   - [ ] Update version numbers in code and documentation.\n   - [ ] Commit all changes with a clear message.",
+              "kind": "primary",
+              "path": "release_checklist.md"
+            }
+          ],
+          "judge": {
+            "classification": "pass",
+            "completeness": 5,
+            "conceptCoverage": 5,
+            "continuityRevisionUx": null,
+            "deservesPrimaryArtifactView": true,
+            "genericShellDetected": false,
+            "interactionRelevance": 4,
+            "layoutCoherence": 5,
+            "patchedExistingArtifact": null,
+            "rationale": "Candidate comprehensively covers all stages of release, aligns with brief.",
+            "requestFaithfulness": 5,
+            "strongestContradiction": "",
+            "trivialShellDetected": false,
+            "visualHierarchy": 1
+          },
+          "navigatorNodes": [
+            {
+              "badge": null,
+              "children": [],
+              "description": "Interact with the artifact through its renderer-specific presentation.",
+              "id": "render",
+              "kind": "render",
+              "label": "Render",
+              "lens": "render",
+              "path": null,
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Inspect the source form of the artifact.",
+              "id": "source",
+              "kind": "source",
+              "label": "Source",
+              "lens": "source",
+              "path": null,
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Inspect verification state, receipts, and evidence.",
+              "id": "evidence",
+              "kind": "evidence",
+              "label": "Evidence",
+              "lens": "evidence",
+              "path": null,
+              "status": null
+            }
+          ],
+          "normalizedIntent": "Create a markdown artifact that documents a release checklist",
+          "notes": [
+            "Conversation remains the control plane; this artifact is the work product.",
+            "Renderer choice is explicit in the typed outcome request.",
+            "Verification state, not worker prose, authorizes the final Studio summary.",
+            "This document is designed to guide the development team through all necessary steps of preparing and executing a software release.",
+            "It covers version control, deployment strategies, testing, and quality assurance.",
+            "Winning candidate candidate-1 selected via typed judging."
+          ],
+          "outputOrigin": "live_inference",
+          "pipelineSteps": [
+            {
+              "id": "intake",
+              "label": "Intake",
+              "outputs": [
+                "Create a markdown artifact that documents a release checklist"
+              ],
+              "stage": "intake",
+              "status": "complete",
+              "summary": "Studio captured the request and established the active artifact context.",
+              "verificationGate": null
+            },
+            {
+              "id": "routing",
+              "label": "Outcome routing",
+              "outputs": [
+                "artifact",
+                "document",
+                "markdown"
+              ],
+              "stage": "routing",
+              "status": "complete",
+              "summary": "The typed router chose the artifact branch intentionally.",
+              "verificationGate": null
+            },
+            {
+              "id": "requirements",
+              "label": "Requirements",
+              "outputs": [
+                "release_checklist"
+              ],
+              "stage": "requirements",
+              "status": "complete",
+              "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+              "verificationGate": null
+            },
+            {
+              "id": "specification",
+              "label": "Artifact spec",
+              "outputs": [
+                "document",
+                "markdown",
+                "side_panel",
+                "shared_artifact_scoped"
+              ],
+              "stage": "specification",
+              "status": "complete",
+              "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+              "verificationGate": null
+            },
+            {
+              "id": "materialization",
+              "label": "Materialization",
+              "outputs": [
+                "release_checklist.md"
+              ],
+              "stage": "materialization",
+              "status": "complete",
+              "summary": "Studio is creating the files or workspace required by the manifest.",
+              "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+            },
+            {
+              "id": "execution",
+              "label": "Execution",
+              "outputs": [
+                "release_checklist.md"
+              ],
+              "stage": "execution",
+              "status": "complete",
+              "summary": "Single-file generation completed inside the selected renderer substrate.",
+              "verificationGate": "Execution receipts must exist for every command-backed step."
+            },
+            {
+              "id": "verification",
+              "label": "Verification",
+              "outputs": [
+                "Materialize artifact (success)",
+                "Verify artifact contract (success)"
+              ],
+              "stage": "verification",
+              "status": "complete",
+              "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+              "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+            },
+            {
+              "id": "presentation",
+              "label": "Presentation",
+              "outputs": [
+                "render",
+                "1 file(s)"
+              ],
+              "stage": "presentation",
+              "status": "complete",
+              "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+              "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+            },
+            {
+              "id": "reply",
+              "label": "Verified reply",
+              "outputs": [
+                "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+              ],
+              "stage": "reply",
+              "status": "complete",
+              "summary": "Studio composes the user-facing summary from artifact state and verification.",
+              "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+            }
+          ],
+          "previewIntent": null,
+          "productionProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b"
+          },
+          "requestKind": "document",
+          "summary": "Studio created 'Create a markdown artifact that documents a release checklist' as a markdown artifact with a side-panel document surface.",
+          "uxLifecycle": "judged",
+          "verificationSteps": [
+            {
+              "id": "materialize",
+              "kind": "materialize",
+              "label": "Materialize artifact",
+              "status": "success"
+            },
+            {
+              "id": "verify",
+              "kind": "verify",
+              "label": "Verify artifact contract",
+              "status": "success"
+            }
+          ],
+          "version": 3,
+          "winningCandidateId": "candidate-1",
+          "winningCandidateRationale": "Candidate comprehensively covers all stages of release, aligns with brief."
+        },
+        "navigatorBackingMode": "logical",
+        "navigatorNodes": [
+          {
+            "badge": null,
+            "children": [],
+            "description": "Interact with the artifact through its renderer-specific presentation.",
+            "id": "render",
+            "kind": "render",
+            "label": "Render",
+            "lens": "render",
+            "path": null,
+            "status": null
+          },
+          {
+            "badge": null,
+            "children": [],
+            "description": "Inspect the source form of the artifact.",
+            "id": "source",
+            "kind": "source",
+            "label": "Source",
+            "lens": "source",
+            "path": null,
+            "status": null
+          },
+          {
+            "badge": null,
+            "children": [],
+            "description": "Inspect verification state, receipts, and evidence.",
+            "id": "evidence",
+            "kind": "evidence",
+            "label": "Evidence",
+            "lens": "evidence",
+            "path": null,
+            "status": null
+          }
+        ],
+        "outcomeRequest": {
+          "activeArtifactId": null,
+          "artifact": {
+            "artifactClass": "document",
+            "deliverableShape": "single_file",
+            "executionSubstrate": "none",
+            "persistence": "shared_artifact_scoped",
+            "presentationSurface": "side_panel",
+            "presentationVariantId": null,
+            "renderer": "markdown",
+            "scope": {
+              "createNewWorkspace": false,
+              "mutationBoundary": [
+                "release_checklist"
+              ],
+              "targetProject": null
+            },
+            "verification": {
+              "requireBuild": false,
+              "requireDiffReview": false,
+              "requireExport": true,
+              "requirePreview": false,
+              "requireRender": true
+            },
+            "workspaceRecipeId": null
+          },
+          "clarificationQuestions": [],
+          "confidence": 1.0,
+          "needsClarification": false,
+          "outcomeKind": "artifact",
+          "rawPrompt": "Create a markdown artifact that documents a release checklist",
+          "requestId": "14f9900c-cd29-463d-bf54-71b92fe01df7"
+        },
+        "rendererSessionId": null,
+        "revisions": [
+          {
+            "acceptanceProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b"
+            },
+            "artifactBrief": {
+              "artifactThesis": "Create a markdown document that serves as a detailed release checklist, guiding the team through the entire process from preparation to deployment",
+              "audience": "Development team members involved in the software release process",
+              "factualAnchors": [
+                "The release checklist should cover all stages of the software development lifecycle, from planning to post-release monitoring.",
+                "It must include steps for version control management and deployment strategies."
+              ],
+              "jobToBeDone": "Document a comprehensive checklist for preparing and executing a software release to ensure all necessary steps are covered and tracked",
+              "referenceHints": [],
+              "requiredConcepts": [
+                "release checklist",
+                "software development lifecycle",
+                "version control",
+                "deployment",
+                "quality assurance"
+              ],
+              "requiredInteractions": [
+                "team collaboration",
+                "code review",
+                "testing",
+                "environment setup"
+              ],
+              "styleDirectives": [
+                "Use clear and concise language",
+                "Organize content in a logical order that reflects the typical sequence of events during a software release",
+                "Include examples or templates where appropriate"
+              ],
+              "subjectDomain": "Software development and release management",
+              "visualTone": []
+            },
+            "artifactManifest": {
+              "artifactClass": "document",
+              "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+              "files": [
+                {
+                  "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+                  "downloadable": true,
+                  "externalUrl": null,
+                  "mime": "text/markdown",
+                  "path": "release_checklist.md",
+                  "renderable": true,
+                  "role": "primary"
+                }
+              ],
+              "primaryTab": "render",
+              "renderer": "markdown",
+              "storage": {
+                "apiLabel": "artifact storage",
+                "mode": "shared_artifact_scoped"
+              },
+              "tabs": [
+                {
+                  "filePath": null,
+                  "id": "render",
+                  "kind": "render",
+                  "label": "Render",
+                  "lens": "render",
+                  "renderer": "markdown"
+                },
+                {
+                  "filePath": null,
+                  "id": "source",
+                  "kind": "source",
+                  "label": "Source",
+                  "lens": "source",
+                  "renderer": null
+                },
+                {
+                  "filePath": null,
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "label": "Evidence",
+                  "lens": "evidence",
+                  "renderer": null
+                }
+              ],
+              "title": "Create a markdown artifact that documents a release checklist",
+              "verification": {
+                "acceptanceProvenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:14b"
+                },
+                "failure": null,
+                "lifecycleState": "ready",
+                "productionProvenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "status": "ready",
+                "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+              }
+            },
+            "branchId": "main",
+            "branchLabel": "Main",
+            "candidateSummaries": [
+              {
+                "candidateId": "candidate-1",
+                "failure": null,
+                "fallback": false,
+                "judge": {
+                  "classification": "pass",
+                  "completeness": 5,
+                  "conceptCoverage": 5,
+                  "continuityRevisionUx": null,
+                  "deservesPrimaryArtifactView": true,
+                  "genericShellDetected": false,
+                  "interactionRelevance": 4,
+                  "layoutCoherence": 5,
+                  "patchedExistingArtifact": null,
+                  "rationale": "Candidate comprehensively covers all stages of release, aligns with brief.",
+                  "requestFaithfulness": 5,
+                  "strongestContradiction": "",
+                  "trivialShellDetected": false,
+                  "visualHierarchy": 1
+                },
+                "model": "qwen2.5:7b",
+                "origin": "live_inference",
+                "provenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "rawOutputPreview": null,
+                "renderablePaths": [
+                  "release_checklist.md"
+                ],
+                "seed": 16698630269616841021,
+                "selected": true,
+                "strategy": "outline-first_markdown",
+                "summary": "Markdown document for a comprehensive release checklist",
+                "temperature": 0.2199999988079071
+              }
+            ],
+            "createdAt": "2026-03-30T13:16:10.674984529+00:00",
+            "editIntent": null,
+            "failure": null,
+            "fileWrites": [
+              {
+                "contentPreview": "# Release Checklist\n\n## Preparation\n1. **Version Control**\n   - [ ] Update version numbers in code and documentation.\n   - [ ] Commit all changes with a clear message.",
+                "kind": "primary",
+                "path": "release_checklist.md"
+              }
+            ],
+            "judge": {
+              "classification": "pass",
+              "completeness": 5,
+              "conceptCoverage": 5,
+              "continuityRevisionUx": null,
+              "deservesPrimaryArtifactView": true,
+              "genericShellDetected": false,
+              "interactionRelevance": 4,
+              "layoutCoherence": 5,
+              "patchedExistingArtifact": null,
+              "rationale": "Candidate comprehensively covers all stages of release, aligns with brief.",
+              "requestFaithfulness": 5,
+              "strongestContradiction": "",
+              "trivialShellDetected": false,
+              "visualHierarchy": 1
+            },
+            "outputOrigin": "live_inference",
+            "parentRevisionId": null,
+            "productionProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b"
+            },
+            "prompt": "Create a markdown artifact that documents a release checklist",
+            "revisionId": "87c693a4-7313-49b1-beb0-f0e5b21fb2f7",
+            "selectedTargets": [],
+            "uxLifecycle": "judged",
+            "winningCandidateId": "candidate-1"
+          }
+        ],
+        "selectedTargets": [],
+        "sessionId": "9cfe1300-4bb9-4e6f-a427-c47518428daf",
+        "status": "ready",
+        "summary": "Studio created 'Create a markdown artifact that documents a release checklist' as a markdown artifact with a side-panel document surface.",
+        "tasteMemory": {
+          "directives": [
+            "Use clear and concise language",
+            "Organize content in a logical order that reflects the typical sequence of events during a software release",
+            "Include examples or templates where appropriate"
+          ],
+          "summary": "Session taste memory is steering this artifact toward Use clear and concise language, Organize content in a logical order that reflects the typical sequence of events during a software release, Include examples or templates where appropriate."
+        },
+        "threadId": "studio-proof-task",
+        "title": "Create a markdown artifact that documents a release checklist",
+        "updatedAt": "2026-03-30T13:14:14.169912032+00:00",
+        "uxLifecycle": "judged",
+        "verifiedReply": {
+          "acceptanceProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b"
+          },
+          "evidence": [
+            "release_checklist.md",
+            "production provenance: openai-compatible (qwen2.5:7b)",
+            "acceptance provenance: openai-compatible (qwen2.5:14b)"
+          ],
+          "failure": null,
+          "lifecycleState": "ready",
+          "productionProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b"
+          },
+          "status": "ready",
+          "summary": "Create a markdown artifact that documents a release checklist Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "title": "Studio outcome: Create a markdown artifact that documents a release checklist",
+          "updatedAt": "2026-03-30T13:16:10.674954060+00:00"
+        },
+        "workspaceRoot": null
+      },
+      "artifact_refs": [
+        {
+          "artifact_id": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+          "artifact_type": "FILE"
+        },
+        {
+          "artifact_id": "ed6310ac-df37-4d73-a7f5-3873e1f4021e",
+          "artifact_type": "REPORT"
+        }
+      ],
+      "receipt_ref": null,
+      "input_refs": [],
+      "status": "SUCCESS",
+      "duration_ms": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+      "created_at": "2026-03-30T13:16:10.648014789+00:00",
+      "thread_id": "studio-proof-task",
+      "artifact_type": "FILE",
+      "title": "File: release_checklist.md",
+      "description": "File snapshot",
+      "content_ref": "ioi-memory://artifact/bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+      "metadata": {
+        "mime": "text/markdown",
+        "path": "release_checklist.md",
+        "revision": null
+      },
+      "version": 1,
+      "parent_artifact_id": null
+    },
+    {
+      "artifact_id": "ed6310ac-df37-4d73-a7f5-3873e1f4021e",
+      "created_at": "2026-03-30T13:16:10.663569907+00:00",
+      "thread_id": "studio-proof-task",
+      "artifact_type": "REPORT",
+      "title": "Studio artifact: Create a markdown artifact that documents a release checklist",
+      "description": "Machine-routable Studio artifact materialization contract",
+      "content_ref": "ioi-memory://artifact/ed6310ac-df37-4d73-a7f5-3873e1f4021e",
+      "metadata": {
+        "acceptanceProvenance": null,
+        "artifactBrief": null,
+        "candidateSummaries": [],
+        "commandIntents": [],
+        "editIntent": null,
+        "failure": null,
+        "fallbackUsed": false,
+        "fileWrites": [
+          {
+            "contentPreview": "# Release Checklist\n\n## Preparation\n1. **Version Control**\n   - [ ] Update version numbers in code and documentation.\n   - [ ] Commit all changes with a clear message.",
+            "kind": "primary",
+            "path": "release_checklist.md"
+          }
+        ],
+        "judge": null,
+        "navigatorNodes": [],
+        "normalizedIntent": "Create a markdown artifact that documents a release checklist",
+        "notes": [
+          "Conversation remains the control plane; this artifact is the work product.",
+          "Renderer choice is explicit in the typed outcome request.",
+          "Verification state, not worker prose, authorizes the final Studio summary.",
+          "This document is designed to guide the development team through all necessary steps of preparing and executing a software release.",
+          "It covers version control, deployment strategies, testing, and quality assurance.",
+          "Winning candidate candidate-1 selected via typed judging."
+        ],
+        "outputOrigin": null,
+        "pipelineSteps": [],
+        "previewIntent": null,
+        "productionProvenance": null,
+        "requestKind": "document",
+        "summary": "Studio created 'Create a markdown artifact that documents a release checklist' as a markdown artifact with a side-panel document surface.",
+        "uxLifecycle": null,
+        "verificationSteps": [
+          {
+            "id": "materialize",
+            "kind": "materialize",
+            "label": "Materialize artifact",
+            "status": "success"
+          },
+          {
+            "id": "verify",
+            "kind": "verify",
+            "label": "Verify artifact contract",
+            "status": "success"
+          }
+        ],
+        "version": 3,
+        "winningCandidateId": null,
+        "winningCandidateRationale": null
+      },
+      "version": 1,
+      "parent_artifact_id": null
+    }
+  ],
+  "studio_session": {
+    "sessionId": "9cfe1300-4bb9-4e6f-a427-c47518428daf",
+    "threadId": "studio-proof-task",
+    "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+    "title": "Create a markdown artifact that documents a release checklist",
+    "summary": "Studio created 'Create a markdown artifact that documents a release checklist' as a markdown artifact with a side-panel document surface.",
+    "currentLens": "render",
+    "navigatorBackingMode": "logical",
+    "navigatorNodes": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "description": "Interact with the artifact through its renderer-specific presentation.",
+        "badge": null,
+        "status": null,
+        "lens": "render",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "description": "Inspect the source form of the artifact.",
+        "badge": null,
+        "status": null,
+        "lens": "source",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "description": "Inspect verification state, receipts, and evidence.",
+        "badge": null,
+        "status": null,
+        "lens": "evidence",
+        "path": null,
+        "children": []
+      }
+    ],
+    "attachedArtifactIds": [
+      "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+      "ed6310ac-df37-4d73-a7f5-3873e1f4021e"
+    ],
+    "availableLenses": [
+      "render",
+      "source",
+      "evidence"
+    ],
+    "materialization": {
+      "version": 3,
+      "requestKind": "document",
+      "normalizedIntent": "Create a markdown artifact that documents a release checklist",
+      "summary": "Studio created 'Create a markdown artifact that documents a release checklist' as a markdown artifact with a side-panel document surface.",
+      "artifactBrief": {
+        "audience": "Development team members involved in the software release process",
+        "jobToBeDone": "Document a comprehensive checklist for preparing and executing a software release to ensure all necessary steps are covered and tracked",
+        "subjectDomain": "Software development and release management",
+        "artifactThesis": "Create a markdown document that serves as a detailed release checklist, guiding the team through the entire process from preparation to deployment",
+        "requiredConcepts": [
+          "release checklist",
+          "software development lifecycle",
+          "version control",
+          "deployment",
+          "quality assurance"
+        ],
+        "requiredInteractions": [
+          "team collaboration",
+          "code review",
+          "testing",
+          "environment setup"
+        ],
+        "visualTone": [],
+        "factualAnchors": [
+          "The release checklist should cover all stages of the software development lifecycle, from planning to post-release monitoring.",
+          "It must include steps for version control management and deployment strategies."
+        ],
+        "styleDirectives": [
+          "Use clear and concise language",
+          "Organize content in a logical order that reflects the typical sequence of events during a software release",
+          "Include examples or templates where appropriate"
+        ],
+        "referenceHints": []
+      },
+      "editIntent": null,
+      "candidateSummaries": [
+        {
+          "candidateId": "candidate-1",
+          "seed": 16698630269616841021,
+          "model": "qwen2.5:7b",
+          "temperature": 0.22,
+          "strategy": "outline-first_markdown",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "Markdown document for a comprehensive release checklist",
+          "renderablePaths": [
+            "release_checklist.md"
+          ],
+          "selected": true,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "pass",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 5,
+            "interactionRelevance": 4,
+            "layoutCoherence": 5,
+            "visualHierarchy": 1,
+            "completeness": 5,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "",
+            "rationale": "Candidate comprehensively covers all stages of release, aligns with brief."
+          }
+        }
+      ],
+      "winningCandidateId": "candidate-1",
+      "winningCandidateRationale": "Candidate comprehensively covers all stages of release, aligns with brief.",
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 4,
+        "layoutCoherence": 5,
+        "visualHierarchy": 1,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate comprehensively covers all stages of release, aligns with brief."
+      },
+      "outputOrigin": "live_inference",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "fallbackUsed": false,
+      "uxLifecycle": "judged",
+      "failure": null,
+      "navigatorNodes": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "description": "Interact with the artifact through its renderer-specific presentation.",
+          "badge": null,
+          "status": null,
+          "lens": "render",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "fileWrites": [
+        {
+          "path": "release_checklist.md",
+          "kind": "primary",
+          "contentPreview": "# Release Checklist\n\n## Preparation\n1. **Version Control**\n   - [ ] Update version numbers in code and documentation.\n   - [ ] Commit all changes with a clear message."
+        }
+      ],
+      "commandIntents": [],
+      "previewIntent": null,
+      "verificationSteps": [
+        {
+          "id": "materialize",
+          "label": "Materialize artifact",
+          "kind": "materialize",
+          "status": "success"
+        },
+        {
+          "id": "verify",
+          "label": "Verify artifact contract",
+          "kind": "verify",
+          "status": "success"
+        }
+      ],
+      "pipelineSteps": [
+        {
+          "id": "intake",
+          "stage": "intake",
+          "label": "Intake",
+          "status": "complete",
+          "summary": "Studio captured the request and established the active artifact context.",
+          "outputs": [
+            "Create a markdown artifact that documents a release checklist"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "routing",
+          "stage": "routing",
+          "label": "Outcome routing",
+          "status": "complete",
+          "summary": "The typed router chose the artifact branch intentionally.",
+          "outputs": [
+            "artifact",
+            "document",
+            "markdown"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "requirements",
+          "stage": "requirements",
+          "label": "Requirements",
+          "status": "complete",
+          "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+          "outputs": [
+            "release_checklist"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "specification",
+          "stage": "specification",
+          "label": "Artifact spec",
+          "status": "complete",
+          "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+          "outputs": [
+            "document",
+            "markdown",
+            "side_panel",
+            "shared_artifact_scoped"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "materialization",
+          "stage": "materialization",
+          "label": "Materialization",
+          "status": "complete",
+          "summary": "Studio is creating the files or workspace required by the manifest.",
+          "outputs": [
+            "release_checklist.md"
+          ],
+          "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+        },
+        {
+          "id": "execution",
+          "stage": "execution",
+          "label": "Execution",
+          "status": "complete",
+          "summary": "Single-file generation completed inside the selected renderer substrate.",
+          "outputs": [
+            "release_checklist.md"
+          ],
+          "verificationGate": "Execution receipts must exist for every command-backed step."
+        },
+        {
+          "id": "verification",
+          "stage": "verification",
+          "label": "Verification",
+          "status": "complete",
+          "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "outputs": [
+            "Materialize artifact (success)",
+            "Verify artifact contract (success)"
+          ],
+          "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+        },
+        {
+          "id": "presentation",
+          "stage": "presentation",
+          "label": "Presentation",
+          "status": "complete",
+          "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+          "outputs": [
+            "render",
+            "1 file(s)"
+          ],
+          "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+        },
+        {
+          "id": "reply",
+          "stage": "reply",
+          "label": "Verified reply",
+          "status": "complete",
+          "summary": "Studio composes the user-facing summary from artifact state and verification.",
+          "outputs": [
+            "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+          ],
+          "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+        }
+      ],
+      "notes": [
+        "Conversation remains the control plane; this artifact is the work product.",
+        "Renderer choice is explicit in the typed outcome request.",
+        "Verification state, not worker prose, authorizes the final Studio summary.",
+        "This document is designed to guide the development team through all necessary steps of preparing and executing a software release.",
+        "It covers version control, deployment strategies, testing, and quality assurance.",
+        "Winning candidate candidate-1 selected via typed judging."
+      ]
+    },
+    "outcomeRequest": {
+      "requestId": "14f9900c-cd29-463d-bf54-71b92fe01df7",
+      "rawPrompt": "Create a markdown artifact that documents a release checklist",
+      "activeArtifactId": null,
+      "outcomeKind": "artifact",
+      "confidence": 1.0,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "artifact": {
+        "artifactClass": "document",
+        "deliverableShape": "single_file",
+        "renderer": "markdown",
+        "presentationSurface": "side_panel",
+        "persistence": "shared_artifact_scoped",
+        "executionSubstrate": "none",
+        "workspaceRecipeId": null,
+        "presentationVariantId": null,
+        "scope": {
+          "targetProject": null,
+          "createNewWorkspace": false,
+          "mutationBoundary": [
+            "release_checklist"
+          ]
+        },
+        "verification": {
+          "requireRender": true,
+          "requireBuild": false,
+          "requirePreview": false,
+          "requireExport": true,
+          "requireDiffReview": false
+        }
+      }
+    },
+    "artifactManifest": {
+      "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+      "title": "Create a markdown artifact that documents a release checklist",
+      "artifactClass": "document",
+      "renderer": "markdown",
+      "primaryTab": "render",
+      "tabs": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "renderer": "markdown",
+          "filePath": null,
+          "lens": "render"
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "renderer": null,
+          "filePath": null,
+          "lens": "source"
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "renderer": null,
+          "filePath": null,
+          "lens": "evidence"
+        }
+      ],
+      "files": [
+        {
+          "path": "release_checklist.md",
+          "mime": "text/markdown",
+          "role": "primary",
+          "renderable": true,
+          "downloadable": true,
+          "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+          "externalUrl": null
+        }
+      ],
+      "verification": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null
+      },
+      "storage": {
+        "mode": "shared_artifact_scoped",
+        "apiLabel": "artifact storage"
+      }
+    },
+    "verifiedReply": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "title": "Studio outcome: Create a markdown artifact that documents a release checklist",
+      "summary": "Create a markdown artifact that documents a release checklist Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "evidence": [
+        "release_checklist.md",
+        "production provenance: openai-compatible (qwen2.5:7b)",
+        "acceptance provenance: openai-compatible (qwen2.5:14b)"
+      ],
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null,
+      "updatedAt": "2026-03-30T13:16:10.674954060+00:00"
+    },
+    "lifecycleState": "ready",
+    "status": "ready",
+    "activeRevisionId": "87c693a4-7313-49b1-beb0-f0e5b21fb2f7",
+    "revisions": [
+      {
+        "revisionId": "87c693a4-7313-49b1-beb0-f0e5b21fb2f7",
+        "parentRevisionId": null,
+        "branchId": "main",
+        "branchLabel": "Main",
+        "prompt": "Create a markdown artifact that documents a release checklist",
+        "createdAt": "2026-03-30T13:16:10.674984529+00:00",
+        "uxLifecycle": "judged",
+        "artifactManifest": {
+          "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+          "title": "Create a markdown artifact that documents a release checklist",
+          "artifactClass": "document",
+          "renderer": "markdown",
+          "primaryTab": "render",
+          "tabs": [
+            {
+              "id": "render",
+              "label": "Render",
+              "kind": "render",
+              "renderer": "markdown",
+              "filePath": null,
+              "lens": "render"
+            },
+            {
+              "id": "source",
+              "label": "Source",
+              "kind": "source",
+              "renderer": null,
+              "filePath": null,
+              "lens": "source"
+            },
+            {
+              "id": "evidence",
+              "label": "Evidence",
+              "kind": "evidence",
+              "renderer": null,
+              "filePath": null,
+              "lens": "evidence"
+            }
+          ],
+          "files": [
+            {
+              "path": "release_checklist.md",
+              "mime": "text/markdown",
+              "role": "primary",
+              "renderable": true,
+              "downloadable": true,
+              "artifactId": "bec28298-f858-4d4c-b4cb-9dbf53b4f383",
+              "externalUrl": null
+            }
+          ],
+          "verification": {
+            "status": "ready",
+            "lifecycleState": "ready",
+            "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+            },
+            "failure": null
+          },
+          "storage": {
+            "mode": "shared_artifact_scoped",
+            "apiLabel": "artifact storage"
+          }
+        },
+        "artifactBrief": {
+          "audience": "Development team members involved in the software release process",
+          "jobToBeDone": "Document a comprehensive checklist for preparing and executing a software release to ensure all necessary steps are covered and tracked",
+          "subjectDomain": "Software development and release management",
+          "artifactThesis": "Create a markdown document that serves as a detailed release checklist, guiding the team through the entire process from preparation to deployment",
+          "requiredConcepts": [
+            "release checklist",
+            "software development lifecycle",
+            "version control",
+            "deployment",
+            "quality assurance"
+          ],
+          "requiredInteractions": [
+            "team collaboration",
+            "code review",
+            "testing",
+            "environment setup"
+          ],
+          "visualTone": [],
+          "factualAnchors": [
+            "The release checklist should cover all stages of the software development lifecycle, from planning to post-release monitoring.",
+            "It must include steps for version control management and deployment strategies."
+          ],
+          "styleDirectives": [
+            "Use clear and concise language",
+            "Organize content in a logical order that reflects the typical sequence of events during a software release",
+            "Include examples or templates where appropriate"
+          ],
+          "referenceHints": []
+        },
+        "editIntent": null,
+        "candidateSummaries": [
+          {
+            "candidateId": "candidate-1",
+            "seed": 16698630269616841021,
+            "model": "qwen2.5:7b",
+            "temperature": 0.22,
+            "strategy": "outline-first_markdown",
+            "origin": "live_inference",
+            "provenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "summary": "Markdown document for a comprehensive release checklist",
+            "renderablePaths": [
+              "release_checklist.md"
+            ],
+            "selected": true,
+            "fallback": false,
+            "failure": null,
+            "rawOutputPreview": null,
+            "judge": {
+              "classification": "pass",
+              "requestFaithfulness": 5,
+              "conceptCoverage": 5,
+              "interactionRelevance": 4,
+              "layoutCoherence": 5,
+              "visualHierarchy": 1,
+              "completeness": 5,
+              "genericShellDetected": false,
+              "trivialShellDetected": false,
+              "deservesPrimaryArtifactView": true,
+              "patchedExistingArtifact": null,
+              "continuityRevisionUx": null,
+              "strongestContradiction": "",
+              "rationale": "Candidate comprehensively covers all stages of release, aligns with brief."
+            }
+          }
+        ],
+        "winningCandidateId": "candidate-1",
+        "judge": {
+          "classification": "pass",
+          "requestFaithfulness": 5,
+          "conceptCoverage": 5,
+          "interactionRelevance": 4,
+          "layoutCoherence": 5,
+          "visualHierarchy": 1,
+          "completeness": 5,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": true,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "",
+          "rationale": "Candidate comprehensively covers all stages of release, aligns with brief."
+        },
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null,
+        "fileWrites": [
+          {
+            "path": "release_checklist.md",
+            "kind": "primary",
+            "contentPreview": "# Release Checklist\n\n## Preparation\n1. **Version Control**\n   - [ ] Update version numbers in code and documentation.\n   - [ ] Commit all changes with a clear message."
+          }
+        ],
+        "selectedTargets": []
+      }
+    ],
+    "tasteMemory": {
+      "directives": [
+        "Use clear and concise language",
+        "Organize content in a logical order that reflects the typical sequence of events during a software release",
+        "Include examples or templates where appropriate"
+      ],
+      "summary": "Session taste memory is steering this artifact toward Use clear and concise language, Organize content in a logical order that reflects the typical sequence of events during a software release, Include examples or templates where appropriate."
+    },
+    "selectedTargets": [],
+    "uxLifecycle": "judged",
+    "createdAt": "2026-03-30T13:14:14.169912032+00:00",
+    "updatedAt": "2026-03-30T13:14:14.169912032+00:00",
+    "buildSessionId": null,
+    "workspaceRoot": null,
+    "rendererSessionId": null
+  },
+  "studio_outcome": {
+    "requestId": "14f9900c-cd29-463d-bf54-71b92fe01df7",
+    "rawPrompt": "Create a markdown artifact that documents a release checklist",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 1.0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "document",
+      "deliverableShape": "single_file",
+      "renderer": "markdown",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "none",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "release_checklist"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "renderer_session": null,
+  "build_session": null,
+  "run_bundle_id": null,
+  "swarm_tree": [],
+  "generation": 0,
+  "lineage_id": "genesis",
+  "fitness_score": 0.0
+}

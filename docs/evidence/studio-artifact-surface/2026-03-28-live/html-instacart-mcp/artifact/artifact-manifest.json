@@ -1,0 +1,53 @@
+{
+  "artifactId": "08638398-5785-4340-86a4-4e17dfa24b13",
+  "title": "an interactive HTML artifact that explains a product rollout with charts",
+  "artifactClass": "interactive_single_file",
+  "renderer": "html_iframe",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "html_iframe",
+      "filePath": "index.html",
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": "index.html",
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "index.html",
+      "mime": "text/html",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": "generated-index.html",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "The candidate stays grounded in an Instacart MCP, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

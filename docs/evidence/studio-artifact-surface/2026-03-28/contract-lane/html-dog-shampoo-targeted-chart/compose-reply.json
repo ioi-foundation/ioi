@@ -1,0 +1,22 @@
+{
+  "status": "ready",
+  "lifecycleState": "ready",
+  "title": "Studio outcome: Edit the selected chart section to show adoption by channel instead of l",
+  "summary": "Edit the selected chart section to show adoption by channel instead of l Complies with the interaction contract and stays request-faithful.",
+  "evidence": [
+    "product_rollout.html"
+  ],
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "failure": null
+}

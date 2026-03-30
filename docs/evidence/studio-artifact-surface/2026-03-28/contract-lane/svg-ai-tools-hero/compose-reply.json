@@ -1,0 +1,22 @@
+{
+  "status": "ready",
+  "lifecycleState": "ready",
+  "title": "Studio outcome: an SVG hero concept for an AI tools brand",
+  "summary": "an SVG hero concept for an AI tools brand Meets all requirements with clear, relevant and visually compelling elements.",
+  "evidence": [
+    "hero-concept.svg"
+  ],
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "failure": null
+}

@@ -1,0 +1,288 @@
+{
+  "id": "download-bundle",
+  "prompt": "Create a downloadable artifact bundle with a CSV and README",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/artifact/artifact-manifest.json",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.96,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "downloadable_file",
+      "deliverableShape": "file_set",
+      "renderer": "download_card",
+      "presentationSurface": "side_panel",
+      "persistence": "artifact_scoped",
+      "executionSubstrate": "none",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "the requesting team",
+    "jobToBeDone": "Package the useful files with enough orientation to justify render-first download presentation.",
+    "subjectDomain": "downloadable csv readme",
+    "artifactThesis": "Make the primary artifact unmistakably about downloadable csv readme while keeping the structure coherent enough to lead the stage.",
+    "requiredConcepts": [
+      "downloadable",
+      "csv",
+      "readme"
+    ],
+    "requiredInteractions": [],
+    "visualTone": [
+      "grounded"
+    ],
+    "factualAnchors": [
+      "downloadable",
+      "csv",
+      "readme"
+    ],
+    "styleDirectives": [
+      "grounded"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 10090606462639444000,
+      "model": "InferenceRuntime",
+      "temperature": 0.12,
+      "strategy": "bundle-first_download",
+      "origin": "live_inference",
+      "summary": "Materialized a download bundle for downloadable csv readme.",
+      "renderablePaths": [],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 3,
+        "layoutCoherence": 5,
+        "visualHierarchy": 3,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 8565099133823045000,
+      "model": "InferenceRuntime",
+      "temperature": 0.12,
+      "strategy": "bundle-first_download",
+      "origin": "live_inference",
+      "summary": "Materialized a download bundle for downloadable csv readme.",
+      "renderablePaths": [],
+      "selected": true,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 3,
+        "layoutCoherence": 5,
+        "visualHierarchy": 3,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-2",
+  "winningCandidateRationale": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage.",
+  "manifest": {
+    "artifactId": "69112845-d495-401b-b9f1-52fb679ff8b7",
+    "title": "a downloadable artifact bundle with a CSV and README",
+    "artifactClass": "downloadable_file",
+    "renderer": "download_card",
+    "primaryTab": "download",
+    "tabs": [
+      {
+        "id": "download",
+        "label": "Download",
+        "kind": "download",
+        "renderer": "download_card",
+        "filePath": "README.md",
+        "lens": "download"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "README.md",
+        "mime": "text/markdown",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-README.md",
+        "externalUrl": null
+      },
+      {
+        "path": "exports/downloadable-csv-readme.csv",
+        "mime": "text/csv",
+        "role": "export",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-exports-downloadable-csv-readme.csv",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: a downloadable artifact bundle with a CSV and README",
+    "summary": "a downloadable artifact bundle with a CSV and README The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "README.md",
+      "exports/downloadable-csv-readme.csv"
+    ]
+  },
+  "rendererOutput": {
+    "primaryFile": "README.md",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/captures/render-capture.html"
+    ]
+  },
+  "materializedFiles": [
+    "README.md",
+    "exports/downloadable-csv-readme.csv"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "69112845-d495-401b-b9f1-52fb679ff8b7",
+      "title": "a downloadable artifact bundle with a CSV and README",
+      "artifact_class": "downloadable_file",
+      "renderer": "download_card",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage.",
+      "primary_tab": "download",
+      "tab_count": 2,
+      "file_count": 2,
+      "renderable_file_count": 0,
+      "downloadable_file_count": 2,
+      "repo_centric_package": true,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render"
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'a downloadable artifact bundle with a CSV and README' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'a downloadable artifact bundle with a CSV and README' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/materialized'.\nPackaged 2 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/download-bundle/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: a downloadable artifact bundle with a CSV and README",
+    "summary": "a downloadable artifact bundle with a CSV and README The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "README.md",
+      "exports/downloadable-csv-readme.csv"
+    ]
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 3,
+    "layoutCoherence": 5,
+    "visualHierarchy": 3,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 3,
+    "layoutCoherence": 5,
+    "visualHierarchy": 3,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "notes": []
+}

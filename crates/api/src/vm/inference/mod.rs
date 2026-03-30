@@ -2,7 +2,10 @@
 
 use async_trait::async_trait;
 use ioi_types::app::agentic::{EvidenceGraph, InferenceOptions};
-use ioi_types::app::{ModelLifecycleOperationKind, RegistrySubjectKind};
+use ioi_types::app::{
+    ModelLifecycleOperationKind, RegistrySubjectKind, StudioRuntimeProvenance,
+    StudioRuntimeProvenanceKind,
+};
 use ioi_types::error::VmError;
 use std::path::Path;
 use tokio::sync::mpsc::Sender;
@@ -11,6 +14,7 @@ pub mod contracts;
 pub mod driver;
 pub mod http_adapter;
 pub mod mock;
+pub mod unavailable;
 
 pub use contracts::{
     EmbeddingResult, ImageEditRequest, ImageEmbeddingRequest, ImageGenerationRequest,
@@ -22,6 +26,7 @@ pub use contracts::{
 };
 pub use driver::{AcceleratorType, DeviceCapabilities, HardwareDriver, ModelHandle};
 pub use http_adapter::HttpInferenceRuntime;
+pub use unavailable::UnavailableInferenceRuntime;
 
 /// A kernel-owned runtime capable of executing deterministic inference plus
 /// adjacent first-party media and model lifecycle operations.
@@ -170,6 +175,17 @@ pub trait InferenceRuntime: Send + Sync {
 
     /// Offloads a model from memory.
     async fn unload_model(&self, model_hash: [u8; 32]) -> Result<(), VmError>;
+
+    /// Returns truthful Studio-facing runtime provenance so product surfaces do
+    /// not infer it from implementation type names.
+    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+        StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::OpaqueRuntime,
+            label: "opaque inference runtime".to_string(),
+            model: None,
+            endpoint: None,
+        }
+    }
 
     /// Loads a registered model through the typed first-party lifecycle surface.
     async fn load_registered_model(

@@ -1,0 +1,16 @@
+{
+  "classification": "blocked",
+  "requestFaithfulness": 1,
+  "conceptCoverage": 1,
+  "interactionRelevance": 1,
+  "layoutCoherence": 1,
+  "visualHierarchy": 1,
+  "completeness": 1,
+  "genericShellDetected": false,
+  "trivialShellDetected": false,
+  "deservesPrimaryArtifactView": false,
+  "patchedExistingArtifact": null,
+  "continuityRevisionUx": null,
+  "strongestContradiction": "Studio cannot route or materialize artifacts because inference is unavailable.",
+  "rationale": "Studio cannot route or materialize artifacts because inference is unavailable."
+}

@@ -3,6 +3,7 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use ioi_ipc::public::public_api_client::PublicApiClient;
+use ioi_ipc::public::{GetTransactionStatusRequest, TxStatus};
 
 #[derive(Parser, Debug)]
 pub struct QueryArgs {
@@ -20,6 +21,8 @@ pub enum QueryCommands {
     Status,
     /// Query a raw state key (hex).
     State { key: String },
+    /// Query transaction status by hash.
+    TxStatus { tx_hash: String },
 }
 
 pub async fn run(args: QueryArgs) -> Result<()> {
@@ -52,6 +55,20 @@ pub async fn run(args: QueryArgs) -> Result<()> {
                 }
             } else {
                 println!("Key not found.");
+            }
+        }
+        QueryCommands::TxStatus { tx_hash } => {
+            let req = GetTransactionStatusRequest {
+                tx_hash: tx_hash.clone(),
+            };
+            let resp = client.get_transaction_status(req).await?.into_inner();
+            let status = TxStatus::try_from(resp.status).unwrap_or(TxStatus::Unknown);
+            println!("Tx Status:");
+            println!("  Hash: {}", tx_hash);
+            println!("  Status: {:?}", status);
+            println!("  Block Height: {}", resp.block_height);
+            if !resp.error_message.trim().is_empty() {
+                println!("  Error: {}", resp.error_message);
             }
         }
     }

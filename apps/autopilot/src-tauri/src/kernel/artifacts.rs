@@ -96,16 +96,18 @@ pub fn create_diff_artifact(
     persist_artifact(memory_runtime, &artifact, diff_text.as_bytes())
 }
 
-pub fn create_file_artifact(
+pub fn create_named_file_artifact(
     memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
     path: &str,
+    mime: Option<&str>,
     revision: Option<String>,
-    content: &str,
+    content: &[u8],
 ) -> Artifact {
     let metadata = json!({
         "path": path,
         "revision": revision,
+        "mime": mime,
     });
     let artifact = build_artifact(
         thread_id,
@@ -116,7 +118,7 @@ pub fn create_file_artifact(
         Some(1),
         None,
     );
-    persist_artifact(memory_runtime, &artifact, content.as_bytes())
+    persist_artifact(memory_runtime, &artifact, content)
 }
 
 pub fn create_web_artifact(

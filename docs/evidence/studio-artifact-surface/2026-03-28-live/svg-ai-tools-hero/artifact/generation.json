@@ -1,0 +1,238 @@
+{
+  "prompt": "Create an SVG hero concept for an AI tools brand",
+  "title": "an SVG hero concept for an AI tools brand",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.96,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "visual",
+      "deliverableShape": "single_file",
+      "renderer": "svg",
+      "presentationSurface": "inline",
+      "persistence": "artifact_scoped",
+      "executionSubstrate": "none",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "the audience encountering the artifact in render-first mode",
+    "jobToBeDone": "Create a hero composition that makes an AI tools brand feel branded and intentional at a glance.",
+    "subjectDomain": "an AI tools brand",
+    "artifactThesis": "Make the primary artifact unmistakably about an AI tools brand while keeping the structure coherent enough to lead the stage.",
+    "requiredConcepts": [
+      "an AI tools brand"
+    ],
+    "requiredInteractions": [],
+    "visualTone": [
+      "brand-forward"
+    ],
+    "factualAnchors": [
+      "an AI tools brand"
+    ],
+    "styleDirectives": [
+      "brand-forward",
+      "graphic clarity"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 16223370210422456005,
+      "model": "InferenceRuntime",
+      "temperature": 0.48,
+      "strategy": "motif-first_svg",
+      "origin": "live_inference",
+      "summary": "Materialized a request-shaped SVG hero concept for an AI tools brand.",
+      "renderablePaths": [
+        "hero-concept.svg"
+      ],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 3,
+        "layoutCoherence": 3,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in an AI tools brand, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 15955337995762027896,
+      "model": "InferenceRuntime",
+      "temperature": 0.48,
+      "strategy": "motif-first_svg",
+      "origin": "live_inference",
+      "summary": "Materialized a request-shaped SVG hero concept for an AI tools brand.",
+      "renderablePaths": [
+        "hero-concept.svg"
+      ],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 3,
+        "layoutCoherence": 3,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in an AI tools brand, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-3",
+      "seed": 15687305781101599787,
+      "model": "InferenceRuntime",
+      "temperature": 0.48,
+      "strategy": "motif-first_svg",
+      "origin": "live_inference",
+      "summary": "Materialized a request-shaped SVG hero concept for an AI tools brand.",
+      "renderablePaths": [
+        "hero-concept.svg"
+      ],
+      "selected": true,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 3,
+        "layoutCoherence": 3,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in an AI tools brand, covers the required concepts, and is strong enough to lead the stage."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-3",
+  "winningCandidateRationale": "The candidate stays grounded in an AI tools brand, covers the required concepts, and is strong enough to lead the stage.",
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 3,
+    "layoutCoherence": 3,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in an AI tools brand, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "outputOrigin": "live_inference",
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "manifest": {
+    "artifactId": "0f261744-cee8-4569-9a40-92dac511cc41",
+    "title": "an SVG hero concept for an AI tools brand",
+    "artifactClass": "visual",
+    "renderer": "svg",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "svg",
+        "filePath": "hero-concept.svg",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "hero-concept.svg",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "hero-concept.svg",
+        "mime": "image/svg+xml",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-hero-concept.svg",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "The candidate stays grounded in an AI tools brand, covers the required concepts, and is strong enough to lead the stage."
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: an SVG hero concept for an AI tools brand",
+    "summary": "an SVG hero concept for an AI tools brand The candidate stays grounded in an AI tools brand, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "hero-concept.svg"
+    ]
+  },
+  "materializedFiles": [
+    "hero-concept.svg"
+  ],
+  "renderableFiles": [
+    "hero-concept.svg"
+  ],
+  "refinement": null
+}

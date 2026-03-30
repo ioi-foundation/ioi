@@ -1,5 +1,4 @@
 use ioi_ipc::public::chain_event::Event as ChainEventEnum;
-use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::SubscribeEventsRequest;
 
 mod action;
@@ -15,10 +14,14 @@ mod workload_receipt;
 
 pub async fn monitor_kernel_events(app: tauri::AppHandle) {
     loop {
+        let rpc_url = crate::kernel::state::kernel_rpc_url();
         let mut client = loop {
-            match PublicApiClient::connect("http://127.0.0.1:9000").await {
+            match crate::kernel::state::connect_public_api().await {
                 Ok(c) => {
-                    println!("[Autopilot] Connected to Kernel Event Stream at :9000");
+                    println!(
+                        "[Autopilot] Connected to Kernel Event Stream at {}",
+                        rpc_url
+                    );
                     break c;
                 }
                 Err(_) => {

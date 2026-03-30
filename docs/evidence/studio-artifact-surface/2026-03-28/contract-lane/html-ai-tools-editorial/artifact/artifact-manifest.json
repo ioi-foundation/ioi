@@ -1,0 +1,66 @@
+{
+  "artifactId": "c4c4af65-05d8-4011-a751-56090b0922cf",
+  "title": "an interactive HTML artifact for an AI tools editorial launch page",
+  "artifactClass": "interactive_single_file",
+  "renderer": "html_iframe",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "html_iframe",
+      "filePath": "index.html",
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": "index.html",
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "index.html",
+      "mime": "text/html",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": false,
+      "artifactId": "generated-index.html",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Complies with all requirements and faithfully represents the interactive editorial launch page.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

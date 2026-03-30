@@ -1,0 +1,341 @@
+{
+  "id": "markdown-release-checklist",
+  "prompt": "Create a markdown artifact that documents a release checklist",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/artifact/artifact-manifest.json",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 1,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "document",
+      "deliverableShape": "single_file",
+      "renderer": "markdown",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "none",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "Development team members responsible for software releases",
+    "jobToBeDone": "Ensure all necessary steps are completed before releasing new software versions",
+    "subjectDomain": "Software release management and checklist documentation",
+    "artifactThesis": "Create a comprehensive markdown document that serves as a release checklist to streamline the software deployment process",
+    "requiredConcepts": [
+      "release checklist",
+      "software development lifecycle",
+      "version control",
+      "deployment procedures",
+      "quality assurance"
+    ],
+    "requiredInteractions": [
+      "Reviewing current version status",
+      "Updating checklist items",
+      "Collaborating on checklist content"
+    ],
+    "visualTone": [],
+    "factualAnchors": [
+      "Common release issues and their prevention methods",
+      "Best practices in software deployment"
+    ],
+    "styleDirectives": [
+      "Clear and concise language",
+      "Structured format with headings and subheadings",
+      "Use bullet points for easy readability"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 7947757025476517000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.22,
+      "strategy": "outline-first_markdown",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "A comprehensive release checklist for the development team to ensure all necessary steps are completed before releasing new software versions.",
+      "renderablePaths": [
+        "release-checklist.md"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Comprehensive and well-structured checklist that aligns with the request."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "Comprehensive and well-structured checklist that aligns with the request.",
+  "manifest": {
+    "artifactId": "e847edf9-1fa5-416b-9b78-c4a8ae4da7ae",
+    "title": "a markdown artifact that documents a release checklist",
+    "artifactClass": "document",
+    "renderer": "markdown",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "markdown",
+        "filePath": "release-checklist.md",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "release-checklist.md",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "release-checklist.md",
+        "mime": "text/markdown",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-release-checklist.md",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Comprehensive and well-structured checklist that aligns with the request.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: a markdown artifact that documents a release checklist",
+    "summary": "a markdown artifact that documents a release checklist Comprehensive and well-structured checklist that aligns with the request.",
+    "evidence": [
+      "release-checklist.md"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "rendererOutput": {
+    "primaryFile": "release-checklist.md",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/captures/render-capture.md"
+    ]
+  },
+  "materializedFiles": [
+    "release-checklist.md"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "e847edf9-1fa5-416b-9b78-c4a8ae4da7ae",
+      "title": "a markdown artifact that documents a release checklist",
+      "artifact_class": "document",
+      "renderer": "markdown",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "Comprehensive and well-structured checklist that aligns with the request.",
+      "primary_tab": "render",
+      "tab_count": 3,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 1,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render",
+      "production_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptance_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'a markdown artifact that documents a release checklist' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'a markdown artifact that documents a release checklist' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/markdown-release-checklist/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: a markdown artifact that documents a release checklist",
+    "summary": "a markdown artifact that documents a release checklist Comprehensive and well-structured checklist that aligns with the request.",
+    "evidence": [
+      "release-checklist.md"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Comprehensive and well-structured checklist that aligns with the request."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Comprehensive and well-structured checklist that aligns with the request."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "notes": [],
+  "proofPath": "contract_path",
+  "fullStudioPath": false
+}

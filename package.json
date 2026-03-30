@@ -18,6 +18,7 @@
     "build:benchmarks": "npm run build --workspace=apps/benchmarks",
     "typecheck:benchmarks": "npm run typecheck --workspace=apps/benchmarks",
     "build:ide": "npm run build --workspace=@ioi/agent-ide",
+    "build:workspace-substrate": "npm run build --workspace=@ioi/workspace-substrate",
     "build:all": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"

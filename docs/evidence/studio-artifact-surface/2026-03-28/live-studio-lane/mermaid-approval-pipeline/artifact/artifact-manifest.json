@@ -1,0 +1,66 @@
+{
+  "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+  "title": "Create a Mermaid diagram of an approval pipeline",
+  "artifactClass": "visual",
+  "renderer": "mermaid",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "mermaid",
+      "filePath": null,
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": null,
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "approval_pipeline.mermaid",
+      "mime": "text/plain",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": "53cce884-40f8-4fcf-84ba-0bec33b38b18",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "shared_artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

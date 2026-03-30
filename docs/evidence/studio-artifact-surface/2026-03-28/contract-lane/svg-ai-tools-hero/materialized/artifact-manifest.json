@@ -1,0 +1,66 @@
+{
+  "artifactId": "a9d8cdb0-3872-4c9e-a46c-e896e60d67d6",
+  "title": "an SVG hero concept for an AI tools brand",
+  "artifactClass": "visual",
+  "renderer": "svg",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "svg",
+      "filePath": "hero-concept.svg",
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": "hero-concept.svg",
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "hero-concept.svg",
+      "mime": "image/svg+xml",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": false,
+      "artifactId": "generated-hero-concept.svg",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Meets all requirements with clear, relevant and visually compelling elements.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

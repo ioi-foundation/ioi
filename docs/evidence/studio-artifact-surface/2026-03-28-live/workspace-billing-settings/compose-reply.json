@@ -1,0 +1,14 @@
+{
+  "status": "ready",
+  "lifecycle_state": "ready",
+  "title": "Studio outcome: a workspace project for a billing settings surface",
+  "summary": "a workspace project for a billing settings surface The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage.",
+  "evidence": [
+    "index.html",
+    "styles.css",
+    "script.js",
+    "package.json",
+    "README.md",
+    "artifact-manifest.json"
+  ]
+}

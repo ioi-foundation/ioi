@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Technical Dashboard for Product Launch Metrics & Customer Feedback</title>
+    <style>
+        body { font-family: 'Arial Black', Gadget, sans-serif; }
+        .hero { text-align: center; padding-top: 70px; }
+        .controls { display: flex; justify-content: space-around; margin-bottom: 30px; }
+        .chart, .evidence { width: 100%; max-width: 800px; margin: auto; }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="hero">
+            <h1>Technical Dashboard for Product Launch Metrics & Customer Feedback</h1>
+        </section>
+        <nav class="controls">
+            <button type="button" data-view="q1-sales-figures-for-dog-shampoos" aria-controls="q1-sales-figures-for-dog-shampoos-panel">Q1 Sales Figures for Dog Shampoos</button>
+            <button type="button" data-view="customer-feedback-on-new-product-features" aria-controls="customer-feedback-on-new-product-features-panel">Customer Feedback on New Product Features</button>
+        </nav>
+        <section id="q1-sales-figures-for-dog-shampoos-panel" class="chart" data-view-panel="q1-sales-figures-for-dog-shampoos">
+            <svg width="800" height="400">
+                <rect x="50" y="100" width="700" height="200" fill="#FFC300" tabindex="0" data-detail="Q1 Sales for Dog Shampoos"/>
+                <text x="600" y="150" font-family='Arial Black' font-size='24'>Q1 Sales for Dog Shampoos</text>
+            </svg>
+        </section>
+        <section id="customer-feedback-on-new-product-features-panel" class="evidence" data-view-panel="customer-feedback-on-new-product-features">
+            <table style="width: 100%;">
+                <tr><th>Customer</th><th>Feedback</th></tr>
+                <tr><td>John Doe</td><td>Lovely product, great smell!</td></tr>
+                <tr><td>Jane Smith</td><td>Not as effective as expected.</td></tr>
+            </table>
+        </section>
+    <aside data-studio-normalized="true" data-studio-shared-detail="true"><h2>Detail</h2><p id="detail-copy">Q1 Sales Figures for Dog Shampoos is selected by default.</p></aside><section data-studio-normalized="true" data-studio-rollover-chip-rail="true"><h2>Evidence highlights</h2><div class="studio-rollover-chip-rail"><button type="button" class="studio-rollover-chip" data-detail="Customer Satisfaction Scores">Customer Satisfaction Scores</button><button type="button" class="studio-rollover-chip" data-detail="Sales Figures">Sales Figures</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>
+    <script>
+(function() {
+  document.querySelectorAll('[data-detail]').forEach((mark) => {
+    if (!mark.hasAttribute('tabindex')) {
+      mark.setAttribute('tabindex', '0');
+    }
+    const updateDetail = () => {
+      const detail = mark.getAttribute('data-detail') || '';
+      if (detail) {
+        document.getElementById('detail-copy').textContent = detail;
+      }
+    };
+    mark.addEventListener('click', updateDetail);
+    mark.addEventListener('mouseenter', updateDetail);
+    mark.addEventListener('focus', updateDetail);
+  });
+})();
+</script>
+<script data-studio-normalized="true" data-studio-view-switch-repair="true">(() => {
+  const controls = Array.from(document.querySelectorAll('button[data-view], [role="tab"][data-view]'));
+  if (controls.length < 2) {
+    return;
+  }
+  const explicitPanels = Array.from(document.querySelectorAll('[data-view-panel]'));
+  const mappedPanels = controls
+    .map((button) => {
+      const ariaTarget = button.getAttribute('aria-controls');
+      if (ariaTarget) {
+        return document.getElementById(ariaTarget);
+      }
+      const dataTarget = button.getAttribute('data-target') || '';
+      if (dataTarget.startsWith('#')) {
+        return document.querySelector(dataTarget);
+      }
+      return null;
+    })
+    .filter((panel, index, panels) => panel && panels.indexOf(panel) === index);
+  const panels = explicitPanels.length
+    ? explicitPanels
+    : (mappedPanels.length
+      ? mappedPanels
+      : Array.from(document.querySelectorAll('[data-panel], [role="tabpanel"]')));
+  if (panels.length < 2) {
+    return;
+  }
+  const detailCopy = document.getElementById('detail-copy');
+  const selectView = (activeControl) => {
+    const targetView = activeControl.dataset.view || '';
+    const rawTarget = activeControl.getAttribute('data-target') || '';
+    const targetId = activeControl.getAttribute('aria-controls') || (rawTarget.startsWith('#') ? rawTarget.slice(1) : rawTarget);
+    panels.forEach((panel) => {
+      const panelView = panel.dataset.viewPanel || panel.dataset.panel || '';
+      const panelId = panel.id || '';
+      const isActive = (targetView && panelView === targetView) || (targetId && panelId === targetId);
+      panel.hidden = !isActive;
+      panel.setAttribute('aria-hidden', String(!isActive));
+    });
+    controls.forEach((control) => {
+      control.setAttribute('aria-selected', String(control === activeControl));
+    });
+    if (detailCopy && activeControl.textContent) {
+      detailCopy.textContent = `${activeControl.textContent.trim()} selected.`;
+    }
+  };
+  controls.forEach((button) => {
+    button.addEventListener('click', () => selectView(button));
+  });
+  const defaultControl = controls.find((button) => button.getAttribute('aria-selected') === 'true') || controls[0];
+  if (defaultControl) {
+    selectView(defaultControl);
+  }
+})();</script></body>
+</html>

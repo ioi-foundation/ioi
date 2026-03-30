@@ -1,0 +1,9 @@
+{
+  "status": "ready",
+  "lifecycle_state": "ready",
+  "title": "Studio outcome: a PDF artifact that summarizes a launch brief",
+  "summary": "a PDF artifact that summarizes a launch brief The candidate stays grounded in a launch brief, covers the required concepts, and is strong enough to lead the stage.",
+  "evidence": [
+    "brief.pdf"
+  ]
+}

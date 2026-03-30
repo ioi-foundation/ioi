@@ -177,7 +177,7 @@ body,
   padding: 0;
   width: 100%;
   height: 100%;
-  background: transparent !important; /* Allow Tauri transparency */
+  background: var(--surface-0);
   overflow: hidden;
 }
 
@@ -189,6 +189,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   user-select: none;
   -webkit-user-select: none;
+}
+
+html[data-window-surface="transparent"],
+html[data-window-surface="transparent"] body,
+html[data-window-surface="transparent"] #root {
+  background: transparent !important;
 }
 
 input,

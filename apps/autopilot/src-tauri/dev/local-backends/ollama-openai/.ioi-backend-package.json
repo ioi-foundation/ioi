@@ -1,0 +1,12 @@
+{
+  "entrypoint": "start.sh",
+  "args": [],
+  "env": {
+    "OLLAMA_HOST": "127.0.0.1:11434",
+    "OLLAMA_DEFAULT_MODEL": "llama3.2:3b",
+    "AUTOPILOT_LOCAL_EMBEDDING_MODEL": "nomic-embed-text",
+    "AUTOPILOT_LOCAL_GPU_PULL_MODEL_ON_START": "1"
+  },
+  "healthUrl": "http://127.0.0.1:11434/api/tags",
+  "alias": "Ollama OpenAI Dev Runtime"
+}

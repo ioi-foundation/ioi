@@ -94,6 +94,508 @@ export type Artifact = Omit<GeneratedArtifact, "metadata"> & {
   metadata: JsonRecord;
 };
 
+export interface StudioArtifactNavigatorNode {
+  id: string;
+  label: string;
+  kind: string;
+  description?: string | null;
+  badge?: string | null;
+  status?: string | null;
+  lens?: string | null;
+  path?: string | null;
+  children: StudioArtifactNavigatorNode[];
+}
+
+export interface StudioArtifactMaterializationFileWrite {
+  path: string;
+  kind: string;
+  contentPreview?: string | null;
+}
+
+export interface StudioArtifactMaterializationCommandIntent {
+  id: string;
+  kind: string;
+  label: string;
+  command: string;
+}
+
+export interface StudioArtifactMaterializationPreviewIntent {
+  label: string;
+  url?: string | null;
+  status: string;
+}
+
+export interface StudioArtifactMaterializationVerificationStep {
+  id: string;
+  label: string;
+  kind: string;
+  status: string;
+}
+
+export type StudioArtifactPipelineStage =
+  | "intake"
+  | "routing"
+  | "requirements"
+  | "specification"
+  | "materialization"
+  | "execution"
+  | "verification"
+  | "presentation"
+  | "reply";
+
+export interface StudioArtifactPipelineStep {
+  id: string;
+  stage: StudioArtifactPipelineStage;
+  label: string;
+  status: string;
+  summary: string;
+  outputs: string[];
+  verificationGate?: string | null;
+}
+
+export type StudioArtifactEditMode = "create" | "patch" | "replace" | "branch";
+
+export type StudioArtifactJudgeClassification = "pass" | "repairable" | "blocked";
+
+export type StudioArtifactOutputOrigin =
+  | "live_inference"
+  | "mock_inference"
+  | "deterministic_fallback"
+  | "fixture_runtime"
+  | "inference_unavailable"
+  | "opaque_runtime";
+
+export type StudioRuntimeProvenanceKind =
+  | "real_remote_model_runtime"
+  | "real_local_runtime"
+  | "fixture_runtime"
+  | "mock_runtime"
+  | "deterministic_continuity_fallback"
+  | "inference_unavailable"
+  | "opaque_runtime";
+
+export interface StudioRuntimeProvenance {
+  kind: StudioRuntimeProvenanceKind;
+  label: string;
+  model?: string | null;
+  endpoint?: string | null;
+}
+
+export type StudioArtifactFailureKind =
+  | "inference_unavailable"
+  | "routing_failure"
+  | "generation_failure"
+  | "verification_failure";
+
+export interface StudioArtifactFailure {
+  kind: StudioArtifactFailureKind;
+  code: string;
+  message: string;
+}
+
+export type StudioArtifactUxLifecycle = "draft" | "refining" | "judged" | "locked";
+
+export interface StudioArtifactSelectionTarget {
+  sourceSurface: string;
+  path?: string | null;
+  label: string;
+  snippet: string;
+}
+
+export interface StudioArtifactTasteMemory {
+  directives: string[];
+  summary: string;
+}
+
+export interface StudioArtifactBrief {
+  audience: string;
+  jobToBeDone: string;
+  subjectDomain: string;
+  artifactThesis: string;
+  requiredConcepts: string[];
+  requiredInteractions: string[];
+  visualTone: string[];
+  factualAnchors: string[];
+  styleDirectives: string[];
+  referenceHints: string[];
+}
+
+export interface StudioArtifactEditIntent {
+  mode: StudioArtifactEditMode;
+  summary: string;
+  patchExistingArtifact: boolean;
+  preserveStructure: boolean;
+  targetScope: string;
+  targetPaths: string[];
+  requestedOperations: string[];
+  toneDirectives: string[];
+  selectedTargets: StudioArtifactSelectionTarget[];
+  styleDirectives: string[];
+  branchRequested: boolean;
+}
+
+export interface StudioArtifactJudgeResult {
+  classification: StudioArtifactJudgeClassification;
+  requestFaithfulness: number;
+  conceptCoverage: number;
+  interactionRelevance: number;
+  layoutCoherence: number;
+  visualHierarchy: number;
+  completeness: number;
+  genericShellDetected: boolean;
+  trivialShellDetected: boolean;
+  deservesPrimaryArtifactView: boolean;
+  patchedExistingArtifact?: boolean | null;
+  continuityRevisionUx?: number | null;
+  strongestContradiction?: string | null;
+  rationale: string;
+}
+
+export interface StudioArtifactCandidateSummary {
+  candidateId: string;
+  seed: number;
+  model: string;
+  temperature: number;
+  strategy: string;
+  origin: StudioArtifactOutputOrigin;
+  provenance?: StudioRuntimeProvenance | null;
+  summary: string;
+  renderablePaths: string[];
+  selected: boolean;
+  fallback: boolean;
+  judge: StudioArtifactJudgeResult;
+}
+
+export interface StudioArtifactMaterializationContract {
+  version: number;
+  requestKind: string;
+  normalizedIntent: string;
+  summary: string;
+  artifactBrief?: StudioArtifactBrief | null;
+  editIntent?: StudioArtifactEditIntent | null;
+  candidateSummaries: StudioArtifactCandidateSummary[];
+  winningCandidateId?: string | null;
+  winningCandidateRationale?: string | null;
+  judge?: StudioArtifactJudgeResult | null;
+  outputOrigin?: StudioArtifactOutputOrigin | null;
+  productionProvenance?: StudioRuntimeProvenance | null;
+  acceptanceProvenance?: StudioRuntimeProvenance | null;
+  fallbackUsed: boolean;
+  uxLifecycle?: StudioArtifactUxLifecycle | null;
+  failure?: StudioArtifactFailure | null;
+  navigatorNodes: StudioArtifactNavigatorNode[];
+  fileWrites: StudioArtifactMaterializationFileWrite[];
+  commandIntents: StudioArtifactMaterializationCommandIntent[];
+  previewIntent?: StudioArtifactMaterializationPreviewIntent | null;
+  verificationSteps: StudioArtifactMaterializationVerificationStep[];
+  pipelineSteps: StudioArtifactPipelineStep[];
+  notes: string[];
+}
+
+export interface StudioBuildReceipt {
+  receiptId: string;
+  kind: string;
+  title: string;
+  status: string;
+  summary: string;
+  startedAt: string;
+  finishedAt?: string | null;
+  artifactIds: string[];
+  command?: string | null;
+  exitCode?: number | null;
+  durationMs?: number | null;
+  failureClass?: string | null;
+  replayClassification?: string | null;
+}
+
+export interface StudioCodeWorkerLease {
+  backend: string;
+  plannerAuthority: string;
+  allowedMutationScope: string[];
+  allowedCommandClasses: string[];
+  executionState: string;
+  retryClassification?: string | null;
+  lastSummary?: string | null;
+}
+
+export type StudioOutcomeKind =
+  | "conversation"
+  | "tool_widget"
+  | "visualizer"
+  | "artifact";
+
+export type StudioArtifactClass =
+  | "document"
+  | "visual"
+  | "interactive_single_file"
+  | "downloadable_file"
+  | "workspace_project"
+  | "compound_bundle"
+  | "code_patch"
+  | "report_bundle";
+
+export type StudioArtifactDeliverableShape =
+  | "single_file"
+  | "file_set"
+  | "workspace_project";
+
+export type StudioRendererKind =
+  | "markdown"
+  | "html_iframe"
+  | "jsx_sandbox"
+  | "svg"
+  | "mermaid"
+  | "pdf_embed"
+  | "download_card"
+  | "workspace_surface"
+  | "bundle_manifest";
+
+export type StudioPresentationSurface =
+  | "inline"
+  | "side_panel"
+  | "overlay"
+  | "tabbed_panel";
+
+export type StudioArtifactPersistenceMode =
+  | "ephemeral"
+  | "artifact_scoped"
+  | "shared_artifact_scoped"
+  | "workspace_filesystem";
+
+export type StudioExecutionSubstrate =
+  | "none"
+  | "client_sandbox"
+  | "binary_generator"
+  | "workspace_runtime";
+
+export type StudioArtifactTabKind =
+  | "render"
+  | "source"
+  | "download"
+  | "evidence"
+  | "workspace";
+
+export type StudioArtifactFileRole =
+  | "primary"
+  | "source"
+  | "export"
+  | "supporting";
+
+export type StudioArtifactVerificationStatus =
+  | "ready"
+  | "blocked"
+  | "failed"
+  | "partial";
+
+export type StudioArtifactLifecycleState =
+  | "draft"
+  | "planned"
+  | "materializing"
+  | "rendering"
+  | "implementing"
+  | "verifying"
+  | "ready"
+  | "partial"
+  | "blocked"
+  | "failed";
+
+export interface StudioOutcomeArtifactScope {
+  targetProject?: string | null;
+  createNewWorkspace: boolean;
+  mutationBoundary: string[];
+}
+
+export interface StudioOutcomeArtifactVerificationRequest {
+  requireRender: boolean;
+  requireBuild: boolean;
+  requirePreview: boolean;
+  requireExport: boolean;
+  requireDiffReview: boolean;
+}
+
+export interface StudioOutcomeArtifactRequest {
+  artifactClass: StudioArtifactClass;
+  deliverableShape: StudioArtifactDeliverableShape;
+  renderer: StudioRendererKind;
+  presentationSurface: StudioPresentationSurface;
+  persistence: StudioArtifactPersistenceMode;
+  executionSubstrate: StudioExecutionSubstrate;
+  workspaceRecipeId?: string | null;
+  presentationVariantId?: string | null;
+  scope: StudioOutcomeArtifactScope;
+  verification: StudioOutcomeArtifactVerificationRequest;
+}
+
+export interface StudioOutcomeRequest {
+  requestId: string;
+  rawPrompt: string;
+  activeArtifactId?: string | null;
+  outcomeKind: StudioOutcomeKind;
+  confidence: number;
+  needsClarification: boolean;
+  clarificationQuestions: string[];
+  artifact?: StudioOutcomeArtifactRequest | null;
+}
+
+export interface StudioOutcomePlanningPayload {
+  outcomeKind: StudioOutcomeKind;
+  confidence: number;
+  needsClarification: boolean;
+  clarificationQuestions: string[];
+  artifact?: StudioOutcomeArtifactRequest | null;
+}
+
+export interface StudioArtifactManifestTab {
+  id: string;
+  label: string;
+  kind: StudioArtifactTabKind;
+  renderer?: StudioRendererKind | null;
+  filePath?: string | null;
+  lens?: string | null;
+}
+
+export interface StudioArtifactManifestFile {
+  path: string;
+  mime: string;
+  role: StudioArtifactFileRole;
+  renderable: boolean;
+  downloadable: boolean;
+  artifactId?: string | null;
+  externalUrl?: string | null;
+}
+
+export interface StudioArtifactManifestVerification {
+  status: StudioArtifactVerificationStatus;
+  lifecycleState: StudioArtifactLifecycleState;
+  summary: string;
+  productionProvenance?: StudioRuntimeProvenance | null;
+  acceptanceProvenance?: StudioRuntimeProvenance | null;
+  failure?: StudioArtifactFailure | null;
+}
+
+export interface StudioArtifactManifestStorage {
+  mode: StudioArtifactPersistenceMode;
+  apiLabel?: string | null;
+}
+
+export interface StudioArtifactManifest {
+  artifactId: string;
+  title: string;
+  artifactClass: StudioArtifactClass;
+  renderer: StudioRendererKind;
+  primaryTab: string;
+  tabs: StudioArtifactManifestTab[];
+  files: StudioArtifactManifestFile[];
+  verification: StudioArtifactManifestVerification;
+  storage?: StudioArtifactManifestStorage | null;
+}
+
+export interface StudioVerifiedReply {
+  status: StudioArtifactVerificationStatus;
+  lifecycleState: StudioArtifactLifecycleState;
+  title: string;
+  summary: string;
+  evidence: string[];
+  productionProvenance?: StudioRuntimeProvenance | null;
+  acceptanceProvenance?: StudioRuntimeProvenance | null;
+  failure?: StudioArtifactFailure | null;
+  updatedAt: string;
+}
+
+export interface StudioRendererSession {
+  sessionId: string;
+  studioSessionId: string;
+  renderer: StudioRendererKind;
+  workspaceRoot: string;
+  entryDocument: string;
+  previewUrl?: string | null;
+  previewProcessId?: number | null;
+  scaffoldRecipeId?: string | null;
+  presentationVariantId?: string | null;
+  packageManager?: string | null;
+  status: string;
+  verificationStatus: string;
+  receipts: StudioBuildReceipt[];
+  currentWorkerExecution?: StudioCodeWorkerLease | null;
+  currentTab: string;
+  availableTabs: string[];
+  readyTabs: string[];
+  retryCount: number;
+  lastFailureSummary?: string | null;
+}
+
+export interface StudioArtifactRevision {
+  revisionId: string;
+  parentRevisionId?: string | null;
+  branchId: string;
+  branchLabel: string;
+  prompt: string;
+  createdAt: string;
+  uxLifecycle: StudioArtifactUxLifecycle;
+  artifactManifest: StudioArtifactManifest;
+  artifactBrief?: StudioArtifactBrief | null;
+  editIntent?: StudioArtifactEditIntent | null;
+  candidateSummaries: StudioArtifactCandidateSummary[];
+  winningCandidateId?: string | null;
+  judge?: StudioArtifactJudgeResult | null;
+  outputOrigin?: StudioArtifactOutputOrigin | null;
+  productionProvenance?: StudioRuntimeProvenance | null;
+  acceptanceProvenance?: StudioRuntimeProvenance | null;
+  failure?: StudioArtifactFailure | null;
+  fileWrites: StudioArtifactMaterializationFileWrite[];
+  selectedTargets: StudioArtifactSelectionTarget[];
+}
+
+export interface StudioArtifactSession {
+  sessionId: string;
+  threadId: string;
+  artifactId: string;
+  title: string;
+  summary: string;
+  currentLens: string;
+  navigatorBackingMode: string;
+  navigatorNodes: StudioArtifactNavigatorNode[];
+  attachedArtifactIds: string[];
+  availableLenses: string[];
+  materialization: StudioArtifactMaterializationContract;
+  outcomeRequest: StudioOutcomeRequest;
+  artifactManifest: StudioArtifactManifest;
+  verifiedReply: StudioVerifiedReply;
+  lifecycleState: StudioArtifactLifecycleState;
+  status: string;
+  activeRevisionId?: string | null;
+  revisions: StudioArtifactRevision[];
+  tasteMemory?: StudioArtifactTasteMemory | null;
+  selectedTargets: StudioArtifactSelectionTarget[];
+  uxLifecycle?: StudioArtifactUxLifecycle | null;
+  createdAt: string;
+  updatedAt: string;
+  buildSessionId?: string | null;
+  workspaceRoot?: string | null;
+  rendererSessionId?: string | null;
+}
+
+export interface BuildArtifactSession {
+  sessionId: string;
+  studioSessionId: string;
+  workspaceRoot: string;
+  entryDocument: string;
+  previewUrl?: string | null;
+  previewProcessId?: number | null;
+  scaffoldRecipeId: string;
+  presentationVariantId?: string | null;
+  packageManager: string;
+  buildStatus: string;
+  verificationStatus: string;
+  receipts: StudioBuildReceipt[];
+  currentWorkerExecution: StudioCodeWorkerLease;
+  currentLens: string;
+  availableLenses: string[];
+  readyLenses: string[];
+  retryCount: number;
+  lastFailureSummary?: string | null;
+}
+
 export type AtlasEdge = GeneratedAtlasEdge;
 
 export type AtlasNode = Omit<GeneratedAtlasNode, "metadata"> & {

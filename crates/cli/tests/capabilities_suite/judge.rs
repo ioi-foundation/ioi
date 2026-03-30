@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use ioi_api::vm::inference::InferenceRuntime;
-use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::{agentic::InferenceOptions, FinalityTier};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
@@ -412,6 +412,9 @@ Payload:\n{}",
         temperature: 0.4,
         json_mode: true,
         max_tokens: 500,
+        required_finality_tier: FinalityTier::BaseFinal,
+        sealed_finality_proof: None,
+        canonical_collapse_object: None,
     };
 
     let mut raw: Option<Vec<u8>> = None;

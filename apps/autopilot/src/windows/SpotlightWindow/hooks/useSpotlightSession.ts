@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import type {
   ChangeEvent,
   Dispatch,
@@ -6,6 +6,7 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
+import { flushSync } from "react-dom";
 import { emit } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { initEventListeners } from "../../../store/agentStore";
@@ -24,6 +25,7 @@ type UseSpotlightSessionOptions = {
   startTask: (intent: string) => Promise<AgentTask | null>;
   continueTask: (sessionId: string, input: string) => Promise<void>;
   resetSession: () => void;
+  refreshCurrentTask: () => Promise<AgentTask | null>;
   setSelectedArtifactId: (artifactId: string | null) => void;
   toggleArtifactPanel: (visible?: boolean) => Promise<void>;
   loadThreadEvents: (threadId: string, limit?: number, cursor?: number) => Promise<unknown>;
@@ -33,6 +35,8 @@ type UseSpotlightSessionOptions = {
 type SessionUiState = {
   intent: string;
   localHistory: ChatMessage[];
+  submissionInFlight: boolean;
+  submissionError: string | null;
   autoContext: boolean;
   activeDropdown: string | null;
   sessions: SessionSummary[];
@@ -59,6 +63,8 @@ type SessionUiAction = {
 const INITIAL_STATE: SessionUiState = {
   intent: "",
   localHistory: [],
+  submissionInFlight: false,
+  submissionError: null,
   autoContext: true,
   activeDropdown: null,
   sessions: [],
@@ -105,12 +111,14 @@ export function useSpotlightSession({
   startTask,
   continueTask,
   resetSession,
+  refreshCurrentTask,
   setSelectedArtifactId,
   toggleArtifactPanel,
   loadThreadEvents,
   loadThreadArtifacts,
 }: UseSpotlightSessionOptions) {
   const [state, dispatch] = useReducer(sessionUiReducer, INITIAL_STATE);
+  const historyLoadInFlightRef = useRef(false);
 
   const setField = useCallback(
     <K extends keyof SessionUiState>(
@@ -164,6 +172,12 @@ export function useSpotlightSession({
   const setLocalHistory = useCallback((value: SetStateAction<ChatMessage[]>) => {
     setField("localHistory", value);
   }, [setField]);
+  const setSubmissionInFlight = useCallback((value: SetStateAction<boolean>) => {
+    setField("submissionInFlight", value);
+  }, [setField]);
+  const setSubmissionError = useCallback((value: SetStateAction<string | null>) => {
+    setField("submissionError", value);
+  }, [setField]);
 
   useEffect(() => {
     initEventListeners();
@@ -173,19 +187,85 @@ export function useSpotlightSession({
   }, [inputRef]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadHistory = async () => {
+      if (historyLoadInFlightRef.current) {
+        return;
+      }
+
+      historyLoadInFlightRef.current = true;
       try {
-        const history = await invoke<SessionSummary[]>("get_session_history");
-        setSessions(history);
+        const historyPromise = invoke<SessionSummary[]>("get_session_history");
+        const timeoutPromise = new Promise<SessionSummary[]>((_, reject) => {
+          window.setTimeout(() => reject(new Error("get_session_history timed out")), 1800);
+        });
+        const history = await Promise.race([historyPromise, timeoutPromise]);
+        if (!cancelled) {
+          setSessions(history);
+        }
       } catch (e) {
         console.error("Failed to load history:", e);
+      } finally {
+        historyLoadInFlightRef.current = false;
       }
     };
 
-    loadHistory();
-    const interval = setInterval(loadHistory, 5000);
-    return () => clearInterval(interval);
+    void loadHistory();
+    const interval = setInterval(() => {
+      void loadHistory();
+    }, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [setSessions]);
+
+  useEffect(() => {
+    const sessionId = task?.session_id || task?.id;
+    if (!sessionId) {
+      return;
+    }
+
+    if (task?.phase === "Complete" || task?.phase === "Failed") {
+      return;
+    }
+
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const scheduleNext = (delayMs: number) => {
+      timer = window.setTimeout(() => {
+        void tick();
+      }, delayMs);
+    };
+
+    const tick = async () => {
+      try {
+        await refreshCurrentTask();
+      } catch (error) {
+        console.error("Failed to hydrate current task during active run:", error);
+      } finally {
+        if (!cancelled) {
+          const currentStep = (task?.current_step || "").toLowerCase();
+          const nextDelayMs =
+            currentStep.includes("initializing") || currentStep.includes("submitting")
+              ? 350
+              : 900;
+          scheduleNext(nextDelayMs);
+        }
+      }
+    };
+
+    scheduleNext(250);
+
+    return () => {
+      cancelled = true;
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [refreshCurrentTask, task?.current_step, task?.id, task?.phase, task?.session_id]);
 
   useEffect(() => {
     const threadId = task?.session_id || task?.id;
@@ -193,6 +273,28 @@ export function useSpotlightSession({
     void loadThreadEvents(threadId).catch(console.error);
     void loadThreadArtifacts(threadId).catch(console.error);
   }, [loadThreadArtifacts, loadThreadEvents, task?.id, task?.session_id]);
+
+  useEffect(() => {
+    if (!task) {
+      return;
+    }
+
+    const verifiedStudioArtifact =
+      task.studio_session?.artifactManifest?.verification.status === "ready";
+
+    if (task.phase === "Failed") {
+      setSubmissionInFlight(false);
+      setSubmissionError(
+        verifiedStudioArtifact
+          ? null
+          : (task.current_step || "Studio could not complete this run."),
+      );
+      return;
+    }
+
+    setSubmissionInFlight(false);
+    setSubmissionError(null);
+  }, [setSubmissionError, setSubmissionInFlight, task]);
 
   const openStudio = useCallback(
     async (targetView: string = "compose") => {
@@ -210,6 +312,8 @@ export function useSpotlightSession({
   const handleLoadSession = useCallback(
     async (id: string) => {
       try {
+        setSubmissionInFlight(false);
+        setSubmissionError(null);
         setArtifactHubView(null);
         setSelectedArtifactId(null);
         await toggleArtifactPanel(false);
@@ -218,7 +322,21 @@ export function useSpotlightSession({
         console.error("Failed to load session:", e);
       }
     },
-    [setArtifactHubView, setSelectedArtifactId, toggleArtifactPanel],
+    [
+      setArtifactHubView,
+      setSelectedArtifactId,
+      setSubmissionError,
+      setSubmissionInFlight,
+      toggleArtifactPanel,
+    ],
+  );
+
+  const waitForUiPaint = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      }),
+    [],
   );
 
   const handleSubmit = useCallback(async () => {
@@ -245,13 +363,19 @@ export function useSpotlightSession({
 
     if (task && task.phase === "Running") return;
 
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-    }
-    setIntent("");
-
     try {
-      if (task && task.id && task.phase !== "Failed") {
+      const shouldContinueExistingSession = !!task && !!task.id && task.phase !== "Failed";
+
+      if (shouldContinueExistingSession) {
+        flushSync(() => {
+          if (inputRef.current) {
+            inputRef.current.style.height = "auto";
+          }
+          setIntent("");
+          setSubmissionError(null);
+          setSubmissionInFlight(true);
+        });
+        await waitForUiPaint();
         await continueTask(task.id || task.session_id || "", text);
       } else {
         if (
@@ -260,9 +384,30 @@ export function useSpotlightSession({
         ) {
           await openStudio("autopilot");
         }
-        await startTask(text);
+        flushSync(() => {
+          if (inputRef.current) {
+            inputRef.current.style.height = "auto";
+          }
+          setIntent("");
+          setLocalHistory((current) => [
+            ...current,
+            { role: "user", text, timestamp: Date.now() },
+          ]);
+          setSubmissionError(null);
+          setSubmissionInFlight(true);
+        });
+        await waitForUiPaint();
+        const startedTask = await startTask(text);
+        if (!startedTask) {
+          setSubmissionInFlight(false);
+          setSubmissionError(
+            "Studio could not start this run. Check receipts for backend errors, then try again.",
+          );
+        }
       }
     } catch (e) {
+      setSubmissionInFlight(false);
+      setSubmissionError(String(e));
       console.error(e);
     }
   }, [
@@ -270,10 +415,14 @@ export function useSpotlightSession({
     inputRef,
     isStudioVariant,
     openStudio,
+    setLocalHistory,
+    setSubmissionError,
+    setSubmissionInFlight,
     setIntent,
     startTask,
     state.intent,
     task,
+    waitForUiPaint,
   ]);
 
   const handleSubmitRuntimePassword = useCallback(
@@ -362,6 +511,8 @@ export function useSpotlightSession({
   const handleNewChat = useCallback(() => {
     resetSession();
     setLocalHistory([]);
+    setSubmissionInFlight(false);
+    setSubmissionError(null);
     setChatEvents([]);
     setArtifactHubView(null);
     setSelectedArtifactId(null);
@@ -374,6 +525,8 @@ export function useSpotlightSession({
     setChatEvents,
     setLocalHistory,
     setSelectedArtifactId,
+    setSubmissionError,
+    setSubmissionInFlight,
     toggleArtifactPanel,
   ]);
 
@@ -412,6 +565,8 @@ export function useSpotlightSession({
     intent: state.intent,
     setIntent,
     localHistory: state.localHistory,
+    submissionInFlight: state.submissionInFlight,
+    submissionError: state.submissionError,
     autoContext: state.autoContext,
     setAutoContext,
     activeDropdown: state.activeDropdown,

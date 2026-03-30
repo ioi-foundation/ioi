@@ -1,0 +1,2 @@
+Materialized artifact package 'Create an SVG hero concept for an AI tools brand' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/repeated-run-variation/svg-ai-tools-hero-variation-2/materialized'.
+Packaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/repeated-run-variation/svg-ai-tools-hero-variation-2/materialized/artifact-manifest.json'.

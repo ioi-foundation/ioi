@@ -1,0 +1,1507 @@
+{
+  "id": "studio-proof-task",
+  "intent": "Create a PDF artifact that summarizes a launch brief",
+  "agent": "Autopilot",
+  "phase": "Running",
+  "progress": 0,
+  "total_steps": 20,
+  "current_step": "Initializing...",
+  "gate_info": null,
+  "receipt": null,
+  "visual_hash": null,
+  "pending_request_hash": null,
+  "session_id": "studio-proof-task",
+  "credential_request": null,
+  "clarification_request": null,
+  "history": [],
+  "events": [
+    {
+      "event_id": "75a5c7b3-ba16-4d08-a096-768f9b9ad3b7",
+      "timestamp": "2026-03-30T12:04:46.011039803+00:00",
+      "thread_id": "studio-proof-task",
+      "step_index": 0,
+      "event_type": "RECEIPT",
+      "title": "Studio created Create a PDF artifact that summarizes a launch brief",
+      "digest": {
+        "artifact_class": "document",
+        "build_session_id": null,
+        "navigator_backing_mode": "logical"
+      },
+      "details": {
+        "activeRevisionId": "78f6079d-f9ef-4644-a8ae-b7c3689da42c",
+        "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+        "artifactManifest": {
+          "artifactClass": "document",
+          "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+          "files": [
+            {
+              "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+              "downloadable": true,
+              "externalUrl": null,
+              "mime": "application/pdf",
+              "path": "summary.pdf",
+              "renderable": true,
+              "role": "primary"
+            }
+          ],
+          "primaryTab": "render",
+          "renderer": "pdf_embed",
+          "storage": {
+            "apiLabel": "artifact storage",
+            "mode": "shared_artifact_scoped"
+          },
+          "tabs": [
+            {
+              "filePath": null,
+              "id": "render",
+              "kind": "render",
+              "label": "Render",
+              "lens": "render",
+              "renderer": "pdf_embed"
+            },
+            {
+              "filePath": null,
+              "id": "source",
+              "kind": "source",
+              "label": "Source",
+              "lens": "source",
+              "renderer": null
+            },
+            {
+              "filePath": null,
+              "id": "evidence",
+              "kind": "evidence",
+              "label": "Evidence",
+              "lens": "evidence",
+              "renderer": null
+            }
+          ],
+          "title": "Create a PDF artifact that summarizes a launch brief",
+          "verification": {
+            "acceptanceProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b"
+            },
+            "failure": null,
+            "lifecycleState": "ready",
+            "productionProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b"
+            },
+            "status": "ready",
+            "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+          }
+        },
+        "attachedArtifactIds": [
+          "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+          "c9405aed-3130-46cd-9b3b-0f6c942412e8"
+        ],
+        "availableLenses": [
+          "render",
+          "source",
+          "evidence"
+        ],
+        "buildSessionId": null,
+        "createdAt": "2026-03-30T12:03:46.948915896+00:00",
+        "currentLens": "render",
+        "lifecycleState": "ready",
+        "materialization": {
+          "acceptanceProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b"
+          },
+          "artifactBrief": {
+            "artifactThesis": "Generate a single-page PDF document that succinctly summarizes key points from the launch brief, ensuring clarity and ease of access",
+            "audience": "Project stakeholders and team members",
+            "factualAnchors": [
+              "project scope",
+              "target audience",
+              "expected outcomes"
+            ],
+            "jobToBeDone": "Provide a concise summary of the launch brief for quick reference and understanding",
+            "referenceHints": [],
+            "requiredConcepts": [
+              "launch brief",
+              "key points",
+              "summary",
+              "project timeline",
+              "milestones",
+              "team roles"
+            ],
+            "requiredInteractions": [],
+            "styleDirectives": [
+              "use bullet points for clarity",
+              "include essential details only",
+              "maintain a clear and organized layout"
+            ],
+            "subjectDomain": "Launch planning and preparation",
+            "visualTone": [
+              "professional",
+              "concise",
+              "informative"
+            ]
+          },
+          "candidateSummaries": [
+            {
+              "candidateId": "candidate-1",
+              "failure": null,
+              "fallback": false,
+              "judge": {
+                "classification": "pass",
+                "completeness": 5,
+                "conceptCoverage": 5,
+                "continuityRevisionUx": null,
+                "deservesPrimaryArtifactView": true,
+                "genericShellDetected": false,
+                "interactionRelevance": 4,
+                "layoutCoherence": 5,
+                "patchedExistingArtifact": null,
+                "rationale": "Candidate meets all brief requirements, concise and informative.",
+                "requestFaithfulness": 5,
+                "strongestContradiction": "",
+                "trivialShellDetected": false,
+                "visualHierarchy": 5
+              },
+              "model": "qwen2.5:7b",
+              "origin": "live_inference",
+              "provenance": {
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen2.5:7b"
+              },
+              "rawOutputPreview": null,
+              "renderablePaths": [
+                "summary.pdf"
+              ],
+              "seed": 7623781069568121325,
+              "selected": true,
+              "strategy": "brief-first_pdf",
+              "summary": "Executive Summary\n- This document provides a concise summary of the launch brief for quick reference and understanding.\n\nProject Scope\n- Key objectives: Ensure product readiness, stakeholder engagement, and regulatory compliance.\n- Expected outcomes: Successful market entry, positive customer feedback, and high sales volume.\n- Project timeline: Q1 planning, Q2 development, Q3 testing, Q4 launch.\n\nTarget Audience\n- Primary stakeholders: Marketing team, R&D department, legal counsel.\n- Secondary stakeholders: Sales representatives, customer service staff.\n\nMilestones\n- Critical phases: Concept validation, prototype design, user testing, final review.\n- Key deliverables: Market research report, product design blueprint, regulatory approval documents.\n\nNext Steps and Risks\n- Immediate actions: Schedule stakeholder meetings, finalize project budget.\n- Potential risks: Delays in regulatory approvals, unexpected market resistance.",
+              "temperature": 0.20000000298023224
+            }
+          ],
+          "commandIntents": [],
+          "editIntent": null,
+          "failure": null,
+          "fallbackUsed": false,
+          "fileWrites": [
+            {
+              "contentPreview": "Executive Summary\n- This document provides a concise summary of the launch brief for quick reference and understanding.\n\nProject Scope\n- Key objectives: Ensure product readiness, stakeholder engagement, and regulatory compliance.\n- Expected outcomes: Successful market entry, positive customer feedback, and high sales volume.",
+              "kind": "primary",
+              "path": "summary.pdf"
+            }
+          ],
+          "judge": {
+            "classification": "pass",
+            "completeness": 5,
+            "conceptCoverage": 5,
+            "continuityRevisionUx": null,
+            "deservesPrimaryArtifactView": true,
+            "genericShellDetected": false,
+            "interactionRelevance": 4,
+            "layoutCoherence": 5,
+            "patchedExistingArtifact": null,
+            "rationale": "Candidate meets all brief requirements, concise and informative.",
+            "requestFaithfulness": 5,
+            "strongestContradiction": "",
+            "trivialShellDetected": false,
+            "visualHierarchy": 5
+          },
+          "navigatorNodes": [
+            {
+              "badge": null,
+              "children": [],
+              "description": "Interact with the artifact through its renderer-specific presentation.",
+              "id": "render",
+              "kind": "render",
+              "label": "Render",
+              "lens": "render",
+              "path": null,
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Inspect the source form of the artifact.",
+              "id": "source",
+              "kind": "source",
+              "label": "Source",
+              "lens": "source",
+              "path": null,
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Inspect verification state, receipts, and evidence.",
+              "id": "evidence",
+              "kind": "evidence",
+              "label": "Evidence",
+              "lens": "evidence",
+              "path": null,
+              "status": null
+            }
+          ],
+          "normalizedIntent": "Create a PDF artifact that summarizes a launch brief",
+          "notes": [
+            "Conversation remains the control plane; this artifact is the work product.",
+            "Renderer choice is explicit in the typed outcome request.",
+            "Verification state, not worker prose, authorizes the final Studio summary.",
+            "This summary is designed to be concise and informative, focusing on key points from the launch brief.",
+            "Winning candidate candidate-1 selected via typed judging."
+          ],
+          "outputOrigin": "live_inference",
+          "pipelineSteps": [
+            {
+              "id": "intake",
+              "label": "Intake",
+              "outputs": [
+                "Create a PDF artifact that summarizes a launch brief"
+              ],
+              "stage": "intake",
+              "status": "complete",
+              "summary": "Studio captured the request and established the active artifact context.",
+              "verificationGate": null
+            },
+            {
+              "id": "routing",
+              "label": "Outcome routing",
+              "outputs": [
+                "artifact",
+                "document",
+                "pdf_embed"
+              ],
+              "stage": "routing",
+              "status": "complete",
+              "summary": "The typed router chose the artifact branch intentionally.",
+              "verificationGate": null
+            },
+            {
+              "id": "requirements",
+              "label": "Requirements",
+              "outputs": [
+                "artifact"
+              ],
+              "stage": "requirements",
+              "status": "complete",
+              "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+              "verificationGate": null
+            },
+            {
+              "id": "specification",
+              "label": "Artifact spec",
+              "outputs": [
+                "document",
+                "pdf_embed",
+                "side_panel",
+                "shared_artifact_scoped"
+              ],
+              "stage": "specification",
+              "status": "complete",
+              "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+              "verificationGate": null
+            },
+            {
+              "id": "materialization",
+              "label": "Materialization",
+              "outputs": [
+                "summary.pdf"
+              ],
+              "stage": "materialization",
+              "status": "complete",
+              "summary": "Studio is creating the files or workspace required by the manifest.",
+              "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+            },
+            {
+              "id": "execution",
+              "label": "Execution",
+              "outputs": [
+                "summary.pdf"
+              ],
+              "stage": "execution",
+              "status": "complete",
+              "summary": "Single-file generation completed inside the selected renderer substrate.",
+              "verificationGate": "Execution receipts must exist for every command-backed step."
+            },
+            {
+              "id": "verification",
+              "label": "Verification",
+              "outputs": [
+                "Materialize artifact (success)",
+                "Verify artifact contract (success)"
+              ],
+              "stage": "verification",
+              "status": "complete",
+              "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+              "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+            },
+            {
+              "id": "presentation",
+              "label": "Presentation",
+              "outputs": [
+                "render",
+                "1 file(s)"
+              ],
+              "stage": "presentation",
+              "status": "complete",
+              "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+              "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+            },
+            {
+              "id": "reply",
+              "label": "Verified reply",
+              "outputs": [
+                "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+              ],
+              "stage": "reply",
+              "status": "complete",
+              "summary": "Studio composes the user-facing summary from artifact state and verification.",
+              "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+            }
+          ],
+          "previewIntent": null,
+          "productionProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b"
+          },
+          "requestKind": "document",
+          "summary": "Studio created 'Create a PDF artifact that summarizes a launch brief' as a PDF artifact with inline preview and download support.",
+          "uxLifecycle": "judged",
+          "verificationSteps": [
+            {
+              "id": "materialize",
+              "kind": "materialize",
+              "label": "Materialize artifact",
+              "status": "success"
+            },
+            {
+              "id": "verify",
+              "kind": "verify",
+              "label": "Verify artifact contract",
+              "status": "success"
+            }
+          ],
+          "version": 3,
+          "winningCandidateId": "candidate-1",
+          "winningCandidateRationale": "Candidate meets all brief requirements, concise and informative."
+        },
+        "navigatorBackingMode": "logical",
+        "navigatorNodes": [
+          {
+            "badge": null,
+            "children": [],
+            "description": "Interact with the artifact through its renderer-specific presentation.",
+            "id": "render",
+            "kind": "render",
+            "label": "Render",
+            "lens": "render",
+            "path": null,
+            "status": null
+          },
+          {
+            "badge": null,
+            "children": [],
+            "description": "Inspect the source form of the artifact.",
+            "id": "source",
+            "kind": "source",
+            "label": "Source",
+            "lens": "source",
+            "path": null,
+            "status": null
+          },
+          {
+            "badge": null,
+            "children": [],
+            "description": "Inspect verification state, receipts, and evidence.",
+            "id": "evidence",
+            "kind": "evidence",
+            "label": "Evidence",
+            "lens": "evidence",
+            "path": null,
+            "status": null
+          }
+        ],
+        "outcomeRequest": {
+          "activeArtifactId": null,
+          "artifact": {
+            "artifactClass": "document",
+            "deliverableShape": "single_file",
+            "executionSubstrate": "binary_generator",
+            "persistence": "shared_artifact_scoped",
+            "presentationSurface": "side_panel",
+            "presentationVariantId": null,
+            "renderer": "pdf_embed",
+            "scope": {
+              "createNewWorkspace": false,
+              "mutationBoundary": [
+                "artifact"
+              ],
+              "targetProject": null
+            },
+            "verification": {
+              "requireBuild": false,
+              "requireDiffReview": false,
+              "requireExport": true,
+              "requirePreview": false,
+              "requireRender": true
+            },
+            "workspaceRecipeId": null
+          },
+          "clarificationQuestions": [],
+          "confidence": 1.0,
+          "needsClarification": false,
+          "outcomeKind": "artifact",
+          "rawPrompt": "Create a PDF artifact that summarizes a launch brief",
+          "requestId": "30f80090-74a1-4024-a24a-1be255ed9d80"
+        },
+        "rendererSessionId": null,
+        "revisions": [
+          {
+            "acceptanceProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b"
+            },
+            "artifactBrief": {
+              "artifactThesis": "Generate a single-page PDF document that succinctly summarizes key points from the launch brief, ensuring clarity and ease of access",
+              "audience": "Project stakeholders and team members",
+              "factualAnchors": [
+                "project scope",
+                "target audience",
+                "expected outcomes"
+              ],
+              "jobToBeDone": "Provide a concise summary of the launch brief for quick reference and understanding",
+              "referenceHints": [],
+              "requiredConcepts": [
+                "launch brief",
+                "key points",
+                "summary",
+                "project timeline",
+                "milestones",
+                "team roles"
+              ],
+              "requiredInteractions": [],
+              "styleDirectives": [
+                "use bullet points for clarity",
+                "include essential details only",
+                "maintain a clear and organized layout"
+              ],
+              "subjectDomain": "Launch planning and preparation",
+              "visualTone": [
+                "professional",
+                "concise",
+                "informative"
+              ]
+            },
+            "artifactManifest": {
+              "artifactClass": "document",
+              "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+              "files": [
+                {
+                  "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+                  "downloadable": true,
+                  "externalUrl": null,
+                  "mime": "application/pdf",
+                  "path": "summary.pdf",
+                  "renderable": true,
+                  "role": "primary"
+                }
+              ],
+              "primaryTab": "render",
+              "renderer": "pdf_embed",
+              "storage": {
+                "apiLabel": "artifact storage",
+                "mode": "shared_artifact_scoped"
+              },
+              "tabs": [
+                {
+                  "filePath": null,
+                  "id": "render",
+                  "kind": "render",
+                  "label": "Render",
+                  "lens": "render",
+                  "renderer": "pdf_embed"
+                },
+                {
+                  "filePath": null,
+                  "id": "source",
+                  "kind": "source",
+                  "label": "Source",
+                  "lens": "source",
+                  "renderer": null
+                },
+                {
+                  "filePath": null,
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "label": "Evidence",
+                  "lens": "evidence",
+                  "renderer": null
+                }
+              ],
+              "title": "Create a PDF artifact that summarizes a launch brief",
+              "verification": {
+                "acceptanceProvenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:14b"
+                },
+                "failure": null,
+                "lifecycleState": "ready",
+                "productionProvenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "status": "ready",
+                "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+              }
+            },
+            "branchId": "main",
+            "branchLabel": "Main",
+            "candidateSummaries": [
+              {
+                "candidateId": "candidate-1",
+                "failure": null,
+                "fallback": false,
+                "judge": {
+                  "classification": "pass",
+                  "completeness": 5,
+                  "conceptCoverage": 5,
+                  "continuityRevisionUx": null,
+                  "deservesPrimaryArtifactView": true,
+                  "genericShellDetected": false,
+                  "interactionRelevance": 4,
+                  "layoutCoherence": 5,
+                  "patchedExistingArtifact": null,
+                  "rationale": "Candidate meets all brief requirements, concise and informative.",
+                  "requestFaithfulness": 5,
+                  "strongestContradiction": "",
+                  "trivialShellDetected": false,
+                  "visualHierarchy": 5
+                },
+                "model": "qwen2.5:7b",
+                "origin": "live_inference",
+                "provenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "rawOutputPreview": null,
+                "renderablePaths": [
+                  "summary.pdf"
+                ],
+                "seed": 7623781069568121325,
+                "selected": true,
+                "strategy": "brief-first_pdf",
+                "summary": "Executive Summary\n- This document provides a concise summary of the launch brief for quick reference and understanding.\n\nProject Scope\n- Key objectives: Ensure product readiness, stakeholder engagement, and regulatory compliance.\n- Expected outcomes: Successful market entry, positive customer feedback, and high sales volume.\n- Project timeline: Q1 planning, Q2 development, Q3 testing, Q4 launch.\n\nTarget Audience\n- Primary stakeholders: Marketing team, R&D department, legal counsel.\n- Secondary stakeholders: Sales representatives, customer service staff.\n\nMilestones\n- Critical phases: Concept validation, prototype design, user testing, final review.\n- Key deliverables: Market research report, product design blueprint, regulatory approval documents.\n\nNext Steps and Risks\n- Immediate actions: Schedule stakeholder meetings, finalize project budget.\n- Potential risks: Delays in regulatory approvals, unexpected market resistance.",
+                "temperature": 0.20000000298023224
+              }
+            ],
+            "createdAt": "2026-03-30T12:04:46.010233752+00:00",
+            "editIntent": null,
+            "failure": null,
+            "fileWrites": [
+              {
+                "contentPreview": "Executive Summary\n- This document provides a concise summary of the launch brief for quick reference and understanding.\n\nProject Scope\n- Key objectives: Ensure product readiness, stakeholder engagement, and regulatory compliance.\n- Expected outcomes: Successful market entry, positive customer feedback, and high sales volume.",
+                "kind": "primary",
+                "path": "summary.pdf"
+              }
+            ],
+            "judge": {
+              "classification": "pass",
+              "completeness": 5,
+              "conceptCoverage": 5,
+              "continuityRevisionUx": null,
+              "deservesPrimaryArtifactView": true,
+              "genericShellDetected": false,
+              "interactionRelevance": 4,
+              "layoutCoherence": 5,
+              "patchedExistingArtifact": null,
+              "rationale": "Candidate meets all brief requirements, concise and informative.",
+              "requestFaithfulness": 5,
+              "strongestContradiction": "",
+              "trivialShellDetected": false,
+              "visualHierarchy": 5
+            },
+            "outputOrigin": "live_inference",
+            "parentRevisionId": null,
+            "productionProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b"
+            },
+            "prompt": "Create a PDF artifact that summarizes a launch brief",
+            "revisionId": "78f6079d-f9ef-4644-a8ae-b7c3689da42c",
+            "selectedTargets": [],
+            "uxLifecycle": "judged",
+            "winningCandidateId": "candidate-1"
+          }
+        ],
+        "selectedTargets": [],
+        "sessionId": "dffae576-6afd-4313-af1c-ecb4d52ca1a8",
+        "status": "ready",
+        "summary": "Studio created 'Create a PDF artifact that summarizes a launch brief' as a PDF artifact with inline preview and download support.",
+        "tasteMemory": {
+          "directives": [
+            "professional",
+            "concise",
+            "informative",
+            "use bullet points for clarity",
+            "include essential details only",
+            "maintain a clear and organized layout"
+          ],
+          "summary": "Session taste memory is steering this artifact toward professional, concise, informative, use bullet points for clarity."
+        },
+        "threadId": "studio-proof-task",
+        "title": "Create a PDF artifact that summarizes a launch brief",
+        "updatedAt": "2026-03-30T12:03:46.948915896+00:00",
+        "uxLifecycle": "judged",
+        "verifiedReply": {
+          "acceptanceProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b"
+          },
+          "evidence": [
+            "summary.pdf",
+            "production provenance: openai-compatible (qwen2.5:7b)",
+            "acceptance provenance: openai-compatible (qwen2.5:14b)"
+          ],
+          "failure": null,
+          "lifecycleState": "ready",
+          "productionProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b"
+          },
+          "status": "ready",
+          "summary": "Create a PDF artifact that summarizes a launch brief Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "title": "Studio outcome: Create a PDF artifact that summarizes a launch brief",
+          "updatedAt": "2026-03-30T12:04:46.010159747+00:00"
+        },
+        "workspaceRoot": null
+      },
+      "artifact_refs": [
+        {
+          "artifact_id": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+          "artifact_type": "FILE"
+        },
+        {
+          "artifact_id": "c9405aed-3130-46cd-9b3b-0f6c942412e8",
+          "artifact_type": "REPORT"
+        }
+      ],
+      "receipt_ref": null,
+      "input_refs": [],
+      "status": "SUCCESS",
+      "duration_ms": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+      "created_at": "2026-03-30T12:04:45.982647671+00:00",
+      "thread_id": "studio-proof-task",
+      "artifact_type": "FILE",
+      "title": "File: summary.pdf",
+      "description": "File snapshot",
+      "content_ref": "ioi-memory://artifact/e8df850f-ec1d-4342-9eec-a2c717bccd20",
+      "metadata": {
+        "mime": "application/pdf",
+        "path": "summary.pdf",
+        "revision": null
+      },
+      "version": 1,
+      "parent_artifact_id": null
+    },
+    {
+      "artifact_id": "c9405aed-3130-46cd-9b3b-0f6c942412e8",
+      "created_at": "2026-03-30T12:04:45.998165113+00:00",
+      "thread_id": "studio-proof-task",
+      "artifact_type": "REPORT",
+      "title": "Studio artifact: Create a PDF artifact that summarizes a launch brief",
+      "description": "Machine-routable Studio artifact materialization contract",
+      "content_ref": "ioi-memory://artifact/c9405aed-3130-46cd-9b3b-0f6c942412e8",
+      "metadata": {
+        "acceptanceProvenance": null,
+        "artifactBrief": null,
+        "candidateSummaries": [],
+        "commandIntents": [],
+        "editIntent": null,
+        "failure": null,
+        "fallbackUsed": false,
+        "fileWrites": [
+          {
+            "contentPreview": "Executive Summary\n- This document provides a concise summary of the launch brief for quick reference and understanding.\n\nProject Scope\n- Key objectives: Ensure product readiness, stakeholder engagement, and regulatory compliance.\n- Expected outcomes: Successful market entry, positive customer feedback, and high sales volume.",
+            "kind": "primary",
+            "path": "summary.pdf"
+          }
+        ],
+        "judge": null,
+        "navigatorNodes": [],
+        "normalizedIntent": "Create a PDF artifact that summarizes a launch brief",
+        "notes": [
+          "Conversation remains the control plane; this artifact is the work product.",
+          "Renderer choice is explicit in the typed outcome request.",
+          "Verification state, not worker prose, authorizes the final Studio summary.",
+          "This summary is designed to be concise and informative, focusing on key points from the launch brief.",
+          "Winning candidate candidate-1 selected via typed judging."
+        ],
+        "outputOrigin": null,
+        "pipelineSteps": [],
+        "previewIntent": null,
+        "productionProvenance": null,
+        "requestKind": "document",
+        "summary": "Studio created 'Create a PDF artifact that summarizes a launch brief' as a PDF artifact with inline preview and download support.",
+        "uxLifecycle": null,
+        "verificationSteps": [
+          {
+            "id": "materialize",
+            "kind": "materialize",
+            "label": "Materialize artifact",
+            "status": "success"
+          },
+          {
+            "id": "verify",
+            "kind": "verify",
+            "label": "Verify artifact contract",
+            "status": "success"
+          }
+        ],
+        "version": 3,
+        "winningCandidateId": null,
+        "winningCandidateRationale": null
+      },
+      "version": 1,
+      "parent_artifact_id": null
+    }
+  ],
+  "studio_session": {
+    "sessionId": "dffae576-6afd-4313-af1c-ecb4d52ca1a8",
+    "threadId": "studio-proof-task",
+    "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+    "title": "Create a PDF artifact that summarizes a launch brief",
+    "summary": "Studio created 'Create a PDF artifact that summarizes a launch brief' as a PDF artifact with inline preview and download support.",
+    "currentLens": "render",
+    "navigatorBackingMode": "logical",
+    "navigatorNodes": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "description": "Interact with the artifact through its renderer-specific presentation.",
+        "badge": null,
+        "status": null,
+        "lens": "render",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "description": "Inspect the source form of the artifact.",
+        "badge": null,
+        "status": null,
+        "lens": "source",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "description": "Inspect verification state, receipts, and evidence.",
+        "badge": null,
+        "status": null,
+        "lens": "evidence",
+        "path": null,
+        "children": []
+      }
+    ],
+    "attachedArtifactIds": [
+      "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+      "c9405aed-3130-46cd-9b3b-0f6c942412e8"
+    ],
+    "availableLenses": [
+      "render",
+      "source",
+      "evidence"
+    ],
+    "materialization": {
+      "version": 3,
+      "requestKind": "document",
+      "normalizedIntent": "Create a PDF artifact that summarizes a launch brief",
+      "summary": "Studio created 'Create a PDF artifact that summarizes a launch brief' as a PDF artifact with inline preview and download support.",
+      "artifactBrief": {
+        "audience": "Project stakeholders and team members",
+        "jobToBeDone": "Provide a concise summary of the launch brief for quick reference and understanding",
+        "subjectDomain": "Launch planning and preparation",
+        "artifactThesis": "Generate a single-page PDF document that succinctly summarizes key points from the launch brief, ensuring clarity and ease of access",
+        "requiredConcepts": [
+          "launch brief",
+          "key points",
+          "summary",
+          "project timeline",
+          "milestones",
+          "team roles"
+        ],
+        "requiredInteractions": [],
+        "visualTone": [
+          "professional",
+          "concise",
+          "informative"
+        ],
+        "factualAnchors": [
+          "project scope",
+          "target audience",
+          "expected outcomes"
+        ],
+        "styleDirectives": [
+          "use bullet points for clarity",
+          "include essential details only",
+          "maintain a clear and organized layout"
+        ],
+        "referenceHints": []
+      },
+      "editIntent": null,
+      "candidateSummaries": [
+        {
+          "candidateId": "candidate-1",
+          "seed": 7623781069568121325,
+          "model": "qwen2.5:7b",
+          "temperature": 0.2,
+          "strategy": "brief-first_pdf",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "Executive Summary\n- This document provides a concise summary of the launch brief for quick reference and understanding.\n\nProject Scope\n- Key objectives: Ensure product readiness, stakeholder engagement, and regulatory compliance.\n- Expected outcomes: Successful market entry, positive customer feedback, and high sales volume.\n- Project timeline: Q1 planning, Q2 development, Q3 testing, Q4 launch.\n\nTarget Audience\n- Primary stakeholders: Marketing team, R&D department, legal counsel.\n- Secondary stakeholders: Sales representatives, customer service staff.\n\nMilestones\n- Critical phases: Concept validation, prototype design, user testing, final review.\n- Key deliverables: Market research report, product design blueprint, regulatory approval documents.\n\nNext Steps and Risks\n- Immediate actions: Schedule stakeholder meetings, finalize project budget.\n- Potential risks: Delays in regulatory approvals, unexpected market resistance.",
+          "renderablePaths": [
+            "summary.pdf"
+          ],
+          "selected": true,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "pass",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 5,
+            "interactionRelevance": 4,
+            "layoutCoherence": 5,
+            "visualHierarchy": 5,
+            "completeness": 5,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "",
+            "rationale": "Candidate meets all brief requirements, concise and informative."
+          }
+        }
+      ],
+      "winningCandidateId": "candidate-1",
+      "winningCandidateRationale": "Candidate meets all brief requirements, concise and informative.",
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 4,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate meets all brief requirements, concise and informative."
+      },
+      "outputOrigin": "live_inference",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "fallbackUsed": false,
+      "uxLifecycle": "judged",
+      "failure": null,
+      "navigatorNodes": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "description": "Interact with the artifact through its renderer-specific presentation.",
+          "badge": null,
+          "status": null,
+          "lens": "render",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "fileWrites": [
+        {
+          "path": "summary.pdf",
+          "kind": "primary",
+          "contentPreview": "Executive Summary\n- This document provides a concise summary of the launch brief for quick reference and understanding.\n\nProject Scope\n- Key objectives: Ensure product readiness, stakeholder engagement, and regulatory compliance.\n- Expected outcomes: Successful market entry, positive customer feedback, and high sales volume."
+        }
+      ],
+      "commandIntents": [],
+      "previewIntent": null,
+      "verificationSteps": [
+        {
+          "id": "materialize",
+          "label": "Materialize artifact",
+          "kind": "materialize",
+          "status": "success"
+        },
+        {
+          "id": "verify",
+          "label": "Verify artifact contract",
+          "kind": "verify",
+          "status": "success"
+        }
+      ],
+      "pipelineSteps": [
+        {
+          "id": "intake",
+          "stage": "intake",
+          "label": "Intake",
+          "status": "complete",
+          "summary": "Studio captured the request and established the active artifact context.",
+          "outputs": [
+            "Create a PDF artifact that summarizes a launch brief"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "routing",
+          "stage": "routing",
+          "label": "Outcome routing",
+          "status": "complete",
+          "summary": "The typed router chose the artifact branch intentionally.",
+          "outputs": [
+            "artifact",
+            "document",
+            "pdf_embed"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "requirements",
+          "stage": "requirements",
+          "label": "Requirements",
+          "status": "complete",
+          "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+          "outputs": [
+            "artifact"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "specification",
+          "stage": "specification",
+          "label": "Artifact spec",
+          "status": "complete",
+          "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+          "outputs": [
+            "document",
+            "pdf_embed",
+            "side_panel",
+            "shared_artifact_scoped"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "materialization",
+          "stage": "materialization",
+          "label": "Materialization",
+          "status": "complete",
+          "summary": "Studio is creating the files or workspace required by the manifest.",
+          "outputs": [
+            "summary.pdf"
+          ],
+          "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+        },
+        {
+          "id": "execution",
+          "stage": "execution",
+          "label": "Execution",
+          "status": "complete",
+          "summary": "Single-file generation completed inside the selected renderer substrate.",
+          "outputs": [
+            "summary.pdf"
+          ],
+          "verificationGate": "Execution receipts must exist for every command-backed step."
+        },
+        {
+          "id": "verification",
+          "stage": "verification",
+          "label": "Verification",
+          "status": "complete",
+          "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "outputs": [
+            "Materialize artifact (success)",
+            "Verify artifact contract (success)"
+          ],
+          "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+        },
+        {
+          "id": "presentation",
+          "stage": "presentation",
+          "label": "Presentation",
+          "status": "complete",
+          "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+          "outputs": [
+            "render",
+            "1 file(s)"
+          ],
+          "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+        },
+        {
+          "id": "reply",
+          "stage": "reply",
+          "label": "Verified reply",
+          "status": "complete",
+          "summary": "Studio composes the user-facing summary from artifact state and verification.",
+          "outputs": [
+            "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+          ],
+          "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+        }
+      ],
+      "notes": [
+        "Conversation remains the control plane; this artifact is the work product.",
+        "Renderer choice is explicit in the typed outcome request.",
+        "Verification state, not worker prose, authorizes the final Studio summary.",
+        "This summary is designed to be concise and informative, focusing on key points from the launch brief.",
+        "Winning candidate candidate-1 selected via typed judging."
+      ]
+    },
+    "outcomeRequest": {
+      "requestId": "30f80090-74a1-4024-a24a-1be255ed9d80",
+      "rawPrompt": "Create a PDF artifact that summarizes a launch brief",
+      "activeArtifactId": null,
+      "outcomeKind": "artifact",
+      "confidence": 1.0,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "artifact": {
+        "artifactClass": "document",
+        "deliverableShape": "single_file",
+        "renderer": "pdf_embed",
+        "presentationSurface": "side_panel",
+        "persistence": "shared_artifact_scoped",
+        "executionSubstrate": "binary_generator",
+        "workspaceRecipeId": null,
+        "presentationVariantId": null,
+        "scope": {
+          "targetProject": null,
+          "createNewWorkspace": false,
+          "mutationBoundary": [
+            "artifact"
+          ]
+        },
+        "verification": {
+          "requireRender": true,
+          "requireBuild": false,
+          "requirePreview": false,
+          "requireExport": true,
+          "requireDiffReview": false
+        }
+      }
+    },
+    "artifactManifest": {
+      "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+      "title": "Create a PDF artifact that summarizes a launch brief",
+      "artifactClass": "document",
+      "renderer": "pdf_embed",
+      "primaryTab": "render",
+      "tabs": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "renderer": "pdf_embed",
+          "filePath": null,
+          "lens": "render"
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "renderer": null,
+          "filePath": null,
+          "lens": "source"
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "renderer": null,
+          "filePath": null,
+          "lens": "evidence"
+        }
+      ],
+      "files": [
+        {
+          "path": "summary.pdf",
+          "mime": "application/pdf",
+          "role": "primary",
+          "renderable": true,
+          "downloadable": true,
+          "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+          "externalUrl": null
+        }
+      ],
+      "verification": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null
+      },
+      "storage": {
+        "mode": "shared_artifact_scoped",
+        "apiLabel": "artifact storage"
+      }
+    },
+    "verifiedReply": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "title": "Studio outcome: Create a PDF artifact that summarizes a launch brief",
+      "summary": "Create a PDF artifact that summarizes a launch brief Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "evidence": [
+        "summary.pdf",
+        "production provenance: openai-compatible (qwen2.5:7b)",
+        "acceptance provenance: openai-compatible (qwen2.5:14b)"
+      ],
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null,
+      "updatedAt": "2026-03-30T12:04:46.010159747+00:00"
+    },
+    "lifecycleState": "ready",
+    "status": "ready",
+    "activeRevisionId": "78f6079d-f9ef-4644-a8ae-b7c3689da42c",
+    "revisions": [
+      {
+        "revisionId": "78f6079d-f9ef-4644-a8ae-b7c3689da42c",
+        "parentRevisionId": null,
+        "branchId": "main",
+        "branchLabel": "Main",
+        "prompt": "Create a PDF artifact that summarizes a launch brief",
+        "createdAt": "2026-03-30T12:04:46.010233752+00:00",
+        "uxLifecycle": "judged",
+        "artifactManifest": {
+          "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+          "title": "Create a PDF artifact that summarizes a launch brief",
+          "artifactClass": "document",
+          "renderer": "pdf_embed",
+          "primaryTab": "render",
+          "tabs": [
+            {
+              "id": "render",
+              "label": "Render",
+              "kind": "render",
+              "renderer": "pdf_embed",
+              "filePath": null,
+              "lens": "render"
+            },
+            {
+              "id": "source",
+              "label": "Source",
+              "kind": "source",
+              "renderer": null,
+              "filePath": null,
+              "lens": "source"
+            },
+            {
+              "id": "evidence",
+              "label": "Evidence",
+              "kind": "evidence",
+              "renderer": null,
+              "filePath": null,
+              "lens": "evidence"
+            }
+          ],
+          "files": [
+            {
+              "path": "summary.pdf",
+              "mime": "application/pdf",
+              "role": "primary",
+              "renderable": true,
+              "downloadable": true,
+              "artifactId": "e8df850f-ec1d-4342-9eec-a2c717bccd20",
+              "externalUrl": null
+            }
+          ],
+          "verification": {
+            "status": "ready",
+            "lifecycleState": "ready",
+            "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+            },
+            "failure": null
+          },
+          "storage": {
+            "mode": "shared_artifact_scoped",
+            "apiLabel": "artifact storage"
+          }
+        },
+        "artifactBrief": {
+          "audience": "Project stakeholders and team members",
+          "jobToBeDone": "Provide a concise summary of the launch brief for quick reference and understanding",
+          "subjectDomain": "Launch planning and preparation",
+          "artifactThesis": "Generate a single-page PDF document that succinctly summarizes key points from the launch brief, ensuring clarity and ease of access",
+          "requiredConcepts": [
+            "launch brief",
+            "key points",
+            "summary",
+            "project timeline",
+            "milestones",
+            "team roles"
+          ],
+          "requiredInteractions": [],
+          "visualTone": [
+            "professional",
+            "concise",
+            "informative"
+          ],
+          "factualAnchors": [
+            "project scope",
+            "target audience",
+            "expected outcomes"
+          ],
+          "styleDirectives": [
+            "use bullet points for clarity",
+            "include essential details only",
+            "maintain a clear and organized layout"
+          ],
+          "referenceHints": []
+        },
+        "editIntent": null,
+        "candidateSummaries": [
+          {
+            "candidateId": "candidate-1",
+            "seed": 7623781069568121325,
+            "model": "qwen2.5:7b",
+            "temperature": 0.2,
+            "strategy": "brief-first_pdf",
+            "origin": "live_inference",
+            "provenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "summary": "Executive Summary\n- This document provides a concise summary of the launch brief for quick reference and understanding.\n\nProject Scope\n- Key objectives: Ensure product readiness, stakeholder engagement, and regulatory compliance.\n- Expected outcomes: Successful market entry, positive customer feedback, and high sales volume.\n- Project timeline: Q1 planning, Q2 development, Q3 testing, Q4 launch.\n\nTarget Audience\n- Primary stakeholders: Marketing team, R&D department, legal counsel.\n- Secondary stakeholders: Sales representatives, customer service staff.\n\nMilestones\n- Critical phases: Concept validation, prototype design, user testing, final review.\n- Key deliverables: Market research report, product design blueprint, regulatory approval documents.\n\nNext Steps and Risks\n- Immediate actions: Schedule stakeholder meetings, finalize project budget.\n- Potential risks: Delays in regulatory approvals, unexpected market resistance.",
+            "renderablePaths": [
+              "summary.pdf"
+            ],
+            "selected": true,
+            "fallback": false,
+            "failure": null,
+            "rawOutputPreview": null,
+            "judge": {
+              "classification": "pass",
+              "requestFaithfulness": 5,
+              "conceptCoverage": 5,
+              "interactionRelevance": 4,
+              "layoutCoherence": 5,
+              "visualHierarchy": 5,
+              "completeness": 5,
+              "genericShellDetected": false,
+              "trivialShellDetected": false,
+              "deservesPrimaryArtifactView": true,
+              "patchedExistingArtifact": null,
+              "continuityRevisionUx": null,
+              "strongestContradiction": "",
+              "rationale": "Candidate meets all brief requirements, concise and informative."
+            }
+          }
+        ],
+        "winningCandidateId": "candidate-1",
+        "judge": {
+          "classification": "pass",
+          "requestFaithfulness": 5,
+          "conceptCoverage": 5,
+          "interactionRelevance": 4,
+          "layoutCoherence": 5,
+          "visualHierarchy": 5,
+          "completeness": 5,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": true,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "",
+          "rationale": "Candidate meets all brief requirements, concise and informative."
+        },
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null,
+        "fileWrites": [
+          {
+            "path": "summary.pdf",
+            "kind": "primary",
+            "contentPreview": "Executive Summary\n- This document provides a concise summary of the launch brief for quick reference and understanding.\n\nProject Scope\n- Key objectives: Ensure product readiness, stakeholder engagement, and regulatory compliance.\n- Expected outcomes: Successful market entry, positive customer feedback, and high sales volume."
+          }
+        ],
+        "selectedTargets": []
+      }
+    ],
+    "tasteMemory": {
+      "directives": [
+        "professional",
+        "concise",
+        "informative",
+        "use bullet points for clarity",
+        "include essential details only",
+        "maintain a clear and organized layout"
+      ],
+      "summary": "Session taste memory is steering this artifact toward professional, concise, informative, use bullet points for clarity."
+    },
+    "selectedTargets": [],
+    "uxLifecycle": "judged",
+    "createdAt": "2026-03-30T12:03:46.948915896+00:00",
+    "updatedAt": "2026-03-30T12:03:46.948915896+00:00",
+    "buildSessionId": null,
+    "workspaceRoot": null,
+    "rendererSessionId": null
+  },
+  "studio_outcome": {
+    "requestId": "30f80090-74a1-4024-a24a-1be255ed9d80",
+    "rawPrompt": "Create a PDF artifact that summarizes a launch brief",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 1.0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "document",
+      "deliverableShape": "single_file",
+      "renderer": "pdf_embed",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "binary_generator",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "renderer_session": null,
+  "build_session": null,
+  "run_bundle_id": null,
+  "swarm_tree": [],
+  "generation": 0,
+  "lineage_id": "genesis",
+  "fitness_score": 0.0
+}

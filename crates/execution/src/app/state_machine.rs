@@ -1740,7 +1740,7 @@ where
         let mut proofs_out = Vec::with_capacity(transactions.len());
         let mut block_gas_used = 0;
 
-        for tx in transactions {
+        for (idx, tx) in transactions.iter().enumerate() {
             block_gas_used += self
                 .process_transaction(
                     tx,
@@ -1749,7 +1749,13 @@ where
                     block_timestamp,
                     &mut proofs_out,
                 )
-                .await?;
+                .await
+                .map_err(|error| match error {
+                    ChainError::Transaction(message) => {
+                        ChainError::Transaction(format!("tx_index={idx}: {message}"))
+                    }
+                    other => other,
+                })?;
         }
 
         Ok((

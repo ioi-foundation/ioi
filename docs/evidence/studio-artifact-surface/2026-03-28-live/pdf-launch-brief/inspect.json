@@ -1,0 +1,21 @@
+{
+  "inspection": {
+    "artifact_id": "5e0a3c05-ca18-4fe0-a3c0-3cb3f28feee9",
+    "title": "a PDF artifact that summarizes a launch brief",
+    "artifact_class": "document",
+    "renderer": "pdf_embed",
+    "verification_status": "ready",
+    "lifecycle_state": "ready",
+    "verification_summary": "The candidate stays grounded in a launch brief, covers the required concepts, and is strong enough to lead the stage.",
+    "primary_tab": "render",
+    "tab_count": 3,
+    "file_count": 1,
+    "renderable_file_count": 1,
+    "downloadable_file_count": 1,
+    "repo_centric_package": false,
+    "render_surface_available": true,
+    "preferred_stage_mode": "render"
+  },
+  "valid": true,
+  "validation_errors": []
+}

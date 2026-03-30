@@ -1,0 +1,2 @@
+Materialized artifact package 'a markdown artifact that documents a release checklist' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/markdown-release-checklist/materialized'.
+Packaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/markdown-release-checklist/materialized/artifact-manifest.json'.

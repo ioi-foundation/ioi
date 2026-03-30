@@ -1,0 +1,33 @@
+{
+  "requestId": "80b0bd79-c53e-4fbc-8648-a52490cd20f0",
+  "rawPrompt": "Edit the selected chart section to show adoption by channel instead of launch-phase sequencing.",
+  "activeArtifactId": "9dc1ce07-2e45-4e28-be16-b2d19d4aac3f",
+  "outcomeKind": "artifact",
+  "confidence": 0.95,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "interactive_single_file",
+    "deliverableShape": "single_file",
+    "renderer": "html_iframe",
+    "presentationSurface": "side_panel",
+    "persistence": "shared_artifact_scoped",
+    "executionSubstrate": "client_sandbox",
+    "workspaceRecipeId": null,
+    "presentationVariantId": null,
+    "scope": {
+      "targetProject": null,
+      "createNewWorkspace": false,
+      "mutationBoundary": [
+        "index.html"
+      ]
+    },
+    "verification": {
+      "requireRender": true,
+      "requireBuild": false,
+      "requirePreview": false,
+      "requireExport": false,
+      "requireDiffReview": false
+    }
+  }
+}

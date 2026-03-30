@@ -1,0 +1,34 @@
+{
+  "inspection": {
+    "artifact_id": "5e91907d-c80a-4ac1-9093-e72eb44b8b39",
+    "title": "a downloadable artifact bundle with a CSV and README",
+    "artifact_class": "downloadable_file",
+    "renderer": "download_card",
+    "verification_status": "ready",
+    "lifecycle_state": "ready",
+    "verification_summary": "Meets all requirements with clear, concise content and relevant files.",
+    "primary_tab": "download",
+    "tab_count": 2,
+    "file_count": 2,
+    "renderable_file_count": 0,
+    "downloadable_file_count": 2,
+    "repo_centric_package": true,
+    "render_surface_available": true,
+    "preferred_stage_mode": "render",
+    "production_provenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptance_provenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "valid": true,
+  "validation_errors": []
+}

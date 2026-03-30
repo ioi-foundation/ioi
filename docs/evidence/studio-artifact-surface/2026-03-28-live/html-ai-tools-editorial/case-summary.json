@@ -1,0 +1,319 @@
+{
+  "id": "html-ai-tools-editorial",
+  "prompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/artifact/artifact-manifest.json",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.96,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "inline",
+      "persistence": "artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "product, operations, and leadership stakeholders",
+    "jobToBeDone": "Turn an AI tools editorial launch page into an interactive render-first artifact with clear hierarchy and grounded charts or sections.",
+    "subjectDomain": "an AI tools editorial launch page",
+    "artifactThesis": "Make the primary artifact unmistakably about an AI tools editorial launch page while keeping the structure coherent enough to lead the stage.",
+    "requiredConcepts": [
+      "an AI tools editorial launch page"
+    ],
+    "requiredInteractions": [
+      "section focus switching"
+    ],
+    "visualTone": [
+      "editorial",
+      "launch"
+    ],
+    "factualAnchors": [
+      "an AI tools editorial launch page"
+    ],
+    "styleDirectives": [
+      "editorial",
+      "launch",
+      "request-shaped hierarchy"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 7555423378802502000,
+      "model": "InferenceRuntime",
+      "temperature": 0.55,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "summary": "Materialized an HTML artifact about an AI tools editorial launch page with renderer-grounded sections and charted proof.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 13846693377839899000,
+      "model": "InferenceRuntime",
+      "temperature": 0.55,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "summary": "Materialized an HTML artifact about an AI tools editorial launch page with renderer-grounded sections and charted proof.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-3",
+      "seed": 1691219303167744000,
+      "model": "InferenceRuntime",
+      "temperature": 0.55,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "summary": "Materialized an HTML artifact about an AI tools editorial launch page with renderer-grounded sections and charted proof.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-3",
+  "winningCandidateRationale": "The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage.",
+  "manifest": {
+    "artifactId": "52104311-a9a9-4701-bed4-493b3f7a2ff8",
+    "title": "an interactive HTML artifact for an AI tools editorial launch page",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": "index.html",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "index.html",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-index.html",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage."
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: an interactive HTML artifact for an AI tools editorial launch page",
+    "summary": "an interactive HTML artifact for an AI tools editorial launch page The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "index.html"
+    ]
+  },
+  "rendererOutput": {
+    "primaryFile": "index.html",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/captures/render-capture.html"
+    ]
+  },
+  "materializedFiles": [
+    "index.html"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "52104311-a9a9-4701-bed4-493b3f7a2ff8",
+      "title": "an interactive HTML artifact for an AI tools editorial launch page",
+      "artifact_class": "interactive_single_file",
+      "renderer": "html_iframe",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage.",
+      "primary_tab": "render",
+      "tab_count": 3,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 1,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render"
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'an interactive HTML artifact for an AI tools editorial launch page' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'an interactive HTML artifact for an AI tools editorial launch page' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-ai-tools-editorial/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: an interactive HTML artifact for an AI tools editorial launch page",
+    "summary": "an interactive HTML artifact for an AI tools editorial launch page The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "index.html"
+    ]
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "notes": []
+}

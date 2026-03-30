@@ -1,0 +1,1 @@
+Artifact manifest 'a workspace project for a billing settings surface' is valid.

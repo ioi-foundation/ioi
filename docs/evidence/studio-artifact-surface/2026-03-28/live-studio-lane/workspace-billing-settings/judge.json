@@ -1,0 +1,16 @@
+{
+  "classification": "blocked",
+  "requestFaithfulness": 1,
+  "conceptCoverage": 1,
+  "interactionRelevance": 1,
+  "layoutCoherence": 1,
+  "visualHierarchy": 1,
+  "completeness": 1,
+  "genericShellDetected": false,
+  "trivialShellDetected": false,
+  "deservesPrimaryArtifactView": false,
+  "patchedExistingArtifact": null,
+  "continuityRevisionUx": null,
+  "strongestContradiction": "Preview verified and workspace lenses are ready.",
+  "rationale": "Preview verified and workspace lenses are ready."
+}

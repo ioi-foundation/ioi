@@ -1,0 +1,21 @@
+{
+  "inspection": {
+    "artifact_id": "57563a3d-aeb0-4b74-aa5a-499d47ad24ff",
+    "title": "a workspace project for a billing settings surface",
+    "artifact_class": "workspace_project",
+    "renderer": "workspace_surface",
+    "verification_status": "ready",
+    "lifecycle_state": "ready",
+    "verification_summary": "The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage.",
+    "primary_tab": "workspace",
+    "tab_count": 3,
+    "file_count": 6,
+    "renderable_file_count": 1,
+    "downloadable_file_count": 6,
+    "repo_centric_package": true,
+    "render_surface_available": false,
+    "preferred_stage_mode": "source"
+  },
+  "valid": true,
+  "validation_errors": []
+}

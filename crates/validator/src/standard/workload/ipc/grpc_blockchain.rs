@@ -23,10 +23,11 @@ use ioi_ipc::blockchain::{
     QueryStateAtRequest, QueryStateAtResponse, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
 };
 use ioi_types::{
-    app::{Block, ChainTransaction, Membership, StateRoot},
+    app::{Block, ChainId, ChainStatus, ChainTransaction, Membership, StateRoot},
     codec,
     config::ConsensusType,
     error::StateError,
+    keys::STATUS_KEY,
 };
 use std::mem;
 use std::sync::Arc;
@@ -487,26 +488,46 @@ where
             .try_into()
             .map_err(|_| Status::invalid_argument("expected 32-byte state anchor"))?;
 
-        let (services, chain_id, height, fallback_roots) = {
-            let chain_guard = self.ctx.machine.lock().await;
-            let mut roots = Vec::new();
-            if let ioi_execution::app::GenesisState::Ready { root, .. } =
-                &chain_guard.state.genesis_state
-            {
-                roots.push(root.clone());
-            }
-            for block in chain_guard.state.recent_blocks.iter().rev() {
-                let root = block.header.state_root.0.clone();
-                if !root.is_empty() && !roots.iter().any(|candidate| candidate == &root) {
-                    roots.push(root);
+        let base_state_tree = self.ctx.workload.state_tree();
+        let base_state = base_state_tree.read().await;
+        let status_height = match base_state.get(STATUS_KEY) {
+            Ok(Some(bytes)) => codec::from_bytes_canonical::<ChainStatus>(&bytes)
+                .map(|status| status.height)
+                .unwrap_or(0),
+            _ => 0,
+        };
+        let live_root = base_state.commitment_to_bytes(&base_state.root_commitment());
+
+        let mut services = self.ctx.workload.services().clone();
+        let mut chain_id = ChainId(0);
+
+        let (head_height, mut fallback_roots) = match self.ctx.machine.try_lock() {
+            Ok(chain_guard) => {
+                let mut roots = Vec::new();
+                if let ioi_execution::app::GenesisState::Ready { root, .. } =
+                    &chain_guard.state.genesis_state
+                {
+                    roots.push(root.clone());
                 }
+                for block in chain_guard.state.recent_blocks.iter().rev() {
+                    let root = block.header.state_root.0.clone();
+                    if !root.is_empty() && !roots.iter().any(|candidate| candidate == &root) {
+                        roots.push(root);
+                    }
+                }
+                services = chain_guard.services.clone();
+                chain_id = chain_guard.state.chain_id;
+                (chain_guard.status().height.max(status_height), roots)
             }
-            (
-                chain_guard.services.clone(),
-                chain_guard.state.chain_id,
-                chain_guard.status().height,
-                roots,
-            )
+            Err(_) => {
+                tracing::debug!(
+                    target: "state_query",
+                    head_height = status_height,
+                    tx_count = req.txs.len(),
+                    "check_transactions fell back to state-backed snapshot because execution machine lock was busy"
+                );
+                (status_height, Vec::new())
+            }
         };
 
         let mut txs = Vec::new();
@@ -517,15 +538,20 @@ where
             );
         }
 
-        let base_state_tree = self.ctx.workload.state_tree();
-        let base_state = base_state_tree.read().await;
+        if !live_root.is_empty()
+            && !fallback_roots
+                .iter()
+                .any(|candidate| candidate == &live_root)
+        {
+            fallback_roots.insert(0, live_root);
+        }
         let anchored_state = AnchoredReadState::new(&*base_state, anchor, &fallback_roots)
             .map_err(|e| Status::failed_precondition(e.to_string()))?;
         let mut results = Vec::with_capacity(txs.len());
         for tx in txs {
             // [FIX] Removed mut keyword here
             let ctx = ioi_api::transaction::context::TxContext {
-                block_height: height + 1,
+                block_height: head_height + 1,
                 // [FIX] Convert seconds to nanoseconds (u64)
                 block_timestamp: req.expected_timestamp_secs.saturating_mul(1_000_000_000),
                 chain_id,

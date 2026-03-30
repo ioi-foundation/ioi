@@ -77,6 +77,10 @@ fn persist_global_checkpoint_json<T: Serialize + ?Sized>(
     };
 
     let Ok(bytes) = serde_json::to_vec(value) else {
+        eprintln!(
+            "[Autopilot] Failed to serialize checkpoint '{}' for memory runtime persistence.",
+            checkpoint_name
+        );
         return;
     };
 
@@ -113,6 +117,10 @@ fn persist_thread_checkpoint_json<T: Serialize>(
     value: &T,
 ) {
     let Ok(bytes) = serde_json::to_vec(value) else {
+        eprintln!(
+            "[Autopilot] Failed to serialize thread checkpoint '{}' for memory runtime persistence.",
+            checkpoint_name
+        );
         return;
     };
 

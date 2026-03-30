@@ -1,0 +1,2 @@
+Materialized artifact package 'an interactive HTML artifact that explains a product rollout with charts' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-instacart-mcp/materialized'.
+Packaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-instacart-mcp/materialized/artifact-manifest.json'.

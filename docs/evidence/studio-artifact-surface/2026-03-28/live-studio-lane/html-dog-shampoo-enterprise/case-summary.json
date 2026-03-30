@@ -1,0 +1,455 @@
+{
+  "id": "html-dog-shampoo-enterprise",
+  "prompt": "Make it feel more enterprise",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/artifact",
+  "stateRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/state",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/artifact/artifact-manifest.json",
+  "route": {
+    "requestId": "65829700-2352-45e8-8c06-7d2229714a54",
+    "rawPrompt": "Make it feel more enterprise",
+    "activeArtifactId": "9dc1ce07-2e45-4e28-be16-b2d19d4aac3f",
+    "outcomeKind": "artifact",
+    "confidence": 0.95,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": "product-launch",
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "index.html"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "enterprise stakeholders",
+    "jobToBeDone": "understand the strategic implications of launching a new dog shampoo product",
+    "subjectDomain": "dog grooming industry",
+    "artifactThesis": "present a comprehensive analysis of market trends, company history, and product features through interactive visualizations",
+    "requiredConcepts": [
+      "market trends",
+      "product launch",
+      "company history"
+    ],
+    "requiredInteractions": [
+      "chart navigation",
+      "detail expansion"
+    ],
+    "visualTone": [
+      "professional",
+      "enterprise-grade"
+    ],
+    "factualAnchors": [
+      "latest market reports on dog grooming products",
+      "previous product launches and their success metrics"
+    ],
+    "styleDirectives": [
+      "informative",
+      "authoritative"
+    ],
+    "referenceHints": [
+      "industry benchmarks",
+      "company's strategic goals"
+    ]
+  },
+  "editIntent": {
+    "mode": "patch",
+    "summary": "Refine the artifact to better align with enterprise stakeholders' expectations.",
+    "patchExistingArtifact": true,
+    "preserveStructure": true,
+    "targetScope": "index.html",
+    "targetPaths": [
+      "index.html"
+    ],
+    "requestedOperations": [
+      "updateContent"
+    ],
+    "toneDirectives": [
+      "professional",
+      "enterprise-grade"
+    ],
+    "selectedTargets": [
+      {
+        "sourceSurface": "side_panel",
+        "path": null,
+        "label": "index.html",
+        "snippet": ""
+      }
+    ],
+    "styleDirectives": [
+      "informative",
+      "authoritative"
+    ],
+    "branchRequested": false
+  },
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 8690144144989379000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Refined interactive HTML artifact for enterprise stakeholders to understand the strategic implications of launching a new dog shampoo product.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 4,
+        "interactionRelevance": 3,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 3,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "Missing multiple charts and data visualizations.",
+        "rationale": "Candidate covers key concepts but lacks multiple required visualizations and interactions."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 1770325079667332900,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Patched the 'Create an interactive HTML artifact that explains a product rollout' to better align with enterprise stakeholders' expectations.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 4,
+        "interactionRelevance": 4,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 4,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate aligns well with brief, though minor improvements could enhance interaction and completeness."
+      }
+    },
+    {
+      "candidateId": "candidate-3",
+      "seed": 13297250088054840000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Refined the interactive HTML artifact to better align with enterprise stakeholders' expectations, ensuring it is professional and authoritative.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Complies with all requirements and faithfully represents the request."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-2",
+  "winningCandidateRationale": "Candidate aligns well with brief, though minor improvements could enhance interaction and completeness.",
+  "manifest": {
+    "artifactId": "9dc1ce07-2e45-4e28-be16-b2d19d4aac3f",
+    "title": "Create an interactive HTML artifact that explains a product rollo...",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": null,
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": null,
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "b83d7710-9a2e-4d40-a461-54ac19f0e4a9",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "shared_artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create an interactive HTML artifact that explains a product rollo...",
+    "summary": "Create an interactive HTML artifact that explains a product rollo... Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "evidence": [
+      "index.html",
+      "production provenance: openai-compatible (qwen2.5:7b)",
+      "acceptance provenance: openai-compatible (qwen2.5:14b)"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null,
+    "updatedAt": "2026-03-30T12:08:07.096952655+00:00"
+  },
+  "rendererOutput": {
+    "primaryFile": "index.html",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/captures/render-capture.html"
+    ]
+  },
+  "materializedFiles": [
+    "index.html"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "9dc1ce07-2e45-4e28-be16-b2d19d4aac3f",
+      "title": "Create an interactive HTML artifact that explains a product rollo...",
+      "artifact_class": "interactive_single_file",
+      "renderer": "html_iframe",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "primary_tab": "render",
+      "tab_count": 3,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 0,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render",
+      "production_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptance_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'Create an interactive HTML artifact that explains a product rollo...' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'Create an interactive HTML artifact that explains a product rollo...' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-enterprise/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create an interactive HTML artifact that explains a product rollo...",
+    "summary": "Create an interactive HTML artifact that explains a product rollo... Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "evidence": [
+      "index.html"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 4,
+    "interactionRelevance": 4,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 4,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "",
+    "rationale": "Candidate aligns well with brief, though minor improvements could enhance interaction and completeness."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 4,
+    "interactionRelevance": 4,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 4,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "",
+    "rationale": "Candidate aligns well with brief, though minor improvements could enhance interaction and completeness."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:14b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "locked",
+  "failure": null,
+  "notes": [],
+  "proofPath": "full_studio_path",
+  "fullStudioPath": true
+}

@@ -1,0 +1,355 @@
+{
+  "prompt": "Create a workspace project for a billing settings surface",
+  "title": "a workspace project for a billing settings surface",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.85,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "workspace_project",
+      "deliverableShape": "workspace_project",
+      "renderer": "workspace_surface",
+      "presentationSurface": "tabbed_panel",
+      "persistence": "workspace_filesystem",
+      "executionSubstrate": "workspace_runtime",
+      "workspaceRecipeId": "react-vite",
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": true,
+        "mutationBoundary": [
+          "billing-settings"
+        ]
+      },
+      "verification": {
+        "requireRender": false,
+        "requireBuild": true,
+        "requirePreview": true,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "billing administrators and finance managers",
+    "jobToBeDone": "configure and manage billing settings for a workspace project",
+    "subjectDomain": "workspace billing configuration",
+    "artifactThesis": "a user-friendly interface to set up and adjust billing parameters within the workspace environment",
+    "requiredConcepts": [
+      "billing settings",
+      "workspace project",
+      "configuration options",
+      "financial management"
+    ],
+    "requiredInteractions": [
+      "tabbed panel navigation",
+      "form inputs for setting values",
+      "save and revert changes"
+    ],
+    "visualTone": [
+      "clean and professional",
+      "intuitive layout"
+    ],
+    "factualAnchors": [
+      "billing cycles",
+      "payment methods",
+      "service tiers"
+    ],
+    "styleDirectives": [
+      "consistent typography",
+      "moderate use of color coding for clarity"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 13685256966670766847,
+      "model": "qwen2.5:7b",
+      "temperature": 0.0,
+      "strategy": "workspace-scaffold",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Scaffolded a workspace_surface artifact for workspace billing configuration with request-grounded implementation files.",
+      "renderablePaths": [
+        "src/App.tsx"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 4,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Complies with request and concepts, has relevant interactions, and is complete."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "Complies with request and concepts, has relevant interactions, and is complete.",
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 4,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "",
+    "rationale": "Complies with request and concepts, has relevant interactions, and is complete."
+  },
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "manifest": {
+    "artifactId": "ae61bb81-cc12-45fc-b094-06a2f6dd0e6c",
+    "title": "a workspace project for a billing settings surface",
+    "artifactClass": "workspace_project",
+    "renderer": "workspace_surface",
+    "primaryTab": "workspace",
+    "tabs": [
+      {
+        "id": "preview",
+        "label": "Preview",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": null,
+        "lens": "preview"
+      },
+      {
+        "id": "workspace",
+        "label": "Workspace",
+        "kind": "workspace",
+        "renderer": "workspace_surface",
+        "filePath": "src/App.tsx",
+        "lens": "code"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "src/App.tsx",
+        "mime": "text/tsx",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-src-App.tsx",
+        "externalUrl": null
+      },
+      {
+        "path": "src/main.tsx",
+        "mime": "text/tsx",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-src-main.tsx",
+        "externalUrl": null
+      },
+      {
+        "path": "src/App.css",
+        "mime": "text/css",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-src-App.css",
+        "externalUrl": null
+      },
+      {
+        "path": "src/index.css",
+        "mime": "text/css",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-src-index.css",
+        "externalUrl": null
+      },
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-index.html",
+        "externalUrl": null
+      },
+      {
+        "path": "vite.config.ts",
+        "mime": "text/typescript",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-vite.config.ts",
+        "externalUrl": null
+      },
+      {
+        "path": "tsconfig.json",
+        "mime": "application/json",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-tsconfig.json",
+        "externalUrl": null
+      },
+      {
+        "path": "tsconfig.app.json",
+        "mime": "application/json",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-tsconfig.app.json",
+        "externalUrl": null
+      },
+      {
+        "path": "tsconfig.node.json",
+        "mime": "application/json",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-tsconfig.node.json",
+        "externalUrl": null
+      },
+      {
+        "path": "package.json",
+        "mime": "application/json",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-package.json",
+        "externalUrl": null
+      },
+      {
+        "path": "README.md",
+        "mime": "text/markdown",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-README.md",
+        "externalUrl": null
+      },
+      {
+        "path": "artifact-manifest.json",
+        "mime": "application/json",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-artifact-manifest",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Complies with request and concepts, has relevant interactions, and is complete.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: a workspace project for a billing settings surface",
+    "summary": "a workspace project for a billing settings surface Complies with request and concepts, has relevant interactions, and is complete.",
+    "evidence": [
+      "src/App.tsx",
+      "src/main.tsx",
+      "src/App.css",
+      "src/index.css",
+      "index.html",
+      "vite.config.ts",
+      "tsconfig.json",
+      "tsconfig.app.json",
+      "tsconfig.node.json",
+      "package.json",
+      "README.md",
+      "artifact-manifest.json"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "materializedFiles": [
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/App.css",
+    "src/index.css",
+    "index.html",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tsconfig.app.json",
+    "tsconfig.node.json",
+    "package.json",
+    "README.md"
+  ],
+  "renderableFiles": [
+    "src/App.tsx"
+  ],
+  "refinement": null
+}

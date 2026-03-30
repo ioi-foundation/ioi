@@ -1,0 +1,381 @@
+{
+  "id": "svg-ai-tools-hero",
+  "prompt": "Create an SVG hero concept for an AI tools brand",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/artifact/artifact-manifest.json",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.95,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "visual",
+      "deliverableShape": "single_file",
+      "renderer": "svg",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "hero-concept"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "Tech-savvy professionals interested in AI tools",
+    "jobToBeDone": "Highlight the innovative capabilities of an AI tools brand to attract potential users and partners",
+    "subjectDomain": "AI technology, software development, productivity tools",
+    "artifactThesis": "Elevate the brand's image by showcasing cutting-edge AI technology in a visually compelling way",
+    "requiredConcepts": [
+      "AI",
+      "tools",
+      "innovation",
+      "technology",
+      "future"
+    ],
+    "requiredInteractions": [],
+    "visualTone": [
+      "modern",
+      "dynamic",
+      "intuitive",
+      "inspirational"
+    ],
+    "factualAnchors": [
+      "AI-driven solutions",
+      "enhanced productivity",
+      "smart automation"
+    ],
+    "styleDirectives": [
+      "Minimalist design with bold colors",
+      "Use of icons representing AI and technology",
+      "Clear and readable typography"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 16223370210422456000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.48,
+      "strategy": "motif-first_svg",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "SVG hero concept for an AI tools brand",
+      "renderablePaths": [
+        "hero-concept.svg"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 4,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Meets all requirements with clear visual elements and key concepts."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 15955337995762029000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.48,
+      "strategy": "motif-first_svg",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "SVG hero concept for an AI tools brand",
+      "renderablePaths": [
+        "hero-concept.svg"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Meets all requirements with clear, relevant and visually compelling elements."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-2",
+  "winningCandidateRationale": "Meets all requirements with clear, relevant and visually compelling elements.",
+  "manifest": {
+    "artifactId": "a9d8cdb0-3872-4c9e-a46c-e896e60d67d6",
+    "title": "an SVG hero concept for an AI tools brand",
+    "artifactClass": "visual",
+    "renderer": "svg",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "svg",
+        "filePath": "hero-concept.svg",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "hero-concept.svg",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "hero-concept.svg",
+        "mime": "image/svg+xml",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "generated-hero-concept.svg",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Meets all requirements with clear, relevant and visually compelling elements.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: an SVG hero concept for an AI tools brand",
+    "summary": "an SVG hero concept for an AI tools brand Meets all requirements with clear, relevant and visually compelling elements.",
+    "evidence": [
+      "hero-concept.svg"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "rendererOutput": {
+    "primaryFile": "hero-concept.svg",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/captures/render-capture.svg"
+    ]
+  },
+  "materializedFiles": [
+    "hero-concept.svg"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "a9d8cdb0-3872-4c9e-a46c-e896e60d67d6",
+      "title": "an SVG hero concept for an AI tools brand",
+      "artifact_class": "visual",
+      "renderer": "svg",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "Meets all requirements with clear, relevant and visually compelling elements.",
+      "primary_tab": "render",
+      "tab_count": 3,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 0,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render",
+      "production_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptance_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'an SVG hero concept for an AI tools brand' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'an SVG hero concept for an AI tools brand' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/svg-ai-tools-hero/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: an SVG hero concept for an AI tools brand",
+    "summary": "an SVG hero concept for an AI tools brand Meets all requirements with clear, relevant and visually compelling elements.",
+    "evidence": [
+      "hero-concept.svg"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Meets all requirements with clear, relevant and visually compelling elements."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Meets all requirements with clear, relevant and visually compelling elements."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "notes": [],
+  "proofPath": "contract_path",
+  "fullStudioPath": false
+}

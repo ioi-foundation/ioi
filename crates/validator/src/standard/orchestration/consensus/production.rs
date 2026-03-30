@@ -88,6 +88,20 @@ pub(super) fn dispatch_swarm_command(
     }
 }
 
+fn parse_failed_tx_index(block_error: &str) -> Option<usize> {
+    let marker = "tx_index=";
+    let start = block_error.find(marker)? + marker.len();
+    let digits = block_error[start..]
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect::<String>();
+    if digits.is_empty() {
+        None
+    } else {
+        digits.parse::<usize>().ok()
+    }
+}
+
 pub(super) async fn emit_local_view_change<CE>(
     consensus_engine_ref: &Arc<Mutex<CE>>,
     swarm_commander: &tokio::sync::mpsc::Sender<SwarmCommand>,
@@ -280,6 +294,53 @@ pub(super) fn parent_ref_from_last_committed_or_recovered_tip(
         state_root: recovered_tip.state_root.clone(),
         block_hash: recovered_tip.block_hash,
     }))
+}
+
+fn normalize_decision_parent_qc(
+    decision: ioi_api::consensus::ConsensusDecision<ChainTransaction>,
+    parent_ref: &StateRef,
+    last_committed_block_opt: &Option<Block<ChainTransaction>>,
+) -> ioi_api::consensus::ConsensusDecision<ChainTransaction> {
+    match decision {
+        ioi_api::consensus::ConsensusDecision::ProduceBlock {
+            transactions,
+            expected_timestamp_secs,
+            expected_timestamp_ms,
+            view,
+            parent_qc,
+            previous_canonical_collapse_commitment_hash,
+            canonical_collapse_extension_certificate,
+            timeout_certificate,
+        } => {
+            let parent_qc = if parent_qc.height == 0 && parent_qc.block_hash == [0; 32] {
+                let parent_view = last_committed_block_opt
+                    .as_ref()
+                    .map(|block| block.header.view)
+                    .unwrap_or(0);
+                QuorumCertificate {
+                    height: parent_ref.height,
+                    view: parent_view,
+                    block_hash: parent_ref.block_hash,
+                    signatures: vec![],
+                    aggregated_signature: vec![],
+                    signers_bitfield: vec![],
+                }
+            } else {
+                parent_qc
+            };
+            ioi_api::consensus::ConsensusDecision::ProduceBlock {
+                transactions,
+                expected_timestamp_secs,
+                expected_timestamp_ms,
+                view,
+                parent_qc,
+                previous_canonical_collapse_commitment_hash,
+                canonical_collapse_extension_certificate,
+                timeout_certificate,
+            }
+        }
+        _ => decision,
+    }
 }
 
 /// Drive one consensus tick without holding the MainLoopContext lock across awaits.
@@ -634,6 +695,11 @@ where
         }
     }
 
+    if let Some(last_committed_block) = last_committed_block_opt.as_ref() {
+        let mut engine = consensus_engine_ref.lock().await;
+        let _ = engine.observe_committed_block(&last_committed_block.header, None);
+    }
+
     let local_tip_height = last_committed_block_opt
         .as_ref()
         .map(|block| block.header.height)
@@ -771,6 +837,7 @@ where
             .decide(&our_account_id, producing_h, 0, &*parent_view, &known_peers)
             .await
     };
+    let decision = normalize_decision_parent_qc(decision, &parent_ref, &last_committed_block_opt);
 
     if producing_h <= 3 {
         let decision_label = match &decision {
@@ -1683,6 +1750,118 @@ where
                     }
                 }
                 Err(e) => {
+                    let parent_anchor =
+                        ioi_types::app::StateRoot(parent_view.state_root().to_vec())
+                            .to_anchor()
+                            .ok();
+                    let expected_timestamp_secs =
+                        timestamp_millis_to_legacy_seconds(expected_timestamp_ms);
+                    let block_error = e.to_string();
+
+                    if let Some(tx_index) = parse_failed_tx_index(&block_error) {
+                        if let Some(tx) = valid_txs.get(tx_index) {
+                            if let Ok(hash) = tx.hash() {
+                                let (tx_status_cache, receipt_map) = {
+                                    let ctx = context_arc.lock().await;
+                                    (ctx.tx_status_cache.clone(), ctx.receipt_map.clone())
+                                };
+                                tx_pool_ref.remove_by_hash(&hash);
+                                let receipt_guard = receipt_map.lock().await;
+                                let tx_hash_hex = receipt_guard
+                                    .peek(&hash)
+                                    .cloned()
+                                    .unwrap_or_else(|| hex::encode(hash));
+                                let mut status_guard = tx_status_cache.lock().await;
+                                status_guard.put(
+                                    tx_hash_hex,
+                                    crate::standard::orchestration::context::TxStatusEntry {
+                                        status: ioi_ipc::public::TxStatus::Rejected,
+                                        error: Some(format!(
+                                            "Rejected during block production: {}",
+                                            block_error
+                                        )),
+                                        block_height: None,
+                                    },
+                                );
+                                tracing::warn!(
+                                    target: "consensus",
+                                    tx_index,
+                                    error = %block_error,
+                                    "Evicted dynamically-invalid transaction after block production failure."
+                                );
+                                return Ok(());
+                            }
+                        }
+                    }
+
+                    if let Some(anchor) = parent_anchor {
+                        match view_resolver
+                            .workload_client()
+                            .check_transactions_at(
+                                anchor,
+                                expected_timestamp_secs,
+                                valid_txs.clone(),
+                            )
+                            .await
+                        {
+                            Ok(results) => {
+                                let rejected = results
+                                    .into_iter()
+                                    .zip(valid_txs.iter())
+                                    .filter_map(|(result, tx)| match result {
+                                        Ok(()) => None,
+                                        Err(error) => Some((tx.clone(), error)),
+                                    })
+                                    .collect::<Vec<_>>();
+
+                                if !rejected.is_empty() {
+                                    let (tx_status_cache, receipt_map) = {
+                                        let ctx = context_arc.lock().await;
+                                        (ctx.tx_status_cache.clone(), ctx.receipt_map.clone())
+                                    };
+                                    let receipt_guard = receipt_map.lock().await;
+                                    let mut status_guard = tx_status_cache.lock().await;
+
+                                    for (tx, error) in &rejected {
+                                        if let Ok(hash) = tx.hash() {
+                                            tx_pool_ref.remove_by_hash(&hash);
+                                            let tx_hash_hex = receipt_guard
+                                                .peek(&hash)
+                                                .cloned()
+                                                .unwrap_or_else(|| hex::encode(hash));
+                                            status_guard.put(
+                                                tx_hash_hex,
+                                                crate::standard::orchestration::context::TxStatusEntry {
+                                                    status: ioi_ipc::public::TxStatus::Rejected,
+                                                    error: Some(format!(
+                                                        "Rejected during block production: {}",
+                                                        error
+                                                    )),
+                                                    block_height: None,
+                                                },
+                                            );
+                                        }
+                                    }
+
+                                    tracing::warn!(
+                                        target: "consensus",
+                                        rejected_count = rejected.len(),
+                                        error = %block_error,
+                                        "Evicted invalid transactions after failed block production."
+                                    );
+                                    return Ok(());
+                                }
+                            }
+                            Err(check_error) => {
+                                tracing::warn!(
+                                    target: "consensus",
+                                    error = %check_error,
+                                    "Failed to diagnose invalid transactions after block production failure."
+                                );
+                            }
+                        }
+                    }
+
                     tracing::error!(target: "consensus", "Block processing failed: {}", e);
                     return Err(anyhow!("Block processing failed: {}", e));
                 }
@@ -1696,6 +1875,7 @@ where
                 );
             }
         }
+
         ioi_api::consensus::ConsensusDecision::ProposeViewChange => {
             if benchmark_trace_enabled() {
                 eprintln!(
@@ -1808,4 +1988,22 @@ pub(super) fn verify_batch_and_filter(
         }
     }
     Ok(valid_txs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_failed_tx_index;
+
+    #[test]
+    fn parses_failed_tx_index_from_execution_errors() {
+        assert_eq!(
+            parse_failed_tx_index("Transaction processing error: tx_index=3: Invalid transaction"),
+            Some(3)
+        );
+        assert_eq!(
+            parse_failed_tx_index("Execution client transport error: tx_index=17: boom"),
+            Some(17)
+        );
+        assert_eq!(parse_failed_tx_index("no tx index here"), None);
+    }
 }

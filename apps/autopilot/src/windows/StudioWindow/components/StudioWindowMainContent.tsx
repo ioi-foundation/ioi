@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { buildConnectorPolicySummary } from "../policyCenter";
 import { WORKSPACE_NAME } from "../studioWindowModel";
 import { useStudioWindowController } from "../useStudioWindowController";
@@ -9,9 +10,8 @@ import { MissionControlControlView } from "./MissionControlControlView";
 import { MissionControlRunsView } from "./MissionControlRunsView";
 import { MissionControlWorkflowsView } from "./MissionControlWorkflowsView";
 import { NotificationsView } from "./NotificationsView";
-import { StudioExplorerPane } from "./StudioExplorerPane";
-import { StudioExplorerView } from "./StudioExplorerView";
 import { StudioIdeHeader } from "./StudioIdeHeader";
+import { StudioCopilotView } from "./StudioCopilot";
 import { StudioLeftUtilityPane } from "./StudioLeftUtilityPane";
 import { StudioUtilityDrawer } from "./StudioUtilityDrawer";
 
@@ -26,6 +26,16 @@ export function StudioWindowMainContent({
 }: StudioWindowMainContentProps) {
   const { activeView, currentProject, projects, notificationBadgeCount } =
     controller;
+  const auxiliaryChatVisible =
+    activeView !== "studio" && controller.chat.paneVisible;
+  const auxiliaryChatFullscreen =
+    auxiliaryChatVisible && controller.chat.paneMaximized;
+  const openNewTerminal = useCallback(() => {
+    controller.chat.openAutopilotWithIntent(
+      "Open the active artifact's workspace terminal lens if a workspace renderer is available.",
+    );
+    controller.changePrimaryView("studio");
+  }, [controller]);
 
   return (
     <>
@@ -43,36 +53,23 @@ export function StudioWindowMainContent({
           projects={projects}
           activeView={activeView}
           workflowSurface={controller.workflow.surface}
-          chatVisible={controller.chat.paneVisible}
+          chatVisible={auxiliaryChatVisible}
           notificationCount={notificationBadgeCount}
           onSelectProject={controller.workflow.selectProject}
           onToggleChat={controller.chat.togglePaneVisibility}
           onOpenCommandPalette={controller.modals.openCommandPalette}
+          onOpenNewTerminal={openNewTerminal}
         />
 
         <div
-          className={`studio-content ${controller.chatFullscreen ? "is-chat-fullscreen" : ""}`}
+          className={`studio-content ${auxiliaryChatFullscreen ? "is-chat-fullscreen" : ""}`}
         >
-          {activeView === "explorer" ? (
-            <StudioExplorerPane
-              currentProject={currentProject}
-              activeFilePath={controller.workflow.activeEditorPath}
-              onOpenFile={controller.workflow.openProjectFile}
-            />
-          ) : null}
-
           <div className="studio-center-area">
             <div className="studio-content-main">
-              {activeView === "explorer" ? (
-                <StudioExplorerView
-                  editorTabs={controller.workflow.editorTabs}
-                  activeEditorPath={controller.workflow.activeEditorPath}
-                  onSelectEditorTab={controller.workflow.selectEditorTab}
-                  onCloseEditorTab={controller.workflow.closeEditorTab}
-                  onChangeEditorTabContent={
-                    controller.workflow.updateEditorTabContent
-                  }
-                  onSaveEditorTab={controller.workflow.saveEditorTab}
+              {activeView === "studio" ? (
+                <StudioCopilotView
+                  seedIntent={controller.chat.seedIntent}
+                  onConsumeSeedIntent={controller.chat.consumeSeedIntent}
                 />
               ) : null}
 
@@ -86,6 +83,7 @@ export function StudioWindowMainContent({
                   editingAgent={controller.agents.editingAgent}
                   onSurfaceChange={controller.workflow.setSurface}
                   onSelectProject={controller.workflow.selectProject}
+                  onOpenStudio={() => controller.changePrimaryView("studio")}
                   onOpenInbox={() => controller.changePrimaryView("inbox")}
                   onOpenCapabilities={() =>
                     controller.changePrimaryView("capabilities")
@@ -187,17 +185,15 @@ export function StudioWindowMainContent({
               activeView={activeView}
               chatSurface={controller.chat.surface}
               operatorPaneOpen={controller.chat.paneVisible}
-              workflowSurface={controller.workflow.surface}
               notificationCount={notificationBadgeCount}
               shieldPolicy={controller.policy.shieldPolicy}
               currentProject={currentProject}
               focusedPolicyConnectorId={controller.policy.focusedConnectorId}
               assistantWorkbench={controller.chat.assistantWorkbench}
-              profile={controller.profile.value}
             />
           </div>
 
-          {controller.chat.paneVisible ? (
+          {auxiliaryChatVisible ? (
             <StudioLeftUtilityPane
               surface={controller.chat.surface}
               session={controller.chat.assistantWorkbench}

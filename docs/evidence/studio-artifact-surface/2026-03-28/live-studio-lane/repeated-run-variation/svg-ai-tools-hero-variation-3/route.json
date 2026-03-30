@@ -1,0 +1,33 @@
+{
+  "requestId": "dac9b2d0-c94c-4c16-8d20-84df98ad0e5f",
+  "rawPrompt": "Create an SVG hero concept for an AI tools brand",
+  "activeArtifactId": null,
+  "outcomeKind": "artifact",
+  "confidence": 0.95,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "visual",
+    "deliverableShape": "single_file",
+    "renderer": "svg",
+    "presentationSurface": "side_panel",
+    "persistence": "shared_artifact_scoped",
+    "executionSubstrate": "client_sandbox",
+    "workspaceRecipeId": null,
+    "presentationVariantId": null,
+    "scope": {
+      "targetProject": null,
+      "createNewWorkspace": false,
+      "mutationBoundary": [
+        "hero_concept"
+      ]
+    },
+    "verification": {
+      "requireRender": true,
+      "requireBuild": false,
+      "requirePreview": false,
+      "requireExport": true,
+      "requireDiffReview": false
+    }
+  }
+}

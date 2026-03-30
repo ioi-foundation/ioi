@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Edit only this chart section to show adoption by channel</title>
+    <style>
+      :root { --bg: #f7f2ea; --panel: #ffffff; --accent: #b7652a; --accent2: #2f9d8f; --text: #1b2431; --muted: rgba(27,36,49,0.72); font-family: "IBM Plex Sans", "Inter", system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-width: 320px; background: radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 18%, transparent), transparent 24%), var(--bg); color: var(--text); }
+      main { width: min(1180px, calc(100vw - 32px)); margin: 0 auto; padding: 28px 0 72px; }
+      .shell, .panel, nav, footer { background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 18%, rgba(255,255,255,0.06)); border-radius: 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.16); }
+      nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; }
+      nav a { color: var(--muted); text-decoration: none; margin-left: 18px; font-size: 0.92rem; }
+      .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr); gap: 22px; margin-top: 22px; padding: 28px; }
+      .eyebrow { margin: 0 0 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--accent); font-size: 0.75rem; }
+      h1, h2 { margin: 0; letter-spacing: -0.04em; }
+      h1 { font-family: "Iowan Old Style", Georgia, serif; font-size: clamp(3rem, 7vw, 5.8rem); line-height: 0.92; max-width: 11ch; }
+      p { line-height: 1.7; }
+      .lead { max-width: 58ch; color: var(--muted); font-size: 1.08rem; }
+      .stats, .grid { display: grid; gap: 18px; margin-top: 22px; }
+      .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .stats article, .grid article, .panel, footer { padding: 20px; }
+      .stats strong { display: block; font-size: 2rem; color: var(--accent); }
+      .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .chart-wrap { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr); gap: 18px; margin-top: 22px; }
+      .bars { display: grid; gap: 14px; margin-top: 18px; }
+      .bar-row { display: grid; gap: 6px; }
+      .track { position: relative; height: 16px; border-radius: 999px; background: color-mix(in srgb, var(--text) 10%, transparent); overflow: hidden; }
+      .track i { position: absolute; inset: 0 auto 0 0; width: var(--fill); background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+      .note { font-size: 0.95rem; color: var(--muted); }
+      footer { display: flex; justify-content: space-between; gap: 18px; align-items: center; margin-top: 24px; }
+      @media (max-width: 980px) { .hero, .stats, .grid, .chart-wrap, footer { grid-template-columns: 1fr; display: grid; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav>
+        <strong>dog shampoo</strong>
+        <div>
+          <a href="#overview">Overview</a>
+          <a href="#lanes">Lanes</a>
+          <a href="#chart">Chart</a>
+          <a href="#close">Close</a>
+        </div>
+      </nav>
+      <!-- studio-section:hero -->
+      <section class="shell hero" id="overview">
+        <div>
+          <p class="eyebrow">Interactive HTML artifact</p>
+          <h1>dog shampoo explained through real lanes and visible metrics.</h1>
+          <p class="lead">A render-first explainer for dog shampoo that keeps the thesis visible in every section instead of hiding it inside one card.</p>
+          <p class="note">Keep the structure, but replace the hero and chart with a more technical The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.</p>
+        </div>
+        <aside class="panel">
+          <p class="eyebrow">Audience</p>
+          <h2>product, operations, and leadership stakeholders</h2>
+          <p class="note">Make the primary artifact unmistakably about dog shampoo while keeping the structure coherent enough to lead the stage.</p>
+        </aside>
+      </section>
+      <section class="stats" id="lanes">
+        <article class="panel"><strong>36</strong><span>dog shampoo</span></article>
+        <article class="panel"><strong>58</strong><span>chart</span></article>
+        <article class="panel"><strong>74</strong><span>launch</span></article>
+      </section>
+      <section class="grid">
+        <article class="panel"><p class="eyebrow">Lane 1</p><h2>dog shampoo planning</h2><p>Anchor the opening pass in dog shampoo so the request is visible above the fold.</p></article>
+        <article class="panel"><p class="eyebrow">Lane 2</p><h2>chart execution</h2><p>Translate chart into concrete sections, owners, and timing instead of leaving it as a label.</p></article>
+        <article class="panel"><p class="eyebrow">Lane 3</p><h2>Feedback and continuity</h2><p>Keep revisions inspectable so the artifact can be refined without losing the strongest previous pass.</p></article>
+      </section>
+      <!-- studio-section:chart -->
+      <section class="chart-wrap" id="chart">
+        <article class="panel">
+          <p class="eyebrow">Chart focus</p>
+          <h2>Adoption by channel</h2>
+          <div class="bars">
+            <div class="bar-row"><span>Field adoption</span><div class="track"><i style="--fill:74%"></i></div></div><div class="bar-row"><span>Partner enablement</span><div class="track"><i style="--fill:62%"></i></div></div><div class="bar-row"><span>Direct requests</span><div class="track"><i style="--fill:58%"></i></div></div><div class="bar-row"><span>Retention follow-up</span><div class="track"><i style="--fill:69%"></i></div></div>
+          </div>
+        </article>
+        <aside class="panel">
+          <p class="eyebrow">What makes it faithful</p>
+          <h2>Request-grounded structure</h2>
+          <p class="note">The chart, headline, and proof lanes stay anchored in dog shampoo so the page does not collapse into a generic SaaS launch shell.</p>
+        </aside>
+      </section>
+      <footer id="close">
+        <div>
+          <p class="eyebrow">Next step</p>
+          <h2>Refine the artifact without losing its identity.</h2>
+        </div>
+        <p class="lead">This pass preserves the artifact identity and leaves stable section anchors for the next targeted edit.</p>
+      </footer>
+    </main>
+  </body>
+</html>

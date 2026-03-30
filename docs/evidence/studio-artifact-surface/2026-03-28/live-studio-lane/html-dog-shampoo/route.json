@@ -1,0 +1,33 @@
+{
+  "requestId": "a9111c5d-ec10-455c-a0ff-8279d2515b98",
+  "rawPrompt": "Create an interactive HTML artifact that explains a product rollout with charts about dog shampoo",
+  "activeArtifactId": null,
+  "outcomeKind": "artifact",
+  "confidence": 0.85,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "interactive_single_file",
+    "deliverableShape": "single_file",
+    "renderer": "html_iframe",
+    "presentationSurface": "side_panel",
+    "persistence": "shared_artifact_scoped",
+    "executionSubstrate": "client_sandbox",
+    "workspaceRecipeId": null,
+    "presentationVariantId": null,
+    "scope": {
+      "targetProject": null,
+      "createNewWorkspace": false,
+      "mutationBoundary": [
+        "product_rollout"
+      ]
+    },
+    "verification": {
+      "requireRender": true,
+      "requireBuild": false,
+      "requirePreview": false,
+      "requireExport": true,
+      "requireDiffReview": false
+    }
+  }
+}

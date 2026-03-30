@@ -1,0 +1,341 @@
+{
+  "id": "mermaid-approval-pipeline",
+  "prompt": "Create a Mermaid diagram of an approval pipeline",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/artifact/artifact-manifest.json",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 1,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "visual",
+      "deliverableShape": "single_file",
+      "renderer": "mermaid",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "approval_pipeline"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "developers and stakeholders",
+    "jobToBeDone": "visualize an approval pipeline process for better understanding and communication",
+    "subjectDomain": "approval workflow in software development or project management",
+    "artifactThesis": "create a clear Mermaid diagram of the approval pipeline to illustrate the steps and roles involved",
+    "requiredConcepts": [
+      "approval pipeline",
+      "stages",
+      "roles",
+      "workflow"
+    ],
+    "requiredInteractions": [],
+    "visualTone": [
+      "clear",
+      "concise",
+      "structured"
+    ],
+    "factualAnchors": [
+      "approval stages",
+      "decision points",
+      "role responsibilities"
+    ],
+    "styleDirectives": [
+      "use standard Mermaid syntax for clarity",
+      "label each stage and role clearly",
+      "indicate decision points with conditional logic symbols"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 12022714126761888000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.18,
+      "strategy": "pipeline-first_mermaid",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Mermaid diagram of an approval pipeline",
+      "renderablePaths": [
+        "approval_pipeline.mermaid"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 4,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Meets all requirements and faithfully represents the approval pipeline."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "Meets all requirements and faithfully represents the approval pipeline.",
+  "manifest": {
+    "artifactId": "b5e7ad8e-0408-445f-bf45-de0943280021",
+    "title": "a Mermaid diagram of an approval pipeline",
+    "artifactClass": "visual",
+    "renderer": "mermaid",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "mermaid",
+        "filePath": "approval_pipeline.mermaid",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "approval_pipeline.mermaid",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "approval_pipeline.mermaid",
+        "mime": "text/plain",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-approval_pipeline.mermaid",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Meets all requirements and faithfully represents the approval pipeline.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: a Mermaid diagram of an approval pipeline",
+    "summary": "a Mermaid diagram of an approval pipeline Meets all requirements and faithfully represents the approval pipeline.",
+    "evidence": [
+      "approval_pipeline.mermaid"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "rendererOutput": {
+    "primaryFile": "approval_pipeline.mermaid",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/captures/render-capture.mermaid"
+    ]
+  },
+  "materializedFiles": [
+    "approval_pipeline.mermaid"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "b5e7ad8e-0408-445f-bf45-de0943280021",
+      "title": "a Mermaid diagram of an approval pipeline",
+      "artifact_class": "visual",
+      "renderer": "mermaid",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "Meets all requirements and faithfully represents the approval pipeline.",
+      "primary_tab": "render",
+      "tab_count": 3,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 1,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render",
+      "production_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptance_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'a Mermaid diagram of an approval pipeline' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'a Mermaid diagram of an approval pipeline' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/mermaid-approval-pipeline/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: a Mermaid diagram of an approval pipeline",
+    "summary": "a Mermaid diagram of an approval pipeline Meets all requirements and faithfully represents the approval pipeline.",
+    "evidence": [
+      "approval_pipeline.mermaid"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 4,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Meets all requirements and faithfully represents the approval pipeline."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 4,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Meets all requirements and faithfully represents the approval pipeline."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "notes": [],
+  "proofPath": "contract_path",
+  "fullStudioPath": false
+}

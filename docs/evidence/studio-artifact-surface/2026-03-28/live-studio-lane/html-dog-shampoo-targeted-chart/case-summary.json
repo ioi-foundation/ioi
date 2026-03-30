@@ -1,0 +1,654 @@
+{
+  "id": "html-dog-shampoo-targeted-chart",
+  "prompt": "Edit the selected chart section to show adoption by channel instead of launch-phase sequencing.",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/artifact",
+  "stateRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/state",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/artifact/artifact-manifest.json",
+  "route": {
+    "requestId": "80b0bd79-c53e-4fbc-8648-a52490cd20f0",
+    "rawPrompt": "Edit the selected chart section to show adoption by channel instead of launch-phase sequencing.",
+    "activeArtifactId": "9dc1ce07-2e45-4e28-be16-b2d19d4aac3f",
+    "outcomeKind": "artifact",
+    "confidence": 0.95,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "index.html"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "Technical stakeholders and marketing teams",
+    "jobToBeDone": "Understand the adoption patterns of the new dog shampoo by different channels during the product rollout",
+    "subjectDomain": "Product launch and market adoption analysis",
+    "artifactThesis": "An interactive HTML artifact that visualizes the adoption of the new dog shampoo by various marketing channels, replacing the original launch-phase sequencing chart.",
+    "requiredConcepts": [
+      "dog shampoo",
+      "product rollout",
+      "marketing channel",
+      "adoption metrics"
+    ],
+    "requiredInteractions": [
+      "select view by channel",
+      "highlight active channel"
+    ],
+    "visualTone": [
+      "informative",
+      "professional",
+      "enterprise-grade",
+      "authoritative"
+    ],
+    "factualAnchors": [
+      "latest market trends in dog grooming products",
+      "company's previous product launches and their success metrics"
+    ],
+    "styleDirectives": [
+      "technical tone",
+      "precise language",
+      "data-driven insights",
+      "technical"
+    ],
+    "referenceHints": [
+      "chart section of index.html",
+      "replace launch-phase sequencing with adoption by channel"
+    ]
+  },
+  "editIntent": {
+    "mode": "patch",
+    "summary": "Update the chart section to show adoption by channel instead of launch-phase sequencing.",
+    "patchExistingArtifact": true,
+    "preserveStructure": true,
+    "targetScope": "index.html",
+    "targetPaths": [
+      "index.html"
+    ],
+    "requestedOperations": [
+      "replace-chart-section"
+    ],
+    "toneDirectives": [
+      "informative",
+      "professional",
+      "enterprise-grade",
+      "authoritative"
+    ],
+    "selectedTargets": [
+      {
+        "sourceSurface": "render",
+        "path": null,
+        "label": "chart section",
+        "snippet": "Hero chart section should show adoption by channel instead of launch-phase sequencing."
+      }
+    ],
+    "styleDirectives": [
+      "technical tone",
+      "precise language",
+      "data-driven insights",
+      "technical"
+    ],
+    "branchRequested": false
+  },
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 10219504572858550000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Patched the interactive HTML artifact to show adoption by channel instead of launch-phase sequencing.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 3,
+        "interactionRelevance": 2,
+        "layoutCoherence": 2,
+        "visualHierarchy": 2,
+        "completeness": 2,
+        "genericShellDetected": false,
+        "trivialShellDetected": true,
+        "deservesPrimaryArtifactView": false,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "HTML chart containers are empty placeholder shells on first paint.",
+        "rationale": "Renderer contract failures keep the first paint from qualifying as primary output."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 16523982390012314000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Patched interactive HTML artifact showing adoption of new dog shampoo by marketing channels.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 3,
+        "interactionRelevance": 2,
+        "layoutCoherence": 4,
+        "visualHierarchy": 4,
+        "completeness": 3,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "Missing interactive adoption metrics visualization.",
+        "rationale": "Candidate lacks dynamic interaction for channel selection and highlights."
+      }
+    },
+    {
+      "candidateId": "candidate-3",
+      "seed": 4381716133456527000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Patched the interactive HTML artifact to show adoption by channel instead of launch-phase sequencing for the new dog shampoo.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 3,
+        "interactionRelevance": 2,
+        "layoutCoherence": 2,
+        "visualHierarchy": 2,
+        "completeness": 2,
+        "genericShellDetected": false,
+        "trivialShellDetected": true,
+        "deservesPrimaryArtifactView": false,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "HTML chart containers are empty placeholder shells on first paint.",
+        "rationale": "Renderer contract failures keep the first paint from qualifying as primary output."
+      }
+    },
+    {
+      "candidateId": "candidate-2-refine-1",
+      "seed": 16523982390012314000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.18,
+      "strategy": "request-grounded_html.refinement",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Latest Market Trends in Dog Grooming Products | Company's Previous Product Launches and Their Success Metrics | Dog Shampoo",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 3,
+        "conceptCoverage": 3,
+        "interactionRelevance": 2,
+        "layoutCoherence": 2,
+        "visualHierarchy": 2,
+        "completeness": 2,
+        "genericShellDetected": false,
+        "trivialShellDetected": true,
+        "deservesPrimaryArtifactView": false,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "HTML chart containers are empty placeholder shells on first paint.",
+        "rationale": "Renderer contract failures keep the first paint from qualifying as primary output."
+      }
+    },
+    {
+      "candidateId": "candidate-1-refine-1",
+      "seed": 10219504572858550000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.18,
+      "strategy": "request-grounded_html.refinement",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "An interactive HTML artifact that visualizes the adoption of the new dog shampoo by various marketing channels, replacing the original launch-phase sequencing chart.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 4,
+        "interactionRelevance": 2,
+        "layoutCoherence": 2,
+        "visualHierarchy": 2,
+        "completeness": 2,
+        "genericShellDetected": false,
+        "trivialShellDetected": true,
+        "deservesPrimaryArtifactView": false,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "HTML chart regions are empty placeholder shells on first paint.",
+        "rationale": "Renderer contract failures keep the first paint from qualifying as primary output."
+      }
+    },
+    {
+      "candidateId": "candidate-1-refine-2",
+      "seed": 10219504572858550000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.18,
+      "strategy": "request-grounded_html.refinement",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "An interactive HTML artifact that visualizes the adoption of the new dog shampoo by various marketing channels, replacing the original launch-phase sequencing chart.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 4,
+        "interactionRelevance": 3,
+        "layoutCoherence": 4,
+        "visualHierarchy": 4,
+        "completeness": 3,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "Missing view switching for channel adoption",
+        "rationale": "Needs interaction for channel selection."
+      }
+    },
+    {
+      "candidateId": "candidate-3-refine-1",
+      "seed": 4381716133456527000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.18,
+      "strategy": "request-grounded_html.refinement",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Interactive HTML artifact visualizing the adoption of the new dog shampoo by various marketing channels, replacing the original launch-phase sequencing chart.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 3,
+        "interactionRelevance": 2,
+        "layoutCoherence": 5,
+        "visualHierarchy": 4,
+        "completeness": 3,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "Missing interactive adoption by channel visualization.",
+        "rationale": "Candidate lacks required interactions and chart replacement."
+      }
+    },
+    {
+      "candidateId": "candidate-3-refine-2",
+      "seed": 4381716133456527000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.18,
+      "strategy": "request-grounded_html.refinement",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Patched the current candidate to replace the launch-phase sequencing chart with an interactive adoption by channel visualization for the new dog shampoo.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 4,
+        "interactionRelevance": 4,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 4,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate meets brief requirements, visualizes adoption by channel, and provides interactive controls."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-3-refine-2",
+  "winningCandidateRationale": "Candidate meets brief requirements, visualizes adoption by channel, and provides interactive controls.",
+  "manifest": {
+    "artifactId": "9dc1ce07-2e45-4e28-be16-b2d19d4aac3f",
+    "title": "Create an interactive HTML artifact that explains a product rollo...",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": null,
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": null,
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "1efd9972-76f4-4574-953e-2f0fe8ce3403",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "shared_artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create an interactive HTML artifact that explains a product rollo...",
+    "summary": "Create an interactive HTML artifact that explains a product rollo... Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "evidence": [
+      "index.html",
+      "production provenance: openai-compatible (qwen2.5:7b)",
+      "acceptance provenance: openai-compatible (qwen2.5:14b)"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null,
+    "updatedAt": "2026-03-30T12:20:21.789909051+00:00"
+  },
+  "rendererOutput": {
+    "primaryFile": "index.html",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/captures/render-capture.html"
+    ]
+  },
+  "materializedFiles": [
+    "index.html"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "9dc1ce07-2e45-4e28-be16-b2d19d4aac3f",
+      "title": "Create an interactive HTML artifact that explains a product rollo...",
+      "artifact_class": "interactive_single_file",
+      "renderer": "html_iframe",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "primary_tab": "render",
+      "tab_count": 3,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 0,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render",
+      "production_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptance_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'Create an interactive HTML artifact that explains a product rollo...' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'Create an interactive HTML artifact that explains a product rollo...' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-targeted-chart/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create an interactive HTML artifact that explains a product rollo...",
+    "summary": "Create an interactive HTML artifact that explains a product rollo... Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "evidence": [
+      "index.html"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 4,
+    "interactionRelevance": 4,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 4,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": true,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "",
+    "rationale": "Candidate meets brief requirements, visualizes adoption by channel, and provides interactive controls."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 4,
+    "interactionRelevance": 4,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 4,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": true,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "",
+    "rationale": "Candidate meets brief requirements, visualizes adoption by channel, and provides interactive controls."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:14b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "locked",
+  "failure": null,
+  "notes": [],
+  "proofPath": "full_studio_path",
+  "fullStudioPath": true
+}

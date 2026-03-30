@@ -1,0 +1,442 @@
+{
+  "id": "html-dog-shampoo-technical",
+  "prompt": "Keep the structure, but replace the hero and chart with a more technical tone",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/artifact/artifact-manifest.json",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.95,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "product_rollout.html"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "Technical Stakeholders",
+    "jobToBeDone": "Review Product Launch Metrics and Customer Feedback with Precision",
+    "subjectDomain": "Product Launch Analytics",
+    "artifactThesis": "Enhance the current interactive dashboard to provide a more technical tone for enterprise-level analysis.",
+    "requiredConcepts": [
+      "Sales Figures",
+      "Customer Feedback",
+      "Technical Metrics"
+    ],
+    "requiredInteractions": [
+      "Filter Data by Parameters",
+      "Analyze Detailed Reports"
+    ],
+    "visualTone": [
+      "Technical",
+      "Professional"
+    ],
+    "factualAnchors": [
+      "Q1 Sales for Dog Shampoos",
+      "Customer Satisfaction Scores"
+    ],
+    "styleDirectives": [],
+    "referenceHints": [
+      "Maintain Existing Navigation Structure"
+    ]
+  },
+  "editIntent": {
+    "mode": "patch",
+    "summary": "Refine the existing interactive dashboard with a more technical tone.",
+    "patchExistingArtifact": true,
+    "preserveStructure": true,
+    "targetScope": "product_rollout.html",
+    "targetPaths": [
+      "product_rollout.html"
+    ],
+    "requestedOperations": [
+      "replaceHero",
+      "replaceChart"
+    ],
+    "toneDirectives": [
+      "Technical",
+      "Professional"
+    ],
+    "selectedTargets": [
+      {
+        "sourceSurface": "side_panel",
+        "path": null,
+        "label": "Refine Interactive Dashboard for Enterprise Stakeholders",
+        "snippet": "<style>\n        body { font-family: 'Arial Black', Gadget, sans-serif; }\n        .hero { text-align: center; padding-top: 70px; }\n        .controls { display: flex; justify-content: space-around; margin-bottom: 30px; }\n        .chart, .evidence { width: 100%; max-width: 800px; margin: auto; }\n    </style>"
+      }
+    ],
+    "styleDirectives": [],
+    "branchRequested": false
+  },
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 15906189080752530000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Refined Interactive Dashboard for Enterprise-Level Analysis",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 2,
+        "layoutCoherence": 2,
+        "visualHierarchy": 2,
+        "completeness": 2,
+        "genericShellDetected": false,
+        "trivialShellDetected": true,
+        "deservesPrimaryArtifactView": false,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "HTML chart regions are empty placeholder shells on first paint.",
+        "rationale": "Renderer contract failures keep the first paint from qualifying as primary output."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 1348149122759218400,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Refined Interactive Dashboard for Technical Stakeholders",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Candidate meets all requirements and preserves the existing structure while enhancing the technical tone."
+      }
+    },
+    {
+      "candidateId": "candidate-3",
+      "seed": 5236853238475459000,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Refined Interactive Dashboard for Technical Stakeholders",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Candidate meets all requirements and preserves the original structure while enhancing technical tone."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-2",
+  "winningCandidateRationale": "Candidate meets all requirements and preserves the existing structure while enhancing the technical tone.",
+  "manifest": {
+    "artifactId": "61d08530-f31e-4ad5-b37c-862773024e57",
+    "title": "Keep the structure, but replace the hero and chart with a more technical",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": "product_rollout.html",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "product_rollout.html",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "product_rollout.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "generated-product_rollout.html",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Candidate meets all requirements and preserves the existing structure while enhancing the technical tone.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Keep the structure, but replace the hero and chart with a more technical",
+    "summary": "Keep the structure, but replace the hero and chart with a more technical Candidate meets all requirements and preserves the existing structure while enhancing the technical tone.",
+    "evidence": [
+      "product_rollout.html"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "rendererOutput": {
+    "primaryFile": "product_rollout.html",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/captures/render-capture.html"
+    ]
+  },
+  "materializedFiles": [
+    "product_rollout.html"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "61d08530-f31e-4ad5-b37c-862773024e57",
+      "title": "Keep the structure, but replace the hero and chart with a more technical",
+      "artifact_class": "interactive_single_file",
+      "renderer": "html_iframe",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "Candidate meets all requirements and preserves the existing structure while enhancing the technical tone.",
+      "primary_tab": "render",
+      "tab_count": 3,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 0,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render",
+      "production_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptance_provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'Keep the structure, but replace the hero and chart with a more technical' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'Keep the structure, but replace the hero and chart with a more technical' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/html-dog-shampoo-technical/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Keep the structure, but replace the hero and chart with a more technical",
+    "summary": "Keep the structure, but replace the hero and chart with a more technical Candidate meets all requirements and preserves the existing structure while enhancing the technical tone.",
+    "evidence": [
+      "product_rollout.html"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": true,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Candidate meets all requirements and preserves the existing structure while enhancing the technical tone."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": true,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Candidate meets all requirements and preserves the existing structure while enhancing the technical tone."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "notes": [],
+  "proofPath": "contract_path",
+  "fullStudioPath": false
+}

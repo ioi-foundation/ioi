@@ -1,0 +1,208 @@
+{
+  "prompt": "Create a downloadable artifact bundle with a CSV and README",
+  "title": "a downloadable artifact bundle with a CSV and README",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.96,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "downloadable_file",
+      "deliverableShape": "file_set",
+      "renderer": "download_card",
+      "presentationSurface": "side_panel",
+      "persistence": "artifact_scoped",
+      "executionSubstrate": "none",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "the requesting team",
+    "jobToBeDone": "Package the useful files with enough orientation to justify render-first download presentation.",
+    "subjectDomain": "downloadable csv readme",
+    "artifactThesis": "Make the primary artifact unmistakably about downloadable csv readme while keeping the structure coherent enough to lead the stage.",
+    "requiredConcepts": [
+      "downloadable",
+      "csv",
+      "readme"
+    ],
+    "requiredInteractions": [],
+    "visualTone": [
+      "grounded"
+    ],
+    "factualAnchors": [
+      "downloadable",
+      "csv",
+      "readme"
+    ],
+    "styleDirectives": [
+      "grounded"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 10090606462639443219,
+      "model": "InferenceRuntime",
+      "temperature": 0.12,
+      "strategy": "bundle-first_download",
+      "origin": "live_inference",
+      "summary": "Materialized a download bundle for downloadable csv readme.",
+      "renderablePaths": [],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 3,
+        "layoutCoherence": 5,
+        "visualHierarchy": 3,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 8565099133823044334,
+      "model": "InferenceRuntime",
+      "temperature": 0.12,
+      "strategy": "bundle-first_download",
+      "origin": "live_inference",
+      "summary": "Materialized a download bundle for downloadable csv readme.",
+      "renderablePaths": [],
+      "selected": true,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 3,
+        "layoutCoherence": 5,
+        "visualHierarchy": 3,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-2",
+  "winningCandidateRationale": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage.",
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 3,
+    "layoutCoherence": 5,
+    "visualHierarchy": 3,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "outputOrigin": "live_inference",
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "manifest": {
+    "artifactId": "69112845-d495-401b-b9f1-52fb679ff8b7",
+    "title": "a downloadable artifact bundle with a CSV and README",
+    "artifactClass": "downloadable_file",
+    "renderer": "download_card",
+    "primaryTab": "download",
+    "tabs": [
+      {
+        "id": "download",
+        "label": "Download",
+        "kind": "download",
+        "renderer": "download_card",
+        "filePath": "README.md",
+        "lens": "download"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "README.md",
+        "mime": "text/markdown",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-README.md",
+        "externalUrl": null
+      },
+      {
+        "path": "exports/downloadable-csv-readme.csv",
+        "mime": "text/csv",
+        "role": "export",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-exports-downloadable-csv-readme.csv",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: a downloadable artifact bundle with a CSV and README",
+    "summary": "a downloadable artifact bundle with a CSV and README The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "README.md",
+      "exports/downloadable-csv-readme.csv"
+    ]
+  },
+  "materializedFiles": [
+    "README.md",
+    "exports/downloadable-csv-readme.csv"
+  ],
+  "renderableFiles": [],
+  "refinement": null
+}

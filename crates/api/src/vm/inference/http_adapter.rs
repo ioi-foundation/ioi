@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use futures_util::StreamExt;
 use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::{StudioRuntimeProvenance, StudioRuntimeProvenanceKind};
 use ioi_types::error::VmError;
 use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
@@ -75,10 +76,11 @@ struct OpenAiRequest {
     temperature: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     response_format: Option<ResponseFormat>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    options: Option<Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -170,6 +172,7 @@ impl ProviderStrategy for OpenAiStrategy {
             None
         };
         let max_tokens = (options.max_tokens > 0).then_some(options.max_tokens);
+        let local_runtime_options = ollama_request_options_for_api_url(api_url);
 
         let body = OpenAiRequest {
             model: model_name.to_string(),
@@ -181,6 +184,7 @@ impl ProviderStrategy for OpenAiStrategy {
             max_tokens,
             stream,
             response_format,
+            options: local_runtime_options,
         };
 
         Ok(client
@@ -215,50 +219,65 @@ impl ProviderStrategy for OpenAiStrategy {
             arguments: String,
         }
 
-        let text = response
-            .text()
-            .await
-            .map_err(|e| VmError::HostError(e.to_string()))?;
+        fn decode_openai_response(resp: OpenAiResponse, text: &str) -> Result<Vec<u8>, VmError> {
+            let choice = resp
+                .choices
+                .first()
+                .ok_or(VmError::HostError("No choices".into()))?;
+
+            if let Some(refusal) = &choice.message.refusal {
+                return Err(VmError::HostError(format!("LLM_REFUSAL: {}", refusal)));
+            }
+
+            if let Some(calls) = &choice.message.tool_calls {
+                if let Some(call) = calls.first() {
+                    let json = json!({
+                        "name": call.function.name,
+                        "arguments": serde_json::from_str::<Value>(&call.function.arguments).unwrap_or(Value::Null)
+                    });
+                    return Ok(json.to_string().into_bytes());
+                }
+            }
+
+            let content = choice.message.content.clone().unwrap_or_default();
+            if content.trim().is_empty() {
+                let reason = choice
+                    .finish_reason
+                    .clone()
+                    .unwrap_or("unknown".to_string());
+                if ["content_filter", "stop", "length"].contains(&reason.as_str()) {
+                    return Err(VmError::HostError(format!(
+                        "LLM_REFUSAL: Empty content (reason: {})",
+                        reason
+                    )));
+                }
+                return Err(VmError::HostError(format!(
+                    "Empty content. Reason: {}. Raw: {}",
+                    reason, text
+                )));
+            }
+            Ok(content.into_bytes())
+        }
+
+        let mut body = Vec::new();
+        let mut stream = response.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|e| VmError::HostError(e.to_string()))?;
+            body.extend_from_slice(&chunk);
+
+            if let Ok(resp) = serde_json::from_slice::<OpenAiResponse>(&body) {
+                let text = String::from_utf8(body.clone())
+                    .map_err(|e| VmError::HostError(format!("UTF-8 decode error: {}", e)))?;
+                return decode_openai_response(resp, &text);
+            }
+        }
+
+        let text = String::from_utf8(body)
+            .map_err(|e| VmError::HostError(format!("UTF-8 decode error: {}", e)))?;
         let resp: OpenAiResponse = serde_json::from_str(&text)
             .map_err(|e| VmError::HostError(format!("Parse error: {} | Raw: {}", e, text)))?;
 
-        let choice = resp
-            .choices
-            .first()
-            .ok_or(VmError::HostError("No choices".into()))?;
-
-        if let Some(refusal) = &choice.message.refusal {
-            return Err(VmError::HostError(format!("LLM_REFUSAL: {}", refusal)));
-        }
-
-        if let Some(calls) = &choice.message.tool_calls {
-            if let Some(call) = calls.first() {
-                let json = json!({
-                    "name": call.function.name,
-                    "arguments": serde_json::from_str::<Value>(&call.function.arguments).unwrap_or(Value::Null)
-                });
-                return Ok(json.to_string().into_bytes());
-            }
-        }
-
-        let content = choice.message.content.clone().unwrap_or_default();
-        if content.trim().is_empty() {
-            let reason = choice
-                .finish_reason
-                .clone()
-                .unwrap_or("unknown".to_string());
-            if ["content_filter", "stop", "length"].contains(&reason.as_str()) {
-                return Err(VmError::HostError(format!(
-                    "LLM_REFUSAL: Empty content (reason: {})",
-                    reason
-                )));
-            }
-            return Err(VmError::HostError(format!(
-                "Empty content. Reason: {}. Raw: {}",
-                reason, text
-            )));
-        }
-        Ok(content.into_bytes())
+        decode_openai_response(resp, &text)
     }
 
     async fn parse_stream_chunk(&self, _chunk: &[u8]) -> Result<Option<String>, VmError> {
@@ -502,6 +521,15 @@ enum ProviderKind {
     Anthropic,
 }
 
+impl ProviderKind {
+    fn label(self) -> &'static str {
+        match self {
+            Self::OpenAi => "openai-compatible",
+            Self::Anthropic => "anthropic-compatible",
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 struct PartialToolCall {
     name: Option<String>,
@@ -641,7 +669,10 @@ pub struct HttpInferenceRuntime {
 
 impl HttpInferenceRuntime {
     pub fn new(api_url: String, api_key: String, model_name: String) -> Self {
-        let client = match Client::builder().timeout(Duration::from_secs(60)).build() {
+        let client = match Client::builder()
+            .timeout(inference_http_timeout_for_api_url(&api_url))
+            .build()
+        {
             Ok(client) => client,
             Err(err) => {
                 log::warn!(
@@ -697,7 +728,7 @@ impl HttpInferenceRuntime {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
+            let body = read_error_response_body(response).await;
             log::error!("Provider Error {}: {}", status, body);
             return Err(VmError::HostError(format!(
                 "Provider Error {}: {}",
@@ -760,6 +791,135 @@ impl HttpInferenceRuntime {
     }
 }
 
+fn inference_http_timeout_for_api_url(api_url: &str) -> Duration {
+    Duration::from_secs(inference_http_timeout_seconds_for_api_url_with_lookup(
+        api_url,
+        |key| std::env::var(key).ok(),
+    ))
+}
+
+fn ollama_request_options_for_api_url(api_url: &str) -> Option<Value> {
+    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+        return None;
+    }
+
+    let num_ctx = std::env::var("OLLAMA_CONTEXT_LENGTH")
+        .ok()
+        .and_then(|value| value.trim().parse::<u32>().ok())
+        .filter(|value| *value > 0)?;
+    Some(json!({ "num_ctx": num_ctx }))
+}
+
+async fn read_error_response_body(response: reqwest::Response) -> String {
+    match tokio::time::timeout(Duration::from_secs(3), response.text()).await {
+        Ok(Ok(body)) if !body.trim().is_empty() => body,
+        Ok(Ok(_)) => "<empty error body>".to_string(),
+        Ok(Err(error)) => format!("<failed to read error body: {error}>"),
+        Err(_) => "<timed out while reading error body>".to_string(),
+    }
+}
+
+fn inference_http_timeout_seconds_for_api_url_with_lookup<F>(api_url: &str, lookup: F) -> u64
+where
+    F: Fn(&str) -> Option<String>,
+{
+    inference_http_timeout_override_seconds_with_lookup(&lookup)
+        .unwrap_or_else(|| default_inference_http_timeout_seconds(api_url))
+}
+
+fn inference_http_timeout_override_seconds_with_lookup<F>(lookup: &F) -> Option<u64>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    [
+        "AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS",
+        "IOI_INFERENCE_HTTP_TIMEOUT_SECS",
+    ]
+    .iter()
+    .find_map(|key| {
+        lookup(key).and_then(|value| {
+            value
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .filter(|seconds| *seconds > 0)
+        })
+    })
+}
+
+fn default_inference_http_timeout_seconds(api_url: &str) -> u64 {
+    match runtime_kind_for_api_url(api_url) {
+        StudioRuntimeProvenanceKind::RealLocalRuntime => 600,
+        _ => 60,
+    }
+}
+
+fn should_use_openai_streaming(
+    api_url: &str,
+    provider_kind: ProviderKind,
+    strategy_supports_streaming: bool,
+    has_token_stream: bool,
+    options: &InferenceOptions,
+) -> bool {
+    if !strategy_supports_streaming || provider_kind != ProviderKind::OpenAi {
+        return false;
+    }
+
+    if has_token_stream {
+        return true;
+    }
+
+    !options.tools.is_empty()
+        && runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime
+}
+
+fn normalize_embedding_env(value: Option<String>) -> Option<String> {
+    value
+        .map(|entry| entry.trim().to_string())
+        .filter(|entry| !entry.is_empty())
+}
+
+fn uses_openai_embedding_endpoint(api_url: &str) -> bool {
+    api_url.contains("openai.com")
+}
+
+fn resolve_embedding_target_url(api_url: &str) -> Result<String, VmError> {
+    if uses_openai_embedding_endpoint(api_url) {
+        return Ok("https://api.openai.com/v1/embeddings".to_string());
+    }
+
+    let trimmed = api_url.trim_end_matches('/');
+    if trimmed.ends_with("/embeddings") {
+        return Ok(trimmed.to_string());
+    }
+    if let Some(prefix) = trimmed.strip_suffix("/chat/completions") {
+        return Ok(format!("{prefix}/embeddings"));
+    }
+    if trimmed.ends_with("/v1") {
+        return Ok(format!("{trimmed}/embeddings"));
+    }
+
+    Err(VmError::HostError(format!(
+        "Cannot determine embedding URL from '{}'",
+        api_url
+    )))
+}
+
+fn resolve_embedding_model_with<F>(api_url: &str, lookup: F) -> String
+where
+    F: Fn(&str) -> Option<String>,
+{
+    if uses_openai_embedding_endpoint(api_url) {
+        return normalize_embedding_env(lookup("OPENAI_EMBEDDING_MODEL"))
+            .unwrap_or_else(|| "text-embedding-3-small".to_string());
+    }
+
+    normalize_embedding_env(lookup("AUTOPILOT_LOCAL_EMBEDDING_MODEL"))
+        .or_else(|| normalize_embedding_env(lookup("LOCAL_LLM_EMBEDDING_MODEL")))
+        .or_else(|| normalize_embedding_env(lookup("OPENAI_EMBEDDING_MODEL")))
+        .unwrap_or_else(|| "nomic-embed-text".to_string())
+}
+
 #[async_trait]
 impl InferenceRuntime for HttpInferenceRuntime {
     async fn execute_inference(
@@ -779,9 +939,13 @@ impl InferenceRuntime for HttpInferenceRuntime {
         options: InferenceOptions,
         token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
-        let can_stream = self.strategy.supports_streaming()
-            && self.provider_kind == ProviderKind::OpenAi
-            && (token_stream.is_some() || !options.tools.is_empty());
+        let can_stream = should_use_openai_streaming(
+            &self.api_url,
+            self.provider_kind,
+            self.strategy.supports_streaming(),
+            token_stream.is_some(),
+            &options,
+        );
         if can_stream {
             return self
                 .execute_openai_streaming(input_context, &options, token_stream)
@@ -805,7 +969,7 @@ impl InferenceRuntime for HttpInferenceRuntime {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
+            let body = read_error_response_body(response).await;
             log::error!("Provider Error {}: {}", status, body);
             return Err(VmError::HostError(format!(
                 "Provider Error {}: {}",
@@ -826,30 +990,20 @@ impl InferenceRuntime for HttpInferenceRuntime {
             embedding: Vec<f32>,
         }
 
-        // [FIX] OpenAI Embedding logic (Default)
-        // Ideally this should also be strategy-based if Anthropic adds embeddings.
-        let embedding_url = "https://api.openai.com/v1/embeddings";
-        let model = "text-embedding-3-small";
-
-        // If the user configured a custom URL for chat (e.g. local), try to infer embedding URL
-        // or fallback to OpenAI if the provider is openai.
-        let target_url = if self.api_url.contains("openai.com") {
-            embedding_url.to_string()
-        } else if self.api_url.contains("/v1") {
-            self.api_url.replace("/chat/completions", "/embeddings")
-        } else {
-            return Err(VmError::HostError("Cannot determine embedding URL".into()));
-        };
+        let target_url = resolve_embedding_target_url(&self.api_url)?;
+        let model = resolve_embedding_model_with(&self.api_url, |key| std::env::var(key).ok());
 
         let body = json!({
             "input": text,
             "model": model
         });
 
-        let resp = self
-            .client
-            .post(&target_url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+        let mut request = self.client.post(&target_url);
+        if !self.api_key.trim().is_empty() {
+            request = request.header("Authorization", format!("Bearer {}", self.api_key));
+        }
+
+        let resp = request
             .json(&body)
             .send()
             .await
@@ -918,14 +1072,46 @@ impl InferenceRuntime for HttpInferenceRuntime {
     async fn unload_model(&self, _hash: [u8; 32]) -> Result<(), VmError> {
         Ok(())
     }
+
+    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+        StudioRuntimeProvenance {
+            kind: runtime_kind_for_api_url(&self.api_url),
+            label: self.provider_kind.label().to_string(),
+            model: Some(self.model_name.clone()),
+            endpoint: Some(self.api_url.clone()),
+        }
+    }
+}
+
+fn runtime_kind_for_api_url(api_url: &str) -> StudioRuntimeProvenanceKind {
+    let host = reqwest::Url::parse(api_url)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_ascii_lowercase));
+    match host.as_deref() {
+        Some("localhost") | Some("127.0.0.1") | Some("::1") => {
+            StudioRuntimeProvenanceKind::RealLocalRuntime
+        }
+        Some(_) => StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+        None => StudioRuntimeProvenanceKind::OpaqueRuntime,
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{OpenAiStrategy, OpenAiStreamAccumulator, ProviderStrategy};
+    use super::{
+        default_inference_http_timeout_seconds,
+        inference_http_timeout_seconds_for_api_url_with_lookup, resolve_embedding_model_with,
+        resolve_embedding_target_url, should_use_openai_streaming, HttpInferenceRuntime,
+        OpenAiStrategy, OpenAiStreamAccumulator, ProviderKind, ProviderStrategy,
+    };
+    use crate::vm::inference::InferenceRuntime;
     use ioi_types::app::agentic::{InferenceOptions, LlmToolDefinition};
     use reqwest::Client;
     use serde_json::{json, Value};
+    use std::collections::HashMap;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
 
     #[test]
     fn openai_stream_accumulator_returns_complete_tool_call_before_done() {
@@ -1043,5 +1229,247 @@ mod tests {
         assert_eq!(parsed["tool_choice"], "required");
         assert_eq!(parsed["parallel_tool_calls"], false);
         assert!(parsed.get("response_format").is_none());
+    }
+
+    #[test]
+    fn local_openai_requests_include_ollama_num_ctx_when_configured() {
+        std::env::set_var("OLLAMA_CONTEXT_LENGTH", "2048");
+        let request = OpenAiStrategy
+            .build_request(
+                &Client::new(),
+                "http://127.0.0.1:11434/v1/chat/completions",
+                "",
+                "qwen2.5:7b",
+                br#"[{"role":"user","content":"Say ok"}]"#,
+                &InferenceOptions {
+                    max_tokens: 8,
+                    ..Default::default()
+                },
+                false,
+            )
+            .expect("request builder")
+            .build()
+            .expect("request");
+        std::env::remove_var("OLLAMA_CONTEXT_LENGTH");
+
+        let body = request
+            .body()
+            .and_then(|payload| payload.as_bytes())
+            .expect("request body");
+        let parsed: Value = serde_json::from_slice(body).expect("json body");
+
+        assert_eq!(parsed["options"]["num_ctx"], 2048);
+    }
+
+    #[test]
+    fn openai_non_stream_requests_serialize_stream_false_explicitly() {
+        let request = OpenAiStrategy
+            .build_request(
+                &Client::new(),
+                "http://127.0.0.1:11434/v1/chat/completions",
+                "",
+                "qwen2.5:7b",
+                br#"[{"role":"user","content":"Say ok"}]"#,
+                &InferenceOptions {
+                    max_tokens: 8,
+                    ..Default::default()
+                },
+                false,
+            )
+            .expect("request builder")
+            .build()
+            .expect("request");
+
+        let body = request
+            .body()
+            .and_then(|payload| payload.as_bytes())
+            .expect("request body");
+        let parsed: Value = serde_json::from_slice(body).expect("json body");
+
+        assert_eq!(parsed["stream"], false);
+    }
+
+    #[test]
+    fn openai_streaming_requests_still_serialize_stream_true() {
+        let request = OpenAiStrategy
+            .build_request(
+                &Client::new(),
+                "https://api.openai.com/v1/chat/completions",
+                "test-key",
+                "gpt-4o",
+                br#"[{"role":"user","content":"Say ok"}]"#,
+                &InferenceOptions {
+                    max_tokens: 8,
+                    ..Default::default()
+                },
+                true,
+            )
+            .expect("request builder")
+            .build()
+            .expect("request");
+
+        let body = request
+            .body()
+            .and_then(|payload| payload.as_bytes())
+            .expect("request body");
+        let parsed: Value = serde_json::from_slice(body).expect("json body");
+
+        assert_eq!(parsed["stream"], true);
+    }
+
+    #[tokio::test]
+    async fn openai_parse_response_does_not_wait_for_chunked_body_termination() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind local listener");
+        let address = listener.local_addr().expect("listener address");
+        let response_json = json!({
+            "id": "chatcmpl-local",
+            "object": "chat.completion",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "{\"ok\":true}"
+                },
+                "finish_reason": "stop"
+            }]
+        })
+        .to_string();
+        let response_chunk = format!("{:x}\r\n{}\r\n", response_json.len(), response_json);
+
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept test client");
+            let mut request = vec![0u8; 16384];
+            let _ = socket.read(&mut request).await.expect("read request");
+            let headers = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n";
+            socket
+                .write_all(headers.as_bytes())
+                .await
+                .expect("write headers");
+            socket
+                .write_all(response_chunk.as_bytes())
+                .await
+                .expect("write chunk");
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        });
+
+        let runtime = HttpInferenceRuntime::new(
+            format!("http://{address}/v1/chat/completions"),
+            String::new(),
+            "qwen2.5:7b".to_string(),
+        );
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            runtime.execute_inference(
+                [0u8; 32],
+                br#"[{"role":"user","content":"Say ok"}]"#,
+                InferenceOptions::default(),
+            ),
+        )
+        .await;
+
+        let output = result
+            .expect("non-stream parse should not wait for terminal chunk")
+            .expect("inference result");
+        assert_eq!(String::from_utf8(output).unwrap(), "{\"ok\":true}");
+    }
+
+    #[test]
+    fn local_embedding_routes_use_local_model_defaults() {
+        let env = HashMap::from([(
+            "AUTOPILOT_LOCAL_EMBEDDING_MODEL",
+            "nomic-embed-text".to_string(),
+        )]);
+
+        let model =
+            resolve_embedding_model_with("http://127.0.0.1:11434/v1/chat/completions", |key| {
+                env.get(key).cloned()
+            });
+        let target = resolve_embedding_target_url("http://127.0.0.1:11434/v1/chat/completions")
+            .expect("local embedding URL");
+
+        assert_eq!(model, "nomic-embed-text");
+        assert_eq!(target, "http://127.0.0.1:11434/v1/embeddings");
+    }
+
+    #[test]
+    fn openai_embedding_routes_keep_openai_default_model() {
+        let env = HashMap::from([(
+            "OPENAI_EMBEDDING_MODEL",
+            "text-embedding-3-large".to_string(),
+        )]);
+
+        let model =
+            resolve_embedding_model_with("https://api.openai.com/v1/chat/completions", |key| {
+                env.get(key).cloned()
+            });
+        let target = resolve_embedding_target_url("https://api.openai.com/v1/chat/completions")
+            .expect("openai embedding URL");
+
+        assert_eq!(model, "text-embedding-3-large");
+        assert_eq!(target, "https://api.openai.com/v1/embeddings");
+    }
+
+    #[test]
+    fn local_runtime_defaults_to_longer_http_timeout() {
+        assert_eq!(
+            default_inference_http_timeout_seconds("http://127.0.0.1:11434/v1/chat/completions"),
+            600
+        );
+        assert_eq!(
+            default_inference_http_timeout_seconds("https://api.openai.com/v1/chat/completions"),
+            60
+        );
+    }
+
+    #[test]
+    fn explicit_http_timeout_override_takes_precedence() {
+        let env = HashMap::from([("AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS", "300".to_string())]);
+
+        let timeout = inference_http_timeout_seconds_for_api_url_with_lookup(
+            "http://127.0.0.1:11434/v1/chat/completions",
+            |key| env.get(key).cloned(),
+        );
+
+        assert_eq!(timeout, 300);
+    }
+
+    #[test]
+    fn local_openai_tool_requests_do_not_force_streaming_without_token_sink() {
+        assert!(!should_use_openai_streaming(
+            "http://127.0.0.1:11434/v1/chat/completions",
+            ProviderKind::OpenAi,
+            true,
+            false,
+            &InferenceOptions {
+                tools: vec![LlmToolDefinition {
+                    name: "browser__hover".to_string(),
+                    description: "Hover a target.".to_string(),
+                    parameters: r#"{"type":"object","properties":{"id":{"type":"string"}}}"#
+                        .to_string(),
+                }],
+                ..Default::default()
+            }
+        ));
+    }
+
+    #[test]
+    fn remote_openai_tool_requests_can_still_stream_without_token_sink() {
+        assert!(should_use_openai_streaming(
+            "https://api.openai.com/v1/chat/completions",
+            ProviderKind::OpenAi,
+            true,
+            false,
+            &InferenceOptions {
+                tools: vec![LlmToolDefinition {
+                    name: "browser__hover".to_string(),
+                    description: "Hover a target.".to_string(),
+                    parameters: r#"{"type":"object","properties":{"id":{"type":"string"}}}"#
+                        .to_string(),
+                }],
+                ..Default::default()
+            }
+        ));
     }
 }

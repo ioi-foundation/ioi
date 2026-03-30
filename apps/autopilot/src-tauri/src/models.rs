@@ -1,8 +1,24 @@
 // apps/autopilot/src-tauri/src/models.rs
+use ioi_api::studio::{
+    StudioArtifactBrief, StudioArtifactCandidateSummary, StudioArtifactEditIntent,
+    StudioArtifactJudgeResult, StudioArtifactOutputOrigin, StudioArtifactSelectionTarget,
+    StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{LlmToolDefinition, PiiTarget};
+pub use ioi_types::app::{
+    StudioArtifactClass, StudioArtifactDeliverableShape, StudioArtifactFailure,
+    StudioArtifactFailureKind, StudioArtifactFileRole, StudioArtifactLifecycleState,
+    StudioArtifactManifest, StudioArtifactManifestFile, StudioArtifactManifestStorage,
+    StudioArtifactManifestTab, StudioArtifactManifestVerification, StudioArtifactPersistenceMode,
+    StudioArtifactTabKind, StudioArtifactVerificationStatus, StudioExecutionSubstrate,
+    StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
+    StudioOutcomeArtifactVerificationRequest, StudioOutcomeKind, StudioOutcomeRequest,
+    StudioPresentationSurface, StudioRendererKind, StudioRuntimeProvenance,
+    StudioRuntimeProvenanceKind, StudioVerifiedReply,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -1040,6 +1056,321 @@ pub struct ChatMessage {
     pub timestamp: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactNavigatorNode {
+    pub id: String,
+    pub label: String,
+    pub kind: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub badge: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub lens: Option<String>,
+    #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub children: Vec<StudioArtifactNavigatorNode>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactMaterializationFileWrite {
+    pub path: String,
+    pub kind: String,
+    #[serde(default)]
+    pub content_preview: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactMaterializationCommandIntent {
+    pub id: String,
+    pub kind: String,
+    pub label: String,
+    pub command: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactMaterializationPreviewIntent {
+    pub label: String,
+    pub url: Option<String>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactMaterializationVerificationStep {
+    pub id: String,
+    pub label: String,
+    pub kind: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactPipelineStage {
+    Intake,
+    Routing,
+    Requirements,
+    Specification,
+    Materialization,
+    Execution,
+    Verification,
+    Presentation,
+    Reply,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactPipelineStep {
+    pub id: String,
+    pub stage: StudioArtifactPipelineStage,
+    pub label: String,
+    pub status: String,
+    pub summary: String,
+    #[serde(default)]
+    pub outputs: Vec<String>,
+    #[serde(default)]
+    pub verification_gate: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactMaterializationContract {
+    pub version: u32,
+    pub request_kind: String,
+    pub normalized_intent: String,
+    pub summary: String,
+    #[serde(default)]
+    pub artifact_brief: Option<StudioArtifactBrief>,
+    #[serde(default)]
+    pub edit_intent: Option<StudioArtifactEditIntent>,
+    #[serde(default)]
+    pub candidate_summaries: Vec<StudioArtifactCandidateSummary>,
+    #[serde(default)]
+    pub winning_candidate_id: Option<String>,
+    #[serde(default)]
+    pub winning_candidate_rationale: Option<String>,
+    #[serde(default)]
+    pub judge: Option<StudioArtifactJudgeResult>,
+    #[serde(default)]
+    pub output_origin: Option<StudioArtifactOutputOrigin>,
+    #[serde(default)]
+    pub production_provenance: Option<StudioRuntimeProvenance>,
+    #[serde(default)]
+    pub acceptance_provenance: Option<StudioRuntimeProvenance>,
+    #[serde(default)]
+    pub fallback_used: bool,
+    #[serde(default)]
+    pub ux_lifecycle: Option<StudioArtifactUxLifecycle>,
+    #[serde(default)]
+    pub failure: Option<StudioArtifactFailure>,
+    #[serde(default)]
+    pub navigator_nodes: Vec<StudioArtifactNavigatorNode>,
+    #[serde(default)]
+    pub file_writes: Vec<StudioArtifactMaterializationFileWrite>,
+    #[serde(default)]
+    pub command_intents: Vec<StudioArtifactMaterializationCommandIntent>,
+    #[serde(default)]
+    pub preview_intent: Option<StudioArtifactMaterializationPreviewIntent>,
+    #[serde(default)]
+    pub verification_steps: Vec<StudioArtifactMaterializationVerificationStep>,
+    #[serde(default)]
+    pub pipeline_steps: Vec<StudioArtifactPipelineStep>,
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactRevision {
+    pub revision_id: String,
+    #[serde(default)]
+    pub parent_revision_id: Option<String>,
+    pub branch_id: String,
+    pub branch_label: String,
+    pub prompt: String,
+    pub created_at: String,
+    pub ux_lifecycle: StudioArtifactUxLifecycle,
+    pub artifact_manifest: StudioArtifactManifest,
+    #[serde(default)]
+    pub artifact_brief: Option<StudioArtifactBrief>,
+    #[serde(default)]
+    pub edit_intent: Option<StudioArtifactEditIntent>,
+    #[serde(default)]
+    pub candidate_summaries: Vec<StudioArtifactCandidateSummary>,
+    #[serde(default)]
+    pub winning_candidate_id: Option<String>,
+    #[serde(default)]
+    pub judge: Option<StudioArtifactJudgeResult>,
+    #[serde(default)]
+    pub output_origin: Option<StudioArtifactOutputOrigin>,
+    #[serde(default)]
+    pub production_provenance: Option<StudioRuntimeProvenance>,
+    #[serde(default)]
+    pub acceptance_provenance: Option<StudioRuntimeProvenance>,
+    #[serde(default)]
+    pub failure: Option<StudioArtifactFailure>,
+    #[serde(default)]
+    pub file_writes: Vec<StudioArtifactMaterializationFileWrite>,
+    #[serde(default)]
+    pub selected_targets: Vec<StudioArtifactSelectionTarget>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioBuildReceipt {
+    pub receipt_id: String,
+    pub kind: String,
+    pub title: String,
+    pub status: String,
+    pub summary: String,
+    pub started_at: String,
+    #[serde(default)]
+    pub finished_at: Option<String>,
+    #[serde(default)]
+    pub artifact_ids: Vec<String>,
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub exit_code: Option<i32>,
+    #[serde(default)]
+    pub duration_ms: Option<u64>,
+    #[serde(default)]
+    pub failure_class: Option<String>,
+    #[serde(default)]
+    pub replay_classification: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioCodeWorkerLease {
+    pub backend: String,
+    pub planner_authority: String,
+    #[serde(default)]
+    pub allowed_mutation_scope: Vec<String>,
+    #[serde(default)]
+    pub allowed_command_classes: Vec<String>,
+    pub execution_state: String,
+    #[serde(default)]
+    pub retry_classification: Option<String>,
+    #[serde(default)]
+    pub last_summary: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioRendererSession {
+    pub session_id: String,
+    pub studio_session_id: String,
+    pub renderer: StudioRendererKind,
+    pub workspace_root: String,
+    pub entry_document: String,
+    #[serde(default)]
+    pub preview_url: Option<String>,
+    #[serde(default)]
+    pub preview_process_id: Option<u32>,
+    #[serde(default)]
+    pub scaffold_recipe_id: Option<String>,
+    #[serde(default)]
+    pub presentation_variant_id: Option<String>,
+    #[serde(default)]
+    pub package_manager: Option<String>,
+    pub status: String,
+    pub verification_status: String,
+    #[serde(default)]
+    pub receipts: Vec<StudioBuildReceipt>,
+    #[serde(default)]
+    pub current_worker_execution: Option<StudioCodeWorkerLease>,
+    pub current_tab: String,
+    #[serde(default)]
+    pub available_tabs: Vec<String>,
+    #[serde(default)]
+    pub ready_tabs: Vec<String>,
+    pub retry_count: u32,
+    #[serde(default)]
+    pub last_failure_summary: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactSession {
+    pub session_id: String,
+    pub thread_id: String,
+    pub artifact_id: String,
+    pub title: String,
+    pub summary: String,
+    pub current_lens: String,
+    pub navigator_backing_mode: String,
+    #[serde(default)]
+    pub navigator_nodes: Vec<StudioArtifactNavigatorNode>,
+    #[serde(default)]
+    pub attached_artifact_ids: Vec<String>,
+    #[serde(default)]
+    pub available_lenses: Vec<String>,
+    pub materialization: StudioArtifactMaterializationContract,
+    pub outcome_request: StudioOutcomeRequest,
+    pub artifact_manifest: StudioArtifactManifest,
+    pub verified_reply: StudioVerifiedReply,
+    pub lifecycle_state: StudioArtifactLifecycleState,
+    pub status: String,
+    #[serde(default)]
+    pub active_revision_id: Option<String>,
+    #[serde(default)]
+    pub revisions: Vec<StudioArtifactRevision>,
+    #[serde(default)]
+    pub taste_memory: Option<StudioArtifactTasteMemory>,
+    #[serde(default)]
+    pub selected_targets: Vec<StudioArtifactSelectionTarget>,
+    #[serde(default)]
+    pub ux_lifecycle: Option<StudioArtifactUxLifecycle>,
+    pub created_at: String,
+    pub updated_at: String,
+    #[serde(default)]
+    pub build_session_id: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub renderer_session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildArtifactSession {
+    pub session_id: String,
+    pub studio_session_id: String,
+    pub workspace_root: String,
+    pub entry_document: String,
+    #[serde(default)]
+    pub preview_url: Option<String>,
+    #[serde(default)]
+    pub preview_process_id: Option<u32>,
+    pub scaffold_recipe_id: String,
+    #[serde(default)]
+    pub presentation_variant_id: Option<String>,
+    pub package_manager: String,
+    pub build_status: String,
+    pub verification_status: String,
+    #[serde(default)]
+    pub receipts: Vec<StudioBuildReceipt>,
+    pub current_worker_execution: StudioCodeWorkerLease,
+    pub current_lens: String,
+    #[serde(default)]
+    pub available_lenses: Vec<String>,
+    #[serde(default)]
+    pub ready_lenses: Vec<String>,
+    pub retry_count: u32,
+    #[serde(default)]
+    pub last_failure_summary: Option<String>,
+}
+
 // Represents a node in the hierarchical swarm visualization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwarmAgent {
@@ -1125,6 +1456,18 @@ pub struct AgentTask {
     // Macro artifacts for this thread.
     #[serde(default)]
     pub artifacts: Vec<Artifact>,
+
+    #[serde(default)]
+    pub studio_session: Option<StudioArtifactSession>,
+
+    #[serde(default)]
+    pub studio_outcome: Option<StudioOutcomeRequest>,
+
+    #[serde(default)]
+    pub renderer_session: Option<StudioRendererSession>,
+
+    #[serde(default)]
+    pub build_session: Option<BuildArtifactSession>,
 
     // Run bundle artifact pointer (if created).
     #[serde(default)]
@@ -1794,6 +2137,14 @@ pub struct AppState {
     // Shared kernel-owned runtime for inference, embeddings, and adjacent
     // absorbed model/media capability calls.
     pub inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+
+    // Studio's typed outcome router may use a separate real runtime so
+    // lightweight route planning does not stall behind heavier artifact generation.
+    pub studio_routing_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+
+    // Acceptance judge runtime kept distinct from the production artifact runtime
+    // so Studio can surface separate provenance truthfully.
+    pub acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
 
     // Primary local runtime for checkpoints, memory, events, artifacts, and cache state.
     pub memory_runtime: Option<Arc<MemoryRuntime>>,

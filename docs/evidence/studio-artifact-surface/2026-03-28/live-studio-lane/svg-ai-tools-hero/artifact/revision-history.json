@@ -1,0 +1,227 @@
+[
+  {
+    "revisionId": "6ffecfb7-5538-403b-8368-9f4a57aac579",
+    "parentRevisionId": null,
+    "branchId": "main",
+    "branchLabel": "Main",
+    "prompt": "Create an SVG hero concept for an AI tools brand",
+    "createdAt": "2026-03-30T12:02:55.565848118+00:00",
+    "uxLifecycle": "judged",
+    "artifactManifest": {
+      "artifactId": "32ed9f94-ee45-471e-a074-668a333520e8",
+      "title": "Create an SVG hero concept for an AI tools brand",
+      "artifactClass": "visual",
+      "renderer": "svg",
+      "primaryTab": "render",
+      "tabs": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "renderer": "svg",
+          "filePath": null,
+          "lens": "render"
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "renderer": null,
+          "filePath": null,
+          "lens": "source"
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "renderer": null,
+          "filePath": null,
+          "lens": "evidence"
+        }
+      ],
+      "files": [
+        {
+          "path": "hero_concept.svg",
+          "mime": "image/svg+xml",
+          "role": "primary",
+          "renderable": true,
+          "downloadable": false,
+          "artifactId": "32ed9f94-ee45-471e-a074-668a333520e8",
+          "externalUrl": null
+        }
+      ],
+      "verification": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null
+      },
+      "storage": {
+        "mode": "shared_artifact_scoped",
+        "apiLabel": "artifact storage"
+      }
+    },
+    "artifactBrief": {
+      "audience": "Tech-savvy professionals interested in AI tools",
+      "jobToBeDone": "Highlight the capabilities and benefits of an AI tools brand to attract potential users and partners",
+      "subjectDomain": "AI technology, software tools, innovation, collaboration",
+      "artifactThesis": "The SVG hero concept should visually represent the cutting-edge nature of AI tools while emphasizing their practical applications in a professional setting.",
+      "requiredConcepts": [
+        "AI",
+        "tools",
+        "innovation",
+        "collaboration",
+        "technology"
+      ],
+      "requiredInteractions": [],
+      "visualTone": [
+        "modern",
+        "dynamic",
+        "intuitive",
+        "professional"
+      ],
+      "factualAnchors": [
+        "AI-driven solutions",
+        "efficiency gains",
+        "data analysis",
+        "user-friendly interfaces"
+      ],
+      "styleDirectives": [
+        "Use clean lines and minimalistic design elements to convey simplicity and efficiency.",
+        "Incorporate icons or symbols that represent AI concepts such as neural networks, data flow, or smart algorithms.",
+        "Ensure the color scheme is tech-forward with shades of blue and white for a professional look."
+      ],
+      "referenceHints": []
+    },
+    "editIntent": null,
+    "candidateSummaries": [
+      {
+        "candidateId": "candidate-1",
+        "seed": 17657568655713271759,
+        "model": "qwen2.5:7b",
+        "temperature": 0.48,
+        "strategy": "motif-first_svg",
+        "origin": "live_inference",
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "summary": "SVG hero concept for an AI tools brand",
+        "renderablePaths": [
+          "hero_concept.svg"
+        ],
+        "selected": true,
+        "fallback": false,
+        "failure": null,
+        "rawOutputPreview": null,
+        "judge": {
+          "classification": "pass",
+          "requestFaithfulness": 5,
+          "conceptCoverage": 4,
+          "interactionRelevance": 3,
+          "layoutCoherence": 5,
+          "visualHierarchy": 4,
+          "completeness": 5,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": true,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "",
+          "rationale": "Candidate meets brief requirements with clear representation of AI concepts and professional style."
+        }
+      },
+      {
+        "candidateId": "candidate-2",
+        "seed": 10737749590391225680,
+        "model": "qwen2.5:7b",
+        "temperature": 0.48,
+        "strategy": "motif-first_svg",
+        "origin": "live_inference",
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "summary": "SVG hero concept for an AI tools brand",
+        "renderablePaths": [
+          "hero_concept.svg"
+        ],
+        "selected": false,
+        "fallback": false,
+        "failure": null,
+        "rawOutputPreview": null,
+        "judge": {
+          "classification": "pass",
+          "requestFaithfulness": 5,
+          "conceptCoverage": 5,
+          "interactionRelevance": 4,
+          "layoutCoherence": 5,
+          "visualHierarchy": 5,
+          "completeness": 5,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": true,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "",
+          "rationale": "Meets all requirements with clean design and relevant elements."
+        }
+      }
+    ],
+    "winningCandidateId": "candidate-1",
+    "judge": {
+      "classification": "pass",
+      "requestFaithfulness": 5,
+      "conceptCoverage": 4,
+      "interactionRelevance": 3,
+      "layoutCoherence": 5,
+      "visualHierarchy": 4,
+      "completeness": 5,
+      "genericShellDetected": false,
+      "trivialShellDetected": false,
+      "deservesPrimaryArtifactView": true,
+      "patchedExistingArtifact": null,
+      "continuityRevisionUx": null,
+      "strongestContradiction": "",
+      "rationale": "Candidate meets brief requirements with clear representation of AI concepts and professional style."
+    },
+    "outputOrigin": "live_inference",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null,
+    "fileWrites": [
+      {
+        "path": "hero_concept.svg",
+        "kind": "primary",
+        "contentPreview": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 640 360\" width=\"640\" height=\"360\"><title>Tech-savvy professionals interested in AI tools - AI technology, software tools, innovation, collaboration</title><desc>The SVG hero concept should visually represent the cutting-edge nature of AI tools while emphasizing their practical applications in a professional setting. Key concepts: AI, tools, innovation, collaboration, technology. Anchors: AI-driven solutions, efficiency gains, data analysis, user-friendly interfaces.</desc>\n  <rect x=\"0\" y=\"0\" width=\"640\" height=\"360\" fill=\"#007BFF\" />\n  <g transform=\"translate(50, 100)\">\n    <text font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#FFFFFF\">\n      AI Tools\n    </text>"
+      }
+    ],
+    "selectedTargets": []
+  }
+]

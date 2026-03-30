@@ -1,0 +1,13 @@
+
+> a-workspace-project-for-a-billing-settings-surface@0.1.0 build
+> tsc -b && vite build
+
+vite v6.4.1 building for production...
+transforming...
+✓ 28 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.44 kB │ gzip:  0.29 kB
+dist/assets/index-BnlVwP1n.css    1.18 kB │ gzip:  0.62 kB
+dist/assets/index-DKTU3y9q.js   145.27 kB │ gzip: 46.56 kB
+✓ built in 319ms

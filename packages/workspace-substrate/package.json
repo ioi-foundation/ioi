@@ -1,0 +1,43 @@
+{
+  "name": "@ioi/workspace-substrate",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.umd.js",
+  "module": "./dist/index.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.umd.js"
+    },
+    "./style.css": "./dist/workspace-substrate.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && vite build"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "clsx": "^2.1.1",
+    "monaco-editor": "^0.52.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.5",
+    "vite-plugin-dts": "^4.5.4"
+  }
+}

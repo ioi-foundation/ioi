@@ -1,6 +1,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AutopilotIcon } from "./ActivityBarIcons";
+import type { PrimaryView } from "../studioWindowModel";
 
 interface ProjectScope {
   id: string;
@@ -9,15 +10,6 @@ interface ProjectScope {
   environment: string;
   rootPath: string;
 }
-
-type PrimaryView =
-  | "explorer"
-  | "workflows"
-  | "runs"
-  | "inbox"
-  | "capabilities"
-  | "policy"
-  | "settings";
 
 interface StudioIdeHeaderProps {
   workspaceName: string;
@@ -30,9 +22,10 @@ interface StudioIdeHeaderProps {
   onSelectProject: (projectId: string) => void;
   onToggleChat: () => void;
   onOpenCommandPalette: () => void;
+  onOpenNewTerminal: () => void;
 }
 
-const MENU_ITEMS = ["File", "Edit", "View", "Go", "Run", "Terminal", "Help"];
+const MENU_ITEMS = ["Studio", "Artifact", "Run", "Window"];
 
 function isTauriRuntime(): boolean {
   return (
@@ -54,9 +47,9 @@ function surfaceDetail(
   view: PrimaryView,
   workflowSurface: StudioIdeHeaderProps["workflowSurface"],
 ): string {
-  if (view === "explorer") return "Workspace editor";
+  if (view === "studio") return "Outcome control plane";
   if (view === "workflows") {
-    if (workflowSurface === "home") return "Welcome";
+    if (workflowSurface === "home") return "Internal";
     if (workflowSurface === "agents") return "Agent roster";
     if (workflowSurface === "catalog") return "Catalog";
     return "Canvas";
@@ -79,10 +72,13 @@ export function StudioIdeHeader({
   onSelectProject,
   onToggleChat,
   onOpenCommandPalette,
+  onOpenNewTerminal,
 }: StudioIdeHeaderProps) {
   const inboxCount = notificationCount > 9 ? "9+" : String(notificationCount);
   const [windowMaximized, setWindowMaximized] = useState(false);
+  const [terminalMenuOpen, setTerminalMenuOpen] = useState(false);
   const windowControlsVisible = isTauriRuntime();
+  const shellTerminalAllowed = activeView === "workflows";
 
   useEffect(() => {
     if (!windowControlsVisible) return;
@@ -115,6 +111,59 @@ export function StudioIdeHeader({
       void unlistenPromise.then((unlisten) => unlisten());
     };
   }, [windowControlsVisible]);
+
+  useEffect(() => {
+    if (!shellTerminalAllowed) {
+      setTerminalMenuOpen(false);
+      return;
+    }
+
+    if (!terminalMenuOpen) {
+      return;
+    }
+
+    const closeMenu = (event: globalThis.MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent) {
+        if (event.key === "Escape") {
+          setTerminalMenuOpen(false);
+        }
+        return;
+      }
+
+      if (event.target instanceof Element) {
+        const insideMenu = event.target.closest(".studio-ide-menu-group");
+        if (!insideMenu) {
+          setTerminalMenuOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener("mousedown", closeMenu);
+    window.addEventListener("keydown", closeMenu);
+    return () => {
+      window.removeEventListener("mousedown", closeMenu);
+      window.removeEventListener("keydown", closeMenu);
+    };
+  }, [shellTerminalAllowed, terminalMenuOpen]);
+
+  useEffect(() => {
+    if (!shellTerminalAllowed) {
+      return;
+    }
+
+    const handler = (event: KeyboardEvent) => {
+      if (isInteractiveElement(event.target)) return;
+      if (!event.shiftKey) return;
+      if (!event.metaKey && !event.ctrlKey) return;
+      if (event.key.toLowerCase() !== "t") return;
+      event.preventDefault();
+      setTerminalMenuOpen(false);
+      onOpenNewTerminal();
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onOpenNewTerminal, shellTerminalAllowed]);
 
   const toggleWindowMaximize = async () => {
     if (!windowControlsVisible) return;
@@ -163,6 +212,36 @@ export function StudioIdeHeader({
             {item}
           </span>
         ))}
+        {shellTerminalAllowed ? (
+          <div className="studio-ide-menu-group">
+            <button
+              type="button"
+              className={`studio-ide-menu-item studio-ide-menu-button ${
+                terminalMenuOpen ? "is-active" : ""
+              }`}
+              aria-haspopup="menu"
+              aria-expanded={terminalMenuOpen}
+              onClick={() => setTerminalMenuOpen((open) => !open)}
+            >
+              Terminal
+            </button>
+            {terminalMenuOpen ? (
+              <div className="studio-ide-menu-popover" role="menu" aria-label="Terminal menu">
+                <button
+                  type="button"
+                  className="studio-ide-menu-popover-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setTerminalMenuOpen(false);
+                    onOpenNewTerminal();
+                  }}
+                >
+                  New Terminal
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="studio-ide-command-cluster">
@@ -191,18 +270,20 @@ export function StudioIdeHeader({
           <kbd>⌘K</kbd>
         </button>
 
-        <button
-          type="button"
-          className={`studio-ide-chat-toggle ${
-            chatVisible ? "is-active" : ""
-          }`}
-          onClick={onToggleChat}
-          aria-label={chatVisible ? "Hide Autopilot chat" : "Show Autopilot chat"}
-          aria-pressed={chatVisible}
-          title={chatVisible ? "Hide Autopilot chat" : "Show Autopilot chat"}
-        >
-          <AutopilotIcon />
-        </button>
+        {activeView !== "studio" ? (
+          <button
+            type="button"
+            className={`studio-ide-chat-toggle ${
+              chatVisible ? "is-active" : ""
+            }`}
+            onClick={onToggleChat}
+            aria-label={chatVisible ? "Hide Autopilot chat" : "Show Autopilot chat"}
+            aria-pressed={chatVisible}
+            title={chatVisible ? "Hide Autopilot chat" : "Show Autopilot chat"}
+          >
+            <AutopilotIcon />
+          </button>
+        ) : null}
       </div>
 
       <div className="studio-ide-toolbar" data-tauri-drag-region>
