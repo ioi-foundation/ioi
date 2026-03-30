@@ -1,6 +1,6 @@
 use crate::identity;
 use crate::kernel::notifications;
-use crate::kernel::state::update_task_state;
+use crate::kernel::state::{hydrate_session_history, update_task_state};
 use crate::models::{
     AgentEvent, AgentPhase, AgentTask, AppState, ChatMessage, EventStatus, EventType,
     SessionSummary,
@@ -9,7 +9,10 @@ use crate::orchestrator;
 use crate::windows;
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
-use ioi_ipc::public::{DraftTransactionRequest, SubmitTransactionRequest};
+use ioi_ipc::public::{GetTransactionStatusRequest, SubmitTransactionRequest, TxStatus};
+use ioi_services::agentic::desktop::keys::get_state_key;
+use ioi_services::agentic::desktop::{AgentMode, StartAgentParams, StepAgentParams};
+use ioi_services::agentic::desktop::{AgentState, AgentStatus};
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof,
     SignatureSuite, SystemPayload, SystemTransaction,
@@ -18,8 +21,24 @@ use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
 use serde_json::json;
 use std::collections::HashSet;
-use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, State};
+use std::sync::{Mutex, OnceLock};
+use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::time::{sleep, timeout, Duration, Instant};
+
+const TX_SUBMIT_TIMEOUT_MS: u64 = 8_000;
+const SESSION_START_CONVERGENCE_TIMEOUT_MS: u64 = 15_000;
+const SESSION_START_CONVERGENCE_POLL_MS: u64 = 250;
+const SESSION_STATE_RECONCILE_TIMEOUT_MS: u64 = 90_000;
+const SESSION_STATE_RECONCILE_POLL_MS: u64 = 750;
+const SESSION_BOOTSTRAP_STEP_RETRY_GRACE_MS: u64 = 2_000;
+const SESSION_BOOTSTRAP_STEP_RETRY_INTERVAL_MS: u64 = 2_000;
+const SESSION_BOOTSTRAP_STEP_MAX_RETRIES: usize = 4;
+
+static ACTIVE_SESSION_RECONCILERS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+
+fn active_session_reconcilers() -> &'static Mutex<HashSet<String>> {
+    ACTIVE_SESSION_RECONCILERS.get_or_init(|| Mutex::new(HashSet::new()))
+}
 
 fn input_probe_logging_enabled() -> bool {
     std::env::var("AUTOPILOT_INPUT_PROBE_LOG")
@@ -42,6 +61,99 @@ fn generate_session_id_hex() -> String {
     session_bytes[..16].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
     session_bytes[16..].copy_from_slice(uuid::Uuid::new_v4().as_bytes());
     hex::encode(session_bytes)
+}
+
+fn normalize_session_id_string(value: &str) -> String {
+    value
+        .trim()
+        .trim_start_matches("0x")
+        .replace('-', "")
+        .to_ascii_lowercase()
+}
+
+fn session_hex_matches_task(task: &AgentTask, session_id_hex: &str) -> bool {
+    let task_session = task.session_id.as_deref().unwrap_or(task.id.as_str());
+    normalize_session_id_string(task_session) == normalize_session_id_string(session_id_hex)
+}
+
+fn task_should_continue_through_kernel(task: &AgentTask) -> bool {
+    !crate::kernel::studio::task_is_studio_authoritative(task)
+}
+
+fn update_task_if_current_matches<F>(app: &AppHandle, expected_task_id: &str, mut f: F)
+where
+    F: FnMut(&mut AgentTask),
+{
+    update_task_state(app, |task| {
+        if task.id == expected_task_id {
+            f(task);
+        }
+    });
+}
+
+fn replace_current_task_snapshot(
+    app: &AppHandle,
+    expected_task_id: &str,
+    next_task: AgentTask,
+) -> bool {
+    let state = app.state::<Mutex<AppState>>();
+    let mut task_clone: Option<AgentTask> = None;
+    let mut memory_runtime = None;
+
+    if let Ok(mut app_state) = state.lock() {
+        memory_runtime = app_state.memory_runtime.clone();
+        if let Some(current_task) = app_state.current_task.as_mut() {
+            if current_task.id == expected_task_id {
+                *current_task = next_task;
+                task_clone = Some(current_task.clone());
+            }
+        }
+    }
+
+    if let Some(task) = task_clone {
+        if let Some(memory_runtime) = memory_runtime.as_ref() {
+            orchestrator::save_local_task_state(memory_runtime, &task);
+        }
+
+        let event_name = match task.phase {
+            AgentPhase::Complete => "task-completed",
+            _ => "task-updated",
+        };
+        let _ = app.emit(event_name, &task);
+        true
+    } else {
+        false
+    }
+}
+
+fn bootstrap_step_label_for_state(agent_state: &AgentState) -> String {
+    if agent_state.step_count == 0 {
+        "Agent session queued. Waiting for first step...".to_string()
+    } else {
+        format!("Agent step {} in progress...", agent_state.step_count)
+    }
+}
+
+fn should_replace_with_reconciled_running_step(current_step: &str) -> bool {
+    let normalized = current_step.trim().to_ascii_lowercase();
+    normalized.is_empty()
+        || normalized == "initializing..."
+        || normalized == "connecting to kernel..."
+        || normalized == "submitting session start..."
+        || normalized == "waiting for session start to commit..."
+        || normalized == "waiting for message to commit..."
+        || normalized == "scheduling first step..."
+        || normalized == "agent session started. running first step..."
+        || normalized == "sending message..."
+        || normalized.contains("waiting for first step")
+        || normalized.contains("session queued")
+}
+
+fn submit_error_indicates_bootstrap_step_already_pending(error: &str) -> bool {
+    let normalized = error.trim().to_ascii_lowercase();
+    normalized.contains("already exists")
+        || normalized.contains("duplicate")
+        || normalized.contains("too low")
 }
 
 fn build_user_input_event(thread_id: &str, step_index: u32, text: &str) -> AgentEvent {
@@ -95,16 +207,34 @@ fn encode_post_message_params(session_id: [u8; 32], content: String) -> Result<V
     codec::to_bytes_canonical(&params).map_err(|e| e.to_string())
 }
 
-fn build_post_message_tx_bytes(
+fn encode_start_agent_params(session_id: [u8; 32], goal: String) -> Result<Vec<u8>, String> {
+    let params = StartAgentParams {
+        session_id,
+        goal,
+        max_steps: 20,
+        parent_session_id: None,
+        initial_budget: 1000,
+        mode: AgentMode::Agent,
+    };
+    codec::to_bytes_canonical(&params).map_err(|e| e.to_string())
+}
+
+fn encode_step_agent_params(session_id: [u8; 32]) -> Result<Vec<u8>, String> {
+    codec::to_bytes_canonical(&StepAgentParams { session_id }).map_err(|e| e.to_string())
+}
+
+fn build_signed_service_call_tx_bytes(
     account_id: AccountId,
     nonce: u64,
     public_key: Vec<u8>,
     keypair: &libp2p::identity::Keypair,
+    service_id: &str,
+    method: &str,
     params_bytes: Vec<u8>,
 ) -> Result<Vec<u8>, String> {
     let payload = SystemPayload::CallService {
-        service_id: "desktop_agent".to_string(),
-        method: "post_message@v1".to_string(),
+        service_id: service_id.to_string(),
+        method: method.to_string(),
         params: params_bytes,
     };
 
@@ -133,16 +263,99 @@ fn build_post_message_tx_bytes(
     codec::to_bytes_canonical(&tx).map_err(|e| e.to_string())
 }
 
+fn build_post_message_tx_bytes(
+    account_id: AccountId,
+    nonce: u64,
+    public_key: Vec<u8>,
+    keypair: &libp2p::identity::Keypair,
+    params_bytes: Vec<u8>,
+) -> Result<Vec<u8>, String> {
+    build_signed_service_call_tx_bytes(
+        account_id,
+        nonce,
+        public_key,
+        keypair,
+        "desktop_agent",
+        "post_message@v1",
+        params_bytes,
+    )
+}
+
+fn build_start_agent_tx_bytes(
+    account_id: AccountId,
+    nonce: u64,
+    public_key: Vec<u8>,
+    keypair: &libp2p::identity::Keypair,
+    params_bytes: Vec<u8>,
+) -> Result<Vec<u8>, String> {
+    build_signed_service_call_tx_bytes(
+        account_id,
+        nonce,
+        public_key,
+        keypair,
+        "desktop_agent",
+        "start@v1",
+        params_bytes,
+    )
+}
+
+fn build_step_agent_tx_bytes(
+    account_id: AccountId,
+    nonce: u64,
+    public_key: Vec<u8>,
+    keypair: &libp2p::identity::Keypair,
+    params_bytes: Vec<u8>,
+) -> Result<Vec<u8>, String> {
+    build_signed_service_call_tx_bytes(
+        account_id,
+        nonce,
+        public_key,
+        keypair,
+        "desktop_agent",
+        "step@v1",
+        params_bytes,
+    )
+}
+
+fn session_state_key(session_id: [u8; 32]) -> Vec<u8> {
+    get_state_key(&session_id)
+}
+
+async fn submit_transaction_with_timeout(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    tx_bytes: Vec<u8>,
+) -> Result<ioi_ipc::public::SubmitTransactionResponse, String> {
+    let request = tonic::Request::new(SubmitTransactionRequest {
+        transaction_bytes: tx_bytes,
+    });
+
+    timeout(
+        Duration::from_millis(TX_SUBMIT_TIMEOUT_MS),
+        client.submit_transaction(request),
+    )
+    .await
+    .map_err(|_| {
+        format!(
+            "Submission timed out after {}ms while waiting for kernel RPC",
+            TX_SUBMIT_TIMEOUT_MS
+        )
+    })?
+    .map_err(|e| format!("Submission Error: {}", e))
+    .map(|resp| resp.into_inner())
+}
+
 async fn query_account_nonce(
     client: &mut PublicApiClient<tonic::transport::Channel>,
     account_id: &AccountId,
 ) -> u64 {
     let nonce_key = [ioi_types::keys::ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
-    match client
-        .query_raw_state(tonic::Request::new(QueryRawStateRequest { key: nonce_key }))
-        .await
+    match timeout(
+        Duration::from_millis(TX_SUBMIT_TIMEOUT_MS),
+        client.query_raw_state(tonic::Request::new(QueryRawStateRequest { key: nonce_key })),
+    )
+    .await
     {
-        Ok(resp) => {
+        Ok(Ok(resp)) => {
             let val = resp.into_inner().value;
             if val.is_empty() {
                 0
@@ -150,17 +363,38 @@ async fn query_account_nonce(
                 codec::from_bytes_canonical::<u64>(&val).unwrap_or(0)
             }
         }
-        Err(_) => 0,
+        Ok(Err(error)) => {
+            eprintln!(
+                "[Autopilot] Failed to query account nonce from kernel RPC. Falling back to nonce 0: {}",
+                error
+            );
+            0
+        }
+        Err(_) => {
+            eprintln!(
+                "[Autopilot] Timed out after {}ms while querying account nonce. Falling back to nonce 0.",
+                TX_SUBMIT_TIMEOUT_MS
+            );
+            0
+        }
     }
 }
 
-async fn submit_post_message_with_nonce_retry(
+async fn submit_service_call_with_nonce_retry(
     client: &mut PublicApiClient<tonic::transport::Channel>,
     keypair: &libp2p::identity::Keypair,
     account_id: AccountId,
     public_key: Vec<u8>,
+    tx_builder: fn(
+        AccountId,
+        u64,
+        Vec<u8>,
+        &libp2p::identity::Keypair,
+        Vec<u8>,
+    ) -> Result<Vec<u8>, String>,
     params_bytes: Vec<u8>,
-) -> Result<(), String> {
+    success_log: &str,
+) -> Result<(u64, String), String> {
     let mut attempts = 0;
     let max_retries = 8;
     let mut backoff_ms = 100;
@@ -179,7 +413,7 @@ async fn submit_post_message_with_nonce_retry(
 
         let nonce = state_nonce + nonce_offset;
 
-        let tx_bytes = build_post_message_tx_bytes(
+        let tx_bytes = tx_builder(
             account_id.clone(),
             nonce,
             public_key.clone(),
@@ -187,19 +421,17 @@ async fn submit_post_message_with_nonce_retry(
             params_bytes.clone(),
         )?;
 
-        match client
-            .submit_transaction(tonic::Request::new(SubmitTransactionRequest {
-                transaction_bytes: tx_bytes,
-            }))
-            .await
-        {
-            Ok(_) => {
-                println!("[Autopilot] Message sent successfully (Nonce: {})", nonce);
-                return Ok(());
+        match submit_transaction_with_timeout(client, tx_bytes).await {
+            Ok(response) => {
+                println!(
+                    "[Autopilot] {} (Nonce: {}, TxHash: {})",
+                    success_log, nonce, response.tx_hash
+                );
+                return Ok((nonce, response.tx_hash));
             }
             Err(e) => {
                 attempts += 1;
-                let msg = e.message().to_string();
+                let msg = e;
                 last_error = Some(msg.clone());
 
                 if msg.contains("already exists") || msg.contains("too low") {
@@ -235,6 +467,63 @@ async fn submit_post_message_with_nonce_retry(
     Err(last_error.unwrap_or_else(|| "Network busy (Nonce Lock)".to_string()))
 }
 
+async fn submit_post_message_with_nonce_retry(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    keypair: &libp2p::identity::Keypair,
+    account_id: AccountId,
+    public_key: Vec<u8>,
+    params_bytes: Vec<u8>,
+) -> Result<(u64, String), String> {
+    submit_service_call_with_nonce_retry(
+        client,
+        keypair,
+        account_id,
+        public_key,
+        build_post_message_tx_bytes,
+        params_bytes,
+        "Message sent successfully",
+    )
+    .await
+}
+
+async fn submit_start_agent_with_nonce_retry(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    keypair: &libp2p::identity::Keypair,
+    account_id: AccountId,
+    public_key: Vec<u8>,
+    params_bytes: Vec<u8>,
+) -> Result<(u64, String), String> {
+    submit_service_call_with_nonce_retry(
+        client,
+        keypair,
+        account_id,
+        public_key,
+        build_start_agent_tx_bytes,
+        params_bytes,
+        "Agent start submitted successfully",
+    )
+    .await
+}
+
+async fn submit_step_with_nonce_retry(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    keypair: &libp2p::identity::Keypair,
+    account_id: AccountId,
+    public_key: Vec<u8>,
+    params_bytes: Vec<u8>,
+) -> Result<(u64, String), String> {
+    submit_service_call_with_nonce_retry(
+        client,
+        keypair,
+        account_id,
+        public_key,
+        build_step_agent_tx_bytes,
+        params_bytes,
+        "Agent step submitted successfully",
+    )
+    .await
+}
+
 async fn submit_continue_via_ephemeral_post_message(
     client: &mut PublicApiClient<tonic::transport::Channel>,
     params_bytes: Vec<u8>,
@@ -248,12 +537,43 @@ async fn submit_continue_via_ephemeral_post_message(
 
     let tx_bytes = build_post_message_tx_bytes(account_id, 0, public_key, &keypair, params_bytes)?;
 
-    client
-        .submit_transaction(tonic::Request::new(SubmitTransactionRequest {
-            transaction_bytes: tx_bytes,
-        }))
-        .await
-        .map_err(|e| format!("Submission Error: {}", e))?;
+    let _ = submit_transaction_with_timeout(client, tx_bytes).await?;
+
+    Ok(())
+}
+
+async fn submit_start_via_ephemeral_start_agent(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    params_bytes: Vec<u8>,
+) -> Result<(), String> {
+    let keypair = libp2p::identity::Keypair::generate_ed25519();
+    let public_key = keypair.public().encode_protobuf();
+    let account_id = AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+            .map_err(|e| e.to_string())?,
+    );
+
+    let tx_bytes = build_start_agent_tx_bytes(account_id, 0, public_key, &keypair, params_bytes)?;
+
+    let _ = submit_transaction_with_timeout(client, tx_bytes).await?;
+
+    Ok(())
+}
+
+async fn submit_step_via_ephemeral_agent_step(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    params_bytes: Vec<u8>,
+) -> Result<(), String> {
+    let keypair = libp2p::identity::Keypair::generate_ed25519();
+    let public_key = keypair.public().encode_protobuf();
+    let account_id = AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+            .map_err(|e| e.to_string())?,
+    );
+
+    let tx_bytes = build_step_agent_tx_bytes(account_id, 0, public_key, &keypair, params_bytes)?;
+
+    let _ = submit_transaction_with_timeout(client, tx_bytes).await?;
 
     Ok(())
 }
@@ -262,7 +582,7 @@ async fn submit_continue_authenticated(
     client: &mut PublicApiClient<tonic::transport::Channel>,
     app: &AppHandle,
     params_bytes: Vec<u8>,
-) -> Result<(), String> {
+) -> Result<(u64, String), String> {
     let keypair = identity::load_identity_keypair_for_app(app)?;
     let public_key = keypair.public().encode_protobuf();
     let account_id = AccountId(
@@ -274,32 +594,774 @@ async fn submit_continue_authenticated(
         .await
 }
 
+async fn submit_start_authenticated(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    app: &AppHandle,
+    params_bytes: Vec<u8>,
+) -> Result<(u64, String), String> {
+    let keypair = identity::load_identity_keypair_for_app(app)?;
+    let public_key = keypair.public().encode_protobuf();
+    let account_id = AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+            .map_err(|e| e.to_string())?,
+    );
+
+    submit_start_agent_with_nonce_retry(client, &keypair, account_id, public_key, params_bytes)
+        .await
+}
+
+async fn submit_step_authenticated(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    app: &AppHandle,
+    params_bytes: Vec<u8>,
+) -> Result<u64, String> {
+    let keypair = identity::load_identity_keypair_for_app(app)?;
+    let public_key = keypair.public().encode_protobuf();
+    let account_id = AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+            .map_err(|e| e.to_string())?,
+    );
+
+    submit_step_with_nonce_retry(client, &keypair, account_id, public_key, params_bytes)
+        .await
+        .map(|(nonce, _)| nonce)
+}
+
+async fn submit_step_authenticated_at_nonce(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    app: &AppHandle,
+    params_bytes: Vec<u8>,
+    nonce: u64,
+) -> Result<(), String> {
+    let keypair = identity::load_identity_keypair_for_app(app)?;
+    let public_key = keypair.public().encode_protobuf();
+    let account_id = AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+            .map_err(|e| e.to_string())?,
+    );
+
+    let tx_bytes =
+        build_step_agent_tx_bytes(account_id, nonce, public_key, &keypair, params_bytes)?;
+
+    let response = submit_transaction_with_timeout(client, tx_bytes).await?;
+
+    println!(
+        "[Autopilot] Agent step submitted successfully (Nonce: {}, TxHash: {})",
+        nonce, response.tx_hash
+    );
+    Ok(())
+}
+
+async fn wait_for_tx_commit(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    tx_hash: &str,
+    timeout_ms: u64,
+) -> Result<(), String> {
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    let mut last_status = TxStatus::Unknown;
+    let mut last_error = String::new();
+
+    loop {
+        let response = timeout(
+            Duration::from_millis(TX_SUBMIT_TIMEOUT_MS),
+            client.get_transaction_status(tonic::Request::new(GetTransactionStatusRequest {
+                tx_hash: tx_hash.to_string(),
+            })),
+        )
+        .await
+        .map_err(|_| {
+            format!(
+                "Timed out while waiting for tx {} status after {}ms",
+                tx_hash, TX_SUBMIT_TIMEOUT_MS
+            )
+        })?
+        .map_err(|error| format!("Failed to query tx {} status: {}", tx_hash, error))?
+        .into_inner();
+
+        last_status = TxStatus::try_from(response.status).unwrap_or(TxStatus::Unknown);
+        last_error = response.error_message;
+
+        match last_status {
+            TxStatus::Committed => return Ok(()),
+            TxStatus::Rejected => {
+                return Err(if last_error.trim().is_empty() {
+                    format!("Tx {} was rejected by the kernel.", tx_hash)
+                } else {
+                    format!(
+                        "Tx {} was rejected by the kernel: {}",
+                        tx_hash,
+                        last_error.trim()
+                    )
+                });
+            }
+            _ => {}
+        }
+
+        if Instant::now() >= deadline {
+            let detail = if last_error.trim().is_empty() {
+                format!("last tx status: {:?}", last_status)
+            } else {
+                format!("last tx status: {:?} ({})", last_status, last_error.trim())
+            };
+            return Err(format!(
+                "Tx {} did not commit within {}ms ({detail}).",
+                tx_hash, timeout_ms
+            ));
+        }
+
+        sleep(Duration::from_millis(SESSION_START_CONVERGENCE_POLL_MS)).await;
+    }
+}
+
+async fn query_agent_state(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    session_id: [u8; 32],
+) -> Result<Option<AgentState>, String> {
+    let state_key = session_state_key(session_id);
+    let response = timeout(
+        Duration::from_millis(TX_SUBMIT_TIMEOUT_MS),
+        client.query_raw_state(tonic::Request::new(QueryRawStateRequest { key: state_key })),
+    )
+    .await
+    .map_err(|_| {
+        format!(
+            "Timed out while reading session state after {}ms",
+            TX_SUBMIT_TIMEOUT_MS
+        )
+    })?
+    .map_err(|error| format!("Failed to query session state: {}", error))?
+    .into_inner();
+
+    if !response.found || response.value.is_empty() {
+        return Ok(None);
+    }
+
+    codec::from_bytes_canonical::<AgentState>(&response.value)
+        .map(Some)
+        .map_err(|error| format!("Failed to decode session state: {}", error))
+}
+
+async fn wait_for_session_state_visibility(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    session_id: [u8; 32],
+    timeout_ms: u64,
+) -> Result<AgentState, String> {
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+
+    loop {
+        if let Some(state) = query_agent_state(client, session_id).await? {
+            return Ok(state);
+        }
+
+        if Instant::now() >= deadline {
+            return Err(format!(
+                "Session {} did not become visible within {}ms.",
+                hex::encode(session_id),
+                timeout_ms
+            ));
+        }
+
+        sleep(Duration::from_millis(SESSION_START_CONVERGENCE_POLL_MS)).await;
+    }
+}
+
+async fn continue_session_bootstrap_after_visibility_timeout(
+    app: AppHandle,
+    session_id: [u8; 32],
+    next_step_nonce: Option<u64>,
+) {
+    let session_id_hex = hex::encode(session_id);
+    let mut client = match crate::kernel::state::connect_public_api().await {
+        Ok(client) => client,
+        Err(error) => {
+            update_task_state(&app, |t| {
+                if session_hex_matches_task(t, &session_id_hex) {
+                    t.phase = AgentPhase::Failed;
+                    t.current_step = format!(
+                        "Session bootstrap recovery could not connect to the kernel: {}",
+                        error
+                    );
+                }
+            });
+            return;
+        }
+    };
+
+    match wait_for_session_state_visibility(
+        &mut client,
+        session_id,
+        SESSION_STATE_RECONCILE_TIMEOUT_MS,
+    )
+    .await
+    {
+        Ok(_) => {
+            update_task_state(&app, |t| {
+                if session_hex_matches_task(t, &session_id_hex) {
+                    t.current_step = "Scheduling first step...".to_string();
+                    t.phase = AgentPhase::Running;
+                }
+            });
+
+            if let Err(step_error) =
+                trigger_agent_step_for_session(&mut client, &app, session_id, next_step_nonce).await
+            {
+                update_task_state(&app, |t| {
+                    if session_hex_matches_task(t, &session_id_hex) {
+                        t.phase = AgentPhase::Failed;
+                        t.current_step = format!(
+                            "Session appeared, but the first step could not be triggered: {}",
+                            step_error
+                        );
+                    }
+                });
+                return;
+            }
+
+            update_task_state(&app, |t| {
+                if session_hex_matches_task(t, &session_id_hex) {
+                    t.phase = AgentPhase::Running;
+                    t.current_step = "Agent session queued. Waiting for first step...".to_string();
+                }
+            });
+            spawn_session_state_reconciler_with_bootstrap_nonce(
+                app.clone(),
+                session_id,
+                next_step_nonce,
+            );
+        }
+        Err(error) => {
+            update_task_state(&app, |t| {
+                if session_hex_matches_task(t, &session_id_hex) {
+                    t.phase = AgentPhase::Failed;
+                    t.current_step = format!("Session state did not materialize: {}", error);
+                }
+            });
+        }
+    }
+}
+
+async fn bootstrap_kernel_session_after_studio_prepare(
+    app: AppHandle,
+    task_id: String,
+    intent: String,
+) {
+    let session_id = match normalize_session_id(&task_id) {
+        Ok(session_id) => session_id,
+        Err(error) => {
+            update_task_if_current_matches(&app, &task_id, |task| {
+                task.phase = AgentPhase::Failed;
+                task.current_step = format!("Session bootstrap error: {}", error);
+            });
+            return;
+        }
+    };
+
+    let start_params = match encode_start_agent_params(session_id, intent.clone()) {
+        Ok(params) => params,
+        Err(error) => {
+            update_task_if_current_matches(&app, &task_id, |task| {
+                task.phase = AgentPhase::Failed;
+                task.current_step = format!("Start encoding error: {}", error);
+            });
+            return;
+        }
+    };
+    let fallback_params = start_params.clone();
+
+    update_task_if_current_matches(&app, &task_id, |task| {
+        task.current_step = "Connecting to Kernel...".to_string();
+    });
+
+    let mut client = match crate::kernel::state::connect_public_api().await {
+        Ok(client) => client,
+        Err(error) => {
+            eprintln!("[Autopilot] Kernel offline: {}", error);
+            update_task_if_current_matches(&app, &task_id, |task| {
+                task.current_step =
+                    "Kernel Unreachable. Simulating offline response...".to_string();
+            });
+            return;
+        }
+    };
+
+    update_task_if_current_matches(&app, &task_id, |task| {
+        task.current_step = "Submitting session start...".to_string();
+    });
+
+    let (next_step_nonce, start_tx_hash) = match submit_start_authenticated(
+        &mut client,
+        &app,
+        start_params,
+    )
+    .await
+    {
+        Ok((nonce, tx_hash)) => (Some(nonce.saturating_add(1)), Some(tx_hash)),
+        Err(base_err) => {
+            eprintln!(
+                    "[Autopilot] start@v1 authenticated submit did not converge. Falling back to ephemeral start flow: {}",
+                    base_err
+                );
+            if let Err(fallback_err) =
+                submit_start_via_ephemeral_start_agent(&mut client, fallback_params).await
+            {
+                update_task_if_current_matches(&app, &task_id, |task| {
+                    task.phase = AgentPhase::Failed;
+                    task.current_step = format!(
+                        "Failed to start session: {} | fallback: {}",
+                        base_err, fallback_err
+                    );
+                });
+                return;
+            }
+            (None, None)
+        }
+    };
+
+    update_task_if_current_matches(&app, &task_id, |task| {
+        task.current_step = "Waiting for session start to commit...".to_string();
+    });
+    if let Some(start_tx_hash) = start_tx_hash.as_deref() {
+        if let Err(error) = wait_for_tx_commit(
+            &mut client,
+            start_tx_hash,
+            SESSION_START_CONVERGENCE_TIMEOUT_MS,
+        )
+        .await
+        {
+            update_task_if_current_matches(&app, &task_id, |task| {
+                if task.phase == AgentPhase::Running
+                    && matches!(
+                        task.current_step.as_str(),
+                        "Submitting session start..." | "Waiting for session start to commit..."
+                    )
+                {
+                    task.phase = AgentPhase::Failed;
+                    task.current_step = format!("Session start failed to commit: {}", error);
+                }
+            });
+            return;
+        }
+    }
+
+    update_task_if_current_matches(&app, &task_id, |task| {
+        task.current_step = "Waiting for session state...".to_string();
+    });
+
+    if let Err(error) = wait_for_session_state_visibility(
+        &mut client,
+        session_id,
+        SESSION_START_CONVERGENCE_TIMEOUT_MS,
+    )
+    .await
+    {
+        update_task_if_current_matches(&app, &task_id, |task| {
+            task.phase = AgentPhase::Running;
+            task.current_step = format!(
+                "Session start committed, but kernel state is taking longer than expected. Continuing bootstrap in the background: {}",
+                error
+            );
+        });
+        tauri::async_runtime::spawn(continue_session_bootstrap_after_visibility_timeout(
+            app.clone(),
+            session_id,
+            next_step_nonce,
+        ));
+        return;
+    }
+
+    update_task_if_current_matches(&app, &task_id, |task| {
+        task.current_step = "Scheduling first step...".to_string();
+    });
+
+    if let Err(step_error) =
+        trigger_agent_step_for_session(&mut client, &app, session_id, next_step_nonce).await
+    {
+        update_task_if_current_matches(&app, &task_id, |task| {
+            task.phase = AgentPhase::Failed;
+            task.current_step = format!(
+                "Session started, but failed to trigger first step: {}",
+                step_error
+            );
+        });
+        return;
+    }
+
+    update_task_if_current_matches(&app, &task_id, |task| {
+        task.phase = AgentPhase::Running;
+        task.current_step = "Agent session queued. Waiting for first step...".to_string();
+    });
+    spawn_session_state_reconciler_with_bootstrap_nonce(app.clone(), session_id, next_step_nonce);
+}
+
+fn sync_task_from_kernel_state(
+    app: &AppHandle,
+    session_id_hex: &str,
+    agent_state: &AgentState,
+    kernel_history: Option<Vec<ChatMessage>>,
+) {
+    let history_terminal_reply = kernel_history.as_ref().and_then(|history| {
+        history
+            .iter()
+            .rev()
+            .find(|message| message.role == "agent" && !message.text.trim().is_empty())
+            .map(|message| message.text.clone())
+    });
+    let terminal_reply = match &agent_state.status {
+        AgentStatus::Completed(Some(text)) if !text.trim().is_empty() => Some(text.clone()),
+        _ => history_terminal_reply,
+    };
+    let failed_reason = match &agent_state.status {
+        AgentStatus::Failed(reason) if !reason.trim().is_empty() => Some(reason.clone()),
+        _ => None,
+    };
+
+    update_task_state(app, |task| {
+        if !session_hex_matches_task(task, session_id_hex) {
+            return;
+        }
+
+        task.session_id = Some(session_id_hex.to_string());
+        task.progress = agent_state.step_count;
+        task.total_steps = agent_state.max_steps.max(task.total_steps);
+
+        if let Some(history) = kernel_history.as_ref() {
+            if !history.is_empty() {
+                task.history = history.clone();
+            }
+        }
+
+        match &agent_state.status {
+            AgentStatus::Idle | AgentStatus::Running => {
+                task.phase = AgentPhase::Running;
+                if should_replace_with_reconciled_running_step(&task.current_step) {
+                    task.current_step = bootstrap_step_label_for_state(agent_state);
+                }
+            }
+            AgentStatus::Completed(_) => {
+                task.phase = AgentPhase::Complete;
+                task.gate_info = None;
+                task.pending_request_hash = None;
+                task.credential_request = None;
+                if terminal_reply.is_some() {
+                    task.current_step = "Ready for input".to_string();
+                } else {
+                    task.current_step = "Task completed".to_string();
+                }
+                task.receipt = Some(crate::models::Receipt {
+                    duration: "Done".to_string(),
+                    actions: agent_state.step_count,
+                    cost: Some("$0.00".to_string()),
+                });
+
+                if let Some(reply) = terminal_reply.as_ref() {
+                    let exists = task
+                        .history
+                        .iter()
+                        .rev()
+                        .take(8)
+                        .any(|message| message.role == "agent" && message.text == *reply);
+                    if !exists {
+                        task.history.push(ChatMessage {
+                            role: "agent".to_string(),
+                            text: reply.clone(),
+                            timestamp: crate::kernel::state::now(),
+                        });
+                    }
+                }
+            }
+            AgentStatus::Paused(reason) => {
+                task.phase = AgentPhase::Complete;
+                task.current_step = reason.clone();
+            }
+            AgentStatus::Failed(reason) => {
+                task.phase = AgentPhase::Failed;
+                task.current_step = format!("Task failed: {}", reason);
+                if let Some(message) = failed_reason.as_ref() {
+                    let exists = task
+                        .history
+                        .iter()
+                        .rev()
+                        .take(8)
+                        .any(|entry| entry.role == "system" && entry.text.contains(message));
+                    if !exists {
+                        task.history.push(ChatMessage {
+                            role: "system".to_string(),
+                            text: format!("Task Failed: {}", message),
+                            timestamp: crate::kernel::state::now(),
+                        });
+                    }
+                }
+            }
+            AgentStatus::Terminated => {
+                task.phase = AgentPhase::Failed;
+                task.current_step = "Task terminated".to_string();
+            }
+        }
+    });
+}
+
+fn spawn_session_state_reconciler(app: AppHandle, session_id: [u8; 32]) {
+    spawn_session_state_reconciler_with_bootstrap_nonce(app, session_id, None);
+}
+
+fn spawn_session_state_reconciler_with_bootstrap_nonce(
+    app: AppHandle,
+    session_id: [u8; 32],
+    bootstrap_step_nonce: Option<u64>,
+) {
+    let session_id_hex = hex::encode(session_id);
+    let should_spawn = {
+        match active_session_reconcilers().lock() {
+            Ok(mut active) => active.insert(session_id_hex.clone()),
+            Err(_) => true,
+        }
+    };
+
+    if !should_spawn {
+        return;
+    }
+
+    tauri::async_runtime::spawn(async move {
+        let deadline = Instant::now() + Duration::from_millis(SESSION_STATE_RECONCILE_TIMEOUT_MS);
+        let bootstrap_retry_window_opens_at =
+            Instant::now() + Duration::from_millis(SESSION_BOOTSTRAP_STEP_RETRY_GRACE_MS);
+        let mut bootstrap_retry_attempts = 0usize;
+        let mut last_bootstrap_retry_at: Option<Instant> = None;
+
+        let mut client = match crate::kernel::state::connect_public_api().await {
+            Ok(client) => client,
+            Err(error) => {
+                eprintln!(
+                    "[Autopilot] Session reconciler could not connect for {}: {}",
+                    session_id_hex, error
+                );
+                if let Ok(mut active) = active_session_reconcilers().lock() {
+                    active.remove(&session_id_hex);
+                }
+                return;
+            }
+        };
+
+        loop {
+            match query_agent_state(&mut client, session_id).await {
+                Ok(Some(agent_state)) => {
+                    let terminal =
+                        !matches!(agent_state.status, AgentStatus::Idle | AgentStatus::Running);
+                    let history = if terminal {
+                        hydrate_session_history(&mut client, &session_id_hex)
+                            .await
+                            .ok()
+                    } else {
+                        None
+                    };
+                    sync_task_from_kernel_state(&app, &session_id_hex, &agent_state, history);
+
+                    if terminal {
+                        break;
+                    }
+
+                    if bootstrap_step_nonce.is_some()
+                        && matches!(agent_state.status, AgentStatus::Idle | AgentStatus::Running)
+                        && agent_state.step_count == 0
+                        && bootstrap_retry_attempts < SESSION_BOOTSTRAP_STEP_MAX_RETRIES
+                        && Instant::now() >= bootstrap_retry_window_opens_at
+                        && last_bootstrap_retry_at
+                            .map(|ts| {
+                                ts.elapsed()
+                                    >= Duration::from_millis(
+                                        SESSION_BOOTSTRAP_STEP_RETRY_INTERVAL_MS,
+                                    )
+                            })
+                            .unwrap_or(true)
+                    {
+                        let nonce = bootstrap_step_nonce.expect("checked is_some");
+                        bootstrap_retry_attempts += 1;
+                        last_bootstrap_retry_at = Some(Instant::now());
+
+                        let step_params = match encode_step_agent_params(session_id) {
+                            Ok(params) => params,
+                            Err(error) => {
+                                eprintln!(
+                                    "[Autopilot] Bootstrap first-step retry encoding failed for {}: {}",
+                                    session_id_hex, error
+                                );
+                                Vec::new()
+                            }
+                        };
+
+                        if !step_params.is_empty() {
+                            match submit_step_authenticated_at_nonce(
+                                &mut client,
+                                &app,
+                                step_params,
+                                nonce,
+                            )
+                            .await
+                            {
+                                Ok(()) => {
+                                    println!(
+                                        "[Autopilot] Re-submitted first step heartbeat for session {} (attempt {} nonce {}).",
+                                        session_id_hex,
+                                        bootstrap_retry_attempts,
+                                        nonce
+                                    );
+                                }
+                                Err(error)
+                                    if submit_error_indicates_bootstrap_step_already_pending(
+                                        &error,
+                                    ) =>
+                                {
+                                    println!(
+                                        "[Autopilot] First step heartbeat for session {} already pending or consumed (attempt {} nonce {}).",
+                                        session_id_hex,
+                                        bootstrap_retry_attempts,
+                                        nonce
+                                    );
+                                }
+                                Err(error) => {
+                                    eprintln!(
+                                        "[Autopilot] First step heartbeat retry failed for {} at nonce {} (attempt {}): {}",
+                                        session_id_hex,
+                                        nonce,
+                                        bootstrap_retry_attempts,
+                                        error
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    eprintln!(
+                        "[Autopilot] Session reconciler query failed for {}: {}",
+                        session_id_hex, error
+                    );
+                }
+            }
+
+            if Instant::now() >= deadline {
+                break;
+            }
+
+            sleep(Duration::from_millis(SESSION_STATE_RECONCILE_POLL_MS)).await;
+        }
+
+        if let Ok(mut active) = active_session_reconcilers().lock() {
+            active.remove(&session_id_hex);
+        }
+    });
+}
+
+async fn trigger_agent_step_for_session(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    app: &AppHandle,
+    session_id: [u8; 32],
+    preferred_nonce: Option<u64>,
+) -> Result<(), String> {
+    let step_params = encode_step_agent_params(session_id)?;
+    let fallback_step_params = step_params.clone();
+
+    if let Some(nonce) = preferred_nonce {
+        match submit_step_authenticated_at_nonce(client, app, step_params.clone(), nonce).await {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                eprintln!(
+                    "[Autopilot] step@v1 exact-nonce submit failed at nonce {}. Falling back to retry path: {}",
+                    nonce, error
+                );
+            }
+        }
+    }
+
+    if let Err(base_err) = submit_step_authenticated(client, app, step_params).await {
+        eprintln!(
+            "[Autopilot] step@v1 authenticated submit did not converge. Falling back to ephemeral step flow: {}",
+            base_err
+        );
+        submit_step_via_ephemeral_agent_step(client, fallback_step_params)
+            .await
+            .map_err(|fallback_err| {
+                format!(
+                    "Failed to trigger session step: {} | fallback: {}",
+                    base_err, fallback_err
+                )
+            })?;
+    }
+
+    Ok(())
+}
+
 pub(crate) async fn send_message_to_session(
     app: &AppHandle,
     session_id: &str,
     user_input: String,
 ) -> Result<(), String> {
+    crate::kernel::studio::maybe_prepare_current_task_for_studio_turn(app, &user_input)?;
+    if let Some(task) = app
+        .state::<Mutex<AppState>>()
+        .lock()
+        .ok()
+        .and_then(|state| state.current_task.clone())
+    {
+        if !task_should_continue_through_kernel(&task) {
+            return Ok(());
+        }
+    }
+
     let session_arr = normalize_session_id(session_id)?;
     let params_bytes = encode_post_message_params(session_arr, user_input.clone())?;
     let fallback_params_bytes = params_bytes.clone();
-    let mut client = PublicApiClient::connect("http://127.0.0.1:9000")
+    let mut client = crate::kernel::state::connect_public_api()
         .await
         .map_err(|error| format!("Failed to connect for session message: {}", error))?;
 
-    if let Err(base_err) = submit_continue_authenticated(&mut client, app, params_bytes).await {
-        eprintln!(
-            "[Autopilot] post_message@v1 session message did not converge. Falling back to ephemeral post_message flow: {}",
-            base_err
-        );
-        submit_continue_via_ephemeral_post_message(&mut client, fallback_params_bytes)
-            .await
-            .map_err(|fallback_err| {
-                format!(
-                    "Failed to send message to session {}: {} | fallback: {}",
-                    session_id, base_err, fallback_err
-                )
-            })?;
-    }
+    let next_step_nonce = match submit_continue_authenticated(&mut client, app, params_bytes).await
+    {
+        Ok((nonce, tx_hash)) => {
+            update_task_state(app, |t| {
+                if session_hex_matches_task(t, &hex::encode(session_arr)) {
+                    t.current_step = "Waiting for message to commit...".to_string();
+                }
+            });
+            if let Err(error) =
+                wait_for_tx_commit(&mut client, &tx_hash, SESSION_START_CONVERGENCE_TIMEOUT_MS)
+                    .await
+            {
+                return Err(format!(
+                    "Message submit for session {} did not commit cleanly: {}",
+                    session_id, error
+                ));
+            }
+            Some(nonce.saturating_add(1))
+        }
+        Err(base_err) => {
+            eprintln!(
+                "[Autopilot] post_message@v1 session message did not converge. Falling back to ephemeral post_message flow: {}",
+                base_err
+            );
+            submit_continue_via_ephemeral_post_message(&mut client, fallback_params_bytes)
+                .await
+                .map_err(|fallback_err| {
+                    format!(
+                        "Failed to send message to session {}: {} | fallback: {}",
+                        session_id, base_err, fallback_err
+                    )
+                })?;
+            None
+        }
+    };
+
+    trigger_agent_step_for_session(&mut client, app, session_arr, next_step_nonce)
+        .await
+        .map_err(|error| {
+            format!(
+                "Failed to trigger next step for session {} after sending message: {}",
+                session_id, error
+            )
+        })?;
+
+    spawn_session_state_reconciler(app.clone(), session_arr);
 
     Ok(())
 }
@@ -344,6 +1406,10 @@ pub fn start_task(
         history,
         events: vec![build_user_input_event(&task_id, 0, &intent)],
         artifacts: Vec::new(),
+        studio_session: None,
+        studio_outcome: None,
+        renderer_session: None,
+        build_session: None,
         run_bundle_id: None,
         processed_steps: HashSet::new(),
         swarm_tree: Vec::new(),
@@ -383,46 +1449,53 @@ pub fn start_task(
 
     let _ = app.emit("task-started", &task);
     crate::windows::show_spotlight(app.clone());
-
     let app_clone = app.clone();
-    let effective_intent = format!("SESSION:{} {}", task_id, intent);
+    let task_id_for_prepare = task_id.clone();
+    let intent_for_prepare = intent.clone();
+    let task_for_prepare = task.clone();
 
     tauri::async_runtime::spawn(async move {
-        let mut client = match PublicApiClient::connect("http://127.0.0.1:9000").await {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("[Autopilot] Kernel offline: {}", e);
-                update_task_state(&app_clone, |t| {
-                    t.current_step =
-                        "Kernel Unreachable. Simulating offline response...".to_string();
-                });
-                return;
+        let app_for_prepare = app_clone.clone();
+        let prepare_outcome = tokio::task::spawn_blocking(move || {
+            let mut prepared_task = task_for_prepare;
+            crate::kernel::studio::maybe_prepare_task_for_studio(
+                &app_for_prepare,
+                &mut prepared_task,
+                &intent_for_prepare,
+            )?;
+
+            let studio_authoritative =
+                crate::kernel::studio::task_is_studio_authoritative(&prepared_task);
+            if studio_authoritative {
+                crate::kernel::studio::apply_studio_authoritative_status(&mut prepared_task, None);
             }
-        };
 
-        let draft_req = tonic::Request::new(DraftTransactionRequest {
-            intent: effective_intent,
-            address_book: Default::default(),
-        });
+            Ok::<(AgentTask, bool), String>((prepared_task, studio_authoritative))
+        })
+        .await;
 
-        match client.draft_transaction(draft_req).await {
-            Ok(resp) => {
-                let draft = resp.into_inner();
-                let submit_req = tonic::Request::new(SubmitTransactionRequest {
-                    transaction_bytes: draft.transaction_bytes,
-                });
-
-                if let Err(e) = client.submit_transaction(submit_req).await {
-                    update_task_state(&app_clone, |t| {
-                        t.phase = AgentPhase::Failed;
-                        t.current_step = format!("Submission Error: {}", e);
-                    });
+        match prepare_outcome {
+            Ok(Ok((prepared_task, studio_authoritative))) => {
+                replace_current_task_snapshot(&app_clone, &task_id_for_prepare, prepared_task);
+                if !studio_authoritative {
+                    bootstrap_kernel_session_after_studio_prepare(
+                        app_clone.clone(),
+                        task_id_for_prepare,
+                        intent,
+                    )
+                    .await;
                 }
             }
-            Err(e) => {
-                update_task_state(&app_clone, |t| {
-                    t.phase = AgentPhase::Failed;
-                    t.current_step = format!("Drafting Error: {}", e);
+            Ok(Err(error)) => {
+                update_task_if_current_matches(&app_clone, &task_id_for_prepare, |task| {
+                    task.phase = AgentPhase::Failed;
+                    task.current_step = format!("Studio preparation failed: {}", error);
+                });
+            }
+            Err(error) => {
+                update_task_if_current_matches(&app_clone, &task_id_for_prepare, |task| {
+                    task.phase = AgentPhase::Failed;
+                    task.current_step = format!("Studio preparation task failed to run: {}", error);
                 });
             }
         }
@@ -538,4 +1611,179 @@ pub fn dismiss_task(state: State<Mutex<AppState>>, app: AppHandle) -> Result<(),
 #[tauri::command]
 pub fn get_current_task(state: State<Mutex<AppState>>) -> Option<AgentTask> {
     state.lock().ok().and_then(|s| s.current_task.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::identity;
+    use std::path::PathBuf;
+
+    fn local_gpu_profile_dir() -> PathBuf {
+        let data_root = std::env::var("XDG_DATA_HOME")
+            .ok()
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var("HOME")
+                    .ok()
+                    .map(PathBuf::from)
+                    .map(|home| home.join(".local").join("share"))
+            })
+            .unwrap_or_else(|| PathBuf::from("/tmp"));
+
+        data_root.join("ai.ioi.autopilot").join("profiles").join(
+            std::env::var("AUTOPILOT_DATA_PROFILE")
+                .unwrap_or_else(|_| "desktop-localgpu".to_string()),
+        )
+    }
+
+    async fn wait_for_tx_commit(
+        client: &mut PublicApiClient<tonic::transport::Channel>,
+        tx_hash: &str,
+    ) -> Result<(), String> {
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            let response = timeout(
+                Duration::from_millis(TX_SUBMIT_TIMEOUT_MS),
+                client.get_transaction_status(tonic::Request::new(GetTransactionStatusRequest {
+                    tx_hash: tx_hash.to_string(),
+                })),
+            )
+            .await
+            .map_err(|_| format!("Timed out while waiting for tx {} status", tx_hash))?
+            .map_err(|error| format!("Failed to query tx {} status: {}", tx_hash, error))?
+            .into_inner();
+
+            let status = TxStatus::try_from(response.status).unwrap_or(TxStatus::Unknown);
+            match status {
+                TxStatus::Committed => return Ok(()),
+                TxStatus::Rejected => {
+                    return Err(if response.error_message.trim().is_empty() {
+                        format!("Tx {} was rejected", tx_hash)
+                    } else {
+                        format!(
+                            "Tx {} was rejected: {}",
+                            tx_hash,
+                            response.error_message.trim()
+                        )
+                    });
+                }
+                _ => {}
+            }
+
+            if Instant::now() >= deadline {
+                return Err(format!(
+                    "Tx {} did not commit within 30s (last status: {:?})",
+                    tx_hash, status
+                ));
+            }
+
+            sleep(Duration::from_millis(500)).await;
+        }
+    }
+
+    #[test]
+    fn reconciler_replaces_optimistic_ui_running_steps() {
+        assert!(should_replace_with_reconciled_running_step(
+            "Sending message..."
+        ));
+        assert!(should_replace_with_reconciled_running_step(
+            "Connecting to Kernel..."
+        ));
+        assert!(should_replace_with_reconciled_running_step(
+            "Scheduling first step..."
+        ));
+        assert!(should_replace_with_reconciled_running_step(
+            "Agent session queued. Waiting for first step..."
+        ));
+        assert!(should_replace_with_reconciled_running_step(
+            "Waiting for message to commit..."
+        ));
+        assert!(!should_replace_with_reconciled_running_step(
+            "Streaming browser::inspect (stdout)"
+        ));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires a running desktop-localgpu kernel companion"]
+    async fn authenticated_desktop_agent_session_bootstrap_commits_against_local_kernel() {
+        let key_path = local_gpu_profile_dir().join("identity.key");
+        let keypair = identity::ensure_identity_keypair_at_path(&key_path)
+            .expect("identity key should exist");
+        let public_key = keypair.public().encode_protobuf();
+        let account_id = AccountId(
+            account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+                .expect("account id should derive"),
+        );
+        let session_id =
+            normalize_session_id(&generate_session_id_hex()).expect("session id should encode");
+        let goal = "Reply with exactly one word: hello".to_string();
+
+        let mut client = crate::kernel::state::connect_public_api()
+            .await
+            .expect("local kernel should be reachable");
+        let start_params =
+            encode_start_agent_params(session_id, goal).expect("start params should encode");
+        let (start_nonce, start_tx_hash) = submit_start_agent_with_nonce_retry(
+            &mut client,
+            &keypair,
+            account_id.clone(),
+            public_key.clone(),
+            start_params,
+        )
+        .await
+        .expect("start@v1 should submit");
+
+        wait_for_tx_commit(&mut client, &start_tx_hash)
+            .await
+            .expect("start tx should commit");
+
+        wait_for_session_state_visibility(&mut client, session_id, 30_000)
+            .await
+            .expect("session state should materialize after start tx commit");
+
+        let step_params = encode_step_agent_params(session_id).expect("step params should encode");
+        let step_tx_bytes = build_step_agent_tx_bytes(
+            account_id,
+            start_nonce.saturating_add(1),
+            public_key,
+            &keypair,
+            step_params,
+        )
+        .expect("step tx should encode");
+        let submit_response = submit_transaction_with_timeout(&mut client, step_tx_bytes)
+            .await
+            .expect("step@v1 should submit");
+        let step_tx_hash = submit_response.tx_hash;
+        wait_for_tx_commit(&mut client, &step_tx_hash)
+            .await
+            .expect("step tx should commit");
+
+        let agent_state = timeout(Duration::from_secs(30), async {
+            loop {
+                if let Some(state) = query_agent_state(&mut client, session_id)
+                    .await
+                    .expect("session state query should succeed")
+                {
+                    if state.step_count > 0
+                        || !matches!(state.status, AgentStatus::Idle | AgentStatus::Running)
+                    {
+                        break state;
+                    }
+                }
+                sleep(Duration::from_millis(500)).await;
+            }
+        })
+        .await
+        .expect("agent state should advance beyond bootstrap");
+
+        assert!(
+            agent_state.step_count > 0
+                || matches!(
+                    agent_state.status,
+                    AgentStatus::Completed(_) | AgentStatus::Paused(_) | AgentStatus::Failed(_)
+                ),
+            "agent state should advance after the first step commits"
+        );
+    }
 }

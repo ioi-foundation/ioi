@@ -1,0 +1,33 @@
+{
+  "requestId": "6fd78cb8-25d1-4d3c-819a-c441575243ed",
+  "rawPrompt": "Create a Mermaid diagram of an approval pipeline",
+  "activeArtifactId": null,
+  "outcomeKind": "artifact",
+  "confidence": 1,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "visual",
+    "deliverableShape": "single_file",
+    "renderer": "mermaid",
+    "presentationSurface": "side_panel",
+    "persistence": "shared_artifact_scoped",
+    "executionSubstrate": "client_sandbox",
+    "workspaceRecipeId": null,
+    "presentationVariantId": null,
+    "scope": {
+      "targetProject": null,
+      "createNewWorkspace": false,
+      "mutationBoundary": [
+        "approval_pipeline"
+      ]
+    },
+    "verification": {
+      "requireRender": true,
+      "requireBuild": false,
+      "requirePreview": false,
+      "requireExport": false,
+      "requireDiffReview": false
+    }
+  }
+}

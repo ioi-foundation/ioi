@@ -45,6 +45,9 @@ enum Commands {
     /// Scaffold new components (services, contracts).
     Scaffold(scaffold::ScaffoldArgs),
 
+    /// Inspect, validate, and materialize Studio artifact packages.
+    Artifact(artifact::ArtifactArgs),
+
     // --- Devnet ---
     /// Runs a local, single-node chain for development.
     Node(node::NodeArgs),
@@ -101,6 +104,7 @@ async fn main() -> Result<()> {
         // --- Init & Scaffold ---
         Commands::Init(args) => init::run(args),
         Commands::Scaffold(args) => scaffold::run(args),
+        Commands::Artifact(args) => artifact::run(args).await,
 
         // --- Keys ---
         Commands::Keys(args) => keys::run(args),

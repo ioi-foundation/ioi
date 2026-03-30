@@ -59,7 +59,9 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
 
   const handleExecute = (cmdId: string) => {
     if (cmdId === "run") {
-      startTask("Run from Palette");
+      void startTask("Run from Palette").catch((error) => {
+        console.error("Failed to start task from command palette:", error);
+      });
     }
     console.log("Execute:", cmdId);
     onClose();

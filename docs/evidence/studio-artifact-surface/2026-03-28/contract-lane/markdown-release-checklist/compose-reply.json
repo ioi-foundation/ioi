@@ -1,0 +1,22 @@
+{
+  "status": "ready",
+  "lifecycleState": "ready",
+  "title": "Studio outcome: a markdown artifact that documents a release checklist",
+  "summary": "a markdown artifact that documents a release checklist Comprehensive and well-structured checklist that aligns with the request.",
+  "evidence": [
+    "release-checklist.md"
+  ],
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "failure": null
+}

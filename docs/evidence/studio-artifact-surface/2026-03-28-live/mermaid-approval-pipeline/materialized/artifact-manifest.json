@@ -1,0 +1,53 @@
+{
+  "artifactId": "57efdcde-ad58-4859-931d-152fcece8272",
+  "title": "a Mermaid diagram of an approval pipeline",
+  "artifactClass": "visual",
+  "renderer": "mermaid",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "mermaid",
+      "filePath": "diagram.mermaid",
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": "diagram.mermaid",
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "diagram.mermaid",
+      "mime": "text/plain",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": "generated-diagram.mermaid",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "The candidate stays grounded in an approval pipeline, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

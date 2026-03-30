@@ -47,6 +47,9 @@ pub mod services;
 pub mod state;
 /// An API for a durable, epoch-sharded, content-addressed node store.
 pub mod storage;
+/// Shared Studio routing and artifact materialization helpers.
+pub mod studio;
+pub(crate) mod studio_mock;
 /// Defines the core `TransactionModel` trait.
 pub mod transaction;
 /// Defines the core traits and structures for the validator architecture.

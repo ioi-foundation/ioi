@@ -1,0 +1,59 @@
+.shell {
+  min-height: 100vh;
+  padding: 4rem clamp(1.5rem, 4vw, 4rem);
+  background: radial-gradient(circle at top left, rgba(85, 120, 255, 0.18), transparent 24%), #0b1020;
+  color: #f4f7fb;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.hero {
+  max-width: 52rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  color: rgba(244, 247, 251, 0.72);
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2.8rem, 6vw, 5rem);
+  line-height: 0.96;
+}
+
+.copy {
+  margin: 0;
+  max-width: 42rem;
+  color: rgba(244, 247, 251, 0.8);
+  font-size: 1.05rem;
+}
+
+.grid {
+  margin-top: 3rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.grid article {
+  padding: 1.25rem;
+  border: 1px solid rgba(244, 247, 251, 0.12);
+  border-radius: 1rem;
+  background: rgba(14, 21, 40, 0.72);
+}
+
+.grid h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.grid p {
+  margin: 0;
+  color: rgba(244, 247, 251, 0.74);
+  line-height: 1.55;
+}

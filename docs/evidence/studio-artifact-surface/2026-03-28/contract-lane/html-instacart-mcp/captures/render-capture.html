@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Product Launch Metrics</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .hero { background-color: #f6f6f6; padding: 20px; text-align: center; }
+    section, article, aside, footer { margin-bottom: 20px; }
+    svg { width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <h1>Interactive Charts for Instacart MCP Product Launch</h1>
+  </div>
+
+  <nav role="navigation">
+    <button type="button" data-view="kpi" aria-controls="kpi-panel">Key Performance Indicators (KPIs)</button>
+    <button type="button" data-view="historical-data-points" aria-controls="historical-data-points-panel">Historical Data Points from Previous Launches</button>
+  </nav>
+
+  <main role="main">
+    <section id="kpi-panel" data-view-panel="kpi">
+      <h2>Key Performance Indicators (KPIs)</h2>
+      <svg viewBox="0 0 800 600">
+        
+        <rect x="100" y="350" width="200" height="100" fill="#4CAF50" tabindex="0" data-detail="Customer Acquisition Rate"/>
+        <text x="150" y="400" dominant-baseline="middle" text-anchor="middle">Customer Acquisition Rate</text>
+      </svg>
+    </section>
+
+    <section id="historical-data-points-panel" data-view-panel="historical-data-points" hidden>
+      <h2>Historical Data Points from Previous Launches</h2>
+      <table>
+        <thead>
+          <tr><th>Date</th><th>KPI 1</th><th>KPI 2</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>2023-10-01</td><td>5.6%</td><td>89,740</td></tr>
+          <tr><td>2023-10-15</td><td>5.8%</td><td>92,365</td></tr>
+        </tbody>
+      </table>
+    </section>
+  <aside data-studio-normalized="true" data-studio-shared-detail="true"><h2>Detail</h2><p id="detail-copy">Key Performance Indicators (KPIs) is selected by default.</p></aside><section data-studio-normalized="true" data-studio-rollover-chip-rail="true"><h2>Evidence highlights</h2><div class="studio-rollover-chip-rail"><button type="button" class="studio-rollover-chip" data-detail="key performance indicators (KPIs)">key performance indicators (KPIs)</button><button type="button" class="studio-rollover-chip" data-detail="historical data points from">historical data points from</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>
+
+  <footer role="contentinfo">
+    <p>Click on the buttons to view different evidence surfaces.</p>
+  </footer>
+
+  <script>
+    const panels = Array.from(document.querySelectorAll('[data-view-panel]'));
+    const navButtons = document.querySelectorAll('button[data-view]');
+
+    function activatePanel(panelId) {
+      panels.forEach(panel => panel.hidden = true);
+      document.querySelector(`[data-view-panel="${panelId}"]`).hidden = false;
+    }
+
+    navButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const view = button.dataset.view;
+        activatePanel(view);
+      });
+    });
+  </script>
+<script data-studio-normalized="true" data-studio-rollover-repair="true">(() => {
+  const detailCopy = document.getElementById('detail-copy');
+  if (!detailCopy) {
+    return;
+  }
+  document.querySelectorAll('[data-detail]').forEach((mark) => {
+    if (!mark.hasAttribute('tabindex')) {
+      mark.setAttribute('tabindex', '0');
+    }
+    const updateDetail = () => {
+      const detail = mark.getAttribute('data-detail') || '';
+      if (detail) {
+        detailCopy.textContent = detail;
+      }
+    };
+    mark.addEventListener('click', updateDetail);
+    mark.addEventListener('mouseenter', updateDetail);
+    mark.addEventListener('focus', updateDetail);
+  });
+})();</script></body>
+</html>

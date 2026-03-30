@@ -1,0 +1,400 @@
+{
+  "prompt": "Edit the selected chart section to show adoption by channel instead of launch-phase sequencing.",
+  "title": "Edit the selected chart section to show adoption by channel instead of l",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.95,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "product_rollout.html"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "Technical analysts and product managers",
+    "jobToBeDone": "Visualize the adoption rate of the product across different marketing channels to inform strategic decisions",
+    "subjectDomain": "Product launch metrics and customer feedback",
+    "artifactThesis": "Update the hero chart section to display adoption by channel instead of launch-phase sequencing, enhancing technical analysis capabilities",
+    "requiredConcepts": [
+      "adoption",
+      "marketing channels",
+      "product launch"
+    ],
+    "requiredInteractions": [
+      "selectView for navigation between sections",
+      "updateChart on data change"
+    ],
+    "visualTone": [
+      "technical",
+      "analytical"
+    ],
+    "factualAnchors": [
+      "current interactive dashboard structure",
+      "existing chart section content"
+    ],
+    "styleDirectives": [],
+    "referenceHints": [
+      "product_rollout.html"
+    ]
+  },
+  "editIntent": {
+    "mode": "patch",
+    "summary": "Update the hero chart section to display adoption by channel instead of launch-phase sequencing, enhancing technical analysis capabilities.",
+    "patchExistingArtifact": true,
+    "preserveStructure": true,
+    "targetScope": "product_rollout.html",
+    "targetPaths": [
+      "product_rollout.html"
+    ],
+    "requestedOperations": [
+      "updateChart"
+    ],
+    "toneDirectives": [
+      "technical",
+      "analytical"
+    ],
+    "selectedTargets": [
+      {
+        "sourceSurface": "render",
+        "path": null,
+        "label": "chart section",
+        "snippet": "Hero chart section should show adoption by channel instead of launch-phase sequencing."
+      }
+    ],
+    "styleDirectives": [],
+    "branchRequested": false
+  },
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 6292953325485328588,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Update the hero chart section to display adoption by channel instead of launch-phase sequencing, enhancing technical analysis capabilities.",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 5,
+        "interactionRelevance": 2,
+        "layoutCoherence": 2,
+        "visualHierarchy": 2,
+        "completeness": 2,
+        "genericShellDetected": false,
+        "trivialShellDetected": true,
+        "deservesPrimaryArtifactView": false,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "HTML chart SVG regions are unlabeled on first paint.",
+        "rationale": "Renderer contract failures keep the first paint from qualifying as primary output."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 401532881002423623,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Update the hero chart section to display adoption by channel instead of launch-phase sequencing, enhancing technical analysis capabilities.",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 4,
+        "interactionRelevance": 3,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 4,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "Candidate omits interactive navigation between sections.",
+        "rationale": "Candidate addresses the request but lacks interaction for view switching."
+      }
+    },
+    {
+      "candidateId": "candidate-3",
+      "seed": 12956856510229070274,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Update the hero chart section to display adoption by channel instead of launch-phase sequencing.",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 4,
+        "interactionRelevance": 4,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 4,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Complies with the interaction contract and stays request-faithful."
+      }
+    },
+    {
+      "candidateId": "candidate-2-refine-1",
+      "seed": 401532881002423623,
+      "model": "qwen2.5:7b",
+      "temperature": 0.18,
+      "strategy": "request-grounded_html.refinement",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Update the hero chart section to display adoption by channel instead of launch-phase sequencing, enhancing technical analysis capabilities.",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 4,
+        "interactionRelevance": 2,
+        "layoutCoherence": 2,
+        "visualHierarchy": 2,
+        "completeness": 2,
+        "genericShellDetected": false,
+        "trivialShellDetected": true,
+        "deservesPrimaryArtifactView": false,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "HTML chart SVG regions are unlabeled on first paint.",
+        "rationale": "Renderer contract failures keep the first paint from qualifying as primary output."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-3",
+  "winningCandidateRationale": "Complies with the interaction contract and stays request-faithful.",
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 4,
+    "conceptCoverage": 4,
+    "interactionRelevance": 4,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 4,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": true,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Complies with the interaction contract and stays request-faithful."
+  },
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "manifest": {
+    "artifactId": "3893abfd-f725-4afc-8efb-93eaef3ba1c8",
+    "title": "Edit the selected chart section to show adoption by channel instead of l",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": "product_rollout.html",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "product_rollout.html",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "product_rollout.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "generated-product_rollout.html",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Complies with the interaction contract and stays request-faithful.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Edit the selected chart section to show adoption by channel instead of l",
+    "summary": "Edit the selected chart section to show adoption by channel instead of l Complies with the interaction contract and stays request-faithful.",
+    "evidence": [
+      "product_rollout.html"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "materializedFiles": [
+    "product_rollout.html"
+  ],
+  "renderableFiles": [
+    "product_rollout.html"
+  ],
+  "refinement": {
+    "artifactId": "61d08530-f31e-4ad5-b37c-862773024e57",
+    "revisionId": null,
+    "title": "Keep the structure, but replace the hero and chart with a more technical",
+    "summary": "Keep the structure, but replace the hero and chart with a more technical Candidate meets all requirements and preserves the existing structure while enhancing the technical tone.",
+    "renderer": "html_iframe",
+    "files": [
+      {
+        "path": "product_rollout.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "encoding": null,
+        "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Technical Dashboard for Product Launch Metrics & Customer Feedback</title>\n    <style>\n        body { font-family: 'Arial Black', Gadget, sans-serif; }\n        .hero { text-align: center; padding-top: 70px; }\n        .controls { display: flex; justify-content: space-around; margin-bottom: 30px; }\n        .chart, .evidence { width: 100%; max-width: 800px; margin: auto; }\n    </style>\n</head>\n<body>\n    <main>\n        <section class=\"hero\">\n            <h1>Technical Dashboard for Product Launch Metrics & Customer Feedback</h1>\n        </section>\n        <nav class=\"controls\">\n            <button type=\"button\" data-view=\"q1-sales-figures-for-dog-shampoos\" aria-controls=\"q1-sales-figures-for-dog-shampoos-panel\">Q1 Sales Figures for Dog Shampoos</button>\n            <button type=\"button\" data-view=\"customer-feedback-on-new-product-features\" aria-controls=\"customer-feedback-on-new-product-features-panel\">Customer Feedback on New Product Features</button>\n        </nav>\n        <section id=\"q1-sales-figures-for-dog-shampoos-panel\" class=\"chart\" data-view-panel=\"q1-sales-figures-for-dog-shampoos\">\n            <svg width=\"800\" height=\"400\">\n                <rect x=\"50\" y=\"100\" width=\"700\" height=\"200\" fill=\"#FFC300\" tabindex=\"0\" data-detail=\"Q1 Sales for Dog Shampoos\"/>\n                <text x=\"600\" y=\"150\" font-family='Arial Black' font-size='24'>Q1 Sales for Dog Shampoos</text>\n            </svg>\n        </section>\n        <section id=\"customer-feedback-on-new-product-features-panel\" class=\"evidence\" data-view-panel=\"customer-feedback-on-new-product-features\">\n            <table style=\"width: 100%;\">\n                <tr><th>Customer</th><th>Feedback</th></tr>\n                <tr><td>John Doe</td><td>Lovely product, great smell!</td></tr>\n                <tr><td>Jane Smith</td><td>Not as effective as expected.</td></tr>\n            </table>\n        </section>\n    <aside data-studio-normalized=\"true\" data-studio-shared-detail=\"true\"><h2>Detail</h2><p id=\"detail-copy\">Q1 Sales Figures for Dog Shampoos is selected by default.</p></aside><section data-studio-normalized=\"true\" data-studio-rollover-chip-rail=\"true\"><h2>Evidence highlights</h2><div class=\"studio-rollover-chip-rail\"><button type=\"button\" class=\"studio-rollover-chip\" data-detail=\"Customer Satisfaction Scores\">Customer Satisfaction Scores</button><button type=\"button\" class=\"studio-rollover-chip\" data-detail=\"Sales Figures\">Sales Figures</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>\n    <script>\n(function() {\n  document.querySelectorAll('[data-detail]').forEach((mark) => {\n    if (!mark.hasAttribute('tabindex')) {\n      mark.setAttribute('tabindex', '0');\n    }\n    const updateDetail = () => {\n      const detail = mark.getAttribute('data-detail') || '';\n      if (detail) {\n        document.getElementById('detail-copy').textContent = detail;\n      }\n    };\n    mark.addEventListener('click', updateDetail);\n    mark.addEventListener('mouseenter', updateDetail);\n    mark.addEventListener('focus', updateDetail);\n  });\n})();\n</script>\n<script data-studio-normalized=\"true\" data-studio-view-switch-repair=\"true\">(() => {\n  const controls = Array.from(document.querySelectorAll('button[data-view], [role=\"tab\"][data-view]'));\n  if (controls.length < 2) {\n    return;\n  }\n  const explicitPanels = Array.from(document.querySelectorAll('[data-view-panel]'));\n  const mappedPanels = controls\n    .map((button) => {\n      const ariaTarget = button.getAttribute('aria-controls');\n      if (ariaTarget) {\n        return document.getElementById(ariaTarget);\n      }\n      const dataTarget = button.getAttribute('data-target') || '';\n      if (dataTarget.startsWith('#')) {\n        return document.querySelector(dataTarget);\n      }\n      return null;\n    })\n    .filter((panel, index, panels) => panel && panels.indexOf(panel) === index);\n  const panels = explicitPanels.length\n    ? explicitPanels\n    : (mappedPanels.length\n      ? mappedPanels\n      : Array.from(document.querySelectorAll('[data-panel], [role=\"tabpanel\"]')));\n  if (panels.length < 2) {\n    return;\n  }\n  const detailCopy = document.getElementById('detail-copy');\n  const selectView = (activeControl) => {\n    const targetView = activeControl.dataset.view || '';\n    const rawTarget = activeControl.getAttribute('data-target') || '';\n    const targetId = activeControl.getAttribute('aria-controls') || (rawTarget.startsWith('#') ? rawTarget.slice(1) : rawTarget);\n    panels.forEach((panel) => {\n      const panelView = panel.dataset.viewPanel || panel.dataset.panel || '';\n      const panelId = panel.id || '';\n      const isActive = (targetView && panelView === targetView) || (targetId && panelId === targetId);\n      panel.hidden = !isActive;\n      panel.setAttribute('aria-hidden', String(!isActive));\n    });\n    controls.forEach((control) => {\n      control.setAttribute('aria-selected', String(control === activeControl));\n    });\n    if (detailCopy && activeControl.textContent) {\n      detailCopy.textContent = `${activeControl.textContent.trim()} selected.`;\n    }\n  };\n  controls.forEach((button) => {\n    button.addEventListener('click', () => selectView(button));\n  });\n  const defaultControl = controls.find((button) => button.getAttribute('aria-selected') === 'true') || controls[0];\n  if (defaultControl) {\n    selectView(defaultControl);\n  }\n})();</script></body>\n</html>"
+      }
+    ],
+    "selectedTargets": [
+      {
+        "sourceSurface": "render",
+        "path": "index.html",
+        "label": "chart section",
+        "snippet": "Hero chart section should show adoption by channel instead of launch-phase sequencing."
+      }
+    ],
+    "tasteMemory": {
+      "directives": [],
+      "summary": "Enhance the current interactive dashboard to provide a more technical tone for enterprise-level analysis."
+    }
+  }
+}

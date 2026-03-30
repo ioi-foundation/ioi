@@ -1,0 +1,34 @@
+{
+  "inspection": {
+    "artifact_id": "dd620601-cda8-4530-ab3c-c4bb8fc4ddbf",
+    "title": "Create an interactive HTML artifact that explains a product rollo...",
+    "artifact_class": "interactive_single_file",
+    "renderer": "html_iframe",
+    "verification_status": "ready",
+    "lifecycle_state": "ready",
+    "verification_summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "primary_tab": "render",
+    "tab_count": 3,
+    "file_count": 1,
+    "renderable_file_count": 1,
+    "downloadable_file_count": 0,
+    "repo_centric_package": false,
+    "render_surface_available": true,
+    "preferred_stage_mode": "render",
+    "production_provenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptance_provenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "valid": true,
+  "validation_errors": []
+}

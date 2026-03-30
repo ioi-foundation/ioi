@@ -1,0 +1,84 @@
+{
+  "compare": {
+    "baseCaseId": "html-dog-shampoo",
+    "refinedCaseId": "html-dog-shampoo-technical",
+    "changedPaths": [
+      "artifact-manifest.json",
+      "product_rollout.html"
+    ],
+    "classification": "pass"
+  },
+  "restore": {
+    "sourceCaseId": "html-dog-shampoo",
+    "restoredDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/revision-restore/artifact",
+    "restoredMatchesSource": true,
+    "validate": {
+      "args": [
+        "artifact",
+        "validate",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/revision-restore/artifact/artifact-manifest.json",
+        "--source-root",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/contract-lane/revision-restore/artifact"
+      ],
+      "status": 0,
+      "stdout": "Artifact manifest 'an interactive HTML artifact that explains a product rollout with charts' is valid.\n",
+      "stderr": ""
+    },
+    "inspect": {
+      "inspection": {
+        "artifact_id": "4ceac3b0-09e3-4d30-ad5f-b5f08ab75108",
+        "title": "an interactive HTML artifact that explains a product rollout with charts",
+        "artifact_class": "interactive_single_file",
+        "renderer": "html_iframe",
+        "verification_status": "ready",
+        "lifecycle_state": "ready",
+        "verification_summary": "Candidate fully meets the request with interactive controls and relevant content.",
+        "primary_tab": "render",
+        "tab_count": 3,
+        "file_count": 1,
+        "renderable_file_count": 1,
+        "downloadable_file_count": 0,
+        "repo_centric_package": false,
+        "render_surface_available": true,
+        "preferred_stage_mode": "render",
+        "production_provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptance_provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null
+      },
+      "valid": true,
+      "validation_errors": []
+    },
+    "judge": {
+      "classification": "pass",
+      "requestFaithfulness": 5,
+      "conceptCoverage": 5,
+      "interactionRelevance": 5,
+      "layoutCoherence": 5,
+      "visualHierarchy": 5,
+      "completeness": 5,
+      "genericShellDetected": false,
+      "trivialShellDetected": false,
+      "deservesPrimaryArtifactView": true,
+      "patchedExistingArtifact": null,
+      "continuityRevisionUx": null,
+      "strongestContradiction": null,
+      "rationale": "Candidate fully meets the request with interactive controls and relevant content."
+    },
+    "classification": "pass"
+  },
+  "branch": {
+    "caseId": "html-dog-shampoo-branch-editorial",
+    "editMode": "branch",
+    "classification": "pass"
+  }
+}

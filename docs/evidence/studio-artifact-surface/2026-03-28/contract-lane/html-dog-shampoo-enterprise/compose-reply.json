@@ -1,0 +1,22 @@
+{
+  "status": "ready",
+  "lifecycleState": "ready",
+  "title": "Studio outcome: Make it feel more enterprise",
+  "summary": "Make it feel more enterprise Candidate meets all requirements and enhances the existing artifact with professional styling, interactive controls, and relevant content.",
+  "evidence": [
+    "product_rollout.html"
+  ],
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "failure": null
+}

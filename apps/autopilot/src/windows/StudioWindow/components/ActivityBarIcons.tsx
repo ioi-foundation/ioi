@@ -71,6 +71,23 @@ export const ComposeIcon = () => (
   </svg>
 );
 
+export const SparklesIcon = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m12 3 1.15 3.7L17 7.85l-3.85 1.15L12 12.7l-1.15-3.7L7 7.85l3.85-1.15L12 3Z" />
+    <path d="m18.2 13.6.7 2.25 2.2.7-2.2.7-.7 2.25-.7-2.25-2.25-.7 2.25-.7.7-2.25Z" />
+    <path d="m5.8 14.8.85 2.75 2.75.85-2.75.85-.85 2.75-.85-2.75-2.75-.85 2.75-.85.85-2.75Z" />
+  </svg>
+);
+
 export const ExplorerIcon = () => (
   <svg
     width="18"

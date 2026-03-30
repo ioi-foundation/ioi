@@ -1,0 +1,21 @@
+{
+  "inspection": {
+    "artifact_id": "c04f3738-af2d-4b81-9918-3566f0efe4d6",
+    "title": "Keep the structure, but replace the hero and chart with a more technical",
+    "artifact_class": "interactive_single_file",
+    "renderer": "html_iframe",
+    "verification_status": "ready",
+    "lifecycle_state": "ready",
+    "verification_summary": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.",
+    "primary_tab": "render",
+    "tab_count": 3,
+    "file_count": 1,
+    "renderable_file_count": 1,
+    "downloadable_file_count": 1,
+    "repo_centric_package": false,
+    "render_surface_available": true,
+    "preferred_stage_mode": "render"
+  },
+  "valid": true,
+  "validation_errors": []
+}

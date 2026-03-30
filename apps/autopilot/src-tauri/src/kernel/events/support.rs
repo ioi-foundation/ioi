@@ -186,7 +186,26 @@ pub(super) enum ClarificationPreset {
     IntentClarification,
 }
 
+pub(super) fn explicit_clarification_preset_for_tool(
+    tool_name: &str,
+) -> Option<ClarificationPreset> {
+    let tool = tool_name.to_ascii_lowercase();
+    if tool == "system::intent_clarification"
+        || tool == "system__intent_clarification"
+        || tool.ends_with("intent_clarification")
+        || tool == "system::locality_clarification"
+        || tool == "system__locality_clarification"
+        || tool.ends_with("locality_clarification")
+    {
+        return Some(ClarificationPreset::IntentClarification);
+    }
+    None
+}
+
 pub(super) fn clarification_preset_for_tool(tool_name: &str) -> Option<ClarificationPreset> {
+    if let Some(preset) = explicit_clarification_preset_for_tool(tool_name) {
+        return Some(preset);
+    }
     if is_install_package_tool(tool_name) {
         return Some(ClarificationPreset::InstallLookup);
     }
@@ -337,7 +356,9 @@ pub(super) fn extract_launch_target_hint(output: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect_clarification_preset, ClarificationPreset};
+    use super::{
+        detect_clarification_preset, explicit_clarification_preset_for_tool, ClarificationPreset,
+    };
 
     #[test]
     fn detects_intent_clarification_marker() {
@@ -353,6 +374,18 @@ mod tests {
         let output = "System: WAIT_FOR_LOCALITY_SCOPE. Provide city/region or ZIP.";
         assert!(matches!(
             detect_clarification_preset("system::locality_clarification", output),
+            Some(ClarificationPreset::IntentClarification)
+        ));
+    }
+
+    #[test]
+    fn maps_explicit_intent_clarification_tools() {
+        assert!(matches!(
+            explicit_clarification_preset_for_tool("system::intent_clarification"),
+            Some(ClarificationPreset::IntentClarification)
+        ));
+        assert!(matches!(
+            explicit_clarification_preset_for_tool("system::locality_clarification"),
             Some(ClarificationPreset::IntentClarification)
         ));
     }

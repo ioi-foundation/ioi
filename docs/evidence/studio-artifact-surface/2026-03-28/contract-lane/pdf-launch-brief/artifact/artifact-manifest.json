@@ -1,0 +1,66 @@
+{
+  "artifactId": "71d5793d-0a05-4f85-bccb-8322e3065b85",
+  "title": "a PDF artifact that summarizes a launch brief",
+  "artifactClass": "document",
+  "renderer": "pdf_embed",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "pdf_embed",
+      "filePath": "launch_brief_summary.pdf",
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": "launch_brief_summary.pdf",
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "launch_brief_summary.pdf",
+      "mime": "application/pdf",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": "generated-launch_brief_summary.pdf",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Complies with all requirements and presents a clear, concise summary.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "outcomeKind": "artifact",
+  "confidence": 0.96,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "downloadable_file",
+    "deliverableShape": "file_set",
+    "renderer": "download_card",
+    "presentationSurface": "side_panel",
+    "persistence": "artifact_scoped",
+    "executionSubstrate": "none",
+    "workspaceRecipeId": null,
+    "presentationVariantId": null,
+    "scope": {
+      "targetProject": null,
+      "createNewWorkspace": false,
+      "mutationBoundary": [
+        "artifact"
+      ]
+    },
+    "verification": {
+      "requireRender": true,
+      "requireBuild": false,
+      "requirePreview": false,
+      "requireExport": true,
+      "requireDiffReview": false
+    }
+  }
+}

@@ -1,0 +1,1941 @@
+{
+  "id": "studio-proof-task",
+  "intent": "Create an interactive HTML artifact for an AI tools editorial launch page",
+  "agent": "Autopilot",
+  "phase": "Running",
+  "progress": 0,
+  "total_steps": 20,
+  "current_step": "Initializing...",
+  "gate_info": null,
+  "receipt": null,
+  "visual_hash": null,
+  "pending_request_hash": null,
+  "session_id": "studio-proof-task",
+  "credential_request": null,
+  "clarification_request": null,
+  "history": [],
+  "events": [
+    {
+      "event_id": "87bcfb39-cccd-45a5-980a-8adc8c926ba3",
+      "timestamp": "2026-03-30T13:01:47.023410452+00:00",
+      "thread_id": "studio-proof-task",
+      "step_index": 0,
+      "event_type": "RECEIPT",
+      "title": "Studio created Create an interactive HTML artifact for an AI tools editorial lau...",
+      "digest": {
+        "artifact_class": "interactive_single_file",
+        "build_session_id": null,
+        "navigator_backing_mode": "logical"
+      },
+      "details": {
+        "activeRevisionId": "f1c6c10a-7f5f-4e8b-bd8c-03e5f43c19dd",
+        "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+        "artifactManifest": {
+          "artifactClass": "interactive_single_file",
+          "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+          "files": [
+            {
+              "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+              "downloadable": false,
+              "externalUrl": null,
+              "mime": "text/html",
+              "path": "index.html",
+              "renderable": true,
+              "role": "primary"
+            }
+          ],
+          "primaryTab": "render",
+          "renderer": "html_iframe",
+          "storage": {
+            "apiLabel": "artifact storage",
+            "mode": "shared_artifact_scoped"
+          },
+          "tabs": [
+            {
+              "filePath": null,
+              "id": "render",
+              "kind": "render",
+              "label": "Render",
+              "lens": "render",
+              "renderer": "html_iframe"
+            },
+            {
+              "filePath": null,
+              "id": "source",
+              "kind": "source",
+              "label": "Source",
+              "lens": "source",
+              "renderer": null
+            },
+            {
+              "filePath": null,
+              "id": "evidence",
+              "kind": "evidence",
+              "label": "Evidence",
+              "lens": "evidence",
+              "renderer": null
+            }
+          ],
+          "title": "Create an interactive HTML artifact for an AI tools editorial lau...",
+          "verification": {
+            "acceptanceProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b"
+            },
+            "failure": null,
+            "lifecycleState": "ready",
+            "productionProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b"
+            },
+            "status": "ready",
+            "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+          }
+        },
+        "attachedArtifactIds": [
+          "10d5574f-05d2-4198-88ee-575852475b73",
+          "c5fa72c6-5b58-4105-a9f3-3f37b82eec89"
+        ],
+        "availableLenses": [
+          "render",
+          "source",
+          "evidence"
+        ],
+        "buildSessionId": null,
+        "createdAt": "2026-03-30T12:53:01.967780321+00:00",
+        "currentLens": "render",
+        "lifecycleState": "ready",
+        "materialization": {
+          "acceptanceProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b"
+          },
+          "artifactBrief": {
+            "artifactThesis": "Engage with an interactive overview of new AI tools",
+            "audience": "Tech-savvy professionals",
+            "factualAnchors": [
+              "AI tool usage in businesses",
+              "expert opinions on AI technologies"
+            ],
+            "jobToBeDone": "Explore latest AI tools for projects or businesses",
+            "referenceHints": [
+              "current AI trends",
+              "industry reports"
+            ],
+            "requiredConcepts": [
+              "tool comparison",
+              "feature demos",
+              "industry trends"
+            ],
+            "requiredInteractions": [
+              "slider for comparing tools",
+              "video player for feature demonstrations"
+            ],
+            "styleDirectives": [],
+            "subjectDomain": "AI Tools and Technologies",
+            "visualTone": [
+              "modern",
+              "innovative"
+            ]
+          },
+          "candidateSummaries": [
+            {
+              "candidateId": "candidate-1",
+              "failure": null,
+              "fallback": false,
+              "judge": {
+                "classification": "repairable",
+                "completeness": 3,
+                "conceptCoverage": 3,
+                "continuityRevisionUx": null,
+                "deservesPrimaryArtifactView": true,
+                "genericShellDetected": false,
+                "interactionRelevance": 3,
+                "layoutCoherence": 4,
+                "patchedExistingArtifact": null,
+                "rationale": "Candidate covers most concepts but lacks sequence browsing and some completeness.",
+                "requestFaithfulness": 4,
+                "strongestContradiction": "Missing sequence browsing for evidence articles.",
+                "trivialShellDetected": false,
+                "visualHierarchy": 4
+              },
+              "model": "qwen2.5:7b",
+              "origin": "live_inference",
+              "provenance": {
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen2.5:7b"
+              },
+              "rawOutputPreview": null,
+              "renderablePaths": [
+                "index.html"
+              ],
+              "seed": 16003710278222018597,
+              "selected": false,
+              "strategy": "request-grounded_html",
+              "summary": "Interactive AI Tools Editorial Launch Page",
+              "temperature": 0.6200000047683716
+            },
+            {
+              "candidateId": "candidate-3",
+              "failure": null,
+              "fallback": false,
+              "judge": {
+                "classification": "repairable",
+                "completeness": 3,
+                "conceptCoverage": 4,
+                "continuityRevisionUx": null,
+                "deservesPrimaryArtifactView": true,
+                "genericShellDetected": false,
+                "interactionRelevance": 3,
+                "layoutCoherence": 4,
+                "patchedExistingArtifact": null,
+                "rationale": "Lacks required slider interaction, needs implementation.",
+                "requestFaithfulness": 5,
+                "strongestContradiction": "Missing slider for comparing tools",
+                "trivialShellDetected": false,
+                "visualHierarchy": 4
+              },
+              "model": "qwen2.5:7b",
+              "origin": "live_inference",
+              "provenance": {
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen2.5:7b"
+              },
+              "rawOutputPreview": null,
+              "renderablePaths": [
+                "index.html"
+              ],
+              "seed": 16151997372008603243,
+              "selected": false,
+              "strategy": "request-grounded_html",
+              "summary": "Interactive Overview of New AI Tools for Tech-Savvy Professionals",
+              "temperature": 0.6200000047683716
+            },
+            {
+              "candidateId": "candidate-3-refine-1",
+              "failure": null,
+              "fallback": false,
+              "judge": {
+                "classification": "pass",
+                "completeness": 5,
+                "conceptCoverage": 5,
+                "continuityRevisionUx": null,
+                "deservesPrimaryArtifactView": true,
+                "genericShellDetected": false,
+                "interactionRelevance": 5,
+                "layoutCoherence": 5,
+                "patchedExistingArtifact": null,
+                "rationale": "Candidate meets all requirements with interactive elements and relevant content.",
+                "requestFaithfulness": 5,
+                "strongestContradiction": "",
+                "trivialShellDetected": false,
+                "visualHierarchy": 5
+              },
+              "model": "qwen2.5:7b",
+              "origin": "live_inference",
+              "provenance": {
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen2.5:7b"
+              },
+              "rawOutputPreview": null,
+              "renderablePaths": [
+                "index.html"
+              ],
+              "seed": 16151997372008603243,
+              "selected": true,
+              "strategy": "request-grounded_html.refinement",
+              "summary": "Interactive Overview of New AI Tools for Tech-Savvy Professionals",
+              "temperature": 0.18000000715255737
+            },
+            {
+              "candidateId": "candidate-2",
+              "failure": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+              "fallback": false,
+              "judge": {
+                "classification": "blocked",
+                "completeness": 1,
+                "conceptCoverage": 1,
+                "continuityRevisionUx": null,
+                "deservesPrimaryArtifactView": false,
+                "genericShellDetected": false,
+                "interactionRelevance": 1,
+                "layoutCoherence": 1,
+                "patchedExistingArtifact": null,
+                "rationale": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+                "requestFaithfulness": 1,
+                "strongestContradiction": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+                "trivialShellDetected": false,
+                "visualHierarchy": 1
+              },
+              "model": "qwen2.5:7b",
+              "origin": "live_inference",
+              "provenance": {
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen2.5:7b"
+              },
+              "rawOutputPreview": "{\n  \"summary\": \"Interactive AI Tools Editorial Launch Page\",\n  \"notes\": [\n    \"Follows the layout recipe: story-led hero, sticky section navigation, annotated timeline, and a detail drawer.\",\n    \"Surface primary evidence on current AI trends with visible marks, labels or comparative values.\",\n    \"Keep the shared detail panel visible inline when buttons are activated.\",\n    \"Ensure at least two distinct first-paint evidence views to meet requiredConcepts.\"\n  ],\n  \"files\": [\n    {\n      \"path\": \"index.html\",\n      \"mime\": \"text/html\",\n      \"role\": \"primary\",\n      \"renderable\": true,\n      \"downloadable\": false,\n      \"encoding\": null,\n      \"body\": \"<!DOCTYPE html>\\n<html lang=\\\"en\\\">\\n<head>\\n  <meta charset=\\\"UTF-8\\\">\\n  <meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1.0\\\">\\n  <title>AI Tools Editorial Launch Page</title>\\n  <style>\\n    body { font-family: Arial, sans-serif; }\\n    .hero { background-color: #f8f9fa; padding: 2rem; display: flex; align-items: center; gap: 1rem; }\\n    .nav-bar { position: sticky; top: 0; background-color: white; z-index: 1000; padding: 1rem; }\\n    .panel { margin-top: 2rem; padding: 1rem; border: 1px solid #ddd; min-height: 300px; display: none; }\\n  </style>\\n</head>\\n<body>\\n  <div class=\\\"hero\\\">\\n    <h1>Engage with an Interactive Overview of New AI Tools</h1>\\n    <p>Explore latest AI tools for projects or businesses.</p>\\n  </div>\\n  <nav class=\\\"nav-bar\\\">\\n    <button data-view=\\\"ai-tool-usage-in-businesses\\\" aria-controls=\\\"#ai-tool-usage-in-businesses-panel\\\" tabindex=\\\"0\\\">AI Tool Usage in Businesses</button>\\n    <button data-view=\\\"expert-opinions-on-ai-technologies\\\" aria-controls=\\\"#expert-opinions-on-ai-technologies-panel\\\" tabindex=\\\"0\\\">Expert Opinions on AI Technologies</button>\\n  </nav>\\n  <main>\\n    <section id=\\\"ai-tool-usage-in-businesses-panel\\\" data-view-panel=\\\"ai-tool-usage-in-businesses\\\">\\n      <h2>AI Tool Usage in Businesses</h2>\\n      <p>Visualize the current trends and us...",
+              "renderablePaths": [],
+              "seed": 6854481788260535112,
+              "selected": false,
+              "strategy": "request-grounded_html",
+              "summary": "Candidate failed during materialization.",
+              "temperature": 0.6200000047683716
+            }
+          ],
+          "commandIntents": [],
+          "editIntent": null,
+          "failure": null,
+          "fallbackUsed": false,
+          "fileWrites": [
+            {
+              "contentPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Interactive AI Tools Overview</title>",
+              "kind": "primary",
+              "path": "index.html"
+            }
+          ],
+          "judge": {
+            "classification": "pass",
+            "completeness": 5,
+            "conceptCoverage": 5,
+            "continuityRevisionUx": null,
+            "deservesPrimaryArtifactView": true,
+            "genericShellDetected": false,
+            "interactionRelevance": 5,
+            "layoutCoherence": 5,
+            "patchedExistingArtifact": null,
+            "rationale": "Candidate meets all requirements with interactive elements and relevant content.",
+            "requestFaithfulness": 5,
+            "strongestContradiction": "",
+            "trivialShellDetected": false,
+            "visualHierarchy": 5
+          },
+          "navigatorNodes": [
+            {
+              "badge": null,
+              "children": [],
+              "description": "Interact with the artifact through its renderer-specific presentation.",
+              "id": "render",
+              "kind": "render",
+              "label": "Render",
+              "lens": "render",
+              "path": null,
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Inspect the source form of the artifact.",
+              "id": "source",
+              "kind": "source",
+              "label": "Source",
+              "lens": "source",
+              "path": null,
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Inspect verification state, receipts, and evidence.",
+              "id": "evidence",
+              "kind": "evidence",
+              "label": "Evidence",
+              "lens": "evidence",
+              "path": null,
+              "status": null
+            }
+          ],
+          "normalizedIntent": "Create an interactive HTML artifact for an AI tools editorial launch page",
+          "notes": [
+            "Conversation remains the control plane; this artifact is the work product.",
+            "Renderer choice is explicit in the typed outcome request.",
+            "Verification state, not worker prose, authorizes the final Studio summary.",
+            "This HTML artifact provides an interactive overview of the latest AI tools, focusing on tool comparison and industry trends.",
+            "It includes a named control bar, primary evidence section, secondary evidence section, and shared detail panel.",
+            "The artifact is designed to engage tech-savvy professionals in exploring new AI technologies.",
+            "Winning candidate candidate-3-refine-1 selected via typed judging."
+          ],
+          "outputOrigin": "live_inference",
+          "pipelineSteps": [
+            {
+              "id": "intake",
+              "label": "Intake",
+              "outputs": [
+                "Create an interactive HTML artifact for an AI tools editorial launch page"
+              ],
+              "stage": "intake",
+              "status": "complete",
+              "summary": "Studio captured the request and established the active artifact context.",
+              "verificationGate": null
+            },
+            {
+              "id": "routing",
+              "label": "Outcome routing",
+              "outputs": [
+                "artifact",
+                "interactive_single_file",
+                "html_iframe"
+              ],
+              "stage": "routing",
+              "status": "complete",
+              "summary": "The typed router chose the artifact branch intentionally.",
+              "verificationGate": null
+            },
+            {
+              "id": "requirements",
+              "label": "Requirements",
+              "outputs": [
+                "html-landing-page"
+              ],
+              "stage": "requirements",
+              "status": "complete",
+              "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+              "verificationGate": null
+            },
+            {
+              "id": "specification",
+              "label": "Artifact spec",
+              "outputs": [
+                "interactive_single_file",
+                "html_iframe",
+                "side_panel",
+                "shared_artifact_scoped"
+              ],
+              "stage": "specification",
+              "status": "complete",
+              "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+              "verificationGate": null
+            },
+            {
+              "id": "materialization",
+              "label": "Materialization",
+              "outputs": [
+                "index.html"
+              ],
+              "stage": "materialization",
+              "status": "complete",
+              "summary": "Studio is creating the files or workspace required by the manifest.",
+              "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+            },
+            {
+              "id": "execution",
+              "label": "Execution",
+              "outputs": [
+                "index.html"
+              ],
+              "stage": "execution",
+              "status": "complete",
+              "summary": "Single-file generation completed inside the selected renderer substrate.",
+              "verificationGate": "Execution receipts must exist for every command-backed step."
+            },
+            {
+              "id": "verification",
+              "label": "Verification",
+              "outputs": [
+                "Materialize artifact (success)",
+                "Verify artifact contract (success)"
+              ],
+              "stage": "verification",
+              "status": "complete",
+              "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+              "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+            },
+            {
+              "id": "presentation",
+              "label": "Presentation",
+              "outputs": [
+                "render",
+                "1 file(s)"
+              ],
+              "stage": "presentation",
+              "status": "complete",
+              "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+              "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+            },
+            {
+              "id": "reply",
+              "label": "Verified reply",
+              "outputs": [
+                "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+              ],
+              "stage": "reply",
+              "status": "complete",
+              "summary": "Studio composes the user-facing summary from artifact state and verification.",
+              "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+            }
+          ],
+          "previewIntent": null,
+          "productionProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b"
+          },
+          "requestKind": "interactive_single_file",
+          "summary": "Studio created 'Create an interactive HTML artifact for an AI tools editorial lau...' as a single-file HTML artifact rendered in an isolated frame.",
+          "uxLifecycle": "judged",
+          "verificationSteps": [
+            {
+              "id": "materialize",
+              "kind": "materialize",
+              "label": "Materialize artifact",
+              "status": "success"
+            },
+            {
+              "id": "verify",
+              "kind": "verify",
+              "label": "Verify artifact contract",
+              "status": "success"
+            }
+          ],
+          "version": 3,
+          "winningCandidateId": "candidate-3-refine-1",
+          "winningCandidateRationale": "Candidate meets all requirements with interactive elements and relevant content."
+        },
+        "navigatorBackingMode": "logical",
+        "navigatorNodes": [
+          {
+            "badge": null,
+            "children": [],
+            "description": "Interact with the artifact through its renderer-specific presentation.",
+            "id": "render",
+            "kind": "render",
+            "label": "Render",
+            "lens": "render",
+            "path": null,
+            "status": null
+          },
+          {
+            "badge": null,
+            "children": [],
+            "description": "Inspect the source form of the artifact.",
+            "id": "source",
+            "kind": "source",
+            "label": "Source",
+            "lens": "source",
+            "path": null,
+            "status": null
+          },
+          {
+            "badge": null,
+            "children": [],
+            "description": "Inspect verification state, receipts, and evidence.",
+            "id": "evidence",
+            "kind": "evidence",
+            "label": "Evidence",
+            "lens": "evidence",
+            "path": null,
+            "status": null
+          }
+        ],
+        "outcomeRequest": {
+          "activeArtifactId": null,
+          "artifact": {
+            "artifactClass": "interactive_single_file",
+            "deliverableShape": "single_file",
+            "executionSubstrate": "client_sandbox",
+            "persistence": "shared_artifact_scoped",
+            "presentationSurface": "side_panel",
+            "presentationVariantId": "product-launch",
+            "renderer": "html_iframe",
+            "scope": {
+              "createNewWorkspace": false,
+              "mutationBoundary": [
+                "html-landing-page"
+              ],
+              "targetProject": null
+            },
+            "verification": {
+              "requireBuild": false,
+              "requireDiffReview": false,
+              "requireExport": true,
+              "requirePreview": false,
+              "requireRender": true
+            },
+            "workspaceRecipeId": null
+          },
+          "clarificationQuestions": [],
+          "confidence": 1.0,
+          "needsClarification": false,
+          "outcomeKind": "artifact",
+          "rawPrompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+          "requestId": "ab2ca6fc-a448-4737-8a60-f684f7ebd7dd"
+        },
+        "rendererSessionId": null,
+        "revisions": [
+          {
+            "acceptanceProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b"
+            },
+            "artifactBrief": {
+              "artifactThesis": "Engage with an interactive overview of new AI tools",
+              "audience": "Tech-savvy professionals",
+              "factualAnchors": [
+                "AI tool usage in businesses",
+                "expert opinions on AI technologies"
+              ],
+              "jobToBeDone": "Explore latest AI tools for projects or businesses",
+              "referenceHints": [
+                "current AI trends",
+                "industry reports"
+              ],
+              "requiredConcepts": [
+                "tool comparison",
+                "feature demos",
+                "industry trends"
+              ],
+              "requiredInteractions": [
+                "slider for comparing tools",
+                "video player for feature demonstrations"
+              ],
+              "styleDirectives": [],
+              "subjectDomain": "AI Tools and Technologies",
+              "visualTone": [
+                "modern",
+                "innovative"
+              ]
+            },
+            "artifactManifest": {
+              "artifactClass": "interactive_single_file",
+              "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+              "files": [
+                {
+                  "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+                  "downloadable": false,
+                  "externalUrl": null,
+                  "mime": "text/html",
+                  "path": "index.html",
+                  "renderable": true,
+                  "role": "primary"
+                }
+              ],
+              "primaryTab": "render",
+              "renderer": "html_iframe",
+              "storage": {
+                "apiLabel": "artifact storage",
+                "mode": "shared_artifact_scoped"
+              },
+              "tabs": [
+                {
+                  "filePath": null,
+                  "id": "render",
+                  "kind": "render",
+                  "label": "Render",
+                  "lens": "render",
+                  "renderer": "html_iframe"
+                },
+                {
+                  "filePath": null,
+                  "id": "source",
+                  "kind": "source",
+                  "label": "Source",
+                  "lens": "source",
+                  "renderer": null
+                },
+                {
+                  "filePath": null,
+                  "id": "evidence",
+                  "kind": "evidence",
+                  "label": "Evidence",
+                  "lens": "evidence",
+                  "renderer": null
+                }
+              ],
+              "title": "Create an interactive HTML artifact for an AI tools editorial lau...",
+              "verification": {
+                "acceptanceProvenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:14b"
+                },
+                "failure": null,
+                "lifecycleState": "ready",
+                "productionProvenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "status": "ready",
+                "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+              }
+            },
+            "branchId": "main",
+            "branchLabel": "Main",
+            "candidateSummaries": [
+              {
+                "candidateId": "candidate-1",
+                "failure": null,
+                "fallback": false,
+                "judge": {
+                  "classification": "repairable",
+                  "completeness": 3,
+                  "conceptCoverage": 3,
+                  "continuityRevisionUx": null,
+                  "deservesPrimaryArtifactView": true,
+                  "genericShellDetected": false,
+                  "interactionRelevance": 3,
+                  "layoutCoherence": 4,
+                  "patchedExistingArtifact": null,
+                  "rationale": "Candidate covers most concepts but lacks sequence browsing and some completeness.",
+                  "requestFaithfulness": 4,
+                  "strongestContradiction": "Missing sequence browsing for evidence articles.",
+                  "trivialShellDetected": false,
+                  "visualHierarchy": 4
+                },
+                "model": "qwen2.5:7b",
+                "origin": "live_inference",
+                "provenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "rawOutputPreview": null,
+                "renderablePaths": [
+                  "index.html"
+                ],
+                "seed": 16003710278222018597,
+                "selected": false,
+                "strategy": "request-grounded_html",
+                "summary": "Interactive AI Tools Editorial Launch Page",
+                "temperature": 0.6200000047683716
+              },
+              {
+                "candidateId": "candidate-3",
+                "failure": null,
+                "fallback": false,
+                "judge": {
+                  "classification": "repairable",
+                  "completeness": 3,
+                  "conceptCoverage": 4,
+                  "continuityRevisionUx": null,
+                  "deservesPrimaryArtifactView": true,
+                  "genericShellDetected": false,
+                  "interactionRelevance": 3,
+                  "layoutCoherence": 4,
+                  "patchedExistingArtifact": null,
+                  "rationale": "Lacks required slider interaction, needs implementation.",
+                  "requestFaithfulness": 5,
+                  "strongestContradiction": "Missing slider for comparing tools",
+                  "trivialShellDetected": false,
+                  "visualHierarchy": 4
+                },
+                "model": "qwen2.5:7b",
+                "origin": "live_inference",
+                "provenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "rawOutputPreview": null,
+                "renderablePaths": [
+                  "index.html"
+                ],
+                "seed": 16151997372008603243,
+                "selected": false,
+                "strategy": "request-grounded_html",
+                "summary": "Interactive Overview of New AI Tools for Tech-Savvy Professionals",
+                "temperature": 0.6200000047683716
+              },
+              {
+                "candidateId": "candidate-3-refine-1",
+                "failure": null,
+                "fallback": false,
+                "judge": {
+                  "classification": "pass",
+                  "completeness": 5,
+                  "conceptCoverage": 5,
+                  "continuityRevisionUx": null,
+                  "deservesPrimaryArtifactView": true,
+                  "genericShellDetected": false,
+                  "interactionRelevance": 5,
+                  "layoutCoherence": 5,
+                  "patchedExistingArtifact": null,
+                  "rationale": "Candidate meets all requirements with interactive elements and relevant content.",
+                  "requestFaithfulness": 5,
+                  "strongestContradiction": "",
+                  "trivialShellDetected": false,
+                  "visualHierarchy": 5
+                },
+                "model": "qwen2.5:7b",
+                "origin": "live_inference",
+                "provenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "rawOutputPreview": null,
+                "renderablePaths": [
+                  "index.html"
+                ],
+                "seed": 16151997372008603243,
+                "selected": true,
+                "strategy": "request-grounded_html.refinement",
+                "summary": "Interactive Overview of New AI Tools for Tech-Savvy Professionals",
+                "temperature": 0.18000000715255737
+              },
+              {
+                "candidateId": "candidate-2",
+                "failure": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+                "fallback": false,
+                "judge": {
+                  "classification": "blocked",
+                  "completeness": 1,
+                  "conceptCoverage": 1,
+                  "continuityRevisionUx": null,
+                  "deservesPrimaryArtifactView": false,
+                  "genericShellDetected": false,
+                  "interactionRelevance": 1,
+                  "layoutCoherence": 1,
+                  "patchedExistingArtifact": null,
+                  "rationale": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+                  "requestFaithfulness": 1,
+                  "strongestContradiction": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+                  "trivialShellDetected": false,
+                  "visualHierarchy": 1
+                },
+                "model": "qwen2.5:7b",
+                "origin": "live_inference",
+                "provenance": {
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen2.5:7b"
+                },
+                "rawOutputPreview": "{\n  \"summary\": \"Interactive AI Tools Editorial Launch Page\",\n  \"notes\": [\n    \"Follows the layout recipe: story-led hero, sticky section navigation, annotated timeline, and a detail drawer.\",\n    \"Surface primary evidence on current AI trends with visible marks, labels or comparative values.\",\n    \"Keep the shared detail panel visible inline when buttons are activated.\",\n    \"Ensure at least two distinct first-paint evidence views to meet requiredConcepts.\"\n  ],\n  \"files\": [\n    {\n      \"path\": \"index.html\",\n      \"mime\": \"text/html\",\n      \"role\": \"primary\",\n      \"renderable\": true,\n      \"downloadable\": false,\n      \"encoding\": null,\n      \"body\": \"<!DOCTYPE html>\\n<html lang=\\\"en\\\">\\n<head>\\n  <meta charset=\\\"UTF-8\\\">\\n  <meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1.0\\\">\\n  <title>AI Tools Editorial Launch Page</title>\\n  <style>\\n    body { font-family: Arial, sans-serif; }\\n    .hero { background-color: #f8f9fa; padding: 2rem; display: flex; align-items: center; gap: 1rem; }\\n    .nav-bar { position: sticky; top: 0; background-color: white; z-index: 1000; padding: 1rem; }\\n    .panel { margin-top: 2rem; padding: 1rem; border: 1px solid #ddd; min-height: 300px; display: none; }\\n  </style>\\n</head>\\n<body>\\n  <div class=\\\"hero\\\">\\n    <h1>Engage with an Interactive Overview of New AI Tools</h1>\\n    <p>Explore latest AI tools for projects or businesses.</p>\\n  </div>\\n  <nav class=\\\"nav-bar\\\">\\n    <button data-view=\\\"ai-tool-usage-in-businesses\\\" aria-controls=\\\"#ai-tool-usage-in-businesses-panel\\\" tabindex=\\\"0\\\">AI Tool Usage in Businesses</button>\\n    <button data-view=\\\"expert-opinions-on-ai-technologies\\\" aria-controls=\\\"#expert-opinions-on-ai-technologies-panel\\\" tabindex=\\\"0\\\">Expert Opinions on AI Technologies</button>\\n  </nav>\\n  <main>\\n    <section id=\\\"ai-tool-usage-in-businesses-panel\\\" data-view-panel=\\\"ai-tool-usage-in-businesses\\\">\\n      <h2>AI Tool Usage in Businesses</h2>\\n      <p>Visualize the current trends and us...",
+                "renderablePaths": [],
+                "seed": 6854481788260535112,
+                "selected": false,
+                "strategy": "request-grounded_html",
+                "summary": "Candidate failed during materialization.",
+                "temperature": 0.6200000047683716
+              }
+            ],
+            "createdAt": "2026-03-30T13:01:47.023063924+00:00",
+            "editIntent": null,
+            "failure": null,
+            "fileWrites": [
+              {
+                "contentPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Interactive AI Tools Overview</title>",
+                "kind": "primary",
+                "path": "index.html"
+              }
+            ],
+            "judge": {
+              "classification": "pass",
+              "completeness": 5,
+              "conceptCoverage": 5,
+              "continuityRevisionUx": null,
+              "deservesPrimaryArtifactView": true,
+              "genericShellDetected": false,
+              "interactionRelevance": 5,
+              "layoutCoherence": 5,
+              "patchedExistingArtifact": null,
+              "rationale": "Candidate meets all requirements with interactive elements and relevant content.",
+              "requestFaithfulness": 5,
+              "strongestContradiction": "",
+              "trivialShellDetected": false,
+              "visualHierarchy": 5
+            },
+            "outputOrigin": "live_inference",
+            "parentRevisionId": null,
+            "productionProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b"
+            },
+            "prompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+            "revisionId": "f1c6c10a-7f5f-4e8b-bd8c-03e5f43c19dd",
+            "selectedTargets": [],
+            "uxLifecycle": "judged",
+            "winningCandidateId": "candidate-3-refine-1"
+          }
+        ],
+        "selectedTargets": [],
+        "sessionId": "6fee9ecf-9505-46f3-b0ba-d5850e84ea39",
+        "status": "ready",
+        "summary": "Studio created 'Create an interactive HTML artifact for an AI tools editorial lau...' as a single-file HTML artifact rendered in an isolated frame.",
+        "tasteMemory": {
+          "directives": [
+            "modern",
+            "innovative"
+          ],
+          "summary": "Session taste memory is steering this artifact toward modern, innovative."
+        },
+        "threadId": "studio-proof-task",
+        "title": "Create an interactive HTML artifact for an AI tools editorial lau...",
+        "updatedAt": "2026-03-30T12:53:01.967780321+00:00",
+        "uxLifecycle": "judged",
+        "verifiedReply": {
+          "acceptanceProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b"
+          },
+          "evidence": [
+            "index.html",
+            "production provenance: openai-compatible (qwen2.5:7b)",
+            "acceptance provenance: openai-compatible (qwen2.5:14b)"
+          ],
+          "failure": null,
+          "lifecycleState": "ready",
+          "productionProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b"
+          },
+          "status": "ready",
+          "summary": "Create an interactive HTML artifact for an AI tools editorial lau... Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "title": "Studio outcome: Create an interactive HTML artifact for an AI tools editorial lau...",
+          "updatedAt": "2026-03-30T13:01:47.023032044+00:00"
+        },
+        "workspaceRoot": null
+      },
+      "artifact_refs": [
+        {
+          "artifact_id": "10d5574f-05d2-4198-88ee-575852475b73",
+          "artifact_type": "FILE"
+        },
+        {
+          "artifact_id": "c5fa72c6-5b58-4105-a9f3-3f37b82eec89",
+          "artifact_type": "REPORT"
+        }
+      ],
+      "receipt_ref": null,
+      "input_refs": [],
+      "status": "SUCCESS",
+      "duration_ms": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "10d5574f-05d2-4198-88ee-575852475b73",
+      "created_at": "2026-03-30T13:01:46.995414865+00:00",
+      "thread_id": "studio-proof-task",
+      "artifact_type": "FILE",
+      "title": "File: index.html",
+      "description": "File snapshot",
+      "content_ref": "ioi-memory://artifact/10d5574f-05d2-4198-88ee-575852475b73",
+      "metadata": {
+        "mime": "text/html",
+        "path": "index.html",
+        "revision": null
+      },
+      "version": 1,
+      "parent_artifact_id": null
+    },
+    {
+      "artifact_id": "c5fa72c6-5b58-4105-a9f3-3f37b82eec89",
+      "created_at": "2026-03-30T13:01:47.012170662+00:00",
+      "thread_id": "studio-proof-task",
+      "artifact_type": "REPORT",
+      "title": "Studio artifact: Create an interactive HTML artifact for an AI tools editorial lau...",
+      "description": "Machine-routable Studio artifact materialization contract",
+      "content_ref": "ioi-memory://artifact/c5fa72c6-5b58-4105-a9f3-3f37b82eec89",
+      "metadata": {
+        "acceptanceProvenance": null,
+        "artifactBrief": null,
+        "candidateSummaries": [],
+        "commandIntents": [],
+        "editIntent": null,
+        "failure": null,
+        "fallbackUsed": false,
+        "fileWrites": [
+          {
+            "contentPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Interactive AI Tools Overview</title>",
+            "kind": "primary",
+            "path": "index.html"
+          }
+        ],
+        "judge": null,
+        "navigatorNodes": [],
+        "normalizedIntent": "Create an interactive HTML artifact for an AI tools editorial launch page",
+        "notes": [
+          "Conversation remains the control plane; this artifact is the work product.",
+          "Renderer choice is explicit in the typed outcome request.",
+          "Verification state, not worker prose, authorizes the final Studio summary.",
+          "This HTML artifact provides an interactive overview of the latest AI tools, focusing on tool comparison and industry trends.",
+          "It includes a named control bar, primary evidence section, secondary evidence section, and shared detail panel.",
+          "The artifact is designed to engage tech-savvy professionals in exploring new AI technologies.",
+          "Winning candidate candidate-3-refine-1 selected via typed judging."
+        ],
+        "outputOrigin": null,
+        "pipelineSteps": [],
+        "previewIntent": null,
+        "productionProvenance": null,
+        "requestKind": "interactive_single_file",
+        "summary": "Studio created 'Create an interactive HTML artifact for an AI tools editorial lau...' as a single-file HTML artifact rendered in an isolated frame.",
+        "uxLifecycle": null,
+        "verificationSteps": [
+          {
+            "id": "materialize",
+            "kind": "materialize",
+            "label": "Materialize artifact",
+            "status": "success"
+          },
+          {
+            "id": "verify",
+            "kind": "verify",
+            "label": "Verify artifact contract",
+            "status": "success"
+          }
+        ],
+        "version": 3,
+        "winningCandidateId": null,
+        "winningCandidateRationale": null
+      },
+      "version": 1,
+      "parent_artifact_id": null
+    }
+  ],
+  "studio_session": {
+    "sessionId": "6fee9ecf-9505-46f3-b0ba-d5850e84ea39",
+    "threadId": "studio-proof-task",
+    "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+    "title": "Create an interactive HTML artifact for an AI tools editorial lau...",
+    "summary": "Studio created 'Create an interactive HTML artifact for an AI tools editorial lau...' as a single-file HTML artifact rendered in an isolated frame.",
+    "currentLens": "render",
+    "navigatorBackingMode": "logical",
+    "navigatorNodes": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "description": "Interact with the artifact through its renderer-specific presentation.",
+        "badge": null,
+        "status": null,
+        "lens": "render",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "description": "Inspect the source form of the artifact.",
+        "badge": null,
+        "status": null,
+        "lens": "source",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "description": "Inspect verification state, receipts, and evidence.",
+        "badge": null,
+        "status": null,
+        "lens": "evidence",
+        "path": null,
+        "children": []
+      }
+    ],
+    "attachedArtifactIds": [
+      "10d5574f-05d2-4198-88ee-575852475b73",
+      "c5fa72c6-5b58-4105-a9f3-3f37b82eec89"
+    ],
+    "availableLenses": [
+      "render",
+      "source",
+      "evidence"
+    ],
+    "materialization": {
+      "version": 3,
+      "requestKind": "interactive_single_file",
+      "normalizedIntent": "Create an interactive HTML artifact for an AI tools editorial launch page",
+      "summary": "Studio created 'Create an interactive HTML artifact for an AI tools editorial lau...' as a single-file HTML artifact rendered in an isolated frame.",
+      "artifactBrief": {
+        "audience": "Tech-savvy professionals",
+        "jobToBeDone": "Explore latest AI tools for projects or businesses",
+        "subjectDomain": "AI Tools and Technologies",
+        "artifactThesis": "Engage with an interactive overview of new AI tools",
+        "requiredConcepts": [
+          "tool comparison",
+          "feature demos",
+          "industry trends"
+        ],
+        "requiredInteractions": [
+          "slider for comparing tools",
+          "video player for feature demonstrations"
+        ],
+        "visualTone": [
+          "modern",
+          "innovative"
+        ],
+        "factualAnchors": [
+          "AI tool usage in businesses",
+          "expert opinions on AI technologies"
+        ],
+        "styleDirectives": [],
+        "referenceHints": [
+          "current AI trends",
+          "industry reports"
+        ]
+      },
+      "editIntent": null,
+      "candidateSummaries": [
+        {
+          "candidateId": "candidate-1",
+          "seed": 16003710278222018597,
+          "model": "qwen2.5:7b",
+          "temperature": 0.62,
+          "strategy": "request-grounded_html",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "Interactive AI Tools Editorial Launch Page",
+          "renderablePaths": [
+            "index.html"
+          ],
+          "selected": false,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "repairable",
+            "requestFaithfulness": 4,
+            "conceptCoverage": 3,
+            "interactionRelevance": 3,
+            "layoutCoherence": 4,
+            "visualHierarchy": 4,
+            "completeness": 3,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "Missing sequence browsing for evidence articles.",
+            "rationale": "Candidate covers most concepts but lacks sequence browsing and some completeness."
+          }
+        },
+        {
+          "candidateId": "candidate-3",
+          "seed": 16151997372008603243,
+          "model": "qwen2.5:7b",
+          "temperature": 0.62,
+          "strategy": "request-grounded_html",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "Interactive Overview of New AI Tools for Tech-Savvy Professionals",
+          "renderablePaths": [
+            "index.html"
+          ],
+          "selected": false,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "repairable",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 4,
+            "interactionRelevance": 3,
+            "layoutCoherence": 4,
+            "visualHierarchy": 4,
+            "completeness": 3,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "Missing slider for comparing tools",
+            "rationale": "Lacks required slider interaction, needs implementation."
+          }
+        },
+        {
+          "candidateId": "candidate-3-refine-1",
+          "seed": 16151997372008603243,
+          "model": "qwen2.5:7b",
+          "temperature": 0.18,
+          "strategy": "request-grounded_html.refinement",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "Interactive Overview of New AI Tools for Tech-Savvy Professionals",
+          "renderablePaths": [
+            "index.html"
+          ],
+          "selected": true,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "pass",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 5,
+            "interactionRelevance": 5,
+            "layoutCoherence": 5,
+            "visualHierarchy": 5,
+            "completeness": 5,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "",
+            "rationale": "Candidate meets all requirements with interactive elements and relevant content."
+          }
+        },
+        {
+          "candidateId": "candidate-2",
+          "seed": 6854481788260535112,
+          "model": "qwen2.5:7b",
+          "temperature": 0.62,
+          "strategy": "request-grounded_html",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "Candidate failed during materialization.",
+          "renderablePaths": [],
+          "selected": false,
+          "fallback": false,
+          "failure": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+          "rawOutputPreview": "{\n  \"summary\": \"Interactive AI Tools Editorial Launch Page\",\n  \"notes\": [\n    \"Follows the layout recipe: story-led hero, sticky section navigation, annotated timeline, and a detail drawer.\",\n    \"Surface primary evidence on current AI trends with visible marks, labels or comparative values.\",\n    \"Keep the shared detail panel visible inline when buttons are activated.\",\n    \"Ensure at least two distinct first-paint evidence views to meet requiredConcepts.\"\n  ],\n  \"files\": [\n    {\n      \"path\": \"index.html\",\n      \"mime\": \"text/html\",\n      \"role\": \"primary\",\n      \"renderable\": true,\n      \"downloadable\": false,\n      \"encoding\": null,\n      \"body\": \"<!DOCTYPE html>\\n<html lang=\\\"en\\\">\\n<head>\\n  <meta charset=\\\"UTF-8\\\">\\n  <meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1.0\\\">\\n  <title>AI Tools Editorial Launch Page</title>\\n  <style>\\n    body { font-family: Arial, sans-serif; }\\n    .hero { background-color: #f8f9fa; padding: 2rem; display: flex; align-items: center; gap: 1rem; }\\n    .nav-bar { position: sticky; top: 0; background-color: white; z-index: 1000; padding: 1rem; }\\n    .panel { margin-top: 2rem; padding: 1rem; border: 1px solid #ddd; min-height: 300px; display: none; }\\n  </style>\\n</head>\\n<body>\\n  <div class=\\\"hero\\\">\\n    <h1>Engage with an Interactive Overview of New AI Tools</h1>\\n    <p>Explore latest AI tools for projects or businesses.</p>\\n  </div>\\n  <nav class=\\\"nav-bar\\\">\\n    <button data-view=\\\"ai-tool-usage-in-businesses\\\" aria-controls=\\\"#ai-tool-usage-in-businesses-panel\\\" tabindex=\\\"0\\\">AI Tool Usage in Businesses</button>\\n    <button data-view=\\\"expert-opinions-on-ai-technologies\\\" aria-controls=\\\"#expert-opinions-on-ai-technologies-panel\\\" tabindex=\\\"0\\\">Expert Opinions on AI Technologies</button>\\n  </nav>\\n  <main>\\n    <section id=\\\"ai-tool-usage-in-businesses-panel\\\" data-view-panel=\\\"ai-tool-usage-in-businesses\\\">\\n      <h2>AI Tool Usage in Businesses</h2>\\n      <p>Visualize the current trends and us...",
+          "judge": {
+            "classification": "blocked",
+            "requestFaithfulness": 1,
+            "conceptCoverage": 1,
+            "interactionRelevance": 1,
+            "layoutCoherence": 1,
+            "visualHierarchy": 1,
+            "completeness": 1,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": false,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+            "rationale": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint."
+          }
+        }
+      ],
+      "winningCandidateId": "candidate-3-refine-1",
+      "winningCandidateRationale": "Candidate meets all requirements with interactive elements and relevant content.",
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate meets all requirements with interactive elements and relevant content."
+      },
+      "outputOrigin": "live_inference",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "fallbackUsed": false,
+      "uxLifecycle": "judged",
+      "failure": null,
+      "navigatorNodes": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "description": "Interact with the artifact through its renderer-specific presentation.",
+          "badge": null,
+          "status": null,
+          "lens": "render",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "fileWrites": [
+        {
+          "path": "index.html",
+          "kind": "primary",
+          "contentPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Interactive AI Tools Overview</title>"
+        }
+      ],
+      "commandIntents": [],
+      "previewIntent": null,
+      "verificationSteps": [
+        {
+          "id": "materialize",
+          "label": "Materialize artifact",
+          "kind": "materialize",
+          "status": "success"
+        },
+        {
+          "id": "verify",
+          "label": "Verify artifact contract",
+          "kind": "verify",
+          "status": "success"
+        }
+      ],
+      "pipelineSteps": [
+        {
+          "id": "intake",
+          "stage": "intake",
+          "label": "Intake",
+          "status": "complete",
+          "summary": "Studio captured the request and established the active artifact context.",
+          "outputs": [
+            "Create an interactive HTML artifact for an AI tools editorial launch page"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "routing",
+          "stage": "routing",
+          "label": "Outcome routing",
+          "status": "complete",
+          "summary": "The typed router chose the artifact branch intentionally.",
+          "outputs": [
+            "artifact",
+            "interactive_single_file",
+            "html_iframe"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "requirements",
+          "stage": "requirements",
+          "label": "Requirements",
+          "status": "complete",
+          "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+          "outputs": [
+            "html-landing-page"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "specification",
+          "stage": "specification",
+          "label": "Artifact spec",
+          "status": "complete",
+          "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+          "outputs": [
+            "interactive_single_file",
+            "html_iframe",
+            "side_panel",
+            "shared_artifact_scoped"
+          ],
+          "verificationGate": null
+        },
+        {
+          "id": "materialization",
+          "stage": "materialization",
+          "label": "Materialization",
+          "status": "complete",
+          "summary": "Studio is creating the files or workspace required by the manifest.",
+          "outputs": [
+            "index.html"
+          ],
+          "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+        },
+        {
+          "id": "execution",
+          "stage": "execution",
+          "label": "Execution",
+          "status": "complete",
+          "summary": "Single-file generation completed inside the selected renderer substrate.",
+          "outputs": [
+            "index.html"
+          ],
+          "verificationGate": "Execution receipts must exist for every command-backed step."
+        },
+        {
+          "id": "verification",
+          "stage": "verification",
+          "label": "Verification",
+          "status": "complete",
+          "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "outputs": [
+            "Materialize artifact (success)",
+            "Verify artifact contract (success)"
+          ],
+          "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+        },
+        {
+          "id": "presentation",
+          "stage": "presentation",
+          "label": "Presentation",
+          "status": "complete",
+          "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+          "outputs": [
+            "render",
+            "1 file(s)"
+          ],
+          "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+        },
+        {
+          "id": "reply",
+          "stage": "reply",
+          "label": "Verified reply",
+          "status": "complete",
+          "summary": "Studio composes the user-facing summary from artifact state and verification.",
+          "outputs": [
+            "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+          ],
+          "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+        }
+      ],
+      "notes": [
+        "Conversation remains the control plane; this artifact is the work product.",
+        "Renderer choice is explicit in the typed outcome request.",
+        "Verification state, not worker prose, authorizes the final Studio summary.",
+        "This HTML artifact provides an interactive overview of the latest AI tools, focusing on tool comparison and industry trends.",
+        "It includes a named control bar, primary evidence section, secondary evidence section, and shared detail panel.",
+        "The artifact is designed to engage tech-savvy professionals in exploring new AI technologies.",
+        "Winning candidate candidate-3-refine-1 selected via typed judging."
+      ]
+    },
+    "outcomeRequest": {
+      "requestId": "ab2ca6fc-a448-4737-8a60-f684f7ebd7dd",
+      "rawPrompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+      "activeArtifactId": null,
+      "outcomeKind": "artifact",
+      "confidence": 1.0,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "artifact": {
+        "artifactClass": "interactive_single_file",
+        "deliverableShape": "single_file",
+        "renderer": "html_iframe",
+        "presentationSurface": "side_panel",
+        "persistence": "shared_artifact_scoped",
+        "executionSubstrate": "client_sandbox",
+        "workspaceRecipeId": null,
+        "presentationVariantId": "product-launch",
+        "scope": {
+          "targetProject": null,
+          "createNewWorkspace": false,
+          "mutationBoundary": [
+            "html-landing-page"
+          ]
+        },
+        "verification": {
+          "requireRender": true,
+          "requireBuild": false,
+          "requirePreview": false,
+          "requireExport": true,
+          "requireDiffReview": false
+        }
+      }
+    },
+    "artifactManifest": {
+      "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+      "title": "Create an interactive HTML artifact for an AI tools editorial lau...",
+      "artifactClass": "interactive_single_file",
+      "renderer": "html_iframe",
+      "primaryTab": "render",
+      "tabs": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "renderer": "html_iframe",
+          "filePath": null,
+          "lens": "render"
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "renderer": null,
+          "filePath": null,
+          "lens": "source"
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "renderer": null,
+          "filePath": null,
+          "lens": "evidence"
+        }
+      ],
+      "files": [
+        {
+          "path": "index.html",
+          "mime": "text/html",
+          "role": "primary",
+          "renderable": true,
+          "downloadable": false,
+          "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+          "externalUrl": null
+        }
+      ],
+      "verification": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null
+      },
+      "storage": {
+        "mode": "shared_artifact_scoped",
+        "apiLabel": "artifact storage"
+      }
+    },
+    "verifiedReply": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "title": "Studio outcome: Create an interactive HTML artifact for an AI tools editorial lau...",
+      "summary": "Create an interactive HTML artifact for an AI tools editorial lau... Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "evidence": [
+        "index.html",
+        "production provenance: openai-compatible (qwen2.5:7b)",
+        "acceptance provenance: openai-compatible (qwen2.5:14b)"
+      ],
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null,
+      "updatedAt": "2026-03-30T13:01:47.023032044+00:00"
+    },
+    "lifecycleState": "ready",
+    "status": "ready",
+    "activeRevisionId": "f1c6c10a-7f5f-4e8b-bd8c-03e5f43c19dd",
+    "revisions": [
+      {
+        "revisionId": "f1c6c10a-7f5f-4e8b-bd8c-03e5f43c19dd",
+        "parentRevisionId": null,
+        "branchId": "main",
+        "branchLabel": "Main",
+        "prompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+        "createdAt": "2026-03-30T13:01:47.023063924+00:00",
+        "uxLifecycle": "judged",
+        "artifactManifest": {
+          "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+          "title": "Create an interactive HTML artifact for an AI tools editorial lau...",
+          "artifactClass": "interactive_single_file",
+          "renderer": "html_iframe",
+          "primaryTab": "render",
+          "tabs": [
+            {
+              "id": "render",
+              "label": "Render",
+              "kind": "render",
+              "renderer": "html_iframe",
+              "filePath": null,
+              "lens": "render"
+            },
+            {
+              "id": "source",
+              "label": "Source",
+              "kind": "source",
+              "renderer": null,
+              "filePath": null,
+              "lens": "source"
+            },
+            {
+              "id": "evidence",
+              "label": "Evidence",
+              "kind": "evidence",
+              "renderer": null,
+              "filePath": null,
+              "lens": "evidence"
+            }
+          ],
+          "files": [
+            {
+              "path": "index.html",
+              "mime": "text/html",
+              "role": "primary",
+              "renderable": true,
+              "downloadable": false,
+              "artifactId": "10d5574f-05d2-4198-88ee-575852475b73",
+              "externalUrl": null
+            }
+          ],
+          "verification": {
+            "status": "ready",
+            "lifecycleState": "ready",
+            "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:14b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+            },
+            "failure": null
+          },
+          "storage": {
+            "mode": "shared_artifact_scoped",
+            "apiLabel": "artifact storage"
+          }
+        },
+        "artifactBrief": {
+          "audience": "Tech-savvy professionals",
+          "jobToBeDone": "Explore latest AI tools for projects or businesses",
+          "subjectDomain": "AI Tools and Technologies",
+          "artifactThesis": "Engage with an interactive overview of new AI tools",
+          "requiredConcepts": [
+            "tool comparison",
+            "feature demos",
+            "industry trends"
+          ],
+          "requiredInteractions": [
+            "slider for comparing tools",
+            "video player for feature demonstrations"
+          ],
+          "visualTone": [
+            "modern",
+            "innovative"
+          ],
+          "factualAnchors": [
+            "AI tool usage in businesses",
+            "expert opinions on AI technologies"
+          ],
+          "styleDirectives": [],
+          "referenceHints": [
+            "current AI trends",
+            "industry reports"
+          ]
+        },
+        "editIntent": null,
+        "candidateSummaries": [
+          {
+            "candidateId": "candidate-1",
+            "seed": 16003710278222018597,
+            "model": "qwen2.5:7b",
+            "temperature": 0.62,
+            "strategy": "request-grounded_html",
+            "origin": "live_inference",
+            "provenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "summary": "Interactive AI Tools Editorial Launch Page",
+            "renderablePaths": [
+              "index.html"
+            ],
+            "selected": false,
+            "fallback": false,
+            "failure": null,
+            "rawOutputPreview": null,
+            "judge": {
+              "classification": "repairable",
+              "requestFaithfulness": 4,
+              "conceptCoverage": 3,
+              "interactionRelevance": 3,
+              "layoutCoherence": 4,
+              "visualHierarchy": 4,
+              "completeness": 3,
+              "genericShellDetected": false,
+              "trivialShellDetected": false,
+              "deservesPrimaryArtifactView": true,
+              "patchedExistingArtifact": null,
+              "continuityRevisionUx": null,
+              "strongestContradiction": "Missing sequence browsing for evidence articles.",
+              "rationale": "Candidate covers most concepts but lacks sequence browsing and some completeness."
+            }
+          },
+          {
+            "candidateId": "candidate-3",
+            "seed": 16151997372008603243,
+            "model": "qwen2.5:7b",
+            "temperature": 0.62,
+            "strategy": "request-grounded_html",
+            "origin": "live_inference",
+            "provenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "summary": "Interactive Overview of New AI Tools for Tech-Savvy Professionals",
+            "renderablePaths": [
+              "index.html"
+            ],
+            "selected": false,
+            "fallback": false,
+            "failure": null,
+            "rawOutputPreview": null,
+            "judge": {
+              "classification": "repairable",
+              "requestFaithfulness": 5,
+              "conceptCoverage": 4,
+              "interactionRelevance": 3,
+              "layoutCoherence": 4,
+              "visualHierarchy": 4,
+              "completeness": 3,
+              "genericShellDetected": false,
+              "trivialShellDetected": false,
+              "deservesPrimaryArtifactView": true,
+              "patchedExistingArtifact": null,
+              "continuityRevisionUx": null,
+              "strongestContradiction": "Missing slider for comparing tools",
+              "rationale": "Lacks required slider interaction, needs implementation."
+            }
+          },
+          {
+            "candidateId": "candidate-3-refine-1",
+            "seed": 16151997372008603243,
+            "model": "qwen2.5:7b",
+            "temperature": 0.18,
+            "strategy": "request-grounded_html.refinement",
+            "origin": "live_inference",
+            "provenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "summary": "Interactive Overview of New AI Tools for Tech-Savvy Professionals",
+            "renderablePaths": [
+              "index.html"
+            ],
+            "selected": true,
+            "fallback": false,
+            "failure": null,
+            "rawOutputPreview": null,
+            "judge": {
+              "classification": "pass",
+              "requestFaithfulness": 5,
+              "conceptCoverage": 5,
+              "interactionRelevance": 5,
+              "layoutCoherence": 5,
+              "visualHierarchy": 5,
+              "completeness": 5,
+              "genericShellDetected": false,
+              "trivialShellDetected": false,
+              "deservesPrimaryArtifactView": true,
+              "patchedExistingArtifact": null,
+              "continuityRevisionUx": null,
+              "strongestContradiction": "",
+              "rationale": "Candidate meets all requirements with interactive elements and relevant content."
+            }
+          },
+          {
+            "candidateId": "candidate-2",
+            "seed": 6854481788260535112,
+            "model": "qwen2.5:7b",
+            "temperature": 0.62,
+            "strategy": "request-grounded_html",
+            "origin": "live_inference",
+            "provenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen2.5:7b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "summary": "Candidate failed during materialization.",
+            "renderablePaths": [],
+            "selected": false,
+            "fallback": false,
+            "failure": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+            "rawOutputPreview": "{\n  \"summary\": \"Interactive AI Tools Editorial Launch Page\",\n  \"notes\": [\n    \"Follows the layout recipe: story-led hero, sticky section navigation, annotated timeline, and a detail drawer.\",\n    \"Surface primary evidence on current AI trends with visible marks, labels or comparative values.\",\n    \"Keep the shared detail panel visible inline when buttons are activated.\",\n    \"Ensure at least two distinct first-paint evidence views to meet requiredConcepts.\"\n  ],\n  \"files\": [\n    {\n      \"path\": \"index.html\",\n      \"mime\": \"text/html\",\n      \"role\": \"primary\",\n      \"renderable\": true,\n      \"downloadable\": false,\n      \"encoding\": null,\n      \"body\": \"<!DOCTYPE html>\\n<html lang=\\\"en\\\">\\n<head>\\n  <meta charset=\\\"UTF-8\\\">\\n  <meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1.0\\\">\\n  <title>AI Tools Editorial Launch Page</title>\\n  <style>\\n    body { font-family: Arial, sans-serif; }\\n    .hero { background-color: #f8f9fa; padding: 2rem; display: flex; align-items: center; gap: 1rem; }\\n    .nav-bar { position: sticky; top: 0; background-color: white; z-index: 1000; padding: 1rem; }\\n    .panel { margin-top: 2rem; padding: 1rem; border: 1px solid #ddd; min-height: 300px; display: none; }\\n  </style>\\n</head>\\n<body>\\n  <div class=\\\"hero\\\">\\n    <h1>Engage with an Interactive Overview of New AI Tools</h1>\\n    <p>Explore latest AI tools for projects or businesses.</p>\\n  </div>\\n  <nav class=\\\"nav-bar\\\">\\n    <button data-view=\\\"ai-tool-usage-in-businesses\\\" aria-controls=\\\"#ai-tool-usage-in-businesses-panel\\\" tabindex=\\\"0\\\">AI Tool Usage in Businesses</button>\\n    <button data-view=\\\"expert-opinions-on-ai-technologies\\\" aria-controls=\\\"#expert-opinions-on-ai-technologies-panel\\\" tabindex=\\\"0\\\">Expert Opinions on AI Technologies</button>\\n  </nav>\\n  <main>\\n    <section id=\\\"ai-tool-usage-in-businesses-panel\\\" data-view-panel=\\\"ai-tool-usage-in-businesses\\\">\\n      <h2>AI Tool Usage in Businesses</h2>\\n      <p>Visualize the current trends and us...",
+            "judge": {
+              "classification": "blocked",
+              "requestFaithfulness": 1,
+              "conceptCoverage": 1,
+              "interactionRelevance": 1,
+              "layoutCoherence": 1,
+              "visualHierarchy": 1,
+              "completeness": 1,
+              "genericShellDetected": false,
+              "trivialShellDetected": false,
+              "deservesPrimaryArtifactView": false,
+              "patchedExistingArtifact": null,
+              "continuityRevisionUx": null,
+              "strongestContradiction": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+              "rationale": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint."
+            }
+          }
+        ],
+        "winningCandidateId": "candidate-3-refine-1",
+        "judge": {
+          "classification": "pass",
+          "requestFaithfulness": 5,
+          "conceptCoverage": 5,
+          "interactionRelevance": 5,
+          "layoutCoherence": 5,
+          "visualHierarchy": 5,
+          "completeness": 5,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": true,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "",
+          "rationale": "Candidate meets all requirements with interactive elements and relevant content."
+        },
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null,
+        "fileWrites": [
+          {
+            "path": "index.html",
+            "kind": "primary",
+            "contentPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Interactive AI Tools Overview</title>"
+          }
+        ],
+        "selectedTargets": []
+      }
+    ],
+    "tasteMemory": {
+      "directives": [
+        "modern",
+        "innovative"
+      ],
+      "summary": "Session taste memory is steering this artifact toward modern, innovative."
+    },
+    "selectedTargets": [],
+    "uxLifecycle": "judged",
+    "createdAt": "2026-03-30T12:53:01.967780321+00:00",
+    "updatedAt": "2026-03-30T12:53:01.967780321+00:00",
+    "buildSessionId": null,
+    "workspaceRoot": null,
+    "rendererSessionId": null
+  },
+  "studio_outcome": {
+    "requestId": "ab2ca6fc-a448-4737-8a60-f684f7ebd7dd",
+    "rawPrompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 1.0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": "product-launch",
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "html-landing-page"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "renderer_session": null,
+  "build_session": null,
+  "run_bundle_id": null,
+  "swarm_tree": [],
+  "generation": 0,
+  "lineage_id": "genesis",
+  "fitness_score": 0.0
+}

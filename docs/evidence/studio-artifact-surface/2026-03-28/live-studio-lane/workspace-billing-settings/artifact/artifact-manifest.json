@@ -1,0 +1,72 @@
+{
+  "artifactId": "22f003d9-9083-4be1-a8a3-1a0690e03b64",
+  "title": "Create a workspace project for a billing settings surface",
+  "artifactClass": "workspace_project",
+  "renderer": "workspace_surface",
+  "primaryTab": "preview",
+  "tabs": [
+    {
+      "id": "preview",
+      "label": "Preview",
+      "kind": "render",
+      "renderer": "html_iframe",
+      "filePath": null,
+      "lens": "preview"
+    },
+    {
+      "id": "workspace",
+      "label": "Workspace",
+      "kind": "workspace",
+      "renderer": "workspace_surface",
+      "filePath": "src/App.tsx",
+      "lens": "code"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/App.tsx",
+      "mime": "text/jsx",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": null,
+      "externalUrl": null
+    },
+    {
+      "path": "artifact-manifest.json",
+      "mime": "application/json",
+      "role": "supporting",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": null,
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Preview verified and workspace lenses are ready.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "storage": null
+}

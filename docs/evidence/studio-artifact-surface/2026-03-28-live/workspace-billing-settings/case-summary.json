@@ -1,0 +1,334 @@
+{
+  "id": "workspace-billing-settings",
+  "prompt": "Create a workspace project for a billing settings surface",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/artifact/artifact-manifest.json",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.96,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "workspace_project",
+      "deliverableShape": "workspace_project",
+      "renderer": "workspace_surface",
+      "presentationSurface": "tabbed_panel",
+      "persistence": "workspace_filesystem",
+      "executionSubstrate": "workspace_runtime",
+      "workspaceRecipeId": "vite-static-html",
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": "studio-workspace",
+        "createNewWorkspace": true,
+        "mutationBoundary": [
+          "workspace"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": true,
+        "requirePreview": true,
+        "requireExport": false,
+        "requireDiffReview": true
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "finance, commercial, and product operators",
+    "jobToBeDone": "Scaffold a workspace project with a previewable implementation surface.",
+    "subjectDomain": "a billing settings surface",
+    "artifactThesis": "Make the primary artifact unmistakably about a billing settings surface while keeping the structure coherent enough to lead the stage.",
+    "requiredConcepts": [
+      "a billing settings surface"
+    ],
+    "requiredInteractions": [],
+    "visualTone": [
+      "grounded"
+    ],
+    "factualAnchors": [
+      "a billing settings surface"
+    ],
+    "styleDirectives": [
+      "grounded"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 13685256966670766000,
+      "model": "InferenceRuntime",
+      "temperature": 0,
+      "strategy": "workspace-scaffold",
+      "origin": "live_inference",
+      "summary": "Scaffolded a workspace_surface artifact for a billing settings surface with request-grounded implementation files.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 3,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage.",
+  "manifest": {
+    "artifactId": "57563a3d-aeb0-4b74-aa5a-499d47ad24ff",
+    "title": "a workspace project for a billing settings surface",
+    "artifactClass": "workspace_project",
+    "renderer": "workspace_surface",
+    "primaryTab": "workspace",
+    "tabs": [
+      {
+        "id": "preview",
+        "label": "Preview",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": null,
+        "lens": "preview"
+      },
+      {
+        "id": "workspace",
+        "label": "Workspace",
+        "kind": "workspace",
+        "renderer": "workspace_surface",
+        "filePath": "index.html",
+        "lens": "code"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-index.html",
+        "externalUrl": null
+      },
+      {
+        "path": "styles.css",
+        "mime": "text/css",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-styles.css",
+        "externalUrl": null
+      },
+      {
+        "path": "script.js",
+        "mime": "application/javascript",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-script.js",
+        "externalUrl": null
+      },
+      {
+        "path": "package.json",
+        "mime": "application/json",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-package.json",
+        "externalUrl": null
+      },
+      {
+        "path": "README.md",
+        "mime": "text/markdown",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-README.md",
+        "externalUrl": null
+      },
+      {
+        "path": "artifact-manifest.json",
+        "mime": "application/json",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "generated-artifact-manifest",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage."
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: a workspace project for a billing settings surface",
+    "summary": "a workspace project for a billing settings surface The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "index.html",
+      "styles.css",
+      "script.js",
+      "package.json",
+      "README.md",
+      "artifact-manifest.json"
+    ]
+  },
+  "rendererOutput": {
+    "primaryFile": "index.html",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/captures/preview-capture.html"
+    ],
+    "workspaceBuild": {
+      "install": {
+        "args": [
+          "install"
+        ],
+        "status": 0,
+        "stdout": "\nadded 13 packages, and audited 14 packages in 2s\n\n5 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n",
+        "stderr": ""
+      },
+      "build": {
+        "args": [
+          "run",
+          "build"
+        ],
+        "status": 0,
+        "stdout": "\n> a-workspace-project-for-a-billing-settings-surface@0.1.0 build\n> vite build\n\nvite v6.4.1 building for production...\ntransforming...\n✓ 4 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                 2.45 kB │ gzip: 0.92 kB\ndist/assets/index-kiQ4Y6RN.css  2.24 kB │ gzip: 1.00 kB\ndist/assets/index-DpqcE19b.js   1.06 kB │ gzip: 0.53 kB\n✓ built in 45ms\n",
+        "stderr": ""
+      },
+      "buildOk": true,
+      "capturePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/captures/preview-capture.html"
+    }
+  },
+  "materializedFiles": [
+    "index.html",
+    "styles.css",
+    "script.js",
+    "package.json",
+    "README.md"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "57563a3d-aeb0-4b74-aa5a-499d47ad24ff",
+      "title": "a workspace project for a billing settings surface",
+      "artifact_class": "workspace_project",
+      "renderer": "workspace_surface",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage.",
+      "primary_tab": "workspace",
+      "tab_count": 3,
+      "file_count": 6,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 6,
+      "repo_centric_package": true,
+      "render_surface_available": false,
+      "preferred_stage_mode": "source"
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'a workspace project for a billing settings surface' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'a workspace project for a billing settings surface' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/materialized'.\nPackaged 6 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/workspace-billing-settings/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: a workspace project for a billing settings surface",
+    "summary": "a workspace project for a billing settings surface The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "index.html",
+      "styles.css",
+      "script.js",
+      "package.json",
+      "README.md",
+      "artifact-manifest.json"
+    ]
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 3,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 3,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "notes": []
+}

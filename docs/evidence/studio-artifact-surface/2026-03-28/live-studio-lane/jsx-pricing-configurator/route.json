@@ -1,0 +1,33 @@
+{
+  "requestId": "1881e31b-c275-45cb-9f4b-5503179ff031",
+  "rawPrompt": "Create a JSX artifact for a pricing configurator",
+  "activeArtifactId": null,
+  "outcomeKind": "artifact",
+  "confidence": 1,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "interactive_single_file",
+    "deliverableShape": "single_file",
+    "renderer": "jsx_sandbox",
+    "presentationSurface": "side_panel",
+    "persistence": "shared_artifact_scoped",
+    "executionSubstrate": "client_sandbox",
+    "workspaceRecipeId": null,
+    "presentationVariantId": null,
+    "scope": {
+      "targetProject": null,
+      "createNewWorkspace": false,
+      "mutationBoundary": [
+        "jsx-configurator"
+      ]
+    },
+    "verification": {
+      "requireRender": true,
+      "requireBuild": false,
+      "requirePreview": false,
+      "requireExport": false,
+      "requireDiffReview": false
+    }
+  }
+}

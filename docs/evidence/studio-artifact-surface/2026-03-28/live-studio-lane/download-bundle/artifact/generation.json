@@ -1,0 +1,431 @@
+{
+  "prompt": "Create a downloadable artifact bundle with a CSV and README",
+  "title": "Create a downloadable artifact bundle with a CSV and README",
+  "route": {
+    "requestId": "05c52cab-4f28-4210-8e0f-4144667a8cad",
+    "rawPrompt": "Create a downloadable artifact bundle with a CSV and README",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 1.0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "downloadable_file",
+      "deliverableShape": "file_set",
+      "renderer": "download_card",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "none",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": false,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "Users who need to download an artifact bundle containing specific data files",
+    "jobToBeDone": "Provide users with a downloadable file set that includes a CSV file for data and a README file for instructions or information",
+    "subjectDomain": "Data management and documentation",
+    "artifactThesis": "The artifact should be a well-structured, easily understandable bundle of necessary files for data handling and reference",
+    "requiredConcepts": [
+      "CSV",
+      "README",
+      "downloadable artifact bundle"
+    ],
+    "requiredInteractions": [
+      "Download",
+      "Open CSV",
+      "Read README"
+    ],
+    "visualTone": [],
+    "factualAnchors": [
+      "CSV file contains structured data",
+      "README provides context or instructions for the CSV file"
+    ],
+    "styleDirectives": [
+      "Clear and concise language in README",
+      "Use consistent formatting in CSV"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 2812947547785975885,
+      "model": "qwen2.5:7b",
+      "temperature": 0.12,
+      "strategy": "bundle-first_download",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Downloadable artifact bundle containing a CSV file and a README.md",
+      "renderablePaths": [],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 1,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate meets all requirements with clear CSV and README files."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "Candidate meets all requirements with clear CSV and README files.",
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 1,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "",
+    "rationale": "Candidate meets all requirements with clear CSV and README files."
+  },
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:14b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "manifest": {
+    "artifactId": "003e227f-993b-4d75-9e01-8f00ec6c8370",
+    "title": "Create a downloadable artifact bundle with a CSV and README",
+    "artifactClass": "downloadable_file",
+    "renderer": "download_card",
+    "primaryTab": "download",
+    "tabs": [
+      {
+        "id": "download",
+        "label": "Download",
+        "kind": "download",
+        "renderer": "download_card",
+        "filePath": null,
+        "lens": "download"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "data.csv",
+        "mime": "text/csv",
+        "role": "export",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "003e227f-993b-4d75-9e01-8f00ec6c8370",
+        "externalUrl": null
+      },
+      {
+        "path": "README.md",
+        "mime": "text/markdown",
+        "role": "supporting",
+        "renderable": false,
+        "downloadable": true,
+        "artifactId": "5b6792e1-a209-44ed-bd80-930900623761",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "shared_artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create a downloadable artifact bundle with a CSV and README",
+    "summary": "Create a downloadable artifact bundle with a CSV and README Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "evidence": [
+      "data.csv",
+      "README.md",
+      "production provenance: openai-compatible (qwen2.5:7b)",
+      "acceptance provenance: openai-compatible (qwen2.5:14b)"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null,
+    "updatedAt": "2026-03-30T12:05:37.364273792+00:00"
+  },
+  "materializedFiles": [
+    "data.csv",
+    "README.md"
+  ],
+  "renderableFiles": [],
+  "selectedTargets": [],
+  "tasteMemory": {
+    "directives": [
+      "Clear and concise language in README",
+      "Use consistent formatting in CSV"
+    ],
+    "summary": "Session taste memory is steering this artifact toward Clear and concise language in README, Use consistent formatting in CSV."
+  },
+  "revisions": [
+    {
+      "revisionId": "9e3dd1a3-9269-4894-a8f5-311e9b9767ef",
+      "parentRevisionId": null,
+      "branchId": "main",
+      "branchLabel": "Main",
+      "prompt": "Create a downloadable artifact bundle with a CSV and README",
+      "createdAt": "2026-03-30T12:05:37.364315437+00:00",
+      "uxLifecycle": "judged",
+      "artifactManifest": {
+        "artifactId": "003e227f-993b-4d75-9e01-8f00ec6c8370",
+        "title": "Create a downloadable artifact bundle with a CSV and README",
+        "artifactClass": "downloadable_file",
+        "renderer": "download_card",
+        "primaryTab": "download",
+        "tabs": [
+          {
+            "id": "download",
+            "label": "Download",
+            "kind": "download",
+            "renderer": "download_card",
+            "filePath": null,
+            "lens": "download"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [
+          {
+            "path": "data.csv",
+            "mime": "text/csv",
+            "role": "export",
+            "renderable": false,
+            "downloadable": true,
+            "artifactId": "003e227f-993b-4d75-9e01-8f00ec6c8370",
+            "externalUrl": null
+          },
+          {
+            "path": "README.md",
+            "mime": "text/markdown",
+            "role": "supporting",
+            "renderable": false,
+            "downloadable": true,
+            "artifactId": "5b6792e1-a209-44ed-bd80-930900623761",
+            "externalUrl": null
+          }
+        ],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+          },
+          "failure": null
+        },
+        "storage": {
+          "mode": "shared_artifact_scoped",
+          "apiLabel": "artifact storage"
+        }
+      },
+      "artifactBrief": {
+        "audience": "Users who need to download an artifact bundle containing specific data files",
+        "jobToBeDone": "Provide users with a downloadable file set that includes a CSV file for data and a README file for instructions or information",
+        "subjectDomain": "Data management and documentation",
+        "artifactThesis": "The artifact should be a well-structured, easily understandable bundle of necessary files for data handling and reference",
+        "requiredConcepts": [
+          "CSV",
+          "README",
+          "downloadable artifact bundle"
+        ],
+        "requiredInteractions": [
+          "Download",
+          "Open CSV",
+          "Read README"
+        ],
+        "visualTone": [],
+        "factualAnchors": [
+          "CSV file contains structured data",
+          "README provides context or instructions for the CSV file"
+        ],
+        "styleDirectives": [
+          "Clear and concise language in README",
+          "Use consistent formatting in CSV"
+        ],
+        "referenceHints": []
+      },
+      "editIntent": null,
+      "candidateSummaries": [
+        {
+          "candidateId": "candidate-1",
+          "seed": 2812947547785975885,
+          "model": "qwen2.5:7b",
+          "temperature": 0.12,
+          "strategy": "bundle-first_download",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "Downloadable artifact bundle containing a CSV file and a README.md",
+          "renderablePaths": [],
+          "selected": true,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "pass",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 5,
+            "interactionRelevance": 5,
+            "layoutCoherence": 5,
+            "visualHierarchy": 1,
+            "completeness": 5,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "",
+            "rationale": "Candidate meets all requirements with clear CSV and README files."
+          }
+        }
+      ],
+      "winningCandidateId": "candidate-1",
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 1,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate meets all requirements with clear CSV and README files."
+      },
+      "outputOrigin": "live_inference",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null,
+      "fileWrites": [
+        {
+          "path": "data.csv",
+          "kind": "export",
+          "contentPreview": "Name,Age,Occupation\nAlice,30,Engineer\nBob,25,Designer"
+        },
+        {
+          "path": "README.md",
+          "kind": "supporting",
+          "contentPreview": "# Downloadable Artifact Bundle\n\nThis bundle contains a CSV file with structured data and instructions on how to use it.\n\n## Contents\n- **data.csv**: A CSV file containing the necessary data for your project."
+        }
+      ],
+      "selectedTargets": []
+    }
+  ],
+  "activeRevisionId": "9e3dd1a3-9269-4894-a8f5-311e9b9767ef",
+  "fullStudioPath": true
+}

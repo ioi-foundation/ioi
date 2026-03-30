@@ -1,0 +1,296 @@
+{
+  "prompt": "Keep the structure, but replace the hero and chart with a more technical tone",
+  "title": "Keep the structure, but replace the hero and chart with a more technical",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.96,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "inline",
+      "persistence": "artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "the audience encountering the artifact in render-first mode",
+    "jobToBeDone": "Turn dog shampoo into an interactive render-first artifact with clear hierarchy and grounded charts or sections.",
+    "subjectDomain": "dog shampoo",
+    "artifactThesis": "Make the primary artifact unmistakably about dog shampoo while keeping the structure coherent enough to lead the stage.",
+    "requiredConcepts": [
+      "dog shampoo",
+      "but",
+      "chart",
+      "technical"
+    ],
+    "requiredInteractions": [
+      "chart toggles"
+    ],
+    "visualTone": [
+      "technical"
+    ],
+    "factualAnchors": [
+      "dog shampoo",
+      "but",
+      "chart",
+      "technical",
+      "continue Make it feel more enterprise"
+    ],
+    "styleDirectives": [
+      "technical",
+      "request-shaped hierarchy"
+    ],
+    "referenceHints": [
+      "enterprise",
+      "request-shaped hierarchy"
+    ]
+  },
+  "editIntent": {
+    "mode": "patch",
+    "summary": "Patch the current html artifact without discarding its identity.",
+    "patchExistingArtifact": true,
+    "preserveStructure": true,
+    "targetScope": "selection",
+    "targetPaths": [],
+    "requestedOperations": [
+      "tone_shift_technical",
+      "replace_hero",
+      "update_chart"
+    ],
+    "toneDirectives": [
+      "technical"
+    ],
+    "selectedTargets": [],
+    "styleDirectives": [
+      "technical",
+      "request-shaped hierarchy"
+    ],
+    "branchRequested": false
+  },
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 15906189080752529531,
+      "model": "InferenceRuntime",
+      "temperature": 0.55,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "summary": "Materialized an HTML artifact about dog shampoo with renderer-grounded sections and charted proof.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": 5,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 1348149122759218430,
+      "model": "InferenceRuntime",
+      "temperature": 0.55,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "summary": "Materialized an HTML artifact about dog shampoo with renderer-grounded sections and charted proof.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": 5,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-3",
+      "seed": 5236853238475458945,
+      "model": "InferenceRuntime",
+      "temperature": 0.55,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "summary": "Materialized an HTML artifact about dog shampoo with renderer-grounded sections and charted proof.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": 5,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-3",
+  "winningCandidateRationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.",
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": true,
+    "continuityRevisionUx": 5,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "outputOrigin": "live_inference",
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "manifest": {
+    "artifactId": "c04f3738-af2d-4b81-9918-3566f0efe4d6",
+    "title": "Keep the structure, but replace the hero and chart with a more technical",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": "index.html",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "index.html",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-index.html",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: Keep the structure, but replace the hero and chart with a more technical",
+    "summary": "Keep the structure, but replace the hero and chart with a more technical The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "index.html"
+    ]
+  },
+  "materializedFiles": [
+    "index.html"
+  ],
+  "renderableFiles": [
+    "index.html"
+  ],
+  "refinement": {
+    "artifactId": "cd999b38-dcc1-46f7-b0e1-79f0f2c61a9d",
+    "revisionId": null,
+    "title": "Make it feel more enterprise",
+    "summary": "Make it feel more enterprise The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.",
+    "renderer": "html_iframe",
+    "files": [
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "encoding": null,
+        "body": "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <title>Make it feel more enterprise</title>\n    <style>\n      :root { --bg: #071421; --panel: #10273d; --accent: #9bd6ff; --accent2: #59d5c6; --text: #eef5ff; --muted: rgba(238,245,255,0.74); font-family: \"IBM Plex Sans\", \"Inter\", system-ui, sans-serif; }\n      * { box-sizing: border-box; }\n      body { margin: 0; min-width: 320px; background: radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 18%, transparent), transparent 24%), var(--bg); color: var(--text); }\n      main { width: min(1180px, calc(100vw - 32px)); margin: 0 auto; padding: 28px 0 72px; }\n      .shell, .panel, nav, footer { background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 18%, rgba(255,255,255,0.06)); border-radius: 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.16); }\n      nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; }\n      nav a { color: var(--muted); text-decoration: none; margin-left: 18px; font-size: 0.92rem; }\n      .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr); gap: 22px; margin-top: 22px; padding: 28px; }\n      .eyebrow { margin: 0 0 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--accent); font-size: 0.75rem; }\n      h1, h2 { margin: 0; letter-spacing: -0.04em; }\n      h1 { font-family: \"Iowan Old Style\", Georgia, serif; font-size: clamp(3rem, 7vw, 5.8rem); line-height: 0.92; max-width: 11ch; }\n      p { line-height: 1.7; }\n      .lead { max-width: 58ch; color: var(--muted); font-size: 1.08rem; }\n      .stats, .grid { display: grid; gap: 18px; margin-top: 22px; }\n      .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n      .stats article, .grid article, .panel, footer { padding: 20px; }\n      .stats strong { display: block; font-size: 2rem; color: var(--accent); }\n      .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n      .chart-wrap { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr); gap: 18px; margin-top: 22px; }\n      .bars { display: grid; gap: 14px; margin-top: 18px; }\n      .bar-row { display: grid; gap: 6px; }\n      .track { position: relative; height: 16px; border-radius: 999px; background: color-mix(in srgb, var(--text) 10%, transparent); overflow: hidden; }\n      .track i { position: absolute; inset: 0 auto 0 0; width: var(--fill); background: linear-gradient(90deg, var(--accent), var(--accent2)); }\n      .note { font-size: 0.95rem; color: var(--muted); }\n      footer { display: flex; justify-content: space-between; gap: 18px; align-items: center; margin-top: 24px; }\n      @media (max-width: 980px) { .hero, .stats, .grid, .chart-wrap, footer { grid-template-columns: 1fr; display: grid; } }\n    </style>\n  </head>\n  <body>\n    <main>\n      <nav>\n        <strong>dog shampoo</strong>\n        <div>\n          <a href=\"#overview\">Overview</a>\n          <a href=\"#lanes\">Lanes</a>\n          <a href=\"#chart\">Chart</a>\n          <a href=\"#close\">Close</a>\n        </div>\n      </nav>\n      <!-- studio-section:hero -->\n      <section class=\"shell hero\" id=\"overview\">\n        <div>\n          <p class=\"eyebrow\">Interactive HTML artifact</p>\n          <h1>dog shampoo explained through real lanes and visible metrics.</h1>\n          <p class=\"lead\">A render-first explainer for dog shampoo that keeps the thesis visible in every section instead of hiding it inside one card.</p>\n          <p class=\"note\">an interactive HTML artifact that explains a product rollout with charts The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.</p>\n        </div>\n        <aside class=\"panel\">\n          <p class=\"eyebrow\">Audience</p>\n          <h2>the audience encountering the artifact in render-first mode</h2>\n          <p class=\"note\">Make the primary artifact unmistakably about dog shampoo while keeping the structure coherent enough to lead the stage.</p>\n        </aside>\n      </section>\n      <section class=\"stats\" id=\"lanes\">\n        <article class=\"panel\"><strong>39</strong><span>dog shampoo</span></article>\n        <article class=\"panel\"><strong>61</strong><span>enterprise</span></article>\n        <article class=\"panel\"><strong>77</strong><span>enterprise</span></article>\n      </section>\n      <section class=\"grid\">\n        <article class=\"panel\"><p class=\"eyebrow\">Lane 1</p><h2>dog shampoo planning</h2><p>Anchor the opening pass in dog shampoo so the request is visible above the fold.</p></article>\n        <article class=\"panel\"><p class=\"eyebrow\">Lane 2</p><h2>enterprise execution</h2><p>Translate enterprise into concrete sections, owners, and timing instead of leaving it as a label.</p></article>\n        <article class=\"panel\"><p class=\"eyebrow\">Lane 3</p><h2>Feedback and continuity</h2><p>Keep revisions inspectable so the artifact can be refined without losing the strongest previous pass.</p></article>\n      </section>\n      <!-- studio-section:chart -->\n      <section class=\"chart-wrap\" id=\"chart\">\n        <article class=\"panel\">\n          <p class=\"eyebrow\">Chart focus</p>\n          <h2>Impact by rollout lane</h2>\n          <div class=\"bars\">\n            <div class=\"bar-row\"><span>Pilot lane</span><div class=\"track\"><i style=\"--fill:76%\"></i></div></div><div class=\"bar-row\"><span>Launch lane</span><div class=\"track\"><i style=\"--fill:63%\"></i></div></div><div class=\"bar-row\"><span>Retention lane</span><div class=\"track\"><i style=\"--fill:57%\"></i></div></div><div class=\"bar-row\"><span>Ops readiness</span><div class=\"track\"><i style=\"--fill:71%\"></i></div></div>\n          </div>\n        </article>\n        <aside class=\"panel\">\n          <p class=\"eyebrow\">What makes it faithful</p>\n          <h2>Enterprise continuity</h2>\n          <p class=\"note\">The chart, headline, and proof lanes stay anchored in dog shampoo so the page does not collapse into a generic SaaS launch shell.</p>\n        </aside>\n      </section>\n      <footer id=\"close\">\n        <div>\n          <p class=\"eyebrow\">Next step</p>\n          <h2>Refine the artifact without losing its identity.</h2>\n        </div>\n        <p class=\"lead\">This pass preserves the artifact identity and leaves stable section anchors for the next targeted edit.</p>\n      </footer>\n    </main>\n  </body>\n</html>"
+      }
+    ],
+    "selectedTargets": [],
+    "tasteMemory": {
+      "directives": [
+        "enterprise",
+        "request-shaped hierarchy"
+      ],
+      "summary": "Make the primary artifact unmistakably about dog shampoo while keeping the structure coherent enough to lead the stage."
+    }
+  }
+}

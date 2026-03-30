@@ -14,7 +14,6 @@ import type {
   AssistantWorkbenchSession,
   InterventionRecord,
 } from "../../types";
-import { type StudioEditorTab } from "./components/StudioCodeWorkbench";
 import {
   fetchShieldPolicyStateFromRuntime,
   loadShieldPolicyState,
@@ -26,7 +25,6 @@ import {
   isEditableElement,
   PROJECT_SCOPES,
   type PrimaryView,
-  type ProjectFileDocument,
 } from "./studioWindowModel";
 import type { CapabilitySurface } from "./components/capabilities/model";
 
@@ -42,31 +40,6 @@ type InstallModalAgent = {
   requirements: string;
   image: string;
 };
-type ProjectShellSnapshotRoot = {
-  root_path: string;
-};
-
-function buildLoadedEditorTab(
-  previous: StudioEditorTab,
-  document: ProjectFileDocument,
-): StudioEditorTab {
-  return {
-    ...previous,
-    name: document.name,
-    absolutePath: document.absolute_path,
-    content: document.content,
-    savedContent: document.content,
-    loading: false,
-    saving: false,
-    error: null,
-    languageHint: document.language_hint,
-    sizeBytes: document.size_bytes,
-    modifiedAtMs: document.modified_at_ms,
-    isBinary: document.is_binary,
-    isTooLarge: document.is_too_large,
-    readOnly: document.read_only,
-  };
-}
 
 function normalizeInstallModalAgent(agent: {
   name: string;
@@ -82,24 +55,6 @@ function normalizeInstallModalAgent(agent: {
       agent.icon ??
       "linear-gradient(135deg, rgba(90, 140, 255, 0.95), rgba(35, 189, 152, 0.9))",
   };
-}
-
-function joinAbsoluteProjectPath(
-  rootPath: string | null,
-  relativePath: string,
-): string {
-  if (!rootPath) return "";
-  if (!relativePath || relativePath === ".") return rootPath;
-
-  const separator =
-    rootPath.includes("\\") && !rootPath.includes("/") ? "\\" : "/";
-  const normalizedRoot = rootPath.replace(/[\\/]+$/, "");
-  const normalizedRelative = relativePath
-    .replace(/^[\\/]+/, "")
-    .split(/[\\/]+/)
-    .join(separator);
-
-  return `${normalizedRoot}${separator}${normalizedRelative}`;
 }
 
 async function sendNativeAutopilotNotification(
@@ -129,7 +84,7 @@ async function sendNativeAutopilotNotification(
 }
 
 export function useStudioWindowController() {
-  const [activeView, setActiveView] = useState<PrimaryView>("workflows");
+  const [activeView, setActiveView] = useState<PrimaryView>("studio");
   const [chatSurface, setChatSurface] = useState<ChatSurface>("chat");
   const [chatPaneVisible, setChatPaneVisible] = useState(true);
   const [chatPaneMaximized, setChatPaneMaximized] = useState(false);
@@ -156,11 +111,6 @@ export function useStudioWindowController() {
   const [currentProjectId, setCurrentProjectId] = useState(
     PROJECT_SCOPES[0]?.id ?? "autopilot-core",
   );
-  const [resolvedProjectRootPath, setResolvedProjectRootPath] = useState<
-    string | null
-  >(null);
-  const [editorTabs, setEditorTabs] = useState<StudioEditorTab[]>([]);
-  const [activeEditorPath, setActiveEditorPath] = useState<string | null>(null);
   const [editingAgent, setEditingAgent] = useState<AgentSummary | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<InstallModalAgent | null>(
     null,
@@ -199,8 +149,7 @@ export function useStudioWindowController() {
     switch (view) {
       case "copilot":
       case "autopilot":
-        setChatSurface("chat");
-        setChatPaneVisible(true);
+        setActiveView("studio");
         return;
       case "reply-composer":
         setChatSurface("reply-composer");
@@ -211,12 +160,14 @@ export function useStudioWindowController() {
         setChatPaneVisible(true);
         return;
       case "compose":
-        setWorkflowSurface("canvas");
-        setActiveView("workflows");
+        setActiveView("studio");
+        return;
+      case "build":
+        setActiveView("studio");
         return;
       case "code":
       case "explorer":
-        setActiveView("explorer");
+        setActiveView("studio");
         return;
       case "agents":
         setWorkflowSurface("agents");
@@ -307,50 +258,6 @@ export function useStudioWindowController() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
-
-  useEffect(() => {
-    setEditorTabs([]);
-    setActiveEditorPath(null);
-  }, [currentProjectId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setResolvedProjectRootPath(null);
-
-    void invoke<ProjectShellSnapshotRoot>("project_shell_inspect", {
-      root: currentProject.rootPath,
-    })
-      .then((snapshot) => {
-        if (cancelled) return;
-        setResolvedProjectRootPath(snapshot.root_path);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setResolvedProjectRootPath(null);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentProject.rootPath]);
-
-  useEffect(() => {
-    if (!resolvedProjectRootPath) return;
-    setEditorTabs((current) =>
-      current.map((tab) =>
-        tab.absolutePath
-          ? tab
-          : {
-              ...tab,
-              absolutePath: joinAbsoluteProjectPath(
-                resolvedProjectRootPath,
-                tab.path,
-              ),
-            },
-      ),
-    );
-  }, [resolvedProjectRootPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -450,182 +357,6 @@ export function useStudioWindowController() {
     setActiveView("capabilities");
   };
 
-  const loadEditorDocument = async (relativePath: string) => {
-    setEditorTabs((current) =>
-      current.map((tab) =>
-        tab.path === relativePath
-          ? {
-              ...tab,
-              loading: true,
-              error: null,
-            }
-          : tab,
-      ),
-    );
-
-    try {
-      const document = await invoke<ProjectFileDocument>("project_read_file", {
-        root: currentProject.rootPath,
-        relativePath,
-      });
-      const absolutePath =
-        document.absolute_path ||
-        joinAbsoluteProjectPath(resolvedProjectRootPath, document.path);
-
-      setEditorTabs((current) =>
-        current.map((tab) =>
-          tab.path === relativePath
-            ? buildLoadedEditorTab(tab, {
-                ...document,
-                absolute_path: absolutePath,
-              })
-            : tab,
-        ),
-      );
-    } catch (error) {
-      setEditorTabs((current) =>
-        current.map((tab) =>
-          tab.path === relativePath
-            ? {
-                ...tab,
-                loading: false,
-                saving: false,
-                error: String(error),
-              }
-            : tab,
-        ),
-      );
-    }
-  };
-
-  const openProjectFile = (relativePath: string) => {
-    const existing = editorTabs.find((tab) => tab.path === relativePath);
-    if (!existing) {
-      const name = relativePath.split("/").pop() || relativePath;
-      setEditorTabs((current) => [
-        ...current,
-        {
-          path: relativePath,
-          name,
-          absolutePath: joinAbsoluteProjectPath(
-            resolvedProjectRootPath,
-            relativePath,
-          ),
-          content: "",
-          savedContent: "",
-          loading: true,
-          saving: false,
-          error: null,
-          languageHint: null,
-          sizeBytes: 0,
-          modifiedAtMs: null,
-          isBinary: false,
-          isTooLarge: false,
-          readOnly: false,
-        },
-      ]);
-      void loadEditorDocument(relativePath);
-    } else if (existing.error) {
-      void loadEditorDocument(relativePath);
-    }
-
-    setActiveEditorPath(relativePath);
-    setActiveView("explorer");
-  };
-
-  const closeEditorTab = (relativePath: string) => {
-    const closingTab = editorTabs.find((tab) => tab.path === relativePath);
-    if (
-      closingTab &&
-      closingTab.content !== closingTab.savedContent &&
-      !window.confirm(`Close ${closingTab.name} without saving changes?`)
-    ) {
-      return;
-    }
-
-    const closingIndex = editorTabs.findIndex((tab) => tab.path === relativePath);
-    const nextTabs = editorTabs.filter((tab) => tab.path !== relativePath);
-    setEditorTabs(nextTabs);
-
-    if (activeEditorPath === relativePath) {
-      const fallbackTab =
-        nextTabs[closingIndex] ?? nextTabs[closingIndex - 1] ?? nextTabs[0] ?? null;
-      setActiveEditorPath(fallbackTab?.path ?? null);
-    }
-  };
-
-  const updateEditorTabContent = (relativePath: string, content: string) => {
-    setEditorTabs((current) =>
-      current.map((tab) =>
-        tab.path === relativePath
-          ? {
-              ...tab,
-              content,
-            }
-          : tab,
-      ),
-    );
-  };
-
-  const saveEditorTab = async (relativePath: string) => {
-    const targetTab = editorTabs.find((tab) => tab.path === relativePath);
-    if (
-      !targetTab ||
-      targetTab.loading ||
-      targetTab.saving ||
-      targetTab.readOnly ||
-      targetTab.content === targetTab.savedContent
-    ) {
-      return;
-    }
-
-    setEditorTabs((current) =>
-      current.map((tab) =>
-        tab.path === relativePath
-          ? {
-              ...tab,
-              saving: true,
-              error: null,
-            }
-          : tab,
-      ),
-    );
-
-    try {
-      const document = await invoke<ProjectFileDocument>("project_write_file", {
-        root: currentProject.rootPath,
-        relativePath,
-        content: targetTab.content,
-      });
-      const absolutePath =
-        document.absolute_path ||
-        joinAbsoluteProjectPath(resolvedProjectRootPath, document.path);
-
-      setEditorTabs((current) =>
-        current.map((tab) =>
-          tab.path === relativePath
-            ? buildLoadedEditorTab(tab, {
-                ...document,
-                absolute_path: absolutePath,
-              })
-            : tab,
-        ),
-      );
-    } catch (error) {
-      setEditorTabs((current) =>
-        current.map((tab) =>
-          tab.path === relativePath
-            ? {
-                ...tab,
-                saving: false,
-                error: String(error),
-              }
-            : tab,
-        ),
-      );
-    }
-  };
-
   const openReplyComposer = (
     session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
   ) => {
@@ -707,10 +438,11 @@ export function useStudioWindowController() {
     setInstallModalOpen(true);
   };
 
-  const chatFullscreen = chatPaneVisible && chatPaneMaximized;
+  const chatFullscreen =
+    activeView !== "studio" && chatPaneVisible && chatPaneMaximized;
   const showStatusBar =
     !chatFullscreen &&
-    (activeView === "explorer" ||
+    (activeView === "studio" ||
       activeView === "workflows" ||
       activeView === "runs" ||
       activeView === "policy" ||
@@ -744,16 +476,6 @@ export function useStudioWindowController() {
     workflow: {
       surface: workflowSurface,
       setSurface: setWorkflowSurface,
-      editorTabs,
-      activeEditorPath,
-      selectEditorTab: setActiveEditorPath,
-      openProjectFile,
-      closeEditorTab,
-      updateEditorTabContent,
-      saveEditorTab,
-      reloadEditorTab: (path: string) => {
-        void loadEditorDocument(path);
-      },
       selectProject: setCurrentProjectId,
     },
     policy: {

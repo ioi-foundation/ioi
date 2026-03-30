@@ -1,0 +1,98 @@
+{
+  "artifactId": "57563a3d-aeb0-4b74-aa5a-499d47ad24ff",
+  "title": "a workspace project for a billing settings surface",
+  "artifactClass": "workspace_project",
+  "renderer": "workspace_surface",
+  "primaryTab": "workspace",
+  "tabs": [
+    {
+      "id": "preview",
+      "label": "Preview",
+      "kind": "render",
+      "renderer": "html_iframe",
+      "filePath": null,
+      "lens": "preview"
+    },
+    {
+      "id": "workspace",
+      "label": "Workspace",
+      "kind": "workspace",
+      "renderer": "workspace_surface",
+      "filePath": "index.html",
+      "lens": "code"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "index.html",
+      "mime": "text/html",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": "generated-index.html",
+      "externalUrl": null
+    },
+    {
+      "path": "styles.css",
+      "mime": "text/css",
+      "role": "supporting",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": "generated-styles.css",
+      "externalUrl": null
+    },
+    {
+      "path": "script.js",
+      "mime": "application/javascript",
+      "role": "supporting",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": "generated-script.js",
+      "externalUrl": null
+    },
+    {
+      "path": "package.json",
+      "mime": "application/json",
+      "role": "supporting",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": "generated-package.json",
+      "externalUrl": null
+    },
+    {
+      "path": "README.md",
+      "mime": "text/markdown",
+      "role": "supporting",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": "generated-README.md",
+      "externalUrl": null
+    },
+    {
+      "path": "artifact-manifest.json",
+      "mime": "application/json",
+      "role": "supporting",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": "generated-artifact-manifest",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "The candidate stays grounded in a billing settings surface, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

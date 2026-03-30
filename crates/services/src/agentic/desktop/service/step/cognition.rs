@@ -698,6 +698,13 @@ fn is_browser_step_tool(name: &str) -> bool {
         )
 }
 
+fn is_pure_conversation_reply_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "chat__reply" | "agent__complete" | "agent__pause" | "system__fail" | "math__eval"
+    )
+}
+
 fn pending_state_has_visible_start_gate(pending_browser_state_context: &str) -> bool {
     pending_browser_state_context
         .to_ascii_lowercase()
@@ -706,11 +713,24 @@ fn pending_state_has_visible_start_gate(pending_browser_state_context: &str) -> 
 
 fn filter_cognition_tools(
     tools: &[LlmToolDefinition],
+    resolved_intent: Option<&ResolvedIntentState>,
     prefer_browser_semantics: bool,
     goal: &str,
     browser_observation_context: &str,
     pending_browser_state_context: &str,
 ) -> Vec<LlmToolDefinition> {
+    if resolved_intent
+        .map(|intent| intent.intent_id == "conversation.reply")
+        .unwrap_or(false)
+        && !prefer_browser_semantics
+    {
+        return tools
+            .iter()
+            .filter(|tool| is_pure_conversation_reply_tool(&tool.name))
+            .cloned()
+            .collect();
+    }
+
     if !prefer_browser_semantics {
         return tools.to_vec();
     }
@@ -1546,6 +1566,7 @@ pub async fn think(
         has_meaningful_visual_context(prompt_screenshot_base64.as_deref());
     let cognition_tools = filter_cognition_tools(
         &perception.available_tools,
+        agent_state.resolved_intent.as_ref(),
         prefer_browser_semantics,
         &agent_state.goal,
         &browser_observation_context,
@@ -2375,6 +2396,7 @@ mod tests {
                 tool("agent__complete"),
                 tool("system__fail"),
             ],
+            None,
             true,
             "",
             "",
@@ -2419,6 +2441,7 @@ mod tests {
                     "required":["id"]
                 }"#,
             )],
+            None,
             true,
             "",
             "",
@@ -2458,6 +2481,7 @@ mod tests {
                 tool("browser__synthetic_click"),
                 tool("agent__complete"),
             ],
+            None,
             true,
             "",
             "RECENT BROWSER OBSERVATION:\ngrp_1 tag=generic name=1 shape_kind=digit center=125,96",
@@ -2486,6 +2510,7 @@ mod tests {
                 tool("browser__synthetic_click"),
                 tool("agent__complete"),
             ],
+            None,
             true,
             "",
             "RECENT BROWSER OBSERVATION:\ngrp_click_canvas tag=generic name=click canvas",
@@ -2515,6 +2540,7 @@ mod tests {
                 tool("browser__synthetic_click"),
                 tool("agent__complete"),
             ],
+            None,
             true,
             "",
             concat!(
@@ -2569,6 +2595,7 @@ mod tests {
                 tool("browser__synthetic_click"),
                 tool("agent__complete"),
             ],
+            None,
             true,
             "",
             concat!(
@@ -2606,6 +2633,7 @@ mod tests {
                 tool("agent__complete"),
                 tool("system__fail"),
             ],
+            None,
             true,
             "Keep your mouse inside the circle as it moves around.",
             "",
@@ -2639,6 +2667,62 @@ mod tests {
             "",
             "",
         ));
+    }
+
+    #[test]
+    fn pure_conversation_reply_uses_reply_safe_tool_surface() {
+        let filtered = filter_cognition_tools(
+            &[
+                tool("chat__reply"),
+                tool("agent__complete"),
+                tool("agent__pause"),
+                tool("system__fail"),
+                tool("sys__exec"),
+                tool("memory__search"),
+            ],
+            Some(&ResolvedIntentState {
+                intent_id: "conversation.reply".to_string(),
+                scope: IntentScopeProfile::Conversation,
+                band: ioi_types::app::agentic::IntentConfidenceBand::High,
+                score: 1.0,
+                top_k: vec![],
+                required_capabilities: vec![],
+                required_receipts: vec![],
+                required_postconditions: vec![],
+                risk_class: "low".to_string(),
+                preferred_tier: "tool_first".to_string(),
+                matrix_version: "test".to_string(),
+                embedding_model_id: "test".to_string(),
+                embedding_model_version: "test".to_string(),
+                similarity_function_id: "test".to_string(),
+                intent_set_hash: [0u8; 32],
+                tool_registry_hash: [0u8; 32],
+                capability_ontology_hash: [0u8; 32],
+                query_normalization_version: "test".to_string(),
+                matrix_source_hash: [0u8; 32],
+                receipt_hash: [0u8; 32],
+                provider_selection: None,
+                instruction_contract: None,
+                constrained: false,
+            }),
+            false,
+            "",
+            "",
+            "",
+        );
+        let names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            vec![
+                "chat__reply",
+                "agent__complete",
+                "agent__pause",
+                "system__fail"
+            ]
+        );
     }
 
     #[test]

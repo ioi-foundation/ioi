@@ -1,6 +1,15 @@
 // apps/autopilot/src/store/agentStore.ts
 import { create } from "zustand";
-import type { AgentStatus, AgentEvent, Artifact, ChatMessage } from "../types";
+import type {
+  AgentStatus,
+  AgentEvent,
+  Artifact,
+  BuildArtifactSession,
+  ChatMessage,
+  StudioArtifactSession,
+  StudioOutcomeRequest,
+  StudioRendererSession,
+} from "../types";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -110,6 +119,10 @@ export interface AgentTask {
   // Glass-box canonical event stream + artifact index
   events: AgentEvent[];
   artifacts: Artifact[];
+  studio_session?: StudioArtifactSession | null;
+  studio_outcome?: StudioOutcomeRequest | null;
+  renderer_session?: StudioRendererSession | null;
+  build_session?: BuildArtifactSession | null;
   run_bundle_id?: string;
 
   // Evolutionary Metadata
@@ -141,6 +154,7 @@ interface AgentStore {
   resetSession: () => void;
   // [NEW] Trigger new chat UI flow explicitly
   startNewSession: () => void;
+  refreshCurrentTask: () => Promise<AgentTask | null>;
   setSelectedArtifactId: (artifactId: string | null) => void;
   loadThreadEvents: (
     threadId: string,
@@ -158,6 +172,10 @@ function normalizeTask(task: AgentTask): AgentTask {
     lineage_id: task.lineage_id || "genesis",
     events: Array.isArray(task.events) ? task.events : [],
     artifacts: Array.isArray(task.artifacts) ? task.artifacts : [],
+    studio_session: task.studio_session ?? null,
+    studio_outcome: task.studio_outcome ?? null,
+    renderer_session: task.renderer_session ?? null,
+    build_session: task.build_session ?? null,
   };
 }
 
@@ -188,7 +206,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       return task;
     } catch (e) {
       console.error("Failed to start task:", e);
-      return null;
+      throw e;
     }
   },
 
@@ -261,6 +279,34 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   // [NEW] Alias for clarity in UI components
   startNewSession: () => {
     get().resetSession();
+  },
+
+  refreshCurrentTask: async () => {
+    try {
+      const task = await invoke<AgentTask | null>("get_current_task");
+      if (!task) {
+        set({ task: null, events: [], artifacts: [], selectedArtifactId: null });
+        return null;
+      }
+
+      const normalized = normalizeTask(task);
+      set((state) => ({
+        task: normalized,
+        events: normalized.events,
+        artifacts: normalized.artifacts,
+        selectedArtifactId:
+          state.selectedArtifactId &&
+          !normalized.artifacts.some(
+            (artifact) => artifact.artifact_id === state.selectedArtifactId,
+          )
+            ? null
+            : state.selectedArtifactId,
+      }));
+      return normalized;
+    } catch (e) {
+      console.error("Failed to refresh current task:", e);
+      return get().task;
+    }
   },
 
   setSelectedArtifactId: (artifactId) =>
@@ -346,15 +392,7 @@ export async function initEventListeners() {
 
   // Load current task
   try {
-    const task = await invoke<AgentTask | null>("get_current_task");
-    if (task) {
-      const normalized = normalizeTask(task);
-      useAgentStore.setState({
-        task: normalized,
-        events: normalized.events,
-        artifacts: normalized.artifacts,
-      });
-    }
+    await useAgentStore.getState().refreshCurrentTask();
   } catch (e) {
     console.error("Failed to load task:", e);
   }

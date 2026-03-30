@@ -1,0 +1,361 @@
+{
+  "id": "html-dog-shampoo-targeted-chart",
+  "prompt": "Edit only this chart section to show adoption by channel\n\nselection from index.html: chart section\nHero chart section should show adoption by channel instead of launch-phase sequencing.",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/artifact/artifact-manifest.json",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.96,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "inline",
+      "persistence": "artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "product, operations, and leadership stakeholders",
+    "jobToBeDone": "Turn dog shampoo into an interactive render-first artifact with clear hierarchy and grounded charts or sections.",
+    "subjectDomain": "dog shampoo",
+    "artifactThesis": "Make the primary artifact unmistakably about dog shampoo while keeping the structure coherent enough to lead the stage.",
+    "requiredConcepts": [
+      "dog shampoo",
+      "chart",
+      "adoption",
+      "channel",
+      "selection",
+      "from"
+    ],
+    "requiredInteractions": [
+      "chart toggles"
+    ],
+    "visualTone": [
+      "launch"
+    ],
+    "factualAnchors": [
+      "dog shampoo",
+      "chart",
+      "adoption",
+      "channel",
+      "selection",
+      "from",
+      "continue Keep the structure, but replace the hero and chart with a more technical"
+    ],
+    "styleDirectives": [
+      "launch",
+      "request-shaped hierarchy"
+    ],
+    "referenceHints": [
+      "technical",
+      "request-shaped hierarchy"
+    ]
+  },
+  "editIntent": {
+    "mode": "patch",
+    "summary": "Patch the current html artifact without discarding its identity.",
+    "patchExistingArtifact": true,
+    "preserveStructure": false,
+    "targetScope": "selection",
+    "targetPaths": [
+      "index.html"
+    ],
+    "requestedOperations": [
+      "replace_hero",
+      "update_chart",
+      "change_chart_metric_adoption_by_channel"
+    ],
+    "toneDirectives": [
+      "launch"
+    ],
+    "selectedTargets": [
+      {
+        "sourceSurface": "source",
+        "path": "index.html",
+        "label": "Selected source excerpt",
+        "snippet": "selection from index.html: chart section\nHero chart section should show adoption by channel instead of launch-phase sequencing."
+      }
+    ],
+    "styleDirectives": [
+      "launch",
+      "request-shaped hierarchy"
+    ],
+    "branchRequested": false
+  },
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 13275731533805974000,
+      "model": "InferenceRuntime",
+      "temperature": 0.55,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "summary": "Materialized an HTML artifact about dog shampoo with renderer-grounded sections and charted proof.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": 5,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 2508431028591740400,
+      "model": "InferenceRuntime",
+      "temperature": 0.55,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "summary": "Materialized an HTML artifact about dog shampoo with renderer-grounded sections and charted proof.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": 5,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+      }
+    },
+    {
+      "candidateId": "candidate-3",
+      "seed": 10187874597087058000,
+      "model": "InferenceRuntime",
+      "temperature": 0.55,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "summary": "Materialized an HTML artifact about dog shampoo with renderer-grounded sections and charted proof.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": 5,
+        "strongestContradiction": null,
+        "rationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-3",
+  "winningCandidateRationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.",
+  "manifest": {
+    "artifactId": "862173da-29f9-4148-bfa2-26dc935233af",
+    "title": "Edit only this chart section to show adoption by channel",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": "index.html",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "index.html",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-index.html",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: Edit only this chart section to show adoption by channel",
+    "summary": "Edit only this chart section to show adoption by channel The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "index.html"
+    ]
+  },
+  "rendererOutput": {
+    "primaryFile": "index.html",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/captures/render-capture.html"
+    ]
+  },
+  "materializedFiles": [
+    "index.html"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "862173da-29f9-4148-bfa2-26dc935233af",
+      "title": "Edit only this chart section to show adoption by channel",
+      "artifact_class": "interactive_single_file",
+      "renderer": "html_iframe",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.",
+      "primary_tab": "render",
+      "tab_count": 3,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 1,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render"
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'Edit only this chart section to show adoption by channel' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'Edit only this chart section to show adoption by channel' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycle_state": "ready",
+    "title": "Studio outcome: Edit only this chart section to show adoption by channel",
+    "summary": "Edit only this chart section to show adoption by channel The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.",
+    "evidence": [
+      "index.html"
+    ]
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": true,
+    "continuityRevisionUx": 5,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": true,
+    "continuityRevisionUx": 5,
+    "strongestContradiction": null,
+    "rationale": "The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "notes": []
+}

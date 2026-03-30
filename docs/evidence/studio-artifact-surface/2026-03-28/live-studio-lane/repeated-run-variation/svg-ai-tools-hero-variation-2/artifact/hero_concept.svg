@@ -1,0 +1,40 @@
+<svg width="100%" height="100%" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg"><title>Tech-savvy professionals interested in AI tools - AI technology, software tools, innovation, collaboration</title><desc>The SVG hero concept should visually represent the cutting-edge nature of AI tools while emphasizing their practical applications in a professional setting. Key concepts: AI, tools, innovation, collaboration, technology. Anchors: AI-driven solutions, efficiency gains, data analysis, user-friendly interfaces.</desc>
+  <defs>
+    <linearGradient id="techGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#007BFF" />
+      <stop offset="100%" stop-color="#6495ED" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="800" height="600" fill="url(#techGradient)" stroke="#FFFFFF" stroke-width="1"/>
+
+  <g transform="translate(50, 70)">
+    <text font-family="Arial, sans-serif" font-size="48" fill="#FFFFFF" text-anchor="middle">AI Tools</text>
+    <text font-family="Arial, sans-serif" font-size="24" fill="#FFFFFF" text-anchor="middle" dy="1em">Innovating the Future of Work</text>
+  </g>
+
+  <g transform="translate(300, 350)">
+    <path d="M300 370 C420 490, 680 490, 800 370 L300 370 Z" fill="#FFFFFF" stroke="#000000" stroke-width="2"/>
+    <text font-family="Arial, sans-serif" font-size="18" fill="#000000" text-anchor="middle" dy="-0.5em" transform="translate(400, 390)" style="font-weight: bold;">Data Analysis</text>
+  </g>
+
+  <g transform="translate(550, 250)">
+    <path d="M560 270 C680 390, 680 410, 560 530 L560 270 Z" fill="#FFFFFF" stroke="#000000" stroke-width="2"/>
+    <text font-family="Arial, sans-serif" font-size="18" fill="#000000" text-anchor="middle" dy="-0.5em" transform="translate(600, 300)" style="font-weight: bold;">Efficiency Gains</text>
+  </g>
+
+  <g transform="translate(200, 450)">
+    <path d="M180 470 C300 590, 600 590, 720 470 L180 470 Z" fill="#FFFFFF" stroke="#000000" stroke-width="2"/>
+    <text font-family="Arial, sans-serif" font-size="18" fill="#000000" text-anchor="middle" dy="-0.5em" transform="translate(360, 490)" style="font-weight: bold;">User-friendly Interfaces</text>
+  </g>
+
+  <g transform="translate(150, 200)">
+    <path d="M130 220 C250 340, 650 340, 770 220 L130 220 Z" fill="#FFFFFF" stroke="#000000" stroke-width="2"/>
+    <text font-family="Arial, sans-serif" font-size="18" fill="#000000" text-anchor="middle" dy="-0.5em" transform="translate(360, 240)" style="font-weight: bold;">Innovation</text>
+  </g>
+
+  <g transform="translate(650, 150)">
+    <path d="M630 170 C750 290, 750 310, 630 430 L630 170 Z" fill="#FFFFFF" stroke="#000000" stroke-width="2"/>
+    <text font-family="Arial, sans-serif" font-size="18" fill="#000000" text-anchor="middle" dy="-0.5em" transform="translate(690, 200)" style="font-weight: bold;">Collaboration</text>
+  </g>
+
+</svg>

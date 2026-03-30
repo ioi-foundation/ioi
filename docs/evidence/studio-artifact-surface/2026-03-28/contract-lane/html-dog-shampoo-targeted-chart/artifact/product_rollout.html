@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Technical Dashboard for Product Launch Metrics & Customer Feedback</title>
+    <style>
+        body { font-family: 'Arial Black', Gadget, sans-serif; }
+        .hero { text-align: center; padding-top: 70px; }
+        .controls { display: flex; justify-content: space-around; margin-bottom: 30px; }
+        .chart, .evidence { width: 100%; max-width: 800px; margin: auto; }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="hero">
+            <h1>Technical Dashboard for Product Launch Metrics & Customer Feedback</h1>
+        </section>
+
+        <nav class="controls">
+            <button type="button" data-view="current-interactive-dashboard-structure" aria-controls="current-interactive-dashboard-structure-panel">Current Interactive Dashboard Structure</button>
+            <button type="button" data-view="existing-chart-section-content" aria-controls="existing-chart-section-content-panel">Existing Chart Section Content</button>
+            <button type="button" data-view="adoption" aria-controls="adoption-panel" tabindex="0">Adoption by Channel</button>
+        </nav>
+
+        <section id="current-interactive-dashboard-structure-panel" data-view-panel="current-interactive-dashboard-structure">
+            <h2>Current Interactive Dashboard Structure</h2>
+            <p>This section provides an overview of the current interactive dashboard structure.</p>
+            <svg width="800" height="400">
+                
+                <rect x="50" y="100" width="200" height="100" fill="blue" tabindex="0" data-detail="Current Structure"/>
+                <text x="75" y="130" font-size="14">Current Structure</text>
+            </svg>
+        </section>
+
+        <section id="existing-chart-section-content-panel" data-view-panel="existing-chart-section-content">
+            <h2>Existing Chart Section Content</h2>
+            <p>This section contains the existing chart section content.</p>
+            <svg width="800" height="400">
+                
+                <rect x="50" y="100" width="200" height="100" fill="green" tabindex="0" data-detail="Existing Content"/>
+                <text x="75" y="130" font-size="14">Existing Content</text>
+            </svg>
+        </section>
+
+        <section id="adoption-panel" data-view-panel="adoption">
+            <h2>Adoption by Channel</h2>
+            <p>This section visualizes the adoption by different marketing channels.</p>
+            <svg width="800" height="400">
+                
+                <rect x="50" y="100" width="200" height="100" fill="red" tabindex="0" data-detail="Adoption by Channel"/>
+                <text x="75" y="130" font-size="14">Adoption by Channel</text>
+            </svg>
+        </section>
+    </main>
+
+    
+    <aside id="detail-copy">
+        <h2>Shared Detail</h2>
+        <p>The current state of the dashboard is as follows:</p>
+    </aside>
+
+    <script>
+        const panels = Array.from(document.querySelectorAll('[data-view-panel]'));
+        const detailCopy = document.getElementById('detail-copy');
+
+        function updateDetail(panel) {
+            switch (panel.dataset.viewPanel) {
+                case 'current-interactive-dashboard-structure':
+                    detailCopy.innerHTML = '<p>The current interactive dashboard structure is being updated.</p>';
+                    break;
+                case 'existing-chart-section-content':
+                    detailCopy.innerHTML = '<p>The existing chart section content remains unchanged.</p>';
+                    break;
+                case 'adoption':
+                    detailCopy.innerHTML = '<p>The adoption by channel has been visualized.</p>';
+                    break;
+            }
+        }
+
+        panels.forEach(panel => {
+            panel.addEventListener('click', () => {
+                const currentPanel = document.querySelector('[data-view-panel][aria-selected="true"]');
+                if (currentPanel) {
+                    currentPanel.setAttribute('aria-selected', 'false');
+                }
+                panel.setAttribute('aria-selected', 'true');
+                updateDetail(panel);
+            });
+        });
+    </script>
+<script data-studio-normalized="true" data-studio-rollover-repair="true">(() => {
+  const detailCopy = document.getElementById('detail-copy');
+  if (!detailCopy) {
+    return;
+  }
+  document.querySelectorAll('[data-detail]').forEach((mark) => {
+    if (!mark.hasAttribute('tabindex')) {
+      mark.setAttribute('tabindex', '0');
+    }
+    const updateDetail = () => {
+      const detail = mark.getAttribute('data-detail') || '';
+      if (detail) {
+        detailCopy.textContent = detail;
+      }
+    };
+    mark.addEventListener('click', updateDetail);
+    mark.addEventListener('mouseenter', updateDetail);
+    mark.addEventListener('focus', updateDetail);
+  });
+})();</script></body>
+</html>

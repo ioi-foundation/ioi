@@ -117,9 +117,26 @@ fn humanize_token(value: &str) -> String {
         .join(" ")
 }
 
-fn default_local_engine_runtime_profile() -> crate::models::LocalEngineRuntimeProfile {
-    let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
-    if std::env::var("OPENAI_API_KEY").is_ok() {
+pub fn default_local_engine_runtime_profile() -> crate::models::LocalEngineRuntimeProfile {
+    let openai_model = std::env::var("OPENAI_MODEL")
+        .or_else(|_| std::env::var("AUTOPILOT_LOCAL_RUNTIME_MODEL"))
+        .unwrap_or_else(|_| "gpt-4o".to_string());
+    let local_runtime_url = std::env::var("LOCAL_LLM_URL")
+        .ok()
+        .or_else(|| std::env::var("AUTOPILOT_LOCAL_RUNTIME_URL").ok());
+    if let Some(local_url) = local_runtime_url {
+        crate::models::LocalEngineRuntimeProfile {
+            mode: "http_local_dev".to_string(),
+            endpoint: trim_or_empty(local_url),
+            default_model: openai_model,
+            baseline_role:
+                "Bridged local HTTP runtime used for local GPU validation without restoring provider-first product posture."
+                    .to_string(),
+            kernel_authority:
+                "Kernel owns policy, routing, and receipts above the temporary HTTP boundary."
+                    .to_string(),
+        }
+    } else if std::env::var("OPENAI_API_KEY").is_ok() {
         crate::models::LocalEngineRuntimeProfile {
             mode: "openai_baseline".to_string(),
             endpoint: "https://api.openai.com/v1".to_string(),
@@ -128,18 +145,6 @@ fn default_local_engine_runtime_profile() -> crate::models::LocalEngineRuntimePr
                 .to_string(),
             kernel_authority:
                 "Kernel remains planner-of-record and receipt authority even when the baseline is remote."
-                    .to_string(),
-        }
-    } else if let Ok(local_url) = std::env::var("LOCAL_LLM_URL") {
-        crate::models::LocalEngineRuntimeProfile {
-            mode: "http_local".to_string(),
-            endpoint: trim_or_empty(local_url),
-            default_model: openai_model,
-            baseline_role:
-                "Bridged local HTTP runtime used while absorbed first-party executors continue to land."
-                    .to_string(),
-            kernel_authority:
-                "Kernel owns policy, routing, and receipts above the temporary HTTP boundary."
                     .to_string(),
         }
     } else {
@@ -157,7 +162,7 @@ fn default_local_engine_runtime_profile() -> crate::models::LocalEngineRuntimePr
     }
 }
 
-fn default_local_engine_control_plane() -> crate::models::LocalEngineControlPlane {
+pub fn default_local_engine_control_plane() -> crate::models::LocalEngineControlPlane {
     let runtime = default_local_engine_runtime_profile();
     let base = home_dir().join(".ioi").join("local-engine");
     let huggingface_home = std::env::var("HF_HOME")
@@ -276,6 +281,68 @@ fn default_local_engine_control_plane() -> crate::models::LocalEngineControlPlan
                 secret: false,
             },
             crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_LOCAL_RUNTIME_URL".to_string(),
+                value: std::env::var("AUTOPILOT_LOCAL_RUNTIME_URL").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_LOCAL_RUNTIME_MODEL".to_string(),
+                value: std::env::var("AUTOPILOT_LOCAL_RUNTIME_MODEL").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_LOCAL_EMBEDDING_MODEL".to_string(),
+                value: std::env::var("AUTOPILOT_LOCAL_EMBEDDING_MODEL")
+                    .unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL".to_string(),
+                value: std::env::var("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL")
+                    .unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "LOCAL_LLM_EMBEDDING_MODEL".to_string(),
+                value: std::env::var("LOCAL_LLM_EMBEDDING_MODEL").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "OPENAI_EMBEDDING_MODEL".to_string(),
+                value: std::env::var("OPENAI_EMBEDDING_MODEL").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_LOCAL_MODEL_SOURCE".to_string(),
+                value: std::env::var("AUTOPILOT_LOCAL_MODEL_SOURCE").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_LOCAL_BACKEND_SOURCE".to_string(),
+                value: std::env::var("AUTOPILOT_LOCAL_BACKEND_SOURCE").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_LOCAL_BACKEND_ID".to_string(),
+                value: std::env::var("AUTOPILOT_LOCAL_BACKEND_ID").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_LOCAL_DEV_PRESET".to_string(),
+                value: std::env::var("AUTOPILOT_LOCAL_DEV_PRESET").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_LOCAL_MODEL_CACHE_DIR".to_string(),
+                value: std::env::var("AUTOPILOT_LOCAL_MODEL_CACHE_DIR").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
+                key: "AUTOPILOT_DATA_PROFILE".to_string(),
+                value: std::env::var("AUTOPILOT_DATA_PROFILE").unwrap_or_default(),
+                secret: false,
+            },
+            crate::models::LocalEngineEnvironmentBinding {
                 key: "HF_HOME".to_string(),
                 value: huggingface_home,
                 secret: false,
@@ -292,7 +359,7 @@ fn default_local_engine_control_plane() -> crate::models::LocalEngineControlPlan
     }
 }
 
-fn normalize_local_engine_control_plane(
+pub fn normalize_local_engine_control_plane(
     mut control_plane: crate::models::LocalEngineControlPlane,
 ) -> crate::models::LocalEngineControlPlane {
     control_plane.runtime.mode = trim_or_empty(control_plane.runtime.mode);
@@ -468,7 +535,7 @@ fn build_local_engine_compatibility_routes(
     ]
 }
 
-fn load_or_initialize_local_engine_control_plane(
+pub fn load_or_initialize_local_engine_control_plane(
     memory_runtime: &std::sync::Arc<ioi_memory::MemoryRuntime>,
 ) -> crate::models::LocalEngineControlPlane {
     let control_plane = orchestrator::load_local_engine_control_plane(memory_runtime)

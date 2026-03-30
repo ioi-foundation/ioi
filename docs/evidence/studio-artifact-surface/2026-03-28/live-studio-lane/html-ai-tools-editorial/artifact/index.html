@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive AI Tools Overview</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .control-bar { display: flex; gap: 1rem; margin-bottom: 2rem; }
+    .evidence-section { border: 1px solid #ccc; padding: 1rem; }
+    .evidence-chart { display: block; width: 100%; height: 300px; }
+    .detail-panel { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Engage with an Interactive Overview of New AI Tools</h1>
+  </header>
+  <nav class="control-bar">
+    <button type="button" data-view="ai-tool-usage-in-businesses" aria-controls="ai-tool-usage-in-businesses-panel">AI Tool Usage in Businesses</button>
+    <button type="button" data-view="expert-opinions-on-ai-technologies" aria-controls="expert-opinions-on-ai-technologies-panel">Expert Opinions on AI Technologies</button>
+    <button type="button" data-view="tool-comparison" aria-controls="tool-comparison-panel">Tool Comparison</button>
+  </nav>
+  <main>
+    <section id="ai-tool-usage-in-businesses-panel" class="evidence-section data-view-panel" data-view-panel="ai-tool-usage-in-businesses" aria-hidden="false">
+      <h2>AI Tool Usage in Businesses</h2>
+      <div class="evidence-chart">
+        <svg width="600" height="300">
+          <rect x="50" y="100" width="100" height="100" fill="#4CAF50" tabindex="0" data-detail="AI Tool Usage in Businesses"/>
+        </svg>
+      </div>
+    </section>
+    <section id="expert-opinions-on-ai-technologies-panel" class="evidence-section data-view-panel" data-view-panel="expert-opinions-on-ai-technologies" aria-hidden="true">
+      <h2>Expert Opinions on AI Technologies</h2>
+      <ul class="opinion-list">
+        <li><strong>Opinion 1:</strong> This tool is ideal for business growth.</li>
+        <li><strong>Opinion 2:</strong> It offers innovative solutions to common problems.</li>
+      </ul>
+    </section>
+    <section id="tool-comparison-panel" class="evidence-section data-view-panel" data-view-panel="tool-comparison" aria-hidden="true">
+      <h2>Tool Comparison</h2>
+      <div class="comparison-rail">
+        <ul>
+          <li><strong>Tool A:</strong> Feature 1, Feature 2</li>
+          <li><strong>Tool B:</strong> Feature 3, Feature 4</li>
+        </ul>
+      </div>
+    </section>
+    <aside id="shared-detail-panel" class="detail-panel">
+      <h3>Shared Detail</h3>
+      <p>Explore the current trends and expert opinions on AI tools.</p>
+    </aside>
+  <aside data-studio-normalized="true" data-studio-shared-detail="true"><h2>Detail</h2><p id="detail-copy">AI Tool Usage in Businesses is selected by default.</p></aside><section data-studio-normalized="true" data-studio-rollover-chip-rail="true"><h2>Evidence highlights</h2><div class="studio-rollover-chip-rail"><button type="button" class="studio-rollover-chip" data-detail="expert opinions on AI technologies">expert opinions on AI technologies</button><button type="button" class="studio-rollover-chip" data-detail="tool comparison">tool comparison</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>
+  <script>
+    const panels = Array.from(document.querySelectorAll('[data-view-panel]'));
+    document.addEventListener('DOMContentLoaded', () => {
+      const defaultViewPanel = 'ai-tool-usage-in-businesses';
+      panels.forEach(panel => {
+        if (panel.dataset.viewPanel === defaultViewPanel) {
+          panel.setAttribute('aria-hidden', 'false');
+          panel.style.display = 'block';
+        } else {
+          panel.setAttribute('aria-hidden', 'true');
+          panel.style.display = 'none';
+        }
+      });
+    });
+  </script>
+<script data-studio-normalized="true" data-studio-view-switch-repair="true">(() => {
+  const controls = Array.from(document.querySelectorAll('button[data-view], [role="tab"][data-view]'));
+  if (controls.length < 2) {
+    return;
+  }
+  const explicitPanels = Array.from(document.querySelectorAll('[data-view-panel]'));
+  const mappedPanels = controls
+    .map((button) => {
+      const ariaTarget = button.getAttribute('aria-controls');
+      if (ariaTarget) {
+        return document.getElementById(ariaTarget);
+      }
+      const dataTarget = button.getAttribute('data-target') || '';
+      if (dataTarget.startsWith('#')) {
+        return document.querySelector(dataTarget);
+      }
+      return null;
+    })
+    .filter((panel, index, panels) => panel && panels.indexOf(panel) === index);
+  const panels = explicitPanels.length
+    ? explicitPanels
+    : (mappedPanels.length
+      ? mappedPanels
+      : Array.from(document.querySelectorAll('[data-panel], [role="tabpanel"]')));
+  if (panels.length < 2) {
+    return;
+  }
+  const detailCopy = document.getElementById('detail-copy');
+  const selectView = (activeControl) => {
+    const targetView = activeControl.dataset.view || '';
+    const rawTarget = activeControl.getAttribute('data-target') || '';
+    const targetId = activeControl.getAttribute('aria-controls') || (rawTarget.startsWith('#') ? rawTarget.slice(1) : rawTarget);
+    panels.forEach((panel) => {
+      const panelView = panel.dataset.viewPanel || panel.dataset.panel || '';
+      const panelId = panel.id || '';
+      const isActive = (targetView && panelView === targetView) || (targetId && panelId === targetId);
+      panel.hidden = !isActive;
+      panel.setAttribute('aria-hidden', String(!isActive));
+    });
+    controls.forEach((control) => {
+      control.setAttribute('aria-selected', String(control === activeControl));
+    });
+    if (detailCopy && activeControl.textContent) {
+      detailCopy.textContent = `${activeControl.textContent.trim()} selected.`;
+    }
+  };
+  controls.forEach((button) => {
+    button.addEventListener('click', () => selectView(button));
+  });
+  const defaultControl = controls.find((button) => button.getAttribute('aria-selected') === 'true') || controls[0];
+  if (defaultControl) {
+    selectView(defaultControl);
+  }
+})();</script><script data-studio-normalized="true" data-studio-rollover-repair="true">(() => {
+  const detailCopy = document.getElementById('detail-copy');
+  if (!detailCopy) {
+    return;
+  }
+  document.querySelectorAll('[data-detail]').forEach((mark) => {
+    if (!mark.hasAttribute('tabindex')) {
+      mark.setAttribute('tabindex', '0');
+    }
+    const updateDetail = () => {
+      const detail = mark.getAttribute('data-detail') || '';
+      if (detail) {
+        detailCopy.textContent = detail;
+      }
+    };
+    mark.addEventListener('click', updateDetail);
+    mark.addEventListener('mouseenter', updateDetail);
+    mark.addEventListener('focus', updateDetail);
+  });
+})();</script></body>
+</html>

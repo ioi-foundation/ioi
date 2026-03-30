@@ -1,0 +1,9 @@
+{
+  "status": "ready",
+  "lifecycle_state": "ready",
+  "title": "Studio outcome: an interactive HTML artifact that explains a product rollout with charts",
+  "summary": "an interactive HTML artifact that explains a product rollout with charts The candidate stays grounded in dog shampoo, covers the required concepts, and is strong enough to lead the stage.",
+  "evidence": [
+    "index.html"
+  ]
+}

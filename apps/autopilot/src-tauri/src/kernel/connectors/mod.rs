@@ -27,6 +27,30 @@ pub use types::{
     WalletMailListRecentResult, WalletMailReadLatestResult, WalletMailReplyResult,
 };
 
+pub(crate) fn wallet_backed_bootstrap_enabled() -> bool {
+    if let Ok(explicit) = std::env::var("AUTOPILOT_CONNECTOR_WALLET_BOOTSTRAP") {
+        let normalized = explicit.trim().to_ascii_lowercase();
+        if matches!(normalized.as_str(), "1" | "true" | "yes" | "on") {
+            return true;
+        }
+        if matches!(normalized.as_str(), "0" | "false" | "no" | "off") {
+            return false;
+        }
+    }
+
+    if crate::is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV") {
+        return false;
+    }
+
+    !matches!(
+        std::env::var("AUTOPILOT_DATA_PROFILE")
+            .ok()
+            .as_deref()
+            .map(str::trim),
+        Some("desktop-localgpu")
+    )
+}
+
 #[tauri::command]
 pub async fn wallet_mail_configure_account(
     state: State<'_, Mutex<AppState>>,

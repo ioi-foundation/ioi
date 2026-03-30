@@ -1,0 +1,33 @@
+{
+  "requestId": "05c52cab-4f28-4210-8e0f-4144667a8cad",
+  "rawPrompt": "Create a downloadable artifact bundle with a CSV and README",
+  "activeArtifactId": null,
+  "outcomeKind": "artifact",
+  "confidence": 1,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "downloadable_file",
+    "deliverableShape": "file_set",
+    "renderer": "download_card",
+    "presentationSurface": "side_panel",
+    "persistence": "shared_artifact_scoped",
+    "executionSubstrate": "none",
+    "workspaceRecipeId": null,
+    "presentationVariantId": null,
+    "scope": {
+      "targetProject": null,
+      "createNewWorkspace": false,
+      "mutationBoundary": [
+        "artifact"
+      ]
+    },
+    "verification": {
+      "requireRender": false,
+      "requireBuild": false,
+      "requirePreview": false,
+      "requireExport": true,
+      "requireDiffReview": false
+    }
+  }
+}

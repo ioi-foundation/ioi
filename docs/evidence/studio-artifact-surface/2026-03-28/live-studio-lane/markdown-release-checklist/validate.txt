@@ -1,0 +1,1 @@
+Artifact manifest 'Create a markdown artifact that documents a release checklist' is valid.

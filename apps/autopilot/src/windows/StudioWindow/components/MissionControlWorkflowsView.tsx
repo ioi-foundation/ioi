@@ -25,6 +25,7 @@ interface MissionControlWorkflowsViewProps {
   editingAgent: AgentSummary | null;
   onSurfaceChange: (surface: "home" | "canvas" | "agents" | "catalog") => void;
   onSelectProject: (projectId: string) => void;
+  onOpenStudio: () => void;
   onOpenInbox: () => void;
   onOpenCapabilities: () => void;
   onOpenPolicy: () => void;
@@ -55,6 +56,7 @@ export function MissionControlWorkflowsView({
   projects,
   notificationCount,
   editingAgent,
+  onOpenStudio,
   onSurfaceChange,
   onSelectProject,
   onOpenInbox,
@@ -69,9 +71,9 @@ export function MissionControlWorkflowsView({
   const surfaceLabel = workflowSurfaceLabel(surface);
   const title =
     surface === "home"
-      ? "Autopilot home"
+      ? "Builder internals"
       : "Workflow authoring";
-  const kicker = surface === "home" ? "Welcome" : "Encode";
+  const kicker = surface === "home" ? "Internal" : "Encode";
 
   return (
     <div className="mission-control-view mission-control-view--workflows">
@@ -130,6 +132,7 @@ export function MissionControlWorkflowsView({
               projects={projects}
               notificationCount={notificationCount}
               onOpenCanvas={() => onSurfaceChange("canvas")}
+              onOpenStudio={onOpenStudio}
               onOpenAgents={() => onSurfaceChange("agents")}
               onOpenCatalog={() => onSurfaceChange("catalog")}
               onOpenInbox={onOpenInbox}

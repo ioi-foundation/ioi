@@ -102,11 +102,37 @@ pub(super) fn zero_ranked_candidates(matrix: &[IntentMatrixEntry]) -> Vec<Intent
 }
 
 pub(super) fn canonical_descriptor_for_entry(entry: &IntentMatrixEntry) -> String {
-    entry
-        .semantic_descriptor
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    fn normalize_fragment(value: &str) -> Option<String> {
+        let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
+        (!normalized.is_empty()).then_some(normalized)
+    }
+
+    let mut fragments = Vec::new();
+    if let Some(semantic_descriptor) = normalize_fragment(&entry.semantic_descriptor) {
+        fragments.push(format!("semantic: {}", semantic_descriptor));
+    }
+    if !entry.aliases.is_empty() {
+        let aliases = entry
+            .aliases
+            .iter()
+            .filter_map(|alias| normalize_fragment(alias))
+            .collect::<Vec<_>>();
+        if !aliases.is_empty() {
+            fragments.push(format!("aliases: {}", aliases.join(" | ")));
+        }
+    }
+    if !entry.exemplars.is_empty() {
+        let exemplars = entry
+            .exemplars
+            .iter()
+            .filter_map(|exemplar| normalize_fragment(exemplar))
+            .collect::<Vec<_>>();
+        if !exemplars.is_empty() {
+            fragments.push(format!("exemplars: {}", exemplars.join(" | ")));
+        }
+    }
+
+    fragments.join(" || ")
 }
 
 async fn build_intent_prototypes(
@@ -522,6 +548,10 @@ pub fn should_pause_for_clarification(
     resolved: &ResolvedIntentState,
     policy: &IntentRoutingPolicy,
 ) -> bool {
+    if resolved.intent_id == "conversation.reply" {
+        return false;
+    }
+
     if resolved.intent_id == "resolver.unclassified" {
         return matches!(
             policy.ambiguity.low_confidence_action,

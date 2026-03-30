@@ -36,6 +36,7 @@ type SpotlightInputSectionProps = {
   activeDropdown: string | null;
   setActiveDropdown: (value: string | null) => void;
   onOpenSettings: () => void;
+  placeholder?: string;
 };
 
 type SlashTokenContext = {
@@ -133,6 +134,7 @@ export function SpotlightInputSection({
   activeDropdown,
   setActiveDropdown,
   onOpenSettings,
+  placeholder,
 }: SpotlightInputSectionProps) {
   const commandsMenuOpen = activeDropdown === "commands";
   const [slashContext, setSlashContext] = useState<SlashTokenContext | null>(null);
@@ -504,7 +506,7 @@ export function SpotlightInputSection({
               ? showPasswordPrompt
                 ? "Sudo password required below to continue install..."
                 : "Clarification required below to continue..."
-              : "How can I help you today?"
+              : placeholder || "How can I help you today?"
           }
           value={intent}
           onChange={handleTextareaChange}
@@ -520,7 +522,7 @@ export function SpotlightInputSection({
 
         <div className="spot-controls">
           <div className="spot-controls-left">
-            <button className="spot-action-btn" title="Attach file (⌘U)">
+            <button className="spot-action-btn" title="Attach file (⌘U)" type="button">
               {icons.paperclip}
             </button>
             <button
@@ -534,7 +536,7 @@ export function SpotlightInputSection({
           </div>
 
           {isRunning ? (
-            <button className="spot-stop-btn" onClick={onStop} title="Stop (Esc)">
+            <button className="spot-stop-btn" onClick={onStop} title="Stop (Esc)" type="button">
               {icons.stop}
               <span>Stop</span>
             </button>
@@ -544,6 +546,7 @@ export function SpotlightInputSection({
               onClick={onSubmit}
               disabled={!intent.trim() || isGated || inputLockedByCredential}
               title="Send (⏎)"
+              type="button"
             >
               {icons.send}
             </button>

@@ -21,6 +21,7 @@ interface StudioWelcomeViewProps {
   projects: ProjectScope[];
   notificationCount: number;
   onOpenCanvas: () => void;
+  onOpenStudio: () => void;
   onOpenAgents: () => void;
   onOpenCatalog: () => void;
   onOpenInbox: () => void;
@@ -58,6 +59,7 @@ export function StudioWelcomeView({
   projects,
   notificationCount,
   onOpenCanvas,
+  onOpenStudio,
   onOpenAgents,
   onOpenCatalog,
   onOpenInbox,
@@ -72,6 +74,13 @@ export function StudioWelcomeView({
       detail: "Compose orchestration, memory boundaries, and durable execution paths.",
       icon: <ComposeIcon />,
       onClick: onOpenCanvas,
+    },
+    {
+      id: "studio",
+      label: "Return to Studio",
+      detail: "Open the artifact host and let conversation route into documents, visuals, widgets, or workspace renderers only when the outcome needs them.",
+      icon: <ComposeIcon />,
+      onClick: onOpenStudio,
     },
     {
       id: "agents",

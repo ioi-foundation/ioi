@@ -1,0 +1,23 @@
+{
+  "status": "ready",
+  "lifecycleState": "ready",
+  "title": "Studio outcome: Create a downloadable artifact bundle with a CSV and README",
+  "summary": "Create a downloadable artifact bundle with a CSV and README Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+  "evidence": [
+    "data.csv",
+    "README.md"
+  ],
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:14b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "failure": null
+}

@@ -1,0 +1,235 @@
+{
+  "prompt": "Create a PDF artifact that summarizes a launch brief",
+  "title": "a PDF artifact that summarizes a launch brief",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 1.0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "document",
+      "deliverableShape": "single_file",
+      "renderer": "pdf_embed",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "binary_generator",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "launch_brief_summary"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "Project stakeholders and team members",
+    "jobToBeDone": "Provide a concise summary of the launch brief for quick reference and decision-making purposes",
+    "subjectDomain": "Launch planning and execution",
+    "artifactThesis": "Generate a single-page PDF document that succinctly summarizes key points from the launch brief, ensuring clarity and ease of understanding",
+    "requiredConcepts": [
+      "launch",
+      "brief",
+      "summary",
+      "project timeline",
+      "milestones",
+      "team roles"
+    ],
+    "requiredInteractions": [],
+    "visualTone": [
+      "professional",
+      "concise",
+      "informative"
+    ],
+    "factualAnchors": [
+      "key objectives of the launch",
+      "important dates and deadlines",
+      "responsibilities of team members"
+    ],
+    "styleDirectives": [
+      "use bullet points for clarity",
+      "include relevant charts or timelines if space allows",
+      "maintain a clear and uncluttered layout"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 9286742964771340707,
+      "model": "qwen2.5:7b",
+      "temperature": 0.2,
+      "strategy": "brief-first_pdf",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Executive Summary\nThis document provides a concise summary of the launch brief to ensure clarity and ease of understanding for project stakeholders and team members.\n\nProject Scope\n- Key objectives: Increase brand awareness, drive sales, and establish market presence.\n- Important dates: Launch date - March 15, 2023; Beta testing period - February 15 - March 14, 2023.\n- Milestones: Final product development by January 31, 2023; Marketing campaign launch on February 15, 2023.\n\nTeam Roles\n- Product Manager: Lead project timeline and ensure all milestones are met.\n- Marketing Director: Oversee marketing strategy and coordinate with external partners.\n- Development Team: Focus on product development and quality assurance.\n\nNext Steps and Risks\n- Ensure all team members have access to the latest brief updates.\n- Identify potential risks such as supply chain disruptions and develop contingency plans.",
+      "renderablePaths": [
+        "launch_brief_summary.pdf"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 4,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Complies with all requirements and presents a clear, concise summary."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "Complies with all requirements and presents a clear, concise summary.",
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 4,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Complies with all requirements and presents a clear, concise summary."
+  },
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "manifest": {
+    "artifactId": "71d5793d-0a05-4f85-bccb-8322e3065b85",
+    "title": "a PDF artifact that summarizes a launch brief",
+    "artifactClass": "document",
+    "renderer": "pdf_embed",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "pdf_embed",
+        "filePath": "launch_brief_summary.pdf",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "launch_brief_summary.pdf",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "launch_brief_summary.pdf",
+        "mime": "application/pdf",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-launch_brief_summary.pdf",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Complies with all requirements and presents a clear, concise summary.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: a PDF artifact that summarizes a launch brief",
+    "summary": "a PDF artifact that summarizes a launch brief Complies with all requirements and presents a clear, concise summary.",
+    "evidence": [
+      "launch_brief_summary.pdf"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "materializedFiles": [
+    "launch_brief_summary.pdf"
+  ],
+  "renderableFiles": [
+    "launch_brief_summary.pdf"
+  ],
+  "refinement": null
+}

@@ -1,6 +1,6 @@
 # Autopilot Internal Product Spec
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** Proposed revision
 **Audience:** Product, design, Studio UI, Spotlight UI, runtime, orchestration, policy, capability, connector, and platform teams
 
@@ -85,7 +85,17 @@ A digital workforce control plane that can:
 * provide a durable Inbox for interventions, approvals, exceptions, and result review
 * let leadership supervise outcomes, not prompt transcripts
 
-### 3.4 For the broader ecosystem
+### 3.4 For runtime / fleet supervision
+
+A governed runtime and fleet lens that can:
+
+* supervise live worker swarms, devices, or embedded endpoints under the same operator identity
+* monitor telemetry, incidents, approvals, receipts, and interventions in real time
+* coordinate escalation, notification routing, and intervention windows across software and eventual embodied systems
+* preserve the same policy, capability, evidence, and trust model used for personal and builder work
+* expose higher-density operational controls without becoming a separate product or shell
+
+### 3.5 For the broader ecosystem
 
 A service-as-software substrate where stable workflows become reusable digital services that are:
 
@@ -535,7 +545,7 @@ Service-level operating envelopes, tenant-facing approvals, hosted execution res
 
 ### Settings
 
-Configuration surface used to define worker defaults, models, providers, system identity, diagnostics, storage, and environment preferences.
+Configuration surface used to define worker defaults, models, providers, system identity, diagnostics, storage, notification routing, personalization, and environment preferences.
 
 ### Artifact and Evidence Atlas
 
@@ -548,6 +558,44 @@ Surface for reusable workers, promoted workflows, local installs, service candid
 ### Home and Mission Control
 
 High-signal dashboard for active objectives, urgent work, system health, and worker fleet state.
+
+### Native lens model
+
+Autopilot should remain one native shell with multiple first-party lenses over the same ontology, not separate products for assistant, builder, or runtime use.
+
+Initial native lenses should be:
+
+* Personal
+* Operator
+* Builder
+* Runtime / Fleet
+
+A later `Embodied` or `Robotics` lens is acceptable only when the same policy, approval, evidence, and authority guarantees still hold.
+
+The following should remain universal across all lenses:
+
+* operator identity
+* project or scope
+* chat / operator pane
+* Inbox
+* Policy
+* Capabilities
+* Settings and preferences
+* artifacts, evidence, and receipts
+
+Lenses should change:
+
+* default landing view
+* density and layout
+* pinned widgets and side panels
+* alert posture and notification priority
+* terminology emphasis
+* visible advanced controls
+* whether calendar/tasks, terminal/logs, or telemetry are foregrounded
+
+The shell should prefer context-driven defaults and per-project preferred lenses over a theatrical global mode switcher. A personal workspace may open in the Personal lens, a repo or workflow project may open in Builder, and a live swarm or device scope may open in Runtime / Fleet.
+
+Extensions may later contribute domain-specific dashboards or secondary panels, but primary shell identity, top-level navigation, and the main operator ontology should stay native until the shell model is stable.
 
 ---
 
@@ -876,6 +924,9 @@ Autopilot should follow these doctrines.
 9. Product ontology must reflect operator meaning, not just implementation details.
    A worker uses capabilities; a model powers a worker; an extension packages capabilities; the kernel and runtime enforce the boundary.
 
+10. Lenses change emphasis, not ontology.
+   Personal, builder, operator, runtime, and embodied views should remain native lenses over one shell and one control plane.
+
 ---
 
 ## 17. What Autopilot Is Not
@@ -909,6 +960,10 @@ Chat is a surface, not the product. The core UX is control, outcomes, and decisi
 
 “Coordinate a fleet of workers across support, ops, and research, and intervene only on exceptions, approvals, and results worth review.”
 
+### Runtime supervisor
+
+“Keep live workers, services, devices, or embedded endpoints inside policy, show me telemetry and anomalies, and route interventions into the same inbox and preference system I use everywhere else.”
+
 ### Executive
 
 “Show me what needs my attention, what completed, where risk exists, and what the workers are doing for the business.”
@@ -940,11 +995,13 @@ Autopilot should feel like:
 * a private desktop assistant when the task is personal and immediate
 * a workflow and worker studio when the task needs durable structure
 * an operational supervision surface when the task is live and ongoing
+* a runtime and fleet supervision lens when the task is distributed, device-linked, or eventually embedded
 * a human intervention queue when the task needs judgment
 * a zero-trust hypervisor when the task crosses trust boundaries
 * a promotion surface into provider services when the task becomes repeatable software labor
 
 One shell. One ontology. One control plane.
+Native lenses should change defaults and emphasis, not the underlying product model.
 
 Today the dominant action surface is software. Over time, the architecture should be capable of extending to devices or embodied systems without changing the higher-order governance model.
 

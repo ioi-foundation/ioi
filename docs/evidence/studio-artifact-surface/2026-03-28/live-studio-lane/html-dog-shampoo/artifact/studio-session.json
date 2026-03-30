@@ -1,0 +1,815 @@
+{
+  "sessionId": "76171e04-af1f-4a2b-805c-0ecb184291fa",
+  "threadId": "studio-proof-task",
+  "artifactId": "e360d437-252e-41d2-9d58-9418c6c5cbc3",
+  "title": "Create an interactive HTML artifact that explains a product rollo...",
+  "summary": "Studio created 'Create an interactive HTML artifact that explains a product rollo...' as a single-file HTML artifact rendered in an isolated frame.",
+  "currentLens": "render",
+  "navigatorBackingMode": "logical",
+  "navigatorNodes": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "description": "Interact with the artifact through its renderer-specific presentation.",
+      "badge": null,
+      "status": null,
+      "lens": "render",
+      "path": null,
+      "children": []
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "description": "Inspect the source form of the artifact.",
+      "badge": null,
+      "status": null,
+      "lens": "source",
+      "path": null,
+      "children": []
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "description": "Inspect verification state, receipts, and evidence.",
+      "badge": null,
+      "status": null,
+      "lens": "evidence",
+      "path": null,
+      "children": []
+    }
+  ],
+  "attachedArtifactIds": [
+    "e360d437-252e-41d2-9d58-9418c6c5cbc3",
+    "5598c52c-53b2-4a51-9789-b186a653b007"
+  ],
+  "availableLenses": [
+    "render",
+    "source",
+    "evidence"
+  ],
+  "materialization": {
+    "version": 3,
+    "requestKind": "interactive_single_file",
+    "normalizedIntent": "Create an interactive HTML artifact that explains a product rollout with charts about dog shampoo",
+    "summary": "Studio created 'Create an interactive HTML artifact that explains a product rollo...' as a single-file HTML artifact rendered in an isolated frame.",
+    "artifactBrief": {
+      "audience": "Consumers interested in dog grooming products",
+      "jobToBeDone": "Understand the product rollout process for new dog shampoo",
+      "subjectDomain": "Dog care and grooming industry",
+      "artifactThesis": "Explore the features, benefits, and market impact of a new dog shampoo through interactive charts and data visualizations",
+      "requiredConcepts": [
+        "dog shampoo",
+        "product rollout",
+        "market analysis"
+      ],
+      "requiredInteractions": [
+        "hover-over chart details",
+        "click-through timeline"
+      ],
+      "visualTone": [
+        "informative",
+        "professional"
+      ],
+      "factualAnchors": [
+        "latest market trends in dog grooming products",
+        "company's previous product launches and their success metrics"
+      ],
+      "styleDirectives": [],
+      "referenceHints": [
+        "dog shampoo ingredients and benefits",
+        "customer reviews and feedback on similar products"
+      ]
+    },
+    "editIntent": null,
+    "candidateSummaries": [
+      {
+        "candidateId": "candidate-1",
+        "seed": 15580681850430602589,
+        "model": "qwen2.5:7b",
+        "temperature": 0.62,
+        "strategy": "request-grounded_html",
+        "origin": "live_inference",
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "summary": "An interactive HTML artifact explaining the product rollout of new dog shampoo through charts and data visualizations for consumers interested in dog grooming products.",
+        "renderablePaths": [
+          "explore-dog-shampoo-rollout.html"
+        ],
+        "selected": true,
+        "fallback": false,
+        "failure": null,
+        "rawOutputPreview": null,
+        "judge": {
+          "classification": "pass",
+          "requestFaithfulness": 5,
+          "conceptCoverage": 5,
+          "interactionRelevance": 5,
+          "layoutCoherence": 5,
+          "visualHierarchy": 5,
+          "completeness": 5,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": true,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "",
+          "rationale": "Candidate meets all requirements with interactive charts and data visualizations."
+        }
+      },
+      {
+        "candidateId": "candidate-2",
+        "seed": 4941901035075606688,
+        "model": "qwen2.5:7b",
+        "temperature": 0.62,
+        "strategy": "request-grounded_html",
+        "origin": "live_inference",
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "summary": "An interactive HTML artifact explaining the product rollout for new dog shampoo with charts about market trends and company success metrics.",
+        "renderablePaths": [
+          "index.html"
+        ],
+        "selected": false,
+        "fallback": false,
+        "failure": null,
+        "rawOutputPreview": null,
+        "judge": {
+          "classification": "repairable",
+          "requestFaithfulness": 4,
+          "conceptCoverage": 3,
+          "interactionRelevance": 3,
+          "layoutCoherence": 4,
+          "visualHierarchy": 4,
+          "completeness": 2,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": true,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "Single chart insufficient for multiple required visualizations.",
+          "rationale": "Candidate lacks secondary evidence and sequence browsing, but follows layout recipe."
+        }
+      },
+      {
+        "candidateId": "candidate-3",
+        "seed": 12749864293430162403,
+        "model": "qwen2.5:7b",
+        "temperature": 0.62,
+        "strategy": "request-grounded_html",
+        "origin": "live_inference",
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "summary": "An interactive HTML artifact explaining the product rollout of new dog shampoo with charts and data visualizations.",
+        "renderablePaths": [
+          "index.html"
+        ],
+        "selected": false,
+        "fallback": false,
+        "failure": null,
+        "rawOutputPreview": null,
+        "judge": {
+          "classification": "repairable",
+          "requestFaithfulness": 4,
+          "conceptCoverage": 3,
+          "interactionRelevance": 2,
+          "layoutCoherence": 2,
+          "visualHierarchy": 2,
+          "completeness": 2,
+          "genericShellDetected": false,
+          "trivialShellDetected": true,
+          "deservesPrimaryArtifactView": false,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "HTML chart SVG regions are unlabeled on first paint.",
+          "rationale": "Renderer contract failures keep the first paint from qualifying as primary output."
+        }
+      }
+    ],
+    "winningCandidateId": "candidate-1",
+    "winningCandidateRationale": "Candidate meets all requirements with interactive charts and data visualizations.",
+    "judge": {
+      "classification": "pass",
+      "requestFaithfulness": 5,
+      "conceptCoverage": 5,
+      "interactionRelevance": 5,
+      "layoutCoherence": 5,
+      "visualHierarchy": 5,
+      "completeness": 5,
+      "genericShellDetected": false,
+      "trivialShellDetected": false,
+      "deservesPrimaryArtifactView": true,
+      "patchedExistingArtifact": null,
+      "continuityRevisionUx": null,
+      "strongestContradiction": "",
+      "rationale": "Candidate meets all requirements with interactive charts and data visualizations."
+    },
+    "outputOrigin": "live_inference",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "fallbackUsed": false,
+    "uxLifecycle": "judged",
+    "failure": null,
+    "navigatorNodes": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "description": "Interact with the artifact through its renderer-specific presentation.",
+        "badge": null,
+        "status": null,
+        "lens": "render",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "description": "Inspect the source form of the artifact.",
+        "badge": null,
+        "status": null,
+        "lens": "source",
+        "path": null,
+        "children": []
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "description": "Inspect verification state, receipts, and evidence.",
+        "badge": null,
+        "status": null,
+        "lens": "evidence",
+        "path": null,
+        "children": []
+      }
+    ],
+    "fileWrites": [
+      {
+        "path": "explore-dog-shampoo-rollout.html",
+        "kind": "primary",
+        "contentPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Explore the Features and Market Impact of New Dog Shampoo</title>"
+      }
+    ],
+    "commandIntents": [],
+    "previewIntent": null,
+    "verificationSteps": [
+      {
+        "id": "materialize",
+        "label": "Materialize artifact",
+        "kind": "materialize",
+        "status": "success"
+      },
+      {
+        "id": "verify",
+        "label": "Verify artifact contract",
+        "kind": "verify",
+        "status": "success"
+      }
+    ],
+    "pipelineSteps": [
+      {
+        "id": "intake",
+        "stage": "intake",
+        "label": "Intake",
+        "status": "complete",
+        "summary": "Studio captured the request and established the active artifact context.",
+        "outputs": [
+          "Create an interactive HTML artifact that explains a product rollout with charts about do…"
+        ],
+        "verificationGate": null
+      },
+      {
+        "id": "routing",
+        "stage": "routing",
+        "label": "Outcome routing",
+        "status": "complete",
+        "summary": "The typed router chose the artifact branch intentionally.",
+        "outputs": [
+          "artifact",
+          "interactive_single_file",
+          "html_iframe"
+        ],
+        "verificationGate": null
+      },
+      {
+        "id": "requirements",
+        "stage": "requirements",
+        "label": "Requirements",
+        "status": "complete",
+        "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+        "outputs": [
+          "product_rollout"
+        ],
+        "verificationGate": null
+      },
+      {
+        "id": "specification",
+        "stage": "specification",
+        "label": "Artifact spec",
+        "status": "complete",
+        "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+        "outputs": [
+          "interactive_single_file",
+          "html_iframe",
+          "side_panel",
+          "shared_artifact_scoped"
+        ],
+        "verificationGate": null
+      },
+      {
+        "id": "materialization",
+        "stage": "materialization",
+        "label": "Materialization",
+        "status": "complete",
+        "summary": "Studio is creating the files or workspace required by the manifest.",
+        "outputs": [
+          "explore-dog-shampoo-rollout.html"
+        ],
+        "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+      },
+      {
+        "id": "execution",
+        "stage": "execution",
+        "label": "Execution",
+        "status": "complete",
+        "summary": "Single-file generation completed inside the selected renderer substrate.",
+        "outputs": [
+          "explore-dog-shampoo-rollout.html"
+        ],
+        "verificationGate": "Execution receipts must exist for every command-backed step."
+      },
+      {
+        "id": "verification",
+        "stage": "verification",
+        "label": "Verification",
+        "status": "complete",
+        "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+        "outputs": [
+          "Materialize artifact (success)",
+          "Verify artifact contract (success)"
+        ],
+        "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+      },
+      {
+        "id": "presentation",
+        "stage": "presentation",
+        "label": "Presentation",
+        "status": "complete",
+        "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+        "outputs": [
+          "render",
+          "1 file(s)"
+        ],
+        "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+      },
+      {
+        "id": "reply",
+        "stage": "reply",
+        "label": "Verified reply",
+        "status": "complete",
+        "summary": "Studio composes the user-facing summary from artifact state and verification.",
+        "outputs": [
+          "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+        ],
+        "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+      }
+    ],
+    "notes": [
+      "Conversation remains the control plane; this artifact is the work product.",
+      "Renderer choice is explicit in the typed outcome request.",
+      "Verification state, not worker prose, authorizes the final Studio summary.",
+      "Includes hover-over chart details, click-through timeline",
+      "Uses inline SVG for data visualization",
+      "Keeps at least two distinct evidence views or chart families tied to different required concepts",
+      "Winning candidate candidate-1 selected via typed judging."
+    ]
+  },
+  "outcomeRequest": {
+    "requestId": "a9111c5d-ec10-455c-a0ff-8279d2515b98",
+    "rawPrompt": "Create an interactive HTML artifact that explains a product rollout with charts about dog shampoo",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 0.85,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "product_rollout"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactManifest": {
+    "artifactId": "e360d437-252e-41d2-9d58-9418c6c5cbc3",
+    "title": "Create an interactive HTML artifact that explains a product rollo...",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": null,
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": null,
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "explore-dog-shampoo-rollout.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "e360d437-252e-41d2-9d58-9418c6c5cbc3",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "shared_artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create an interactive HTML artifact that explains a product rollo...",
+    "summary": "Create an interactive HTML artifact that explains a product rollo... Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "evidence": [
+      "explore-dog-shampoo-rollout.html",
+      "production provenance: openai-compatible (qwen2.5:7b)",
+      "acceptance provenance: openai-compatible (qwen2.5:14b)"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null,
+    "updatedAt": "2026-03-30T13:49:52.810455028+00:00"
+  },
+  "lifecycleState": "ready",
+  "status": "ready",
+  "activeRevisionId": "a4a2405a-3a40-4079-8606-6368d8383c0e",
+  "revisions": [
+    {
+      "revisionId": "a4a2405a-3a40-4079-8606-6368d8383c0e",
+      "parentRevisionId": null,
+      "branchId": "main",
+      "branchLabel": "Main",
+      "prompt": "Create an interactive HTML artifact that explains a product rollout with charts about dog shampoo",
+      "createdAt": "2026-03-30T13:49:52.810490378+00:00",
+      "uxLifecycle": "judged",
+      "artifactManifest": {
+        "artifactId": "e360d437-252e-41d2-9d58-9418c6c5cbc3",
+        "title": "Create an interactive HTML artifact that explains a product rollo...",
+        "artifactClass": "interactive_single_file",
+        "renderer": "html_iframe",
+        "primaryTab": "render",
+        "tabs": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "renderer": "html_iframe",
+            "filePath": null,
+            "lens": "render"
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": null,
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [
+          {
+            "path": "explore-dog-shampoo-rollout.html",
+            "mime": "text/html",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": false,
+            "artifactId": "e360d437-252e-41d2-9d58-9418c6c5cbc3",
+            "externalUrl": null
+          }
+        ],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+          },
+          "failure": null
+        },
+        "storage": {
+          "mode": "shared_artifact_scoped",
+          "apiLabel": "artifact storage"
+        }
+      },
+      "artifactBrief": {
+        "audience": "Consumers interested in dog grooming products",
+        "jobToBeDone": "Understand the product rollout process for new dog shampoo",
+        "subjectDomain": "Dog care and grooming industry",
+        "artifactThesis": "Explore the features, benefits, and market impact of a new dog shampoo through interactive charts and data visualizations",
+        "requiredConcepts": [
+          "dog shampoo",
+          "product rollout",
+          "market analysis"
+        ],
+        "requiredInteractions": [
+          "hover-over chart details",
+          "click-through timeline"
+        ],
+        "visualTone": [
+          "informative",
+          "professional"
+        ],
+        "factualAnchors": [
+          "latest market trends in dog grooming products",
+          "company's previous product launches and their success metrics"
+        ],
+        "styleDirectives": [],
+        "referenceHints": [
+          "dog shampoo ingredients and benefits",
+          "customer reviews and feedback on similar products"
+        ]
+      },
+      "editIntent": null,
+      "candidateSummaries": [
+        {
+          "candidateId": "candidate-1",
+          "seed": 15580681850430602589,
+          "model": "qwen2.5:7b",
+          "temperature": 0.62,
+          "strategy": "request-grounded_html",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "An interactive HTML artifact explaining the product rollout of new dog shampoo through charts and data visualizations for consumers interested in dog grooming products.",
+          "renderablePaths": [
+            "explore-dog-shampoo-rollout.html"
+          ],
+          "selected": true,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "pass",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 5,
+            "interactionRelevance": 5,
+            "layoutCoherence": 5,
+            "visualHierarchy": 5,
+            "completeness": 5,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "",
+            "rationale": "Candidate meets all requirements with interactive charts and data visualizations."
+          }
+        },
+        {
+          "candidateId": "candidate-2",
+          "seed": 4941901035075606688,
+          "model": "qwen2.5:7b",
+          "temperature": 0.62,
+          "strategy": "request-grounded_html",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "An interactive HTML artifact explaining the product rollout for new dog shampoo with charts about market trends and company success metrics.",
+          "renderablePaths": [
+            "index.html"
+          ],
+          "selected": false,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "repairable",
+            "requestFaithfulness": 4,
+            "conceptCoverage": 3,
+            "interactionRelevance": 3,
+            "layoutCoherence": 4,
+            "visualHierarchy": 4,
+            "completeness": 2,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "Single chart insufficient for multiple required visualizations.",
+            "rationale": "Candidate lacks secondary evidence and sequence browsing, but follows layout recipe."
+          }
+        },
+        {
+          "candidateId": "candidate-3",
+          "seed": 12749864293430162403,
+          "model": "qwen2.5:7b",
+          "temperature": 0.62,
+          "strategy": "request-grounded_html",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "An interactive HTML artifact explaining the product rollout of new dog shampoo with charts and data visualizations.",
+          "renderablePaths": [
+            "index.html"
+          ],
+          "selected": false,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "repairable",
+            "requestFaithfulness": 4,
+            "conceptCoverage": 3,
+            "interactionRelevance": 2,
+            "layoutCoherence": 2,
+            "visualHierarchy": 2,
+            "completeness": 2,
+            "genericShellDetected": false,
+            "trivialShellDetected": true,
+            "deservesPrimaryArtifactView": false,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "HTML chart SVG regions are unlabeled on first paint.",
+            "rationale": "Renderer contract failures keep the first paint from qualifying as primary output."
+          }
+        }
+      ],
+      "winningCandidateId": "candidate-1",
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate meets all requirements with interactive charts and data visualizations."
+      },
+      "outputOrigin": "live_inference",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null,
+      "fileWrites": [
+        {
+          "path": "explore-dog-shampoo-rollout.html",
+          "kind": "primary",
+          "contentPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Explore the Features and Market Impact of New Dog Shampoo</title>"
+        }
+      ],
+      "selectedTargets": []
+    }
+  ],
+  "tasteMemory": {
+    "directives": [
+      "informative",
+      "professional"
+    ],
+    "summary": "Session taste memory is steering this artifact toward informative, professional."
+  },
+  "selectedTargets": [],
+  "uxLifecycle": "judged",
+  "createdAt": "2026-03-30T13:47:11.380022918+00:00",
+  "updatedAt": "2026-03-30T13:47:11.380022918+00:00",
+  "buildSessionId": null,
+  "workspaceRoot": null,
+  "rendererSessionId": null
+}

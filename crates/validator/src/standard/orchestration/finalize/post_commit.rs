@@ -393,9 +393,12 @@ where
     }
 
     {
-        let ctx = context_arc.lock().await;
-        let receipt_guard = ctx.receipt_map.lock().await;
-        let mut status_guard = ctx.tx_status_cache.lock().await;
+        let (receipt_map, tx_status_cache) = {
+            let ctx = context_arc.lock().await;
+            (ctx.receipt_map.clone(), ctx.tx_status_cache.clone())
+        };
+        let receipt_guard = receipt_map.lock().await;
+        let mut status_guard = tx_status_cache.lock().await;
 
         for tx in &final_block.transactions {
             let tx_hash_res: Result<ioi_types::app::TxHash, _> = tx.hash();
@@ -448,10 +451,17 @@ where
     .await?;
 
     {
-        let mut ctx = context_arc.lock().await;
-        ctx.last_committed_block = Some(final_block.clone());
+        let (chain_ref, tip_sender, genesis_root) = {
+            let mut ctx = context_arc.lock().await;
+            ctx.last_committed_block = Some(final_block.clone());
+            (
+                ctx.chain_ref.clone(),
+                ctx.tip_sender.clone(),
+                ctx.genesis_root.clone(),
+            )
+        };
         {
-            let mut chain_guard = ctx.chain_ref.lock().await;
+            let mut chain_guard = chain_ref.lock().await;
             let status = chain_guard.status_mut();
             if block_height > status.height {
                 status.total_transactions = status
@@ -461,13 +471,13 @@ where
             status.height = block_height;
             status.latest_timestamp = final_block.header.timestamp;
         }
-        let _ = ctx.tip_sender.send(ChainTipInfo {
+        let _ = tip_sender.send(ChainTipInfo {
             height: block_height,
             timestamp: final_block.header.timestamp,
             timestamp_ms: final_block.header.timestamp_ms_or_legacy(),
             gas_used: final_block.header.gas_used,
             state_root: final_block.header.state_root.0.clone(),
-            genesis_root: ctx.genesis_root.clone(),
+            genesis_root,
             validator_set: final_block.header.validator_set.clone(),
         });
     }

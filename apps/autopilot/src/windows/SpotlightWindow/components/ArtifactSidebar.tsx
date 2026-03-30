@@ -1,63 +1,86 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { Artifact, ArtifactContentPayload } from "../../../types";
+import type {
+  Artifact,
+  ArtifactContentPayload,
+  StudioArtifactManifestFile,
+  StudioRendererKind,
+} from "../../../types";
 import { icons } from "./Icons";
-import { DiffArtifactView } from "./artifacts/DiffArtifactView";
-import { FileArtifactView } from "./artifacts/FileArtifactView";
-import { WebArtifactView } from "./artifacts/WebArtifactView";
-import { RunBundleView } from "./artifacts/RunBundleView";
-import { LogArtifactView } from "./artifacts/LogArtifactView";
+import { ArtifactRendererHost } from "./ArtifactRendererHost";
 
 interface ArtifactSidebarProps {
   artifact: Artifact | null;
   onClose: () => void;
 }
 
+function inferRenderer(artifact: Artifact): StudioRendererKind {
+  const path = String(artifact.metadata?.path ?? "").toLowerCase();
+  const mime = String(artifact.metadata?.mime ?? "").toLowerCase();
+
+  if (path.endsWith(".md") || mime.includes("markdown")) return "markdown";
+  if (path.endsWith(".html") || mime.includes("text/html")) return "html_iframe";
+  if (path.endsWith(".jsx") || path.endsWith(".tsx") || mime.includes("jsx")) {
+    return "jsx_sandbox";
+  }
+  if (path.endsWith(".svg") || mime.includes("svg")) return "svg";
+  if (path.endsWith(".mermaid") || mime.includes("mermaid")) return "mermaid";
+  if (path.endsWith(".pdf") || mime.includes("application/pdf")) return "pdf_embed";
+  if (artifact.artifact_type === "RUN_BUNDLE" || artifact.artifact_type === "REPORT") {
+    return "bundle_manifest";
+  }
+  return "download_card";
+}
+
 export function ArtifactSidebar({ artifact, onClose }: ArtifactSidebarProps) {
-  const [content, setContent] = useState<string>("");
+  const [payload, setPayload] = useState<ArtifactContentPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       if (!artifact) {
-        setContent("");
+        setPayload(null);
+        setError(null);
         return;
       }
       try {
-        const payload = await invoke<ArtifactContentPayload | null>("get_artifact_content", {
+        const nextPayload = await invoke<ArtifactContentPayload | null>("get_artifact_content", {
           artifactId: artifact.artifact_id,
           artifact_id: artifact.artifact_id,
         });
         if (!cancelled) {
-          setContent(payload?.content || "");
+          setPayload(nextPayload);
+          setError(null);
         }
-      } catch (e) {
-        if (!cancelled) setContent(`Failed to load artifact content: ${e}`);
+      } catch (loadError) {
+        if (!cancelled) {
+          setPayload(null);
+          setError(String(loadError));
+        }
       }
     };
+
     void load();
     return () => {
       cancelled = true;
     };
   }, [artifact]);
 
-  const viewer = useMemo(() => {
-    if (!artifact) return null;
-    switch (artifact.artifact_type) {
-      case "DIFF":
-        return <DiffArtifactView content={content} />;
-      case "FILE":
-        return <FileArtifactView content={content} />;
-      case "WEB":
-        return <WebArtifactView content={content} />;
-      case "RUN_BUNDLE":
-      case "REPORT":
-        return <RunBundleView content={content} />;
-      case "LOG":
-      default:
-        return <LogArtifactView content={content} />;
+  const file = useMemo<StudioArtifactManifestFile | null>(() => {
+    if (!artifact) {
+      return null;
     }
-  }, [artifact, content]);
+    return {
+      path: String(artifact.metadata?.path ?? artifact.title),
+      mime: String(artifact.metadata?.mime ?? "text/plain"),
+      role: "primary",
+      renderable: true,
+      downloadable: true,
+      artifactId: artifact.artifact_id,
+      externalUrl: null,
+    };
+  }, [artifact]);
 
   if (!artifact) return null;
 
@@ -75,7 +98,15 @@ export function ArtifactSidebar({ artifact, onClose }: ArtifactSidebarProps) {
           </button>
         </div>
       </div>
-      <div className="artifact-content">{viewer}</div>
+      <div className="artifact-content">
+        {error ? <div className="studio-artifact-banner is-error">{error}</div> : null}
+        <ArtifactRendererHost
+          renderer={inferRenderer(artifact)}
+          title={artifact.title}
+          file={file}
+          payload={payload}
+        />
+      </div>
     </div>
   );
 }

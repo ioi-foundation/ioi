@@ -1,6 +1,8 @@
 use super::*;
 use ioi_ipc::public::{SubmissionStatus, TxStatus};
 use ioi_networking::libp2p::SwarmCommand;
+use ioi_tx::system::validation::verify_stateless_signature;
+use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
 use std::collections::HashSet;
 use std::time::Instant;
 
@@ -112,13 +114,52 @@ where
         let req = request.into_inner();
         let tx_bytes = req.transaction_bytes;
         let ctx_arc = self.get_context().await?;
+        let tx_status_cache = {
+            let ctx = ctx_arc.lock().await;
+            ctx.tx_status_cache.clone()
+        };
 
         let tx_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tx_bytes)
             .map_err(|e| Status::invalid_argument(format!("Hashing failed: {}", e)))?;
         let tx_hash_hex = hex::encode(tx_hash_bytes);
 
-        if let Ok(tx) = codec::from_bytes_canonical::<ChainTransaction>(&tx_bytes) {
-            if let Some((account_id, nonce)) = tx_account_nonce(&tx) {
+        let decoded_tx = match codec::from_bytes_canonical::<ChainTransaction>(&tx_bytes) {
+            Ok(tx) => tx,
+            Err(error) => {
+                let mut cache = tx_status_cache.lock().await;
+                cache.put(
+                    tx_hash_hex,
+                    TxStatusEntry {
+                        status: TxStatus::Rejected,
+                        error: Some(format!("Failed to decode transaction: {}", error)),
+                        block_height: None,
+                    },
+                );
+                return Err(Status::invalid_argument(format!(
+                    "Failed to decode transaction: {}",
+                    error
+                )));
+            }
+        };
+
+        if let Err(error) = verify_stateless_signature(&decoded_tx) {
+            let mut cache = tx_status_cache.lock().await;
+            cache.put(
+                tx_hash_hex,
+                TxStatusEntry {
+                    status: TxStatus::Rejected,
+                    error: Some(format!("Invalid signature: {}", error)),
+                    block_height: None,
+                },
+            );
+            return Err(Status::invalid_argument(format!(
+                "Invalid signature: {}",
+                error
+            )));
+        }
+
+        if let Some((account_id, nonce)) = tx_account_nonce(&decoded_tx) {
+            {
                 let next_nonce = nonce.saturating_add(1);
                 let nonce_manager = {
                     let ctx = ctx_arc.lock().await;
@@ -130,11 +171,10 @@ where
                     *entry = next_nonce;
                 }
             }
-        }
+        };
 
         {
-            let ctx = ctx_arc.lock().await;
-            let mut cache = ctx.tx_status_cache.lock().await;
+            let mut cache = tx_status_cache.lock().await;
             cache.put(
                 tx_hash_hex.clone(),
                 TxStatusEntry {
@@ -145,7 +185,8 @@ where
             );
         }
 
-        if let Ok(tx) = codec::from_bytes_canonical::<ChainTransaction>(&tx_bytes) {
+        {
+            let tx = decoded_tx;
             let tx_info = tx_account_nonce(&tx);
             let tx_hash = tx.hash().unwrap_or(tx_hash_bytes);
 
@@ -158,6 +199,7 @@ where
                 last_committed_block,
                 peer_accounts_ref,
                 consensus_kick_scheduled,
+                workload_client,
             ) = {
                 let ctx = ctx_arc.lock().await;
                 (
@@ -169,6 +211,7 @@ where
                     ctx.last_committed_block.clone(),
                     ctx.peer_accounts_ref.clone(),
                     ctx.consensus_kick_scheduled.clone(),
+                    ctx.view_resolver.workload_client().clone(),
                 )
             };
 
@@ -208,8 +251,18 @@ where
                 limit > 0 && tx_pool_ref.len() < limit
             };
 
+            let committed_nonce_state = if let Some((account_id, _)) = tx_info.as_ref() {
+                let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_ref()].concat();
+                match workload_client.query_raw_state(&nonce_key).await {
+                    Ok(Some(bytes)) => codec::from_bytes_canonical::<u64>(&bytes).unwrap_or(0),
+                    _ => 0,
+                }
+            } else {
+                0
+            };
+
             let fast_admit = if should_fast_admit {
-                Some(tx_pool_ref.add(tx, tx_hash, tx_info, 0))
+                Some(tx_pool_ref.add(tx, tx_hash, tx_info, committed_nonce_state))
             } else {
                 None
             };
@@ -234,8 +287,7 @@ where
                     }
 
                     {
-                        let ctx = ctx_arc.lock().await;
-                        let mut cache = ctx.tx_status_cache.lock().await;
+                        let mut cache = tx_status_cache.lock().await;
                         cache.put(
                             tx_hash_hex.clone(),
                             TxStatusEntry {
@@ -314,9 +366,7 @@ where
             }
             Err(_) => {
                 metrics().inc_requests_total("submit_transaction", 503);
-                let ctx_arc = self.get_context().await?;
-                let ctx = ctx_arc.lock().await;
-                let mut cache = ctx.tx_status_cache.lock().await;
+                let mut cache = tx_status_cache.lock().await;
                 cache.put(
                     tx_hash_hex,
                     TxStatusEntry {
@@ -337,9 +387,11 @@ where
     ) -> Result<Response<GetTransactionStatusResponse>, Status> {
         let req = request.into_inner();
         let ctx_arc = self.get_context().await?;
-        let ctx = ctx_arc.lock().await;
-
-        let mut cache = ctx.tx_status_cache.lock().await;
+        let tx_status_cache = {
+            let ctx = ctx_arc.lock().await;
+            ctx.tx_status_cache.clone()
+        };
+        let mut cache = tx_status_cache.lock().await;
         if let Some(entry) = cache.get(&req.tx_hash) {
             Ok(Response::new(GetTransactionStatusResponse {
                 status: entry.status as i32,

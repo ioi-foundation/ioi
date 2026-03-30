@@ -151,7 +151,7 @@ IntentMatrixEntry {
 IntentMatrixEntry {
     intent_id: "workspace.ops".to_string(),
     semantic_descriptor:
-        "inspect and modify files in the local workspace and repository checkout source tree"
+        "inspect create and modify files in the local workspace and repository checkout source tree including websites landing pages static sites applications prototypes html css javascript and other shippable artifacts"
             .to_string(),
     query_binding: IntentQueryBindingClass::None,
     required_capabilities: vec![
@@ -178,10 +178,20 @@ IntentMatrixEntry {
         "repo".to_string(),
         "workspace".to_string(),
         "codebase".to_string(),
+        "website".to_string(),
+        "landing page".to_string(),
+        "static site".to_string(),
+        "web app".to_string(),
+        "frontend".to_string(),
+        "ui implementation".to_string(),
     ],
     exemplars: vec![
         "read files in the workspace".to_string(),
         "edit code in repository".to_string(),
+        "create a landing page for a tennis company in the workspace".to_string(),
+        "build an html page and preview it locally".to_string(),
+        "scaffold a react app in the repo".to_string(),
+        "turn this brief into a shippable web page artifact".to_string(),
     ],
 },
 IntentMatrixEntry {
@@ -386,7 +396,7 @@ IntentMatrixEntry {
 IntentMatrixEntry {
     intent_id: "mail.reply".to_string(),
     semantic_descriptor:
-        "compose draft and send an email reply or new outbound message with explicit recipient subject and body through a connected mailbox"
+        "compose draft and send an email reply or outbound mailbox message with an explicit recipient subject and email body through a connected mailbox account"
             .to_string(),
     query_binding: IntentQueryBindingClass::None,
     required_capabilities: vec![
@@ -411,12 +421,13 @@ IntentMatrixEntry {
     aliases: vec![
         "send email".to_string(),
         "draft email".to_string(),
-        "compose message".to_string(),
+        "compose email".to_string(),
+        "outbound mailbox message".to_string(),
         "reply email".to_string(),
     ],
     exemplars: vec![
-        "draft an email to team and send it".to_string(),
-        "reply to this message with an update".to_string(),
+        "send an email to alex@example.com with subject Launch Update".to_string(),
+        "reply to the email thread from Sam with a project update".to_string(),
     ],
 },
 IntentMatrixEntry {

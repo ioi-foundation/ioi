@@ -1,0 +1,360 @@
+{
+  "prompt": "Make it feel more enterprise",
+  "title": "Make it feel more enterprise",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.95,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": "product-launch",
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "4ceac3b0-09e3-4d30-ad5f-b5f08ab75108"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "Enterprise stakeholders",
+    "jobToBeDone": "Review product launch metrics and feedback",
+    "subjectDomain": "Product Launch Metrics & Customer Feedback",
+    "artifactThesis": "Provide an enterprise-level interactive dashboard for reviewing key metrics and customer feedback during a product launch.",
+    "requiredConcepts": [
+      "product launch",
+      "sales figures",
+      "customer feedback"
+    ],
+    "requiredInteractions": [
+      "filter sales data by quarter",
+      "explore detailed customer reviews"
+    ],
+    "visualTone": [
+      "professional",
+      "formal"
+    ],
+    "factualAnchors": [
+      "Q1 sales figures for dog shampoos",
+      "Customer feedback on new product features"
+    ],
+    "styleDirectives": [],
+    "referenceHints": [
+      "enterprise-level metrics dashboard",
+      "corporate branding guidelines"
+    ]
+  },
+  "editIntent": {
+    "mode": "patch",
+    "summary": "Refine the existing artifact to better align with enterprise-level standards.",
+    "patchExistingArtifact": true,
+    "preserveStructure": true,
+    "targetScope": "shared_artifact_scoped",
+    "targetPaths": [
+      "product_rollout.html"
+    ],
+    "requestedOperations": [
+      "updateStyle",
+      "enhanceInteractivity"
+    ],
+    "toneDirectives": [
+      "professional",
+      "formal"
+    ],
+    "selectedTargets": [
+      {
+        "sourceSurface": "side_panel",
+        "path": "product_rollout.html",
+        "label": "Refine Interactive Dashboard for Enterprise Stakeholders",
+        "snippet": "<style>\n        body { font-family: 'Arial Black', Gadget, sans-serif; }\n        .hero { text-align: center; padding-top: 70px; }\n        .controls { display: flex; justify-content: space-around; margin-bottom: 30px; }\n        .chart, .evidence { width: 100%; max-width: 800px; margin: auto; }\n    </style>"
+      }
+    ],
+    "styleDirectives": [
+      "use corporate branding guidelines",
+      "increase visual hierarchy"
+    ],
+    "branchRequested": false
+  },
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 14222577177954386099,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Refined Interactive Dashboard for Enterprise Stakeholders",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Candidate meets all requirements and enhances the existing artifact with professional styling, interactive controls, and relevant content."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 15071797070098312852,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Refined Interactive Dashboard for Product Launch Metrics",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Candidate meets all requirements and enhances the existing artifact with professional styling and interactive controls."
+      }
+    },
+    {
+      "candidateId": "candidate-3",
+      "seed": 15921016962242239605,
+      "model": "qwen2.5:7b",
+      "temperature": 0.62,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "Refined Interactive Dashboard for Enterprise Stakeholders",
+      "renderablePaths": [
+        "product_rollout.html"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": true,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "Candidate meets all requirements and enhances the existing artifact with enterprise-level standards."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "Candidate meets all requirements and enhances the existing artifact with professional styling, interactive controls, and relevant content.",
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 5,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": true,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "Candidate meets all requirements and enhances the existing artifact with professional styling, interactive controls, and relevant content."
+  },
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "manifest": {
+    "artifactId": "28d98ea0-05f9-4cc2-9181-fdec8a6fb640",
+    "title": "Make it feel more enterprise",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": "product_rollout.html",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "product_rollout.html",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "product_rollout.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "generated-product_rollout.html",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Candidate meets all requirements and enhances the existing artifact with professional styling, interactive controls, and relevant content.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Make it feel more enterprise",
+    "summary": "Make it feel more enterprise Candidate meets all requirements and enhances the existing artifact with professional styling, interactive controls, and relevant content.",
+    "evidence": [
+      "product_rollout.html"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "materializedFiles": [
+    "product_rollout.html"
+  ],
+  "renderableFiles": [
+    "product_rollout.html"
+  ],
+  "refinement": {
+    "artifactId": "4ceac3b0-09e3-4d30-ad5f-b5f08ab75108",
+    "revisionId": null,
+    "title": "an interactive HTML artifact that explains a product rollout with charts",
+    "summary": "an interactive HTML artifact that explains a product rollout with charts Candidate fully meets the request with interactive controls and relevant content.",
+    "renderer": "html_iframe",
+    "files": [
+      {
+        "path": "product_rollout.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "encoding": null,
+        "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Interactive Visualization of Key Metrics During a Product Launch</title>\n    <style>\n        body { font-family: Arial, sans-serif; }\n        .hero { text-align: center; padding-top: 50px; }\n        .controls { display: flex; justify-content: space-around; margin-bottom: 20px; }\n        .chart, .evidence { width: 100%; max-width: 600px; margin: auto; }\n    </style>\n</head>\n<body>\n    <main>\n        <section class=\"hero\">\n            <h1>Interactive Visualization of Key Metrics During a Product Launch</h1>\n        </section>\n        <nav class=\"controls\">\n            <button type=\"button\" data-view=\"q1-sales-figures-for-dog-shampoos\" aria-controls=\"q1-sales-figures-for-dog-shampoos-panel\">Q1 Sales Figures for Dog Shampoos</button>\n            <button type=\"button\" data-view=\"customer-feedback-on-new-product-features\" aria-controls=\"customer-feedback-on-new-product-features-panel\">Customer Feedback on New Product Features</button>\n        </nav>\n        <section id=\"q1-sales-figures-for-dog-shampoos-panel\" class=\"chart data-view-panel=q1-sales-figures-for-dog-shampoos\" data-active>\n            <svg width=\"600\" height=\"400\">\n                \n                <rect x=\"24\" y=\"54\" width=\"42\" height=\"62\" tabindex=\"0\" data-detail=\"Q1 sales figures for dog shampoos\"></rect>\n                <text x=\"30\" y=\"70\">Q1 Sales Figures</text>\n            </svg>\n        </section>\n        <aside id=\"customer-feedback-on-new-product-features-panel\" class=\"evidence data-view-panel=customer-feedback-on-new-product-features\" hidden>\n            <h2>Customer Feedback on New Product Features</h2>\n            <p><strong>Positive:</strong> Improved scent and softness.</p>\n            <p><strong>Negative:</strong> Some users reported allergic reactions.</p>\n        </aside>\n    <aside data-studio-normalized=\"true\" data-studio-shared-detail=\"true\"><h2>Detail</h2><p id=\"detail-copy\">Q1 Sales Figures for Dog Shampoos is selected by default.</p></aside><section data-studio-normalized=\"true\" data-studio-rollover-chip-rail=\"true\"><h2>Evidence highlights</h2><div class=\"studio-rollover-chip-rail\"><button type=\"button\" class=\"studio-rollover-chip\" data-detail=\"customer feedback on new\">customer feedback on new</button><button type=\"button\" class=\"studio-rollover-chip\" data-detail=\"dog shampoo\">dog shampoo</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>\n    <script>\n        const panels = document.querySelectorAll('[data-view-panel]');\n        function switchPanel(panelId) {\n            panels.forEach(panel => panel.hidden = true);\n            const targetPanel = document.querySelector(`[data-view-panel='${panelId}']`);\n            if (targetPanel !== null) {\n                targetPanel.hidden = false;\n            }\n        }\n\n        // Default selected state on first paint\n        switchPanel('q1-sales-figures-for-dog-shampoos');\n    </script>\n<script data-studio-normalized=\"true\" data-studio-view-switch-repair=\"true\">(() => {\n  const controls = Array.from(document.querySelectorAll('button[data-view], [role=\"tab\"][data-view]'));\n  if (controls.length < 2) {\n    return;\n  }\n  const explicitPanels = Array.from(document.querySelectorAll('[data-view-panel]'));\n  const mappedPanels = controls\n    .map((button) => {\n      const ariaTarget = button.getAttribute('aria-controls');\n      if (ariaTarget) {\n        return document.getElementById(ariaTarget);\n      }\n      const dataTarget = button.getAttribute('data-target') || '';\n      if (dataTarget.startsWith('#')) {\n        return document.querySelector(dataTarget);\n      }\n      return null;\n    })\n    .filter((panel, index, panels) => panel && panels.indexOf(panel) === index);\n  const panels = explicitPanels.length\n    ? explicitPanels\n    : (mappedPanels.length\n      ? mappedPanels\n      : Array.from(document.querySelectorAll('[data-panel], [role=\"tabpanel\"]')));\n  if (panels.length < 2) {\n    return;\n  }\n  const detailCopy = document.getElementById('detail-copy');\n  const selectView = (activeControl) => {\n    const targetView = activeControl.dataset.view || '';\n    const rawTarget = activeControl.getAttribute('data-target') || '';\n    const targetId = activeControl.getAttribute('aria-controls') || (rawTarget.startsWith('#') ? rawTarget.slice(1) : rawTarget);\n    panels.forEach((panel) => {\n      const panelView = panel.dataset.viewPanel || panel.dataset.panel || '';\n      const panelId = panel.id || '';\n      const isActive = (targetView && panelView === targetView) || (targetId && panelId === targetId);\n      panel.hidden = !isActive;\n      panel.setAttribute('aria-hidden', String(!isActive));\n    });\n    controls.forEach((control) => {\n      control.setAttribute('aria-selected', String(control === activeControl));\n    });\n    if (detailCopy && activeControl.textContent) {\n      detailCopy.textContent = `${activeControl.textContent.trim()} selected.`;\n    }\n  };\n  controls.forEach((button) => {\n    button.addEventListener('click', () => selectView(button));\n  });\n  const defaultControl = controls.find((button) => button.getAttribute('aria-selected') === 'true') || controls[0];\n  if (defaultControl) {\n    selectView(defaultControl);\n  }\n})();</script><script data-studio-normalized=\"true\" data-studio-rollover-repair=\"true\">(() => {\n  const detailCopy = document.getElementById('detail-copy');\n  if (!detailCopy) {\n    return;\n  }\n  document.querySelectorAll('[data-detail]').forEach((mark) => {\n    if (!mark.hasAttribute('tabindex')) {\n      mark.setAttribute('tabindex', '0');\n    }\n    const updateDetail = () => {\n      const detail = mark.getAttribute('data-detail') || '';\n      if (detail) {\n        detailCopy.textContent = detail;\n      }\n    };\n    mark.addEventListener('click', updateDetail);\n    mark.addEventListener('mouseenter', updateDetail);\n    mark.addEventListener('focus', updateDetail);\n  });\n})();</script></body>\n</html>"
+      }
+    ],
+    "selectedTargets": [],
+    "tasteMemory": {
+      "directives": [],
+      "summary": "interactive visualization of key metrics during a product launch"
+    }
+  }
+}

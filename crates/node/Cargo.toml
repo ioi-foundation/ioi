@@ -152,8 +152,9 @@ local-mode = [
     "vm-wasm",
     "ioi-validator/validator-bins",
     "commitment-hash",
-    "state-iavl",      
+    "state-iavl",
     "consensus-aft",
+    "consensus-poa",
 ]
 
 # 2. Validator Mode (Consensus Only)

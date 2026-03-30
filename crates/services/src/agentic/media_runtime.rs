@@ -12,6 +12,7 @@ use ioi_api::vm::inference::{
     VisionReadResult,
 };
 use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::StudioRuntimeProvenance;
 use ioi_types::error::VmError;
 use std::path::Path;
 use std::sync::Arc;
@@ -217,6 +218,10 @@ impl InferenceRuntime for KernelMediaRuntime {
         request: ModelUnloadRequest,
     ) -> Result<ModelLifecycleResult, VmError> {
         self.inner.unload_registered_model(request).await
+    }
+
+    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+        self.inner.studio_runtime_provenance()
     }
 }
 

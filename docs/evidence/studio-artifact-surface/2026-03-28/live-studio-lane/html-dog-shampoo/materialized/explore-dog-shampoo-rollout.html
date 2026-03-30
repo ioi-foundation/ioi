@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explore the Features and Market Impact of New Dog Shampoo</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .hero { background-color: #f5f5f5; padding: 2rem; text-align: center; }
+        .controls { display: flex; gap: 1rem; margin-bottom: 2rem; }
+        .evidence { width: calc(33.33% - 0.5rem); float: left; padding: 1rem; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="hero">
+            <h1>Explore the Features, Benefits, and Market Impact of a New Dog Shampoo</h1>
+        </section>
+        <nav class="controls">
+            <button type="button" data-view="market-trends">Latest Market Trends in Dog Grooming Products</button>
+            <button type="button" data-view="previous-launches">Company's Previous Product Launches and Their Success Metrics</button>
+            <button type="button" data-view="shampoo-ingredients">Dog Shampoo Ingredients and Benefits</button>
+        </nav>
+        <section id="market-trends-panel" class="evidence" data-view-panel="market-trends">
+            <h2>Latest Market Trends in Dog Grooming Products</h2>
+            
+            <svg width="400" height="300" viewBox="0 0 400 300">
+                <rect x="50" y="150" width="300" height="100" fill="#69b3a2" tabindex="0" data-detail="Latest Market Trends in Dog Grooming Products"></rect>
+            </svg>
+        </section>
+        <section id="previous-launches-panel" class="evidence" data-view-panel="previous-launches" hidden>
+            <h2>Company's Previous Product Launches and Their Success Metrics</h2>
+            
+            <ul>
+                <li><strong>New Shampoo:</strong> 10% market share increase, $5M in sales</li>
+                <li><strong>Skin Care Serum:</strong> 3% market share increase, $2.5M in sales</li>
+            </ul>
+        </section>
+        <section id="shampoo-ingredients-panel" class="evidence" data-view-panel="shampoo-ingredients" hidden>
+            <h2>Dog Shampoo Ingredients and Benefits</h2>
+            
+            <svg width="400" height="300" viewBox="0 0 400 300">
+                <rect x="50" y="150" width="300" height="100" fill="#69b3a2" tabindex="0" data-detail="Company&apos;s Previous Product Launches and Their Success Metrics"></rect>
+            </svg>
+        </section>
+    <section data-studio-normalized="true" data-studio-rollover-chip-rail="true"><h2>Evidence highlights</h2><div class="studio-rollover-chip-rail"><button type="button" class="studio-rollover-chip" data-detail="latest market trends in">latest market trends in</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>
+    <aside id="detail-copy">Latest market trends in dog grooming products is selected by default.</aside>
+
+    <script>
+        const panels = Array.from(document.querySelectorAll('[data-view-panel]'));
+        const controls = document.querySelectorAll('button[data-view]');
+
+        function handleSwitchView(event) {
+            const { view } = event.target.dataset;
+            panels.forEach(panel => panel.hidden = true);
+            const selectedPanel = document.querySelector(`[data-view-panel="${view}"]`);
+            if (selectedPanel) selectedPanel.hidden = false;
+            document.getElementById('detail-copy').textContent = `Viewing: ${event.target.textContent}`;
+        }
+
+        controls.forEach(control => control.addEventListener('click', handleSwitchView));
+    </script>
+<script data-studio-normalized="true" data-studio-rollover-repair="true">(() => {
+  const detailCopy = document.getElementById('detail-copy');
+  if (!detailCopy) {
+    return;
+  }
+  document.querySelectorAll('[data-detail]').forEach((mark) => {
+    if (!mark.hasAttribute('tabindex')) {
+      mark.setAttribute('tabindex', '0');
+    }
+    const updateDetail = () => {
+      const detail = mark.getAttribute('data-detail') || '';
+      if (detail) {
+        detailCopy.textContent = detail;
+      }
+    };
+    mark.addEventListener('click', updateDetail);
+    mark.addEventListener('mouseenter', updateDetail);
+    mark.addEventListener('focus', updateDetail);
+  });
+})();</script></body>
+</html>

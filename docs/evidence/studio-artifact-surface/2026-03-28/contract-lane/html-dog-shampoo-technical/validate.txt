@@ -1,0 +1,1 @@
+Artifact manifest 'Keep the structure, but replace the hero and chart with a more technical' is valid.

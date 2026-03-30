@@ -1,0 +1,16 @@
+{
+  "classification": "pass",
+  "requestFaithfulness": 5,
+  "conceptCoverage": 5,
+  "interactionRelevance": 5,
+  "layoutCoherence": 5,
+  "visualHierarchy": 5,
+  "completeness": 5,
+  "genericShellDetected": false,
+  "trivialShellDetected": false,
+  "deservesPrimaryArtifactView": true,
+  "patchedExistingArtifact": null,
+  "continuityRevisionUx": null,
+  "strongestContradiction": null,
+  "rationale": "The candidate stays grounded in an AI tools editorial launch page, covers the required concepts, and is strong enough to lead the stage."
+}

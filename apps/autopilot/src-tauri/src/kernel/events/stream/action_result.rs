@@ -6,9 +6,9 @@ use crate::kernel::events::emission::{
 use crate::kernel::events::support::{
     bind_task_session, clarification_prompt_for_preset, clarification_wait_step_for_preset,
     detect_clarification_preset, event_status_from_agent_status, event_type_for_tool,
-    is_hard_terminal_task, is_identity_resolution_kind, is_install_package_tool,
-    is_sudo_password_required_install, is_waiting_for_identity_clarification_step,
-    thread_id_from_session, ClarificationPreset,
+    explicit_clarification_preset_for_tool, is_hard_terminal_task, is_identity_resolution_kind,
+    is_install_package_tool, is_sudo_password_required_install,
+    is_waiting_for_identity_clarification_step, thread_id_from_session, ClarificationPreset,
 };
 use crate::kernel::notifications;
 use crate::kernel::state::update_task_state;
@@ -85,11 +85,8 @@ fn automation_artifact_path_from_output(output: &str) -> Option<PathBuf> {
 pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActionResult) {
     let password_required = is_sudo_password_required_install(&res.tool_name, &res.output);
     let thread_id = thread_id_from_session(&app, &res.session_id);
-    let clarification_preset = if res.agent_status.eq_ignore_ascii_case("paused") {
-        detect_clarification_preset(&res.tool_name, &res.output)
-    } else {
-        None
-    };
+    let clarification_preset = detect_clarification_preset(&res.tool_name, &res.output)
+        .or_else(|| explicit_clarification_preset_for_tool(&res.tool_name));
     let clarification_required = clarification_preset.is_some();
     let effective_clarification_preset =
         clarification_preset.unwrap_or(ClarificationPreset::IdentityLookup);
@@ -293,8 +290,10 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             return;
         }
 
-        let keep_waiting_for_clarification =
-            waiting_for_clarification && !terminal_status && clarification_required;
+        let keep_waiting_for_clarification = waiting_for_clarification
+            && !terminal_status
+            && (clarification_required
+                || explicit_clarification_preset_for_tool(&res.tool_name).is_some());
         if keep_waiting_for_clarification {
             if !res.output.trim().is_empty() {
                 let tool_msg = format!("Tool Output ({}): {}", res.tool_name, res.output);
@@ -336,8 +335,13 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                     cost: Some("$0.00".to_string()),
                 });
 
+                let studio_verified_reply =
+                    crate::kernel::studio::verified_reply_summary_for_task(t);
+
                 if !is_chat_reply_tool(&res.tool_name) {
-                    if let Some(msg) = completion_message_for_history(&res.tool_name, &res.output) {
+                    if let Some(msg) = studio_verified_reply
+                        .or_else(|| completion_message_for_history(&res.tool_name, &res.output))
+                    {
                         let duplicate = t
                             .history
                             .iter()
@@ -360,6 +364,8 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 t.pending_request_hash = None;
                 t.credential_request = None;
                 t.clarification_request = None;
+                let studio_failure_summary =
+                    crate::kernel::studio::verified_reply_summary_for_task(t);
 
                 if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
                     agent.status = "failed".to_string();
@@ -372,7 +378,10 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 });
 
                 // Keep terminal failures visible in the primary conversation stream.
-                let agent_failure = format!("Task failed: {}", res.output);
+                let agent_failure = studio_failure_summary
+                    .clone()
+                    .unwrap_or_else(|| format!("Task failed: {}", res.output));
+                t.current_step = agent_failure.clone();
                 let duplicate = t
                     .history
                     .iter()
@@ -405,16 +414,18 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 t.current_step = "Ready for input".to_string();
             }
 
+            let reply_text = crate::kernel::studio::verified_reply_summary_for_task(t)
+                .unwrap_or_else(|| res.output.clone());
             let duplicate = t
                 .history
                 .iter()
                 .rev()
                 .take(8)
-                .any(|m| m.role == "agent" && m.text == res.output);
+                .any(|m| m.role == "agent" && m.text == reply_text);
             if !duplicate {
                 t.history.push(ChatMessage {
                     role: "agent".to_string(),
-                    text: res.output.clone(),
+                    text: reply_text,
                     timestamp: crate::kernel::state::now(),
                 });
             }
@@ -466,14 +477,36 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
     let status = event_status_from_agent_status(&res.agent_status);
     let artifact_refs =
         create_macro_artifacts_for_action(&app, &thread_id, &kind, &res.tool_name, &res.output);
+    let studio_completion = {
+        let state_handle = app.state::<Mutex<AppState>>();
+        let completion = match state_handle.lock() {
+            Ok(guard) => guard.current_task.as_ref().and_then(|task| {
+                crate::kernel::studio::verified_reply_summary_for_task(task).map(|summary| {
+                    (
+                        crate::kernel::studio::verified_reply_title_for_task(task)
+                            .unwrap_or_else(|| "Studio outcome verified".to_string()),
+                        summary,
+                    )
+                })
+            }),
+            Err(_) => None,
+        };
+        completion
+    };
+
     if res.agent_status.eq_ignore_ascii_case("completed") {
-        let summary = completion_message_for_history(&res.tool_name, &res.output)
-            .unwrap_or_else(|| "Task completed successfully.".to_string());
+        let (title, summary) = studio_completion.unwrap_or_else(|| {
+            (
+                "Workflow completed".to_string(),
+                completion_message_for_history(&res.tool_name, &res.output)
+                    .unwrap_or_else(|| "Task completed successfully.".to_string()),
+            )
+        });
         notifications::record_valuable_completion(
             app,
             &thread_id,
             &res.session_id,
-            "Workflow completed",
+            &title,
             &summary,
             artifact_refs.clone(),
         );

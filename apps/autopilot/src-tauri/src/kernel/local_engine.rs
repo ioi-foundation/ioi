@@ -29,6 +29,8 @@ const LOCAL_ENGINE_BACKEND_INSTALL_MANIFEST: &str = ".ioi-backend-install.json";
 const LOCAL_ENGINE_BACKEND_PACKAGE_MANIFEST: &str = ".ioi-backend-package.json";
 const LOCAL_ENGINE_BACKEND_INSTALL_RECEIPTS_DIR: &str = "local-engine/backend-installs";
 const LOCAL_ENGINE_BACKEND_DOWNLOADS_DIR: &str = "downloads/backends";
+const LOCAL_ENGINE_DEV_BOOTSTRAP_MAX_ITERATIONS: usize = 10;
+const LOCAL_ENGINE_DEV_BOOTSTRAP_SLEEP_MS: u64 = 300;
 #[cfg(unix)]
 const LOCAL_ENGINE_BACKEND_CONTAINER_LAUNCHER: &str = "launch-backend.sh";
 #[cfg(windows)]
@@ -37,6 +39,16 @@ const LOCAL_ENGINE_GALLERY_SYNC_RECEIPTS_DIR: &str = "local-engine/gallery-sync"
 const LOCAL_ENGINE_GALLERY_CATALOGS_DIR: &str = "galleries";
 const LOCAL_ENGINE_HEALTH_PROBE_TIMEOUT_MS: u64 = 750;
 const LOCAL_ENGINE_GALLERY_SAMPLE_LIMIT: usize = 4;
+const LOCAL_GPU_DEV_DEFAULT_PRESET: &str = "ollama-openai";
+const LOCAL_GPU_DEV_DEFAULT_RUNTIME_URL: &str = "http://127.0.0.1:11434/v1/chat/completions";
+const LOCAL_GPU_DEV_DEFAULT_HEALTH_URL: &str = "http://127.0.0.1:11434/api/tags";
+const LOCAL_GPU_DEV_DEFAULT_MODEL: &str = "llama3.2:3b";
+const LOCAL_GPU_DEV_DEFAULT_EMBEDDING_MODEL: &str = "nomic-embed-text";
+const LOCAL_GPU_DEV_DEFAULT_BACKEND_ID: &str = "ollama-openai";
+const LOCAL_GPU_DEV_DEFAULT_BACKEND_SOURCE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/dev/local-backends/ollama-openai"
+);
 
 static MANAGED_BACKEND_PROCESSES: Lazy<Mutex<BTreeMap<String, ManagedBackendProcess>>> =
     Lazy::new(|| Mutex::new(BTreeMap::new()));
@@ -99,6 +111,25 @@ struct ModelInstallMaterialization {
     bytes_transferred: u64,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct InstalledModelManifest {
+    model_id: String,
+    #[serde(default)]
+    job_id: Option<String>,
+    #[serde(default)]
+    source_uri: Option<String>,
+    source_path: String,
+    payload_path: String,
+    install_root: String,
+    #[serde(default)]
+    bytes_transferred: Option<u64>,
+    #[serde(default)]
+    imported_at_ms: Option<u64>,
+    #[serde(default)]
+    backend_id: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 struct BackendContext {
     backend_id: String,
@@ -155,6 +186,10 @@ struct InstalledBackendManifest {
     install_root: String,
     #[serde(default)]
     bytes_transferred: Option<u64>,
+    #[serde(default)]
+    installed_at_ms: Option<u64>,
+    #[serde(default)]
+    job_id: Option<String>,
 }
 
 #[derive(Debug)]
@@ -163,6 +198,19 @@ struct ManagedBackendProcess {
     entrypoint: String,
     health_url: Option<String>,
     started_at_ms: u64,
+}
+
+#[derive(Debug, Clone)]
+struct LocalGpuDevPreset {
+    preset_id: String,
+    runtime_url: Option<String>,
+    runtime_health_url: Option<String>,
+    runtime_model: Option<String>,
+    embedding_model: Option<String>,
+    backend_source: Option<String>,
+    backend_id: Option<String>,
+    model_cache_dir: Option<String>,
+    backend_autostart: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -356,6 +404,525 @@ pub fn load_or_sync_registry_state(
     normalize_registry_state(&mut state, control_plane, now_ms());
     orchestrator::save_local_engine_registry_state(memory_runtime, &state);
     state
+}
+
+pub fn bootstrap_local_engine_dev_support(
+    memory_runtime: &Arc<MemoryRuntime>,
+) -> Result<(), String> {
+    let mut control_plane =
+        crate::kernel::data::load_or_initialize_local_engine_control_plane(memory_runtime);
+    let dev_bootstrap_enabled = apply_dev_bootstrap_overrides(&mut control_plane);
+    if dev_bootstrap_enabled {
+        orchestrator::save_local_engine_control_plane(memory_runtime, &control_plane);
+    }
+
+    let registry_state = load_or_sync_registry_state(memory_runtime, Some(&control_plane));
+    if dev_bootstrap_enabled {
+        seed_bootstrap_jobs_from_env(memory_runtime, &control_plane, &registry_state)?;
+        drive_local_gpu_dev_bootstrap(memory_runtime, &control_plane)?;
+    }
+
+    let mut state =
+        orchestrator::load_local_engine_registry_state(memory_runtime).unwrap_or_default();
+    normalize_registry_state(&mut state, Some(&control_plane), now_ms());
+    orchestrator::save_local_engine_registry_state(memory_runtime, &state);
+    Ok(())
+}
+
+fn apply_dev_bootstrap_overrides(control_plane: &mut LocalEngineControlPlane) -> bool {
+    let local_gpu_preset = resolve_local_gpu_dev_preset();
+    if let Some(preset) = local_gpu_preset.as_ref() {
+        apply_local_gpu_dev_preset_env(preset);
+    }
+
+    let local_runtime_url =
+        env_text("AUTOPILOT_LOCAL_RUNTIME_URL").or_else(|| env_text("LOCAL_LLM_URL"));
+    let local_runtime_health_url = env_text("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL");
+    let local_runtime_model = env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+        .or_else(|| env_text("AUTOPILOT_LOCAL_MODEL_ID"))
+        .or_else(|| env_text("OPENAI_MODEL"));
+    let local_embedding_model = env_text("AUTOPILOT_LOCAL_EMBEDDING_MODEL")
+        .or_else(|| env_text("LOCAL_LLM_EMBEDDING_MODEL"))
+        .or_else(|| env_text("OPENAI_EMBEDDING_MODEL"));
+    let local_model_source = env_text("AUTOPILOT_LOCAL_MODEL_SOURCE");
+    let local_backend_source = env_text("AUTOPILOT_LOCAL_BACKEND_SOURCE");
+    let local_backend_id = env_text("AUTOPILOT_LOCAL_BACKEND_ID");
+    let local_dev_preset = env_text("AUTOPILOT_LOCAL_DEV_PRESET");
+    let local_model_cache_dir = env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR");
+    let data_profile = env_text("AUTOPILOT_DATA_PROFILE");
+    let dev_bootstrap_enabled = crate::is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV")
+        || local_runtime_url.is_some()
+        || local_model_source.is_some()
+        || local_backend_source.is_some()
+        || local_dev_preset.is_some()
+        || data_profile.is_some();
+
+    if !dev_bootstrap_enabled {
+        return false;
+    }
+
+    control_plane.runtime.mode = if local_runtime_url.is_some() {
+        "http_local_dev".to_string()
+    } else {
+        "local_asset_bootstrap".to_string()
+    };
+    if let Some(local_runtime_url) = local_runtime_url.clone() {
+        control_plane.runtime.endpoint = local_runtime_url;
+    }
+    if let Some(local_runtime_model) = local_runtime_model.clone() {
+        control_plane.runtime.default_model = local_runtime_model;
+    }
+    control_plane.runtime.baseline_role =
+        "Local bootstrap profile for Studio workflow testing on a developer-managed GPU/runtime."
+            .to_string();
+    control_plane.runtime.kernel_authority =
+        "Kernel remains planner-of-record, receipt authority, and policy boundary while local GPU assets are bootstrapped for testing."
+            .to_string();
+    control_plane.memory.prefer_gpu = true;
+    if control_plane.memory.target_resource.trim().is_empty()
+        || control_plane.memory.target_resource == "auto"
+    {
+        control_plane.memory.target_resource = "gpu".to_string();
+    }
+    if crate::is_env_var_truthy("AUTOPILOT_LOCAL_BACKEND_AUTOSTART")
+        || local_gpu_preset
+            .as_ref()
+            .map(|preset| preset.backend_autostart)
+            .unwrap_or(false)
+    {
+        control_plane.launcher.auto_start_on_boot = true;
+    }
+
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_RUNTIME_URL",
+        local_runtime_url,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_RUNTIME_MODEL",
+        local_runtime_model,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_EMBEDDING_MODEL",
+        local_embedding_model.clone(),
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "LOCAL_LLM_EMBEDDING_MODEL",
+        local_embedding_model.clone(),
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "OPENAI_EMBEDDING_MODEL",
+        local_embedding_model,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL",
+        local_runtime_health_url,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_MODEL_SOURCE",
+        local_model_source,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_BACKEND_SOURCE",
+        local_backend_source,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_BACKEND_ID",
+        local_backend_id,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_DEV_PRESET",
+        local_dev_preset,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_MODEL_CACHE_DIR",
+        local_model_cache_dir,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "AUTOPILOT_DATA_PROFILE",
+        data_profile,
+    );
+    true
+}
+
+fn default_local_gpu_dev_model_cache_dir() -> String {
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".ollama")
+        .join("models")
+        .display()
+        .to_string()
+}
+
+fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
+    let local_gpu_dev_enabled = crate::is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV");
+    let explicit_runtime_url =
+        env_text("AUTOPILOT_LOCAL_RUNTIME_URL").or_else(|| env_text("LOCAL_LLM_URL"));
+    let explicit_health_url = env_text("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL");
+    let explicit_backend_source = env_text("AUTOPILOT_LOCAL_BACKEND_SOURCE");
+    let explicit_backend_id = env_text("AUTOPILOT_LOCAL_BACKEND_ID");
+    let preset_id = env_text("AUTOPILOT_LOCAL_DEV_PRESET").or_else(|| {
+        if local_gpu_dev_enabled {
+            Some(LOCAL_GPU_DEV_DEFAULT_PRESET.to_string())
+        } else {
+            None
+        }
+    })?;
+
+    let normalized_preset_id = normalize_text(&preset_id);
+    if normalized_preset_id != LOCAL_GPU_DEV_DEFAULT_PRESET {
+        return Some(LocalGpuDevPreset {
+            preset_id: normalized_preset_id,
+            runtime_url: explicit_runtime_url,
+            runtime_health_url: explicit_health_url,
+            runtime_model: env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+                .or_else(|| env_text("AUTOPILOT_LOCAL_MODEL_ID"))
+                .or_else(|| env_text("OPENAI_MODEL")),
+            embedding_model: env_text("AUTOPILOT_LOCAL_EMBEDDING_MODEL")
+                .or_else(|| env_text("LOCAL_LLM_EMBEDDING_MODEL"))
+                .or_else(|| env_text("OPENAI_EMBEDDING_MODEL")),
+            backend_source: explicit_backend_source,
+            backend_id: explicit_backend_id,
+            model_cache_dir: env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR"),
+            backend_autostart: crate::is_env_var_truthy("AUTOPILOT_LOCAL_BACKEND_AUTOSTART"),
+        });
+    }
+
+    let ollama_available = command_exists("ollama");
+    if !ollama_available && explicit_runtime_url.is_none() && explicit_backend_source.is_none() {
+        println!(
+            "[Studio] Local GPU preset '{}' is available, but 'ollama' was not found on PATH. Falling back to mock inference until a local runtime is installed or configured.",
+            LOCAL_GPU_DEV_DEFAULT_PRESET
+        );
+        return Some(LocalGpuDevPreset {
+            preset_id: normalized_preset_id,
+            runtime_url: None,
+            runtime_health_url: explicit_health_url,
+            runtime_model: env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+                .or_else(|| env_text("AUTOPILOT_LOCAL_MODEL_ID"))
+                .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_MODEL.to_string())),
+            embedding_model: env_text("AUTOPILOT_LOCAL_EMBEDDING_MODEL")
+                .or_else(|| env_text("LOCAL_LLM_EMBEDDING_MODEL"))
+                .or_else(|| env_text("OPENAI_EMBEDDING_MODEL"))
+                .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_EMBEDDING_MODEL.to_string())),
+            backend_source: None,
+            backend_id: explicit_backend_id
+                .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_BACKEND_ID.to_string())),
+            model_cache_dir: env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR")
+                .or_else(|| Some(default_local_gpu_dev_model_cache_dir())),
+            backend_autostart: false,
+        });
+    }
+
+    Some(LocalGpuDevPreset {
+        preset_id: normalized_preset_id,
+        runtime_url: explicit_runtime_url
+            .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_RUNTIME_URL.to_string())),
+        runtime_health_url: explicit_health_url
+            .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_HEALTH_URL.to_string())),
+        runtime_model: env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+            .or_else(|| env_text("AUTOPILOT_LOCAL_MODEL_ID"))
+            .or_else(|| env_text("OPENAI_MODEL"))
+            .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_MODEL.to_string())),
+        embedding_model: env_text("AUTOPILOT_LOCAL_EMBEDDING_MODEL")
+            .or_else(|| env_text("LOCAL_LLM_EMBEDDING_MODEL"))
+            .or_else(|| env_text("OPENAI_EMBEDDING_MODEL"))
+            .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_EMBEDDING_MODEL.to_string())),
+        backend_source: explicit_backend_source
+            .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_BACKEND_SOURCE.to_string())),
+        backend_id: explicit_backend_id
+            .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_BACKEND_ID.to_string())),
+        model_cache_dir: env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR")
+            .or_else(|| Some(default_local_gpu_dev_model_cache_dir())),
+        backend_autostart: crate::is_env_var_truthy("AUTOPILOT_LOCAL_BACKEND_AUTOSTART")
+            || local_gpu_dev_enabled,
+    })
+}
+
+fn apply_local_gpu_dev_preset_env(preset: &LocalGpuDevPreset) {
+    std::env::set_var("AUTOPILOT_LOCAL_DEV_PRESET", &preset.preset_id);
+    if let Some(runtime_url) = preset.runtime_url.as_ref() {
+        std::env::set_var("AUTOPILOT_LOCAL_RUNTIME_URL", runtime_url);
+    }
+    if let Some(runtime_health_url) = preset.runtime_health_url.as_ref() {
+        std::env::set_var("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL", runtime_health_url);
+    }
+    if let Some(runtime_model) = preset.runtime_model.as_ref() {
+        std::env::set_var("AUTOPILOT_LOCAL_RUNTIME_MODEL", runtime_model);
+    }
+    if let Some(embedding_model) = preset.embedding_model.as_ref() {
+        std::env::set_var("AUTOPILOT_LOCAL_EMBEDDING_MODEL", embedding_model);
+        std::env::set_var("LOCAL_LLM_EMBEDDING_MODEL", embedding_model);
+        std::env::set_var("OPENAI_EMBEDDING_MODEL", embedding_model);
+    }
+    if let Some(backend_source) = preset.backend_source.as_ref() {
+        std::env::set_var("AUTOPILOT_LOCAL_BACKEND_SOURCE", backend_source);
+    }
+    if let Some(backend_id) = preset.backend_id.as_ref() {
+        std::env::set_var("AUTOPILOT_LOCAL_BACKEND_ID", backend_id);
+    }
+    if let Some(model_cache_dir) = preset.model_cache_dir.as_ref() {
+        std::env::set_var("AUTOPILOT_LOCAL_MODEL_CACHE_DIR", model_cache_dir);
+    }
+    if preset.backend_autostart {
+        std::env::set_var("AUTOPILOT_LOCAL_BACKEND_AUTOSTART", "1");
+    }
+}
+
+fn command_exists(binary: &str) -> bool {
+    command_path(binary)
+        .map(|binary_path| {
+            Command::new(binary_path)
+                .arg("--version")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .is_ok()
+        })
+        .unwrap_or(false)
+}
+
+fn command_path(binary: &str) -> Option<PathBuf> {
+    if binary.contains(std::path::MAIN_SEPARATOR) {
+        let path = PathBuf::from(binary);
+        return path.exists().then_some(path);
+    }
+
+    std::env::var_os("PATH")
+        .and_then(|paths| {
+            std::env::split_paths(&paths)
+                .map(|dir| dir.join(binary))
+                .find(|candidate| candidate.exists())
+        })
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .map(|home| home.join(".local").join("bin").join(binary))
+                .filter(|candidate| candidate.exists())
+        })
+}
+
+fn run_command_capture_stdout(binary: &str, args: &[&str]) -> Result<String, String> {
+    let binary_path = command_path(binary)
+        .ok_or_else(|| format!("required command '{}' was not found on PATH", binary))?;
+    let output = Command::new(binary_path)
+        .args(args)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|error| format!("failed to run {}: {}", binary, error))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            format!("{} exited with status {}", binary, output.status)
+        } else {
+            format!(
+                "{} exited with status {}: {}",
+                binary, output.status, stderr
+            )
+        });
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+fn drive_local_gpu_dev_bootstrap(
+    memory_runtime: &Arc<MemoryRuntime>,
+    control_plane: &LocalEngineControlPlane,
+) -> Result<(), String> {
+    let runtime_health_required = local_gpu_dev_runtime_health_required(control_plane);
+    for _ in 0..LOCAL_ENGINE_DEV_BOOTSTRAP_MAX_ITERATIONS {
+        let registry_state = load_or_sync_registry_state(memory_runtime, Some(control_plane));
+        seed_bootstrap_jobs_from_env(memory_runtime, control_plane, &registry_state)?;
+        mark_live_bootstrap_jobs_ready(memory_runtime);
+        let advanced = advance_executor_jobs(memory_runtime, Some(control_plane));
+        if bootstrap_jobs_failed(memory_runtime) {
+            break;
+        }
+
+        let runtime_ready = local_runtime_health_ready(control_plane);
+        let live_jobs = has_live_bootstrap_jobs(memory_runtime);
+        if local_gpu_dev_bootstrap_ready(runtime_health_required, runtime_ready, live_jobs) {
+            break;
+        }
+
+        if advanced == 0 || !live_jobs {
+            std::thread::sleep(std::time::Duration::from_millis(
+                LOCAL_ENGINE_DEV_BOOTSTRAP_SLEEP_MS,
+            ));
+        }
+    }
+    if runtime_health_required && !local_runtime_health_ready(control_plane) {
+        let endpoint = env_text("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL")
+            .or_else(|| Some(control_plane.runtime.endpoint.clone()))
+            .unwrap_or_else(|| "the configured local runtime".to_string());
+        eprintln!(
+            "[Studio] Local GPU dev bootstrap did not reach a healthy runtime at {} before setup completed. Studio and the kernel will keep retrying, but early requests may fail until the local runtime is reachable.",
+            endpoint
+        );
+    }
+    ensure_local_gpu_dev_model_ready(control_plane);
+    Ok(())
+}
+
+fn local_gpu_dev_runtime_health_required(control_plane: &LocalEngineControlPlane) -> bool {
+    env_text("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL").is_some()
+        || !control_plane.runtime.endpoint.trim().is_empty()
+}
+
+fn local_gpu_dev_bootstrap_ready(
+    runtime_health_required: bool,
+    runtime_ready: bool,
+    live_jobs: bool,
+) -> bool {
+    runtime_ready || (!runtime_health_required && !live_jobs)
+}
+
+fn mark_live_bootstrap_jobs_ready(memory_runtime: &Arc<MemoryRuntime>) {
+    let mut jobs = orchestrator::load_local_engine_jobs(memory_runtime);
+    let mut changed = false;
+    let due_at_ms = now_ms().saturating_sub(LOCAL_ENGINE_EXECUTOR_TICK_MS);
+    for job in &mut jobs {
+        if job.origin == "bootstrap"
+            && !matches!(job.status.as_str(), "completed" | "failed" | "cancelled")
+            && job.updated_at_ms > due_at_ms
+        {
+            job.updated_at_ms = due_at_ms;
+            changed = true;
+        }
+    }
+    if changed {
+        orchestrator::save_local_engine_jobs(memory_runtime, &jobs);
+    }
+}
+
+fn has_live_bootstrap_jobs(memory_runtime: &Arc<MemoryRuntime>) -> bool {
+    orchestrator::load_local_engine_jobs(memory_runtime)
+        .iter()
+        .any(|job| {
+            job.origin == "bootstrap"
+                && !matches!(job.status.as_str(), "completed" | "failed" | "cancelled")
+        })
+}
+
+fn bootstrap_jobs_failed(memory_runtime: &Arc<MemoryRuntime>) -> bool {
+    orchestrator::load_local_engine_jobs(memory_runtime)
+        .iter()
+        .any(|job| job.origin == "bootstrap" && job.status == "failed")
+}
+
+fn local_runtime_health_ready(control_plane: &LocalEngineControlPlane) -> bool {
+    env_text("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL")
+        .or_else(|| {
+            if control_plane.runtime.endpoint.trim().is_empty() {
+                None
+            } else {
+                Some(control_plane.runtime.endpoint.clone())
+            }
+        })
+        .map(|endpoint| probe_health_endpoint(&endpoint).is_ok())
+        .unwrap_or(false)
+}
+
+fn ensure_local_gpu_dev_model_ready(control_plane: &LocalEngineControlPlane) {
+    if env_text("AUTOPILOT_LOCAL_DEV_PRESET").as_deref() != Some(LOCAL_GPU_DEV_DEFAULT_PRESET) {
+        return;
+    }
+    if !local_runtime_health_ready(control_plane) {
+        return;
+    }
+
+    if !command_exists("ollama") {
+        return;
+    }
+
+    let runtime_model = env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+        .or_else(|| Some(control_plane.runtime.default_model.clone()))
+        .filter(|value| !value.trim().is_empty());
+    let embedding_model = env_text("AUTOPILOT_LOCAL_EMBEDDING_MODEL")
+        .or_else(|| env_text("LOCAL_LLM_EMBEDDING_MODEL"))
+        .or_else(|| env_text("OPENAI_EMBEDDING_MODEL"))
+        .filter(|value| !value.trim().is_empty());
+
+    if let Some(model) = runtime_model.as_ref() {
+        ensure_ollama_model_ready(model, "Default local GPU chat model");
+    }
+    if let Some(model) = embedding_model.as_ref() {
+        if runtime_model.as_deref() != Some(model.as_str()) {
+            ensure_ollama_model_ready(model, "Default local GPU embedding model");
+        }
+    }
+}
+
+fn ollama_model_is_available(model: &str) -> Result<bool, String> {
+    let output = run_command_capture_stdout("ollama", &["list"])?;
+    Ok(output.lines().skip(1).any(|line| {
+        line.split_whitespace()
+            .next()
+            .map(|value| {
+                value == model || (!model.contains(':') && value == format!("{model}:latest"))
+            })
+            .unwrap_or(false)
+    }))
+}
+
+fn ensure_ollama_model_ready(model: &str, label: &str) {
+    if ollama_model_is_available(model).unwrap_or(false) {
+        return;
+    }
+
+    println!(
+        "[Studio] {} '{}' is not cached yet. Pulling it into the persistent host cache for future clean-profile runs.",
+        label, model
+    );
+    match run_command_capture_stdout("ollama", &["pull", model]) {
+        Ok(_) => println!(
+            "[Studio] {} '{}' is now ready in the persistent cache.",
+            label, model
+        ),
+        Err(error) => eprintln!(
+            "[Studio] Failed to pull {} '{}': {}",
+            label.to_ascii_lowercase(),
+            model,
+            error
+        ),
+    }
+}
+
+fn upsert_environment_binding(
+    bindings: &mut Vec<crate::models::LocalEngineEnvironmentBinding>,
+    key: &str,
+    value: Option<String>,
+) {
+    let value = value.unwrap_or_default();
+    if let Some(existing) = bindings.iter_mut().find(|binding| binding.key == key) {
+        existing.value = value;
+        existing.secret = false;
+        return;
+    }
+    bindings.push(crate::models::LocalEngineEnvironmentBinding {
+        key: key.to_string(),
+        value,
+        secret: false,
+    });
+}
+
+fn env_text(key: &str) -> Option<String> {
+    std::env::var(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 pub fn emit_local_engine_update(app: &AppHandle, reason: &str) {
@@ -633,11 +1200,230 @@ pub fn merge_recent_activity(
     merged
 }
 
+fn seed_bootstrap_jobs_from_env(
+    memory_runtime: &Arc<MemoryRuntime>,
+    control_plane: &LocalEngineControlPlane,
+    registry_state: &LocalEngineRegistryState,
+) -> Result<(), String> {
+    let jobs = orchestrator::load_local_engine_jobs(memory_runtime);
+    if let Some(model_source) = env_text("AUTOPILOT_LOCAL_MODEL_SOURCE") {
+        let model_id = normalize_bootstrap_identifier(
+            env_text("AUTOPILOT_LOCAL_MODEL_ID")
+                .unwrap_or_else(|| infer_identifier_from_source(&model_source)),
+        );
+        let already_installed = registry_state
+            .registry_models
+            .iter()
+            .any(|record| record.model_id == model_id && record.status != "failed");
+        let install_job_id = format!("bootstrap:model:install:{}", model_id);
+        let has_live_install_job = jobs.iter().any(|job| {
+            job.job_id == install_job_id
+                && !matches!(job.status.as_str(), "completed" | "failed" | "cancelled")
+        });
+        if !already_installed && !has_live_install_job {
+            queue_bootstrap_job(
+                memory_runtime,
+                control_plane,
+                bootstrap_job("model", "install", Some(model_source), Some(model_id), None),
+            )?;
+        }
+    }
+
+    if let Some(backend_source) = env_text("AUTOPILOT_LOCAL_BACKEND_SOURCE") {
+        let backend_id = normalize_bootstrap_identifier(
+            env_text("AUTOPILOT_LOCAL_BACKEND_ID")
+                .unwrap_or_else(|| infer_identifier_from_source(&backend_source)),
+        );
+        let installed_backend = registry_state
+            .managed_backends
+            .iter()
+            .find(|record| record.backend_id == backend_id);
+        let install_job_id = format!("bootstrap:backend:install:{}", backend_id);
+        let start_job_id = format!("bootstrap:backend:start:{}", backend_id);
+        let health_job_id = format!("bootstrap:backend:health:{}", backend_id);
+        let has_live_install_job = jobs.iter().any(|job| {
+            job.job_id == install_job_id
+                && !matches!(job.status.as_str(), "completed" | "failed" | "cancelled")
+        });
+        let has_live_start_job = jobs.iter().any(|job| {
+            job.job_id == start_job_id
+                && !matches!(job.status.as_str(), "completed" | "failed" | "cancelled")
+        });
+        let has_live_health_job = jobs.iter().any(|job| {
+            job.job_id == health_job_id
+                && !matches!(job.status.as_str(), "completed" | "failed" | "cancelled")
+        });
+        if installed_backend.is_none() && !has_live_install_job {
+            queue_bootstrap_job(
+                memory_runtime,
+                control_plane,
+                bootstrap_job(
+                    "backend",
+                    "install",
+                    Some(backend_source),
+                    Some(backend_id.clone()),
+                    Some(backend_id.clone()),
+                ),
+            )?;
+        } else if control_plane.launcher.auto_start_on_boot {
+            let runtime_healthy = local_runtime_health_ready(control_plane);
+            if should_queue_bootstrap_backend_start(
+                installed_backend,
+                has_live_install_job,
+                has_live_start_job,
+                runtime_healthy,
+            ) {
+                queue_bootstrap_job(
+                    memory_runtime,
+                    control_plane,
+                    bootstrap_job(
+                        "backend",
+                        "start",
+                        None,
+                        Some(backend_id.clone()),
+                        Some(backend_id.clone()),
+                    ),
+                )?;
+            } else if should_queue_bootstrap_backend_health(
+                installed_backend,
+                has_live_install_job,
+                has_live_start_job,
+                has_live_health_job,
+            ) {
+                queue_bootstrap_job(
+                    memory_runtime,
+                    control_plane,
+                    bootstrap_job(
+                        "backend",
+                        "health",
+                        None,
+                        Some(backend_id.clone()),
+                        Some(backend_id),
+                    ),
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn should_queue_bootstrap_backend_start(
+    installed_backend: Option<&LocalEngineBackendRecord>,
+    has_live_install_job: bool,
+    has_live_start_job: bool,
+    runtime_healthy: bool,
+) -> bool {
+    !has_live_install_job
+        && !has_live_start_job
+        && !runtime_healthy
+        && installed_backend.is_some_and(bootstrap_backend_can_start)
+}
+
+fn should_queue_bootstrap_backend_health(
+    installed_backend: Option<&LocalEngineBackendRecord>,
+    has_live_install_job: bool,
+    has_live_start_job: bool,
+    has_live_health_job: bool,
+) -> bool {
+    !has_live_install_job
+        && !has_live_start_job
+        && !has_live_health_job
+        && installed_backend
+            .is_some_and(|record| record.status == "running" && record.health != "healthy")
+}
+
+fn bootstrap_backend_can_start(record: &LocalEngineBackendRecord) -> bool {
+    matches!(record.status.as_str(), "installed" | "stopped") && record.health != "healthy"
+}
+
+fn bootstrap_job(
+    subject_kind: &str,
+    operation: &str,
+    source_uri: Option<String>,
+    subject_id: Option<String>,
+    backend_id: Option<String>,
+) -> LocalEngineJobRecord {
+    let now = now_ms();
+    let identifier = subject_id
+        .clone()
+        .or_else(|| backend_id.clone())
+        .unwrap_or_else(|| normalize_bootstrap_identifier(subject_kind));
+    let title = stage_operation_title(subject_kind, operation, Some(&identifier));
+    let mut job = LocalEngineJobRecord {
+        job_id: format!("bootstrap:{}:{}:{}", subject_kind, operation, identifier),
+        title,
+        summary: String::new(),
+        status: "queued".to_string(),
+        origin: "bootstrap".to_string(),
+        subject_kind: subject_kind.to_string(),
+        operation: operation.to_string(),
+        created_at_ms: now,
+        updated_at_ms: now,
+        progress_percent: job_progress_for_status("queued"),
+        source_uri,
+        subject_id,
+        backend_id,
+        severity: Some("informational".to_string()),
+        approval_scope: Some("model::control".to_string()),
+    };
+    job.summary = summary_for_job_status(&job, &job.status);
+    job
+}
+
+fn queue_bootstrap_job(
+    memory_runtime: &Arc<MemoryRuntime>,
+    control_plane: &LocalEngineControlPlane,
+    job: LocalEngineJobRecord,
+) -> Result<(), String> {
+    let mut jobs = orchestrator::load_local_engine_jobs(memory_runtime);
+    let has_live_match = jobs.iter().any(|existing| {
+        existing.job_id == job.job_id
+            && !matches!(
+                existing.status.as_str(),
+                "completed" | "failed" | "cancelled"
+            )
+    });
+    if has_live_match {
+        return Ok(());
+    }
+
+    jobs.retain(|existing| existing.job_id != job.job_id);
+    jobs.push(job.clone());
+    jobs.sort_by(|left, right| {
+        right
+            .updated_at_ms
+            .cmp(&left.updated_at_ms)
+            .then_with(|| left.title.cmp(&right.title))
+    });
+    orchestrator::save_local_engine_jobs(memory_runtime, &jobs);
+    record_promoted_job(memory_runtime, Some(control_plane), &job);
+    Ok(())
+}
+
+fn normalize_bootstrap_identifier(value: impl AsRef<str>) -> String {
+    normalize_model_identifier(value.as_ref())
+}
+
+fn infer_identifier_from_source(source: &str) -> String {
+    if let Ok(path) = resolve_local_source_path(source) {
+        if path.exists() {
+            return normalize_bootstrap_identifier(infer_model_identifier_from_path(&path));
+        }
+    }
+    infer_model_identifier_from_source_uri(source)
+}
+
 fn normalize_registry_state(
     state: &mut LocalEngineRegistryState,
     control_plane: Option<&LocalEngineControlPlane>,
     now_ms: u64,
 ) {
+    if let Some(control_plane) = control_plane {
+        rehydrate_installed_models(state, control_plane, now_ms);
+        rehydrate_installed_backends(state, control_plane, now_ms);
+    }
+
     if let Some(control_plane) = control_plane {
         state.gallery_catalogs = reconcile_gallery_catalogs(
             &state.gallery_catalogs,
@@ -673,6 +1459,179 @@ fn normalize_registry_state(
             .then_with(|| left.event_id.cmp(&right.event_id))
     });
     state.activity_history.truncate(MAX_ACTIVITY_HISTORY);
+}
+
+fn rehydrate_installed_models(
+    state: &mut LocalEngineRegistryState,
+    control_plane: &LocalEngineControlPlane,
+    now_ms: u64,
+) {
+    for record in discover_installed_models(control_plane, now_ms) {
+        if let Some(existing) = state
+            .registry_models
+            .iter_mut()
+            .find(|existing| existing.model_id == record.model_id)
+        {
+            if matches!(existing.status.as_str(), "failed" | "cancelled") {
+                existing.status = record.status.clone();
+                existing.residency = record.residency.clone();
+            }
+            if existing.source_uri.is_none() {
+                existing.source_uri = record.source_uri.clone();
+            }
+            if existing.backend_id.is_none() {
+                existing.backend_id = record.backend_id.clone();
+            }
+            if existing.hardware_profile.is_none() {
+                existing.hardware_profile = record.hardware_profile.clone();
+            }
+            if existing.job_id.is_none() {
+                existing.job_id = record.job_id.clone();
+            }
+            if existing.bytes_transferred.is_none() {
+                existing.bytes_transferred = record.bytes_transferred;
+            }
+            if existing.installed_at_ms == 0 {
+                existing.installed_at_ms = record.installed_at_ms;
+            }
+            continue;
+        }
+        state.registry_models.push(record);
+    }
+}
+
+fn rehydrate_installed_backends(
+    state: &mut LocalEngineRegistryState,
+    control_plane: &LocalEngineControlPlane,
+    now_ms: u64,
+) {
+    for record in discover_installed_backends(control_plane, now_ms) {
+        if let Some(existing) = state
+            .managed_backends
+            .iter_mut()
+            .find(|existing| existing.backend_id == record.backend_id)
+        {
+            if matches!(existing.status.as_str(), "failed" | "cancelled" | "queued") {
+                existing.status = record.status.clone();
+                existing.health = record.health.clone();
+            }
+            if existing.source_uri.is_none() {
+                existing.source_uri = record.source_uri.clone();
+            }
+            if existing.alias.is_none() {
+                existing.alias = record.alias.clone();
+            }
+            if existing.hardware_profile.is_none() {
+                existing.hardware_profile = record.hardware_profile.clone();
+            }
+            if existing.job_id.is_none() {
+                existing.job_id = record.job_id.clone();
+            }
+            if existing.install_path.is_none() {
+                existing.install_path = record.install_path.clone();
+            }
+            if existing.entrypoint.is_none() {
+                existing.entrypoint = record.entrypoint.clone();
+            }
+            if existing.health_endpoint.is_none() {
+                existing.health_endpoint = record.health_endpoint.clone();
+            }
+            continue;
+        }
+        state.managed_backends.push(record);
+    }
+}
+
+fn discover_installed_models(
+    control_plane: &LocalEngineControlPlane,
+    now_ms: u64,
+) -> Vec<LocalEngineModelRecord> {
+    let Ok(models_root) = resolve_local_engine_path(&control_plane.storage.models_path) else {
+        return Vec::new();
+    };
+    let Ok(entries) = fs::read_dir(models_root) else {
+        return Vec::new();
+    };
+
+    entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path().join(LOCAL_ENGINE_MODEL_INSTALL_MANIFEST))
+        .filter(|manifest_path| manifest_path.exists())
+        .filter_map(|manifest_path| load_installed_model_manifest(&manifest_path).ok())
+        .map(|manifest| LocalEngineModelRecord {
+            model_id: manifest.model_id.clone(),
+            status: "installed".to_string(),
+            residency: "cold".to_string(),
+            installed_at_ms: manifest.imported_at_ms.unwrap_or(now_ms),
+            updated_at_ms: now_ms,
+            source_uri: manifest.source_uri.clone(),
+            backend_id: manifest.backend_id.clone(),
+            hardware_profile: Some(if control_plane.memory.prefer_gpu {
+                "gpu".to_string()
+            } else {
+                control_plane.memory.target_resource.clone()
+            }),
+            job_id: manifest.job_id.clone(),
+            bytes_transferred: manifest.bytes_transferred,
+        })
+        .collect()
+}
+
+fn discover_installed_backends(
+    control_plane: &LocalEngineControlPlane,
+    now_ms: u64,
+) -> Vec<LocalEngineBackendRecord> {
+    let Ok(backends_root) = resolve_local_engine_path(&control_plane.storage.backends_path) else {
+        return Vec::new();
+    };
+    let Ok(entries) = fs::read_dir(backends_root) else {
+        return Vec::new();
+    };
+
+    entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path().join(LOCAL_ENGINE_BACKEND_INSTALL_MANIFEST))
+        .filter(|manifest_path| manifest_path.exists())
+        .filter_map(|manifest_path| load_installed_backend_manifest(&manifest_path).ok())
+        .map(|manifest| {
+            let observation =
+                observe_supervised_backend(&manifest.backend_id, Some(&manifest), now_ms, true)
+                    .unwrap_or_else(|_| BackendRuntimeObservation {
+                        status: "installed".to_string(),
+                        health: "unknown".to_string(),
+                        pid: None,
+                        alias: manifest.alias.clone(),
+                        install_path: Some(manifest.install_root.clone()),
+                        entrypoint: Some(manifest.entrypoint.clone()),
+                        health_endpoint: manifest.health_url.clone(),
+                        last_started_at_ms: None,
+                        last_health_check_at_ms: None,
+                    });
+            LocalEngineBackendRecord {
+                backend_id: manifest.backend_id.clone(),
+                status: observation.status,
+                health: observation.health,
+                installed_at_ms: manifest.installed_at_ms.unwrap_or(now_ms),
+                updated_at_ms: now_ms,
+                source_uri: manifest.source_uri.clone(),
+                alias: observation.alias.or(manifest.alias.clone()),
+                hardware_profile: Some(if control_plane.memory.prefer_gpu {
+                    "gpu".to_string()
+                } else {
+                    control_plane.memory.target_resource.clone()
+                }),
+                job_id: manifest.job_id.clone(),
+                install_path: observation
+                    .install_path
+                    .or(Some(manifest.install_root.clone())),
+                entrypoint: observation.entrypoint.or(Some(manifest.entrypoint.clone())),
+                health_endpoint: observation.health_endpoint.or(manifest.health_url.clone()),
+                pid: observation.pid,
+                last_started_at_ms: observation.last_started_at_ms,
+                last_health_check_at_ms: observation.last_health_check_at_ms,
+            }
+        })
+        .collect()
 }
 
 fn reconcile_gallery_catalogs(
@@ -1338,24 +2297,17 @@ fn verify_model_install(
     let manifest_path = context
         .install_root
         .join(LOCAL_ENGINE_MODEL_INSTALL_MANIFEST);
-    let manifest_bytes = fs::read(&manifest_path).map_err(|error| {
-        format!(
-            "installed model manifest is missing at {}: {}",
-            manifest_path.display(),
-            error
-        )
-    })?;
-    let manifest: serde_json::Value = serde_json::from_slice(&manifest_bytes)
-        .map_err(|error| format!("failed to parse installed model manifest: {}", error))?;
-    let payload_path = manifest
-        .get("payloadPath")
-        .and_then(|value| value.as_str())
-        .map(PathBuf::from)
-        .filter(|path| path.exists())
-        .unwrap_or_else(|| context.install_root.clone());
+    let manifest = load_installed_model_manifest(&manifest_path)?;
+    let payload_path = {
+        let candidate = PathBuf::from(&manifest.payload_path);
+        if candidate.exists() {
+            candidate
+        } else {
+            context.install_root.clone()
+        }
+    };
     let bytes_transferred = manifest
-        .get("bytesTransferred")
-        .and_then(|value| value.as_u64())
+        .bytes_transferred
         .unwrap_or_else(|| measure_path_bytes(&payload_path).unwrap_or_default());
     Ok(ModelInstallMaterialization {
         payload_path,
@@ -1533,6 +2485,7 @@ fn write_model_install_manifest(
         "jobId": job.job_id,
         "operation": job.operation,
         "sourceUri": context.source_uri,
+        "backendId": job.backend_id,
         "sourcePath": context.source_path.display().to_string(),
         "payloadPath": payload_path.display().to_string(),
         "installRoot": context.install_root.display().to_string(),
@@ -1544,6 +2497,23 @@ fn write_model_install_manifest(
             .map(|path| path.display().to_string()),
     });
     write_json_file(&manifest_path, &manifest)
+}
+
+fn load_installed_model_manifest(path: &Path) -> Result<InstalledModelManifest, String> {
+    let raw = fs::read(path).map_err(|error| {
+        format!(
+            "failed to read installed model manifest {}: {}",
+            path.display(),
+            error
+        )
+    })?;
+    serde_json::from_slice(&raw).map_err(|error| {
+        format!(
+            "failed to parse installed model manifest {}: {}",
+            path.display(),
+            error
+        )
+    })
 }
 
 fn write_model_install_receipt(
@@ -1917,10 +2887,16 @@ fn advance_backend_stop_job(
             let _ = write_backend_receipt(context, job, now_ms, "completed", None, None, None);
             Ok(ExecutorAdvanceOutcome {
                 status: next_status.to_string(),
-                summary: Some(format!(
-                    "Backend {} is no longer running.",
-                    context.backend_id
-                )),
+                summary: Some(
+                    if observation.status == "running" && observation.pid.is_none() {
+                        format!(
+                        "Backend {} is externally managed and remains running outside kernel supervision.",
+                        context.backend_id
+                    )
+                    } else {
+                        format!("Backend {} is no longer running.", context.backend_id)
+                    },
+                ),
                 hints: backend_hints_from_observation(&observation),
             })
         }
@@ -2869,9 +3845,14 @@ fn materialize_backend_install(
         .entrypoint
         .clone()
         .ok_or_else(|| "backend package did not resolve an entrypoint".to_string())?;
+    let resolved_entrypoint = resolve_backend_entrypoint(&context.install_root, &entrypoint);
+    let resolved_entrypoint_path = PathBuf::from(&resolved_entrypoint);
+    if resolved_entrypoint_path.exists() {
+        ensure_script_is_executable(&resolved_entrypoint_path)?;
+    }
     let installed_manifest = json!({
         "backendId": context.backend_id,
-        "entrypoint": resolve_backend_entrypoint(&context.install_root, &entrypoint),
+        "entrypoint": resolved_entrypoint,
         "args": package.args,
         "env": package.env,
         "healthUrl": package.health_url,
@@ -3281,6 +4262,22 @@ fn start_supervised_backend(
         supervisor.remove(&context.backend_id);
     }
 
+    if let Some(health_url) = manifest.health_url.as_deref() {
+        if probe_health_endpoint(health_url).is_ok() {
+            return Ok(BackendRuntimeObservation {
+                status: "running".to_string(),
+                health: "healthy".to_string(),
+                pid: None,
+                alias: manifest.alias.clone(),
+                install_path: Some(manifest.install_root.clone()),
+                entrypoint: Some(manifest.entrypoint.clone()),
+                health_endpoint: manifest.health_url.clone(),
+                last_health_check_at_ms: Some(now_ms),
+                ..BackendRuntimeObservation::default()
+            });
+        }
+    }
+
     let mut command = Command::new(&manifest.entrypoint);
     command.args(&manifest.args);
     command.current_dir(&context.install_root);
@@ -3379,6 +4376,23 @@ fn observe_supervised_backend(
         .lock()
         .map_err(|_| "failed to lock backend supervisor".to_string())?;
     let Some(managed) = supervisor.get_mut(backend_id) else {
+        if let Some(manifest) = manifest {
+            if let Some(health_url) = manifest.health_url.as_deref() {
+                if let Ok(health) = probe_health_endpoint(health_url) {
+                    return Ok(BackendRuntimeObservation {
+                        status: "running".to_string(),
+                        health,
+                        pid: None,
+                        alias: manifest.alias.clone(),
+                        install_path: Some(manifest.install_root.clone()),
+                        entrypoint: Some(manifest.entrypoint.clone()),
+                        health_endpoint: manifest.health_url.clone(),
+                        last_health_check_at_ms: Some(now_ms),
+                        ..BackendRuntimeObservation::default()
+                    });
+                }
+            }
+        }
         return Ok(BackendRuntimeObservation {
             status: manifest
                 .map(|_| "installed".to_string())
@@ -4484,6 +5498,35 @@ mod tests {
         }
     }
 
+    fn sample_backend_record(status: &str, health: &str) -> LocalEngineBackendRecord {
+        LocalEngineBackendRecord {
+            backend_id: "ollama-openai".to_string(),
+            status: status.to_string(),
+            health: health.to_string(),
+            installed_at_ms: 1_000,
+            updated_at_ms: 1_000,
+            source_uri: Some("file:///tmp/ollama-openai".to_string()),
+            alias: Some("Ollama OpenAI Dev Runtime".to_string()),
+            hardware_profile: Some("gpu".to_string()),
+            job_id: Some("job:backend:ollama-openai".to_string()),
+            install_path: Some("/tmp/ollama-openai".to_string()),
+            entrypoint: Some("/tmp/ollama-openai/start.sh".to_string()),
+            health_endpoint: Some("http://127.0.0.1:11434/api/tags".to_string()),
+            pid: None,
+            last_started_at_ms: None,
+            last_health_check_at_ms: None,
+        }
+    }
+
+    #[test]
+    fn local_gpu_dev_bootstrap_requires_runtime_health_before_declaring_ready() {
+        assert!(!local_gpu_dev_bootstrap_ready(true, false, false));
+        assert!(!local_gpu_dev_bootstrap_ready(true, false, true));
+        assert!(local_gpu_dev_bootstrap_ready(true, true, false));
+        assert!(local_gpu_dev_bootstrap_ready(false, false, false));
+        assert!(!local_gpu_dev_bootstrap_ready(false, false, true));
+    }
+
     fn test_root(label: &str) -> PathBuf {
         let root =
             std::env::temp_dir().join(format!("ioi-local-engine-{label}-{}", Uuid::new_v4()));
@@ -4528,6 +5571,64 @@ mod tests {
             next_executor_status(&job, 1_000 + (LOCAL_ENGINE_EXECUTOR_TICK_MS * 2)),
             Some("completed".to_string())
         );
+    }
+
+    #[test]
+    fn bootstrap_backend_start_waits_for_install_to_finish() {
+        let backend = sample_backend_record("installed", "stopped");
+        assert!(!should_queue_bootstrap_backend_start(
+            Some(&backend),
+            true,
+            false,
+            false
+        ));
+        assert!(should_queue_bootstrap_backend_start(
+            Some(&backend),
+            false,
+            false,
+            false
+        ));
+        assert!(!should_queue_bootstrap_backend_start(
+            Some(&backend),
+            false,
+            true,
+            false
+        ));
+        assert!(!should_queue_bootstrap_backend_start(
+            Some(&backend),
+            false,
+            false,
+            true
+        ));
+    }
+
+    #[test]
+    fn bootstrap_backend_health_waits_for_start_to_finish() {
+        let backend = sample_backend_record("running", "starting");
+        assert!(!should_queue_bootstrap_backend_health(
+            Some(&backend),
+            true,
+            false,
+            false
+        ));
+        assert!(!should_queue_bootstrap_backend_health(
+            Some(&backend),
+            false,
+            true,
+            false
+        ));
+        assert!(should_queue_bootstrap_backend_health(
+            Some(&backend),
+            false,
+            false,
+            false
+        ));
+        assert!(!should_queue_bootstrap_backend_health(
+            Some(&backend),
+            false,
+            false,
+            true
+        ));
     }
 
     #[test]
@@ -4777,6 +5878,48 @@ mod tests {
     }
 
     #[test]
+    fn observe_supervised_backend_attaches_to_external_health_endpoint() {
+        let root = test_root("external-backend");
+        let control_plane = sample_control_plane(&root);
+        let install_root = resolve_local_engine_path(&control_plane.storage.backends_path)
+            .expect("backends path")
+            .join("ollama-openai");
+        fs::create_dir_all(&install_root).expect("create backend install root");
+
+        let (health_url, server) =
+            spawn_single_response_http_server(b"{\"models\":[]}".to_vec(), "application/json");
+        let health_url = health_url.replace("/model.gguf", "");
+
+        let manifest = InstalledBackendManifest {
+            backend_id: "ollama-openai".to_string(),
+            entrypoint: "/bin/sh".to_string(),
+            args: Vec::new(),
+            env: BTreeMap::new(),
+            health_url: Some(health_url.clone()),
+            alias: Some("Ollama OpenAI Dev Runtime".to_string()),
+            source_uri: Some("file:///tmp/ollama-openai".to_string()),
+            source_path: Some("/tmp/ollama-openai".to_string()),
+            install_root: install_root.display().to_string(),
+            bytes_transferred: None,
+            installed_at_ms: Some(1_000),
+            job_id: Some("job:backend:ollama-openai".to_string()),
+        };
+
+        let observation = observe_supervised_backend("ollama-openai", Some(&manifest), 2_000, true)
+            .expect("observe external backend");
+        assert_eq!(observation.status, "running");
+        assert_eq!(observation.health, "healthy");
+        assert_eq!(
+            observation.health_endpoint.as_deref(),
+            Some(health_url.as_str())
+        );
+        assert_eq!(observation.pid, None);
+
+        server.join().expect("join health server");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn backend_install_materializes_container_backed_launcher() {
         let root = test_root("backend-container");
         let control_plane = sample_control_plane(&root);
@@ -4817,6 +5960,80 @@ mod tests {
         assert_eq!(
             manifest["entrypoint"].as_str().unwrap_or_default(),
             launcher_path.display().to_string()
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn normalize_registry_state_rehydrates_installed_assets_from_manifests() {
+        let root = test_root("rehydrate-assets");
+        let control_plane = sample_control_plane(&root);
+
+        let model_install_root = resolve_local_engine_path(&control_plane.storage.models_path)
+            .expect("models path")
+            .join("phi-mini");
+        fs::create_dir_all(&model_install_root).expect("create model install root");
+        let model_payload = model_install_root.join("phi-mini.gguf");
+        fs::write(&model_payload, b"phi-mini").expect("write model payload");
+        fs::write(
+            model_install_root.join(LOCAL_ENGINE_MODEL_INSTALL_MANIFEST),
+            serde_json::to_vec_pretty(&serde_json::json!({
+                "modelId": "phi-mini",
+                "jobId": "job:model:phi-mini",
+                "sourceUri": "file:///tmp/phi-mini.gguf",
+                "sourcePath": "/tmp/phi-mini.gguf",
+                "payloadPath": model_payload.display().to_string(),
+                "installRoot": model_install_root.display().to_string(),
+                "bytesTransferred": 8,
+                "importedAtMs": 2_000
+            }))
+            .expect("serialize model manifest"),
+        )
+        .expect("write model manifest");
+
+        let backend_install_root = resolve_local_engine_path(&control_plane.storage.backends_path)
+            .expect("backends path")
+            .join("llama-cpp");
+        fs::create_dir_all(&backend_install_root).expect("create backend install root");
+        let backend_entrypoint = backend_install_root.join("launch-backend.sh");
+        fs::write(&backend_entrypoint, "#!/usr/bin/env sh\nexit 0\n")
+            .expect("write backend entrypoint");
+        fs::write(
+            backend_install_root.join(LOCAL_ENGINE_BACKEND_INSTALL_MANIFEST),
+            serde_json::to_vec_pretty(&serde_json::json!({
+                "backendId": "llama-cpp",
+                "entrypoint": backend_entrypoint.display().to_string(),
+                "args": [],
+                "env": {},
+                "healthUrl": serde_json::Value::Null,
+                "alias": "Llama CPP",
+                "sourceUri": "file:///tmp/llama-cpp",
+                "sourcePath": "/tmp/llama-cpp",
+                "installRoot": backend_install_root.display().to_string(),
+                "bytesTransferred": 17,
+                "installedAtMs": 3_000,
+                "jobId": "job:backend:llama-cpp"
+            }))
+            .expect("serialize backend manifest"),
+        )
+        .expect("write backend manifest");
+
+        let mut state = LocalEngineRegistryState::default();
+        normalize_registry_state(&mut state, Some(&control_plane), 9_000);
+
+        assert_eq!(state.registry_models.len(), 1);
+        assert_eq!(state.registry_models[0].model_id, "phi-mini");
+        assert_eq!(state.registry_models[0].status, "installed");
+        assert_eq!(state.registry_models[0].bytes_transferred, Some(8));
+
+        assert_eq!(state.managed_backends.len(), 1);
+        assert_eq!(state.managed_backends[0].backend_id, "llama-cpp");
+        assert_eq!(state.managed_backends[0].status, "installed");
+        let backend_install_root_text = backend_install_root.display().to_string();
+        assert_eq!(
+            state.managed_backends[0].install_path.as_deref(),
+            Some(backend_install_root_text.as_str())
         );
 
         let _ = fs::remove_dir_all(&root);

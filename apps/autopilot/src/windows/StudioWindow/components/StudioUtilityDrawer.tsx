@@ -3,31 +3,23 @@ import {
   countActiveOverrides,
   type ShieldPolicyState,
 } from "../policyCenter";
+import type { PrimaryView } from "../studioWindowModel";
 import { type TauriRuntime } from "../../../services/TauriRuntime";
 import type {
-  AssistantUserProfile,
   AssistantWorkbenchSession,
   BenchmarkTraceCaseView,
   BenchmarkTraceFeed,
 } from "../../../types";
 import { StudioBenchmarkTraceDeck } from "./StudioBenchmarkTraceDeck";
 
-type PrimaryView =
-  | "explorer"
-  | "workflows"
-  | "runs"
-  | "inbox"
-  | "capabilities"
-  | "policy"
-  | "settings";
-
-type UtilityTab = "terminal" | "logs" | "trace" | "receipts";
+type UtilityTab = "logs" | "trace" | "receipts";
 
 interface ProjectScope {
   id: string;
   name: string;
   description: string;
   environment: string;
+  rootPath: string;
 }
 
 interface StudioUtilityDrawerProps {
@@ -35,43 +27,17 @@ interface StudioUtilityDrawerProps {
   activeView: PrimaryView;
   chatSurface: "chat" | "reply-composer" | "meeting-prep";
   operatorPaneOpen: boolean;
-  workflowSurface: "home" | "canvas" | "agents" | "catalog";
   notificationCount: number;
   shieldPolicy: ShieldPolicyState;
   currentProject: ProjectScope;
   focusedPolicyConnectorId?: string | null;
   assistantWorkbench: AssistantWorkbenchSession | null;
-  profile: AssistantUserProfile;
 }
 
 interface UtilityLogItem {
   lane: string;
   title: string;
   detail: string;
-}
-
-const TABS: Array<{ id: UtilityTab; label: string }> = [
-  { id: "terminal", label: "Terminal" },
-  { id: "logs", label: "Logs" },
-  { id: "trace", label: "Trace" },
-  { id: "receipts", label: "Receipts" },
-];
-
-function utilityTabLabel(tab: UtilityTab): string {
-  return TABS.find((item) => item.id === tab)?.label ?? "Panel";
-}
-
-function prettySurfaceLabel(view: PrimaryView): string {
-  return view[0].toUpperCase() + view.slice(1);
-}
-
-function prettyWorkflowSurface(
-  surface: StudioUtilityDrawerProps["workflowSurface"],
-): string {
-  if (surface === "home") return "home";
-  if (surface === "agents") return "agents";
-  if (surface === "catalog") return "catalog";
-  return "canvas";
 }
 
 function prettyOperatorSurface(
@@ -94,10 +60,10 @@ function isEditableElement(target: EventTarget | null): boolean {
 }
 
 function initialTabForView(view: PrimaryView): UtilityTab {
-  if (view === "runs") return "logs";
+  if (view === "studio") return "receipts";
   if (view === "inbox") return "receipts";
   if (view === "policy" || view === "settings") return "trace";
-  return "terminal";
+  return "logs";
 }
 
 function defaultTraceCaseId(feed: BenchmarkTraceFeed | null): string | null {
@@ -114,20 +80,32 @@ function defaultTraceSpanId(caseView: BenchmarkTraceCaseView | null): string | n
   return caseView?.trace?.lanes.flatMap((lane) => lane.spans)[0]?.id ?? null;
 }
 
+const TABS: Array<{ id: UtilityTab; label: string }> = [
+  { id: "logs", label: "Logs" },
+  { id: "trace", label: "Trace" },
+  { id: "receipts", label: "Receipts" },
+];
+
+function utilityTabLabel(tab: UtilityTab): string {
+  return TABS.find((item) => item.id === tab)?.label ?? "Panel";
+}
+
+function prettySurfaceLabel(view: PrimaryView): string {
+  return view[0].toUpperCase() + view.slice(1);
+}
+
 export function StudioUtilityDrawer({
   runtime,
   activeView,
   chatSurface,
   operatorPaneOpen,
-  workflowSurface,
   notificationCount,
   shieldPolicy,
   currentProject,
   focusedPolicyConnectorId,
   assistantWorkbench,
-  profile,
 }: StudioUtilityDrawerProps) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(activeView !== "studio");
   const [activeTab, setActiveTab] = useState<UtilityTab>(
     initialTabForView(activeView),
   );
@@ -150,6 +128,12 @@ export function StudioUtilityDrawer({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  useEffect(() => {
+    if (activeView === "studio") {
+      setIsOpen(false);
+    }
+  }, [activeView]);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,43 +167,6 @@ export function StudioUtilityDrawer({
       cancelled = true;
     };
   }, [runtime]);
-
-  const terminalLines = useMemo(() => {
-    const lines = [
-      `$ autopilot scope use ${currentProject.id}`,
-      `$ autopilot surface open ${activeView}`,
-      `$ autopilot operator ${operatorPaneOpen ? "attach" : "detach"} ${prettyOperatorSurface(chatSurface)}`,
-      `$ autopilot policy overrides ${countActiveOverrides(shieldPolicy)}`,
-    ];
-
-    if (activeView === "workflows") {
-      lines.push(
-        `$ autopilot workflows surface ${prettyWorkflowSurface(workflowSurface)}`,
-      );
-    }
-
-    if (assistantWorkbench) {
-      lines.push(
-        `$ autopilot handoff ${assistantWorkbench.kind.replace(/_/g, "-")}`,
-      );
-    }
-
-    lines.push(
-      `$ autopilot profile locale ${profile.locale.toLowerCase()}`,
-    );
-
-    return lines;
-  }, [
-    activeView,
-    assistantWorkbench,
-    chatSurface,
-    currentProject.id,
-    operatorPaneOpen,
-    profile.locale,
-    shieldPolicy,
-    workflowSurface,
-  ]);
-
   const logItems = useMemo<UtilityLogItem[]>(() => {
     const items: UtilityLogItem[] = [
       {
@@ -333,17 +280,6 @@ export function StudioUtilityDrawer({
 
       {isOpen ? (
         <div className="studio-utility-body">
-          {activeTab === "terminal" ? (
-            <div className="studio-utility-terminal">
-              {terminalLines.map((line) => (
-                <div key={line} className="studio-utility-terminal-line">
-                  <span className="studio-utility-terminal-prompt">$</span>
-                  <code>{line.replace(/^\$ /, "")}</code>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
           {activeTab === "logs" ? (
             <div className="studio-utility-log-list">
               {logItems.map((item) => (

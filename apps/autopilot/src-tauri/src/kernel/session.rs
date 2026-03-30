@@ -11,6 +11,9 @@ use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
 use std::sync::Mutex;
 use tauri::{AppHandle, State};
+use tokio::time::{timeout, Duration};
+
+const SESSION_HISTORY_RPC_TIMEOUT_MS: u64 = 1_500;
 
 #[derive(Decode, Encode)]
 struct RemoteSessionSummary {
@@ -37,7 +40,12 @@ pub async fn get_session_history(
             let key = [ns_prefix.as_slice(), b"agent::history"].concat();
             let req = tonic::Request::new(QueryRawStateRequest { key });
 
-            if let Ok(resp) = client.query_raw_state(req).await {
+            if let Ok(Ok(resp)) = timeout(
+                Duration::from_millis(SESSION_HISTORY_RPC_TIMEOUT_MS),
+                client.query_raw_state(req),
+            )
+            .await
+            {
                 let inner = resp.into_inner();
                 if inner.found && !inner.value.is_empty() {
                     if let Ok(raw_history) =
@@ -59,6 +67,11 @@ pub async fn get_session_history(
                         }
                     }
                 }
+            } else {
+                eprintln!(
+                    "[Kernel] Session history RPC timed out after {}ms",
+                    SESSION_HISTORY_RPC_TIMEOUT_MS
+                );
             }
         }
         Err(e) => {
@@ -120,6 +133,10 @@ pub async fn load_session(
                     history,
                     events: Vec::new(),
                     artifacts: Vec::new(),
+                    studio_session: None,
+                    studio_outcome: None,
+                    renderer_session: None,
+                    build_session: None,
                     run_bundle_id: None,
                     processed_steps: HashSet::new(),
                     swarm_tree: Vec::new(),

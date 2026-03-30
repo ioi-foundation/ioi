@@ -66,6 +66,7 @@ Relevant taxonomy and architecture docs:
 
 - [`docs/canonical-state-and-projection-system-whitepaper.md`](docs/canonical-state-and-projection-system-whitepaper.md)
 - [`docs/fractal-query-fabric-spec.md`](docs/fractal-query-fabric-spec.md)
+- [`docs/specs/verifiable_bounded_agency.md`](docs/specs/verifiable_bounded_agency.md)
 
 ## The Fractal Architecture
 

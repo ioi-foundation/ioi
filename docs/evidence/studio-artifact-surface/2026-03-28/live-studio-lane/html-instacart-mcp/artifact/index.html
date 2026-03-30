@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Rollout Overview</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .panel { display: none; }
+    #key-performance-indicators-kpis-panel { display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Interactive Overview of the Product Rollout with Key Metrics</h1>
+
+    <nav>
+      <button type="button" data-view="key-performance-indicators-kpis">Key Performance Indicators (KPIs)</button>
+      <button type="button" data-view="timeline-of-major-milestones">Timeline of Major Milestones</button>
+      <button type="button" data-view="product-rollout-panel">Product Rollout</button>
+    </nav>
+
+    <section id="key-performance-indicators-kpis-panel" data-view-panel="key-performance-indicators-kpis">
+      <h2>Key Performance Indicators (KPIs) for the Product Launch</h2>
+      <svg width="100" height="100">
+        <rect x="24" y="54" width="42" height="26" tabindex="0" data-detail="Revenue growth rate"></rect>
+      </svg>
+    </section>
+
+    <section id="timeline-of-major-milestones-panel" data-view-panel="timeline-of-major-milestones">
+      <h2>Timeline of Major Milestones</h2>
+      <ul>
+        <li><strong>Q1 2023:</strong> Initial product launch</li>
+        <li><strong>Q2 2023:</strong> Beta testing phase completion</li>
+        <li><strong>Q3 2023:</strong> Full-scale production start</li>
+      </ul>
+    </section>
+
+    <section id="product-rollout-panel" data-view-panel="product-rollout">
+      <h2>Product Rollout Strategy</h2>
+      <p>This section will detail the strategy for rolling out the product to various markets.</p>
+    </section>
+  <section data-studio-normalized="true" data-studio-rollover-chip-rail="true"><h2>Evidence highlights</h2><div class="studio-rollover-chip-rail"><button type="button" class="studio-rollover-chip" data-detail="key performance indicators (KPIs)">key performance indicators (KPIs)</button><button type="button" class="studio-rollover-chip" data-detail="timeline of major milestones">timeline of major milestones</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>
+
+  <aside id="detail-copy">
+    <p>Key Performance Indicators (KPIs) for the Product Launch is selected by default.</p>
+  </aside>
+
+  <script>
+    const panels = Array.from(document.querySelectorAll('[data-view-panel]'));
+    const controls = document.querySelectorAll('button[data-view]');
+
+    controls.forEach(control => {
+      control.addEventListener('click', () => {
+        panels.forEach(panel => panel.setAttribute('hidden', ''));
+        const targetPanel = document.querySelector(`[data-view-panel="${control.dataset.view}"]`);
+        if (targetPanel) {
+          targetPanel.removeAttribute('hidden');
+        }
+      });
+    });
+  </script>
+<script data-studio-normalized="true" data-studio-rollover-repair="true">(() => {
+  const detailCopy = document.getElementById('detail-copy');
+  if (!detailCopy) {
+    return;
+  }
+  document.querySelectorAll('[data-detail]').forEach((mark) => {
+    if (!mark.hasAttribute('tabindex')) {
+      mark.setAttribute('tabindex', '0');
+    }
+    const updateDetail = () => {
+      const detail = mark.getAttribute('data-detail') || '';
+      if (detail) {
+        detailCopy.textContent = detail;
+      }
+    };
+    mark.addEventListener('click', updateDetail);
+    mark.addEventListener('mouseenter', updateDetail);
+    mark.addEventListener('focus', updateDetail);
+  });
+})();</script></body>
+</html>

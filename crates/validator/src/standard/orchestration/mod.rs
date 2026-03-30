@@ -130,7 +130,6 @@ use futures::FutureExt;
 use ingestion::{run_ingestion_worker, ChainTipInfo, IngestionConfig};
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
-use operator_tasks::run_oracle_operator_task;
 use std::path::Path;
 
 /// A struct to hold the numerous dependencies for the Orchestrator.

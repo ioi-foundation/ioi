@@ -10,6 +10,170 @@ use ioi_types::app::wallet_network::{
 use ioi_types::codec;
 use std::collections::BTreeMap;
 
+#[derive(Debug, Default, Clone)]
+struct CasualConversationVsProbeRuntime;
+
+#[async_trait]
+impl InferenceRuntime for CasualConversationVsProbeRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let query = query_from_input_context(input_context);
+        if query.contains("is git installed") || query.contains("check if git is installed") {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if query.contains("do you like flowers") {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": true,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        if query.contains("reply with exactly one word: hello") {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Err(VmError::HostError("inference unavailable".to_string()))
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let lower = text.to_ascii_lowercase();
+        if lower.contains("do you like flowers")
+            || lower.contains("check whether a binary or tool is available in path")
+            || lower.contains("command exists")
+            || lower.contains("which command")
+            || lower.contains("is a tool installed on this computer")
+            || lower.contains("is git installed")
+            || lower.contains("reply with exactly one word: hello")
+        {
+            return Ok(vec![0.0, 1.0]);
+        }
+        if lower.contains("respond conversationally without executing external side effects")
+            || lower.contains("answer the user message")
+            || lower.contains("draft a response")
+        {
+            return Ok(vec![1.0, 0.0]);
+        }
+        Ok(vec![0.1, 0.1])
+    }
+
+    async fn load_model(
+        &self,
+        _model_hash: [u8; 32],
+        _path: &std::path::Path,
+    ) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+struct WorkspaceCreationVsMailRuntime;
+
+#[async_trait]
+impl InferenceRuntime for WorkspaceCreationVsMailRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let query = query_from_input_context(input_context);
+        if query.contains("create an html page for a tennis company") {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": true,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Err(VmError::HostError("inference unavailable".to_string()))
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let lower = text.to_ascii_lowercase();
+        if lower.contains("connected mailbox account")
+            || lower.contains("outbound mailbox message")
+            || lower.contains("send an email to alex@example.com")
+            || lower.contains("reply to the email thread from sam")
+        {
+            return Ok(vec![1.0, 0.0, 0.0]);
+        }
+        if lower.contains("inspect create and modify files in the local workspace")
+            || lower.contains("landing pages")
+            || lower.contains("static sites")
+            || lower.contains("create a landing page for a tennis company in the workspace")
+            || lower.contains("build an html page and preview it locally")
+            || lower.contains("turn this brief into a shippable web page artifact")
+        {
+            return Ok(vec![0.0, 1.0, 0.0]);
+        }
+        if lower.contains("execute local shell or terminal commands") {
+            return Ok(vec![0.0, 0.0, 1.0]);
+        }
+        if lower.contains("create an html page for a tennis company") {
+            return Ok(vec![0.15, 1.0, 0.55]);
+        }
+        Ok(vec![0.0, 0.0, 0.0])
+    }
+
+    async fn load_model(
+        &self,
+        _model_hash: [u8; 32],
+        _path: &std::path::Path,
+    ) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn resolver_never_emits_constrained_true() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
@@ -36,6 +200,140 @@ async fn resolver_never_emits_constrained_true() {
         .await
         .unwrap();
     assert!(!resolved.constrained);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_forces_obvious_casual_conversation_to_conversation_reply() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(CasualConversationVsProbeRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Do you like flowers?".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v17-casual-conversation-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "conversation.reply" | "command.probe"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "conversation.reply");
+    assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
+    assert_eq!(
+        resolved
+            .top_k
+            .first()
+            .map(|candidate| candidate.intent_id.as_str()),
+        Some("conversation.reply")
+    );
+    assert!(!should_pause_for_clarification(
+        &resolved,
+        &rules.ontology_policy.intent_routing
+    ));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_forces_reply_format_prompts_to_conversation_reply_even_when_binding_model_is_noisy(
+) {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(CasualConversationVsProbeRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Reply with exactly one word: hello".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v17-casual-conversation-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "conversation.reply" | "command.probe"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "conversation.reply");
+    assert!(!should_pause_for_clarification(
+        &resolved,
+        &rules.ontology_policy.intent_routing
+    ));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_routes_workspace_creation_queries_to_workspace_ops_via_semantic_matrix() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(WorkspaceCreationVsMailRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "create an html page for a tennis company".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v17-workspace-creation-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "mail.reply" | "workspace.ops" | "command.exec"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "workspace.ops");
+    assert_eq!(resolved.scope, IntentScopeProfile::WorkspaceOps);
+    assert_eq!(
+        resolved
+            .top_k
+            .first()
+            .map(|candidate| candidate.intent_id.as_str()),
+        Some("workspace.ops")
+    );
+    assert!(!should_pause_for_clarification(
+        &resolved,
+        &rules.ontology_policy.intent_routing
+    ));
 }
 
 #[tokio::test(flavor = "current_thread")]

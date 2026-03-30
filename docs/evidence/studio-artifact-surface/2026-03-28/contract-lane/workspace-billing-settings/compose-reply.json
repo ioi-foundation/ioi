@@ -1,0 +1,33 @@
+{
+  "status": "ready",
+  "lifecycleState": "ready",
+  "title": "Studio outcome: a workspace project for a billing settings surface",
+  "summary": "a workspace project for a billing settings surface Complies with request and concepts, has relevant interactions, and is complete.",
+  "evidence": [
+    "src/App.tsx",
+    "src/main.tsx",
+    "src/App.css",
+    "src/index.css",
+    "index.html",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tsconfig.app.json",
+    "tsconfig.node.json",
+    "package.json",
+    "README.md",
+    "artifact-manifest.json"
+  ],
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "failure": null
+}

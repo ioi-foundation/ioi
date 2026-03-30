@@ -1,0 +1,54 @@
+{
+  "artifactId": "69112845-d495-401b-b9f1-52fb679ff8b7",
+  "title": "a downloadable artifact bundle with a CSV and README",
+  "artifactClass": "downloadable_file",
+  "renderer": "download_card",
+  "primaryTab": "download",
+  "tabs": [
+    {
+      "id": "download",
+      "label": "Download",
+      "kind": "download",
+      "renderer": "download_card",
+      "filePath": "README.md",
+      "lens": "download"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "mime": "text/markdown",
+      "role": "supporting",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": "generated-README.md",
+      "externalUrl": null
+    },
+    {
+      "path": "exports/downloadable-csv-readme.csv",
+      "mime": "text/csv",
+      "role": "export",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": "generated-exports-downloadable-csv-readme.csv",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "The candidate stays grounded in downloadable csv readme, covers the required concepts, and is strong enough to lead the stage."
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

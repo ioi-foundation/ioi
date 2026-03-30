@@ -4,6 +4,7 @@ use crate::vm::inference::InferenceRuntime;
 use async_trait::async_trait;
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_types::app::agentic::InferenceOptions;
+use ioi_types::app::{StudioRuntimeProvenance, StudioRuntimeProvenanceKind};
 use ioi_types::error::VmError;
 use serde_json::json;
 use std::path::Path;
@@ -30,6 +31,10 @@ impl InferenceRuntime for MockInferenceRuntime {
 
         // [DEBUG]
         // println!("[MockBrain] Input: {}", input_str);
+
+        if let Some(studio_response) = crate::studio_mock::maybe_handle_studio_prompt(&input_str) {
+            return Ok(studio_response.into_bytes());
+        }
 
         if input_str.contains("classifying a structural web retrieval contract") {
             let lower = input_str.to_ascii_lowercase();
@@ -326,5 +331,14 @@ impl InferenceRuntime for MockInferenceRuntime {
     async fn unload_model(&self, model_hash: [u8; 32]) -> Result<(), VmError> {
         log::info!("MockInference: Unloaded model {}", hex::encode(model_hash));
         Ok(())
+    }
+
+    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+        StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::MockRuntime,
+            label: "mock inference runtime".to_string(),
+            model: Some("mock".to_string()),
+            endpoint: Some("mock://reasoning-runtime".to_string()),
+        }
     }
 }

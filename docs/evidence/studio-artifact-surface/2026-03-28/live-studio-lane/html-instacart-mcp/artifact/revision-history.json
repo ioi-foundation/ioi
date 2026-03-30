@@ -1,0 +1,257 @@
+[
+  {
+    "revisionId": "e5d29134-267c-4f66-9441-0050ff8aa5b4",
+    "parentRevisionId": null,
+    "branchId": "main",
+    "branchLabel": "Main",
+    "prompt": "Create an interactive HTML artifact that explains a product rollout with charts for an Instacart MCP",
+    "createdAt": "2026-03-30T11:52:32.391249320+00:00",
+    "uxLifecycle": "judged",
+    "artifactManifest": {
+      "artifactId": "dd620601-cda8-4530-ab3c-c4bb8fc4ddbf",
+      "title": "Create an interactive HTML artifact that explains a product rollo...",
+      "artifactClass": "interactive_single_file",
+      "renderer": "html_iframe",
+      "primaryTab": "render",
+      "tabs": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "renderer": "html_iframe",
+          "filePath": null,
+          "lens": "render"
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "renderer": null,
+          "filePath": null,
+          "lens": "source"
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "renderer": null,
+          "filePath": null,
+          "lens": "evidence"
+        }
+      ],
+      "files": [
+        {
+          "path": "index.html",
+          "mime": "text/html",
+          "role": "primary",
+          "renderable": true,
+          "downloadable": false,
+          "artifactId": "dd620601-cda8-4530-ab3c-c4bb8fc4ddbf",
+          "externalUrl": null
+        }
+      ],
+      "verification": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:14b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+        },
+        "failure": null
+      },
+      "storage": {
+        "mode": "shared_artifact_scoped",
+        "apiLabel": "artifact storage"
+      }
+    },
+    "artifactBrief": {
+      "audience": "Instacart MCP team members",
+      "jobToBeDone": "understand the product rollout process and key metrics for decision-making",
+      "subjectDomain": "product management and data visualization",
+      "artifactThesis": "Provide an interactive overview of the product rollout with relevant charts to aid in strategic planning.",
+      "requiredConcepts": [
+        "product rollout",
+        "charts",
+        "Instacart"
+      ],
+      "requiredInteractions": [
+        "hover to view details to reveal shared detail in the visible detail panel",
+        "click to expand sections to switch the visible evidence view"
+      ],
+      "visualTone": [
+        "professional",
+        "informative"
+      ],
+      "factualAnchors": [
+        "key performance indicators (KPIs) for the product launch",
+        "timeline of major milestones in the rollout process"
+      ],
+      "styleDirectives": [],
+      "referenceHints": [
+        "product roadmap document",
+        "previous product launch reports"
+      ]
+    },
+    "editIntent": null,
+    "candidateSummaries": [
+      {
+        "candidateId": "candidate-2",
+        "seed": 9559407605632950749,
+        "model": "qwen2.5:7b",
+        "temperature": 0.62,
+        "strategy": "request-grounded_html",
+        "origin": "live_inference",
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "summary": "Interactive Overview of the Product Rollout with Key Metrics",
+        "renderablePaths": [
+          "index.html"
+        ],
+        "selected": true,
+        "fallback": false,
+        "failure": null,
+        "rawOutputPreview": null,
+        "judge": {
+          "classification": "pass",
+          "requestFaithfulness": 5,
+          "conceptCoverage": 5,
+          "interactionRelevance": 5,
+          "layoutCoherence": 4,
+          "visualHierarchy": 4,
+          "completeness": 5,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": true,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "",
+          "rationale": "Candidate meets all requirements, including interactive elements and relevant data visualizations."
+        }
+      },
+      {
+        "candidateId": "candidate-1",
+        "seed": 16718855303504645180,
+        "model": "qwen2.5:7b",
+        "temperature": 0.62,
+        "strategy": "request-grounded_html",
+        "origin": "live_inference",
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "summary": "Candidate failed during materialization.",
+        "renderablePaths": [],
+        "selected": false,
+        "fallback": false,
+        "failure": "HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.; repair attempt 1 failed: HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.; repair attempt 2 failed: HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.; repair attempt 3 failed: HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.",
+        "rawOutputPreview": "{\n  \"summary\": \"Interactive Overview of Product Rollout for Instacart MCP\",\n  \"notes\": [\n    \"Ensure the primary evidence view is an inline SVG timeline with visible marks and labels.\",\n    \"Include a named control bar to inspect key performance indicators (KPIs) and switch between different views.\",\n    \"Provide shared detail updates on hover or focus in a dedicated aside panel.\",\n    \"Surface the timeline of major milestones as a preview or secondary evidence article.\"\n  ],\n  \"files\": [\n    {\n      \"path\": \"rollout_overview.html\",\n      \"mime\": \"text/html\",\n      \"role\": \"primary\",\n      \"renderable\": true,\n      \"downloadable\": false,\n      \"encoding\": null,\n      \"body\": \"<!DOCTYPE html>\\n<html lang=\\\"en\\\">\\n<head>\\n    <meta charset=\\\"UTF-8\\\">\\n    <title>Interactive Product Rollout Overview</title>\\n    <style>\\n        body { font-family: Arial, sans-serif; }\\n        .control-bar button { margin-right: 10px; }\\n        .timeline svg { width: 80%; height: auto; display: block; margin: 20px auto; }\\n        .detail-panel p { margin: 5px 0; }\\n    </style>\\n</head>\\n<body>\\n    <header>\\n        <h1>Interactive Overview of Product Rollout for Instacart MCP</h1>\\n    </header>\\n    <nav class=\\\"control-bar\\\">\\n        <button type=\\\"button\\\" data-view=\\\"kpis\\\" aria-controls=\\\"kpis-panel\\\">Key Performance Indicators (KPIs)</button>\\n        <button type=\\\"button\\\" data-view=\\\"timeline\\\" aria-controls=\\\"timeline-panel\\\">Timeline of Major Milestones</button>\\n        <button type=\\\"button\\\" data-view=\\\"charts\\\" aria-controls=\\\"charts-panel\\\">Charts</button>\\n    </nav>\\n    <main>\\n        <section class=\\\"primary-evidence\\\" id=\\\"kpis-panel\\\" data-view-panel=\\\"kpis\\\">\\n            <h2>Key Performance Indicators (KPIs)</h2>\\n            <p>Hover over the timeline to view details.</p>\\n            <svg viewBox=\\\"0 0 1000 500\\\" class=\\\"timeline\\\">\\n                <!-- SVG content for timeline with marks and labels -->\\n            </svg>\\n        </section>\\n        ...",
+        "judge": {
+          "classification": "blocked",
+          "requestFaithfulness": 1,
+          "conceptCoverage": 1,
+          "interactionRelevance": 1,
+          "layoutCoherence": 1,
+          "visualHierarchy": 1,
+          "completeness": 1,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": false,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.; repair attempt 1 failed: HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.; repair attempt 2 failed: HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.; repair attempt 3 failed: HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.",
+          "rationale": "HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.; repair attempt 1 failed: HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.; repair attempt 2 failed: HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors.; repair attempt 3 failed: HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors."
+        }
+      },
+      {
+        "candidateId": "candidate-3",
+        "seed": 2399959907761256318,
+        "model": "qwen2.5:7b",
+        "temperature": 0.62,
+        "strategy": "request-grounded_html",
+        "origin": "live_inference",
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen2.5:7b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "summary": "Candidate failed during materialization.",
+        "renderablePaths": [],
+        "selected": false,
+        "fallback": false,
+        "failure": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+        "rawOutputPreview": "{\n  \"summary\": \"Interactive Overview of Instacart Product Rollout\",\n  \"notes\": [\n    \"Ensure all required interactions are tangible on first paint.\",\n    \"Use visible controls to switch views and reveal shared detail.\",\n    \"Surface key performance indicators (KPIs) for the product launch in a structured evidence view.\",\n    \"Keep timeline of major milestones in the rollout process visible as a secondary evidence panel.\"\n  ],\n  \"files\": [\n    {\n      \"path\": \"index.html\",\n      \"mime\": \"text/html\",\n      \"role\": \"primary\",\n      \"renderable\": true,\n      \"downloadable\": false,\n      \"encoding\": null,\n      \"body\": \"<!DOCTYPE html>\\n<html lang=\\\"en\\\">\\n<head>\\n  <meta charset=\\\"UTF-8\\\">\\n  <meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1.0\\\">\\n  <title>Interactive Overview of Instacart Product Rollout</title>\\n  <style>\\n    /* Basic styling for the layout */\\n    body { font-family: Arial, sans-serif; }\\n    .control-bar { display: flex; justify-content: space-between; margin-bottom: 20px; }\\n    .panel { display: none; }\\n    .panel.active { display: block; }\\n    .detail-panel { margin-top: 20px; }\\n    /* Additional styling for the content */\\n  </style>\\n</head>\\n<body>\\n  <header>\\n    <h1>Interactive Overview of Instacart Product Rollout</h1>\\n  </header>\\n  <nav class=\\\"control-bar\\\">\\n    <button type=\\\"button\\\" data-view=\\\"kpi\\\" aria-controls=\\\"kpi-panel\\\">Key Performance Indicators (KPIs)</button>\\n    <button type=\\\"button\\\" data-view=\\\"timeline\\\" aria-controls=\\\"timeline-panel\\\">Timeline of Major Milestones</button>\\n  </nav>\\n  <main>\\n    <section id=\\\"kpi-panel\\\" class=\\\"panel active\\\">\\n      <h2>Key Performance Indicators (KPIs) for the Product Launch</h2>\\n      <p id=\\\"detail-copy\\\">Key performance indicators (KPIs) for the product launch is selected by default.</p>\\n      <svg width=\\\"300\\\" height=\\\"200\\\">\\n        <!-- Example KPI chart with labels -->\\n        <rect x=\\\"50\\\" y=\\\"100\\\" width=\\\"200\\\" height=\\\"40\\\" fill=\\\"blue...",
+        "judge": {
+          "classification": "blocked",
+          "requestFaithfulness": 1,
+          "conceptCoverage": 1,
+          "interactionRelevance": 1,
+          "layoutCoherence": 1,
+          "visualHierarchy": 1,
+          "completeness": 1,
+          "genericShellDetected": false,
+          "trivialShellDetected": false,
+          "deservesPrimaryArtifactView": false,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": null,
+          "strongestContradiction": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.",
+          "rationale": "HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 1 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 2 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint.; repair attempt 3 failed: HTML iframe briefs with charted evidence must surface at least two populated evidence views on first paint."
+        }
+      }
+    ],
+    "winningCandidateId": "candidate-2",
+    "judge": {
+      "classification": "pass",
+      "requestFaithfulness": 5,
+      "conceptCoverage": 5,
+      "interactionRelevance": 5,
+      "layoutCoherence": 4,
+      "visualHierarchy": 4,
+      "completeness": 5,
+      "genericShellDetected": false,
+      "trivialShellDetected": false,
+      "deservesPrimaryArtifactView": true,
+      "patchedExistingArtifact": null,
+      "continuityRevisionUx": null,
+      "strongestContradiction": "",
+      "rationale": "Candidate meets all requirements, including interactive elements and relevant data visualizations."
+    },
+    "outputOrigin": "live_inference",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null,
+    "fileWrites": [
+      {
+        "path": "index.html",
+        "kind": "primary",
+        "contentPreview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Product Rollout Overview</title>"
+      }
+    ],
+    "selectedTargets": []
+  }
+]

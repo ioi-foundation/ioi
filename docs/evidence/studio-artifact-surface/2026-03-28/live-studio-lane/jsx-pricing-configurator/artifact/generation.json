@@ -1,0 +1,486 @@
+{
+  "prompt": "Create a JSX artifact for a pricing configurator",
+  "title": "Create a JSX artifact for a pricing configurator",
+  "route": {
+    "requestId": "1881e31b-c275-45cb-9f4b-5503179ff031",
+    "rawPrompt": "Create a JSX artifact for a pricing configurator",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 1.0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "jsx_sandbox",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "jsx-configurator"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "end-users",
+    "jobToBeDone": "configure product pricing options interactively within a side panel",
+    "subjectDomain": "pricing configurator",
+    "artifactThesis": "create an interactive JSX component for configuring product prices with stateful interactions",
+    "requiredConcepts": [
+      "pricing",
+      "configurator",
+      "product",
+      "side panel"
+    ],
+    "requiredInteractions": [
+      "select product type and adjust price options to update the visible chart and detail panel",
+      "apply discounts and taxes to update the visible chart and detail panel"
+    ],
+    "visualTone": [],
+    "factualAnchors": [],
+    "styleDirectives": [],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 7630719172872126015,
+      "model": "qwen2.5:7b",
+      "temperature": 0.5,
+      "strategy": "interaction-first_jsx",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "JSX component for an interactive pricing configurator with product selection and price adjustment capabilities.",
+      "renderablePaths": [
+        "jsx-configurator.jsx"
+      ],
+      "selected": false,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 4,
+        "interactionRelevance": 3,
+        "layoutCoherence": 5,
+        "visualHierarchy": 5,
+        "completeness": 3,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "Missing chart and detailed information display",
+        "rationale": "Candidate covers most required concepts but lacks the specified summary charts and details."
+      }
+    },
+    {
+      "candidateId": "candidate-2",
+      "seed": 710900107550079936,
+      "model": "qwen2.5:7b",
+      "temperature": 0.5,
+      "strategy": "interaction-first_jsx",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "JSX component for an interactive pricing configurator with stateful interactions and layout in control panel, primary visualization, and inspectable detail tray.",
+      "renderablePaths": [
+        "jsx-configurator.jsx"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 4,
+        "visualHierarchy": 3,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate meets all request and brief requirements, including stateful interactions for product pricing configuration."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-2",
+  "winningCandidateRationale": "Candidate meets all request and brief requirements, including stateful interactions for product pricing configuration.",
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 4,
+    "visualHierarchy": 3,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "",
+    "rationale": "Candidate meets all request and brief requirements, including stateful interactions for product pricing configuration."
+  },
+  "outputOrigin": "live_inference",
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:7b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:14b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "manifest": {
+    "artifactId": "ec33aa5e-5d90-421a-9de2-bab04a891bb9",
+    "title": "Create a JSX artifact for a pricing configurator",
+    "artifactClass": "interactive_single_file",
+    "renderer": "jsx_sandbox",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "jsx_sandbox",
+        "filePath": null,
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": null,
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "jsx-configurator.jsx",
+        "mime": "application/javascript",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "ec33aa5e-5d90-421a-9de2-bab04a891bb9",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "shared_artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create a JSX artifact for a pricing configurator",
+    "summary": "Create a JSX artifact for a pricing configurator Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "evidence": [
+      "jsx-configurator.jsx",
+      "production provenance: openai-compatible (qwen2.5:7b)",
+      "acceptance provenance: openai-compatible (qwen2.5:14b)"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null,
+    "updatedAt": "2026-03-30T12:01:38.615733869+00:00"
+  },
+  "materializedFiles": [
+    "jsx-configurator.jsx"
+  ],
+  "renderableFiles": [
+    "jsx-configurator.jsx"
+  ],
+  "selectedTargets": [],
+  "tasteMemory": null,
+  "revisions": [
+    {
+      "revisionId": "57eb2459-c9c4-45a7-8a45-d06d4ad79bb9",
+      "parentRevisionId": null,
+      "branchId": "main",
+      "branchLabel": "Main",
+      "prompt": "Create a JSX artifact for a pricing configurator",
+      "createdAt": "2026-03-30T12:01:38.615773069+00:00",
+      "uxLifecycle": "judged",
+      "artifactManifest": {
+        "artifactId": "ec33aa5e-5d90-421a-9de2-bab04a891bb9",
+        "title": "Create a JSX artifact for a pricing configurator",
+        "artifactClass": "interactive_single_file",
+        "renderer": "jsx_sandbox",
+        "primaryTab": "render",
+        "tabs": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "renderer": "jsx_sandbox",
+            "filePath": null,
+            "lens": "render"
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": null,
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [
+          {
+            "path": "jsx-configurator.jsx",
+            "mime": "application/javascript",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": false,
+            "artifactId": "ec33aa5e-5d90-421a-9de2-bab04a891bb9",
+            "externalUrl": null
+          }
+        ],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:14b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+          },
+          "failure": null
+        },
+        "storage": {
+          "mode": "shared_artifact_scoped",
+          "apiLabel": "artifact storage"
+        }
+      },
+      "artifactBrief": {
+        "audience": "end-users",
+        "jobToBeDone": "configure product pricing options interactively within a side panel",
+        "subjectDomain": "pricing configurator",
+        "artifactThesis": "create an interactive JSX component for configuring product prices with stateful interactions",
+        "requiredConcepts": [
+          "pricing",
+          "configurator",
+          "product",
+          "side panel"
+        ],
+        "requiredInteractions": [
+          "select product type and adjust price options to update the visible chart and detail panel",
+          "apply discounts and taxes to update the visible chart and detail panel"
+        ],
+        "visualTone": [],
+        "factualAnchors": [],
+        "styleDirectives": [],
+        "referenceHints": []
+      },
+      "editIntent": null,
+      "candidateSummaries": [
+        {
+          "candidateId": "candidate-1",
+          "seed": 7630719172872126015,
+          "model": "qwen2.5:7b",
+          "temperature": 0.5,
+          "strategy": "interaction-first_jsx",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "JSX component for an interactive pricing configurator with product selection and price adjustment capabilities.",
+          "renderablePaths": [
+            "jsx-configurator.jsx"
+          ],
+          "selected": false,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "repairable",
+            "requestFaithfulness": 4,
+            "conceptCoverage": 4,
+            "interactionRelevance": 3,
+            "layoutCoherence": 5,
+            "visualHierarchy": 5,
+            "completeness": 3,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "Missing chart and detailed information display",
+            "rationale": "Candidate covers most required concepts but lacks the specified summary charts and details."
+          }
+        },
+        {
+          "candidateId": "candidate-2",
+          "seed": 710900107550079936,
+          "model": "qwen2.5:7b",
+          "temperature": 0.5,
+          "strategy": "interaction-first_jsx",
+          "origin": "live_inference",
+          "provenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen2.5:7b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "summary": "JSX component for an interactive pricing configurator with stateful interactions and layout in control panel, primary visualization, and inspectable detail tray.",
+          "renderablePaths": [
+            "jsx-configurator.jsx"
+          ],
+          "selected": true,
+          "fallback": false,
+          "failure": null,
+          "rawOutputPreview": null,
+          "judge": {
+            "classification": "pass",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 5,
+            "interactionRelevance": 5,
+            "layoutCoherence": 4,
+            "visualHierarchy": 3,
+            "completeness": 5,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "strongestContradiction": "",
+            "rationale": "Candidate meets all request and brief requirements, including stateful interactions for product pricing configuration."
+          }
+        }
+      ],
+      "winningCandidateId": "candidate-2",
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 4,
+        "visualHierarchy": 3,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "",
+        "rationale": "Candidate meets all request and brief requirements, including stateful interactions for product pricing configuration."
+      },
+      "outputOrigin": "live_inference",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:7b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen2.5:14b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+      },
+      "failure": null,
+      "fileWrites": [
+        {
+          "path": "jsx-configurator.jsx",
+          "kind": "primary",
+          "contentPreview": "import React, { useState } from 'react';\n\nconst PricingConfigurator = () => {\n  const [selectedProductType, setSelectedProductType] = useState('Basic');\n  const [priceOptions, setPriceOptions] = useState({\n    Basic: 10,"
+        }
+      ],
+      "selectedTargets": []
+    }
+  ],
+  "activeRevisionId": "57eb2459-c9c4-45a7-8a45-d06d4ad79bb9",
+  "fullStudioPath": true
+}

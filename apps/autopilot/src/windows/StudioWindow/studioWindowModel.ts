@@ -1,7 +1,7 @@
 import type { AssistantUserProfile } from "../../types";
 
 export type PrimaryView =
-  | "explorer"
+  | "studio"
   | "workflows"
   | "runs"
   | "inbox"
@@ -15,19 +15,6 @@ export interface ProjectScope {
   description: string;
   environment: string;
   rootPath: string;
-}
-
-export interface ProjectFileDocument {
-  name: string;
-  path: string;
-  absolute_path: string;
-  language_hint: string | null;
-  content: string;
-  size_bytes: number;
-  modified_at_ms: number | null;
-  is_binary: boolean;
-  is_too_large: boolean;
-  read_only: boolean;
 }
 
 export const DEFAULT_PROFILE: AssistantUserProfile = {

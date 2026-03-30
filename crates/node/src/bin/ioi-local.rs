@@ -7,6 +7,8 @@ use ioi_api::crypto::SerializableKey;
 use ioi_api::state::service_namespace_prefix;
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_api::validator::container::Container;
+#[cfg(feature = "consensus-poa")]
+use ioi_consensus::proof_of_authority::ProofOfAuthorityEngine;
 use ioi_consensus::solo::SoloEngine;
 
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
@@ -158,9 +160,19 @@ async fn main() -> Result<()> {
     };
 
     let session_id = [0u8; 32];
+    let local_gpu_dev_mode = std::env::var("AUTOPILOT_LOCAL_GPU_DEV")
+        .ok()
+        .map(|value| matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on"))
+        .unwrap_or(false);
+    let local_policy_defaults = if local_gpu_dev_mode {
+        ioi_services::agentic::rules::DefaultPolicy::AllowAll
+    } else {
+        ioi_services::agentic::rules::DefaultPolicy::RequireApproval
+    };
+
     let local_policy = ActionRules {
         policy_id: "interactive-mode".to_string(),
-        defaults: DefaultPolicy::RequireApproval,
+        defaults: local_policy_defaults,
         ontology_policy: Default::default(),
         pii_controls: Default::default(),
         rules: vec![
@@ -255,7 +267,7 @@ async fn main() -> Result<()> {
         chain_id: ioi_types::app::ChainId(0),
         config_schema_version: 1,
         validator_role: ValidatorRole::Consensus,
-        consensus_type: ConsensusType::Aft,
+        consensus_type: ConsensusType::ProofOfAuthority,
         aft_safety_mode: Default::default(),
         guardian_production_mode: Default::default(),
         key_authority: None,
@@ -324,8 +336,22 @@ async fn main() -> Result<()> {
             model,
         )
     } else if let Some(url) = local_url {
+        let local_model = std::env::var("LOCAL_LLM_MODEL")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                std::env::var("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+                    .ok()
+                    .filter(|value| !value.trim().is_empty())
+            })
+            .or_else(|| {
+                std::env::var("OPENAI_MODEL")
+                    .ok()
+                    .filter(|value| !value.trim().is_empty())
+            })
+            .unwrap_or_else(|| "llama3".to_string());
         println!("🤖 LOCAL_LLM_URL detected.");
-        ("local", url, None, "llama3".to_string())
+        ("local", url, None, local_model)
     } else {
         println!("⚠️ No API Key found. Fallback to Mock.");
         ("mock", "".to_string(), None, "mock-model".to_string())
@@ -375,7 +401,7 @@ async fn main() -> Result<()> {
         runtimes: vec!["wasm".to_string()],
         state_tree: ioi_types::config::StateTreeType::IAVL,
         commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
-        consensus_type: ConsensusType::Aft,
+        consensus_type: ConsensusType::ProofOfAuthority,
         genesis_file: opts
             .data_dir
             .join("genesis.json")
@@ -505,6 +531,9 @@ async fn main() -> Result<()> {
         )?;
     }
 
+    let genesis_bytes = fs::read(&workload_config.genesis_file)?;
+    let derived_genesis_hash: [u8; 32] = ioi_crypto::algorithms::hash::sha256(&genesis_bytes)?;
+
     // 5. Driver Instantiation
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
     let os_driver = Arc::new(NativeOsDriver::new());
@@ -611,8 +640,28 @@ async fn main() -> Result<()> {
 
     let (_dummy_tx, network_events) = tokio::sync::mpsc::channel(100);
 
-    println!("   - Consensus: Solo (Lite Mode)");
-    let consensus_engine = ioi_consensus::Consensus::Solo(SoloEngine::new());
+    let (consensus_label, consensus_engine) = if cfg!(feature = "consensus-poa") {
+        #[cfg(feature = "consensus-poa")]
+        {
+            (
+                "Proof of Authority (Local Single-Validator Mode)",
+                ioi_consensus::Consensus::ProofOfAuthority(ProofOfAuthorityEngine::new()),
+            )
+        }
+        #[cfg(not(feature = "consensus-poa"))]
+        {
+            (
+                "Solo (Lite Mode)",
+                ioi_consensus::Consensus::Solo(SoloEngine::new()),
+            )
+        }
+    } else {
+        (
+            "Solo (Lite Mode)",
+            ioi_consensus::Consensus::Solo(SoloEngine::new()),
+        )
+    };
+    println!("   - Consensus: {}", consensus_label);
     ensure_guardianized_local_signer_allowed(&config)?;
 
     let sk_bytes = local_key.clone().try_into_ed25519()?.secret();
@@ -666,7 +715,7 @@ async fn main() -> Result<()> {
         local_keypair: local_key.clone(),
         pqc_keypair: None,
         is_quarantined: Arc::new(AtomicBool::new(false)),
-        genesis_hash: [0; 32],
+        genesis_hash: derived_genesis_hash,
         verifier,
         signer,
         batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
@@ -687,7 +736,11 @@ async fn main() -> Result<()> {
     orchestrator.set_chain_and_workload_client(machine.clone(), workload_client);
 
     println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
-    println!("   - Agency Firewall: User-in-the-Loop Mode (Interactive Gates)");
+    if local_gpu_dev_mode {
+        println!("   - Agency Firewall: Local GPU Dev Mode (default allow)");
+    } else {
+        println!("   - Agency Firewall: User-in-the-Loop Mode (Interactive Gates)");
+    }
     println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
     println!("   - Memory Runtime: Active (SQLite)");
     println!("   - GUI Automation: Enabled (Visual Grounding Active + LiDAR)");

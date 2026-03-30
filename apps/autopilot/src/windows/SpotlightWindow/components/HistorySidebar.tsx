@@ -10,18 +10,26 @@ interface HistorySidebarProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onToggleSidebar: () => void;
+  activeSessionId?: string | null;
+  title?: string;
+  newLabel?: string;
+  emptyLabel?: string;
 }
 
-export function HistorySidebar({ 
-  sessions, 
-  onSelectSession, 
-  onNewChat, 
-  searchQuery, 
+export function HistorySidebar({
+  sessions,
+  onSelectSession,
+  onNewChat,
+  searchQuery,
   onSearchChange,
   onToggleSidebar,
+  activeSessionId = null,
+  title = "Chats",
+  newLabel = "New",
+  emptyLabel = "No chats yet",
 }: HistorySidebarProps) {
-  const filtered = sessions.filter(s => 
-    s.title.toLowerCase().includes(searchQuery.toLowerCase())
+  const filtered = sessions.filter((s) =>
+    s.title.toLowerCase().includes(searchQuery.toLowerCase()),
   );
   const grouped = groupSessionsByDate(filtered);
 
@@ -29,7 +37,7 @@ export function HistorySidebar({
     <aside className="history-sidebar">
       <div className="sidebar-header">
         <div className="sidebar-header-copy">
-          <span className="sidebar-title">Chats</span>
+          <span className="sidebar-title">{title}</span>
           <span className="sidebar-title-meta">
             {filtered.length === sessions.length
               ? `${sessions.length} total`
@@ -39,7 +47,7 @@ export function HistorySidebar({
         <div className="sidebar-header-actions">
           <button className="sidebar-new-btn" onClick={onNewChat} title="Start a new chat">
             {icons.plus}
-            <span>New</span>
+            <span>{newLabel}</span>
           </button>
           <button 
             className="sidebar-toggle-btn" 
@@ -69,7 +77,9 @@ export function HistorySidebar({
             {group.sessions.map((s) => (
               <button
                 key={s.session_id}
-                className="history-item"
+                className={`history-item ${
+                  activeSessionId === s.session_id ? "active" : ""
+                }`}
                 onClick={() => onSelectSession(s.session_id)}
               >
                 <span className="history-title">{s.title}</span>
@@ -81,7 +91,7 @@ export function HistorySidebar({
         
         {filtered.length === 0 && (
           <div className="history-empty">
-            {searchQuery ? "No matches found" : "No chats yet"}
+            {searchQuery ? "No matches found" : emptyLabel}
           </div>
         )}
       </div>

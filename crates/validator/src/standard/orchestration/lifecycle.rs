@@ -382,16 +382,25 @@ where
         };
 
         if sync_timeout == 0 {
-            let context = context_arc.lock().await;
-            let mut ns = context.node_state.lock().await;
+            let (node_state, consensus_kick_tx) = {
+                let context = context_arc.lock().await;
+                (
+                    context.node_state.clone(),
+                    context.consensus_kick_tx.clone(),
+                )
+            };
+            let mut ns = node_state.lock().await;
             if *ns == NodeState::Syncing || *ns == NodeState::Initializing {
                 *ns = NodeState::Synced;
-                let _ = context.consensus_kick_tx.send(());
+                let _ = consensus_kick_tx.send(());
                 tracing::info!(target: "orchestration", "State -> Synced (direct/local mode).");
             }
         } else {
-            let context = context_arc.lock().await;
-            *context.node_state.lock().await = NodeState::Syncing;
+            let node_state = {
+                let context = context_arc.lock().await;
+                context.node_state.clone()
+            };
+            *node_state.lock().await = NodeState::Syncing;
             tracing::info!(target: "orchestration", "State -> Syncing.");
         }
 
@@ -415,8 +424,11 @@ where
                 }
 
                 _ = operator_ticker.tick() => {
-                    let ctx = context_arc.lock().await;
-                    if let Err(e) = run_oracle_operator_task(&ctx).await {
+                    let workload_client = {
+                        let ctx = context_arc.lock().await;
+                        ctx.view_resolver.workload_client().clone()
+                    };
+                    if let Err(e) = operator_tasks::run_oracle_operator_task_with_client(workload_client).await {
                          tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
                     }
                 }
@@ -427,15 +439,34 @@ where
                     } else {
                         futures::future::pending().await
                     }
-                }, if *context_arc.lock().await.node_state.lock().await == NodeState::Syncing => {
-                    let context = context_arc.lock().await;
-                    let has_known_peers = !context.known_peers_ref.lock().await.is_empty();
-                    let bootstrap_expected = context.configured_bootstrap_peers > 0;
+                }, if {
+                    let node_state = {
+                        let context = context_arc.lock().await;
+                        context.node_state.clone()
+                    };
+                    let is_syncing = *node_state.lock().await == NodeState::Syncing;
+                    is_syncing
+                } => {
+                    let (
+                        known_peers_ref,
+                        bootstrap_expected,
+                        node_state,
+                        consensus_kick_tx,
+                    ) = {
+                        let context = context_arc.lock().await;
+                        (
+                            context.known_peers_ref.clone(),
+                            context.configured_bootstrap_peers > 0,
+                            context.node_state.clone(),
+                            context.consensus_kick_tx.clone(),
+                        )
+                    };
+                    let has_known_peers = !known_peers_ref.lock().await.is_empty();
                     if !has_known_peers && !bootstrap_expected {
-                        let mut node_state = context.node_state.lock().await;
+                        let mut node_state = node_state.lock().await;
                         if *node_state == NodeState::Syncing {
                             *node_state = NodeState::Synced;
-                            let _ = context.consensus_kick_tx.send(());
+                            let _ = consensus_kick_tx.send(());
                             tracing::info!(target: "orchestration", "State -> Synced (no peers).");
                         }
                     }

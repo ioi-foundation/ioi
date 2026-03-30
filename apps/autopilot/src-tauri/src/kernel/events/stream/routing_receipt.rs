@@ -234,13 +234,13 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         let mut effective_waiting_for_sudo = waiting_for_sudo;
         let mut effective_waiting_for_clarification = waiting_for_clarification;
 
+        // Routing receipts are audit summaries. Once the UI is in an interactive wait state,
+        // keep that state sticky until a later execution result or explicit user response clears it.
         if waiting_for_sudo && !receipt_waiting_for_sudo {
-            t.credential_request = None;
-            effective_waiting_for_sudo = false;
+            effective_waiting_for_sudo = true;
         }
         if waiting_for_clarification && !receipt_waiting_for_clarification {
-            t.clarification_request = None;
-            effective_waiting_for_clarification = false;
+            effective_waiting_for_clarification = true;
         }
 
         if receipt_can_assert_sudo_wait {

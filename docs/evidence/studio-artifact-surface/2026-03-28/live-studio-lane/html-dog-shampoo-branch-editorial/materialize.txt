@@ -1,0 +1,2 @@
+Materialized artifact package 'Create an interactive HTML artifact that explains a product rollo...' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-branch-editorial/materialized'.
+Packaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28/live-studio-lane/html-dog-shampoo-branch-editorial/materialized/artifact-manifest.json'.

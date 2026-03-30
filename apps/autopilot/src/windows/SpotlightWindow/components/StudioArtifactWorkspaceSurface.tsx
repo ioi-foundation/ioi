@@ -1,0 +1,216 @@
+import { useEffect, useMemo, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  WorkspaceEditorPane,
+  WorkspaceExplorerPane,
+  useWorkspaceSession,
+  useWorkspaceTerminalSession,
+  type WorkspaceOpenRequest,
+} from "@ioi/workspace-substrate";
+
+import type { StudioArtifactSelectionTarget } from "../../../types";
+import { tauriWorkspaceAdapter } from "../../../services/workspaceAdapter";
+import { ArtifactRendererHost } from "./ArtifactRendererHost";
+import { StudioArtifactEvidencePanel } from "./StudioArtifactEvidencePanel";
+import { StudioArtifactStageHeader } from "./StudioArtifactStageHeader";
+import {
+  artifactSurfaceTitle,
+  displayArtifactClassLabel,
+  displayRendererLabel,
+  formatStatusLabel,
+  type WorkspaceArtifactSurfaceProps,
+} from "./studioArtifactSurfaceShared";
+import {
+  findArtifactFile,
+  hasVerifiedRender,
+  resolveInitialStageMode,
+} from "./studioArtifactSurfaceModel";
+
+export function StudioArtifactWorkspaceSurface({
+  manifest,
+  studioSession,
+  rendererSession,
+  retrying,
+  onRetry,
+  onCollapse,
+  onSeedIntent,
+}: WorkspaceArtifactSurfaceProps) {
+  const [stageMode, setStageMode] = useState(() =>
+    resolveInitialStageMode(manifest, rendererSession),
+  );
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const requestedOpen = useMemo<WorkspaceOpenRequest | null>(
+    () => (rendererSession.entryDocument ? { path: rendererSession.entryDocument } : null),
+    [rendererSession.entryDocument],
+  );
+  const terminalController = useWorkspaceTerminalSession({
+    adapter: tauriWorkspaceAdapter,
+    root: rendererSession.workspaceRoot,
+    enabled: false,
+  });
+  const session = useWorkspaceSession({
+    adapter: tauriWorkspaceAdapter,
+    root: rendererSession.workspaceRoot,
+    terminalController,
+    initialPane: "files",
+    initialBottomPanel: "output",
+    externalOpenRequest: requestedOpen,
+  });
+
+  useEffect(() => {
+    setStageMode(resolveInitialStageMode(manifest, rendererSession));
+    setEvidenceOpen(false);
+  }, [manifest, rendererSession]);
+
+  const activePath = session.activeFilePath ?? rendererSession.entryDocument ?? null;
+  const activeFile =
+    findArtifactFile(manifest.files, activePath) ??
+    findArtifactFile(manifest.files, rendererSession.entryDocument) ??
+    manifest.files[0] ??
+    null;
+  const hasRender = hasVerifiedRender(manifest, rendererSession);
+  const seedSelectionIntent = async (target: StudioArtifactSelectionTarget) => {
+    await invoke("studio_attach_artifact_selection", { selection: target });
+    onSeedIntent(
+      `Edit only this artifact selection from ${target.sourceSurface}${target.path ? ` (${target.path})` : ""}:\n\n${target.snippet}`,
+    );
+  };
+  const stageTitle = artifactSurfaceTitle(
+    manifest.artifactClass,
+    manifest.renderer,
+    stageMode === "source" ? activeFile : null,
+    manifest.title,
+  );
+
+  const handleOpenWorkspacePath = (path: string) => {
+    void session.openFile({ path });
+    if (stageMode === "render" && !hasRender) {
+      setStageMode("source");
+    }
+  };
+
+  return (
+    <section className="studio-artifact-surface" aria-label="Studio artifact surface">
+      <aside className="studio-artifact-sidebar studio-artifact-sidebar--explorer">
+        <WorkspaceExplorerPane
+          tree={session.treeNodes}
+          activePath={session.activeFilePath}
+          expandedPaths={session.expandedPaths}
+          loadingDirectories={session.loadingDirectories}
+          git={session.snapshot?.git ?? { isRepo: false, branch: null, dirty: false, lastCommit: null }}
+          rootPath={session.snapshot?.rootPath ?? rendererSession.workspaceRoot}
+          eyebrow="Workspace"
+          title="Explorer"
+          readOnly={true}
+          showGitSummary={false}
+          showRefreshButton={true}
+          onToggleDirectory={(node) => void session.toggleDirectory(node)}
+          onOpenFile={handleOpenWorkspacePath}
+          onRefresh={() => void session.loadWorkspace()}
+          onCreateFile={() => undefined}
+          onCreateDirectory={() => undefined}
+          onRenamePath={(_path: string) => undefined}
+          onDeletePath={(_path: string) => undefined}
+        />
+
+        <div className="studio-artifact-sidebar-footer">
+          <span className="studio-artifact-badge">
+            {displayArtifactClassLabel(manifest.artifactClass)}
+          </span>
+          <span className="studio-artifact-badge is-muted">
+            {formatStatusLabel(manifest.verification.status)}
+          </span>
+        </div>
+      </aside>
+
+      <div className="studio-artifact-stage">
+        <StudioArtifactStageHeader
+          manifest={manifest}
+          title={stageTitle}
+          activePath={activePath}
+          rendererLabel={displayRendererLabel(manifest.renderer)}
+          retrying={retrying}
+          stageMode={stageMode}
+          evidenceOpen={evidenceOpen}
+          onSelectStageMode={setStageMode}
+          onToggleEvidence={() => setEvidenceOpen((current) => !current)}
+          onRetry={onRetry}
+          onCollapse={onCollapse}
+        />
+
+        {session.workspaceError ? (
+          <div className="studio-artifact-banner is-error">{session.workspaceError}</div>
+        ) : null}
+
+        {!hasRender && stageMode === "render" ? (
+          <div className="studio-artifact-banner">
+            Render becomes primary after preview verification. Source remains the default until a
+            verified preview exists.
+          </div>
+        ) : null}
+
+        <div className={`studio-artifact-stage-layout ${evidenceOpen ? "is-evidence-open" : ""}`}>
+          <div className="studio-artifact-stage-main">
+            {stageMode === "source" ? (
+              <section className="studio-artifact-source-workbench workspace-host workspace-host--embedded">
+                <div className="studio-artifact-source-shell studio-artifact-source-shell--editor-only">
+                  <div className="workspace-main">
+                    <WorkspaceEditorPane
+                      monacoBasePath="/monaco/vs"
+                      documents={session.documents}
+                      activeDocument={session.activeDocument}
+                      activeDocumentId={session.activeDocumentId}
+                      revealRequest={session.revealRequest}
+                      onConsumeRevealRequest={session.consumeRevealRequest}
+                      onSelectDocument={session.setActiveDocumentId}
+                      onCloseDocument={session.closeDocument}
+                      onChangeFileContent={session.updateFileContent}
+                      onSaveFile={(path) => void session.saveFile(path)}
+                      onAttachSelection={({ path, selection }) =>
+                        void seedSelectionIntent({
+                          sourceSurface: "source",
+                          path,
+                          label: "Selected workspace excerpt",
+                          snippet: selection,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </section>
+            ) : (
+              <ArtifactRendererHost
+                renderer={manifest.renderer}
+                title={manifest.title}
+                file={activeFile}
+                files={manifest.files}
+                rendererSession={rendererSession}
+                requestedOpen={requestedOpen}
+                onAttachSelection={({ path, selection }) =>
+                  void seedSelectionIntent({
+                    sourceSurface: "render",
+                    path,
+                    label: "Selected preview excerpt",
+                    snippet: selection,
+                  })
+                }
+              />
+            )}
+          </div>
+
+          {evidenceOpen ? (
+            <StudioArtifactEvidencePanel
+              manifest={manifest}
+              studioSession={studioSession}
+              pipelineSteps={studioSession.materialization.pipelineSteps ?? []}
+              notes={studioSession.materialization.notes}
+              evidence={studioSession.verifiedReply.evidence}
+              receipts={rendererSession.receipts}
+              workspaceActivity={session.activity}
+            />
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}

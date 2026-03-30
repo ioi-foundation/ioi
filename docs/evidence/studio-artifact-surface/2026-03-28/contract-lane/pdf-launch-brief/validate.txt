@@ -1,0 +1,1 @@
+Artifact manifest 'a PDF artifact that summarizes a launch brief' is valid.

@@ -1,0 +1,66 @@
+{
+  "artifactId": "279291ea-1777-4b90-bbc4-5ae3c0456516",
+  "title": "Create an SVG hero concept for an AI tools brand",
+  "artifactClass": "visual",
+  "renderer": "svg",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "svg",
+      "filePath": null,
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": null,
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "hero_concept.svg",
+      "mime": "image/svg+xml",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": "279291ea-1777-4b90-bbc4-5ae3c0456516",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "shared_artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

@@ -21,11 +21,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// A consensus engine for local/solo mode.
 /// It always decides to produce a block immediately, acting as a single dictator.
 #[derive(Debug, Clone, Default)]
-pub struct SoloEngine;
+pub struct SoloEngine {
+    latest_parent_qc: Option<QuorumCertificate>,
+}
 
 impl SoloEngine {
     pub fn new() -> Self {
-        Self
+        Self {
+            latest_parent_qc: None,
+        }
     }
 }
 
@@ -94,7 +98,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
             expected_timestamp_secs,
             expected_timestamp_ms: seconds_to_millis(expected_timestamp_secs),
             view,
-            parent_qc: QuorumCertificate::default(), // <--- Populate default
+            parent_qc: self.latest_parent_qc.clone().unwrap_or_default(),
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             canonical_collapse_extension_certificate: None,
             timeout_certificate: None,
@@ -128,4 +132,28 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T> 
     }
 
     fn reset(&mut self, _height: u64) {}
+
+    fn observe_committed_block(
+        &mut self,
+        header: &ioi_types::app::BlockHeader,
+        _collapse: Option<&ioi_types::app::CanonicalCollapseObject>,
+    ) -> bool {
+        let Some(block_hash) = header
+            .hash()
+            .ok()
+            .and_then(|hash| hash.as_slice().try_into().ok())
+        else {
+            return false;
+        };
+
+        self.latest_parent_qc = Some(QuorumCertificate {
+            height: header.height,
+            view: header.view,
+            block_hash,
+            signatures: vec![],
+            aggregated_signature: vec![],
+            signers_bitfield: vec![],
+        });
+        true
+    }
 }
