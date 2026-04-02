@@ -1,0 +1,1822 @@
+warning: /home/heathledger/Documents/ioi/repos/ioi/crates/node/Cargo.toml: file `/home/heathledger/Documents/ioi/repos/ioi/crates/node/src/bin/ioi-validator.rs` found to be present in multiple build targets:
+  * `bin` target `ioi-bridge`
+  * `bin` target `ioi-validator`
+warning: function `rects_are_equivalent_or_nested` is never used
+   --> crates/drivers/src/browser/dom_ops/accessibility.rs:460:4
+    |
+460 | fn rects_are_equivalent_or_nested(left: &AccessibilityRect, right: &AccessibilityRect) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `node_locator_hint` is never used
+   --> crates/drivers/src/browser/dom_ops/accessibility.rs:476:4
+    |
+476 | fn node_locator_hint(node: &AccessibilityNode, key: &str) -> Option<String> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `dom_fallback_locator_matches` is never used
+   --> crates/drivers/src/browser/dom_ops/accessibility.rs:483:4
+    |
+483 | fn dom_fallback_locator_matches(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `nodes_semantically_overlap` is never used
+   --> crates/drivers/src/browser/dom_ops/accessibility.rs:502:4
+    |
+502 | fn nodes_semantically_overlap(candidate: &AccessibilityNode, existing: &AccessibilityNode) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `should_merge_dom_fallback_candidate` is never used
+   --> crates/drivers/src/browser/dom_ops/accessibility.rs:530:4
+    |
+530 | fn should_merge_dom_fallback_candidate(node: &AccessibilityNode) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `collect_visible_nodes` is never used
+   --> crates/drivers/src/browser/dom_ops/accessibility.rs:555:4
+    |
+555 | fn collect_visible_nodes(node: &AccessibilityNode, out: &mut Vec<AccessibilityNode>) {
+    |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `merge_missing_dom_fallback_nodes` is never used
+   --> crates/drivers/src/browser/dom_ops/accessibility.rs:564:4
+    |
+564 | fn merge_missing_dom_fallback_nodes(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `visibility_ratio` is never read
+   --> crates/drivers/src/browser/dom_ops/browser_use_dom.rs:105:5
+    |
+ 94 | struct BrowserUseDomTreeNode {
+    |        --------------------- field in this struct
+...
+105 |     visibility_ratio: Option<f64>,
+    |     ^^^^^^^^^^^^^^^^
+    |
+    = note: `BrowserUseDomTreeNode` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: function `extract_clean_markdown_from_html` is never used
+   --> crates/drivers/src/browser/dom_ops/browser_use_dom/markdown.rs:783:15
+    |
+783 | pub(super) fn extract_clean_markdown_from_html(html: &str) -> Option<String> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `string_index_at` is never used
+   --> crates/drivers/src/browser/dom_ops/browsergym.rs:163:4
+    |
+163 | fn string_index_at(strings: &[String], name: &str) -> Option<usize> {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `rare_integer_lookup` is never used
+   --> crates/drivers/src/browser/dom_ops/browsergym.rs:250:4
+    |
+250 | fn rare_integer_lookup(data: &Option<RareIntegerData>, node_idx: usize) -> Option<i64> {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `cleanup_dom_snapshot_browsergym_ids` is never used
+   --> crates/drivers/src/browser/dom_ops/browsergym.rs:475:15
+    |
+475 | pub(crate) fn cleanup_dom_snapshot_browsergym_ids(snapshot: &mut CaptureSnapshotReturns) {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `unwrap_html_node` is never used
+   --> crates/drivers/src/browser/dom_ops/browsergym_flatten.rs:421:4
+    |
+421 | fn unwrap_html_node(node: &NodeRef) {
+    |    ^^^^^^^^^^^^^^^^
+
+warning: function `serialize_html_fragment` is never used
+   --> crates/drivers/src/browser/dom_ops/browsergym_flatten.rs:429:4
+    |
+429 | fn serialize_html_fragment(node: &NodeRef) -> String {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `prune_html` is never used
+   --> crates/drivers/src/browser/dom_ops/browsergym_flatten.rs:734:15
+    |
+734 | pub(crate) fn prune_html(html: &str) -> String {
+    |               ^^^^^^^^^^
+
+warning: field `frame_id` is never read
+  --> crates/drivers/src/browser/dom_ops/targets.rs:15:16
+   |
+14 | pub(crate) struct BrowserFrameTarget {
+   |                   ------------------ field in this struct
+15 |     pub(crate) frame_id: String,
+   |                ^^^^^^^^
+   |
+   = note: `BrowserFrameTarget` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `wallet_ref` is never read
+ --> crates/drivers/src/provisioning/akash.rs:9:5
+  |
+7 | pub struct AkashProvider {
+  |            ------------- field in this struct
+8 |     // Reference to the wallet key stored in the Guardian's vault
+9 |     wallet_ref: String,
+  |     ^^^^^^^^^^
+
+warning: fields `access_key` and `secret_key` are never read
+  --> crates/drivers/src/provisioning/aws.rs:11:5
+   |
+10 | pub struct AwsProvider {
+   |            ----------- fields in this struct
+11 |     access_key: String,
+   |     ^^^^^^^^^^
+12 |     secret_key: String,
+   |     ^^^^^^^^^^
+
+warning: `ioi-drivers` (lib) generated 18 warnings
+warning: unused imports: `append_final_web_completion_receipts` and `final_web_completion_facts`
+  --> crates/services/src/agentic/desktop/service/step/action/processing/mod.rs:57:5
+   |
+57 |     append_final_web_completion_receipts,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+60 |     final_web_completion_facts, final_web_completion_facts_with_rendered_summary,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `emit_execution_contract_receipt_event`
+  --> crates/services/src/agentic/desktop/service/step/action.rs:25:40
+   |
+25 |     emit_completion_gate_status_event, emit_execution_contract_receipt_event,
+   |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `build_browser_observation_context_from_snapshot`
+  --> crates/services/src/agentic/desktop/service/step/cognition/history.rs:25:5
+   |
+25 |     build_browser_observation_context_from_snapshot,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `append_final_web_completion_receipts`, `collect_projection_candidate_urls_with_contract_and_locality_hint`, `collect_projection_candidate_urls_with_locality_hint`, `constraint_grounded_probe_query_with_hints_and_locality_hint`, `constraint_grounded_search_query_with_hints_and_locality_hint`, `final_web_completion_facts_with_rendered_summary`, `final_web_completion_facts`, `has_primary_status_authority`, `local_business_search_entity_anchor_tokens`, `local_business_target_names_from_attempted_urls`, `pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint`, `pre_read_candidate_plan_from_bundle_with_locality_hint`, `preferred_pre_read_action_count_with_contract_and_locality_hint`, `preferred_pre_read_action_count_with_locality_hint`, `query_is_generic_headline_collection`, `query_requires_runtime_locality_scope`, `retrieval_affordances_with_locality_hint`, `semantic_retrieval_query_contract_with_contract_and_locality_hint`, `semantic_retrieval_query_contract_with_locality_hint`, and `web_pipeline_min_sources`
+  --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/mod.rs:2:5
+   |
+ 2 |     append_final_web_completion_receipts,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 7 |     collect_projection_candidate_urls_with_contract_and_locality_hint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 8 |     collect_projection_candidate_urls_with_locality_hint, compact_whitespace,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+11 |     constraint_grounded_probe_query_with_hints_and_locality_hint, constraint_grounded_search_limit,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 |     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
+13 |     constraint_grounded_search_query_with_hints_and_locality_hint, effective_locality_scope_hint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+14 |     explicit_query_scope_hint, extract_json_object, fallback_search_summary,
+15 |     final_web_completion_facts, final_web_completion_facts_with_rendered_summary,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+16 |     has_primary_status_authority, is_citable_web_url, is_human_challenge_error,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+19 |     local_business_expansion_query, local_business_search_entity_anchor_tokens,
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+20 |     local_business_search_entity_anchor_tokens_with_contract,
+21 |     local_business_target_name_from_source, local_business_target_names_from_attempted_urls,
+   |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+24 |     parse_web_evidence_bundle, pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint,
+   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+25 |     pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint_and_recovery_mode,
+26 |     pre_read_candidate_plan_from_bundle_with_locality_hint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+27 |     preferred_pre_read_action_count_with_contract_and_locality_hint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 |     preferred_pre_read_action_count_with_locality_hint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 |     projection_candidate_url_allowed_with_projection, query_is_generic_headline_collection,
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+30 |     query_prefers_document_briefing_layout, query_requests_comparison,
+31 |     query_requires_runtime_locality_scope, queue_web_read_from_pipeline,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+34 |     retrieval_affordances_with_locality_hint, retrieval_contract_entity_diversity_required,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+40 |     semantic_retrieval_query_contract_with_contract_and_locality_hint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+41 |     semantic_retrieval_query_contract_with_locality_hint, source_anchor_tokens,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+47 |     web_pipeline_min_sources, web_pipeline_now_ms, FinalWebSummaryCandidate,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+  --> crates/services/src/agentic/desktop/service/step/queue/support/mod.rs:24:5
+   |
+24 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused imports: `FinalWebCompletionFacts`, `FinalWebSummaryCandidateEvaluation`, `FinalWebSummaryCandidate`, and `FinalWebSummarySelection`
+ --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/completion.rs:6:5
+  |
+6 |     FinalWebCompletionFacts, FinalWebSummaryCandidate, FinalWebSummaryCandidateEvaluation,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7 |     FinalWebSummarySelection,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `RetrievalAffordanceKind`, `WEB_PIPELINE_BUDGET_MS`, `WebPipelineCompletionReason`, `candidate_source_hints_from_bundle`, `collect_projection_candidate_urls_with_locality_hint`, `constraint_grounded_probe_query_with_hints_and_locality_hint`, `constraint_grounded_search_limit`, `constraint_grounded_search_query_with_hints_and_locality_hint`, `constraint_grounded_search_query`, `is_citable_web_url`, `is_multi_item_listing_url`, `is_query_stopword`, `local_business_search_entity_anchor_tokens`, `merge_pending_search_completion`, `metric_axis_search_phrase`, `pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint`, `pre_read_candidate_plan_from_bundle_with_locality_hint`, `preferred_pre_read_action_count_with_locality_hint`, `projection_candidate_url_allowed_with_projection`, `projection_candidate_url_allowed`, `query_contains_structured_search_operators`, `query_prefers_multi_item_cardinality`, `query_requires_local_business_entity_diversity`, `queue_web_read_from_pipeline`, `queue_web_search_from_pipeline`, `required_distinct_domain_floor`, `retrieval_affordances_with_locality_hint`, `selected_source_quality_metrics_with_locality_hint`, `semantic_retrieval_query_contract_with_locality_hint`, `source_host`, `web_pipeline_can_queue_probe_search_latency_aware`, and `web_pipeline_grounded_probe_attempt_available`
+  --> crates/services/src/agentic/desktop/service/step/queue/web_pipeline.rs:6:5
+   |
+ 6 |     candidate_source_hints_from_bundle, candidate_time_sensitive_resolvable_payload,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 7 |     collect_projection_candidate_urls_with_locality_hint, compatibility_passes_projection,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 8 |     constraint_grounded_probe_query_with_hints_and_locality_hint, constraint_grounded_search_limit,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 9 |     constraint_grounded_search_query,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+10 |     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
+11 |     constraint_grounded_search_query_with_hints_and_locality_hint, effective_locality_scope_hint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 |     explicit_query_scope_hint, final_web_completion_contract_ready, final_web_completion_facts,
+13 |     final_web_completion_facts_with_rendered_summary, is_citable_web_url, is_human_challenge_error,
+   |                                                       ^^^^^^^^^^^^^^^^^^
+14 |     is_multi_item_listing_url, is_query_stopword, is_search_hub_url,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+15 |     local_business_entity_discovery_query_contract, local_business_search_entity_anchor_tokens,
+   |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+16 |     local_business_search_entity_anchor_tokens_with_contract, mark_pending_web_attempted,
+17 |     mark_pending_web_blocked, merge_pending_search_completion, metric_axis_search_phrase,
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^
+18 |     next_pending_web_candidate, parse_web_evidence_bundle,
+19 |     pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+20 |     pre_read_candidate_plan_from_bundle_with_locality_hint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21 |     preferred_pre_read_action_count_with_locality_hint, prefers_single_fact_snapshot,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+22 |     projection_candidate_url_allowed, projection_candidate_url_allowed_with_projection,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 |     query_contains_structured_search_operators, query_is_generic_headline_collection,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     query_metric_axes, query_prefers_document_briefing_layout,
+25 |     query_prefers_multi_item_cardinality, query_requests_comparison,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+26 |     query_requires_local_business_entity_diversity, query_requires_runtime_locality_scope,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+27 |     queue_web_read_from_pipeline, queue_web_search_from_pipeline, remaining_pending_web_candidates,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 |     render_mailbox_access_limited_reply, required_citations_per_story,
+29 |     required_distinct_domain_floor, required_story_count,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+30 |     resolved_query_contract_with_locality_hint, retrieval_affordances_with_locality_hint,
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+31 |     retrieval_contract_min_sources, select_final_web_summary_from_candidates,
+32 |     select_web_pipeline_query_contract, selected_source_quality_metrics_with_locality_hint,
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+33 |     semantic_retrieval_query_contract_with_locality_hint, source_has_human_challenge_signal,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+34 |     source_host, source_matches_local_business_search_entity_anchor, synthesize_web_pipeline_reply,
+   |     ^^^^^^^^^^^
+35 |     synthesize_web_pipeline_reply_hybrid, url_structurally_equivalent,
+36 |     web_pipeline_can_queue_probe_search_latency_aware, web_pipeline_completion_reason,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+37 |     web_pipeline_grounded_probe_attempt_available, web_pipeline_min_sources, web_pipeline_now_ms,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+38 |     FinalWebSummaryCandidate, RetrievalAffordanceKind, WebPipelineCompletionReason,
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+39 |     WEB_PIPELINE_BUDGET_MS, WEB_PIPELINE_SEARCH_LIMIT,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Capabilities`
+  --> crates/services/src/agentic/evolution.rs:18:53
+   |
+18 | use ioi_types::service_configs::{ActiveServiceMeta, Capabilities};
+   |                                                     ^^^^^^^^^^^^
+
+warning: unused imports: `aggregated_sources_meet_pre_read_floor` and `should_stop_provider_aggregation`
+ --> crates/services/src/agentic/web/search/mod.rs:7:5
+  |
+7 |     aggregated_sources_meet_pre_read_floor, should_stop_provider_aggregation,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `SearchProviderCandidateSelectionInput`, `SearchProviderDescriptor`, `provider_candidate_is_usable`, `provider_candidate_selection_key`, `provider_descriptor_is_admissible`, `provider_probe_priority_key`, `search_budget_exhausted`, and `search_provider_requirements_from_contract`
+  --> crates/services/src/agentic/web/search/mod.rs:10:26
+   |
+10 |     provider_backend_id, provider_candidate_is_usable, provider_candidate_selection_key,
+   |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+11 |     provider_descriptor_is_admissible, provider_probe_priority_key, search_budget_exhausted,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^
+12 |     search_provider_registry, search_provider_requirements_from_contract,
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+13 |     SearchProviderCandidateSelectionInput, SearchProviderDescriptor,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `infer_web_retrieval_contract`
+  --> crates/services/src/agentic/web/mod.rs:20:39
+   |
+20 |     infer_query_matching_source_urls, infer_web_retrieval_contract,
+   |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `fetch_html_http_fallback_browser_ua`
+  --> crates/services/src/agentic/web/mod.rs:36:29
+   |
+36 |     detect_human_challenge, fetch_html_http_fallback_browser_ua,
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `provider_backend_id` and `search_provider_registry`
+  --> crates/services/src/agentic/web/mod.rs:42:25
+   |
+42 | pub(crate) use search::{provider_backend_id, search_provider_registry};
+   |                         ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `VerifyingKey`
+  --> crates/services/src/governance/mod.rs:11:40
+   |
+11 | use ioi_api::crypto::{SerializableKey, VerifyingKey};
+   |                                        ^^^^^^^^^^^^
+
+warning: unused import: `BlockchainService`
+  --> crates/services/src/agentic/evolution.rs:10:25
+   |
+10 | use ioi_api::services::{BlockchainService, UpgradableService};
+   |                         ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ioi_api::vm::inference::InferenceRuntime`
+  --> crates/services/src/agentic/desktop/service/step/queue/support/mod.rs:16:5
+   |
+16 | use ioi_api::vm::inference::InferenceRuntime;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: value assigned to `current_tree_error` is never read
+    --> crates/services/src/agentic/desktop/execution/browser/element_click/attempt.rs:2195:50
+     |
+2195 |     let mut current_tree_error: Option<String> = None;
+     |                                                  ^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `current_tree_error` is never read
+    --> crates/services/src/agentic/desktop/execution/browser/element_click/attempt.rs:2236:17
+     |
+2236 |                 current_tree_error = refreshed_tree.error;
+     |                 ^^^^^^^^^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `actionable_current_target` is never read
+    --> crates/services/src/agentic/desktop/execution/browser/element_click/attempt.rs:2199:41
+     |
+2199 |       let mut actionable_current_target = current_target
+     |  _________________________________________^
+2200 | |         .as_ref()
+2201 | |         .filter(|target| semantic_target_is_actionable(target));
+     | |_______________________________________________________________^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: unused variable: `visual_phash`
+   --> crates/services/src/agentic/desktop/execution/mod.rs:314:9
+    |
+314 |         visual_phash: [u8; 32],
+    |         ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_visual_phash`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `url`
+   --> crates/services/src/agentic/desktop/service/step/action/processing/phases/execute_tool_phase/tool_outcome.rs:802:53
+    |
+802 |         AgentTool::MediaExtractMultimodalEvidence { url, language, .. } => {
+    |                                                     ^^^ help: try ignoring the field: `url: _`
+
+warning: unused variable: `step_index`
+ --> crates/services/src/agentic/desktop/service/step/action/processing/phases/execute_tool_phase/web_followup.rs:9:5
+  |
+9 |     step_index: u32,
+  |     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_step_index`
+
+warning: value assigned to `is_lifecycle_action` is never read
+   --> crates/services/src/agentic/desktop/service/step/action/processing/phases/finalize_action_processing.rs:762:21
+    |
+762 |                     is_lifecycle_action = true;
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: value assigned to `is_lifecycle_action` is never read
+   --> crates/services/src/agentic/desktop/service/step/action/processing/phases/finalize_action_processing.rs:750:21
+    |
+750 |                     is_lifecycle_action = true;
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: unused variable: `original_rest`
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2047:17
+     |
+2047 |             let original_rest = &text[message_end..];
+     |                 ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_original_rest`
+
+warning: fields `code_verifier` and `redirect_uri` are never read
+   --> crates/services/src/agentic/desktop/connectors/google_auth.rs:105:5
+    |
+103 | struct PendingGoogleAuthSession {
+    |        ------------------------ fields in this struct
+104 |     state: String,
+105 |     code_verifier: String,
+    |     ^^^^^^^^^^^^^
+106 |     redirect_uri: String,
+    |     ^^^^^^^^^^^^
+    |
+    = note: `PendingGoogleAuthSession` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: methods `handle_action_execution` and `select_runtime` are never used
+   --> crates/services/src/agentic/desktop/service/mod.rs:211:25
+    |
+195 | impl DesktopAgentService {
+    | ------------------------ methods in this implementation
+...
+211 |     pub(crate) async fn handle_action_execution(
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^
+...
+291 |     pub(crate) fn select_runtime(
+    |                   ^^^^^^^^^^^^^^
+
+warning: function `missing_execution_contract_markers` is never used
+   --> crates/services/src/agentic/desktop/service/step/action/command_contract/contract_resolution.rs:345:8
+    |
+345 | pub fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `requires_visual_integrity` is never used
+  --> crates/services/src/agentic/desktop/service/step/action/support.rs:45:15
+   |
+45 | pub(super) fn requires_visual_integrity(tool: &AgentTool) -> bool {
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `top_edge_jump_tool_call` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition.rs:613:4
+    |
+613 | fn top_edge_jump_tool_call() -> &'static str {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `bottom_edge_jump_name` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition.rs:629:4
+    |
+629 | fn bottom_edge_jump_name() -> &'static str {
+    |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `bottom_edge_jump_tool_call` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition.rs:637:4
+    |
+637 | fn bottom_edge_jump_tool_call() -> &'static str {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_compact_browser_action_system_instructions` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition.rs:1277:4
+     |
+1277 | fn build_compact_browser_action_system_instructions(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `top_edge_jump_call` is never used
+  --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:11:15
+   |
+11 | pub(super) fn top_edge_jump_call() -> &'static str {
+   |               ^^^^^^^^^^^^^^^^^^
+
+warning: function `bottom_edge_jump_call` is never used
+  --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:27:15
+   |
+27 | pub(super) fn bottom_edge_jump_call() -> &'static str {
+   |               ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `looks_like_browser_snapshot_payload` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:159:15
+    |
+159 | pub(super) fn looks_like_browser_snapshot_payload(text: &str) -> bool {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `extract_scoped_compact_jsonish_number_field` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:269:15
+    |
+269 | pub(super) fn extract_scoped_compact_jsonish_number_field(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_browser_point_list` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:955:4
+    |
+955 | fn parse_browser_point_list(value: &str) -> Vec<(f64, f64)> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `compact_browser_observation` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:1458:15
+     |
+1458 | pub(super) fn compact_browser_observation(snapshot: &str) -> String {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `snapshot_select_submit_progress_pending_signal` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:1779:15
+     |
+1779 | pub(super) fn snapshot_select_submit_progress_pending_signal(snapshot: &str) -> Option<String> {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `browser_snapshot_pending_signal` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:1788:15
+     |
+1788 | pub(super) fn browser_snapshot_pending_signal(snapshot: &str) -> Option<String> {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `extract_find_by_target` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2012:4
+     |
+2012 | fn extract_find_by_target(text: &str) -> Option<String> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `extract_message_source_target` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2031:4
+     |
+2031 | fn extract_message_source_target(text: &str) -> Option<String> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `extract_message_recipient_target` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2077:4
+     |
+2077 | fn extract_message_recipient_target(text: &str) -> Option<String> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `RankedResultRequest` is never constructed
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2153:19
+     |
+2153 | pub(super) struct RankedResultRequest {
+     |                   ^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_ordinal_token` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2158:15
+     |
+2158 | pub(super) fn parse_ordinal_token(token: &str) -> Option<usize> {
+     |               ^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_requested_result_rank` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2174:15
+     |
+2174 | pub(super) fn recent_requested_result_rank(history: &[ChatMessage]) -> Option<RankedResultRequest> {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_goal_message_recipient_target` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2253:15
+     |
+2253 | pub(super) fn recent_goal_message_recipient_target(history: &[ChatMessage]) -> Option<String> {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_goal_mentions_submit` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2262:15
+     |
+2262 | pub(super) fn recent_goal_mentions_submit(history: &[ChatMessage]) -> bool {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: enum `SnapshotSearchAffordanceKind` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2682:17
+     |
+2682 | pub(super) enum SnapshotSearchAffordanceKind {
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `SnapshotSearchAffordanceState` is never constructed
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2688:19
+     |
+2688 | pub(super) struct SnapshotSearchAffordanceState {
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `SnapshotMessageRecipientControlState` is never constructed
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2697:19
+     |
+2697 | pub(super) struct SnapshotMessageRecipientControlState {
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `snapshot_fragment_metadata_values` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2871:4
+     |
+2871 | fn snapshot_fragment_metadata_values(fragment: &str) -> Vec<String> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `snapshot_visible_search_affordance` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2882:15
+     |
+2882 | pub(super) fn snapshot_visible_search_affordance(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `snapshot_visible_message_recipient_control` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/browser_snapshot.rs:2956:15
+     |
+2956 | pub(super) fn snapshot_visible_message_recipient_control(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_goal_item_ids` is never used
+  --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:30:15
+   |
+30 | pub(super) fn recent_goal_item_ids(history: &[ChatMessage]) -> HashSet<String> {
+   |               ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_zero_based_result_rank_marker` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:153:15
+    |
+153 | pub(super) fn parse_zero_based_result_rank_marker(raw: &str) -> Option<usize> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `snapshot_link_result_rank` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:161:15
+    |
+161 | pub(super) fn snapshot_link_result_rank(link: &SnapshotLinkState) -> Option<usize> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `snapshot_visible_result_links` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:184:15
+    |
+184 | pub(super) fn snapshot_visible_result_links(snapshot: &str) -> Vec<SnapshotLinkState> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `snapshot_pagination_link_for_page` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:228:15
+    |
+228 | pub(super) fn snapshot_pagination_link_for_page(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `semantic_id_numeric_suffix` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:328:15
+    |
+328 | pub(super) fn semantic_id_numeric_suffix(semantic_id: &str) -> Option<usize> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `tool_output_click_semantic_id` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:342:15
+    |
+342 | pub(super) fn tool_output_click_semantic_id(message: &ChatMessage) -> Option<String> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_clicked_pagination_page_number` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:352:15
+    |
+352 | pub(super) fn recent_clicked_pagination_page_number(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_history_return_item_id` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:527:15
+    |
+527 | pub(super) fn recent_history_return_item_id(history: &[ChatMessage]) -> Option<String> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `history_verification_tokens` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/navigation.rs:545:15
+    |
+545 | pub(super) fn history_verification_tokens(text: &str) -> HashSet<String> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ranked_result_pending_signal` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:716:15
+    |
+716 | pub(super) fn ranked_result_pending_signal(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `snapshot_visible_send_control_id` is never used
+   --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:982:4
+    |
+982 | fn snapshot_visible_send_control_id(snapshot: &str) -> Option<String> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `active_target_submit_pending_signal` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1192:15
+     |
+1192 | pub(super) fn active_target_submit_pending_signal(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `search_affordance_locator_matches` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1248:4
+     |
+1248 | fn search_affordance_locator_matches(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_typed_text_matches_search_affordance` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1265:4
+     |
+1265 | fn recent_typed_text_matches_search_affordance(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_typed_text_matches_message_recipient_control` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1287:4
+     |
+1287 | fn recent_typed_text_matches_message_recipient_control(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: enum `PointerHoldGoalKind` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1319:6
+     |
+1319 | enum PointerHoldGoalKind {
+     |      ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `RecentBrowserPointerActionState` is never constructed
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1328:8
+     |
+1328 | struct RecentBrowserPointerActionState {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_pointer_hold_goal_kind` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1334:4
+     |
+1334 | fn recent_pointer_hold_goal_kind(history: &[ChatMessage]) -> Option<PointerHoldGoalKind> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pointer_action_state` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1356:4
+     |
+1356 | fn pointer_action_state(message: &ChatMessage) -> Option<RecentBrowserPointerActionState> {
+     |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_pointer_action_state` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1380:4
+     |
+1380 | fn recent_pointer_action_state(history: &[ChatMessage]) -> Option<RecentBrowserPointerActionState> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_pointer_press_hold_state` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1384:4
+     |
+1384 | fn recent_pointer_press_hold_state(history: &[ChatMessage]) -> Option<bool> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_pointer_gesture_released_without_motion` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1395:4
+     |
+1395 | fn recent_pointer_gesture_released_without_motion(history: &[ChatMessage]) -> bool {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_pointer_release_point` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1411:4
+     |
+1411 | fn recent_pointer_release_point(history: &[ChatMessage]) -> Option<(f64, f64)> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pointer_action_target_label` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1423:4
+     |
+1423 | fn pointer_action_target_label(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `recent_goal_likely_needs_multiple_pointer_commits` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1439:4
+     |
+1439 | fn recent_goal_likely_needs_multiple_pointer_commits(history: &[ChatMessage]) -> bool {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pointer_hold_pending_signal` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1467:15
+     |
+1467 | pub(super) fn pointer_hold_pending_signal(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `target_search_pending_signal` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1527:15
+     |
+1527 | pub(super) fn target_search_pending_signal(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `message_recipient_pending_signal` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1610:15
+     |
+1610 | pub(super) fn message_recipient_pending_signal(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `submitted_selection_turnover_success_signal` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1838:15
+     |
+1838 | pub(super) fn submitted_selection_turnover_success_signal(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_browser_observation_context_from_snapshot` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:1895:15
+     |
+1895 | pub(crate) fn build_browser_observation_context_from_snapshot(snapshot: &str) -> String {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_browser_snapshot_pending_state_context` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:2551:15
+     |
+2551 | pub(crate) fn build_browser_snapshot_pending_state_context(snapshot: &str) -> String {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_recent_success_signal_context` is never used
+    --> crates/services/src/agentic/desktop/service/step/cognition/history/signals.rs:2588:15
+     |
+2588 | pub(crate) fn build_recent_success_signal_context(history: &[ChatMessage]) -> String {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `INTENT_PROVIDER_SELECTION_MODEL_VERSION` is never used
+  --> crates/services/src/agentic/desktop/service/step/intent_resolver/mod.rs:33:7
+   |
+33 | const INTENT_PROVIDER_SELECTION_MODEL_VERSION: &str = "v1";
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `INTENT_PROVIDER_SELECTION_SCHEMA_ID` is never used
+  --> crates/services/src/agentic/desktop/service/step/intent_resolver/mod.rs:34:7
+   |
+34 | const INTENT_PROVIDER_SELECTION_SCHEMA_ID: &str = "provider_selection_state_v1";
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `INTENT_INSTRUCTION_CONTRACT_MODEL_VERSION` is never used
+  --> crates/services/src/agentic/desktop/service/step/intent_resolver/mod.rs:36:7
+   |
+36 | const INTENT_INSTRUCTION_CONTRACT_MODEL_VERSION: &str = "v1";
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `INTENT_INSTRUCTION_CONTRACT_SCHEMA_ID` is never used
+  --> crates/services/src/agentic/desktop/service/step/intent_resolver/mod.rs:37:7
+   |
+37 | const INTENT_INSTRUCTION_CONTRACT_SCHEMA_ID: &str = "instruction_contract_v1";
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `LOCAL_BUSINESS_EXPANSION_GENERIC_QUERY_TOKENS` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/mod.rs:79:7
+   |
+79 | const LOCAL_BUSINESS_EXPANSION_GENERIC_QUERY_TOKENS: &[&str] = &[
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_candidate_url_allowed_for_query` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/pre_read_selection.rs:56:4
+   |
+56 | fn pre_read_candidate_url_allowed_for_query(
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `payload_allows_external_article_url` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/pre_read_selection.rs:137:4
+    |
+137 | fn payload_allows_external_article_url(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_candidate_url_allowed` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/pre_read_selection.rs:179:4
+    |
+179 | fn pre_read_candidate_url_allowed(raw: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `looks_like_deep_article_url` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/pre_read_selection.rs:188:4
+    |
+188 | fn looks_like_deep_article_url(raw: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `looks_like_placeholder_article_slug_segment` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/pre_read_selection.rs:300:4
+    |
+300 | fn looks_like_placeholder_article_slug_segment(segment: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ranked_discovery_sources` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/pre_read_selection.rs:533:4
+    |
+533 | fn ranked_discovery_sources(bundle: &WebEvidenceBundle) -> Vec<WebSource> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `selected_source_hints_for_urls` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/pre_read_selection.rs:869:4
+    |
+869 | fn selected_source_hints_for_urls(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `filter_local_business_search_bundle_by_entity_anchor` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:22:4
+   |
+22 | fn filter_local_business_search_bundle_by_entity_anchor(
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `filter_local_business_search_bundle_by_result_surface` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:101:4
+    |
+101 | fn filter_local_business_search_bundle_by_result_surface(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_expansion_query_marker` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:214:4
+    |
+214 | fn local_business_expansion_query_marker(query: &str) -> String {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_expansion_target_floor_met` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:226:4
+    |
+226 | fn local_business_expansion_target_floor_met(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_expansion_source_excerpt` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:234:4
+    |
+234 | fn local_business_expansion_source_excerpt(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `structured_local_business_target_sources_from_bundle` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:256:4
+    |
+256 | fn structured_local_business_target_sources_from_bundle(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `select_local_business_expansion_source` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:281:4
+    |
+281 | fn select_local_business_expansion_source(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `lint_local_business_expansion_restaurants` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:594:4
+    |
+594 | fn lint_local_business_expansion_restaurants(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_menu_queries` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:639:4
+    |
+639 | fn local_business_menu_queries(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `synthesize_local_business_expansion_restaurants` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/local_business_expansion.rs:652:10
+    |
+652 | async fn synthesize_local_business_expansion_restaurants(
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `selected_entity_target_sources` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/entity_expansion.rs:119:4
+    |
+119 | fn selected_entity_target_sources(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `admitted_provider_ids_from_backend` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/mod.rs:187:4
+    |
+187 | fn admitted_provider_ids_from_backend(backend: &str) -> Vec<String> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `payload_derived_source_hosts` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/mod.rs:253:4
+    |
+253 | fn payload_derived_source_hosts(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `merged_local_business_targets` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/mod.rs:375:4
+    |
+375 | fn merged_local_business_targets(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `source_looks_like_multi_item_restaurant_guide` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/mod.rs:396:4
+    |
+396 | fn source_looks_like_multi_item_restaurant_guide(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_candidate_inventory_target` is never used
+ --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/search/alignment.rs:1:4
+  |
+1 | fn pre_read_candidate_inventory_target(
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_batch_urls` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/processing/web_pipeline/search/alignment.rs:17:4
+   |
+17 | fn pre_read_batch_urls(candidate_urls: &[String], batch_target: usize) -> Vec<String> {
+   |    ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `WEB_PIPELINE_MIN_REMAINING_BUDGET_MS_FOR_INITIAL_READ` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/config.rs:19:18
+   |
+19 | pub(crate) const WEB_PIPELINE_MIN_REMAINING_BUDGET_MS_FOR_INITIAL_READ: u64 = 20_000;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `WEB_PIPELINE_LATENCY_ELEVATED_BUFFER_MS` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/config.rs:21:18
+   |
+21 | pub(crate) const WEB_PIPELINE_LATENCY_ELEVATED_BUFFER_MS: u64 = 6_000;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `WEB_PIPELINE_LATENCY_READ_GUARD_MS` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/config.rs:22:18
+   |
+22 | pub(crate) const WEB_PIPELINE_LATENCY_READ_GUARD_MS: u64 = 8_000;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `QUERY_PROBE_HINT_MAX_CANDIDATES` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/config.rs:51:18
+   |
+51 | pub(crate) const QUERY_PROBE_HINT_MAX_CANDIDATES: usize = 4;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `QUERY_PROBE_HINT_MAX_TOKENS` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/config.rs:52:18
+   |
+52 | pub(crate) const QUERY_PROBE_HINT_MAX_TOKENS: usize = 3;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `QUERY_PROBE_HINT_MIN_SHARED_TOKEN_HITS` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/config.rs:53:18
+   |
+53 | pub(crate) const QUERY_PROBE_HINT_MIN_SHARED_TOKEN_HITS: usize = 2;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `QUERY_PROBE_ESCALATION_MAX_CONFLICT_TERMS` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/config.rs:54:18
+   |
+54 | pub(crate) const QUERY_PROBE_ESCALATION_MAX_CONFLICT_TERMS: usize = 3;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `web_pipeline_can_queue_initial_read` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/budget.rs:17:15
+   |
+17 | pub(crate) fn web_pipeline_can_queue_initial_read(deadline_ms: u64, now_ms: u64) -> bool {
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `web_pipeline_can_queue_probe_search` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/budget.rs:25:15
+   |
+25 | pub(crate) fn web_pipeline_can_queue_probe_search(deadline_ms: u64, now_ms: u64) -> bool {
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `web_pipeline_required_read_budget_ms` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/budget.rs:70:15
+   |
+70 | pub(crate) fn web_pipeline_required_read_budget_ms(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `web_pipeline_can_queue_initial_read_latency_aware` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/budget.rs:118:15
+    |
+118 | pub(crate) fn web_pipeline_can_queue_initial_read_latency_aware(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `web_pipeline_latency_pressure` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/budget.rs:140:15
+    |
+140 | pub(crate) fn web_pipeline_latency_pressure(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `web_pipeline_latency_pressure_label` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/budget.rs:158:15
+    |
+158 | pub(crate) fn web_pipeline_latency_pressure_label(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `candidate_urls_from_bundle` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/bundle.rs:369:15
+    |
+369 | pub(crate) fn candidate_urls_from_bundle(bundle: &WebEvidenceBundle) -> Vec<String> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `prefer_excerpt` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/pending.rs:700:15
+    |
+700 | pub(crate) fn prefer_excerpt(existing: String, incoming: String) -> String {
+    |               ^^^^^^^^^^^^^^
+
+warning: function `merge_pending_source_record` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/pending.rs:782:15
+    |
+782 | pub(crate) fn merge_pending_source_record(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `append_final_web_completion_receipts` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/receipts.rs:353:15
+    |
+353 | pub(crate) fn append_final_web_completion_receipts(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `prioritized_query_grounding_excerpt` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/signal.rs:416:15
+    |
+416 | pub(crate) fn prioritized_query_grounding_excerpt(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `excerpt_has_query_grounding_signal` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/pipeline/signal.rs:993:15
+    |
+993 | pub(crate) fn excerpt_has_query_grounding_signal(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `constraint_grounded_search_query_with_hints_and_locality_hint` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/query/grounded_query.rs:26:15
+   |
+26 | pub(crate) fn constraint_grounded_search_query_with_hints_and_locality_hint(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `constraint_grounded_probe_query_with_hints_and_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/grounded_query.rs:176:15
+    |
+176 | pub(crate) fn constraint_grounded_probe_query_with_hints_and_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `constraint_grounded_probe_query_with_hints` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/grounded_query.rs:292:15
+    |
+292 | pub(crate) fn constraint_grounded_probe_query_with_hints(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `constraint_grounded_search_query_with_hints` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/grounded_query.rs:307:15
+    |
+307 | pub(crate) fn constraint_grounded_search_query_with_hints(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `constraint_grounded_search_query` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/grounded_query.rs:320:15
+    |
+320 | pub(crate) fn constraint_grounded_search_query(query: &str, min_sources: u32) -> String {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `scope_anchor_start` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/locality/token_normalization.rs:479:15
+    |
+479 | pub(crate) fn scope_anchor_start(query_lower: &str) -> Option<usize> {
+    |               ^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_search_entity_anchor_tokens` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/locality/local_business.rs:386:15
+    |
+386 | pub(crate) fn local_business_search_entity_anchor_tokens(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ordered_local_business_expansion_terms` is never used
+    --> crates/services/src/agentic/desktop/service/step/queue/support/query/locality/local_business.rs:1027:4
+     |
+1027 | fn ordered_local_business_expansion_terms(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_expansion_query` is never used
+    --> crates/services/src/agentic/desktop/service/step/queue/support/query/locality/local_business.rs:1070:15
+     |
+1070 | pub(crate) fn local_business_expansion_query(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `semantic_retrieval_query_contract_with_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/locality/scope_inference.rs:552:15
+    |
+552 | pub(crate) fn semantic_retrieval_query_contract_with_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: enum `WebPipelineLatencyPressure` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/query/models.rs:23:17
+   |
+23 | pub(crate) enum WebPipelineLatencyPressure {
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `as_str` is never used
+ --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:2:19
+  |
+1 | impl RetrievalAffordanceKind {
+  | ---------------------------- method in this implementation
+2 |     pub(crate) fn as_str(self) -> &'static str {
+  |                   ^^^^^^
+
+warning: function `single_snapshot_metric_detail_candidate_allowed_with_projection` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:127:4
+    |
+127 | fn single_snapshot_metric_detail_candidate_allowed_with_projection(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_detail_root_candidate_allowed` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:218:4
+    |
+218 | fn local_business_detail_root_candidate_allowed(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_discovery_seed_required` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:247:4
+    |
+247 | fn local_business_discovery_seed_required(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_direct_citation_source_allowed_with_projection` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:293:4
+    |
+293 | fn local_business_direct_citation_source_allowed_with_projection(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `grounded_direct_citation_source_allowed_with_projection` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:368:4
+    |
+368 | fn grounded_direct_citation_source_allowed_with_projection(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `projection_candidate_url_allowed_with_projection` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:446:15
+    |
+446 | pub(crate) fn projection_candidate_url_allowed_with_projection(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `local_business_discovery_source_allowed_with_projection` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:535:15
+    |
+535 | pub(crate) fn local_business_discovery_source_allowed_with_projection(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `retrieval_affordances_with_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:603:15
+    |
+603 | pub(crate) fn retrieval_affordances_with_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `preferred_pre_read_action_count_with_contract_and_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:624:15
+    |
+624 | pub(crate) fn preferred_pre_read_action_count_with_contract_and_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `preferred_pre_read_action_count_with_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:665:15
+    |
+665 | pub(crate) fn preferred_pre_read_action_count_with_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `projection_candidate_listing_disallowed_with_projection` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_filtering.rs:699:15
+    |
+699 | pub(crate) fn projection_candidate_listing_disallowed_with_projection(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `resolved_hint_candidate_url` is never used
+ --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_collection.rs:1:15
+  |
+1 | pub(crate) fn resolved_hint_candidate_url(hint: &PendingSearchReadSummary) -> Option<String> {
+  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `resolved_hint_candidate_url_with_projection` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_collection.rs:13:4
+   |
+13 | fn resolved_hint_candidate_url_with_projection(
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `resolved_hint_candidate_url_with_contract_and_affordance` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_collection.rs:41:4
+   |
+41 | fn resolved_hint_candidate_url_with_contract_and_affordance(
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `resolved_hint_candidate_url_with_affordance` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_collection.rs:78:4
+   |
+78 | fn resolved_hint_candidate_url_with_affordance(
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `collect_projection_candidate_urls_with_contract_and_locality_hint` is never used
+  --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_collection.rs:86:15
+   |
+86 | pub(crate) fn collect_projection_candidate_urls_with_contract_and_locality_hint(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `collect_projection_candidate_urls_with_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/candidate_collection.rs:460:15
+    |
+460 | pub(crate) fn collect_projection_candidate_urls_with_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `selected_source_quality_metrics_with_contract_and_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/selection_metrics.rs:299:15
+    |
+299 | pub(crate) fn selected_source_quality_metrics_with_contract_and_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `selected_source_quality_metrics_with_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/selection_metrics.rs:326:15
+    |
+326 | pub(crate) fn selected_source_quality_metrics_with_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_candidate_plan` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/planning.rs:709:15
+    |
+709 | pub(crate) fn pre_read_candidate_plan(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/planning.rs:728:15
+    |
+728 | pub(crate) fn pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_candidate_plan_from_bundle_with_locality_hint` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/planning.rs:745:15
+    |
+745 | pub(crate) fn pre_read_candidate_plan_from_bundle_with_locality_hint(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_candidate_plan_from_bundle_with_locality_hint_and_recovery_mode` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/planning.rs:786:15
+    |
+786 | pub(crate) fn pre_read_candidate_plan_from_bundle_with_locality_hint_and_recovery_mode(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_candidate_plan_from_bundle` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/planning.rs:803:15
+    |
+803 | pub(crate) fn pre_read_candidate_plan_from_bundle(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `pre_read_candidate_plan_from_bundle_with_recovery_mode` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/pre_read/planning.rs:817:15
+    |
+817 | pub(crate) fn pre_read_candidate_plan_from_bundle_with_recovery_mode(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `probe_hint_anchor_tokens` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/projection/anchors.rs:136:15
+    |
+136 | pub(crate) fn probe_hint_anchor_tokens(title: &str, excerpt: &str) -> BTreeSet<String> {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `projection_probe_hint_anchor_phrase` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/projection/anchors.rs:145:15
+    |
+145 | pub(crate) fn projection_probe_hint_anchor_phrase(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `projection_probe_conflict_exclusion_terms` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/projection/probe_terms.rs:106:15
+    |
+106 | pub(crate) fn projection_probe_conflict_exclusion_terms(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `required_distinct_domain_floor` is never used
+   --> crates/services/src/agentic/desktop/service/step/queue/support/query/query_shape.rs:243:15
+    |
+243 | pub(crate) fn required_distinct_domain_floor(query_contract: &str) -> usize {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `unsupported_tool_error` is never used
+    --> crates/services/src/agentic/desktop/service/handler/execution/handlers/model.rs:2282:4
+     |
+2282 | fn unsupported_tool_error(tool_name: &str, detail: impl Into<String>) -> String {
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `push_mcp_tools` is never used
+ --> crates/services/src/agentic/desktop/tools/mcp.rs:5:21
+  |
+5 | pub(super) async fn push_mcp_tools(
+  |                     ^^^^^^^^^^^^^^
+
+warning: field `gas_ceiling` is never read
+   --> crates/services/src/agentic/intent.rs:350:5
+    |
+341 | struct IntentPlan {
+    |        ---------- field in this struct
+...
+350 |     gas_ceiling: u64,
+    |     ^^^^^^^^^^^
+    |
+    = note: `IntentPlan` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: function `search_anchor_tokens` is never used
+  --> crates/services/src/agentic/web/anchor_policy.rs:16:4
+   |
+16 | fn search_anchor_tokens(text: &str) -> HashSet<String> {
+   |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `semantic_search_anchor_tokens` is never used
+  --> crates/services/src/agentic/web/anchor_policy.rs:34:4
+   |
+34 | fn semantic_search_anchor_tokens(text: &str) -> HashSet<String> {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `scope_anchor_start` is never used
+  --> crates/services/src/agentic/web/anchor_policy.rs:48:4
+   |
+48 | fn scope_anchor_start(query_lower: &str) -> Option<usize> {
+   |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `query_scope_tokens` is never used
+  --> crates/services/src/agentic/web/anchor_policy.rs:57:4
+   |
+57 | fn query_scope_tokens(query: &str) -> HashSet<String> {
+   |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `required_source_anchor_overlap` is never used
+  --> crates/services/src/agentic/web/anchor_policy.rs:65:4
+   |
+65 | fn required_source_anchor_overlap(query: &str, query_token_count: usize) -> usize {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `source_anchor_overlap_count` is never used
+  --> crates/services/src/agentic/web/anchor_policy.rs:91:4
+   |
+91 | fn source_anchor_overlap_count(
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `source_anchor_overlap_metrics` is never used
+   --> crates/services/src/agentic/web/anchor_policy.rs:104:4
+    |
+104 | fn source_anchor_overlap_metrics(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `filter_provider_sources_by_query_anchors` is never used
+   --> crates/services/src/agentic/web/anchor_policy.rs:144:15
+    |
+144 | pub(crate) fn filter_provider_sources_by_query_anchors(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `rank_provider_sources_by_query_anchors` is never used
+   --> crates/services/src/agentic/web/anchor_policy.rs:151:15
+    |
+151 | pub(crate) fn rank_provider_sources_by_query_anchors(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `SEARCH_ANCHOR_MIN_TOKEN_CHARS` is never used
+  --> crates/services/src/agentic/web/constants.rs:13:18
+   |
+13 | pub(crate) const SEARCH_ANCHOR_MIN_TOKEN_CHARS: usize = 3;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `SEARCH_ANCHOR_REQUIRED_OVERLAP_RATIO_DENOMINATOR` is never used
+  --> crates/services/src/agentic/web/constants.rs:14:18
+   |
+14 | pub(crate) const SEARCH_ANCHOR_REQUIRED_OVERLAP_RATIO_DENOMINATOR: usize = 3;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `SEARCH_ANCHOR_REQUIRED_OVERLAP_CAP` is never used
+  --> crates/services/src/agentic/web/constants.rs:15:18
+   |
+15 | pub(crate) const SEARCH_ANCHOR_REQUIRED_OVERLAP_CAP: usize = 4;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `SEARCH_ANCHOR_GROUNDED_MIN_OVERLAP` is never used
+  --> crates/services/src/agentic/web/constants.rs:16:18
+   |
+16 | pub(crate) const SEARCH_ANCHOR_GROUNDED_MIN_OVERLAP: usize = 2;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `SEARCH_ANCHOR_TIME_SENSITIVE_MIN_OVERLAP` is never used
+  --> crates/services/src/agentic/web/constants.rs:17:18
+   |
+17 | pub(crate) const SEARCH_ANCHOR_TIME_SENSITIVE_MIN_OVERLAP: usize = 2;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `SEARCH_ANCHOR_LOCALITY_MIN_OVERLAP` is never used
+  --> crates/services/src/agentic/web/constants.rs:18:18
+   |
+18 | pub(crate) const SEARCH_ANCHOR_LOCALITY_MIN_OVERLAP: usize = 1;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `SEARCH_ANCHOR_SEMANTIC_MIN_OVERLAP` is never used
+  --> crates/services/src/agentic/web/constants.rs:19:18
+   |
+19 | pub(crate) const SEARCH_ANCHOR_SEMANTIC_MIN_OVERLAP: usize = 1;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `SEARCH_ANCHOR_STOPWORDS` is never used
+  --> crates/services/src/agentic/web/constants.rs:20:18
+   |
+20 | pub(crate) const SEARCH_ANCHOR_STOPWORDS: [&str; 30] = [
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `QUERY_SCOPE_MARKERS` is never used
+  --> crates/services/src/agentic/web/constants.rs:25:18
+   |
+25 | pub(crate) const QUERY_SCOPE_MARKERS: [&str; 4] = [" in ", " near ", " around ", " at "];
+   |                  ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `SemanticAlignmentSourcePayload` is never constructed
+  --> crates/services/src/agentic/web/contract.rs:23:8
+   |
+23 | struct SemanticAlignmentSourcePayload {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `SemanticAlignmentPayload` is never constructed
+  --> crates/services/src/agentic/web/contract.rs:36:8
+   |
+36 | struct SemanticAlignmentPayload<'a> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `extract_json_object` is never used
+  --> crates/services/src/agentic/web/contract.rs:62:4
+   |
+62 | fn extract_json_object(raw: &str) -> Option<&str> {
+   |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `infer_web_retrieval_contract` is never used
+   --> crates/services/src/agentic/web/contract.rs:387:21
+    |
+387 | pub(crate) async fn infer_web_retrieval_contract(
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `text_is_structured_metadata_noise` is never used
+  --> crates/services/src/agentic/web/parsers.rs:21:4
+   |
+21 | fn text_is_structured_metadata_noise(text: &str) -> bool {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `text_is_script_noise` is never used
+  --> crates/services/src/agentic/web/parsers.rs:53:4
+   |
+53 | fn text_is_script_noise(text: &str) -> bool {
+   |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `text_is_inline_markup_noise` is never used
+   --> crates/services/src/agentic/web/parsers.rs:100:4
+    |
+100 | fn text_is_inline_markup_noise(text: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `extract_read_blocks` is never used
+   --> crates/services/src/agentic/web/readability.rs:864:15
+    |
+864 | pub(crate) fn extract_read_blocks(html: &str) -> (Option<String>, Vec<String>) {
+    |               ^^^^^^^^^^^^^^^^^^^
+
+warning: function `looks_like_placeholder_article_slug_segment` is never used
+  --> crates/services/src/agentic/web/search/extraction.rs:35:4
+   |
+35 | fn looks_like_placeholder_article_slug_segment(segment: &str) -> bool {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `looks_like_headline_article_url` is never used
+  --> crates/services/src/agentic/web/search/extraction.rs:72:15
+   |
+72 | pub(super) fn looks_like_headline_article_url(url: &str) -> bool {
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `headline_article_path_depth` is never used
+   --> crates/services/src/agentic/web/search/extraction.rs:152:15
+    |
+152 | pub(super) fn headline_article_path_depth(url: &str) -> usize {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `record_challenge` is never used
+  --> crates/services/src/agentic/web/transport.rs:19:15
+   |
+19 | pub(crate) fn record_challenge(
+   |               ^^^^^^^^^^^^^^^^
+
+warning: function `fetch_html_http_fallback_browser_ua_with_final_url` is never used
+   --> crates/services/src/agentic/web/transport.rs:212:21
+    |
+212 | pub(crate) async fn fetch_html_http_fallback_browser_ua_with_final_url(
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_wttr_locality_current_conditions_url` is never used
+   --> crates/services/src/agentic/web/urls.rs:123:15
+    |
+123 | pub(crate) fn build_wttr_locality_current_conditions_url(scope: &str) -> String {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `ioi-services` (lib) generated 212 warnings (run `cargo fix --lib -p ioi-services` to apply 18 suggestions)
+warning: field `sortition` is never read
+  --> crates/consensus/src/aft/experimental/mod.rs:35:5
+   |
+31 | pub struct ExperimentalSamplingEngine {
+   |            -------------------------- field in this struct
+...
+35 |     sortition: Arc<Mutex<Sortition>>,
+   |     ^^^^^^^^^
+   |
+   = note: `ExperimentalSamplingEngine` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `lambda` is never read
+  --> crates/consensus/src/aft/experimental/confidence.rs:15:5
+   |
+11 | pub struct ConfidenceTracker {
+   |            ----------------- field in this struct
+...
+15 |     lambda: u32,
+   |     ^^^^^^
+   |
+   = note: `ConfidenceTracker` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `is_durable` and `prune` are never used
+  --> crates/consensus/src/aft/experimental/confidence.rs:38:12
+   |
+18 | impl ConfidenceTracker {
+   | ---------------------- methods in this implementation
+...
+38 |     pub fn is_durable(&self, block_hash: &[u8; 32]) -> bool {
+   |            ^^^^^^^^^^
+...
+43 |     pub fn prune(&mut self, _min_height: u64) {
+   |            ^^^^^
+
+warning: field `secret_key` is never read
+  --> crates/consensus/src/aft/experimental/vrf.rs:16:5
+   |
+14 | pub struct Sortition {
+   |            --------- field in this struct
+15 |     /// The local secret key used for VRF evaluation.
+16 |     secret_key: Vec<u8>,
+   |     ^^^^^^^^^^
+   |
+   = note: `Sortition` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: associated items `evaluate`, `verify`, and `is_eligible` are never used
+  --> crates/consensus/src/aft/experimental/vrf.rs:26:12
+   |
+19 | impl Sortition {
+   | -------------- associated items in this implementation
+...
+26 |     pub fn evaluate(&self, seed: &[u8], round: u64) -> (Vec<u8>, Vec<u8>) {
+   |            ^^^^^^^^
+...
+44 |     pub fn verify(_public_key: &[u8], _seed: &[u8], _round: u64, _proof: &[u8]) -> bool {
+   |            ^^^^^^
+...
+51 |     pub fn is_eligible(vrf_output: &[u8], threshold: f64) -> bool {
+   |            ^^^^^^^^^^^
+
+warning: method `assign_mirror` is never used
+ --> crates/consensus/src/aft/guardian_majority/qc_state.rs:4:19
+  |
+3 | impl GuardianMajorityEngine {
+  | --------------------------- method in this implementation
+4 |     pub(super) fn assign_mirror(&self, account: &AccountId) -> u8 {
+  |                   ^^^^^^^^^^^^^
+
+warning: function `verify_signature` is never used
+ --> crates/consensus/src/common/signature.rs:7:15
+  |
+7 | pub(crate) fn verify_signature(
+  |               ^^^^^^^^^^^^^^^^
+
+warning: `ioi-consensus` (lib) generated 7 warnings
+warning: value assigned to `proof_verify_elapsed` is never read
+   --> crates/execution/src/app/state_machine.rs:904:40
+    |
+904 |         let mut proof_verify_elapsed = Duration::ZERO;
+    |                                        ^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-execution` (lib) generated 1 warning
+warning: unreachable pattern
+  --> crates/validator/src/standard/orchestration/ingestion/runner/collect.rs:94:29
+   |
+87 | / ...                   ioi_types::app::ApplicationTransaction::DeployContract {
+88 | | ...                       header,
+89 | | ...                       ..
+...  |
+92 | | ...                       header, ..
+93 | | ...                   } => (Some(header.account_id), Some(header.nonce)),
+   | |_______________________- matches all the relevant values
+94 |   ...                   _ => (None, None),
+   |                         ^ no value can reach this
+   |
+   = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+warning: irrefutable `let...else` pattern
+  --> crates/validator/src/standard/orchestration/ingestion/runner/semantic/system.rs:33:5
+   |
+33 | /     let ioi_types::app::SystemPayload::CallService {
+34 | |         service_id,
+35 | |         method,
+36 | |         params,
+37 | |         ..
+38 | |     } = &sys.payload
+   | |____________________^
+   |
+   = note: this pattern will always match, so the `else` clause is useless
+   = help: consider removing the `else` clause
+   = note: `#[warn(irrefutable_let_patterns)]` on by default
+
+warning: variable `visual_hash_opt` is assigned to, but never used
+   --> crates/validator/src/firewall/mod.rs:542:29
+    |
+542 |                         let mut visual_hash_opt: Option<[u8; 32]> = None;
+    |                             ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_visual_hash_opt` instead
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `pii_request_opt` is never read
+   --> crates/validator/src/firewall/mod.rs:196:65
+    |
+196 |             let mut pii_request_opt: Option<PiiReviewRequest> = None;
+    |                                                                 ^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `visual_hash_opt` is never read
+   --> crates/validator/src/firewall/mod.rs:553:41
+    |
+553 | ...                   visual_hash_opt = Some(arr);
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: unreachable pattern
+  --> crates/validator/src/standard/orchestration/grpc_public/tx_handlers.rs:18:13
+   |
+14 | /             ioi_types::app::ApplicationTransaction::DeployContract { header, .. }
+15 | |             | ioi_types::app::ApplicationTransaction::CallContract { header, .. } => {
+   | |_________________________________________________________________________________- matches all the relevant values
+...
+18 |               _ => None,
+   |               ^ no value can reach this
+
+warning: unused variable: `leader_peer_targets`
+   --> crates/validator/src/standard/orchestration/finalize/post_commit.rs:692:28
+    |
+692 |     let (local_account_id, leader_peer_targets, leader_peers, swarm_commander) = {
+    |                            ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_leader_peer_targets`
+
+warning: function `seed_recovered_consensus_headers_into_engine` is never used
+    --> crates/validator/src/standard/orchestration/consensus/recovery.rs:1890:15
+     |
+1890 | pub(super) fn seed_recovered_consensus_headers_into_engine<CE>(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `seed_recovered_certified_headers_into_engine` is never used
+    --> crates/validator/src/standard/orchestration/consensus/recovery.rs:1903:15
+     |
+1903 | pub(super) fn seed_recovered_certified_headers_into_engine<CE>(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `seed_recovered_restart_block_headers_into_engine` is never used
+    --> crates/validator/src/standard/orchestration/consensus/recovery.rs:1916:15
+     |
+1916 | pub(super) fn seed_recovered_restart_block_headers_into_engine<CE>(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `relay_fanout` is never used
+   --> crates/validator/src/standard/orchestration/gossip.rs:193:4
+    |
+193 | fn relay_fanout() -> usize {
+    |    ^^^^^^^^^^^^
+
+warning: field `raw_bytes` is never read
+  --> crates/validator/src/standard/orchestration/ingestion/types.rs:87:9
+   |
+84 | pub(crate) struct ProcessedTx {
+   |                   ----------- field in this struct
+...
+87 |     pub raw_bytes: Vec<u8>,
+   |         ^^^^^^^^^
+
+warning: function `relay_fanout` is never used
+ --> crates/validator/src/standard/orchestration/finalize/post_commit.rs:3:15
+  |
+3 | pub(super) fn relay_fanout() -> usize {
+  |               ^^^^^^^^^^^^
+
+warning: function `local_account_id_from_keypair` is never used
+  --> crates/validator/src/standard/orchestration/finalize/publication.rs:70:15
+   |
+70 | pub(super) fn local_account_id_from_keypair(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_experimental_recovery_scaffold_share_receipt` is never used
+   --> crates/validator/src/standard/orchestration/finalize/publication.rs:542:15
+    |
+542 | pub(super) fn build_experimental_recovery_scaffold_share_receipt(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `ioi-validator` (lib) generated 15 warnings (run `cargo fix --lib -p ioi-validator` to apply 1 suggestion)
+warning: struct `CountingInferenceRuntime` is never constructed
+   --> crates/cli/tests/computer_use_suite/../live_inference_support.rs:159:12
+    |
+159 | pub struct CountingInferenceRuntime {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `now_ms` is never used
+   --> crates/cli/tests/computer_use_suite/../live_inference_support.rs:165:4
+    |
+165 | fn now_ms() -> u64 {
+    |    ^^^^^^
+
+warning: function `compact_inference_source_hint` is never used
+   --> crates/cli/tests/computer_use_suite/../live_inference_support.rs:172:4
+    |
+172 | fn compact_inference_source_hint() -> Option<String> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated items `new`, `call_count`, and `call_records` are never used
+   --> crates/cli/tests/computer_use_suite/../live_inference_support.rs:223:12
+    |
+222 | impl CountingInferenceRuntime {
+    | ----------------------------- associated items in this implementation
+223 |     pub fn new(inner: Arc<dyn InferenceRuntime>) -> Self {
+    |            ^^^
+...
+231 |     pub fn call_count(&self) -> usize {
+    |            ^^^^^^^^^^
+...
+235 |     pub fn call_records(&self) -> Vec<InferenceCallRecord> {
+    |            ^^^^^^^^^^^^
+
+warning: methods `record_call` and `record_aux_call` are never used
+   --> crates/cli/tests/computer_use_suite/../live_inference_support.rs:258:8
+    |
+257 | impl CountingInferenceRuntime {
+    | ----------------------------- methods in this implementation
+258 |     fn record_call(
+    |        ^^^^^^^^^^^
+...
+288 |     fn record_aux_call(
+    |        ^^^^^^^^^^^^^^^
+
+warning: `ioi-cli` (test "computer_use_suite_e2e") generated 5 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.40s
+warning: the following packages contain code that will be rejected by a future version of Rust: imap-proto v0.10.2, xcap v0.0.14
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
+     Running tests/computer_use_suite_e2e.rs (target/debug/deps/computer_use_suite_e2e-a2584ee06321fb80)
+info: spawned benchmark data refresh pid=1157408 (stdout_log=/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/benchmark_refresh/1157217-1774965629241.stdout.log stderr_log=/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/benchmark_refresh/1157217-1774965629241.stderr.log)

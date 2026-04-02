@@ -61,6 +61,22 @@ pub(crate) fn retrieval_contract_is_generic_headline_collection(
         .unwrap_or(false)
 }
 
+pub(crate) fn retrieval_or_query_prefers_single_fact_snapshot(
+    contract: Option<&WebRetrievalContract>,
+    query: &str,
+) -> bool {
+    retrieval_contract_prefers_single_fact_snapshot(contract, query)
+        || (contract.is_none() && prefers_single_fact_snapshot(query))
+}
+
+pub(crate) fn retrieval_or_query_is_generic_headline_collection(
+    contract: Option<&WebRetrievalContract>,
+    query: &str,
+) -> bool {
+    retrieval_contract_is_generic_headline_collection(contract, query)
+        || (contract.is_none() && query_is_generic_headline_collection(query))
+}
+
 pub(crate) fn retrieval_contract_entity_diversity_required(
     contract: Option<&WebRetrievalContract>,
     _query: &str,
@@ -162,6 +178,39 @@ pub(crate) fn retrieval_contract_required_distinct_domain_floor(
             }
         })
         .unwrap_or(0)
+}
+
+pub(crate) fn retrieval_contract_primary_authority_source_slot_cap(
+    contract: Option<&WebRetrievalContract>,
+    query: &str,
+    expected_count: usize,
+) -> usize {
+    let Some(contract) = contract else {
+        return 0;
+    };
+    if expected_count == 0 {
+        return 0;
+    }
+    let authority_source_required = matches!(
+        synthesis_layout_profile(Some(contract), query),
+        SynthesisLayoutProfile::DocumentBriefing
+    ) && !query_requests_comparison(query)
+        && crate::agentic::desktop::service::step::signals::analyze_query_facets(query)
+            .grounded_external_required
+        && (contract.currentness_required || contract.source_independence_min > 1);
+    if !authority_source_required {
+        return 0;
+    }
+
+    let required_domain_floor =
+        retrieval_contract_required_distinct_domain_floor(Some(contract), query)
+            .min(expected_count);
+    let reserved_non_authority_slots = required_domain_floor
+        .saturating_sub(1)
+        .min(expected_count.saturating_sub(1));
+    expected_count
+        .saturating_sub(reserved_non_authority_slots)
+        .max(1)
 }
 
 pub(crate) fn retrieval_contract_required_distinct_citations(

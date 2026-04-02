@@ -1,5 +1,8 @@
 use super::contracts::{bootstrap_contract, duplicate_execution_state};
-use super::duplicate::{handle_duplicate_command_execution, DuplicateExecutionContext};
+use super::duplicate::{
+    handle_duplicate_command_execution, worker_duplicate_refresh_read_allowed,
+    DuplicateExecutionContext,
+};
 use super::pending_approval::{handle_pending_approval, PendingApprovalContext};
 use super::precheck::run_execution_prechecks;
 use super::rrsa::{record_rrsa_action_evidence, RrsaContext};
@@ -84,17 +87,26 @@ pub(crate) async fn execute_tool_phase(
             agent_state.consecutive_failures
         ));
     }
-    let (duplicate_command_execution, matching_command_history_entry) = duplicate_execution_state(
-        agent_state,
-        &tool,
-        command_scope,
-        pre_state_summary.step_index,
-        &action_fingerprint,
-        &mut verification_checks,
-    );
+    let (mut duplicate_command_execution, matching_command_history_entry) =
+        duplicate_execution_state(
+            agent_state,
+            &tool,
+            command_scope,
+            pre_state_summary.step_index,
+            &action_fingerprint,
+            &mut verification_checks,
+        );
+    if duplicate_command_execution
+        && worker_duplicate_refresh_read_allowed(state, agent_state, session_id, &tool)
+    {
+        duplicate_command_execution = false;
+        verification_checks
+            .push("duplicate_action_fingerprint_refresh_read_released=true".to_string());
+    }
     if duplicate_command_execution {
         let duplicate_outcome = handle_duplicate_command_execution(DuplicateExecutionContext {
             service,
+            state,
             agent_state,
             rules,
             tool: &tool,
@@ -177,6 +189,7 @@ pub(crate) async fn execute_tool_phase(
                             state,
                             agent_state,
                             rules,
+                            call_context,
                             tool: &tool,
                             tool_args: &tool_args,
                             session_id,

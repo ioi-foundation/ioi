@@ -5,7 +5,7 @@ use serde::Serialize;
 use super::super::types::{
     cec_receipt_value, environment_bool, environment_u64, environment_value, has_cec_receipt,
     has_cec_stage, has_typed_contract_failure_evidence, observation_has_tool_name, truncate_chars,
-    ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation, WebObservation,
 };
 
 const CASE_ID: &str =
@@ -81,6 +81,54 @@ pub fn case_unseeded() -> QueryCase {
         allow_timeout_completion_with_local_evidence: false,
         local_sniff: evaluate,
     }
+}
+
+fn benchmark_briefing_standard_inventory_quality_met(
+    floor_met: bool,
+    group_floor: usize,
+    required_count: usize,
+    total_count: usize,
+    authority_source_count: usize,
+    available_authority_source_count: usize,
+) -> bool {
+    floor_met
+        && (group_floor == 0
+            || (required_count >= group_floor
+                && total_count >= required_count
+                && (available_authority_source_count == 0 || authority_source_count >= 1)))
+}
+
+fn benchmark_briefing_authority_standard_inventory_quality_met(
+    floor_met: bool,
+    group_floor: usize,
+    required_authority_count: usize,
+    authority_total_count: usize,
+) -> bool {
+    floor_met
+        && (group_floor == 0
+            || (required_authority_count >= group_floor
+                && authority_total_count >= required_authority_count))
+}
+
+fn benchmark_briefing_summary_inventory_quality_met(
+    floor_met: bool,
+    group_floor: usize,
+    required_count: usize,
+    optional_count: usize,
+    authority_count: usize,
+    available_authority_source_count: usize,
+    required_authority_count: usize,
+) -> bool {
+    let authority_only_optional_floor_met = required_count == 0
+        && optional_count > group_floor
+        && authority_count == optional_count
+        && required_authority_count >= group_floor;
+    floor_met
+        && (group_floor == 0
+            || (required_count >= group_floor
+                && optional_count == 0
+                && (available_authority_source_count == 0 || authority_count >= group_floor))
+            || authority_only_optional_floor_met)
 }
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
@@ -217,13 +265,12 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                     && selected_source_authority_identifier_sources >= 1));
 
     let selected_official_nist_source_count = official_nist_source_count(&web.selected_source_urls);
-    let semantic_official_nist_alignment_count =
+    let selected_aligned_official_nist_source_count =
+        official_nist_source_count(&web.selected_source_subject_alignment_urls);
+    let discovery_semantic_official_nist_alignment_count =
         official_nist_source_count(&web.semantic_subject_alignment_urls);
-    let official_nist_source_evidence_present = selected_official_nist_source_count >= 1
-        && semantic_official_nist_alignment_count >= 1
-        && web
-            .selected_source_subject_alignment_floor_met
-            .unwrap_or(false);
+    let official_nist_source_evidence_present =
+        official_nist_selected_alignment_evidence_present(web);
 
     let briefing_document_layout_met =
         has_cec_receipt(obs, "verification", "briefing_document_layout", Some(true));
@@ -365,23 +412,21 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "required_authority_standard_identifier_count",
     )
     .unwrap_or(0);
-    let briefing_standard_inventory_quality_met = briefing_standard_identifier_floor_met
-        && (briefing_standard_identifier_group_floor == 0
-            || (briefing_standard_identifier_group_floor >= 3
-                && briefing_required_standard_identifier_count
-                    >= briefing_standard_identifier_group_floor
-                && briefing_standard_identifier_count
-                    >= briefing_required_standard_identifier_count
-                && (briefing_available_standard_identifier_authority_source_count == 0
-                    || briefing_standard_identifier_authority_source_count >= 1)));
+    let briefing_standard_inventory_quality_met = benchmark_briefing_standard_inventory_quality_met(
+        briefing_standard_identifier_floor_met,
+        briefing_standard_identifier_group_floor,
+        briefing_required_standard_identifier_count,
+        briefing_standard_identifier_count,
+        briefing_standard_identifier_authority_source_count,
+        briefing_available_standard_identifier_authority_source_count,
+    );
     let briefing_authority_standard_inventory_quality_met =
-        briefing_authority_standard_identifier_floor_met
-            && (briefing_standard_identifier_group_floor == 0
-                || (briefing_standard_identifier_group_floor >= 3
-                    && briefing_required_authority_standard_identifier_count
-                        >= briefing_standard_identifier_group_floor
-                    && briefing_authority_standard_identifier_count
-                        >= briefing_required_authority_standard_identifier_count));
+        benchmark_briefing_authority_standard_inventory_quality_met(
+            briefing_authority_standard_identifier_floor_met,
+            briefing_standard_identifier_group_floor,
+            briefing_required_authority_standard_identifier_count,
+            briefing_authority_standard_identifier_count,
+        );
     let briefing_summary_inventory_identifier_count = summary_usize_field(
         &briefing_summary_inventory_summary,
         "summary_inventory_identifier_count",
@@ -402,17 +447,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         "summary_inventory_authority_identifier_count",
     )
     .unwrap_or(0);
-    let briefing_summary_inventory_quality_met = briefing_summary_inventory_floor_met
-        && (briefing_standard_identifier_group_floor == 0
-            || (briefing_standard_identifier_group_floor >= 3
-                && briefing_summary_inventory_identifier_count
-                    >= briefing_standard_identifier_group_floor
-                && briefing_summary_inventory_required_identifier_count
-                    >= briefing_standard_identifier_group_floor
-                && briefing_summary_inventory_optional_identifier_count == 0
-                && (briefing_available_standard_identifier_authority_source_count == 0
-                    || briefing_summary_inventory_authority_identifier_count
-                        >= briefing_standard_identifier_group_floor)));
+    let briefing_summary_inventory_quality_met = benchmark_briefing_summary_inventory_quality_met(
+        briefing_summary_inventory_floor_met,
+        briefing_standard_identifier_group_floor,
+        briefing_summary_inventory_required_identifier_count,
+        briefing_summary_inventory_optional_identifier_count,
+        briefing_summary_inventory_authority_identifier_count,
+        briefing_available_standard_identifier_authority_source_count,
+        briefing_required_authority_standard_identifier_count,
+    );
     let briefing_rendered_evidence_block_count = summary_usize_field(
         &briefing_evidence_block_summary,
         "rendered_evidence_block_count",
@@ -673,7 +716,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "objective_specific_briefing_evidence_present",
             objective_specific_briefing_evidence_present,
             format!(
-                "entity_cardinality_min={} source_independence_min={} comparison_required={} browser_fallback_allowed={} rendered_output_quality_receipts_present={} postcondition_terminal_chat_reply_binding_present={} terminal_chat_reply_binding_matches={} postcondition_terminal_output_shape_receipts_present={} terminal_output_document_briefing_shape_met={} postcondition_terminal_layout_profile={} briefing_document_layout_met={} briefing_render_heading_floor_met={} briefing_rendered_required_section_label_floor_met={} briefing_story_headers_absent={} briefing_comparison_absent={} briefing_story_slot_receipts_absent={} briefing_required_section_floor_met={} briefing_query_grounding_floor_met={} briefing_standard_identifier_floor_met={} briefing_authority_standard_identifier_floor_met={} briefing_standard_inventory_quality_met={} briefing_authority_standard_inventory_quality_met={} briefing_summary_inventory_quality_met={} briefing_evidence_block_quality_met={} briefing_citation_provenance_quality_met={} briefing_standard_identifier_count={} briefing_required_standard_identifier_count={} briefing_standard_identifier_group_floor={} briefing_authority_standard_identifier_count={} briefing_required_authority_standard_identifier_count={} briefing_summary_inventory_identifier_count={} briefing_summary_inventory_required_identifier_count={} briefing_summary_inventory_optional_identifier_count={} briefing_summary_inventory_authority_identifier_count={} briefing_standard_identifier_authority_source_count={} briefing_available_standard_identifier_authority_source_count={} briefing_rendered_evidence_block_count={} briefing_required_evidence_sections={} briefing_qualifying_evidence_sections={} briefing_successful_citation_url_count={} briefing_unread_citation_url_count={} briefing_required_supporting_fragment_floor={} briefing_narrative_aggregation_floor_met={} briefing_primary_authority_source_floor_met={} briefing_temporal_anchor_floor_met={} briefing_postamble_floor_met={} selected_official_nist_source_count={} semantic_official_nist_alignment_count={}",
+                "entity_cardinality_min={} source_independence_min={} comparison_required={} browser_fallback_allowed={} rendered_output_quality_receipts_present={} postcondition_terminal_chat_reply_binding_present={} terminal_chat_reply_binding_matches={} postcondition_terminal_output_shape_receipts_present={} terminal_output_document_briefing_shape_met={} postcondition_terminal_layout_profile={} briefing_document_layout_met={} briefing_render_heading_floor_met={} briefing_rendered_required_section_label_floor_met={} briefing_story_headers_absent={} briefing_comparison_absent={} briefing_story_slot_receipts_absent={} briefing_required_section_floor_met={} briefing_query_grounding_floor_met={} briefing_standard_identifier_floor_met={} briefing_authority_standard_identifier_floor_met={} briefing_standard_inventory_quality_met={} briefing_authority_standard_inventory_quality_met={} briefing_summary_inventory_quality_met={} briefing_evidence_block_quality_met={} briefing_citation_provenance_quality_met={} briefing_standard_identifier_count={} briefing_required_standard_identifier_count={} briefing_standard_identifier_group_floor={} briefing_authority_standard_identifier_count={} briefing_required_authority_standard_identifier_count={} briefing_summary_inventory_identifier_count={} briefing_summary_inventory_required_identifier_count={} briefing_summary_inventory_optional_identifier_count={} briefing_summary_inventory_authority_identifier_count={} briefing_standard_identifier_authority_source_count={} briefing_available_standard_identifier_authority_source_count={} briefing_rendered_evidence_block_count={} briefing_required_evidence_sections={} briefing_qualifying_evidence_sections={} briefing_successful_citation_url_count={} briefing_unread_citation_url_count={} briefing_required_supporting_fragment_floor={} briefing_narrative_aggregation_floor_met={} briefing_primary_authority_source_floor_met={} briefing_temporal_anchor_floor_met={} briefing_postamble_floor_met={} selected_official_nist_source_count={} selected_aligned_official_nist_source_count={} discovery_semantic_official_nist_alignment_count={}",
                 entity_cardinality_min,
                 source_independence_min,
                 comparison_required,
@@ -721,7 +764,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                 briefing_temporal_anchor_floor_met,
                 briefing_postamble_floor_met,
                 selected_official_nist_source_count,
-                semantic_official_nist_alignment_count
+                selected_aligned_official_nist_source_count,
+                discovery_semantic_official_nist_alignment_count
             ),
         ),
         LocalCheck::new(
@@ -921,6 +965,8 @@ fn is_official_nist_source(url: &str) -> bool {
     normalized.contains("://nist.gov/")
         || normalized.contains("://www.nist.gov/")
         || normalized.contains("://csrc.nist.gov/")
+        || normalized.contains("://nccoe.nist.gov/")
+        || normalized.contains("://www.nccoe.nist.gov/")
         || normalized.contains("://nvlpubs.nist.gov/")
 }
 
@@ -928,6 +974,14 @@ fn official_nist_source_count(urls: &[String]) -> usize {
     urls.iter()
         .filter(|url| is_official_nist_source(url))
         .count()
+}
+
+fn official_nist_selected_alignment_evidence_present(web: &WebObservation) -> bool {
+    official_nist_source_count(&web.selected_source_urls) >= 1
+        && official_nist_source_count(&web.selected_source_subject_alignment_urls) >= 1
+        && web
+            .selected_source_subject_alignment_floor_met
+            .unwrap_or(false)
 }
 
 fn build_evidence_receipts(
@@ -1271,7 +1325,13 @@ fn serialize_environment_receipts(receipts: &[EnvironmentEvidenceReceipt]) -> St
 
 #[cfg(test)]
 mod tests {
-    use super::{is_official_nist_source, observe_terminal_artifact};
+    use super::{
+        benchmark_briefing_authority_standard_inventory_quality_met,
+        benchmark_briefing_standard_inventory_quality_met,
+        benchmark_briefing_summary_inventory_quality_met, is_official_nist_source,
+        observe_terminal_artifact, official_nist_selected_alignment_evidence_present,
+    };
+    use crate::capabilities_suite::types::WebObservation;
 
     #[test]
     fn official_nist_source_detection_accepts_nist_publication_hosts() {
@@ -1279,6 +1339,7 @@ mod tests {
             "https://csrc.nist.gov/pubs/fips/203/final"
         ));
         assert!(is_official_nist_source("https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"));
+        assert!(is_official_nist_source("https://www.nccoe.nist.gov/sites/default/files/2023-12/pqc-migration-nist-sp-1800-38c-preliminary-draft.pdf"));
         assert!(!is_official_nist_source("https://example.com/pqc"));
     }
 
@@ -1306,5 +1367,46 @@ mod tests {
         assert!(observation.run_date_present);
         assert!(observation.run_timestamp_present);
         assert!(observation.overall_confidence_present);
+    }
+
+    #[test]
+    fn benchmark_inventory_quality_helpers_accept_single_required_identifier_floor() {
+        assert!(benchmark_briefing_standard_inventory_quality_met(
+            true, 1, 1, 4, 2, 3
+        ));
+        assert!(benchmark_briefing_authority_standard_inventory_quality_met(
+            true, 1, 1, 4
+        ));
+    }
+
+    #[test]
+    fn benchmark_summary_inventory_quality_helper_accepts_authority_only_optional_inventory() {
+        assert!(benchmark_briefing_summary_inventory_quality_met(
+            true, 1, 0, 3, 3, 3, 1
+        ));
+        assert!(!benchmark_briefing_summary_inventory_quality_met(
+            true, 1, 0, 1, 1, 3, 1
+        ));
+    }
+
+    #[test]
+    fn official_nist_alignment_evidence_uses_selected_aligned_sources() {
+        let web = WebObservation {
+            selected_source_subject_alignment_floor_met: Some(true),
+            selected_source_urls: vec![
+                "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                "https://www.nist.gov/news-events/news/2024/08/announcing-approval-three-federal-information-processing-standards-fips".to_string(),
+            ],
+            selected_source_subject_alignment_urls: vec![
+                "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                "https://www.nist.gov/news-events/news/2024/08/announcing-approval-three-federal-information-processing-standards-fips".to_string(),
+            ],
+            semantic_subject_alignment_urls: vec![
+                "https://www.washingtontechnology.com/opinion/2025/06/why-federal-agencies-must-act-now-post-quantum-cryptography/405738/".to_string(),
+            ],
+            ..WebObservation::default()
+        };
+
+        assert!(official_nist_selected_alignment_evidence_present(&web));
     }
 }

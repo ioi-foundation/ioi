@@ -9,7 +9,9 @@ mod inference;
 #[path = "cognition/router.rs"]
 mod router;
 
-use crate::agentic::desktop::agent_playbooks::render_agent_playbook_catalog;
+use crate::agentic::desktop::agent_playbooks::{
+    playbook_route_contract, render_agent_playbook_catalog,
+};
 use crate::agentic::desktop::service::memory::{
     persist_prompt_memory_diagnostics, prepare_prompt_memory_context, MemoryPromptDiagnostics,
     MemoryPromptSectionDiagnostic,
@@ -20,8 +22,12 @@ use crate::agentic::desktop::service::step::action::command_contract::{
 use crate::agentic::desktop::service::step::perception::PerceptionContext;
 use crate::agentic::desktop::service::step::signals::is_browser_surface;
 use crate::agentic::desktop::service::DesktopAgentService;
-use crate::agentic::desktop::types::{AgentState, ExecutionTier, MAX_PROMPT_HISTORY};
-use crate::agentic::desktop::worker_templates::render_worker_template_catalog;
+use crate::agentic::desktop::types::{
+    AgentState, ExecutionTier, WorkerAssignment, MAX_PROMPT_HISTORY,
+};
+use crate::agentic::desktop::worker_templates::{
+    builtin_worker_template, builtin_worker_workflow, render_worker_template_catalog,
+};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use capability::{mailbox_connector_instruction, preflight_missing_capability};
 use hex;
@@ -304,6 +310,8 @@ fn build_standard_prompt_assembly(
     workspace_context: &str,
     operating_rules: &str,
     mailbox_instruction: Option<&str>,
+    selected_parent_playbook_instruction: Option<&str>,
+    active_worker_instruction: Option<&str>,
     workspace_scope_instruction: &str,
     automation_monitor_instruction: &str,
 ) -> PromptAssembly {
@@ -368,6 +376,21 @@ Only take actions that directly advance the USER GOAL.\n\n{}",
     if let Some(mailbox_instruction) = mailbox_instruction {
         sections.push(
             PromptSection::new("mailbox_instruction", mailbox_instruction)
+                .with_budget(PROMPT_SECTION_SPECIALIZED_INSTRUCTION_MAX_CHARS),
+        );
+    }
+    if let Some(selected_parent_playbook_instruction) = selected_parent_playbook_instruction {
+        sections.push(
+            PromptSection::new(
+                "selected_parent_playbook_instruction",
+                selected_parent_playbook_instruction,
+            )
+            .with_budget(PROMPT_SECTION_SPECIALIZED_INSTRUCTION_MAX_CHARS),
+        );
+    }
+    if let Some(active_worker_instruction) = active_worker_instruction {
+        sections.push(
+            PromptSection::new("active_worker_instruction", active_worker_instruction)
                 .with_budget(PROMPT_SECTION_SPECIALIZED_INSTRUCTION_MAX_CHARS),
         );
     }
@@ -871,6 +894,392 @@ fn format_tool_desc(
     }
 
     sections.join("\n")
+}
+
+fn instruction_contract_slot_value<'a>(
+    resolved_intent: Option<&'a ResolvedIntentState>,
+    slot_name: &str,
+) -> Option<&'a str> {
+    resolved_intent?
+        .instruction_contract
+        .as_ref()?
+        .slot_bindings
+        .iter()
+        .find(|binding| binding.slot.trim().eq_ignore_ascii_case(slot_name))
+        .and_then(|binding| binding.value.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn render_selected_parent_playbook_instruction(
+    resolved_intent: Option<&ResolvedIntentState>,
+) -> Option<String> {
+    let resolved = resolved_intent?;
+    if resolved
+        .intent_id
+        .trim()
+        .eq_ignore_ascii_case("delegation.task")
+    {
+        return None;
+    }
+
+    let playbook_id = instruction_contract_slot_value(resolved_intent, "playbook_id")?;
+    let route_contract = playbook_route_contract(playbook_id);
+    let template_id = instruction_contract_slot_value(resolved_intent, "template_id")
+        .unwrap_or("runtime-selected");
+    let workflow_id = instruction_contract_slot_value(resolved_intent, "workflow_id")
+        .unwrap_or("runtime-selected");
+    let route_specific_rule = match playbook_id {
+        "evidence_audited_patch" => {
+            "Do not spend the root session on repeated repo stat/list loops. The context worker owns initial repo inspection, the coder owns the patch, the verifier owns targeted checks, and the synthesizer owns the final handoff."
+        }
+        "citation_grounded_brief" => {
+            "Do not perform raw web retrieval from the root session. The research worker owns source gathering, and the verifier owns citation/freshness auditing before the final brief is accepted."
+        }
+        "artifact_generation_gate" => {
+            "Do not materialize the artifact directly from the root session. The context worker shapes the brief, the builder produces the candidate, and the verifier/judge decides whether it is launch-ready."
+        }
+        "browser_postcondition_gate" => {
+            "Do not run the entire UI action loop from the root session. The perception worker captures state, the operator executes the route, and the verifier confirms the postcondition or recovery need."
+        }
+        _ => "Keep the root session orchestration-only until the delegated worker returns.",
+    };
+
+    Some(format!(
+        "SELECTED EXECUTION ROUTE:\n\
+         - Parent playbook: `{}` (route_family={} topology={} planner_authority={} verifier_role={} verifier_required={}).\n\
+         - Root-session kickoff must be `agent__delegate`; the runtime will carry the grounded slots automatically.\n\
+         - Grounded kickoff slots: playbook_id=`{}` template_id=`{}` workflow_id=`{}`.\n\
+         - {}",
+        playbook_id,
+        route_contract.route_family,
+        route_contract.topology,
+        route_contract.planner_authority,
+        route_contract.verifier_role.unwrap_or("not_engaged"),
+        route_contract.requires_verifier,
+        playbook_id,
+        template_id,
+        workflow_id,
+        route_specific_rule
+    ))
+}
+
+fn compact_allowed_tool_list(tools: &[String], max_visible: usize) -> String {
+    if tools.is_empty() {
+        return "runtime-discovered tool surface".to_string();
+    }
+    if tools.len() <= max_visible {
+        return tools.join(", ");
+    }
+    let preview = tools
+        .iter()
+        .take(max_visible)
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{preview}, +{} more", tools.len() - max_visible)
+}
+
+fn split_parent_playbook_context(goal: &str) -> (&str, Option<&str>) {
+    if let Some((head, tail)) = goal.split_once("[PARENT PLAYBOOK CONTEXT]") {
+        (head.trim(), Some(tail.trim()))
+    } else {
+        (goal.trim(), None)
+    }
+}
+
+fn normalize_worker_context_key(key: &str) -> String {
+    key.trim().to_ascii_lowercase().replace([' ', '-'], "_")
+}
+
+fn extract_worker_context_field(text: &str, keys: &[&str]) -> Option<String> {
+    let normalized_keys = keys
+        .iter()
+        .map(|key| normalize_worker_context_key(key))
+        .collect::<Vec<_>>();
+    for line in text.lines() {
+        let trimmed = line
+            .trim()
+            .trim_start_matches('-')
+            .trim_start_matches('*')
+            .trim();
+        let Some((key, value)) = trimmed.split_once(':') else {
+            continue;
+        };
+        if normalized_keys
+            .iter()
+            .any(|candidate| *candidate == normalize_worker_context_key(key))
+        {
+            let value = value.trim();
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn compact_worker_context_list(value: &str, max_items: usize) -> String {
+    let items = value
+        .split(';')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .take(max_items)
+        .collect::<Vec<_>>();
+    if items.is_empty() {
+        value.split_whitespace().collect::<Vec<_>>().join(" ")
+    } else {
+        items.join(", ")
+    }
+}
+
+fn compact_worker_context_value(value: &str, max_chars: usize) -> String {
+    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let char_count = compact.chars().count();
+    if char_count <= max_chars {
+        return compact;
+    }
+    if max_chars <= 3 {
+        return compact.chars().take(max_chars).collect();
+    }
+    let mut truncated = compact.chars().take(max_chars - 3).collect::<String>();
+    truncated.push_str("...");
+    truncated
+}
+
+fn patch_build_verify_context_hints(goal: &str) -> Option<String> {
+    let (_, inherited_context) = split_parent_playbook_context(goal);
+    let context = inherited_context?;
+    let likely_files = extract_worker_context_field(context, &["likely_files", "likely_file"])
+        .map(|value| compact_worker_context_list(&value, 4));
+    let targeted_checks = extract_worker_context_field(
+        context,
+        &[
+            "targeted_checks",
+            "targeted_check",
+            "verification_plan",
+            "verification",
+        ],
+    )
+    .map(|value| compact_worker_context_value(&value, 180));
+    let open_questions =
+        extract_worker_context_field(context, &["open_questions", "notes", "note"])
+            .map(|value| compact_worker_context_value(&value, 180));
+
+    if likely_files.is_none() && targeted_checks.is_none() && open_questions.is_none() {
+        return None;
+    }
+
+    let mut hints = vec![
+        "Honor the structured parent context before exploring. If `likely_files` are present, read those files directly before any `filesystem__search`. Use `filesystem__search` only when the direct reads leave the patch target ambiguous.".to_string(),
+        "Once a likely patch file has been read successfully, do not reread the identical file unless it changed or the focused verifier already ran and the latest failure was a malformed edit/tool call; otherwise move to `filesystem__patch`, `filesystem__write_file`, or the focused verification command instead.".to_string(),
+        "When `filesystem__patch` is needed, copy the `search` block exactly from the latest `filesystem__read_file` output, including newlines and indentation. If the change is only one line or the escaping becomes awkward, prefer `filesystem__edit_line` or `filesystem__write_file` instead of retrying a brittle patch payload.".to_string(),
+        "If `filesystem__search` fails or returns nothing useful, stop searching and pivot to direct file reads, patching, or the focused verification command instead of retrying another broad regex probe.".to_string(),
+        "Respect any explicit file-boundary constraints in the delegated goal, including `patch only ...` and `keep ... unchanged` instructions.".to_string(),
+    ];
+    if let Some(value) = likely_files {
+        hints.push(format!(
+            "Likely patch files from parent context: `{}`.",
+            value
+        ));
+    }
+    if let Some(value) = targeted_checks {
+        hints.push(format!(
+            "Focused verification command from parent context: `{}`.",
+            value
+        ));
+    }
+    if let Some(value) = open_questions {
+        hints.push(format!(
+            "Open question to preserve while working: `{}`.",
+            value
+        ));
+    }
+
+    Some(hints.join(" "))
+}
+
+fn render_active_worker_instruction(
+    worker_assignment: Option<&WorkerAssignment>,
+    working_directory: &str,
+) -> Option<String> {
+    let assignment = worker_assignment?;
+    let (goal_without_context, _) = split_parent_playbook_context(&assignment.goal);
+    let role = assignment
+        .role
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("Delegated Worker");
+    let playbook_id = assignment
+        .playbook_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("ad_hoc");
+    let workflow = builtin_worker_workflow(
+        assignment.template_id.as_deref(),
+        assignment.workflow_id.as_deref(),
+    );
+    let workflow_label = workflow
+        .as_ref()
+        .map(|definition| format!("{} ({})", definition.label, definition.workflow_id))
+        .or_else(|| {
+            assignment
+                .workflow_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| "runtime-selected".to_string());
+    let template_label = builtin_worker_template(assignment.template_id.as_deref())
+        .map(|definition| format!("{} ({})", definition.label, definition.template_id))
+        .or_else(|| {
+            assignment
+                .template_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| "runtime-selected".to_string());
+    let workflow_rule = match assignment
+        .workflow_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some("repo_context_brief") => {
+            "Inspect only the most relevant repo surfaces. Once the repo root is confirmed, do not repeat the same root `filesystem__stat` or `filesystem__list_directory` call. Use search/read tools to identify likely files, capture targeted checks, and finish with `agent__complete` using markdown bullets `likely_files`, `selected_skills`, `targeted_checks`, and `open_questions`.".to_string()
+        }
+        Some("artifact_context_brief") => {
+            "Shape the artifact brief rather than generating files. Finish with `agent__complete` using markdown bullets `artifact_goal`, `likely_output_files`, `selected_skills`, `verification_plan`, and `notes`.".to_string()
+        }
+        Some("live_research_brief") => {
+            "Gather current evidence with `web__search` and `web__read`, prefer at least two independent sources when available, and finish with `agent__complete` using markdown bullets `findings`, `sources`, `freshness_notes`, and `open_questions`.".to_string()
+        }
+        Some("patch_build_verify") => {
+            let mut rule = "Treat the inherited working directory as the repo root for this delegated patch unless a `sys__change_directory` step is still required to reach a quoted repo path. If the current working directory already matches that delegated repo path, do not call `sys__change_directory`; move directly to likely patch files or the focused verification command. Do not spend more than one probe confirming the repo root. After the workspace root is known, move directly to likely patch files or the focused verification command, land the narrowest patch that satisfies the delegated scope, keep file changes bounded, and finish with `agent__complete` using markdown bullets `touched_files`, `command_results`, and `residual_risk`. If a duplicate/no-effect guard fires on a likely patch-file read, your next action must be `filesystem__patch`, `filesystem__write_file`, `sys__exec_session`, or `agent__complete`; do not issue the same read again unless the focused verifier already ran and the most recent failure was `ERROR_CLASS=UnexpectedState Failed to parse tool call`, in which case one refresh `filesystem__read_file` on the likely patch file is allowed before you patch. Once the focused verification command has run and failed, do not rerun it until a workspace edit has landed; move directly to `filesystem__patch`, `filesystem__edit_line`, or `filesystem__write_file`. If the previous step failed with `ERROR_CLASS=UnexpectedState Failed to parse tool call`, do not explain the plan or restate the file contents; immediately emit one corrected JSON tool call using an allowed patch, write, exec, or complete tool. When you use `filesystem__patch`, copy the `search` block exactly from the most recent `filesystem__read_file` output, including newlines and indentation. If the change is one line or the patch block becomes awkward to encode, prefer `filesystem__edit_line` or `filesystem__write_file` instead of retrying malformed patch JSON.".to_string();
+            if let Some(context_hints) = patch_build_verify_context_hints(&assignment.goal) {
+                rule.push(' ');
+                rule.push_str(&context_hints);
+            }
+            rule
+        }
+        Some("targeted_test_audit") => {
+            "Run targeted verification first, widen only when the evidence requires it, and finish with `agent__complete` using markdown bullets `verdict`, `targeted_command_status`, `widening_status`, `regression_status`, `notes`, and `supporting_command_evidence`.".to_string()
+        }
+        Some("patch_synthesis_handoff") => {
+            "Do not rerun the executor or verifier lane. Synthesize the retained evidence into one final handoff and finish with `agent__complete` using markdown bullets `status`, `touched_files`, `verification_ready`, and `residual_risk`.".to_string()
+        }
+        Some("citation_audit") => {
+            "Audit the inherited cited brief for freshness, grounding, and source independence. Use the parent-playbook context first; if it already contains the brief, citations, and evidence blocks, do not call `memory__search`. Only use `memory__inspect` for a named evidence gap that the inherited handoff cannot resolve. Finish with `agent__complete` using markdown bullets `verdict`, `freshness_status`, `quote_grounding_status`, `notes`, and `supporting_evidence`.".to_string()
+        }
+        Some("artifact_generate_repair") => {
+            "Produce or refine the file-backed artifact, retain verification signals, and finish with `agent__complete` using markdown bullets `produced_files`, `verification_signals`, `presentation_status`, `repair_status`, and `notes`.".to_string()
+        }
+        Some("artifact_quality_audit") => {
+            "Judge the retained artifact rather than rebuilding it. Finish with `agent__complete` using markdown bullets `verdict`, `fidelity_status`, `presentation_status`, `repair_status`, `notes`, and `next_repair_step`.".to_string()
+        }
+        Some("ui_state_brief") => {
+            "Observe the current UI state without taking side effects and finish with `agent__complete` using markdown bullets `surface_status`, `ui_state`, `target`, `approval_risk`, `next_action`, and `notes`.".to_string()
+        }
+        Some("browser_postcondition_pass") => {
+            "Execute the bounded browser route, then finish with `agent__complete` using markdown bullets `executed_steps`, `observed_postcondition`, `approval_state`, `recovery_status`, `next_recovery_step`, and `blocker_summary`.".to_string()
+        }
+        Some("browser_postcondition_audit") => {
+            "Audit the claimed browser outcome rather than re-running the operator lane. Finish with `agent__complete` using markdown bullets `verdict`, `postcondition_status`, `approval_state`, `recovery_status`, `notes`, and `supporting_evidence`.".to_string()
+        }
+        _ => {
+            "Complete the delegated slice with bounded evidence, avoid repeating duplicate actions, and finish with `agent__complete` once the worker contract is satisfied.".to_string()
+        }
+    };
+
+    let working_directory_line = working_directory
+        .trim()
+        .is_empty()
+        .then_some("runtime-default".to_string())
+        .unwrap_or_else(|| working_directory.trim().to_string());
+
+    Some(format!(
+        "ACTIVE WORKER CONTRACT:\n\
+         - This session is a delegated worker, not the root planner.\n\
+         - Role: `{}`.\n\
+         - Parent playbook: `{}`.\n\
+         - Template: `{}`.\n\
+         - Workflow: `{}`.\n\
+         - Current working directory: `{}`.\n\
+         - Delegated goal: `{}`.\n\
+         - Allowed tools: {}.\n\
+         - Expected output: {}.\n\
+         - Merge mode: `{}`.\n\
+         - If a tool reports a duplicate/no-effect replay, do not repeat it; switch to another allowed tool or finish with the gathered evidence.\n\
+         - {}",
+        role,
+        playbook_id,
+        template_label,
+        workflow_label,
+        working_directory_line,
+        compact_worker_context_value(goal_without_context, 220),
+        compact_allowed_tool_list(&assignment.allowed_tools, 8),
+        assignment.completion_contract.expected_output,
+        assignment.completion_contract.merge_mode.as_label(),
+        workflow_rule
+    ))
+}
+
+fn render_workspace_scope_instruction(
+    selected_playbook_id: Option<&str>,
+    has_filesystem_search: bool,
+    has_filesystem_stat: bool,
+    has_filesystem_list: bool,
+    has_command_tool: bool,
+    active_worker_assignment: Option<&WorkerAssignment>,
+) -> String {
+    match selected_playbook_id {
+        Some("evidence_audited_patch") if active_worker_assignment.is_some() => {
+            format!(
+                "WORKSPACE OPS CONTRACT:\n\
+                 - This session is already inside the selected coding hierarchy; do not restart the parent playbook from this worker.\n\
+                 - Use the inherited repo context and working directory to advance the delegated slice directly.\n\
+                 - Do not spend worker steps on repeated repo-root `filesystem__stat` / `filesystem__list_directory` probes once the workspace root is known.\n\
+                 - For coding workers, inspect likely patch files or run the focused verification command; for verifier and synthesis workers, use retained evidence instead of re-running the whole executor lane.\n\
+                 - Tool availability snapshot: filesystem__search={} filesystem__stat={} filesystem__list_directory={} sys__exec_or_session={}",
+                has_filesystem_search,
+                has_filesystem_stat,
+                has_filesystem_list,
+                has_command_tool
+            )
+        }
+        Some("evidence_audited_patch") => {
+            format!(
+                "WORKSPACE OPS CONTRACT:\n\
+                 - This request is repo-grounded change work, not a metadata-only search.\n\
+                 - Start the selected parent playbook with `agent__delegate` on the root session before using direct workspace tools.\n\
+                 - Do not spend the root step on repeated `filesystem__stat` / `filesystem__list_directory` probes once the repo root is known.\n\
+                 - The context worker owns bounded repo inspection, the coder owns the patch, the verifier owns targeted checks, and the synthesizer owns the final report.\n\
+                 - If a focused verification command is specified, keep it first in the verifier path and widen only when the focused command proves insufficient.\n\
+                 - Tool availability snapshot: filesystem__search={} filesystem__stat={} filesystem__list_directory={} sys__exec_or_session={}",
+                has_filesystem_search,
+                has_filesystem_stat,
+                has_filesystem_list,
+                has_command_tool
+            )
+        }
+        _ => format!(
+            "WORKSPACE OPS CONTRACT:\n\
+             - Prefer filesystem-native tools first for local file discovery and metadata checks.\n\
+             - For time-window constraints (for example \"modified in the last week\"), content regex alone is insufficient.\n\
+             - Build candidates with `filesystem__search` / `filesystem__list_directory`, then use `filesystem__stat` to read modification timestamps and filter to the requested window.\n\
+             - Report explicit outcome: either matching file paths with timestamps, or a clear zero-results result.\n\
+             - Do NOT call `system__fail` claiming `sys__exec` is required when filesystem metadata tooling is available.\n\
+             - If metadata tooling is unavailable, provide best-effort results plus a stated limitation via `chat__reply`, then `agent__complete`.\n\
+             - Tool availability snapshot: filesystem__search={} filesystem__stat={} filesystem__list_directory={} sys__exec_or_session={}",
+            has_filesystem_search,
+            has_filesystem_stat,
+            has_filesystem_list,
+            has_command_tool
+        ),
+    }
 }
 
 fn workspace_reference_context(
@@ -1693,6 +2102,9 @@ Do not claim success for actions you did not verify.";
     };
     let workspace_scope_instruction = if matches!(resolved_scope, IntentScopeProfile::WorkspaceOps)
     {
+        let selected_playbook_id =
+            instruction_contract_slot_value(agent_state.resolved_intent.as_ref(), "playbook_id");
+        let active_worker_assignment = perception.worker_assignment.as_ref();
         let has_filesystem_search = perception
             .available_tools
             .iter()
@@ -1709,21 +2121,14 @@ Do not claim success for actions you did not verify.";
             .available_tools
             .iter()
             .any(|tool| matches!(tool.name.as_str(), "sys__exec" | "sys__exec_session"));
-
-        format!(
-                "WORKSPACE OPS CONTRACT:\n\
-                 - Prefer filesystem-native tools first for local file discovery and metadata checks.\n\
-                 - For time-window constraints (for example \"modified in the last week\"), content regex alone is insufficient.\n\
-                 - Build candidates with `filesystem__search` / `filesystem__list_directory`, then use `filesystem__stat` to read modification timestamps and filter to the requested window.\n\
-                 - Report explicit outcome: either matching file paths with timestamps, or a clear zero-results result.\n\
-                 - Do NOT call `system__fail` claiming `sys__exec` is required when filesystem metadata tooling is available.\n\
-                 - If metadata tooling is unavailable, provide best-effort results plus a stated limitation via `chat__reply`, then `agent__complete`.\n\
-                 - Tool availability snapshot: filesystem__search={} filesystem__stat={} filesystem__list_directory={} sys__exec_or_session={}",
-                has_filesystem_search,
-                has_filesystem_stat,
-                has_filesystem_list,
-                has_command_tool
-            )
+        render_workspace_scope_instruction(
+            selected_playbook_id,
+            has_filesystem_search,
+            has_filesystem_stat,
+            has_filesystem_list,
+            has_command_tool,
+            active_worker_assignment,
+        )
     } else {
         String::new()
     };
@@ -1743,6 +2148,12 @@ Do not claim success for actions you did not verify.";
     } else {
         String::new()
     };
+    let selected_parent_playbook_instruction =
+        render_selected_parent_playbook_instruction(agent_state.resolved_intent.as_ref());
+    let active_worker_instruction = render_active_worker_instruction(
+        perception.worker_assignment.as_ref(),
+        &agent_state.working_directory,
+    );
 
     let mailbox_instruction =
         mailbox_connector_instruction(&agent_state.goal, &perception.available_tools);
@@ -1785,6 +2196,8 @@ Do not claim success for actions you did not verify.";
             &workspace_context,
             &operating_rules,
             mailbox_instruction.as_deref(),
+            selected_parent_playbook_instruction.as_deref(),
+            active_worker_instruction.as_deref(),
             &workspace_scope_instruction,
             &automation_monitor_instruction,
         )
@@ -2009,11 +2422,16 @@ mod tests {
         compact_browser_action_prompt_tools, encode_browser_prompt_screenshot,
         filter_cognition_tools, format_prompt_assembly_report, has_meaningful_visual_context,
         inference_error_system_fail_reason, mailbox_connector_instruction,
-        preflight_missing_capability, top_edge_jump_name, top_edge_jump_tool_call,
+        preflight_missing_capability, render_active_worker_instruction,
+        render_selected_parent_playbook_instruction, render_workspace_scope_instruction,
+        top_edge_jump_name, top_edge_jump_tool_call,
         top_edge_jump_tool_call_with_grounded_selector, workspace_reference_context, PromptSection,
     };
     use crate::agentic::desktop::service::step::perception::PerceptionContext;
-    use crate::agentic::desktop::types::{CommandExecution, ExecutionTier};
+    use crate::agentic::desktop::types::{
+        CommandExecution, ExecutionTier, WorkerAssignment, WorkerCompletionContract,
+        WorkerMergeMode,
+    };
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     use image::{ImageBuffer, ImageFormat, Rgba};
     use ioi_types::app::agentic::{
@@ -2070,6 +2488,7 @@ mod tests {
             memory_pointers: "- [ID:0] remember this".to_string(),
             available_tools: vec![],
             tool_desc: String::new(),
+            worker_assignment: None,
             visual_verification_note: None,
             last_failure_reason: None,
             consecutive_failures: 0,
@@ -2153,6 +2572,8 @@ mod tests {
             "WORKSPACE CONTEXT:\nrepo=ioi",
             "OPERATING RULES:\n- verify success",
             Some("MAILBOX CONNECTOR RULE:\n- stay mailbox-local"),
+            Some("SELECTED EXECUTION ROUTE:\n- Parent playbook: `evidence_audited_patch`"),
+            Some("ACTIVE WORKER CONTRACT:\n- Finish with a bounded brief"),
             "WORKSPACE OPS CONTRACT:\n- prefer filesystem tools",
             "",
         );
@@ -2171,6 +2592,12 @@ mod tests {
             .contains("MAILBOX CONNECTOR RULE"));
         assert!(assembly
             .system_instructions
+            .contains("SELECTED EXECUTION ROUTE"));
+        assert!(assembly
+            .system_instructions
+            .contains("ACTIVE WORKER CONTRACT"));
+        assert!(assembly
+            .system_instructions
             .contains("WORKSPACE OPS CONTRACT"));
         assert!(!assembly.system_instructions.contains("automation.monitor"));
 
@@ -2182,8 +2609,252 @@ mod tests {
             .map(|section| section.name)
             .collect();
         assert!(included_sections.contains(&"mailbox_instruction"));
+        assert!(included_sections.contains(&"selected_parent_playbook_instruction"));
+        assert!(included_sections.contains(&"active_worker_instruction"));
         assert!(included_sections.contains(&"workspace_scope_contract"));
         assert!(!included_sections.contains(&"automation_monitor_contract"));
+    }
+
+    #[test]
+    fn selected_parent_playbook_instruction_surfaces_root_route_kickoff() {
+        let rendered = render_selected_parent_playbook_instruction(Some(&ResolvedIntentState {
+            intent_id: "workspace.ops".to_string(),
+            scope: IntentScopeProfile::WorkspaceOps,
+            band: ioi_types::app::agentic::IntentConfidenceBand::High,
+            score: 0.98,
+            top_k: vec![],
+            required_capabilities: vec![],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "medium".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "test".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "test".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "test".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: Some(ioi_types::app::agentic::InstructionContract {
+                operation: "delegate".to_string(),
+                side_effect_mode: ioi_types::app::agentic::InstructionSideEffectMode::Update,
+                slot_bindings: vec![
+                    ioi_types::app::agentic::InstructionSlotBinding {
+                        slot: "playbook_id".to_string(),
+                        binding_kind: ioi_types::app::agentic::InstructionBindingKind::UserLiteral,
+                        value: Some("evidence_audited_patch".to_string()),
+                        origin: ioi_types::app::agentic::ArgumentOrigin::ModelInferred,
+                        protected_slot_kind: ioi_types::app::agentic::ProtectedSlotKind::Unknown,
+                    },
+                    ioi_types::app::agentic::InstructionSlotBinding {
+                        slot: "template_id".to_string(),
+                        binding_kind: ioi_types::app::agentic::InstructionBindingKind::UserLiteral,
+                        value: Some("context_worker".to_string()),
+                        origin: ioi_types::app::agentic::ArgumentOrigin::ModelInferred,
+                        protected_slot_kind: ioi_types::app::agentic::ProtectedSlotKind::Unknown,
+                    },
+                    ioi_types::app::agentic::InstructionSlotBinding {
+                        slot: "workflow_id".to_string(),
+                        binding_kind: ioi_types::app::agentic::InstructionBindingKind::UserLiteral,
+                        value: Some("repo_context_brief".to_string()),
+                        origin: ioi_types::app::agentic::ArgumentOrigin::ModelInferred,
+                        protected_slot_kind: ioi_types::app::agentic::ProtectedSlotKind::Unknown,
+                    },
+                ],
+                negative_constraints: vec![],
+                success_criteria: vec![],
+            }),
+            constrained: false,
+        }))
+        .expect("selected route guidance should render");
+
+        assert!(rendered.contains("Root-session kickoff must be `agent__delegate`"));
+        assert!(rendered.contains("evidence_audited_patch"));
+        assert!(rendered.contains("planner_authority=kernel"));
+        assert!(rendered.contains("verifier_role=test_verifier"));
+        assert!(rendered.contains("context_worker"));
+        assert!(rendered.contains("repo_context_brief"));
+    }
+
+    #[test]
+    fn active_worker_instruction_surfaces_repo_context_completion_contract() {
+        let rendered = render_active_worker_instruction(
+            Some(&WorkerAssignment {
+                step_key: "delegate:test".to_string(),
+                budget: 48,
+                goal: "Inspect repo context".to_string(),
+                success_criteria: "Return a bounded brief.".to_string(),
+                max_retries: 1,
+                retries_used: 0,
+                assigned_session_id: None,
+                status: "running".to_string(),
+                playbook_id: Some("evidence_audited_patch".to_string()),
+                template_id: Some("context_worker".to_string()),
+                workflow_id: Some("repo_context_brief".to_string()),
+                role: Some("Context Worker".to_string()),
+                allowed_tools: vec![
+                    "filesystem__read_file".to_string(),
+                    "filesystem__search".to_string(),
+                    "filesystem__stat".to_string(),
+                    "agent__complete".to_string(),
+                ],
+                completion_contract: WorkerCompletionContract {
+                    success_criteria: "Return a bounded repo brief.".to_string(),
+                    expected_output: "Repo context brief.".to_string(),
+                    merge_mode: WorkerMergeMode::AppendAsEvidence,
+                    verification_hint: None,
+                },
+            }),
+            "/tmp/repo",
+        )
+        .expect("worker instruction should render");
+
+        assert!(rendered.contains("ACTIVE WORKER CONTRACT"));
+        assert!(rendered.contains("evidence_audited_patch"));
+        assert!(rendered.contains("repo_context_brief"));
+        assert!(rendered.contains("Current working directory: `/tmp/repo`"));
+        assert!(rendered.contains("Delegated goal: `Inspect repo context`"));
+        assert!(rendered.contains("do not repeat the same root `filesystem__stat`"));
+        assert!(rendered.contains("`likely_files`"));
+    }
+
+    #[test]
+    fn active_worker_instruction_surfaces_coder_repo_root_contract() {
+        let rendered = render_active_worker_instruction(
+            Some(&WorkerAssignment {
+                step_key: "delegate:test".to_string(),
+                budget: 96,
+                goal: "Patch the workspace".to_string(),
+                success_criteria: "Land the patch.".to_string(),
+                max_retries: 1,
+                retries_used: 0,
+                assigned_session_id: None,
+                status: "running".to_string(),
+                playbook_id: Some("evidence_audited_patch".to_string()),
+                template_id: Some("coder".to_string()),
+                workflow_id: Some("patch_build_verify".to_string()),
+                role: Some("Coding Worker".to_string()),
+                allowed_tools: vec![
+                    "filesystem__read_file".to_string(),
+                    "filesystem__patch".to_string(),
+                    "sys__exec_session".to_string(),
+                    "agent__complete".to_string(),
+                ],
+                completion_contract: WorkerCompletionContract {
+                    success_criteria: "Return a bounded implementation handoff.".to_string(),
+                    expected_output: "Patch/build/test handoff.".to_string(),
+                    merge_mode: WorkerMergeMode::AppendSummaryToParent,
+                    verification_hint: None,
+                },
+            }),
+            "/tmp/repo-root",
+        )
+        .expect("coder worker instruction should render");
+
+        assert!(rendered.contains("patch_build_verify"));
+        assert!(rendered.contains("Current working directory: `/tmp/repo-root`"));
+        assert!(rendered.contains("Delegated goal: `Patch the workspace`"));
+        assert!(rendered.contains("Do not spend more than one probe confirming the repo root"));
+        assert!(rendered.contains("focused verification command"));
+        assert!(rendered.contains("your next action must be `filesystem__patch`"));
+    }
+
+    #[test]
+    fn active_worker_instruction_surfaces_patch_context_hints() {
+        let rendered = render_active_worker_instruction(
+            Some(&WorkerAssignment {
+                step_key: "delegate:test".to_string(),
+                budget: 96,
+                goal: "Implement the parity fix.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v\n- open_questions: Widen only if the focused verification command fails.".to_string(),
+                success_criteria: "Land the patch.".to_string(),
+                max_retries: 1,
+                retries_used: 0,
+                assigned_session_id: None,
+                status: "running".to_string(),
+                playbook_id: Some("evidence_audited_patch".to_string()),
+                template_id: Some("coder".to_string()),
+                workflow_id: Some("patch_build_verify".to_string()),
+                role: Some("Coding Worker".to_string()),
+                allowed_tools: vec![
+                    "filesystem__read_file".to_string(),
+                    "filesystem__search".to_string(),
+                    "filesystem__patch".to_string(),
+                    "sys__exec_session".to_string(),
+                    "agent__complete".to_string(),
+                ],
+                completion_contract: WorkerCompletionContract {
+                    success_criteria: "Return a bounded implementation handoff.".to_string(),
+                    expected_output: "Patch/build/test handoff.".to_string(),
+                    merge_mode: WorkerMergeMode::AppendSummaryToParent,
+                    verification_hint: None,
+                },
+            }),
+            "/tmp/repo-root",
+        )
+        .expect("coder worker instruction should render");
+
+        assert!(rendered.contains("Likely patch files from parent context"));
+        assert!(rendered.contains("path_utils.py, tests/test_path_utils.py"));
+        assert!(rendered.contains("Focused verification command from parent context"));
+        assert!(rendered.contains("python3 -m unittest tests.test_path_utils -v"));
+        assert!(rendered.contains("do not reread the identical file"));
+        assert!(rendered.contains("filesystem__edit_line"));
+        assert!(rendered.contains("If `filesystem__search` fails or returns nothing useful"));
+    }
+
+    #[test]
+    fn workspace_ops_contract_distinguishes_root_planner_from_active_worker() {
+        let root_contract = render_workspace_scope_instruction(
+            Some("evidence_audited_patch"),
+            true,
+            true,
+            true,
+            true,
+            None,
+        );
+        let worker_contract = render_workspace_scope_instruction(
+            Some("evidence_audited_patch"),
+            true,
+            true,
+            true,
+            true,
+            Some(&WorkerAssignment {
+                step_key: "delegate:test".to_string(),
+                budget: 96,
+                goal: "Patch the workspace".to_string(),
+                success_criteria: "Land the patch.".to_string(),
+                max_retries: 1,
+                retries_used: 0,
+                assigned_session_id: None,
+                status: "running".to_string(),
+                playbook_id: Some("evidence_audited_patch".to_string()),
+                template_id: Some("coder".to_string()),
+                workflow_id: Some("patch_build_verify".to_string()),
+                role: Some("Coding Worker".to_string()),
+                allowed_tools: vec![
+                    "filesystem__read_file".to_string(),
+                    "filesystem__patch".to_string(),
+                    "sys__exec_session".to_string(),
+                    "agent__complete".to_string(),
+                ],
+                completion_contract: WorkerCompletionContract {
+                    success_criteria: "Return a bounded implementation handoff.".to_string(),
+                    expected_output: "Patch/build/test handoff.".to_string(),
+                    merge_mode: WorkerMergeMode::AppendSummaryToParent,
+                    verification_hint: None,
+                },
+            }),
+        );
+
+        assert!(root_contract.contains("Start the selected parent playbook with `agent__delegate`"));
+        assert!(worker_contract.contains("do not restart the parent playbook from this worker"));
+        assert!(worker_contract.contains(
+            "repeated repo-root `filesystem__stat` / `filesystem__list_directory` probes"
+        ));
     }
 
     #[test]

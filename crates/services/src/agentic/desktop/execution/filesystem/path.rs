@@ -71,7 +71,7 @@ fn expand_tilde_path(path: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(path))
 }
 
-pub(super) fn resolve_tool_path(path: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
+pub(crate) fn resolve_tool_path(path: &str, cwd: Option<&str>) -> Result<PathBuf, String> {
     let trimmed = path.trim();
     if trimmed.is_empty() {
         return Err("Path cannot be empty.".to_string());

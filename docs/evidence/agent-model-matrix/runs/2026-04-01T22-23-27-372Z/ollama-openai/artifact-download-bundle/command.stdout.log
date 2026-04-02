@@ -1,0 +1,19 @@
+{
+  "error": {
+    "kind": "generation_failure",
+    "code": "generation_failure",
+    "message": "Failed to generate Studio artifact bundle: Studio artifact brief fields must not be empty.; brief repair attempt failed: Studio artifact brief fields must not be empty.; brief field repair attempt also failed: Studio artifact brief fields must not be empty.; planner output preview: {\n  \"audience\": \"\",\n  \"jobToBeDone\": \"Create a downloadable artifact bundle with a CSV and README\",\n  \"subjectDomain\": \"\",\n  \"artifactThesis\": \"A downloadable artifact bundle with a CSV and README\",\n  \"requiredConcepts\": [\"CSV\", \"README\"],\n  \"requiredInteractions\": [],\n  \"visualTone\": \"\",\n  \"factualAnchors\": [],\n  \"styleDirectives\": [],\n  \"referenceHints\": []\n}; repair output preview: {\n  \"audience\": \"users\",\n  \"jobToBeDone\": \"Create a downloadable artifact bundle with a CSV and README\",\n  \"subjectDomain\": \"\",\n  \"artifactThesis\": \"A downloadable artifact bundle with a CSV and README\",\n  \"requiredConcepts\": [\"CSV\", \"README\"],\n  \"requiredInteractions\": [],\n  \"visualTone\": \"\",\n  \"factualAnchors\": [],\n  \"styleDirectives\": [],\n  \"referenceHints\": []\n}; field repair output preview: {\n  \"audience\": \"users\",\n  \"jobToBeDone\": \"Create a downloadable artifact bundle with a CSV and README\",\n  \"subjectDomain\": \"\",\n  \"artifactThesis\": \"A downloadable artifact bundle with a CSV and README\",\n  \"requiredConcepts\": [\"CSV\", \"README\"],\n  \"requiredInteractions\": [],\n  \"visualTone\": \"\",\n  \"factualAnchors\": [],\n  \"styleDirectives\": [],\n  \"referenceHints\": []\n}"
+  },
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "llama3.2:3b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:14b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  }
+}

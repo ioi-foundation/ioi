@@ -1,0 +1,2158 @@
+{
+  "benchmarkId": "coding-path-normalizer-fixture",
+  "caseId": "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests",
+  "title": "Coding path normalizer fixture",
+  "workload": "coding",
+  "presetId": "coding-executor-local-oss",
+  "outcome": {
+    "case_id": "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests",
+    "query": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normalize_fixture_path` so it converts backslashes to forward slashes, collapses duplicate separators, and preserves a leading `./` or `/`. Run the focused verification command `python3 -m unittest tests.test_path_utils -v` first, widen only if needed, verify the final postcondition, and report the touched files plus command results.",
+    "expected_pass": true,
+    "observed_pass": false,
+    "completed": false,
+    "final_status": "Running",
+    "local": {
+      "pass": false,
+      "score": 0.25,
+      "checks": [
+        {
+          "name": "coding_fixture_receipts_present",
+          "passed": true,
+          "detail": "fixture_mode=coding_path_normalizer_fixture_v1 fixture_satisfied=true cleanup_satisfied=true"
+        },
+        {
+          "name": "coding_postconditions_hold",
+          "passed": false,
+          "detail": "targeted_exit=1 targeted_ok=false hidden_probe=./tmp/logs///latest.txt hidden_ok=false tests_unchanged=true source_mentions_function=true scope_satisfied=false"
+        },
+        {
+          "name": "coding_route_selected",
+          "passed": false,
+          "detail": "playbook=evidence_audited_patch route_family=coding topology=planner_specialist_verifier verifier_state=queued summary=Spawned 'Patch the workspace' step for playbook 'Evidence-Audited Patch' with child ba4d193caf7436653f2d19c975acadb433b6ca6e715da3503025d72d..."
+        },
+        {
+          "name": "coding_verifier_scorecard_passed",
+          "passed": false,
+          "detail": "missing coding scorecard"
+        },
+        {
+          "name": "coding_patch_synthesis_ready",
+          "passed": false,
+          "detail": "missing patch synthesis summary"
+        },
+        {
+          "name": "coding_targeted_command_recorded",
+          "passed": false,
+          "detail": "targeted_command_recorded=false executor_tools_present=false commands="
+        },
+        {
+          "name": "coding_cec_and_completion_present",
+          "passed": false,
+          "detail": "cec_phase_receipts_present=true completed=false failed=false final_status=Running"
+        },
+        {
+          "name": "coding_contract_failures_absent",
+          "passed": true,
+          "detail": "contract_failure=false action_error_classes=[] routing_failure_classes=[]"
+        }
+      ],
+      "failures": [
+        "coding_postconditions_hold",
+        "coding_route_selected",
+        "coding_verifier_scorecard_passed",
+        "coding_patch_synthesis_ready",
+        "coding_targeted_command_recorded",
+        "coding_cec_and_completion_present"
+      ]
+    },
+    "arbiter": {
+      "pass": false,
+      "confidence": "low",
+      "rationale": "The local_judge indicates that several postconditions were not met, including the absence of a scorecard, synthesis summary, targeted command recording, and CEC receipts. The completion was also reported as running without being completed successfully.",
+      "score": 0.25,
+      "failures": [
+        "coding_postconditions_hold",
+        "coding_route_selected",
+        "coding_verifier_scorecard_passed",
+        "coding_patch_synthesis_ready",
+        "coding_targeted_command_recorded",
+        "coding_cec_and_completion_present"
+      ]
+    }
+  },
+  "observation": {
+    "case_id": "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests",
+    "query": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normalize_fixture_path` so it converts backslashes to forward slashes, collapses duplicate separators, and preserves a leading `./` or `/`. Run the focused verification command `python3 -m unittest tests.test_path_utils -v` first, widen only if needed, verify the final postcondition, and report the touched files plus command results.",
+    "run_timestamp_ms": 1774991561390,
+    "run_timestamp_iso_utc": "2026-03-31T21:12:41Z",
+    "elapsed_ms": 164611,
+    "completed": false,
+    "failed": false,
+    "final_status": "Running",
+    "terminal_pause_reason": null,
+    "terminal_failure_reason": null,
+    "final_reply": "- likely_files: path_utils.py; tests/test_path_utils.py\n- selected_skills: reuse parent-selected coding prep cues; no extra child-local skills were added during fallback.\n- targeted_checks: python3 -m unittest tests.test_path_utils -v\n- open_questions: Widen only if the focused verification command fails or produces contradictory evidence.",
+    "chat_reply_count": 1,
+    "action_tools": [
+      "agent__await_result",
+      "agent__delegate",
+      "chat__reply",
+      "filesystem__list_directory",
+      "filesystem__read_file"
+    ],
+    "planned_tool_calls": [
+      {
+        "step_index": 0,
+        "tool_name": "agent__delegate",
+        "arguments": {
+          "budget": 100,
+          "goal": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1724908365/\".",
+          "playbook_id": "evidence_audited_patch",
+          "success_criteria": "Patch applied and verified in the specified repository.",
+          "template_id": "patch_build_verify"
+        }
+      },
+      {
+        "step_index": 0,
+        "tool_name": "filesystem__list_directory",
+        "arguments": {
+          "path": "/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture"
+        }
+      },
+      {
+        "step_index": 1,
+        "tool_name": "agent__delegate",
+        "arguments": {
+          "budget": 60,
+          "expected_output": "List of files and their relevant lines that need to be modified.",
+          "goal": "Determine the files to be modified according to the given task.",
+          "template_id": "context_worker",
+          "workflow_id": "repo_context_brief"
+        }
+      },
+      {
+        "step_index": 1,
+        "tool_name": "filesystem__list_directory",
+        "arguments": {
+          "path": "/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture"
+        }
+      },
+      {
+        "step_index": 2,
+        "tool_name": "agent__delegate",
+        "arguments": {
+          "budget": 100,
+          "goal": "Briefly understand the project context, files involved, and the specific task requirements.",
+          "playbook_id": "patch_build_verify",
+          "success_criteria": "Identify the relevant files and understand the task requirements for modifying file paths in a Rust project.",
+          "template_id": "context_worker"
+        }
+      },
+      {
+        "step_index": 0,
+        "tool_name": "filesystem__read_file",
+        "arguments": {
+          "path": "/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture/path_utils.py"
+        }
+      },
+      {
+        "step_index": 3,
+        "tool_name": "agent__delegate",
+        "arguments": {
+          "budget": 600,
+          "goal": "Briefly understand the project context, files involved, and the specific task requirements.",
+          "playbook_id": "evidence_audited_patch",
+          "success_criteria": "Identify relevant files and tasks for modifying the code.",
+          "template_id": "context_worker"
+        }
+      }
+    ],
+    "routing_tools": [
+      "agent__await_result",
+      "agent__delegate",
+      "filesystem__list_directory",
+      "filesystem__read_file"
+    ],
+    "workload_tools": [
+      "agent__await_result",
+      "agent__delegate",
+      "memory__search"
+    ],
+    "routing_policy_decisions": [
+      "allowed"
+    ],
+    "routing_failure_classes": [],
+    "routing_stop_condition_hits": 0,
+    "verification_checks": [
+      "awaiting_clarification=false",
+      "awaiting_sudo_password=false",
+      "capability_execution_phase=discovery",
+      "capability_route_selected=native_integration",
+      "cec_completion_gate_emitted=true",
+      "cec_postcondition_terminal_chat_reply_binding=true",
+      "duplicate_action_fingerprint=86e09b0732179d2e5c2adc31eca3bcdaf852e087106f4cc4c81741478836924d",
+      "duplicate_action_fingerprint_non_command_noop=true",
+      "duplicate_action_fingerprint_non_command_skipped=true",
+      "duplicate_action_fingerprint_non_command_step_advanced=true",
+      "duplicate_action_fingerprint_non_terminal=false",
+      "duplicate_action_fingerprint_prior_success_noop=true",
+      "duplicate_action_fingerprint_terminalized=true",
+      "duplicate_repo_context_worker_terminalized=true",
+      "env_receipt::coding_path_normalizer_cleanup_probe_source=harness.coding_path_normalizer_fixture.cleanup_probe",
+      "env_receipt::coding_path_normalizer_cleanup_satisfied=true",
+      "env_receipt::coding_path_normalizer_cleanup_timestamp_ms=1774991726122",
+      "env_receipt::coding_path_normalizer_fixture_mode=coding_path_normalizer_fixture_v1",
+      "env_receipt::coding_path_normalizer_fixture_probe_source=harness.coding_path_normalizer_fixture",
+      "env_receipt::coding_path_normalizer_fixture_satisfied=true",
+      "env_receipt::coding_path_normalizer_fixture_timestamp_ms=1774991561390",
+      "env_receipt::coding_path_normalizer_function_name=normalize_fixture_path",
+      "env_receipt::coding_path_normalizer_hidden_probe_command=python3 -c \"from path_utils import normalize_fixture_path; print(normalize_fixture_path('./tmp\\\\logs///latest.txt'))\"",
+      "env_receipt::coding_path_normalizer_hidden_probe_output=./tmp/logs///latest.txt",
+      "env_receipt::coding_path_normalizer_hidden_probe_output_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_hidden_probe_output_satisfied=false",
+      "env_receipt::coding_path_normalizer_hidden_probe_output_timestamp_ms=1774991726065",
+      "env_receipt::coding_path_normalizer_hidden_probe_runner=python3",
+      "env_receipt::coding_path_normalizer_hidden_probe_runner_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_hidden_probe_runner_satisfied=true",
+      "env_receipt::coding_path_normalizer_hidden_probe_runner_timestamp_ms=1774991726065",
+      "env_receipt::coding_path_normalizer_repo_root=/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture",
+      "env_receipt::coding_path_normalizer_scope_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_scope_satisfied=false",
+      "env_receipt::coding_path_normalizer_scope_timestamp_ms=1774991726065",
+      "env_receipt::coding_path_normalizer_source_file=/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture/path_utils.py",
+      "env_receipt::coding_path_normalizer_source_mentions_function_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_source_mentions_function_satisfied=true",
+      "env_receipt::coding_path_normalizer_source_mentions_function_timestamp_ms=1774991726065",
+      "env_receipt::coding_path_normalizer_targeted_test_command=python3 -m unittest tests.test_path_utils -v",
+      "env_receipt::coding_path_normalizer_targeted_test_runner=python3",
+      "env_receipt::coding_path_normalizer_targeted_test_runner_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_targeted_test_runner_satisfied=true",
+      "env_receipt::coding_path_normalizer_targeted_test_runner_timestamp_ms=1774991726065",
+      "env_receipt::coding_path_normalizer_targeted_tests_exit_code=1",
+      "env_receipt::coding_path_normalizer_targeted_tests_exit_code_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_targeted_tests_exit_code_satisfied=false",
+      "env_receipt::coding_path_normalizer_targeted_tests_exit_code_timestamp_ms=1774991726065",
+      "env_receipt::coding_path_normalizer_targeted_tests_stderr=test_collapses_duplicate_separators (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_duplicate_separators) ... FAIL test_collapses_mixed_duplicate_runs (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_mixed_dup...",
+      "env_receipt::coding_path_normalizer_targeted_tests_stderr_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_targeted_tests_stderr_satisfied=false",
+      "env_receipt::coding_path_normalizer_targeted_tests_stderr_timestamp_ms=1774991726065",
+      "env_receipt::coding_path_normalizer_targeted_tests_stdout=",
+      "env_receipt::coding_path_normalizer_targeted_tests_stdout_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_targeted_tests_stdout_satisfied=false",
+      "env_receipt::coding_path_normalizer_targeted_tests_stdout_timestamp_ms=1774991726065",
+      "env_receipt::coding_path_normalizer_test_file=/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture/tests/test_path_utils.py",
+      "env_receipt::coding_path_normalizer_tests_unchanged_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_tests_unchanged_satisfied=true",
+      "env_receipt::coding_path_normalizer_tests_unchanged_timestamp_ms=1774991726065",
+      "host_desktop_dir=/tmp/.tmpGHVwLa/home/Desktop",
+      "host_discovery_probe_source=process_env:HOME",
+      "host_discovery_satisfied=true",
+      "host_discovery_timestamp_ms=1774991580327",
+      "host_discovery_timestamp_ms=1774991642087",
+      "host_discovery_timestamp_ms=1774991726014",
+      "host_home_dir=/tmp/.tmpGHVwLa/home",
+      "incident_active=false",
+      "parent_playbook_await_child=6bf44cd92664c0a8258c812007475c57ecebeeddaadbbea7fb33ae86b8bd216c",
+      "parent_playbook_await_child=ba4d193caf7436653f2d19c975acadb433b6ca6e715da3503025d72dacd71b78",
+      "parent_playbook_await_synthesized=true",
+      "policy_decision=allowed",
+      "provider_selection_commit=sha256:4e4d35cd199950ea5ad5124e04d477fb64d67ed1fc4bf81053b3740b6ecf94c0",
+      "provider_selection_commit=sha256:63478a88811fac8c62949e1360e7f0e102b5c8e204ddb6a4d264e12ed37b03f6",
+      "provider_selection_commit=sha256:e881362235eb393d511feef5647b80d13afd34fb6a005834cf667898e7699dca",
+      "provider_selection_commit=sha256:fa4fdc95dd6eec4d40050a0085d18d6a04c69bc911117a51fcdd3fc6e1ae5efd",
+      "provider_selection_route=native_integration",
+      "receipt::execution=true",
+      "receipt::host_discovery=true",
+      "receipt::provider_selection=true",
+      "receipt::provider_selection_commit=true",
+      "receipt::verification=true",
+      "remediation_queued=false",
+      "response_composer_applied=false",
+      "response_composer_template=passthrough",
+      "response_composer_validator_passed=true",
+      "root_playbook_delegate_playbook=evidence_audited_patch",
+      "root_playbook_delegate_synthesized=true",
+      "root_playbook_delegate_template=context_worker",
+      "root_playbook_delegate_workflow=repo_context_brief",
+      "routing_reason_code=tool_first_default",
+      "routing_source_failure=None",
+      "routing_tier_matches_pre_state=true",
+      "routing_tier_selected=ToolFirst",
+      "stop_condition_hit=false",
+      "terminal_chat_reply_comparison_label_count=0",
+      "terminal_chat_reply_emitted=true",
+      "terminal_chat_reply_layout_profile=other",
+      "terminal_chat_reply_overall_confidence_present=false",
+      "terminal_chat_reply_ready=true",
+      "terminal_chat_reply_run_date_present=false",
+      "terminal_chat_reply_run_timestamp_present=false",
+      "terminal_chat_reply_sha256=sha256:a358f297e4a28159ee65e7c31dae6d83d6e8d571e425225005983784f5c44e6e",
+      "terminal_chat_reply_story_header_count=0",
+      "terminal_tool_output_suppressed_for_chat_reply=true",
+      "was_gated=false"
+    ],
+    "verification_facts": [
+      {
+        "key": "awaiting_clarification",
+        "value": "false"
+      },
+      {
+        "key": "awaiting_sudo_password",
+        "value": "false"
+      },
+      {
+        "key": "capability_execution_phase",
+        "value": "discovery"
+      },
+      {
+        "key": "capability_route_selected",
+        "value": "native_integration"
+      },
+      {
+        "key": "cec_completion_gate_emitted",
+        "value": "true"
+      },
+      {
+        "key": "cec_postcondition_terminal_chat_reply_binding",
+        "value": "true"
+      },
+      {
+        "key": "duplicate_action_fingerprint",
+        "value": "86e09b0732179d2e5c2adc31eca3bcdaf852e087106f4cc4c81741478836924d"
+      },
+      {
+        "key": "duplicate_action_fingerprint_non_command_noop",
+        "value": "true"
+      },
+      {
+        "key": "duplicate_action_fingerprint_non_command_skipped",
+        "value": "true"
+      },
+      {
+        "key": "duplicate_action_fingerprint_non_command_step_advanced",
+        "value": "true"
+      },
+      {
+        "key": "duplicate_action_fingerprint_non_terminal",
+        "value": "false"
+      },
+      {
+        "key": "duplicate_action_fingerprint_prior_success_noop",
+        "value": "true"
+      },
+      {
+        "key": "duplicate_action_fingerprint_terminalized",
+        "value": "true"
+      },
+      {
+        "key": "duplicate_repo_context_worker_terminalized",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_cleanup_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.cleanup_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_cleanup_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_cleanup_timestamp_ms",
+        "value": "1774991726122"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_fixture_mode",
+        "value": "coding_path_normalizer_fixture_v1"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_fixture_probe_source",
+        "value": "harness.coding_path_normalizer_fixture"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_fixture_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_fixture_timestamp_ms",
+        "value": "1774991561390"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_function_name",
+        "value": "normalize_fixture_path"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_command",
+        "value": "python3 -c \"from path_utils import normalize_fixture_path; print(normalize_fixture_path('./tmp\\\\logs///latest.txt'))\""
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_output",
+        "value": "./tmp/logs///latest.txt"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_output_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_output_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_output_timestamp_ms",
+        "value": "1774991726065"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_runner",
+        "value": "python3"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_runner_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_runner_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_runner_timestamp_ms",
+        "value": "1774991726065"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_repo_root",
+        "value": "/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_scope_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_scope_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_scope_timestamp_ms",
+        "value": "1774991726065"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_source_file",
+        "value": "/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture/path_utils.py"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_source_mentions_function_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_source_mentions_function_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_source_mentions_function_timestamp_ms",
+        "value": "1774991726065"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_command",
+        "value": "python3 -m unittest tests.test_path_utils -v"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_runner",
+        "value": "python3"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_runner_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_runner_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_runner_timestamp_ms",
+        "value": "1774991726065"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_exit_code",
+        "value": "1"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_exit_code_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_exit_code_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_exit_code_timestamp_ms",
+        "value": "1774991726065"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stderr",
+        "value": "test_collapses_duplicate_separators (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_duplicate_separators) ... FAIL test_collapses_mixed_duplicate_runs (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_mixed_dup..."
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stderr_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stderr_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stderr_timestamp_ms",
+        "value": "1774991726065"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stdout",
+        "value": ""
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stdout_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stdout_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stdout_timestamp_ms",
+        "value": "1774991726065"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_test_file",
+        "value": "/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture/tests/test_path_utils.py"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_tests_unchanged_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_tests_unchanged_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_tests_unchanged_timestamp_ms",
+        "value": "1774991726065"
+      },
+      {
+        "key": "host_desktop_dir",
+        "value": "/tmp/.tmpGHVwLa/home/Desktop"
+      },
+      {
+        "key": "host_discovery_probe_source",
+        "value": "process_env:HOME"
+      },
+      {
+        "key": "host_discovery_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "host_discovery_timestamp_ms",
+        "value": "1774991580327"
+      },
+      {
+        "key": "host_discovery_timestamp_ms",
+        "value": "1774991642087"
+      },
+      {
+        "key": "host_discovery_timestamp_ms",
+        "value": "1774991726014"
+      },
+      {
+        "key": "host_home_dir",
+        "value": "/tmp/.tmpGHVwLa/home"
+      },
+      {
+        "key": "incident_active",
+        "value": "false"
+      },
+      {
+        "key": "parent_playbook_await_child",
+        "value": "6bf44cd92664c0a8258c812007475c57ecebeeddaadbbea7fb33ae86b8bd216c"
+      },
+      {
+        "key": "parent_playbook_await_child",
+        "value": "ba4d193caf7436653f2d19c975acadb433b6ca6e715da3503025d72dacd71b78"
+      },
+      {
+        "key": "parent_playbook_await_synthesized",
+        "value": "true"
+      },
+      {
+        "key": "policy_decision",
+        "value": "allowed"
+      },
+      {
+        "key": "provider_selection_commit",
+        "value": "sha256:4e4d35cd199950ea5ad5124e04d477fb64d67ed1fc4bf81053b3740b6ecf94c0"
+      },
+      {
+        "key": "provider_selection_commit",
+        "value": "sha256:63478a88811fac8c62949e1360e7f0e102b5c8e204ddb6a4d264e12ed37b03f6"
+      },
+      {
+        "key": "provider_selection_commit",
+        "value": "sha256:e881362235eb393d511feef5647b80d13afd34fb6a005834cf667898e7699dca"
+      },
+      {
+        "key": "provider_selection_commit",
+        "value": "sha256:fa4fdc95dd6eec4d40050a0085d18d6a04c69bc911117a51fcdd3fc6e1ae5efd"
+      },
+      {
+        "key": "provider_selection_route",
+        "value": "native_integration"
+      },
+      {
+        "key": "receipt::execution",
+        "value": "true"
+      },
+      {
+        "key": "receipt::host_discovery",
+        "value": "true"
+      },
+      {
+        "key": "receipt::provider_selection",
+        "value": "true"
+      },
+      {
+        "key": "receipt::provider_selection_commit",
+        "value": "true"
+      },
+      {
+        "key": "receipt::verification",
+        "value": "true"
+      },
+      {
+        "key": "remediation_queued",
+        "value": "false"
+      },
+      {
+        "key": "response_composer_applied",
+        "value": "false"
+      },
+      {
+        "key": "response_composer_template",
+        "value": "passthrough"
+      },
+      {
+        "key": "response_composer_validator_passed",
+        "value": "true"
+      },
+      {
+        "key": "root_playbook_delegate_playbook",
+        "value": "evidence_audited_patch"
+      },
+      {
+        "key": "root_playbook_delegate_synthesized",
+        "value": "true"
+      },
+      {
+        "key": "root_playbook_delegate_template",
+        "value": "context_worker"
+      },
+      {
+        "key": "root_playbook_delegate_workflow",
+        "value": "repo_context_brief"
+      },
+      {
+        "key": "routing_reason_code",
+        "value": "tool_first_default"
+      },
+      {
+        "key": "routing_source_failure",
+        "value": "None"
+      },
+      {
+        "key": "routing_tier_matches_pre_state",
+        "value": "true"
+      },
+      {
+        "key": "routing_tier_selected",
+        "value": "ToolFirst"
+      },
+      {
+        "key": "stop_condition_hit",
+        "value": "false"
+      },
+      {
+        "key": "terminal_chat_reply_comparison_label_count",
+        "value": "0"
+      },
+      {
+        "key": "terminal_chat_reply_emitted",
+        "value": "true"
+      },
+      {
+        "key": "terminal_chat_reply_layout_profile",
+        "value": "other"
+      },
+      {
+        "key": "terminal_chat_reply_overall_confidence_present",
+        "value": "false"
+      },
+      {
+        "key": "terminal_chat_reply_ready",
+        "value": "true"
+      },
+      {
+        "key": "terminal_chat_reply_run_date_present",
+        "value": "false"
+      },
+      {
+        "key": "terminal_chat_reply_run_timestamp_present",
+        "value": "false"
+      },
+      {
+        "key": "terminal_chat_reply_sha256",
+        "value": "sha256:a358f297e4a28159ee65e7c31dae6d83d6e8d571e425225005983784f5c44e6e"
+      },
+      {
+        "key": "terminal_chat_reply_story_header_count",
+        "value": "0"
+      },
+      {
+        "key": "terminal_tool_output_suppressed_for_chat_reply",
+        "value": "true"
+      },
+      {
+        "key": "was_gated",
+        "value": "false"
+      }
+    ],
+    "approval_required_events": 0,
+    "parent_playbook_receipts": [
+      {
+        "tool_name": "agent__delegate",
+        "phase": "started",
+        "playbook_id": "evidence_audited_patch",
+        "playbook_label": "Evidence-Audited Patch",
+        "status": "running",
+        "success": true,
+        "route_family": "coding",
+        "topology": "planner_specialist_verifier",
+        "verifier_state": "queued",
+        "step_id": null,
+        "step_label": null,
+        "template_id": null,
+        "workflow_id": null,
+        "selected_skills": [],
+        "prep_summary": null,
+        "research_scorecard": null,
+        "coding_scorecard": null,
+        "patch_synthesis": null,
+        "summary": "Started parent playbook 'Evidence-Audited Patch' for topic 'Port the path-normalization parity fix into the repo at \"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\". Work inside that repo root, patch onl...",
+        "error_class": null
+      },
+      {
+        "tool_name": "agent__delegate",
+        "phase": "step_spawned",
+        "playbook_id": "evidence_audited_patch",
+        "playbook_label": "Evidence-Audited Patch",
+        "status": "running",
+        "success": true,
+        "route_family": "coding",
+        "topology": "planner_specialist_verifier",
+        "verifier_state": "queued",
+        "step_id": "context",
+        "step_label": "Capture repo context",
+        "template_id": "context_worker",
+        "workflow_id": "repo_context_brief",
+        "selected_skills": [],
+        "prep_summary": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normal...",
+        "research_scorecard": null,
+        "coding_scorecard": null,
+        "patch_synthesis": null,
+        "summary": "Spawned 'Capture repo context' step for playbook 'Evidence-Audited Patch' with child 6bf44cd92664c0a8258c812007475c57ecebeeddaadbbea7fb33ae86b8bd216c.",
+        "error_class": null
+      },
+      {
+        "tool_name": "agent__await_result",
+        "phase": "step_completed",
+        "playbook_id": "evidence_audited_patch",
+        "playbook_label": "Evidence-Audited Patch",
+        "status": "running",
+        "success": true,
+        "route_family": "coding",
+        "topology": "planner_specialist_verifier",
+        "verifier_state": "queued",
+        "step_id": "context",
+        "step_label": "Capture repo context",
+        "template_id": "context_worker",
+        "workflow_id": "repo_context_brief",
+        "selected_skills": [],
+        "prep_summary": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normal...",
+        "research_scorecard": null,
+        "coding_scorecard": null,
+        "patch_synthesis": null,
+        "summary": "Worker evidence\nRole: Context Worker\nGoal: Inspect repo context for Port the path-normalization parity fix into the repo at \"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\". Work inside that repo root, p...",
+        "error_class": null
+      },
+      {
+        "tool_name": "agent__delegate",
+        "phase": "step_spawned",
+        "playbook_id": "evidence_audited_patch",
+        "playbook_label": "Evidence-Audited Patch",
+        "status": "running",
+        "success": true,
+        "route_family": "coding",
+        "topology": "planner_specialist_verifier",
+        "verifier_state": "queued",
+        "step_id": "implement",
+        "step_label": "Patch the workspace",
+        "template_id": "coder",
+        "workflow_id": "patch_build_verify",
+        "selected_skills": [],
+        "prep_summary": null,
+        "research_scorecard": null,
+        "coding_scorecard": null,
+        "patch_synthesis": null,
+        "summary": "Spawned 'Patch the workspace' step for playbook 'Evidence-Audited Patch' with child ba4d193caf7436653f2d19c975acadb433b6ca6e715da3503025d72dacd71b78.",
+        "error_class": null
+      }
+    ],
+    "action_evidence": [
+      {
+        "tool_name": "agent__delegate",
+        "agent_status": "Running",
+        "output_excerpt": "{\"budget\":48,\"child_session_id_hex\":\"6bf44cd92664c0a8258c812007475c57ecebeeddaadbbea7fb33ae86b8bd216c\",\"expected_output\":\"Repo context brief with likely files, skill cues, targeted checks, and open questions.\",\"merge_mod...",
+        "error_class": null
+      },
+      {
+        "tool_name": "filesystem__list_directory",
+        "agent_status": "Running",
+        "output_excerpt": "[F] README.md [F] path_utils.py [D] tests",
+        "error_class": null
+      },
+      {
+        "tool_name": "agent__await_result",
+        "agent_status": "Running",
+        "output_excerpt": "Running",
+        "error_class": null
+      },
+      {
+        "tool_name": "filesystem__list_directory",
+        "agent_status": "Completed",
+        "output_excerpt": "Completed. Final response emitted via chat__reply.",
+        "error_class": null
+      },
+      {
+        "tool_name": "chat__reply",
+        "agent_status": "Completed",
+        "output_excerpt": "- likely_files: path_utils.py; tests/test_path_utils.py - selected_skills: reuse parent-selected coding prep cues; no extra child-local skills were added during fallback. - targeted_checks: python3 -m unittest tests.test...",
+        "error_class": null
+      },
+      {
+        "tool_name": "agent__await_result",
+        "agent_status": "Running",
+        "output_excerpt": "Worker evidence Role: Context Worker Goal: Inspect repo context for Port the path-normalization parity fix into the repo at \"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\". Work insi...",
+        "error_class": null
+      },
+      {
+        "tool_name": "filesystem__read_file",
+        "agent_status": "Running",
+        "output_excerpt": "def normalize_fixture_path(raw_path: str) -> str: \"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\" return raw_path.strip().replace(\"\\\\\", \"/\")",
+        "error_class": null
+      },
+      {
+        "tool_name": "agent__await_result",
+        "agent_status": "Running",
+        "output_excerpt": "Running",
+        "error_class": null
+      }
+    ],
+    "action_error_classes": [],
+    "command_history_evidence": [],
+    "cec_receipts": [
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "discovery",
+        "key": "host_discovery",
+        "satisfied": true,
+        "timestamp_ms": 1774991580327,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection",
+        "satisfied": true,
+        "timestamp_ms": 1774991580328,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991580328,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_prepare_tool",
+        "satisfied": true,
+        "timestamp_ms": 1774991580331,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":2,\"finished_at_ms\":1774991580331,\"foreground_window_bound\":true,\"started_at_ms\":1774991580329,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"agent__delegate\\\")\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_determinism_context",
+        "satisfied": true,
+        "timestamp_ms": 1774991580338,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":6,\"finished_at_ms\":1774991580338,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"agent__delegate\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774991580332,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "policy_hash_binding",
+        "satisfied": true,
+        "timestamp_ms": 1774991580338,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "capability_lease",
+        "satisfied": true,
+        "timestamp_ms": 1774991580338,
+        "probe_source": "workload_spec.evaluate_lease.v1",
+        "observed_value": "target=agent__delegate;runtime_target=control_plane;net_mode=disabled",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "firewall_decision_receipt",
+        "satisfied": true,
+        "timestamp_ms": 1774991580380,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "determinism_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991580382,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_policy_gate",
+        "satisfied": true,
+        "timestamp_ms": 1774991580382,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":43,\"finished_at_ms\":1774991580382,\"net_mode\":\"disabled\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774991580339,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "execution",
+        "key": "execution",
+        "satisfied": true,
+        "timestamp_ms": 1774991580494,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "verification",
+        "key": "verification",
+        "satisfied": true,
+        "timestamp_ms": 1774991580494,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection",
+        "satisfied": true,
+        "timestamp_ms": 1774991597334,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991597334,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_prepare_tool",
+        "satisfied": true,
+        "timestamp_ms": 1774991597338,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":3,\"finished_at_ms\":1774991597338,\"foreground_window_bound\":true,\"started_at_ms\":1774991597335,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"agent__await_result\\\")\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_determinism_context",
+        "satisfied": true,
+        "timestamp_ms": 1774991597344,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":5,\"finished_at_ms\":1774991597344,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"agent__await_result\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774991597339,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "policy_hash_binding",
+        "satisfied": true,
+        "timestamp_ms": 1774991597344,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "capability_lease",
+        "satisfied": true,
+        "timestamp_ms": 1774991597344,
+        "probe_source": "workload_spec.evaluate_lease.v1",
+        "observed_value": "target=agent__await_result;runtime_target=control_plane;net_mode=disabled",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "firewall_decision_receipt",
+        "satisfied": true,
+        "timestamp_ms": 1774991597383,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "determinism_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991597383,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_policy_gate",
+        "satisfied": true,
+        "timestamp_ms": 1774991597384,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":39,\"finished_at_ms\":1774991597384,\"net_mode\":\"disabled\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774991597345,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "discovery",
+        "key": "host_discovery",
+        "satisfied": true,
+        "timestamp_ms": 1774991642087,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection",
+        "satisfied": true,
+        "timestamp_ms": 1774991642087,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991642087,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_prepare_tool",
+        "satisfied": true,
+        "timestamp_ms": 1774991642090,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":2,\"finished_at_ms\":1774991642090,\"foreground_window_bound\":true,\"started_at_ms\":1774991642088,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"FsRead\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_determinism_context",
+        "satisfied": true,
+        "timestamp_ms": 1774991642095,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":4,\"finished_at_ms\":1774991642095,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"FsRead\",\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991642091,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "policy_hash_binding",
+        "satisfied": true,
+        "timestamp_ms": 1774991642095,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "capability_lease",
+        "satisfied": true,
+        "timestamp_ms": 1774991642095,
+        "probe_source": "workload_spec.evaluate_lease.v1",
+        "observed_value": "target=fs::read;runtime_target=filesystem;net_mode=disabled",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "firewall_decision_receipt",
+        "satisfied": true,
+        "timestamp_ms": 1774991642125,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "determinism_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991642125,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_policy_gate",
+        "satisfied": true,
+        "timestamp_ms": 1774991642125,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":30,\"finished_at_ms\":1774991642125,\"net_mode\":\"disabled\",\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991642095,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_executor_dispatch",
+        "satisfied": true,
+        "timestamp_ms": 1774991642126,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":0,\"finished_at_ms\":1774991642126,\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991642126,\"status\":\"completed\",\"tool_name\":null}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_finalize_executor_result",
+        "satisfied": true,
+        "timestamp_ms": 1774991642126,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":0,\"finished_at_ms\":1774991642126,\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991642126,\"status\":\"completed\",\"tool_name\":null}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_action_complete",
+        "satisfied": true,
+        "timestamp_ms": 1774991642126,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":38,\"finished_at_ms\":1774991642126,\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991642088,\"status\":\"completed\",\"tool_name\":null}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "execution",
+        "key": "execution",
+        "satisfied": true,
+        "timestamp_ms": 1774991642126,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "verification",
+        "key": "verification",
+        "satisfied": true,
+        "timestamp_ms": 1774991642126,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "execution",
+        "key": "execution",
+        "satisfied": true,
+        "timestamp_ms": 1774991642128,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "verification",
+        "key": "verification",
+        "satisfied": true,
+        "timestamp_ms": 1774991642128,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection",
+        "satisfied": true,
+        "timestamp_ms": 1774991659960,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991659960,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_prepare_tool",
+        "satisfied": true,
+        "timestamp_ms": 1774991659964,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":3,\"finished_at_ms\":1774991659964,\"foreground_window_bound\":true,\"started_at_ms\":1774991659961,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"agent__await_result\\\")\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_determinism_context",
+        "satisfied": true,
+        "timestamp_ms": 1774991659970,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":5,\"finished_at_ms\":1774991659970,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"agent__await_result\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774991659965,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "policy_hash_binding",
+        "satisfied": true,
+        "timestamp_ms": 1774991659970,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "capability_lease",
+        "satisfied": true,
+        "timestamp_ms": 1774991659970,
+        "probe_source": "workload_spec.evaluate_lease.v1",
+        "observed_value": "target=agent__await_result;runtime_target=control_plane;net_mode=disabled",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "firewall_decision_receipt",
+        "satisfied": true,
+        "timestamp_ms": 1774991660010,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "determinism_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991660011,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_policy_gate",
+        "satisfied": true,
+        "timestamp_ms": 1774991660011,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":40,\"finished_at_ms\":1774991660011,\"net_mode\":\"disabled\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774991659971,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection",
+        "satisfied": true,
+        "timestamp_ms": 1774991668390,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991668390,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "completion_gate",
+        "key": "contract_gate",
+        "satisfied": true,
+        "timestamp_ms": 1774991668391,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "completion_gate",
+        "key": "contract_gate",
+        "satisfied": true,
+        "timestamp_ms": 1774991668391,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "postcondition",
+        "key": "terminal_chat_reply_binding",
+        "satisfied": true,
+        "timestamp_ms": 1774991668392,
+        "probe_source": "action.chat_reply_binding.v1",
+        "observed_value": "sha256:a358f297e4a28159ee65e7c31dae6d83d6e8d571e425225005983784f5c44e6e",
+        "evidence_type": "sha256",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "postcondition",
+        "key": "terminal_chat_reply_layout_profile",
+        "satisfied": true,
+        "timestamp_ms": 1774991668392,
+        "probe_source": "action.chat_reply_shape.v1",
+        "observed_value": "other",
+        "evidence_type": "label",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "postcondition",
+        "key": "terminal_chat_reply_story_headers_absent",
+        "satisfied": true,
+        "timestamp_ms": 1774991668392,
+        "probe_source": "action.chat_reply_shape.v1",
+        "observed_value": "0",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "postcondition",
+        "key": "terminal_chat_reply_comparison_absent",
+        "satisfied": true,
+        "timestamp_ms": 1774991668392,
+        "probe_source": "action.chat_reply_shape.v1",
+        "observed_value": "0",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "postcondition",
+        "key": "terminal_chat_reply_temporal_anchor_floor",
+        "satisfied": false,
+        "timestamp_ms": 1774991668392,
+        "probe_source": "action.chat_reply_shape.v1",
+        "observed_value": "run_date_present=false;run_timestamp_present=false",
+        "evidence_type": "summary",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "postcondition",
+        "key": "terminal_chat_reply_postamble_floor",
+        "satisfied": false,
+        "timestamp_ms": 1774991668392,
+        "probe_source": "action.chat_reply_shape.v1",
+        "observed_value": "run_date_present=false;run_timestamp_present=false;overall_confidence_present=false",
+        "evidence_type": "summary",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "execution",
+        "key": "execution",
+        "satisfied": true,
+        "timestamp_ms": 1774991668439,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "verification",
+        "key": "verification",
+        "satisfied": true,
+        "timestamp_ms": 1774991668439,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection",
+        "satisfied": true,
+        "timestamp_ms": 1774991685986,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991685986,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_prepare_tool",
+        "satisfied": true,
+        "timestamp_ms": 1774991685990,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":3,\"finished_at_ms\":1774991685990,\"foreground_window_bound\":true,\"started_at_ms\":1774991685987,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"agent__await_result\\\")\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_determinism_context",
+        "satisfied": true,
+        "timestamp_ms": 1774991686000,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":9,\"finished_at_ms\":1774991686000,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"agent__await_result\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774991685991,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "policy_hash_binding",
+        "satisfied": true,
+        "timestamp_ms": 1774991686000,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "capability_lease",
+        "satisfied": true,
+        "timestamp_ms": 1774991686000,
+        "probe_source": "workload_spec.evaluate_lease.v1",
+        "observed_value": "target=agent__await_result;runtime_target=control_plane;net_mode=disabled",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "firewall_decision_receipt",
+        "satisfied": true,
+        "timestamp_ms": 1774991686051,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "determinism_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991686053,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_policy_gate",
+        "satisfied": true,
+        "timestamp_ms": 1774991686053,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":52,\"finished_at_ms\":1774991686053,\"net_mode\":\"disabled\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774991686001,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "discovery",
+        "key": "host_discovery",
+        "satisfied": true,
+        "timestamp_ms": 1774991726014,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection",
+        "satisfied": true,
+        "timestamp_ms": 1774991726014,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "provider_selection",
+        "key": "provider_selection_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991726014,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": "native_integration"
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_prepare_tool",
+        "satisfied": true,
+        "timestamp_ms": 1774991726018,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":4,\"finished_at_ms\":1774991726018,\"foreground_window_bound\":true,\"started_at_ms\":1774991726014,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"FsRead\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_determinism_context",
+        "satisfied": true,
+        "timestamp_ms": 1774991726023,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":4,\"finished_at_ms\":1774991726023,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"FsRead\",\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991726019,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "policy_hash_binding",
+        "satisfied": true,
+        "timestamp_ms": 1774991726023,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "capability_lease",
+        "satisfied": true,
+        "timestamp_ms": 1774991726023,
+        "probe_source": "workload_spec.evaluate_lease.v1",
+        "observed_value": "target=fs::read;runtime_target=filesystem;net_mode=disabled",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "firewall_decision_receipt",
+        "satisfied": true,
+        "timestamp_ms": 1774991726056,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "determinism_commit",
+        "satisfied": true,
+        "timestamp_ms": 1774991726057,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_policy_gate",
+        "satisfied": true,
+        "timestamp_ms": 1774991726057,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":34,\"finished_at_ms\":1774991726057,\"net_mode\":\"disabled\",\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991726023,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_executor_dispatch",
+        "satisfied": true,
+        "timestamp_ms": 1774991726058,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":0,\"finished_at_ms\":1774991726058,\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991726058,\"status\":\"completed\",\"tool_name\":null}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_finalize_executor_result",
+        "satisfied": true,
+        "timestamp_ms": 1774991726058,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":0,\"finished_at_ms\":1774991726058,\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991726058,\"status\":\"completed\",\"tool_name\":null}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_action_complete",
+        "satisfied": true,
+        "timestamp_ms": 1774991726058,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":43,\"finished_at_ms\":1774991726058,\"runtime_target\":\"filesystem\",\"started_at_ms\":1774991726015,\"status\":\"completed\",\"tool_name\":null}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "execution",
+        "key": "execution",
+        "satisfied": true,
+        "timestamp_ms": 1774991726058,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "verification",
+        "key": "verification",
+        "satisfied": true,
+        "timestamp_ms": 1774991726058,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "execution",
+        "key": "execution",
+        "satisfied": true,
+        "timestamp_ms": 1774991726061,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.5",
+        "stage": "verification",
+        "key": "verification",
+        "satisfied": true,
+        "timestamp_ms": 1774991726061,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      }
+    ],
+    "intent_resolution_evidence": [
+      {
+        "intent_id": "workspace.ops",
+        "selected_intent_id": "workspace.ops",
+        "scope": "WorkspaceOps",
+        "band": "High",
+        "score": 0.8453,
+        "error_class": null
+      },
+      {
+        "intent_id": "workspace.ops",
+        "selected_intent_id": "workspace.ops",
+        "scope": "WorkspaceOps",
+        "band": "High",
+        "score": 0.8377,
+        "error_class": null
+      }
+    ],
+    "environment_receipts": [
+      {
+        "key": "coding_path_normalizer_fixture_mode",
+        "observed_values": [
+          "coding_path_normalizer_fixture_v1"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_repo_root",
+        "observed_values": [
+          "/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_source_file",
+        "observed_values": [
+          "/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture/path_utils.py"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_test_file",
+        "observed_values": [
+          "/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture/tests/test_path_utils.py"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_function_name",
+        "observed_values": [
+          "normalize_fixture_path"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_targeted_test_command",
+        "observed_values": [
+          "python3 -m unittest tests.test_path_utils -v"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_hidden_probe_command",
+        "observed_values": [
+          "python3 -c \"from path_utils import normalize_fixture_path; print(normalize_fixture_path('./tmp\\\\logs///latest.txt'))\""
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_fixture",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture",
+        "timestamp_ms": 1774991561390,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_targeted_test_runner",
+        "observed_values": [
+          "python3"
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1774991726065,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_targeted_tests_exit_code",
+        "observed_values": [
+          "1"
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1774991726065,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_targeted_tests_stdout",
+        "observed_values": [
+          ""
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1774991726065,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_targeted_tests_stderr",
+        "observed_values": [
+          "test_collapses_duplicate_separators (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_duplicate_separators) ... FAIL test_collapses_mixed_duplicate_runs (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_mixed_dup..."
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1774991726065,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_hidden_probe_runner",
+        "observed_values": [
+          "python3"
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1774991726065,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_hidden_probe_output",
+        "observed_values": [
+          "./tmp/logs///latest.txt"
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1774991726065,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_tests_unchanged",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1774991726065,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_source_mentions_function",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1774991726065,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_scope",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1774991726065,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_cleanup",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture.cleanup_probe",
+        "timestamp_ms": 1774991726122,
+        "satisfied": true
+      }
+    ],
+    "web": null,
+    "screenshot": null,
+    "mail": null,
+    "google": null,
+    "event_excerpt": [
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120]), target: \"cloud_inference::desktop_agent::model_hash:00000000000000000...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"worksp...",
+      "event(other) payload=AgentStep(StepTrace { session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...",
+      "action tool=filesystem__read_file status=Running error_class=none output=def normalize_fixture_path(raw_path: str) -> str: \"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\" return raw_path.strip().replace(\"\\\\\", \"/\")",
+      "routing tool=filesystem__read_file decision=allowed success=true checks=capability_execution_phase=discovery,host_home_dir=/tmp/.tmpGHVwLa/home,host_desktop_dir=/tmp/.tmpGHVwLa/home/Desktop,host_discovery_probe_source=process_env:HOME,host_discovery_timestamp_ms=1774991726014,host_discovery_satisfied=true,receipt::host_discovery=true,capability_route...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"work...",
+      "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0...",
+      "action tool=agent__await_result status=Running error_class=none output=Running",
+      "routing tool=agent__await_result decision=allowed success=true checks=parent_playbook_await_synthesized=true,parent_playbook_await_child=ba4d193caf7436653f2d19c975acadb433b6ca6e715da3503025d72dacd71b78,capability_route_selected=native_integration,receipt::provider_selection=true,receipt::provider_selection_commit=true,provider_selection_route=nativ..."
+    ],
+    "kernel_event_count": 129,
+    "kernel_log_lines": [
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [178, 58, 122, 18, 3, 228, 189, 206, 133, 73, 70, 253, 218, 214, 188, 184, 20, 87, 54, 101, 252, 181, 244, 230, 78, 102, 48, 53, 226, 15, 99, 197], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [11, 153, 255, 170, 139, 43, 23, 3, 48, 91, 196, 185, 114, 137, 186, 233, 251, 199, 205, 192, 2, 114, 2, 241, 193, 232, 228, 212, 80, 210, 203, 110], assist_output_graph_hash: [11, 153, 255, 170, 139, 43, 23, 3, 48, 91, 196, 185, 114, 137, 186, 233, 251, 199, 205, 192, 2, 114, 2, 241, 193, 232, 228, 212, 80, 210, 203, 110] })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"discovery\", key: \"host_discovery\", satisfied: true, timestamp_ms: 1774991580327, evidence_commit_hash: \"sha256:22912d17f296232e0abe3ba9eae7988b196d3f03c5e7a713805364ae91cf47cb\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection\", satisfied: true, timestamp_ms: 1774991580328, evidence_commit_hash: \"sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection_commit\", satisfied: true, timestamp_ms: 1774991580328, evidence_commit_hash: \"sha256:e33705bc6bda767414d4e6a3871af68fcd931d203a53644c50ae15986b91a0cb\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1774991580331, evidence_commit_hash: \"sha256:f56cec41e29165978607a75763d3a514046703f5105c183e411b5ab37cbf4080\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":2,\\\"finished_at_ms\\\":1774991580331,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1774991580329,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"agent__delegate\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1774991580338, evidence_commit_hash: \"sha256:d6a74654f85dced89a7adbeb945ded024d5ba46c4de70fc8950ee5cf86935bec\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":6,\\\"finished_at_ms\\\":1774991580338,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"agent__delegate\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774991580332,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"policy_hash_binding\", satisfied: true, timestamp_ms: 1774991580338, evidence_commit_hash: \"sha256:cfc5d2f38abc83c007575db7dda08e655252f1f380f42ec84abf9a5a10b6634a\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1774991580338, evidence_commit_hash: \"sha256:683e624e0958732c35bd396492bfb2ee3a26600f27f9df97604d78803c26b521\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=agent__delegate;runtime_target=control_plane;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"firewall_decision_receipt\", satisfied: true, timestamp_ms: 1774991580380, evidence_commit_hash: \"sha256:4602ab96a90dbf9b0ee4ef3890e730bdfaa538c565da34cbd0d5d9b3c16fc3a0\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"determinism_commit\", satisfied: true, timestamp_ms: 1774991580382, evidence_commit_hash: \"sha256:4a0f1fa2f8c778d7c5f87bc508c0da2715949bf69122d940d57caac8d4e4767b\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1774991580382, evidence_commit_hash: \"sha256:3f3d7766ee050fd15db30c98ef9982eb977d7b19ba89abf7ccc2f4bcf4f6d258\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":43,\\\"finished_at_ms\\\":1774991580382,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774991580339,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "workload other",
+      "workload other",
+      "workload other",
+      "event(other) payload=AgentSpawn { parent_session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], new_session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], name: \"Context-Worker-6bf4\", role: \"Context Worker\", budget: 48, goal: \"Inspect repo context for Port the path-normalization parity fix into the repo at \\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\\\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normalize_fixture_path` so it converts backslashes to forward slashes, collapses duplicate separators, and preserves a leading `./` or `/`. Run the focused verification command `python3 -m unittest tests.test_path_utils -v` first, widen only if needed, verify the final postcondition, and report the touched files plus command results, identify the most relevant files and skills, then return a bounded context brief with targeted validation suggestions and open questions.\" }",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"execution\", satisfied: true, timestamp_ms: 1774991580494, evidence_commit_hash: \"sha256:67583da4d904c1690122bc19c8281610993e0f08b56262a7551656fc4bcdf1ef\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"verification\", key: \"verification\", satisfied: true, timestamp_ms: 1774991580494, evidence_commit_hash: \"sha256:1edff4419407da8dbbf4b0046244b15ad6978a53ac7de22b85ede4513742bae8\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: DomHeadless]\\n{\\\"arguments\\\":{\\\"budget\\\":100,\\\"goal\\\":\\\"Port the path-normalization parity fix into the repo at \\\\\\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1724908365/\\\\\\\".\\\",\\\"playbook_id\\\":\\\"evidence_audited_patch\\\",\\\"success_criteria\\\":\\\"Patch applied and verified in the specified repository.\\\",\\\"template_id\\\":\\\"patch_build_verify\\\"},\\\"name\\\":\\\"agent__delegate\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"budget\\\":100,\\\"goal\\\":\\\"Port the path-normalization parity fix into the repo at \\\\\\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1724908365/\\\\\\\".\\\",\\\"playbook_id\\\":\\\"evidence_audited_patch\\\",\\\"success_criteria\\\":\\\"Patch applied and verified in the specified repository.\\\",\\\"template_id\\\":\\\"patch_build_verify\\\"},\\\"name\\\":\\\"agent__delegate\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774991580 })",
+      "action tool=agent__delegate status=Running error_class=none output={\"budget\":48,\"child_session_id_hex\":\"6bf44cd92664c0a8258c812007475c57ecebeeddaadbbea7fb33ae86b8bd216c\",\"expected_output\":\"Repo context brief with likely files, skill cues, targeted checks, and open questions.\",\"merge_mode\":\"append_as_evidence\",\"playbook_id\":\"evidence_audited_patch\",\"role\":\"Context Worker\",\"success_criteria\":\"Return a deterministic repo context brief with likely files, selected skills, targeted verification ideas, and explicit unknowns.\",\"template_id\":\"context_worker\",\"workflow_id\":\"repo_context_brief\"}",
+      "routing tool=agent__delegate decision=allowed success=true checks=root_playbook_delegate_synthesized=true,root_playbook_delegate_playbook=evidence_audited_patch,root_playbook_delegate_template=context_worker,root_playbook_delegate_workflow=repo_context_brief,capability_execution_phase=discovery,host_home_dir=/tmp/.tmpGHVwLa/home,host_desktop_dir=/tmp/.tmpGHVwLa/home/Desktop,host_discovery_probe_source=process_env:HOME,host_discovery_timestamp_ms=1774991580327,host_discovery_satisfied=true,receipt::host_discovery=true,capability_route_selected=native_integration,receipt::provider_selection=true,receipt::provider_selection_commit=true,provider_selection_route=native_integration,provider_selection_commit=sha256:63478a88811fac8c62949e1360e7f0e102b5c8e204ddb6a4d264e12ed37b03f6,receipt::execution=true,receipt::verification=true,incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [90, 225, 255, 139, 101, 52, 81, 30, 150, 29, 106, 148, 12, 200, 67, 89, 72, 67, 163, 61, 252, 114, 131, 144, 123, 191, 221, 169, 15, 223, 103, 55], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [55, 125, 50, 59, 254, 214, 0, 63, 58, 8, 45, 140, 176, 89, 119, 221, 37, 73, 227, 119, 193, 40, 39, 178, 181, 22, 107, 175, 58, 30, 129, 78], assist_output_graph_hash: [55, 125, 50, 59, 254, 214, 0, 63, 58, 8, 45, 140, 176, 89, 119, 221, 37, 73, 227, 119, 193, 40, 39, 178, 181, 22, 107, 175, 58, 30, 129, 78] })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection\", satisfied: true, timestamp_ms: 1774991597334, evidence_commit_hash: \"sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection_commit\", satisfied: true, timestamp_ms: 1774991597334, evidence_commit_hash: \"sha256:1da7c81216668a23313cb7487a6b2f034ee7acc5f98273bc32aa0f7bd387865e\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1774991597338, evidence_commit_hash: \"sha256:13819f9d6d9864a5d9214b0063849aa69dff19658eaad9e733b41147dceefd82\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":3,\\\"finished_at_ms\\\":1774991597338,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1774991597335,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1774991597344, evidence_commit_hash: \"sha256:e91654b797e5db4215e72a418dbef3a8a8aa43241e6d84c7fc4bdc252793de3d\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":5,\\\"finished_at_ms\\\":1774991597344,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774991597339,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"policy_hash_binding\", satisfied: true, timestamp_ms: 1774991597344, evidence_commit_hash: \"sha256:0f669c094b34294764bdda66d1c5cd159b7ed9ab037bc97f18aeae1940c49bde\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1774991597344, evidence_commit_hash: \"sha256:645b993ce369fc6fe185a55a65740789ced0947221dce838f9d58e8fbde15c8f\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=agent__await_result;runtime_target=control_plane;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"firewall_decision_receipt\", satisfied: true, timestamp_ms: 1774991597383, evidence_commit_hash: \"sha256:f85080b4ec0c2117f9d4d013e233af5905ad57e5923f053e0bef1edb3f89d5d4\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"determinism_commit\", satisfied: true, timestamp_ms: 1774991597383, evidence_commit_hash: \"sha256:7c0bb3f3b56a4563a3025fbd5b94b8d7b26fd9c5c6af48a5d2986e5ec5f4f8a4\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1774991597384, evidence_commit_hash: \"sha256:d986960295b0fdc542cdf420f992c1892add02535424c13871fff9ee49734f3e\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":39,\\\"finished_at_ms\\\":1774991597384,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774991597345,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108]), target: \"cloud_inference::intent_resolver::inference.execute_inference\", target_id: Some(CloudInference { provider: \"intent_resolver\", model: \"inference.execute_inference\" }), risk_surface: \"egress\", decision_hash: [239, 225, 82, 219, 214, 140, 42, 211, 167, 226, 108, 164, 58, 58, 78, 72, 214, 208, 116, 0, 183, 179, 75, 18, 162, 226, 220, 189, 55, 100, 170, 57], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [117, 146, 170, 184, 1, 35, 73, 51, 159, 252, 155, 223, 99, 176, 158, 80, 44, 235, 134, 142, 250, 180, 137, 190, 224, 167, 185, 164, 149, 146, 199, 44], assist_output_graph_hash: [117, 146, 170, 184, 1, 35, 73, 51, 159, 252, 155, 223, 99, 176, 158, 80, 44, 235, 134, 142, 250, 180, 137, 190, 224, 167, 185, 164, 149, 146, 199, 44] })",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108]), target: \"cloud_inference::intent_resolver::inference.execute_inference\", target_id: Some(CloudInference { provider: \"intent_resolver\", model: \"inference.execute_inference\" }), risk_surface: \"egress\", decision_hash: [51, 204, 124, 65, 25, 83, 253, 189, 185, 31, 240, 186, 39, 249, 136, 172, 254, 219, 122, 162, 184, 155, 124, 212, 176, 203, 49, 50, 206, 124, 83, 190], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [113, 239, 203, 52, 243, 186, 35, 245, 56, 49, 218, 246, 140, 130, 252, 167, 180, 221, 187, 70, 50, 55, 89, 234, 135, 254, 175, 188, 139, 144, 89, 90], assist_output_graph_hash: [113, 239, 203, 52, 243, 186, 35, 245, 56, 49, 218, 246, 140, 130, 252, 167, 180, 221, 187, 70, 50, 55, 89, 234, 135, 254, 175, 188, 139, 144, 89, 90] })",
+      "intent scope=WorkspaceOps band=High",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [49, 205, 1, 49, 249, 90, 93, 208, 110, 48, 148, 75, 51, 38, 8, 111, 181, 21, 130, 137, 59, 92, 130, 190, 71, 151, 187, 67, 205, 83, 217, 60], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [24, 74, 1, 92, 251, 221, 19, 146, 64, 30, 123, 234, 157, 86, 229, 132, 153, 97, 112, 138, 27, 94, 7, 91, 221, 6, 254, 178, 45, 4, 83, 33], assist_output_graph_hash: [24, 74, 1, 92, 251, 221, 19, 146, 64, 30, 123, 234, 157, 86, 229, 132, 153, 97, 112, 138, 27, 94, 7, 91, 221, 6, 254, 178, 45, 4, 83, 33] })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"discovery\", key: \"host_discovery\", satisfied: true, timestamp_ms: 1774991642087, evidence_commit_hash: \"sha256:b4e2d1264cb635a6536f6d8d983241600f1b183bf9fae77e1b3e9a73a9a11deb\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection\", satisfied: true, timestamp_ms: 1774991642087, evidence_commit_hash: \"sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection_commit\", satisfied: true, timestamp_ms: 1774991642087, evidence_commit_hash: \"sha256:3c4d82ce30987c3989bd58a60ab3482b70638fa72202fdbf4be2bb78a3b222ef\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1774991642090, evidence_commit_hash: \"sha256:237e3874382d9d44b63b47be96374f1f546245e7c74bf7b98359e6935963ebd3\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":2,\\\"finished_at_ms\\\":1774991642090,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1774991642088,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"FsRead\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1774991642095, evidence_commit_hash: \"sha256:7c835e8c18c477469cd7b73109bd19e7fdac678ff637c93b0168f95dc619c1d8\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":4,\\\"finished_at_ms\\\":1774991642095,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"FsRead\\\",\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991642091,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"policy_hash_binding\", satisfied: true, timestamp_ms: 1774991642095, evidence_commit_hash: \"sha256:046a050646c8edd1597f9c7afb48c5736a3fa0de5b46234a64aef95cfd034f96\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1774991642095, evidence_commit_hash: \"sha256:91aca29196b30f59a529bd2b7143cb8eaaa6841a16e272b325479f5f59e618d1\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=fs::read;runtime_target=filesystem;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"firewall_decision_receipt\", satisfied: true, timestamp_ms: 1774991642125, evidence_commit_hash: \"sha256:aa042d8303bedc210cd9481d4eab840cc6dd9225e01aa4a6d1f705b506f40709\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"determinism_commit\", satisfied: true, timestamp_ms: 1774991642125, evidence_commit_hash: \"sha256:441264251c7659eef26a5a581e9d174e0ef926caad3c3f4aafa434ecde8f2de6\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1774991642125, evidence_commit_hash: \"sha256:53a473155d720af3f6f2e864c73ec130325654b3545be45a01e2d871e7359b28\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":30,\\\"finished_at_ms\\\":1774991642125,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991642095,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_executor_dispatch\", satisfied: true, timestamp_ms: 1774991642126, evidence_commit_hash: \"sha256:440592e7a9c057bae4a03f1f937754c7baddf8cf646e2e27f8405301060493fc\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":0,\\\"finished_at_ms\\\":1774991642126,\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991642126,\\\"status\\\":\\\"completed\\\",\\\"tool_name\\\":null}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_finalize_executor_result\", satisfied: true, timestamp_ms: 1774991642126, evidence_commit_hash: \"sha256:6d73fb2beb6ed775d93951ba16cf836166ea35cc6978dd6b6cba63e8ea5a8e03\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":0,\\\"finished_at_ms\\\":1774991642126,\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991642126,\\\"status\\\":\\\"completed\\\",\\\"tool_name\\\":null}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_action_complete\", satisfied: true, timestamp_ms: 1774991642126, evidence_commit_hash: \"sha256:093299ca545b6a7c857964364f7c9aebbba54b5f789a69fc23d2bfd569daa0e1\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":38,\\\"finished_at_ms\\\":1774991642126,\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991642088,\\\"status\\\":\\\"completed\\\",\\\"tool_name\\\":null}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"execution\", satisfied: true, timestamp_ms: 1774991642126, evidence_commit_hash: \"sha256:67583da4d904c1690122bc19c8281610993e0f08b56262a7551656fc4bcdf1ef\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, intent_id: \"workspace.ops\", stage: \"verification\", key: \"verification\", satisfied: true, timestamp_ms: 1774991642126, evidence_commit_hash: \"sha256:1edff4419407da8dbbf4b0046244b15ad6978a53ac7de22b85ede4513742bae8\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=AgentStep(StepTrace { session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: DomHeadless]\\n{\\\"arguments\\\":{\\\"path\\\":\\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\\\"},\\\"name\\\":\\\"filesystem__list_directory\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"path\\\":\\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\\\"},\\\"name\\\":\\\"filesystem__list_directory\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774991642 })",
+      "action tool=filesystem__list_directory status=Running error_class=none output=[F] README.md [F] path_utils.py [D] tests",
+      "routing tool=filesystem__list_directory decision=allowed success=true checks=capability_execution_phase=discovery,host_home_dir=/tmp/.tmpGHVwLa/home,host_desktop_dir=/tmp/.tmpGHVwLa/home/Desktop,host_discovery_probe_source=process_env:HOME,host_discovery_timestamp_ms=1774991642087,host_discovery_satisfied=true,receipt::host_discovery=true,capability_route_selected=native_integration,receipt::provider_selection=true,receipt::provider_selection_commit=true,provider_selection_route=native_integration,provider_selection_commit=sha256:e881362235eb393d511feef5647b80d13afd34fb6a005834cf667898e7699dca,receipt::execution=true,receipt::verification=true,incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"execution\", satisfied: true, timestamp_ms: 1774991642128, evidence_commit_hash: \"sha256:67583da4d904c1690122bc19c8281610993e0f08b56262a7551656fc4bcdf1ef\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"verification\", key: \"verification\", satisfied: true, timestamp_ms: 1774991642128, evidence_commit_hash: \"sha256:1edff4419407da8dbbf4b0046244b15ad6978a53ac7de22b85ede4513742bae8\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: DomHeadless]\\n{\\\"arguments\\\":{\\\"budget\\\":60,\\\"expected_output\\\":\\\"List of files and their relevant lines that need to be modified.\\\",\\\"goal\\\":\\\"Determine the files to be modified according to the given task.\\\",\\\"template_id\\\":\\\"context_worker\\\",\\\"workflow_id\\\":\\\"repo_context_brief\\\"},\\\"name\\\":\\\"agent__delegate\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"budget\\\":60,\\\"expected_output\\\":\\\"List of files and their relevant lines that need to be modified.\\\",\\\"goal\\\":\\\"Determine the files to be modified according to the given task.\\\",\\\"template_id\\\":\\\"context_worker\\\",\\\"workflow_id\\\":\\\"repo_context_brief\\\"},\\\"name\\\":\\\"agent__delegate\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774991642 })",
+      "action tool=agent__await_result status=Running error_class=none output=Running",
+      "routing tool=agent__await_result decision=allowed success=true checks=parent_playbook_await_synthesized=true,parent_playbook_await_child=6bf44cd92664c0a8258c812007475c57ecebeeddaadbbea7fb33ae86b8bd216c,capability_route_selected=native_integration,receipt::provider_selection=true,receipt::provider_selection_commit=true,provider_selection_route=native_integration,provider_selection_commit=sha256:fa4fdc95dd6eec4d40050a0085d18d6a04c69bc911117a51fcdd3fc6e1ae5efd,receipt::execution=true,receipt::verification=true,incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [162, 35, 246, 14, 89, 162, 61, 143, 211, 13, 165, 58, 8, 101, 153, 19, 233, 24, 106, 208, 205, 78, 4, 30, 88, 3, 133, 112, 138, 118, 39, 150], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [11, 76, 217, 32, 46, 170, 180, 190, 59, 236, 99, 245, 157, 155, 42, 174, 111, 206, 150, 38, 188, 79, 163, 198, 236, 179, 154, 68, 54, 169, 85, 118], assist_output_graph_hash: [11, 76, 217, 32, 46, 170, 180, 190, 59, 236, 99, 245, 157, 155, 42, 174, 111, 206, 150, 38, 188, 79, 163, 198, 236, 179, 154, 68, 54, 169, 85, 118] })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection\", satisfied: true, timestamp_ms: 1774991659960, evidence_commit_hash: \"sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection_commit\", satisfied: true, timestamp_ms: 1774991659960, evidence_commit_hash: \"sha256:1da7c81216668a23313cb7487a6b2f034ee7acc5f98273bc32aa0f7bd387865e\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1774991659964, evidence_commit_hash: \"sha256:75e2e6f0fe4b381245ec3f8d4ba29ac74e9d77d53125f759832b54944181041c\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":3,\\\"finished_at_ms\\\":1774991659964,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1774991659961,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1774991659970, evidence_commit_hash: \"sha256:6dc4ef0d9399a5b5086b67bf1fb225da055c5c60a51bb56518826df978199d0b\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":5,\\\"finished_at_ms\\\":1774991659970,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774991659965,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"execution\", key: \"policy_hash_binding\", satisfied: true, timestamp_ms: 1774991659970, evidence_commit_hash: \"sha256:55e69420d651a7651f041a833fdbde445f3c04098fd95b039d3c1f7e354bd03a\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1774991659970, evidence_commit_hash: \"sha256:039c5a3806aba50d5adb0ae5971e701d33003bee88126696cb1bbae66a6e584d\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=agent__await_result;runtime_target=control_plane;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"execution\", key: \"firewall_decision_receipt\", satisfied: true, timestamp_ms: 1774991660010, evidence_commit_hash: \"sha256:fa3472061d4a2bfdf19e51acedeecad81dafb73730d7a6076b0933dd5e8b1a2d\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"execution\", key: \"determinism_commit\", satisfied: true, timestamp_ms: 1774991660011, evidence_commit_hash: \"sha256:1f5f93a30094030c060cb61eea55966b33d0d49a2c3371d2296f88c2eab3f8c3\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1774991660011, evidence_commit_hash: \"sha256:4cace408379fe5988d4aa16d82fd889ec724351f459c0ff586a793111d3a0904\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":40,\\\"finished_at_ms\\\":1774991660011,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774991659971,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [232, 79, 87, 198, 197, 238, 28, 72, 161, 164, 4, 166, 3, 251, 196, 163, 240, 108, 251, 234, 22, 223, 186, 26, 88, 172, 25, 184, 69, 4, 136, 67], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [137, 128, 100, 26, 58, 76, 97, 230, 106, 87, 214, 193, 138, 23, 50, 75, 124, 50, 32, 70, 173, 37, 85, 125, 75, 88, 87, 17, 58, 22, 204, 136], assist_output_graph_hash: [137, 128, 100, 26, 58, 76, 97, 230, 106, 87, 214, 193, 138, 23, 50, 75, 124, 50, 32, 70, 173, 37, 85, 125, 75, 88, 87, 17, 58, 22, 204, 136] })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection\", satisfied: true, timestamp_ms: 1774991668390, evidence_commit_hash: \"sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection_commit\", satisfied: true, timestamp_ms: 1774991668390, evidence_commit_hash: \"sha256:3c4d82ce30987c3989bd58a60ab3482b70638fa72202fdbf4be2bb78a3b222ef\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"completion_gate\", key: \"contract_gate\", satisfied: true, timestamp_ms: 1774991668391, evidence_commit_hash: \"sha256:8356a3922cbc99e0b6b1ae67643582ff1e5dc8e6ac3f719e9cd3f57b3585bbe1\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=AgentStep(StepTrace { session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: DomHeadless]\\n{\\\"arguments\\\":{\\\"path\\\":\\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\\\"},\\\"name\\\":\\\"filesystem__list_directory\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"path\\\":\\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\\\"},\\\"name\\\":\\\"filesystem__list_directory\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774991668 })",
+      "action tool=filesystem__list_directory status=Completed error_class=none output=Completed. Final response emitted via chat__reply.",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"completion_gate\", key: \"contract_gate\", satisfied: true, timestamp_ms: 1774991668391, evidence_commit_hash: \"sha256:3144540b868916661e5e4778742fa28662cdafc30176b1b104823f547518d656\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"postcondition\", key: \"terminal_chat_reply_binding\", satisfied: true, timestamp_ms: 1774991668392, evidence_commit_hash: \"sha256:918b2e686ca07755f9fc4a549e155d64b5ecbd07ef97960c3d8093b7a53c89a6\", verifier_command_commit_hash: None, probe_source: Some(\"action.chat_reply_binding.v1\"), observed_value: Some(\"sha256:a358f297e4a28159ee65e7c31dae6d83d6e8d571e425225005983784f5c44e6e\"), evidence_type: Some(\"sha256\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"postcondition\", key: \"terminal_chat_reply_layout_profile\", satisfied: true, timestamp_ms: 1774991668392, evidence_commit_hash: \"sha256:0592eccf9d00e313d5ffcf46c1e3ed99d47e3d00b9587d971a7cb0c0780a8d72\", verifier_command_commit_hash: None, probe_source: Some(\"action.chat_reply_shape.v1\"), observed_value: Some(\"other\"), evidence_type: Some(\"label\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"postcondition\", key: \"terminal_chat_reply_story_headers_absent\", satisfied: true, timestamp_ms: 1774991668392, evidence_commit_hash: \"sha256:350177d9282f2d30672f79edc47afd0bfba3ba7437a5e5109b3b4c11908df61d\", verifier_command_commit_hash: None, probe_source: Some(\"action.chat_reply_shape.v1\"), observed_value: Some(\"0\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"postcondition\", key: \"terminal_chat_reply_comparison_absent\", satisfied: true, timestamp_ms: 1774991668392, evidence_commit_hash: \"sha256:cfb753e26fe097a8216352e5a1e70e307522f1b00f091d7faa16bf2ecce3bc74\", verifier_command_commit_hash: None, probe_source: Some(\"action.chat_reply_shape.v1\"), observed_value: Some(\"0\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"postcondition\", key: \"terminal_chat_reply_temporal_anchor_floor\", satisfied: false, timestamp_ms: 1774991668392, evidence_commit_hash: \"sha256:c8558bfdec4ce64ea3d4e22188843785c52f970fa9d57da26d1d0c0768484836\", verifier_command_commit_hash: None, probe_source: Some(\"action.chat_reply_shape.v1\"), observed_value: Some(\"run_date_present=false;run_timestamp_present=false\"), evidence_type: Some(\"summary\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [107, 244, 76, 217, 38, 100, 192, 168, 37, 140, 129, 32, 7, 71, 92, 87, 236, 235, 238, 221, 170, 219, 190, 167, 251, 51, 174, 134, 184, 189, 33, 108], step_index: 1, intent_id: \"workspace.ops\", stage: \"postcondition\", key: \"terminal_chat_reply_postamble_floor\", satisfied: false, timestamp_ms: 1774991668392, evidence_commit_hash: \"sha256:4c808b1f60ed565041e148b6e1d06c96a89254b5e4061daf1779abbe10aab34a\", verifier_command_commit_hash: None, probe_source: Some(\"action.chat_reply_shape.v1\"), observed_value: Some(\"run_date_present=false;run_timestamp_present=false;overall_confidence_present=false\"), evidence_type: Some(\"summary\"), provider_id: None, synthesized_payload_hash: None })",
+      "action tool=chat__reply status=Completed error_class=none output=- likely_files: path_utils.py; tests/test_path_utils.py - selected_skills: reuse parent-selected coding prep cues; no extra child-local skills were added during fallback. - targeted_checks: python3 -m unittest tests.test_path_utils -v - open_questions: Widen only if the focused verification command fails or produces contradictory evidence.",
+      "routing tool=filesystem__list_directory decision=allowed success=true checks=capability_route_selected=native_integration,receipt::provider_selection=true,receipt::provider_selection_commit=true,provider_selection_route=native_integration,provider_selection_commit=sha256:e881362235eb393d511feef5647b80d13afd34fb6a005834cf667898e7699dca,duplicate_repo_context_worker_terminalized=true,duplicate_action_fingerprint_terminalized=true,terminal_chat_reply_ready=true,duplicate_action_fingerprint_non_command_noop=true,duplicate_action_fingerprint_prior_success_noop=true,duplicate_action_fingerprint_non_command_skipped=true,duplicate_action_fingerprint_non_command_step_advanced=true,duplicate_action_fingerprint=86e09b0732179d2e5c2adc31eca3bcdaf852e087106f4cc4c81741478836924d,duplicate_action_fingerprint_non_terminal=false,incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true,terminal_tool_output_suppressed_for_chat_reply=true,response_composer_applied=false,response_composer_template=passthrough,response_composer_validator_passed=true,terminal_chat_reply_emitted=true,cec_completion_gate_emitted=true,cec_postcondition_terminal_chat_reply_binding=true,terminal_chat_reply_sha256=sha256:a358f297e4a28159ee65e7c31dae6d83d6e8d571e425225005983784f5c44e6e,terminal_chat_reply_layout_profile=other,terminal_chat_reply_story_header_count=0,terminal_chat_reply_comparison_label_count=0,terminal_chat_reply_run_date_present=false,terminal_chat_reply_run_timestamp_present=false,terminal_chat_reply_overall_confidence_present=false",
+      "workload other",
+      "workload other",
+      "workload other",
+      "workload other",
+      "event(other) payload=AgentSpawn { parent_session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], new_session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], name: \"Coding-Worker-ba4d\", role: \"Coding Worker\", budget: 96, goal: \"Implement Port the path-normalization parity fix into the repo at \\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\\\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normalize_fixture_path` so it converts backslashes to forward slashes, collapses duplicate separators, and preserves a leading `./` or `/`. Run the focused verification command `python3 -m unittest tests.test_path_utils -v` first, widen only if needed, verify the final postcondition, and report the touched files plus command results. as a narrow workspace patch informed by the repo context brief, run focused executor-side checks, and return touched files, command results, and residual risk as a narrow workspace patch, run focused verification commands, and return a concise handoff with touched files, command results, and remaining risks.\\n\\n[PARENT PLAYBOOK CONTEXT]\\n- Capture repo context (context): Worker evidence\\nRole: Context Worker\\nGoal: Inspect repo context for Port the path-normalization parity fix into the repo at \\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\\\". Work inside that repo root, p... | prep=Port the path-normalization parity fix into the repo at \\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\\\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normal...\" }",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"execution\", key: \"execution\", satisfied: true, timestamp_ms: 1774991668439, evidence_commit_hash: \"sha256:67583da4d904c1690122bc19c8281610993e0f08b56262a7551656fc4bcdf1ef\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, intent_id: \"workspace.ops\", stage: \"verification\", key: \"verification\", satisfied: true, timestamp_ms: 1774991668439, evidence_commit_hash: \"sha256:1edff4419407da8dbbf4b0046244b15ad6978a53ac7de22b85ede4513742bae8\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 2, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: DomHeadless]\\n{\\\"arguments\\\":{\\\"budget\\\":100,\\\"goal\\\":\\\"Briefly understand the project context, files involved, and the specific task requirements.\\\",\\\"playbook_id\\\":\\\"patch_build_verify\\\",\\\"success_criteria\\\":\\\"Identify the relevant files and understand the task requirements for modifying file paths in a Rust project.\\\",\\\"template_id\\\":\\\"context_worker\\\"},\\\"name\\\":\\\"agent__delegate\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"budget\\\":100,\\\"goal\\\":\\\"Briefly understand the project context, files involved, and the specific task requirements.\\\",\\\"playbook_id\\\":\\\"patch_build_verify\\\",\\\"success_criteria\\\":\\\"Identify the relevant files and understand the task requirements for modifying file paths in a Rust project.\\\",\\\"template_id\\\":\\\"context_worker\\\"},\\\"name\\\":\\\"agent__delegate\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774991668 })",
+      "action tool=agent__await_result status=Running error_class=none output=Worker evidence Role: Context Worker Goal: Inspect repo context for Port the path-normalization parity fix into the repo at \"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normalize_fixture_path` so it converts backslashes to forward slashes, collapses duplicate separators, and preserves a leading `./` or `/`. Run the focused verification command `python3 -m unittest tests.test_path_utils -v` first, widen only if needed, verify the final postcondition, and report the touched files plus command results, identify the most relevant files and skills, then return a bounded context brief with targeted validation suggestions and open questions. Parent playbook: evidence_audited_patch Playbook: Repo Context Brief (repo_context_brief) Success criteria: Return a deterministic repo context brief with likely files, selected skills, targeted verification ideas, and explicit unknowns. - likely_files: path_utils.py; tests/test_path_utils.py - selected_skills: reuse parent-selected coding prep cues; no extra child-local skills were added during fallback. - targeted_checks: python3 -m unittest tests.test_path_utils -v - open_questions: Widen only if the focused verification command fails or produces contradictory evidence. Verification hint: Parent checks that the brief identifies concrete repo surfaces and targeted checks without attempting the patch itself. Parent playbook 'Evidence-Audited Patch' advanced to 'Patch the workspace' (child ba4d193caf7436653f2d19c975acadb433b6ca6e715da3503025d72dacd71b78).",
+      "routing tool=agent__await_result decision=allowed success=true checks=parent_playbook_await_synthesized=true,parent_playbook_await_child=6bf44cd92664c0a8258c812007475c57ecebeeddaadbbea7fb33ae86b8bd216c,capability_route_selected=native_integration,receipt::provider_selection=true,receipt::provider_selection_commit=true,provider_selection_route=native_integration,provider_selection_commit=sha256:fa4fdc95dd6eec4d40050a0085d18d6a04c69bc911117a51fcdd3fc6e1ae5efd,receipt::execution=true,receipt::verification=true,incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [171, 90, 166, 241, 253, 67, 210, 15, 195, 229, 126, 178, 84, 248, 86, 161, 214, 154, 155, 58, 147, 4, 240, 112, 16, 230, 240, 108, 215, 191, 44, 77], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [190, 117, 10, 120, 3, 233, 142, 147, 154, 142, 230, 108, 163, 235, 226, 68, 139, 165, 43, 39, 158, 188, 153, 79, 27, 252, 161, 31, 27, 63, 140, 167], assist_output_graph_hash: [190, 117, 10, 120, 3, 233, 142, 147, 154, 142, 230, 108, 163, 235, 226, 68, 139, 165, 43, 39, 158, 188, 153, 79, 27, 252, 161, 31, 27, 63, 140, 167] })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection\", satisfied: true, timestamp_ms: 1774991685986, evidence_commit_hash: \"sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection_commit\", satisfied: true, timestamp_ms: 1774991685986, evidence_commit_hash: \"sha256:1da7c81216668a23313cb7487a6b2f034ee7acc5f98273bc32aa0f7bd387865e\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1774991685990, evidence_commit_hash: \"sha256:472193ba6b068f16390e0fbbf7242f712e00775d1470af9895ff06760dd925f4\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":3,\\\"finished_at_ms\\\":1774991685990,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1774991685987,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1774991686000, evidence_commit_hash: \"sha256:009054eb17f21019d8392ed3d10008360c883f9ba2d7705aacc3fcf3502fc45d\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":9,\\\"finished_at_ms\\\":1774991686000,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774991685991,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"execution\", key: \"policy_hash_binding\", satisfied: true, timestamp_ms: 1774991686000, evidence_commit_hash: \"sha256:31ff9b7bf06dfae8df336943b2b776460c18fc7d269c376c689e7679226f7090\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1774991686000, evidence_commit_hash: \"sha256:67999500cd4c1147bc8f7107ec36d60f3cbebb33bf2474571e17b3fdca7f9ff7\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=agent__await_result;runtime_target=control_plane;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"execution\", key: \"firewall_decision_receipt\", satisfied: true, timestamp_ms: 1774991686051, evidence_commit_hash: \"sha256:05c41b3dd73932f989ae573841c0f75d006a00fefb8208d1a4fc8dd4857cf63a\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"execution\", key: \"determinism_commit\", satisfied: true, timestamp_ms: 1774991686053, evidence_commit_hash: \"sha256:950692185d8522bd4a6fa46495733b60861e6b01f7a6f94ce7bb32983427b33c\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1774991686053, evidence_commit_hash: \"sha256:93c2792a4da0ef23b39eb9f89a56a38115f874013ace6b566b638eeba9914dfd\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":52,\\\"finished_at_ms\\\":1774991686053,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774991686001,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120]), target: \"cloud_inference::intent_resolver::inference.execute_inference\", target_id: Some(CloudInference { provider: \"intent_resolver\", model: \"inference.execute_inference\" }), risk_surface: \"egress\", decision_hash: [204, 49, 53, 54, 14, 33, 228, 229, 32, 111, 85, 191, 80, 101, 23, 235, 214, 157, 44, 222, 193, 233, 136, 133, 77, 147, 201, 26, 228, 141, 171, 180], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [169, 251, 155, 228, 14, 10, 53, 127, 129, 231, 94, 134, 86, 86, 46, 23, 112, 125, 110, 74, 120, 47, 179, 141, 36, 57, 97, 219, 149, 185, 188, 90], assist_output_graph_hash: [169, 251, 155, 228, 14, 10, 53, 127, 129, 231, 94, 134, 86, 86, 46, 23, 112, 125, 110, 74, 120, 47, 179, 141, 36, 57, 97, 219, 149, 185, 188, 90] })",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120]), target: \"cloud_inference::intent_resolver::inference.execute_inference\", target_id: Some(CloudInference { provider: \"intent_resolver\", model: \"inference.execute_inference\" }), risk_surface: \"egress\", decision_hash: [95, 96, 43, 4, 148, 220, 91, 240, 127, 203, 59, 229, 168, 139, 43, 165, 161, 142, 187, 153, 208, 59, 65, 45, 49, 87, 103, 66, 54, 150, 158, 101], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [149, 245, 245, 39, 126, 16, 69, 21, 8, 127, 210, 124, 65, 35, 117, 117, 61, 112, 70, 8, 77, 6, 121, 29, 101, 77, 37, 190, 158, 16, 145, 29], assist_output_graph_hash: [149, 245, 245, 39, 126, 16, 69, 21, 8, 127, 210, 124, 65, 35, 117, 117, 61, 112, 70, 8, 77, 6, 121, 29, 101, 77, 37, 190, 158, 16, 145, 29] })",
+      "intent scope=WorkspaceOps band=High",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [152, 93, 70, 233, 132, 6, 237, 244, 156, 96, 59, 98, 29, 227, 175, 89, 126, 26, 140, 98, 8, 154, 107, 111, 150, 169, 175, 6, 33, 217, 116, 193], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [38, 3, 8, 253, 120, 131, 232, 163, 222, 160, 141, 195, 61, 73, 63, 201, 118, 52, 94, 129, 153, 114, 129, 170, 19, 76, 236, 28, 125, 138, 170, 15], assist_output_graph_hash: [38, 3, 8, 253, 120, 131, 232, 163, 222, 160, 141, 195, 61, 73, 63, 201, 118, 52, 94, 129, 153, 114, 129, 170, 19, 76, 236, 28, 125, 138, 170, 15] })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"discovery\", key: \"host_discovery\", satisfied: true, timestamp_ms: 1774991726014, evidence_commit_hash: \"sha256:3e4c983479465ba66fa8a1936e53dedec76db26ab7ada3ea8b7d5e8cbcf347ac\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection\", satisfied: true, timestamp_ms: 1774991726014, evidence_commit_hash: \"sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"provider_selection\", key: \"provider_selection_commit\", satisfied: true, timestamp_ms: 1774991726014, evidence_commit_hash: \"sha256:9697bcf08d1b33a671d2cff73a0771c8ad43f080ceb1583835375f55555129ab\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: Some(\"native_integration\"), synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1774991726018, evidence_commit_hash: \"sha256:69b1c085a4b58af61ad5c30ce3d30665e04db8a5c1f75817caa318518ee4cbb1\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":4,\\\"finished_at_ms\\\":1774991726018,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1774991726014,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"FsRead\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1774991726023, evidence_commit_hash: \"sha256:1a7b249897aa77a7a2c8bcbab16688e6cea42dc115899b08b6aa003b7ed1ca08\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":4,\\\"finished_at_ms\\\":1774991726023,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"FsRead\\\",\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991726019,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"policy_hash_binding\", satisfied: true, timestamp_ms: 1774991726023, evidence_commit_hash: \"sha256:8175dc0ef7bbfcf8107f86cc315743ec15c74ddefab14b0658932e1cc66037c9\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1774991726023, evidence_commit_hash: \"sha256:c0cefd5ccac133aa58c046171919b3c3387a862364dd7ce9cc5931037710b321\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=fs::read;runtime_target=filesystem;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"firewall_decision_receipt\", satisfied: true, timestamp_ms: 1774991726056, evidence_commit_hash: \"sha256:2a04fca1906cb021f63e2f24c3360546c31219c62ce4779271d25aa2231550b1\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"determinism_commit\", satisfied: true, timestamp_ms: 1774991726057, evidence_commit_hash: \"sha256:b0a5eb9a9b448f2eeab26c1e82cfc4347ce9e6e784020b3f921f73adbd7ee605\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1774991726057, evidence_commit_hash: \"sha256:6c3b70aa9a75c4b94c3c501616f8f9bd11da7f04d095e5f0e235daf5f02f4985\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":34,\\\"finished_at_ms\\\":1774991726057,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991726023,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_executor_dispatch\", satisfied: true, timestamp_ms: 1774991726058, evidence_commit_hash: \"sha256:e7241a132ecb586455abe10b2916b0a2c34230422ac32e3ba18f53d01233b5f1\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":0,\\\"finished_at_ms\\\":1774991726058,\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991726058,\\\"status\\\":\\\"completed\\\",\\\"tool_name\\\":null}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_finalize_executor_result\", satisfied: true, timestamp_ms: 1774991726058, evidence_commit_hash: \"sha256:f1178db32543bb65856990f403f56d4cc61d285e6f2be4443262916998e8a226\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":0,\\\"finished_at_ms\\\":1774991726058,\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991726058,\\\"status\\\":\\\"completed\\\",\\\"tool_name\\\":null}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_action_complete\", satisfied: true, timestamp_ms: 1774991726058, evidence_commit_hash: \"sha256:a60068ed9e3f166158b66921b5057db51c546aa1a509fadb1b8e8ebcf2c0f0a0\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":43,\\\"finished_at_ms\\\":1774991726058,\\\"runtime_target\\\":\\\"filesystem\\\",\\\"started_at_ms\\\":1774991726015,\\\"status\\\":\\\"completed\\\",\\\"tool_name\\\":null}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"execution\", satisfied: true, timestamp_ms: 1774991726058, evidence_commit_hash: \"sha256:67583da4d904c1690122bc19c8281610993e0f08b56262a7551656fc4bcdf1ef\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, intent_id: \"workspace.ops\", stage: \"verification\", key: \"verification\", satisfied: true, timestamp_ms: 1774991726058, evidence_commit_hash: \"sha256:1edff4419407da8dbbf4b0046244b15ad6978a53ac7de22b85ede4513742bae8\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=AgentStep(StepTrace { session_id: [186, 77, 25, 60, 175, 116, 54, 101, 63, 45, 25, 201, 117, 172, 173, 180, 51, 182, 202, 110, 113, 93, 163, 80, 48, 37, 215, 45, 172, 215, 27, 120], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: DomHeadless]\\n{\\\"arguments\\\":{\\\"path\\\":\\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture/path_utils.py\\\"},\\\"name\\\":\\\"filesystem__read_file\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"path\\\":\\\"/tmp/.tmpGHVwLa/ioi_coding_path_normalizer_1774991561390001/path-normalizer-fixture/path_utils.py\\\"},\\\"name\\\":\\\"filesystem__read_file\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774991726 })",
+      "action tool=filesystem__read_file status=Running error_class=none output=def normalize_fixture_path(raw_path: str) -> str: \"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\" return raw_path.strip().replace(\"\\\\\", \"/\")",
+      "routing tool=filesystem__read_file decision=allowed success=true checks=capability_execution_phase=discovery,host_home_dir=/tmp/.tmpGHVwLa/home,host_desktop_dir=/tmp/.tmpGHVwLa/home/Desktop,host_discovery_probe_source=process_env:HOME,host_discovery_timestamp_ms=1774991726014,host_discovery_satisfied=true,receipt::host_discovery=true,capability_route_selected=native_integration,receipt::provider_selection=true,receipt::provider_selection_commit=true,provider_selection_route=native_integration,provider_selection_commit=sha256:4e4d35cd199950ea5ad5124e04d477fb64d67ed1fc4bf81053b3740b6ecf94c0,receipt::execution=true,receipt::verification=true,incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"execution\", key: \"execution\", satisfied: true, timestamp_ms: 1774991726061, evidence_commit_hash: \"sha256:67583da4d904c1690122bc19c8281610993e0f08b56262a7551656fc4bcdf1ef\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.5\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, intent_id: \"workspace.ops\", stage: \"verification\", key: \"verification\", satisfied: true, timestamp_ms: 1774991726061, evidence_commit_hash: \"sha256:1edff4419407da8dbbf4b0046244b15ad6978a53ac7de22b85ede4513742bae8\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 3, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: DomHeadless]\\n{\\\"arguments\\\":{\\\"budget\\\":600,\\\"goal\\\":\\\"Briefly understand the project context, files involved, and the specific task requirements.\\\",\\\"playbook_id\\\":\\\"evidence_audited_patch\\\",\\\"success_criteria\\\":\\\"Identify relevant files and tasks for modifying the code.\\\",\\\"template_id\\\":\\\"context_worker\\\"},\\\"name\\\":\\\"agent__delegate\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"budget\\\":600,\\\"goal\\\":\\\"Briefly understand the project context, files involved, and the specific task requirements.\\\",\\\"playbook_id\\\":\\\"evidence_audited_patch\\\",\\\"success_criteria\\\":\\\"Identify relevant files and tasks for modifying the code.\\\",\\\"template_id\\\":\\\"context_worker\\\"},\\\"name\\\":\\\"agent__delegate\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774991726 })",
+      "action tool=agent__await_result status=Running error_class=none output=Running",
+      "routing tool=agent__await_result decision=allowed success=true checks=parent_playbook_await_synthesized=true,parent_playbook_await_child=ba4d193caf7436653f2d19c975acadb433b6ca6e715da3503025d72dacd71b78,capability_route_selected=native_integration,receipt::provider_selection=true,receipt::provider_selection_commit=true,provider_selection_route=native_integration,provider_selection_commit=sha256:fa4fdc95dd6eec4d40050a0085d18d6a04c69bc911117a51fcdd3fc6e1ae5efd,receipt::execution=true,receipt::verification=true,incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true"
+    ]
+  },
+  "suiteSummary": null,
+  "playbook": {
+    "tool_name": "agent__delegate",
+    "phase": "step_spawned",
+    "playbook_id": "evidence_audited_patch",
+    "playbook_label": "Evidence-Audited Patch",
+    "status": "running",
+    "success": true,
+    "route_family": "coding",
+    "topology": "planner_specialist_verifier",
+    "verifier_state": "queued",
+    "step_id": "implement",
+    "step_label": "Patch the workspace",
+    "template_id": "coder",
+    "workflow_id": "patch_build_verify",
+    "selected_skills": [],
+    "prep_summary": null,
+    "research_scorecard": null,
+    "coding_scorecard": null,
+    "patch_synthesis": null,
+    "summary": "Spawned 'Patch the workspace' step for playbook 'Evidence-Audited Patch' with child ba4d193caf7436653f2d19c975acadb433b6ca6e715da3503025d72dacd71b78.",
+    "error_class": null
+  }
+}

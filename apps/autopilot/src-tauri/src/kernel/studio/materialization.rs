@@ -1,5 +1,10 @@
 use super::*;
-use ioi_api::studio::pdf_artifact_bytes;
+use ioi_api::studio::{
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator,
+    pdf_artifact_bytes, resolve_studio_artifact_runtime_plan, StudioArtifactBlueprint,
+    StudioArtifactIR, StudioArtifactRuntimePolicyProfile, StudioArtifactSelectedSkill,
+};
+use ioi_drivers::studio_render::BrowserStudioArtifactRenderEvaluator;
 use std::time::Duration;
 
 fn studio_proof_trace(message: impl AsRef<str>) {
@@ -53,6 +58,7 @@ pub(super) fn materialize_non_workspace_artifact(
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
 ) -> Result<MaterializedContentArtifact, String> {
+    let runtime_profile = configured_studio_runtime_profile();
     let (memory_runtime, inference_runtime, acceptance_inference_runtime) = {
         let app_state = app.state::<Mutex<AppState>>();
         let state = app_state
@@ -66,6 +72,23 @@ pub(super) fn materialize_non_workspace_artifact(
             state.acceptance_inference_runtime.clone(),
         )
     };
+    let planning_context = inference_runtime.as_ref().and_then(|runtime| {
+        let runtime_plan = resolve_studio_artifact_runtime_plan(
+            request,
+            runtime.clone(),
+            acceptance_inference_runtime.clone(),
+            runtime_profile,
+        );
+        super::skills::prepare_studio_artifact_planning_context(
+            app,
+            &memory_runtime,
+            runtime_plan.planning_runtime,
+            title,
+            intent,
+            request,
+            refinement,
+        )
+    });
 
     materialize_non_workspace_artifact_with_dependencies(
         &memory_runtime,
@@ -76,6 +99,7 @@ pub(super) fn materialize_non_workspace_artifact(
         intent,
         request,
         refinement,
+        planning_context,
     )
 }
 
@@ -88,6 +112,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
+    planning_context: Option<StudioArtifactPlanningContext>,
 ) -> Result<MaterializedContentArtifact, String> {
     let generation_timeout = inference_runtime
         .as_ref()
@@ -103,6 +128,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies(
         request,
         refinement,
         generation_timeout,
+        planning_context,
     )
 }
 
@@ -128,6 +154,21 @@ pub(super) fn studio_generation_timeout_for_runtime(
     Duration::from_secs(seconds)
 }
 
+fn configured_studio_runtime_profile() -> StudioArtifactRuntimePolicyProfile {
+    [
+        "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
+        "IOI_STUDIO_MODEL_ROUTING_PROFILE",
+    ]
+    .iter()
+    .find_map(|key| {
+        std::env::var(key)
+            .ok()
+            .as_deref()
+            .and_then(StudioArtifactRuntimePolicyProfile::parse)
+    })
+    .unwrap_or(StudioArtifactRuntimePolicyProfile::Auto)
+}
+
 fn format_generation_timeout(timeout: Duration) -> String {
     if timeout.as_secs() > 0 {
         format!("{}s", timeout.as_secs())
@@ -146,92 +187,107 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
     generation_timeout: Duration,
+    planning_context: Option<StudioArtifactPlanningContext>,
 ) -> Result<MaterializedContentArtifact, String> {
     studio_proof_trace(format!(
         "materialize_non_workspace:start renderer={} title={}",
         renderer_kind_id(request.renderer),
         title
     ));
-    let bundle = match (inference_runtime, acceptance_inference_runtime) {
-        (Some(runtime), Some(acceptance_runtime)) => match tauri::async_runtime::block_on(async {
-            tokio::time::timeout(
-                generation_timeout,
-                generate_studio_artifact_bundle_with_runtimes(
-                    runtime.clone(),
-                    acceptance_runtime.clone(),
-                    title,
-                    intent,
-                    request,
-                    refinement,
-                ),
-            )
-            .await
-        }) {
-            Ok(Ok(bundle)) => {
-                studio_proof_trace(format!(
-                    "materialize_non_workspace:bundle_ready winner={} lifecycle={:?} fallback_used={}",
-                    bundle.winning_candidate_id,
-                    bundle.ux_lifecycle,
-                    bundle.fallback_used
-                ));
-                bundle
-            }
-            Ok(Err(error)) => {
-                studio_proof_trace(format!(
-                    "materialize_non_workspace:bundle_blocked {}",
-                    error.message
-                ));
-                return Ok(blocked_materialized_artifact_from_error(
-                    title,
-                    intent,
-                    request,
-                    refinement,
-                    &error.message,
-                    error.brief,
-                    error.edit_intent,
-                    error.candidate_summaries,
-                    Some(runtime.studio_runtime_provenance()),
-                    Some(acceptance_runtime.studio_runtime_provenance()),
-                ))
-            }
-            Err(_) => {
-                let message = format!(
-                    "Studio artifact generation timed out after {} while drafting artifact candidates.",
-                    format_generation_timeout(generation_timeout)
-                );
-                studio_proof_trace(format!(
-                    "materialize_non_workspace:bundle_timeout {}",
-                    message
-                ));
-                return Ok(blocked_materialized_artifact_from_error(
-                    title,
-                    intent,
-                    request,
-                    refinement,
-                    &message,
-                    None,
-                    None,
-                    Vec::new(),
-                    Some(runtime.studio_runtime_provenance()),
-                    Some(acceptance_runtime.studio_runtime_provenance()),
-                ));
-            }
-        },
-        (Some(runtime), None) => {
-            return Ok(blocked_materialized_artifact_from_error(
-                title,
-                intent,
+    let runtime_profile = configured_studio_runtime_profile();
+    let bundle = match inference_runtime {
+        Some(runtime) => {
+            let runtime_plan = resolve_studio_artifact_runtime_plan(
                 request,
-                refinement,
-                "Acceptance runtime is unavailable for Studio artifact materialization.",
-                None,
-                None,
-                Vec::new(),
-                Some(runtime.studio_runtime_provenance()),
-                None,
-            ))
+                runtime,
+                acceptance_inference_runtime.clone(),
+                runtime_profile,
+            );
+            let render_evaluator = BrowserStudioArtifactRenderEvaluator::default();
+            let production_provenance = runtime_plan.generation_runtime.studio_runtime_provenance();
+            let acceptance_provenance =
+                runtime_plan.acceptance_runtime.studio_runtime_provenance();
+            match tauri::async_runtime::block_on(async {
+                tokio::time::timeout(
+                    generation_timeout,
+                    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator(
+                        runtime_plan,
+                        title,
+                        intent,
+                        request,
+                        refinement,
+                        planning_context.as_ref(),
+                        Some(&render_evaluator),
+                    ),
+                )
+                .await
+            }) {
+                Ok(Ok(bundle)) => {
+                    studio_proof_trace(format!(
+                        "materialize_non_workspace:bundle_ready winner={} lifecycle={:?} fallback_used={}",
+                        bundle.winning_candidate_id,
+                        bundle.ux_lifecycle,
+                        bundle.fallback_used
+                    ));
+                    bundle
+                }
+                Ok(Err(error)) => {
+                    studio_proof_trace(format!(
+                        "materialize_non_workspace:bundle_blocked {}",
+                        error.message
+                    ));
+                    return Ok(blocked_materialized_artifact_from_error(
+                        title,
+                        intent,
+                        request,
+                        refinement,
+                        &error.message,
+                        error.brief,
+                        error.blueprint,
+                        error.artifact_ir,
+                        error.selected_skills,
+                        error.edit_intent,
+                        error.candidate_summaries,
+                        Some(production_provenance),
+                        Some(acceptance_provenance),
+                    ));
+                }
+                Err(_) => {
+                    let message = format!(
+                        "Studio artifact generation timed out after {} while drafting artifact candidates.",
+                        format_generation_timeout(generation_timeout)
+                    );
+                    studio_proof_trace(format!(
+                        "materialize_non_workspace:bundle_timeout {}",
+                        message
+                    ));
+                    return Ok(blocked_materialized_artifact_from_error(
+                        title,
+                        intent,
+                        request,
+                        refinement,
+                        &message,
+                        None,
+                        planning_context.as_ref().and_then(|context| context.blueprint.clone()),
+                        planning_context
+                            .as_ref()
+                            .and_then(|context| context.artifact_ir.clone()),
+                        planning_context
+                            .as_ref()
+                            .map(|context| context.selected_skills.clone())
+                            .unwrap_or_default(),
+                        None,
+                        Vec::new(),
+                        Some(production_provenance),
+                        Some(acceptance_provenance),
+                    ));
+                }
+            }
         }
-        (None, Some(acceptance_runtime)) => {
+        None if acceptance_inference_runtime.is_some() => {
+            let acceptance_provenance = acceptance_inference_runtime
+                .as_ref()
+                .map(|runtime| runtime.studio_runtime_provenance());
             return Ok(blocked_materialized_artifact_from_error(
                 title,
                 intent,
@@ -239,13 +295,21 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
                 refinement,
                 "Inference runtime is unavailable for Studio artifact materialization.",
                 None,
+                planning_context.as_ref().and_then(|context| context.blueprint.clone()),
+                planning_context
+                    .as_ref()
+                    .and_then(|context| context.artifact_ir.clone()),
+                planning_context
+                    .as_ref()
+                    .map(|context| context.selected_skills.clone())
+                    .unwrap_or_default(),
                 None,
                 Vec::new(),
                 None,
-                Some(acceptance_runtime.studio_runtime_provenance()),
-            ))
+                acceptance_provenance,
+            ));
         }
-        (None, None) => {
+        None => {
             return Ok(blocked_materialized_artifact_from_error(
                 title,
                 intent,
@@ -253,6 +317,14 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
                 refinement,
                 "Inference and acceptance runtimes are unavailable for Studio artifact materialization.",
                 None,
+                planning_context.as_ref().and_then(|context| context.blueprint.clone()),
+                planning_context
+                    .as_ref()
+                    .and_then(|context| context.artifact_ir.clone()),
+                planning_context
+                    .as_ref()
+                    .map(|context| context.selected_skills.clone())
+                    .unwrap_or_default(),
                 None,
                 Vec::new(),
                 None,
@@ -264,8 +336,17 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
     let derived_taste_memory = derive_studio_taste_memory(
         refinement.and_then(|context| context.taste_memory.as_ref()),
         &bundle.brief,
+        bundle.blueprint.as_ref(),
+        bundle.artifact_ir.as_ref(),
         bundle_edit_intent.as_ref(),
+        Some(&bundle.judge),
     );
+    let retrieved_exemplars = planning_context
+        .as_ref()
+        .map(|context| context.retrieved_exemplars.clone())
+        .filter(|exemplars| !exemplars.is_empty())
+        .or_else(|| refinement.map(|context| context.retrieved_exemplars.clone()))
+        .unwrap_or_default();
     let selected_targets = bundle_edit_intent
         .as_ref()
         .map(|edit_intent| edit_intent.selected_targets.clone())
@@ -335,6 +416,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
     let quality_assessment = finalize_presentation_assessment(
         assess_materialized_artifact_presentation(request, &quality_files),
         &bundle.judge,
+        bundle.render_evaluation.as_ref(),
         fallback_used,
         bundle.ux_lifecycle == StudioArtifactUxLifecycle::Draft,
     );
@@ -345,6 +427,18 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
 
     let mut notes = generated.notes.clone();
     notes.extend(quality_assessment.findings.iter().cloned());
+    if !bundle.selected_skills.is_empty() {
+        notes.push(format!(
+            "Applied {} registry-backed skill guide(s) during artifact planning.",
+            bundle.selected_skills.len()
+        ));
+    }
+    if !retrieved_exemplars.is_empty() {
+        notes.push(format!(
+            "Grounded generation with {} high-scoring exemplar artifact(s).",
+            retrieved_exemplars.len()
+        ));
+    }
     notes.push(format!(
         "Winning candidate {} selected via typed judging.",
         bundle.winning_candidate_id
@@ -357,10 +451,15 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
         file_writes,
         notes,
         brief: bundle.brief,
+        blueprint: bundle.blueprint,
+        artifact_ir: bundle.artifact_ir,
+        selected_skills: bundle.selected_skills,
+        retrieved_exemplars,
         edit_intent: bundle_edit_intent.clone(),
         candidate_summaries: bundle.candidate_summaries,
         winning_candidate_id: Some(bundle.winning_candidate_id),
         winning_candidate_rationale: Some(bundle.winning_candidate_rationale),
+        render_evaluation: bundle.render_evaluation,
         judge: Some(bundle.judge),
         output_origin,
         production_provenance: Some(bundle.production_provenance),
@@ -391,6 +490,9 @@ pub(super) fn blocked_materialized_artifact_from_error(
     refinement: Option<&StudioArtifactRefinementContext>,
     error: &str,
     artifact_brief: Option<StudioArtifactBrief>,
+    blueprint: Option<StudioArtifactBlueprint>,
+    artifact_ir: Option<StudioArtifactIR>,
+    selected_skills: Vec<StudioArtifactSelectedSkill>,
     edit_intent: Option<StudioArtifactEditIntent>,
     candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     production_runtime_provenance: Option<crate::models::StudioRuntimeProvenance>,
@@ -445,6 +547,18 @@ pub(super) fn blocked_materialized_artifact_from_error(
         deserves_primary_artifact_view: false,
         patched_existing_artifact: refinement.map(|_| false),
         continuity_revision_ux: refinement.map(|_| 1),
+        issue_classes: vec![failure.code.clone()],
+        repair_hints: vec![
+            "Restore runtime availability or repair the failing generation path before retrying the artifact."
+                .to_string(),
+        ],
+        strengths: Vec::new(),
+        blocked_reasons: vec![error.to_string()],
+        file_findings: Vec::new(),
+        aesthetic_verdict: "not_evaluated_due_to_generation_failure".to_string(),
+        interaction_verdict: "not_evaluated_due_to_generation_failure".to_string(),
+        truthfulness_warnings: Vec::new(),
+        recommended_next_pass: Some("generation_retry".to_string()),
         strongest_contradiction: Some(error.to_string()),
         rationale: error.to_string(),
     };
@@ -470,10 +584,17 @@ pub(super) fn blocked_materialized_artifact_from_error(
                     .unwrap_or_default(),
             )
         }),
+        blueprint,
+        artifact_ir,
+        selected_skills,
+        retrieved_exemplars: refinement
+            .map(|context| context.retrieved_exemplars.clone())
+            .unwrap_or_default(),
         edit_intent,
         candidate_summaries,
         winning_candidate_id: None,
         winning_candidate_rationale: None,
+        render_evaluation: None,
         judge: Some(judge),
         output_origin: output_origin_from_runtime_provenance(&production_provenance),
         production_provenance: Some(production_provenance),

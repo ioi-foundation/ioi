@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
-import type { AgentEvent, Artifact, ChatMessage } from "../../../types";
+import type {
+  ActivityEventRef,
+  AgentEvent,
+  Artifact,
+  ChatMessage,
+} from "../../../types";
 import {
   buildRunPresentation,
   classifyActivityEvent,
   normalizeOutputForHash,
 } from "./contentPipeline";
+import { buildExecutionMoments } from "./contentPipeline.summaries";
 import { parseChatContractEnvelope } from "./chatContract";
 
 const BASE_TIMESTAMP = "2026-02-19T03:00:00Z";
@@ -27,6 +33,20 @@ const baseEvent: AgentEvent = {
   status: "SUCCESS",
   duration_ms: null,
 };
+
+function activityRefsFromEvents(events: AgentEvent[]): ActivityEventRef[] {
+  return events.map((event) => ({
+    key: event.event_id,
+    kind:
+      event.event_type === "RECEIPT"
+        ? "receipt_event"
+        : event.event_type === "INFO_NOTE"
+          ? "reasoning_event"
+          : "workload_event",
+    event,
+    toolName: String(event.digest?.tool_name || ""),
+  }));
+}
 
 function classifyEventTest(): void {
   const receipt: AgentEvent = {
@@ -71,9 +91,16 @@ function dedupAndAnswerTest(): void {
     },
   ];
 
-  const presentation = buildRunPresentation(history, [baseEvent, duplicateAnswerDifferentStep], []);
+  const presentation = buildRunPresentation(
+    history,
+    [baseEvent, duplicateAnswerDifferentStep],
+    [],
+  );
   assert.equal(presentation.prompt?.text, "question");
-  assert.equal(presentation.finalAnswer?.message.text.includes("Top 3 stories"), true);
+  assert.equal(
+    presentation.finalAnswer?.message.text.includes("Top 3 stories"),
+    true,
+  );
   assert.equal(presentation.activityGroups.length, 1);
   assert.equal(presentation.activityGroups[0]?.events.length, 1);
 }
@@ -290,7 +317,11 @@ function sourceSummaryReceiptOnlyTest(): void {
     },
   };
 
-  const presentation = buildRunPresentation([], [searchReceipt, readReceipt], []);
+  const presentation = buildRunPresentation(
+    [],
+    [searchReceipt, readReceipt],
+    [],
+  );
   assert.ok(presentation.sourceSummary);
   assert.equal(presentation.sourceSummary?.totalSources, 2);
   assert.equal(presentation.sourceSummary?.searches.length, 1);
@@ -298,6 +329,23 @@ function sourceSummaryReceiptOnlyTest(): void {
 }
 
 function thoughtSummaryTest(): void {
+  const workerReceipt: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-think-receipt",
+    step_index: 20,
+    event_type: "RECEIPT",
+    title: "Research worker spawned",
+    digest: {
+      kind: "worker",
+      role: "Research Worker",
+      template_id: "researcher",
+      workflow_id: "live_research_brief",
+    },
+    details: {
+      step_label: "Gather sources",
+    },
+  };
+
   const reasoningEvent: AgentEvent = {
     ...baseEvent,
     event_id: "evt-think-1",
@@ -314,17 +362,1253 @@ function thoughtSummaryTest(): void {
     step_index: 21,
     event_type: "INFO_NOTE",
     title: "System update: IntentResolver",
-    digest: {},
+    digest: {
+      kind: "worker",
+      template_id: "verifier",
+      workflow_id: "citation_audit",
+    },
     details: { output: "Need direct answer with UTC timestamp and citations." },
   };
 
-  const presentation = buildRunPresentation([], [reasoningEvent, systemEvent], []);
+  const presentation = buildRunPresentation(
+    [],
+    [workerReceipt, reasoningEvent, systemEvent],
+    [],
+  );
   assert.ok(presentation.thoughtSummary);
   assert.equal(presentation.thoughtSummary?.agents.length, 2);
+  assert.equal(
+    presentation.thoughtSummary?.agents[0]?.agentLabel,
+    "Research Worker",
+  );
+  assert.equal(
+    presentation.thoughtSummary?.agents[0]?.agentRole,
+    "Gather Sources",
+  );
   assert.equal(
     presentation.thoughtSummary?.agents[0]?.notes[0],
     "Compare source agreement and provide concise answer.",
   );
+  assert.equal(presentation.thoughtSummary?.agents[1]?.agentLabel, "Verifier");
+  assert.equal(
+    presentation.thoughtSummary?.agents[1]?.agentRole,
+    "Citation Audit",
+  );
+}
+
+function planSummaryCapturesTypedHierarchyTest(): void {
+  const parentPlaybookStarted: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-playbook-started",
+    step_index: 40,
+    event_type: "RECEIPT",
+    title: "Parent playbook started",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__delegate",
+      phase: "started",
+      playbook_id: "evidence_audited_patch",
+      playbook_label: "Evidence-Audited Patch",
+      route_family: "coding",
+      topology: "planner_specialist_verifier",
+      verifier_state: "queued",
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-parent",
+      summary: "Started parent playbook.",
+    },
+  };
+
+  const codingWorkerSpawned: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-worker-coder",
+    step_index: 41,
+    event_type: "RECEIPT",
+    title: "Coding worker spawned",
+    digest: {
+      kind: "worker",
+      tool_name: "agent__delegate",
+      phase: "spawned",
+      role: "Coding Worker",
+      template_id: "coder",
+      workflow_id: "patch_build_verify",
+      status: "running",
+      success: true,
+    },
+    details: {
+      child_session_id: "child-coder",
+      parent_session_id: "session-parent",
+      summary: "Patch worker is active.",
+    },
+  };
+
+  const verifierMerged: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-worker-verifier",
+    step_index: 42,
+    event_type: "RECEIPT",
+    title: "Verification worker merged",
+    digest: {
+      kind: "worker",
+      tool_name: "agent__await_result",
+      phase: "merged",
+      role: "Verification Worker",
+      template_id: "verifier",
+      workflow_id: "postcondition_audit",
+      status: "completed",
+      success: true,
+    },
+    details: {
+      child_session_id: "child-verifier",
+      parent_session_id: "session-parent",
+      summary: "Audit merged into the parent.",
+    },
+  };
+
+  const approvalGate: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-approval",
+    step_index: 43,
+    event_type: "RECEIPT",
+    title: "Routing receipt",
+    digest: {
+      tool_name: "filesystem__write_file",
+      policy_decision: "require_approval",
+      status: "gate",
+    },
+    details: {
+      status: "gate",
+      output: "Waiting for approval",
+    },
+  };
+
+  const parentPlaybookCompleted: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-playbook-complete",
+    step_index: 44,
+    event_type: "RECEIPT",
+    title: "Parent playbook completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "completed",
+      playbook_id: "evidence_audited_patch",
+      playbook_label: "Evidence-Audited Patch",
+      route_family: "coding",
+      topology: "planner_specialist_verifier",
+      verifier_state: "passed",
+      status: "completed",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-parent",
+      summary: "Completed parent playbook.",
+    },
+  };
+
+  const presentation = buildRunPresentation(
+    [],
+    [
+      parentPlaybookStarted,
+      codingWorkerSpawned,
+      verifierMerged,
+      approvalGate,
+      parentPlaybookCompleted,
+    ],
+    [],
+  );
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "coding");
+  assert.equal(
+    presentation.planSummary?.topology,
+    "planner_specialist_verifier",
+  );
+  assert.equal(presentation.planSummary?.workerCount, 2);
+  assert.equal(presentation.planSummary?.branchCount, 2);
+  assert.equal(presentation.planSummary?.activeWorkerLabel, "Coding Worker");
+  assert.equal(presentation.planSummary?.verifierState, "passed");
+  assert.equal(presentation.planSummary?.approvalState, "pending");
+  assert.equal(
+    presentation.planSummary?.selectedRoute.includes("Evidence"),
+    true,
+  );
+}
+
+function planSummaryFallsBackToSingleAgentResearchRoute(): void {
+  const searchEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-route-search",
+    step_index: 30,
+    event_type: "COMMAND_RUN",
+    title: "Search the web",
+    digest: { tool_name: "web__search" },
+    details: { output: "Searching current sources." },
+  };
+
+  const readEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-route-read",
+    step_index: 31,
+    event_type: "COMMAND_RUN",
+    title: "Read source",
+    digest: { tool_name: "web__read" },
+    details: { output: "Reading selected source." },
+  };
+
+  const presentation = buildRunPresentation([], [searchEvent, readEvent], []);
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "research");
+  assert.equal(presentation.planSummary?.topology, "single_agent");
+  assert.equal(presentation.planSummary?.plannerAuthority, "primary_agent");
+  assert.equal(presentation.planSummary?.verifierRole, null);
+  assert.equal(presentation.planSummary?.selectedRoute, "Research route");
+  assert.equal(presentation.planSummary?.activeWorkerLabel, "Primary agent");
+  assert.equal(presentation.planSummary?.approvalState, "clear");
+}
+
+function planSummaryUsesExplicitComputerUseRouteContract(): void {
+  const parentPlaybookStarted: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-browser-playbook",
+    step_index: 50,
+    event_type: "RECEIPT",
+    title: "Parent playbook started",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__delegate",
+      phase: "started",
+      playbook_id: "browser_postcondition_gate",
+      playbook_label: "Browser Postcondition Gate",
+      route_family: "computer_use",
+      topology: "planner_specialist_verifier",
+      verifier_state: "queued",
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-browser",
+      summary: "Started browser route.",
+    },
+  };
+
+  const browserWorker: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-browser-worker",
+    step_index: 51,
+    event_type: "RECEIPT",
+    title: "Browser worker spawned",
+    digest: {
+      kind: "worker",
+      tool_name: "agent__delegate",
+      phase: "spawned",
+      role: "Browser Operator",
+      template_id: "browser_operator",
+      workflow_id: "browser_postcondition_pass",
+      status: "running",
+      success: true,
+    },
+    details: {
+      child_session_id: "child-browser",
+      parent_session_id: "session-browser",
+      summary: "Browser worker is active.",
+    },
+  };
+
+  const presentation = buildRunPresentation(
+    [],
+    [parentPlaybookStarted, browserWorker],
+    [],
+  );
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "computer_use");
+  assert.equal(
+    presentation.planSummary?.topology,
+    "planner_specialist_verifier",
+  );
+  assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
+  assert.equal(
+    presentation.planSummary?.verifierRole,
+    "postcondition_verifier",
+  );
+  assert.equal(presentation.planSummary?.verifierOutcome, null);
+  assert.equal(
+    presentation.planSummary?.selectedRoute.includes("Browser"),
+    true,
+  );
+  assert.equal(presentation.planSummary?.activeWorkerLabel, "Browser Operator");
+  assert.equal(presentation.planSummary?.verifierState, "queued");
+}
+
+function planSummaryCarriesComputerUsePerceptionVerificationAndRecovery(): void {
+  const browserPerception: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-browser-perception",
+    step_index: 52,
+    event_type: "RECEIPT",
+    title: "Browser perception completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "step_completed",
+      playbook_id: "browser_postcondition_gate",
+      playbook_label: "Browser Postcondition Gate",
+      route_family: "computer_use",
+      topology: "planner_specialist_verifier",
+      verifier_state: "queued",
+      status: "running",
+      success: true,
+      computer_use_perception: {
+        surface_status: "clear",
+        ui_state: "Checkout form is visible with the submit button enabled.",
+        target: "Submit order button",
+        approval_risk: "possible",
+        next_action: "Click submit order",
+        notes: "A payment confirmation dialog may appear after submit.",
+      },
+    },
+    details: {
+      parent_session_id: "session-browser",
+      step_id: "perceive",
+      step_label: "Capture UI state",
+      template_id: "perception_worker",
+      workflow_id: "ui_state_brief",
+      computer_use_perception: {
+        surface_status: "clear",
+        ui_state: "Checkout form is visible with the submit button enabled.",
+        target: "Submit order button",
+        approval_risk: "possible",
+        next_action: "Click submit order",
+        notes: "A payment confirmation dialog may appear after submit.",
+      },
+      summary: "UI-state brief completed.",
+    },
+  };
+
+  const browserVerification: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-browser-verification",
+    step_index: 53,
+    event_type: "RECEIPT",
+    title: "Browser verification completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "step_completed",
+      playbook_id: "browser_postcondition_gate",
+      playbook_label: "Browser Postcondition Gate",
+      route_family: "computer_use",
+      topology: "planner_specialist_verifier",
+      verifier_state: "passed",
+      status: "completed",
+      success: true,
+      computer_use_verification: {
+        verdict: "passed",
+        postcondition_status: "met",
+        approval_state: "approved",
+        recovery_status: "not_needed",
+        observed_postcondition:
+          "Confirmation banner is visible and the URL changed to /receipt.",
+        notes:
+          "Confirmation banner and receipt URL match the requested postcondition.",
+      },
+      computer_use_recovery: {
+        status: "not_needed",
+        reason: "Verifier confirmed the browser postcondition.",
+        next_step: "Return completion to the parent planner.",
+      },
+    },
+    details: {
+      parent_session_id: "session-browser",
+      step_id: "verify",
+      step_label: "Verify postcondition",
+      template_id: "verifier",
+      workflow_id: "browser_postcondition_audit",
+      computer_use_verification: {
+        verdict: "passed",
+        postcondition_status: "met",
+        approval_state: "approved",
+        recovery_status: "not_needed",
+        observed_postcondition:
+          "Confirmation banner is visible and the URL changed to /receipt.",
+        notes:
+          "Confirmation banner and receipt URL match the requested postcondition.",
+      },
+      computer_use_recovery: {
+        status: "not_needed",
+        reason: "Verifier confirmed the browser postcondition.",
+        next_step: "Return completion to the parent planner.",
+      },
+      summary: "Browser verification completed.",
+    },
+  };
+
+  const presentation = buildRunPresentation(
+    [],
+    [browserPerception, browserVerification],
+    [],
+  );
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "computer_use");
+  assert.equal(presentation.planSummary?.approvalState, "approved");
+  assert.equal(
+    presentation.planSummary?.computerUsePerception?.surfaceStatus,
+    "clear",
+  );
+  assert.equal(
+    presentation.planSummary?.computerUsePerception?.target,
+    "Submit order button",
+  );
+  assert.equal(
+    presentation.planSummary?.computerUseVerification?.verdict,
+    "passed",
+  );
+  assert.equal(presentation.planSummary?.verifierOutcome, "pass");
+  assert.equal(
+    presentation.planSummary?.computerUseVerification?.postconditionStatus,
+    "met",
+  );
+  assert.equal(
+    presentation.planSummary?.computerUseRecovery?.status,
+    "not_needed",
+  );
+}
+
+function planSummaryCarriesResearchPrepContext(): void {
+  const researchRoute: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-research-prep",
+    step_index: 60,
+    event_type: "RECEIPT",
+    title: "Research route spawned",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__delegate",
+      phase: "step_spawned",
+      playbook_id: "citation_grounded_brief",
+      playbook_label: "Citation-Grounded Brief",
+      route_family: "research",
+      topology: "planner_specialist_verifier",
+      planner_authority: "kernel",
+      verifier_state: "queued",
+      verifier_role: "citation_verifier",
+      selected_skills: [
+        "research__benchmark_scorecard",
+        "research__citation_audit",
+      ],
+      prep_summary:
+        "Prior note: planner-specialist-verifier routing improved citation coverage on the last pass.",
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-research",
+      step_label: "Research the topic",
+      template_id: "researcher",
+      workflow_id: "live_research_brief",
+      planner_authority: "kernel",
+      verifier_role: "citation_verifier",
+      selected_skills: [
+        "research__benchmark_scorecard",
+        "research__citation_audit",
+      ],
+      prep_summary:
+        "Prior note: planner-specialist-verifier routing improved citation coverage on the last pass.",
+      summary: "Spawned research step with explicit prep context.",
+    },
+  };
+
+  const presentation = buildRunPresentation([], [researchRoute], []);
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "research");
+  assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
+  assert.equal(presentation.planSummary?.verifierRole, "citation_verifier");
+  assert.equal(presentation.planSummary?.verifierOutcome, null);
+  assert.deepEqual(presentation.planSummary?.selectedSkills, [
+    "research__benchmark_scorecard",
+    "research__citation_audit",
+  ]);
+  assert.equal(
+    presentation.planSummary?.prepSummary,
+    "Prior note: planner-specialist-verifier routing improved citation coverage on the last pass.",
+  );
+}
+
+function planSummaryUsesBuiltinPlaybookContractWhenRouteFieldsAreMissing(): void {
+  const artifactRoute: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-artifact-implied-contract",
+    step_index: 60,
+    event_type: "RECEIPT",
+    title: "Route step spawned",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__delegate",
+      phase: "step_spawned",
+      playbook_id: "artifact_generation_gate",
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-artifact-implied",
+      step_label: "Generate candidate",
+      template_id: "artifact_generator",
+      workflow_id: "artifact_candidate_generation",
+      summary: "Spawned next step.",
+    },
+  };
+
+  const presentation = buildRunPresentation([], [artifactRoute], []);
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "artifacts");
+  assert.equal(
+    presentation.planSummary?.topology,
+    "planner_specialist_verifier",
+  );
+  assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
+  assert.equal(
+    presentation.planSummary?.verifierRole,
+    "artifact_quality_verifier",
+  );
+  assert.equal(presentation.planSummary?.verifierState, "queued");
+}
+
+function planSummaryUsesBuiltinWorkflowContractWhenPlaybookFieldsAreMissing(): void {
+  const researchVerifier: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-research-workflow-implied-contract",
+    step_index: 60,
+    event_type: "RECEIPT",
+    title: "Verifier completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "step_completed",
+      status: "running",
+      success: true,
+      research_scorecard: {
+        verdict: "passed",
+        source_count: 2,
+        distinct_domain_count: 2,
+        source_count_floor_met: true,
+        source_independence_floor_met: true,
+        freshness_status: "passed",
+        quote_grounding_status: "passed",
+        notes: "Known workflow should still hydrate the research route.",
+      },
+    },
+    details: {
+      parent_session_id: "session-research-implied",
+      step_label: "Verify grounding",
+      template_id: "verifier",
+      workflow_id: "citation_audit",
+      summary: "Verifier completed with a bounded scorecard.",
+      research_scorecard: {
+        verdict: "passed",
+        source_count: 2,
+        distinct_domain_count: 2,
+        source_count_floor_met: true,
+        source_independence_floor_met: true,
+        freshness_status: "passed",
+        quote_grounding_status: "passed",
+        notes: "Known workflow should still hydrate the research route.",
+      },
+    },
+  };
+
+  const presentation = buildRunPresentation([], [researchVerifier], []);
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "research");
+  assert.equal(
+    presentation.planSummary?.topology,
+    "planner_specialist_verifier",
+  );
+  assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
+  assert.equal(presentation.planSummary?.verifierRole, "citation_verifier");
+  assert.equal(presentation.planSummary?.verifierOutcome, "pass");
+}
+
+function planSummaryCarriesPrepContextFromCompletionOnlyReceipt(): void {
+  const artifactCompletion: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-artifact-completion-prep",
+    step_index: 61,
+    event_type: "RECEIPT",
+    title: "Artifact route completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "completed",
+      playbook_id: "artifact_generation_gate",
+      selected_skills: ["artifact__frontend_judge_spine"],
+      prep_summary:
+        "Prior note: keep the hero contrast crisp and the mobile CTA stack stable.",
+      artifact_quality: {
+        verdict: "needs_attention",
+        fidelity_status: "faithful",
+        presentation_status: "needs_repair",
+        repair_status: "required",
+        notes: "Completion receipt still preserves prep context for Spotlight.",
+      },
+      status: "completed",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-artifact-completion-prep",
+      selected_skills: ["artifact__frontend_judge_spine"],
+      prep_summary:
+        "Prior note: keep the hero contrast crisp and the mobile CTA stack stable.",
+      summary: "Artifact route completed with retained prep context.",
+      artifact_quality: {
+        verdict: "needs_attention",
+        fidelity_status: "faithful",
+        presentation_status: "needs_repair",
+        repair_status: "required",
+        notes: "Completion receipt still preserves prep context for Spotlight.",
+      },
+    },
+  };
+
+  const presentation = buildRunPresentation([], [artifactCompletion], []);
+
+  assert.ok(presentation.planSummary);
+  assert.deepEqual(presentation.planSummary?.selectedSkills, [
+    "artifact__frontend_judge_spine",
+  ]);
+  assert.equal(
+    presentation.planSummary?.prepSummary,
+    "Prior note: keep the hero contrast crisp and the mobile CTA stack stable.",
+  );
+}
+
+function planSummaryCarriesResearchVerificationScorecard(): void {
+  const researchVerification: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-research-verifier",
+    step_index: 61,
+    event_type: "RECEIPT",
+    title: "Research verifier completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "step_completed",
+      playbook_id: "citation_grounded_brief",
+      playbook_label: "Citation-Grounded Brief",
+      route_family: "research",
+      topology: "planner_specialist_verifier",
+      verifier_state: "passed",
+      research_scorecard: {
+        verdict: "passed",
+        source_count: 3,
+        distinct_domain_count: 3,
+        source_count_floor_met: true,
+        source_independence_floor_met: true,
+        freshness_status: "passed",
+        quote_grounding_status: "needs_attention",
+        notes:
+          "Two quotes were grounded cleanly; one metric still needs a read-backed quote check.",
+      },
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-research",
+      step_label: "Verify grounding",
+      template_id: "verifier",
+      workflow_id: "citation_audit",
+      research_scorecard: {
+        verdict: "passed",
+        source_count: 3,
+        distinct_domain_count: 3,
+        source_count_floor_met: true,
+        source_independence_floor_met: true,
+        freshness_status: "passed",
+        quote_grounding_status: "needs_attention",
+        notes:
+          "Two quotes were grounded cleanly; one metric still needs a read-backed quote check.",
+      },
+      summary: "Research verifier finished with a compact scorecard.",
+    },
+  };
+
+  const presentation = buildRunPresentation([], [researchVerification], []);
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "research");
+  assert.equal(
+    presentation.planSummary?.researchVerification?.verdict,
+    "passed",
+  );
+  assert.equal(presentation.planSummary?.researchVerification?.sourceCount, 3);
+  assert.equal(
+    presentation.planSummary?.researchVerification?.distinctDomainCount,
+    3,
+  );
+  assert.equal(
+    presentation.planSummary?.researchVerification?.quoteGroundingStatus,
+    "needs_attention",
+  );
+  assert.equal(presentation.planSummary?.verifierOutcome, "pass");
+}
+
+function planSummaryCarriesCodingVerificationAndPatchSynthesis(): void {
+  const codingVerification: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-coding-verifier",
+    step_index: 62,
+    event_type: "RECEIPT",
+    title: "Coding verifier completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "step_completed",
+      playbook_id: "evidence_audited_patch",
+      playbook_label: "Evidence-Audited Patch",
+      route_family: "coding",
+      topology: "planner_specialist_verifier",
+      verifier_state: "passed",
+      coding_scorecard: {
+        verdict: "passed",
+        targeted_command_count: 2,
+        targeted_pass_count: 2,
+        widening_status: "not_needed",
+        regression_status: "clear",
+        notes:
+          "Focused cargo test and cargo check both passed without widening.",
+      },
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-coding",
+      step_label: "Verify targeted tests",
+      template_id: "verifier",
+      workflow_id: "targeted_test_audit",
+      coding_scorecard: {
+        verdict: "passed",
+        targeted_command_count: 2,
+        targeted_pass_count: 2,
+        widening_status: "not_needed",
+        regression_status: "clear",
+        notes:
+          "Focused cargo test and cargo check both passed without widening.",
+      },
+      summary: "Coding verifier completed with a bounded scorecard.",
+    },
+  };
+
+  const patchSynthesis: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-patch-synth",
+    step_index: 63,
+    event_type: "RECEIPT",
+    title: "Patch synthesis completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "completed",
+      playbook_id: "evidence_audited_patch",
+      playbook_label: "Evidence-Audited Patch",
+      route_family: "coding",
+      topology: "planner_specialist_verifier",
+      verifier_state: "passed",
+      patch_synthesis: {
+        status: "ready",
+        touched_file_count: 3,
+        verification_ready: true,
+        notes:
+          "Synthesized final handoff aligns the diff with the verifier result.",
+      },
+      status: "completed",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-coding",
+      step_label: "Synthesize final patch",
+      template_id: "patch_synthesizer",
+      workflow_id: "patch_synthesis_handoff",
+      patch_synthesis: {
+        status: "ready",
+        touched_file_count: 3,
+        verification_ready: true,
+        notes:
+          "Synthesized final handoff aligns the diff with the verifier result.",
+      },
+      summary: "Patch synthesis completed with final handoff state.",
+    },
+  };
+
+  const presentation = buildRunPresentation(
+    [],
+    [codingVerification, patchSynthesis],
+    [],
+  );
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "coding");
+  assert.equal(presentation.planSummary?.codingVerification?.verdict, "passed");
+  assert.equal(
+    presentation.planSummary?.codingVerification?.targetedCommandCount,
+    2,
+  );
+  assert.equal(
+    presentation.planSummary?.codingVerification?.wideningStatus,
+    "not_needed",
+  );
+  assert.equal(presentation.planSummary?.verifierOutcome, "pass");
+  assert.equal(presentation.planSummary?.patchSynthesis?.status, "ready");
+  assert.equal(presentation.planSummary?.patchSynthesis?.touchedFileCount, 3);
+  assert.equal(
+    presentation.planSummary?.patchSynthesis?.verificationReady,
+    true,
+  );
+}
+
+function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
+  const artifactContext: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-artifact-context",
+    step_index: 64,
+    event_type: "RECEIPT",
+    title: "Artifact context spawned",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__delegate",
+      phase: "step_spawned",
+      playbook_id: "artifact_generation_gate",
+      playbook_label: "Artifact Generation Gate",
+      route_family: "artifacts",
+      topology: "planner_specialist_verifier",
+      verifier_state: "queued",
+      selected_skills: ["artifact__frontend_judge_spine"],
+      prep_summary:
+        "Prior note: strong artifact runs keep the hero contrast crisp and the mobile CTA stack stable.",
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-artifact",
+      step_id: "context",
+      step_label: "Capture artifact context",
+      template_id: "context_worker",
+      workflow_id: "artifact_context_brief",
+      selected_skills: ["artifact__frontend_judge_spine"],
+      prep_summary:
+        "Prior note: strong artifact runs keep the hero contrast crisp and the mobile CTA stack stable.",
+      summary: "Spawned artifact context step with explicit prep context.",
+    },
+  };
+
+  const artifactBuild: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-artifact-build",
+    step_index: 65,
+    event_type: "RECEIPT",
+    title: "Artifact build completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "step_completed",
+      playbook_id: "artifact_generation_gate",
+      playbook_label: "Artifact Generation Gate",
+      route_family: "artifacts",
+      topology: "planner_specialist_verifier",
+      verifier_state: "active",
+      artifact_generation: {
+        status: "generated",
+        produced_file_count: 2,
+        verification_signal_status: "retained",
+        presentation_status: "needs_repair",
+        notes: "Mobile hero copy overlaps the CTA at the narrow breakpoint.",
+      },
+      artifact_repair: {
+        status: "required",
+        reason: "Mobile hero copy overlaps the CTA at the narrow breakpoint.",
+        next_step: "Fix the mobile hero stacking before presentation.",
+      },
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-artifact",
+      step_id: "build",
+      step_label: "Generate artifact",
+      template_id: "artifact_builder",
+      workflow_id: "artifact_generate_repair",
+      artifact_generation: {
+        status: "generated",
+        produced_file_count: 2,
+        verification_signal_status: "retained",
+        presentation_status: "needs_repair",
+        notes: "Mobile hero copy overlaps the CTA at the narrow breakpoint.",
+      },
+      artifact_repair: {
+        status: "required",
+        reason: "Mobile hero copy overlaps the CTA at the narrow breakpoint.",
+        next_step: "Fix the mobile hero stacking before presentation.",
+      },
+      summary:
+        "Artifact generation completed with retained verification signals.",
+    },
+  };
+
+  const artifactJudge: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-artifact-judge",
+    step_index: 66,
+    event_type: "RECEIPT",
+    title: "Artifact judge completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "completed",
+      playbook_id: "artifact_generation_gate",
+      playbook_label: "Artifact Generation Gate",
+      route_family: "artifacts",
+      topology: "planner_specialist_verifier",
+      verifier_state: "passed",
+      artifact_quality: {
+        verdict: "needs_attention",
+        fidelity_status: "faithful",
+        presentation_status: "needs_repair",
+        repair_status: "required",
+        notes:
+          "Layout intent is strong, but mobile CTA overlap blocks presentation readiness.",
+      },
+      artifact_repair: {
+        status: "required",
+        reason:
+          "Layout intent is strong, but mobile CTA overlap blocks presentation readiness.",
+        next_step: "Fix the mobile hero stacking before presentation.",
+      },
+      status: "completed",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-artifact",
+      step_id: "judge",
+      step_label: "Judge artifact quality",
+      template_id: "verifier",
+      workflow_id: "artifact_quality_audit",
+      artifact_quality: {
+        verdict: "needs_attention",
+        fidelity_status: "faithful",
+        presentation_status: "needs_repair",
+        repair_status: "required",
+        notes:
+          "Layout intent is strong, but mobile CTA overlap blocks presentation readiness.",
+      },
+      artifact_repair: {
+        status: "required",
+        reason:
+          "Layout intent is strong, but mobile CTA overlap blocks presentation readiness.",
+        next_step: "Fix the mobile hero stacking before presentation.",
+      },
+      summary: "Artifact judge finished with a repair-required verdict.",
+    },
+  };
+
+  const presentation = buildRunPresentation(
+    [],
+    [artifactContext, artifactBuild, artifactJudge],
+    [],
+  );
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "artifacts");
+  assert.deepEqual(presentation.planSummary?.selectedSkills, [
+    "artifact__frontend_judge_spine",
+  ]);
+  assert.equal(
+    presentation.planSummary?.artifactGeneration?.status,
+    "generated",
+  );
+  assert.equal(
+    presentation.planSummary?.artifactGeneration?.producedFileCount,
+    2,
+  );
+  assert.equal(
+    presentation.planSummary?.artifactQuality?.presentationStatus,
+    "needs_repair",
+  );
+  assert.equal(presentation.planSummary?.verifierOutcome, "warning");
+  assert.equal(presentation.planSummary?.artifactRepair?.status, "required");
+  assert.equal(
+    presentation.planSummary?.currentStage,
+    "Judge Artifact Quality",
+  );
+  assert.equal(
+    presentation.planSummary?.progressSummary,
+    "Artifact judge finished with a repair-required verdict.",
+  );
+}
+
+function planSummaryCarriesStageProgressAndPause(): void {
+  const artifactContext: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-artifact-stage",
+    step_index: 67,
+    event_type: "RECEIPT",
+    title: "Artifact context spawned",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__delegate",
+      phase: "step_spawned",
+      playbook_id: "artifact_generation_gate",
+      playbook_label: "Artifact Generation Gate",
+      route_family: "artifacts",
+      topology: "planner_specialist_verifier",
+      verifier_state: "queued",
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-artifact",
+      step_id: "context",
+      step_label: "Capture artifact context",
+      template_id: "context_worker",
+      workflow_id: "artifact_context_brief",
+      summary:
+        "Preparing reference cues and output expectations for the generator.",
+    },
+  };
+
+  const approvalGate: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-artifact-approval",
+    step_index: 68,
+    event_type: "RECEIPT",
+    title: "Routing receipt",
+    digest: {
+      tool_name: "browser__open",
+      policy_decision: "require_approval",
+      status: "gate",
+    },
+    details: {
+      status: "gate",
+      output:
+        "Waiting for approval before opening external inspiration references.",
+    },
+  };
+
+  const presentation = buildRunPresentation(
+    [],
+    [artifactContext, approvalGate],
+    [],
+  );
+
+  assert.ok(presentation.planSummary);
+  assert.equal(
+    presentation.planSummary?.currentStage,
+    "Capture Artifact Context",
+  );
+  assert.equal(
+    presentation.planSummary?.progressSummary,
+    "Preparing reference cues and output expectations for the generator.",
+  );
+  assert.equal(
+    presentation.planSummary?.pauseSummary,
+    "Waiting for approval before opening external inspiration references.",
+  );
+}
+
+function executionMomentsCaptureBranchApprovalAndVerification(): void {
+  const codingWorkerSpawned: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-worker-coder-moment",
+    step_index: 70,
+    event_type: "RECEIPT",
+    title: "Coding worker spawned",
+    digest: {
+      kind: "worker",
+      tool_name: "agent__delegate",
+      phase: "spawned",
+      role: "Coding Worker",
+      template_id: "coder",
+      workflow_id: "patch_build_verify",
+      status: "running",
+      success: true,
+    },
+    details: {
+      child_session_id: "child-coder",
+      parent_session_id: "session-coding",
+      summary: "Patch worker is active.",
+    },
+  };
+
+  const verifierWorkerSpawned: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-worker-verifier-moment",
+    step_index: 71,
+    event_type: "RECEIPT",
+    title: "Verification worker spawned",
+    digest: {
+      kind: "worker",
+      tool_name: "agent__delegate",
+      phase: "spawned",
+      role: "Verifier",
+      template_id: "verifier",
+      workflow_id: "targeted_test_audit",
+      status: "running",
+      success: true,
+    },
+    details: {
+      child_session_id: "child-verifier",
+      parent_session_id: "session-coding",
+      summary: "Verifier is queued.",
+    },
+  };
+
+  const approvalGate: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-approval-moment",
+    step_index: 72,
+    event_type: "RECEIPT",
+    title: "Routing receipt",
+    digest: {
+      tool_name: "filesystem__write_file",
+      policy_decision: "require_approval",
+      status: "gate",
+    },
+    details: {
+      status: "gate",
+      output: "Waiting for approval before writing the patched files.",
+    },
+  };
+
+  const codingVerification: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-coding-verifier-moment",
+    step_index: 73,
+    event_type: "RECEIPT",
+    title: "Coding verifier completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "step_completed",
+      playbook_id: "evidence_audited_patch",
+      playbook_label: "Evidence-Audited Patch",
+      route_family: "coding",
+      topology: "planner_specialist_verifier",
+      verifier_state: "passed",
+      coding_scorecard: {
+        verdict: "passed",
+        targeted_command_count: 2,
+        targeted_pass_count: 2,
+        widening_status: "not_needed",
+        regression_status: "clear",
+        notes: "Focused cargo test and cargo check both passed.",
+      },
+      status: "completed",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-coding",
+      step_label: "Verify targeted tests",
+      template_id: "verifier",
+      workflow_id: "targeted_test_audit",
+      coding_scorecard: {
+        verdict: "passed",
+        targeted_command_count: 2,
+        targeted_pass_count: 2,
+        widening_status: "not_needed",
+        regression_status: "clear",
+        notes: "Focused cargo test and cargo check both passed.",
+      },
+      summary: "Coding verifier completed with a bounded scorecard.",
+    },
+  };
+
+  const events = [
+    codingWorkerSpawned,
+    verifierWorkerSpawned,
+    approvalGate,
+    codingVerification,
+  ];
+  const presentation = buildRunPresentation([], events, []);
+  const moments = buildExecutionMoments(
+    activityRefsFromEvents(events),
+    presentation.planSummary,
+  );
+
+  assert.deepEqual(
+    moments.map((moment) => moment.kind),
+    ["branch", "approval", "verification"],
+  );
+  assert.equal(moments[0]?.title, "Opened 2 worker branches");
+  assert.equal(moments[1]?.title, "Approval required");
+  assert.equal(
+    moments[1]?.summary,
+    "Waiting for approval before writing the patched files.",
+  );
+  assert.equal(moments[2]?.title, "Test verifier Passed");
+  assert.equal(
+    moments[2]?.summary,
+    "Focused cargo test and cargo check both passed.",
+  );
+}
+
+function executionMomentsShowArtifactVerifierWarning(): void {
+  const artifactJudge: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-artifact-warning",
+    step_index: 74,
+    event_type: "RECEIPT",
+    title: "Artifact judge completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "completed",
+      playbook_id: "artifact_generation_gate",
+      playbook_label: "Artifact Generation Gate",
+      route_family: "artifacts",
+      topology: "planner_specialist_verifier",
+      verifier_state: "passed",
+      verifier_role: "artifact_quality_verifier",
+      artifact_quality: {
+        verdict: "needs_attention",
+        fidelity_status: "faithful",
+        presentation_status: "needs_repair",
+        repair_status: "required",
+        notes: "Mobile CTA overlap still needs repair before presentation.",
+      },
+      status: "completed",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-artifact",
+      step_label: "Judge artifact quality",
+      template_id: "verifier",
+      workflow_id: "artifact_quality_audit",
+      verifier_role: "artifact_quality_verifier",
+      artifact_quality: {
+        verdict: "needs_attention",
+        fidelity_status: "faithful",
+        presentation_status: "needs_repair",
+        repair_status: "required",
+        notes: "Mobile CTA overlap still needs repair before presentation.",
+      },
+      summary: "Artifact judge finished with a repair-required verdict.",
+    },
+  };
+
+  const presentation = buildRunPresentation([], [artifactJudge], []);
+  const moments = buildExecutionMoments(
+    activityRefsFromEvents([artifactJudge]),
+    presentation.planSummary,
+  );
+
+  assert.equal(presentation.planSummary?.verifierOutcome, "warning");
+  assert.equal(moments[0]?.status, "warning");
+  assert.equal(moments[0]?.title, "Artifact quality verifier Needs Attention");
 }
 
 function chatContractParsingTest(): void {
@@ -355,10 +1639,14 @@ function chatContractParsingTest(): void {
     ...validPayload,
     answer_markdown: "Completed. Final response emitted via chat_reply.",
   };
-  const parsedInvalid = parseChatContractEnvelope(JSON.stringify(invalidPayload));
+  const parsedInvalid = parseChatContractEnvelope(
+    JSON.stringify(invalidPayload),
+  );
   assert.equal(parsedInvalid.envelope, null);
   assert.equal(
-    parsedInvalid.issues.some((issue) => issue.code === "forbidden_internal_label"),
+    parsedInvalid.issues.some(
+      (issue) => issue.code === "forbidden_internal_label",
+    ),
     true,
   );
 }
@@ -375,7 +1663,11 @@ function invalidContractFallbackTest(): void {
 
   const history: ChatMessage[] = [
     { role: "user", text: "find files", timestamp: Date.now() - 5_000 },
-    { role: "agent", text: JSON.stringify(invalidPayload), timestamp: Date.now() - 2_000 },
+    {
+      role: "agent",
+      text: JSON.stringify(invalidPayload),
+      timestamp: Date.now() - 2_000,
+    },
   ];
 
   const presentation = buildRunPresentation(history, [], []);
@@ -384,7 +1676,9 @@ function invalidContractFallbackTest(): void {
     "Structured response unavailable due to contract validation failure.",
   );
   assert.equal(
-    presentation.finalAnswer?.displayText.includes("final response emitted via chat_reply"),
+    presentation.finalAnswer?.displayText.includes(
+      "final response emitted via chat_reply",
+    ),
     false,
   );
 }
@@ -396,5 +1690,19 @@ activitySummaryTest();
 sourceSummaryTest();
 sourceSummaryReceiptOnlyTest();
 thoughtSummaryTest();
+planSummaryCapturesTypedHierarchyTest();
+planSummaryFallsBackToSingleAgentResearchRoute();
+planSummaryUsesExplicitComputerUseRouteContract();
+planSummaryCarriesComputerUsePerceptionVerificationAndRecovery();
+planSummaryCarriesResearchPrepContext();
+planSummaryUsesBuiltinPlaybookContractWhenRouteFieldsAreMissing();
+planSummaryUsesBuiltinWorkflowContractWhenPlaybookFieldsAreMissing();
+planSummaryCarriesPrepContextFromCompletionOnlyReceipt();
+planSummaryCarriesResearchVerificationScorecard();
+planSummaryCarriesCodingVerificationAndPatchSynthesis();
+planSummaryCarriesArtifactGenerationQualityAndRepair();
+planSummaryCarriesStageProgressAndPause();
+executionMomentsCaptureBranchApprovalAndVerification();
+executionMomentsShowArtifactVerifierWarning();
 chatContractParsingTest();
 invalidContractFallbackTest();

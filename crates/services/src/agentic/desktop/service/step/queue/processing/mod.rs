@@ -4,11 +4,16 @@ use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::desktop::service::handler::{
     build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
 };
+use crate::agentic::desktop::service::lifecycle::{
+    await_child_worker_result, spawn_delegated_child_session,
+};
 use crate::agentic::desktop::service::step::action::command_contract::is_cec_terminal_error;
 use crate::agentic::desktop::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
-    emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
-    mark_action_fingerprint_executed_at_step, resolved_intent_id,
+    emit_completion_gate_status_event, emit_execution_contract_receipt_event,
+    emit_execution_contract_receipt_event_with_observation,
+    mark_action_fingerprint_executed_at_step, mark_execution_receipt_with_value, receipt_marker,
+    resolved_intent_id,
 };
 use crate::agentic::desktop::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, canonical_attempt_window_fingerprint,
@@ -38,6 +43,7 @@ use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
 use ioi_types::app::{KernelEvent, RoutingReceiptEvent, RoutingStateSummary};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use serde_json::json;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod completion;
@@ -46,9 +52,9 @@ mod routing;
 mod web_pipeline;
 
 use self::completion::{
-    maybe_complete_browser_snapshot_interaction, maybe_complete_command_probe,
-    maybe_complete_mail_reply, maybe_complete_open_app, maybe_complete_screenshot_capture,
-    normalize_output_only_success,
+    maybe_complete_agent_complete, maybe_complete_browser_snapshot_interaction,
+    maybe_complete_command_probe, maybe_complete_mail_reply, maybe_complete_open_app,
+    maybe_complete_screenshot_capture, normalize_output_only_success,
 };
 use self::failure::{apply_queue_failure_policies, QueueFailureHandlingOutcome};
 use self::routing::{is_web_research_scope, resolve_queue_routing_context as resolve_routing};
@@ -208,15 +214,116 @@ fn queue_tool_timeout_policy(
     None
 }
 
+fn queue_workspace_read_receipt(step_index: u32, tool: &AgentTool) -> Option<String> {
+    let AgentTool::FsRead { path } = tool else {
+        return None;
+    };
+    let path = path.trim();
+    if path.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "step={step_index};tool=filesystem__read_file;path={path}"
+    ))
+}
+
+fn queue_workspace_edit_receipt(step_index: u32, tool: &AgentTool) -> Option<(String, String)> {
+    match tool {
+        AgentTool::FsWrite {
+            path, line_number, ..
+        } => {
+            let tool_name = if line_number.is_some() {
+                "filesystem__edit_line"
+            } else {
+                "filesystem__write_file"
+            };
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some((
+                tool_name.to_string(),
+                format!("step={step_index};tool={tool_name};path={path}"),
+            ))
+        }
+        AgentTool::FsPatch { path, .. } => {
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some((
+                "filesystem__patch".to_string(),
+                format!("step={step_index};tool=filesystem__patch;path={path}"),
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn record_queue_workspace_success_receipts(
+    service: &DesktopAgentService,
+    agent_state: &mut AgentState,
+    tool: &AgentTool,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    verification_checks: &mut Vec<String>,
+) {
+    if let Some(evidence) = queue_workspace_read_receipt(step_index, tool) {
+        mark_execution_receipt_with_value(
+            &mut agent_state.tool_execution_log,
+            "workspace_read_observed",
+            evidence.clone(),
+        );
+        verification_checks.push(receipt_marker("workspace_read_observed"));
+        emit_execution_contract_receipt_event(
+            service,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            "execution",
+            "workspace_read_observed",
+            true,
+            &evidence,
+            None,
+            Some("filesystem__read_file".to_string()),
+            None,
+        );
+    }
+
+    if let Some((tool_name, evidence)) = queue_workspace_edit_receipt(step_index, tool) {
+        mark_execution_receipt_with_value(
+            &mut agent_state.tool_execution_log,
+            "workspace_edit_applied",
+            evidence.clone(),
+        );
+        verification_checks.push(receipt_marker("workspace_edit_applied"));
+        emit_execution_contract_receipt_event(
+            service,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            "execution",
+            "workspace_edit_applied",
+            true,
+            &evidence,
+            None,
+            Some(tool_name),
+            None,
+        );
+    }
+}
+
 async fn execute_queue_tool_request(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
     call_context: ServiceCallContext<'_>,
-    agent_state: &AgentState,
+    agent_state: &mut AgentState,
     tool_wrapper: AgentTool,
     tool_name: &str,
     rules: &ActionRules,
     session_id: [u8; 32],
+    tool_hash: [u8; 32],
 ) -> Result<(bool, Option<String>, Option<String>, Option<[u8; 32]>), TransactionError> {
     let os_driver = service
         .os_driver
@@ -230,7 +337,7 @@ async fn execute_queue_tool_request(
         )));
     }
 
-    if let Some((timeout_scope, timeout)) =
+    let mut outcome = if let Some((timeout_scope, timeout)) =
         queue_tool_timeout_policy(agent_state, &tool_wrapper, tool_name)
     {
         match tokio::time::timeout(
@@ -272,7 +379,7 @@ async fn execute_queue_tool_request(
             .handle_action_execution_with_state(
                 state,
                 call_context,
-                tool_wrapper,
+                tool_wrapper.clone(),
                 session_id,
                 agent_state.step_count,
                 [0u8; 32],
@@ -282,7 +389,95 @@ async fn execute_queue_tool_request(
                 None,
             )
             .await
+    }?;
+
+    if outcome.0 {
+        match &tool_wrapper {
+            AgentTool::AgentDelegate {
+                goal,
+                budget,
+                playbook_id,
+                template_id,
+                workflow_id,
+                role,
+                success_criteria,
+                merge_mode,
+                expected_output,
+            } => {
+                match spawn_delegated_child_session(
+                    service,
+                    state,
+                    agent_state,
+                    tool_hash,
+                    goal,
+                    *budget,
+                    playbook_id.as_deref(),
+                    template_id.as_deref(),
+                    workflow_id.as_deref(),
+                    role.as_deref(),
+                    success_criteria.as_deref(),
+                    merge_mode.as_deref(),
+                    expected_output.as_deref(),
+                    agent_state.step_count,
+                    call_context.block_height,
+                )
+                .await
+                {
+                    Ok(spawned) => {
+                        let assignment = &spawned.assignment;
+                        outcome.1 = Some(
+                            json!({
+                                "child_session_id_hex": hex::encode(spawned.child_session_id),
+                                "budget": assignment.budget,
+                                "playbook_id": assignment.playbook_id,
+                                "template_id": assignment.template_id,
+                                "workflow_id": assignment.workflow_id,
+                                "role": assignment.role,
+                                "success_criteria": assignment.completion_contract.success_criteria,
+                                "merge_mode": assignment.completion_contract.merge_mode.as_label(),
+                                "expected_output": assignment.completion_contract.expected_output,
+                            })
+                            .to_string(),
+                        );
+                        outcome.2 = None;
+                    }
+                    Err(error) => {
+                        outcome.0 = false;
+                        outcome.1 = None;
+                        outcome.2 = Some(error.to_string());
+                    }
+                }
+            }
+            AgentTool::AgentAwait {
+                child_session_id_hex,
+            } => {
+                match await_child_worker_result(
+                    service,
+                    state,
+                    agent_state,
+                    agent_state.step_count,
+                    call_context.block_height,
+                    call_context,
+                    child_session_id_hex,
+                )
+                .await
+                {
+                    Ok(child_status) => {
+                        outcome.1 = Some(child_status);
+                        outcome.2 = None;
+                    }
+                    Err(error) => {
+                        outcome.0 = false;
+                        outcome.1 = None;
+                        outcome.2 = Some(error);
+                    }
+                }
+            }
+            _ => {}
+        }
     }
+
+    Ok(outcome)
 }
 
 fn current_unix_timestamp_ms() -> u64 {
@@ -525,6 +720,8 @@ pub async fn process_queue_item(
     let tool_wrapper = queue_action_request_to_tool(&action_request)?;
     let tool_jcs = serde_jcs::to_vec(&tool_wrapper)
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let tool_hash_bytes = sha256(&tool_jcs)
+        .map_err(|e| TransactionError::Invalid(format!("Failed to hash queued tool JCS: {}", e)))?;
     let (tool_name, intent_args) = canonical_tool_identity(&tool_wrapper);
     let action_json = serde_json::to_string(&tool_wrapper).unwrap_or_else(|_| "{}".to_string());
     let intent_hash = canonical_intent_hash(
@@ -627,6 +824,7 @@ pub async fn process_queue_item(
             &tool_name,
             &rules,
             p.session_id,
+            tool_hash_bytes,
         )
         .await
     };
@@ -644,9 +842,6 @@ pub async fn process_queue_item(
         Ok(tuple) => tuple,
         Err(TransactionError::PendingApproval(h)) => {
             policy_decision = "require_approval".to_string();
-            let tool_hash_bytes = ioi_crypto::algorithms::hash::sha256(&tool_jcs).map_err(|e| {
-                TransactionError::Invalid(format!("Failed to hash queued tool JCS: {}", e))
-            })?;
             let mut hash_arr = [0u8; 32];
             hash_arr.copy_from_slice(tool_hash_bytes.as_ref());
             let pending_visual_hash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
@@ -896,6 +1091,16 @@ pub async fn process_queue_item(
         &mut completion_summary,
         p.session_id,
     );
+    maybe_complete_agent_complete(
+        agent_state,
+        &tool_wrapper,
+        is_gated,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        p.session_id,
+    );
     maybe_complete_open_app(
         agent_state,
         &tool_wrapper,
@@ -940,6 +1145,19 @@ pub async fn process_queue_item(
 
     let output_str = out.clone().unwrap_or_default();
     let error_str = err.clone();
+
+    if success && !is_gated {
+        let intent_id = resolved_intent_id(agent_state);
+        record_queue_workspace_success_receipts(
+            service,
+            agent_state,
+            &tool_wrapper,
+            p.session_id,
+            pre_state_summary.step_index,
+            intent_id.as_str(),
+            &mut verification_checks,
+        );
+    }
 
     if success && !is_gated {
         mark_action_fingerprint_executed_at_step(

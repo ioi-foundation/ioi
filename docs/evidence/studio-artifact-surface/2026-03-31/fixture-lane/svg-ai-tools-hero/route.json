@@ -1,0 +1,30 @@
+{
+  "outcomeKind": "artifact",
+  "confidence": 0.88,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "visual",
+    "deliverableShape": "single_file",
+    "renderer": "svg",
+    "presentationSurface": "side_panel",
+    "persistence": "shared_artifact_scoped",
+    "executionSubstrate": "client_sandbox",
+    "workspaceRecipeId": null,
+    "presentationVariantId": null,
+    "scope": {
+      "targetProject": null,
+      "createNewWorkspace": false,
+      "mutationBoundary": [
+        "artifact"
+      ]
+    },
+    "verification": {
+      "requireRender": true,
+      "requireBuild": false,
+      "requirePreview": false,
+      "requireExport": false,
+      "requireDiffReview": false
+    }
+  }
+}

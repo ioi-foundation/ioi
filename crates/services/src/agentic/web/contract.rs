@@ -12,6 +12,7 @@ use crate::agentic::desktop::service::step::queue::web_pipeline::{
     query_is_generic_headline_collection, query_metric_axes,
     query_prefers_document_briefing_layout, query_requests_comparison,
     query_requires_runtime_locality_scope, required_citations_per_story, required_story_count,
+    retrieval_contract_min_sources, source_has_document_briefing_authority_alignment_with_contract,
     source_matches_local_business_search_entity_anchor,
 };
 use crate::agentic::desktop::service::step::signals::analyze_query_facets;
@@ -86,7 +87,9 @@ fn source_url_from_metadata_excerpt(excerpt: &str) -> Option<String> {
 
 fn semantic_alignment_candidate_url(source: &WebSource) -> String {
     let trimmed = source.url.trim();
-    if !is_search_hub_url(trimmed) {
+    if !is_search_hub_url(trimmed)
+        && !crate::agentic::web::is_google_news_article_wrapper_url(trimmed)
+    {
         return trimmed.to_string();
     }
     source
@@ -481,6 +484,9 @@ pub(crate) fn query_matching_source_urls(
             locality_hint.as_deref(),
         )
         .is_empty();
+    let grounding_min_sources =
+        retrieval_contract_min_sources(Some(retrieval_contract), normalized_query_contract)
+            as usize;
     let mut ranked = Vec::new();
     let mut seen = std::collections::BTreeSet::new();
 
@@ -523,7 +529,15 @@ pub(crate) fn query_matching_source_urls(
             title,
             snippet,
         );
-        if !compatibility_passes_projection(&projection, &compatibility) {
+        let authority_aligned = source_has_document_briefing_authority_alignment_with_contract(
+            Some(retrieval_contract),
+            normalized_query_contract,
+            grounding_min_sources,
+            trimmed_url,
+            title,
+            snippet,
+        );
+        if !compatibility_passes_projection(&projection, &compatibility) && !authority_aligned {
             continue;
         }
         let normalized = normalize_url_for_id(trimmed_url);
@@ -803,6 +817,211 @@ mod tests {
     }
 
     #[test]
+    fn semantic_alignment_keeps_authority_identifier_pages_for_document_briefings() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = derive_web_retrieval_contract(query, Some(query)).expect("contract");
+        let sources = vec![
+            WebSource {
+                source_id: "ir8413".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST IR 8413 Update 1 references FIPS 203, FIPS 204, and FIPS 205 as the finalized post-quantum cryptography standards."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "fips203".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                title: Some(
+                    "FIPS 203, Module-Lattice-Based Key-Encapsulation Mechanism Standard | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "Federal Information Processing Standard FIPS 203 specifies ML-KEM as a finalized NIST post-quantum cryptography standard."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "fips204".to_string(),
+                rank: Some(3),
+                url: "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                title: Some(
+                    "FIPS 204, Module-Lattice-Based Digital Signature Standard | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "Federal Information Processing Standard FIPS 204 specifies ML-DSA as a finalized NIST post-quantum cryptography standard."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "fips205".to_string(),
+                rank: Some(4),
+                url: "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
+                title: Some(
+                    "FIPS 205, Stateless Hash-Based Digital Signature Standard | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "Federal Information Processing Standard FIPS 205 specifies SLH-DSA as a finalized NIST post-quantum cryptography standard."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+        ];
+
+        let aligned = query_matching_source_urls(query, &contract, &sources)
+            .expect("alignment should succeed");
+
+        assert!(aligned.contains(&"https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string()));
+        assert!(aligned.contains(&"https://csrc.nist.gov/pubs/fips/203/final".to_string()));
+        assert!(aligned.contains(&"https://csrc.nist.gov/pubs/fips/204/final".to_string()));
+        assert!(aligned.contains(&"https://csrc.nist.gov/pubs/fips/205/final".to_string()));
+    }
+
+    #[test]
+    fn semantic_alignment_keeps_authority_overview_pages_for_full_document_briefings() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let contract = derive_web_retrieval_contract(query, Some(query)).expect("contract");
+        let sources = vec![
+            WebSource {
+                source_id: "ir8413upd1".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST IR 8413 Update 1 references FIPS 203, FIPS 204, and FIPS 205 as the finalized post-quantum cryptography standards."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "ir8413final".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST documents the post-quantum cryptography standardization process and the selected algorithms."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "selected-algorithms".to_string(),
+                rank: Some(3),
+                url: "https://csrc.nist.gov/Projects/post-quantum-cryptography/post-quantum-cryptography-standardization/selected-algorithms".to_string(),
+                title: Some("Post-Quantum Cryptography | CSRC".to_string()),
+                snippet: Some(
+                    "The selected algorithms page links the NIST post-quantum cryptography project to FIPS 203, FIPS 204, and FIPS 205."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "fips204".to_string(),
+                rank: Some(4),
+                url: "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                title: Some(
+                    "FIPS 204, Module-Lattice-Based Digital Signature Standard | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "Federal Information Processing Standard FIPS 204 specifies ML-DSA as a finalized NIST post-quantum cryptography standard."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "fips205".to_string(),
+                rank: Some(5),
+                url: "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
+                title: Some(
+                    "FIPS 205, Stateless Hash-Based Digital Signature Standard | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "Federal Information Processing Standard FIPS 205 specifies SLH-DSA as a finalized NIST post-quantum cryptography standard."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+        ];
+
+        let mut aligned = query_matching_source_urls(query, &contract, &sources)
+            .expect("alignment should succeed");
+        let mut expected = vec![
+            "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+            "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+            "https://csrc.nist.gov/Projects/post-quantum-cryptography/post-quantum-cryptography-standardization/selected-algorithms".to_string(),
+            "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+            "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
+        ];
+        aligned.sort();
+        expected.sort();
+
+        assert_eq!(aligned, expected);
+    }
+
+    #[test]
+    fn semantic_alignment_keeps_authority_identifier_pages_when_live_read_payloads_lack_snippets() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let contract = derive_web_retrieval_contract(query, Some(query)).expect("contract");
+        let sources = vec![
+            WebSource {
+                source_id: "ir8413upd1".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: None,
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "ir8413final".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: None,
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+        ];
+
+        let aligned = query_matching_source_urls(query, &contract, &sources)
+            .expect("alignment should succeed");
+
+        assert_eq!(
+            aligned,
+            vec![
+                "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+            ]
+        );
+    }
+
+    #[test]
     fn derived_contract_marks_latest_plural_briefing_queries_as_document_briefings() {
         let query =
             "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
@@ -810,7 +1029,7 @@ mod tests {
 
         assert_eq!(contract.entity_cardinality_min, 1);
         assert_eq!(contract.source_independence_min, 2);
-        assert_eq!(contract.citation_count_min, 1);
+        assert_eq!(contract.citation_count_min, 2);
         assert!(contract.currentness_required);
         assert!(!contract.comparison_required);
         assert!(!contract.structured_record_preferred);
@@ -1002,6 +1221,31 @@ mod tests {
         assert!(aligned
             .iter()
             .any(|url| url.contains("nist-selects-hqc-fifth-algorithm")));
+    }
+
+    #[test]
+    fn semantic_alignment_rejects_off_topic_nist_csf_article_for_full_research_contract() {
+        let query_contract =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let contract =
+            derive_web_retrieval_contract(query_contract, Some(query_contract)).expect("contract");
+        let sources = vec![WebSource {
+            source_id: "ibm-csf".to_string(),
+            rank: Some(1),
+            url: "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2"
+                .to_string(),
+            title: Some("El marco de ciberseguridad 2.0 del NIST, en detalle | IBM".to_string()),
+            snippet: Some(
+                "He aqui todo lo que las empresas deben saber sobre como el marco de ciberseguridad 2.0 del NIST puede mejorar la gestion de riesgos."
+                    .to_string(),
+            ),
+            domain: Some("www.ibm.com".to_string()),
+        }];
+
+        let aligned = query_matching_source_urls(query_contract, &contract, &sources)
+            .expect("alignment should work");
+
+        assert!(aligned.is_empty(), "aligned_urls={aligned:?}");
     }
 
     #[test]

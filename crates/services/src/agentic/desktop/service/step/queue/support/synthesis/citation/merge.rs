@@ -38,6 +38,8 @@ pub(crate) fn merged_story_sources(
     };
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
+    let preserve_document_briefing_successful_reads =
+        document_briefing_layout && !headline_lookup_mode;
 
     let mut merged: Vec<PendingSearchReadSummary> = Vec::new();
     let mut seen = BTreeSet::new();
@@ -47,7 +49,7 @@ pub(crate) fn merged_story_sources(
         if !source_url_allowed(trimmed) {
             continue;
         }
-        if enforce_grounded_compatibility {
+        if enforce_grounded_compatibility && !preserve_document_briefing_successful_reads {
             let compatibility = candidate_constraint_compatibility(
                 &projection.constraints,
                 &projection.query_facets,
@@ -63,6 +65,10 @@ pub(crate) fn merged_story_sources(
                 continue;
             }
         }
+        // Deterministic document briefings should synthesize from read-backed evidence
+        // that already cleared the web pipeline, then let briefing selection/finalization
+        // prune weak or duplicative sources. Reapplying the grounded projection here can
+        // drop all successful reads for execution-suffixed research contracts.
         if !seen.insert(trimmed.to_string()) {
             continue;
         }
@@ -216,6 +222,8 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
     let retrieval_contract = pending.retrieval_contract.as_ref();
     let headline_lookup_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
+    let document_briefing_layout = query_prefers_document_briefing_layout(&query_contract)
+        && !retrieval_contract_requests_comparison(retrieval_contract, &query_contract);
     let locality_scope = explicit_query_scope_hint(&query_contract).or_else(|| {
         retrieval_contract_requires_runtime_locality(retrieval_contract, &query_contract)
             .then(|| effective_locality_scope_hint(None))
@@ -275,6 +283,8 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
     let envelope_policy = ResolutionPolicy::default();
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
+    let preserve_document_briefing_successful_reads =
+        document_briefing_layout && !headline_lookup_mode;
 
     let mut grounded_urls: BTreeSet<String> = BTreeSet::new();
 
@@ -290,7 +300,7 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
         if !source_url_allowed(trimmed) {
             continue;
         }
-        if enforce_grounded_compatibility {
+        if enforce_grounded_compatibility && !preserve_document_briefing_successful_reads {
             let compatibility = candidate_constraint_compatibility(
                 &projection.constraints,
                 &projection.query_facets,
@@ -306,7 +316,7 @@ pub(crate) fn grounded_source_evidence_count(pending: &PendingSearchCompletion) 
                 continue;
             }
         }
-        if has_constraint_objective {
+        if has_constraint_objective && !preserve_document_briefing_successful_reads {
             let title = source.title.as_deref().unwrap_or_default();
             let score = single_snapshot_candidate_envelope_score(
                 envelope_constraints,

@@ -597,6 +597,157 @@ pub struct WorkloadWorkerReceipt {
     pub error_class: Option<String>,
 }
 
+/// Research-specific verifier scorecard surfaced through parent-playbook receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub struct ResearchVerificationScorecard {
+    /// Overall verifier verdict for the research brief.
+    pub verdict: String,
+    /// Distinct cited source count observed in the research brief.
+    pub source_count: u32,
+    /// Distinct cited domain count observed in the research brief.
+    pub distinct_domain_count: u32,
+    /// Whether the route met the minimum cited-source floor.
+    pub source_count_floor_met: bool,
+    /// Whether the route met the minimum independent-domain floor.
+    pub source_independence_floor_met: bool,
+    /// Freshness verifier status ("passed", "needs_attention", "blocked", "unknown").
+    pub freshness_status: String,
+    /// Quote-grounding verifier status ("passed", "needs_attention", "blocked", "unknown").
+    pub quote_grounding_status: String,
+    /// Optional compact verifier note.
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+/// Computer-use perception summary surfaced through parent-playbook receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub struct ComputerUsePerceptionSummary {
+    /// Whether the current UI state was clearly observed.
+    pub surface_status: String,
+    /// Compact statement of what the system thinks the UI currently is.
+    pub ui_state: String,
+    /// Optional likely target or missing prerequisite surfaced by perception.
+    #[serde(default)]
+    pub target: Option<String>,
+    /// Approval risk assessment before execution begins.
+    pub approval_risk: String,
+    /// Optional next safe action suggested by the perception pass.
+    #[serde(default)]
+    pub next_action: Option<String>,
+    /// Optional compact note about ambiguities or blockers.
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+/// Coding-specific verifier scorecard surfaced through parent-playbook receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub struct CodingVerificationScorecard {
+    /// Overall verifier verdict for the targeted coding verification pass.
+    pub verdict: String,
+    /// Number of targeted verification commands the route expected to check.
+    pub targeted_command_count: u32,
+    /// Number of targeted verification commands reported as passing.
+    pub targeted_pass_count: u32,
+    /// Whether the verifier had to widen beyond targeted checks.
+    pub widening_status: String,
+    /// Whether the verifier found regression risk in the widened or targeted pass.
+    pub regression_status: String,
+    /// Optional compact verifier note.
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+/// Artifact-generation summary surfaced through parent-playbook receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub struct ArtifactGenerationSummary {
+    /// Overall handoff status for the generation pass.
+    pub status: String,
+    /// Number of produced files named in the generation handoff.
+    pub produced_file_count: u32,
+    /// Whether the generator retained verification signals for the artifact.
+    pub verification_signal_status: String,
+    /// Whether the generator believes the artifact is presentation-ready or still open.
+    pub presentation_status: String,
+    /// Optional compact generation note.
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+/// Computer-use verification scorecard surfaced through parent-playbook receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub struct ComputerUseVerificationScorecard {
+    /// Overall verifier verdict for the computer-use postcondition audit.
+    pub verdict: String,
+    /// Whether the claimed browser postcondition currently holds.
+    pub postcondition_status: String,
+    /// Approval state observed during execution or verification.
+    pub approval_state: String,
+    /// Whether the route needs no recovery, a recommended retry, or is blocked.
+    pub recovery_status: String,
+    /// Optional observed postcondition carried forward from the executor handoff.
+    #[serde(default)]
+    pub observed_postcondition: Option<String>,
+    /// Optional compact verifier note.
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+/// Artifact-quality scorecard surfaced through parent-playbook receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub struct ArtifactQualityScorecard {
+    /// Overall verdict for the artifact quality audit.
+    pub verdict: String,
+    /// Whether the artifact stayed faithful to the requested brief.
+    pub fidelity_status: String,
+    /// Whether the artifact is ready for presentation or still needs repair.
+    pub presentation_status: String,
+    /// Whether repair is unnecessary, recommended, required, or blocked.
+    pub repair_status: String,
+    /// Optional compact judge note.
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+/// Patch-synthesis summary surfaced through parent-playbook receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub struct PatchSynthesisSummary {
+    /// Overall synthesis state for the final patch handoff.
+    pub status: String,
+    /// Distinct touched file count carried into the synthesized handoff.
+    pub touched_file_count: u32,
+    /// Whether the synthesis pass accepted the verifier result as ready.
+    pub verification_ready: bool,
+    /// Optional compact synthesis note.
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+/// Artifact-repair summary surfaced through parent-playbook receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub struct ArtifactRepairSummary {
+    /// Repair state derived from generator and judge evidence.
+    pub status: String,
+    /// Optional reason for the chosen repair path.
+    #[serde(default)]
+    pub reason: Option<String>,
+    /// Optional next safe step for the operator or planner.
+    #[serde(default)]
+    pub next_step: Option<String>,
+}
+
+/// Computer-use recovery summary surfaced through parent-playbook receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+pub struct ComputerUseRecoverySummary {
+    /// Recovery state derived from executor and verifier evidence.
+    pub status: String,
+    /// Optional reason for the chosen recovery path.
+    #[serde(default)]
+    pub reason: Option<String>,
+    /// Optional next safe step for the operator or planner.
+    #[serde(default)]
+    pub next_step: Option<String>,
+}
+
 /// Audit receipt for parent-playbook lifecycle, step advancement, and terminal outcome.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct WorkloadParentPlaybookReceipt {
@@ -629,6 +780,54 @@ pub struct WorkloadParentPlaybookReceipt {
     /// Optional worker workflow id for the active step.
     #[serde(default)]
     pub workflow_id: Option<String>,
+    /// Explicit workload family for the selected higher-order route.
+    pub route_family: String,
+    /// Explicit topology label for the selected higher-order route.
+    pub topology: String,
+    /// Explicit planner-of-record authority for the higher-order route.
+    #[serde(default)]
+    pub planner_authority: String,
+    /// Explicit verifier lifecycle state for the higher-order route.
+    pub verifier_state: String,
+    /// Explicit verifier role for the higher-order route when verification is part of the contract.
+    #[serde(default)]
+    pub verifier_role: String,
+    /// Explicit bounded verifier outcome when a verifier produced a terminal result.
+    #[serde(default)]
+    pub verifier_outcome: String,
+    /// Selected skill names surfaced during route preparation.
+    #[serde(default)]
+    pub selected_skills: Vec<String>,
+    /// Human-readable summary of recalled context prepared before the step spawn.
+    #[serde(default)]
+    pub prep_summary: Option<String>,
+    /// Optional artifact-generation summary emitted by artifact-builder routes.
+    #[serde(default)]
+    pub artifact_generation: Option<ArtifactGenerationSummary>,
+    /// Optional computer-use perception summary emitted by UI-state observation routes.
+    #[serde(default)]
+    pub computer_use_perception: Option<ComputerUsePerceptionSummary>,
+    /// Optional research-specific scorecard emitted by citation-verifier routes.
+    #[serde(default)]
+    pub research_scorecard: Option<ResearchVerificationScorecard>,
+    /// Optional artifact-quality scorecard emitted by artifact judge routes.
+    #[serde(default)]
+    pub artifact_quality: Option<ArtifactQualityScorecard>,
+    /// Optional computer-use verification scorecard emitted by browser verifier routes.
+    #[serde(default)]
+    pub computer_use_verification: Option<ComputerUseVerificationScorecard>,
+    /// Optional coding-specific scorecard emitted by targeted-test verifier routes.
+    #[serde(default)]
+    pub coding_scorecard: Option<CodingVerificationScorecard>,
+    /// Optional coding patch-synthesis summary emitted by synthesis routes.
+    #[serde(default)]
+    pub patch_synthesis: Option<PatchSynthesisSummary>,
+    /// Optional artifact-repair summary emitted by artifact generation or judge routes.
+    #[serde(default)]
+    pub artifact_repair: Option<ArtifactRepairSummary>,
+    /// Optional computer-use recovery summary emitted by browser execution or verification routes.
+    #[serde(default)]
+    pub computer_use_recovery: Option<ComputerUseRecoverySummary>,
     /// Human-readable summary or block reason.
     pub summary: String,
     /// Optional error class when the parent playbook blocks or fails.

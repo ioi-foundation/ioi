@@ -224,7 +224,8 @@ fn is_duplicate_safe_repeat_tool(tool: &AgentTool) -> bool {
     match tool {
         AgentTool::BrowserWait { .. }
         | AgentTool::BrowserScroll { .. }
-        | AgentTool::BrowserHover { .. } => true,
+        | AgentTool::BrowserHover { .. }
+        | AgentTool::AgentAwait { .. } => true,
         AgentTool::BrowserKey { key, .. } => is_repeatable_browser_motion_key(key),
         _ => false,
     }
@@ -445,6 +446,21 @@ mod tests {
             selector: None,
             modifiers: None,
             continue_with: None,
+        };
+        let mut checks = Vec::new();
+        let (is_duplicate, history) =
+            duplicate_execution_state(&mut state, &tool, false, 4, "fp", &mut checks);
+        assert!(!is_duplicate);
+        assert!(history.is_none());
+        assert!(is_duplicate_safe_repeat_tool(&tool));
+    }
+
+    #[test]
+    fn agent_await_result_is_allowed_to_repeat_on_adjacent_steps() {
+        let mut state = test_agent_state();
+        mark_action_fingerprint_executed_at_step(&mut state.tool_execution_log, "fp", 3, "success");
+        let tool = AgentTool::AgentAwait {
+            child_session_id_hex: "44".repeat(32),
         };
         let mut checks = Vec::new();
         let (is_duplicate, history) =

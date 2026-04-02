@@ -2,6 +2,19 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import {
+  collectStudioArtifactArenaView,
+  writeStudioArtifactArenaLedger,
+} from "../../../scripts/lib/studio-artifact-arena.mjs";
+import { buildAgentModelMatrixView } from "../../../scripts/lib/agent-model-matrix.mjs";
+import { collectStudioArtifactCorpusIndex } from "../../../scripts/lib/studio-artifact-corpus.mjs";
+import { collectStudioArtifactDistillationView } from "../../../scripts/lib/studio-artifact-distillation.mjs";
+import { collectStudioArtifactParityLoopView } from "../../../scripts/lib/studio-artifact-parity-loop.mjs";
+import {
+  collectStudioArtifactReleaseGatesView,
+  writeStudioArtifactReleaseGates,
+} from "../../../scripts/lib/studio-artifact-release-gates.mjs";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../../..");
@@ -18,9 +31,15 @@ const outputPaths = [
   path.join(repoRoot, "apps/benchmarks/src/generated/benchmark-data.json"),
   path.join(repoRoot, "apps/benchmarks/public/generated/benchmark-data.json"),
 ];
+const studioArtifactEvidenceRoot = path.join(
+  repoRoot,
+  "docs",
+  "evidence",
+  "studio-artifact-surface",
+);
 const liveDataPath = "/generated/benchmark-data.json";
 const liveStorePath = "/generated/benchmark-store.json";
-const SUITE_ORDER = ["MiniWoB++", "OSWorld", "WorkArena", "Unknown"];
+const SUITE_ORDER = ["MiniWoB++", "OSWorld", "WorkArena", "Studio Artifacts", "Unknown"];
 
 const TRACE_LANE_ORDER = [
   "case",
@@ -33,6 +52,7 @@ const TRACE_LANE_ORDER = [
   "bridge",
 ];
 const REWARD_FLOOR_EPSILON = 1e-4;
+const STUDIO_ARTIFACT_SUITE = "Studio Artifacts";
 
 function writeOutputFiles(payload) {
   const encoded = JSON.stringify(payload, null, 2);
@@ -67,6 +87,32 @@ function resolveRepoPath(targetPath) {
     return null;
   }
   return path.isAbsolute(targetPath) ? targetPath : path.join(repoRoot, targetPath);
+}
+
+function resolveStudioArtifactEvidencePath(targetPath) {
+  if (!targetPath || typeof targetPath !== "string") {
+    return null;
+  }
+  return path.isAbsolute(targetPath)
+    ? targetPath
+    : path.join(studioArtifactEvidenceRoot, targetPath);
+}
+
+function toDisplayPath(targetPath) {
+  if (!targetPath || typeof targetPath !== "string") {
+    return "";
+  }
+  if (path.isAbsolute(targetPath)) {
+    const repoRelative = path.relative(repoRoot, targetPath);
+    if (
+      repoRelative &&
+      !repoRelative.startsWith("..") &&
+      !path.isAbsolute(repoRelative)
+    ) {
+      return repoRelative.split(path.sep).join("/");
+    }
+  }
+  return String(targetPath).replace(/\\/g, "/");
 }
 
 function toFileHref(targetPath) {
@@ -265,6 +311,48 @@ function runFreshnessValue(runId, updatedAtMs) {
   return typeof updatedAtMs === "number" && Number.isFinite(updatedAtMs)
     ? updatedAtMs
     : runSortValue(runId);
+}
+
+function artifactClassificationResult(classification) {
+  const normalized = String(classification || "").trim().toLowerCase();
+  if (normalized === "pass") {
+    return "pass";
+  }
+  if (normalized === "repairable") {
+    return "near-miss";
+  }
+  if (normalized === "blocked") {
+    return "red";
+  }
+  return "unknown";
+}
+
+function artifactVerificationMetricStatus(verificationStatus) {
+  const normalized = String(verificationStatus || "").trim().toLowerCase();
+  if (normalized === "ready" || normalized === "pass") {
+    return "pass";
+  }
+  if (normalized === "partial" || normalized === "repairable") {
+    return "near-miss";
+  }
+  if (normalized) {
+    return "red";
+  }
+  return "unknown";
+}
+
+function artifactReward(classification) {
+  const result = artifactClassificationResult(classification);
+  if (result === "pass") {
+    return 1;
+  }
+  if (result === "near-miss") {
+    return 0.5;
+  }
+  if (result === "red") {
+    return 0;
+  }
+  return null;
 }
 
 function inferSuite(caseId) {
@@ -555,19 +643,353 @@ function summarizeTraceAttributes(attributes) {
   return compactText(JSON.stringify(attributes), 220);
 }
 
-function summarizeTraceArtifactLinks(refs) {
+function summarizeTraceArtifactLinks(refs, options = {}) {
+  const resolvePath = options.resolvePath ?? resolveRepoPath;
+  const formatPath = options.formatPath ?? toDisplayPath;
   if (!Array.isArray(refs)) {
     return [];
   }
   return refs
     .filter((value) => typeof value === "string" && value.trim())
     .slice(0, 4)
+    .map((value) => {
+      const resolvedPath = resolvePath(value);
+      return {
+        label: path.basename(value),
+        path: formatPath(value),
+        href: toFileHref(resolvedPath),
+      };
+    })
+    .filter((entry) => entry.href);
+}
+
+function studioArtifactTraceLinks(entry) {
+  return [
+    entry.summaryPath,
+    entry.manifestPath,
+    entry.generationPath,
+    entry.routePath,
+    entry.inspectPath,
+  ]
+    .filter((value) => typeof value === "string" && value.trim())
+    .slice(0, 4)
     .map((value) => ({
       label: path.basename(value),
       path: value,
-      href: toFileHref(value),
+      href: toFileHref(resolveStudioArtifactEvidencePath(value)),
     }))
-    .filter((entry) => entry.href);
+    .filter((value) => value.href);
+}
+
+function buildStudioArtifactTrace(entry) {
+  const startMs = entry.sortTimestampMs || null;
+  const endMs = startMs == null ? null : startMs + 4;
+  const result = artifactClassificationResult(entry.effectiveClassification);
+  const verificationMetric = artifactVerificationMetricStatus(entry.verificationStatus);
+  const shimStatus = entry.shimDependent
+    ? "red"
+    : entry.renderer === "html_iframe"
+      ? "pass"
+      : "unknown";
+  const provenanceStatus =
+    entry.productionProvenanceKind || entry.acceptanceProvenanceKind ? "pass" : "unknown";
+  const studioArtifactLinkOptions = {
+    resolvePath: resolveStudioArtifactEvidencePath,
+    formatPath: (value) => String(value ?? ""),
+  };
+  const spans = [
+    {
+      id: "case",
+      lane: "case",
+      parentSpanId: null,
+      stepIndex: null,
+      status: result,
+      summary: compactText(
+        `${entry.prompt} | renderer=${entry.renderer} verification=${entry.verificationStatus} classification=${entry.effectiveClassification}`,
+        220,
+      ),
+      startMs,
+      endMs,
+      durationMs: startMs == null ? null : 4,
+      capabilityTags: ["artifact_outcome"],
+      attributesSummary: compactText(
+        JSON.stringify({
+          lane: entry.laneLabel ?? entry.lane,
+          dateRoot: entry.dateRoot,
+          fullStudioPath: entry.fullStudioPath,
+        }),
+        220,
+      ),
+      artifactLinks: studioArtifactTraceLinks(entry),
+    },
+    {
+      id: "runtime:production",
+      lane: "runtime",
+      parentSpanId: "case",
+      stepIndex: null,
+      status: provenanceStatus,
+      summary: compactText(
+        `production=${entry.productionRuntimeLabel ?? entry.productionProvenanceKind ?? "Unknown"} acceptance=${entry.acceptanceRuntimeLabel ?? entry.acceptanceProvenanceKind ?? "Unknown"}`,
+        220,
+      ),
+      startMs: startMs == null ? null : startMs + 1,
+      endMs: startMs == null ? null : startMs + 2,
+      durationMs: startMs == null ? null : 1,
+      capabilityTags: ["artifact_provenance"],
+      attributesSummary: compactText(
+        JSON.stringify({
+          acceptance: entry.acceptanceRuntimeLabel ?? entry.acceptanceProvenanceKind,
+          outputOrigin: entry.outputOriginLabel ?? entry.outputOrigin,
+        }),
+        220,
+      ),
+      artifactLinks: summarizeTraceArtifactLinks(
+        [entry.generationPath, entry.inspectPath],
+        studioArtifactLinkOptions,
+      ),
+    },
+    {
+      id: "step:route",
+      lane: "step",
+      parentSpanId: "case",
+      stepIndex: 0,
+      status: result,
+      summary: compactText(
+        `route=${entry.renderer}/${entry.artifactClass} lane=${entry.laneLabel ?? entry.lane}`,
+        220,
+      ),
+      startMs: startMs == null ? null : startMs + 1,
+      endMs: startMs == null ? null : startMs + 2,
+      durationMs: startMs == null ? null : 1,
+      capabilityTags: ["artifact_route"],
+      attributesSummary: "",
+      artifactLinks: summarizeTraceArtifactLinks([entry.routePath], studioArtifactLinkOptions),
+    },
+    {
+      id: "step:judge",
+      lane: "step",
+      parentSpanId: "case",
+      stepIndex: 1,
+      status: result,
+      summary: compactText(
+        `winner=${entry.winningCandidateId ?? "none"} candidates=${entry.candidateCount} contradiction=${entry.strongestContradiction ?? "none"}`,
+        220,
+      ),
+      startMs: startMs == null ? null : startMs + 2,
+      endMs: startMs == null ? null : startMs + 3,
+      durationMs: startMs == null ? null : 1,
+      capabilityTags: ["artifact_candidate_search"],
+      attributesSummary: compactText(
+        JSON.stringify({
+          pass: entry.passCandidateCount,
+          repairable: entry.repairableCandidateCount,
+          blocked: entry.blockedCandidateCount,
+        }),
+        220,
+      ),
+      artifactLinks: summarizeTraceArtifactLinks(
+        [entry.judgePath, entry.generationPath],
+        studioArtifactLinkOptions,
+      ),
+    },
+    {
+      id: "receipt:verification",
+      lane: "receipt",
+      parentSpanId: "case",
+      stepIndex: null,
+      status: verificationMetric,
+      summary: compactText(
+        `verification=${entry.verificationStatus} lifecycle=${entry.lifecycleState}`,
+        220,
+      ),
+      startMs: startMs == null ? null : startMs + 3,
+      endMs: startMs == null ? null : startMs + 4,
+      durationMs: startMs == null ? null : 1,
+      capabilityTags: ["artifact_verification_gate"],
+      attributesSummary: "",
+      artifactLinks: summarizeTraceArtifactLinks(
+        [entry.manifestPath, entry.inspectPath],
+        studioArtifactLinkOptions,
+      ),
+    },
+    {
+      id: "receipt:shim",
+      lane: "receipt",
+      parentSpanId: "case",
+      stepIndex: null,
+      status: shimStatus,
+      summary: entry.shimDependent
+        ? "Artifact depended on Studio normalization repair shims."
+        : entry.renderer === "html_iframe"
+          ? "Artifact rendered without normalization repair shims."
+          : "Shim dependency is only tracked for HTML artifacts.",
+      startMs: startMs == null ? null : startMs + 4,
+      endMs: startMs == null ? null : startMs + 5,
+      durationMs: startMs == null ? null : 1,
+      capabilityTags: ["artifact_shim_dependency"],
+      attributesSummary: compactText(
+        JSON.stringify({
+          primaryFile: entry.primaryFile,
+          fullStudioPath: entry.fullStudioPath,
+        }),
+        220,
+      ),
+      artifactLinks: summarizeTraceArtifactLinks(
+        [entry.primaryArtifactPath, entry.materializedPrimaryPath].filter(Boolean),
+        studioArtifactLinkOptions,
+      ),
+    },
+  ];
+
+  const lanes = Array.from(
+    spans.reduce((acc, span) => {
+      const current = acc.get(span.lane) ?? [];
+      current.push(span);
+      acc.set(span.lane, current);
+      return acc;
+    }, new Map()),
+  )
+    .map(([lane, laneSpans]) => ({ lane, spans: laneSpans }))
+    .sort((left, right) => {
+      const leftOrder = TRACE_LANE_ORDER.indexOf(left.lane);
+      const rightOrder = TRACE_LANE_ORDER.indexOf(right.lane);
+      const leftRank = leftOrder === -1 ? TRACE_LANE_ORDER.length : leftOrder;
+      const rightRank = rightOrder === -1 ? TRACE_LANE_ORDER.length : rightOrder;
+      return leftRank - rightRank || left.lane.localeCompare(right.lane);
+    });
+
+  return {
+    source: "studio_artifact_corpus",
+    rangeStartMs: startMs,
+    rangeEndMs: endMs,
+    spanCount: spans.length,
+    bookmarks: [
+      { label: "Route", spanId: "step:route", kind: "route" },
+      { label: "Judge", spanId: "step:judge", kind: "judge" },
+      { label: "Verify", spanId: "receipt:verification", kind: "verification" },
+    ],
+    lanes,
+  };
+}
+
+function collectStudioArtifactCases(corpus = collectStudioArtifactCorpusIndex({ repoRoot })) {
+  return corpus.cases.map((entry) => {
+    const result = artifactClassificationResult(entry.effectiveClassification);
+    const reward = artifactReward(entry.effectiveClassification);
+    const findings = [];
+    if (entry.strongestContradiction) {
+      findings.push(entry.strongestContradiction);
+    }
+    if (entry.shimDependent) {
+      findings.push("Artifact depended on Studio normalization repair shims.");
+    }
+    if (entry.winningCandidateRationale) {
+      findings.push(entry.winningCandidateRationale);
+    }
+
+    return {
+      suite: STUDIO_ARTIFACT_SUITE,
+      caseId: entry.id,
+      runId: `${entry.dateRoot}:${entry.lane}`,
+      runSort: entry.sortTimestampMs,
+      caseDir: entry.caseDir,
+      summary: {
+        provider_calls: entry.candidateCount,
+        reward,
+        raw_reward: reward,
+        model: entry.productionRuntimeLabel ?? undefined,
+        backend: entry.renderer,
+        final_trigger: entry.verificationStatus,
+        query_text: entry.prompt,
+        episode_step: 1,
+        sync_count: entry.shimDependent ? 1 : 0,
+      },
+      result,
+      findings: findings.slice(0, 3),
+      detail: {
+        phaseTiming: {},
+        timeline: [],
+      },
+      traceMetrics: [
+        {
+          metricId: "artifact_outcome",
+          label: "Artifact outcome",
+          status: result,
+          summary: compactText(
+            `classification=${entry.effectiveClassification} verification=${entry.verificationStatus} renderer=${entry.renderer}`,
+            220,
+          ),
+          supportingSpanIds: ["case"],
+        },
+        {
+          metricId: "artifact_verification_gate",
+          label: "Verification gate",
+          status: artifactVerificationMetricStatus(entry.verificationStatus),
+          summary: compactText(
+            `verification=${entry.verificationStatus} lifecycle=${entry.lifecycleState}`,
+            220,
+          ),
+          supportingSpanIds: ["receipt:verification"],
+        },
+        {
+          metricId: "artifact_candidate_search",
+          label: "Candidate search",
+          status:
+            entry.candidateCount > 1
+              ? "pass"
+              : entry.candidateCount === 1
+                ? "near-miss"
+                : "unknown",
+          summary: compactText(
+            `candidates=${entry.candidateCount} pass=${entry.passCandidateCount} repairable=${entry.repairableCandidateCount} blocked=${entry.blockedCandidateCount}`,
+            220,
+          ),
+          supportingSpanIds: ["step:judge"],
+        },
+        {
+          metricId: "artifact_shim_dependency",
+          label: "Shim dependency",
+          status: entry.shimDependent
+            ? "red"
+            : entry.renderer === "html_iframe"
+              ? "pass"
+              : "unknown",
+          summary: entry.shimDependent
+            ? "Artifact still required Studio normalization repair shims."
+            : entry.renderer === "html_iframe"
+              ? "Artifact rendered without Studio normalization repair shims."
+              : "Shim dependency is only tracked for HTML artifacts.",
+          supportingSpanIds: ["receipt:shim"],
+        },
+        {
+          metricId: "artifact_provenance",
+          label: "Artifact provenance",
+          status:
+            entry.productionProvenanceKind || entry.acceptanceProvenanceKind
+              ? "pass"
+              : "unknown",
+          summary: compactText(
+            `production=${entry.productionRuntimeLabel ?? entry.productionProvenanceKind ?? "Unknown"} acceptance=${entry.acceptanceRuntimeLabel ?? entry.acceptanceProvenanceKind ?? "Unknown"}`,
+            220,
+          ),
+          supportingSpanIds: ["runtime:production"],
+        },
+      ],
+      trace: buildStudioArtifactTrace(entry),
+      links: {
+        caseDir: toFileHref(resolveStudioArtifactEvidencePath(entry.caseDir)),
+        diagnosticJson: toFileHref(resolveStudioArtifactEvidencePath(entry.summaryPath)),
+        diagnosticMarkdown: toFileHref(
+          resolveStudioArtifactEvidencePath(entry.materializedReadmePath),
+        ),
+        inferenceCalls: toFileHref(resolveStudioArtifactEvidencePath(entry.generationPath)),
+        inferenceTrace: toFileHref(resolveStudioArtifactEvidencePath(entry.judgePath)),
+        bridgeState: toFileHref(resolveStudioArtifactEvidencePath(entry.routePath)),
+        traceBundle: toFileHref(resolveStudioArtifactEvidencePath(entry.manifestPath)),
+        traceAnalysis: toFileHref(resolveStudioArtifactEvidencePath(entry.inspectPath)),
+      },
+    };
+  });
 }
 
 function buildTraceReplayFromBundle(traceBundle, summary) {
@@ -1372,8 +1794,250 @@ function buildSuiteSummaries(latestCases, liveRuns) {
   });
 }
 
+function collectStudioArtifactParityLoop() {
+  const view = collectStudioArtifactParityLoopView({ repoRoot });
+  if (!view) {
+    return null;
+  }
+
+  const summarizeReceipt = (receipt) =>
+    receipt && typeof receipt === "object"
+      ? {
+          createdAt: receipt.createdAt ?? null,
+          keepChange:
+            typeof receipt.keepChange === "boolean" ? receipt.keepChange : null,
+          noImprovementStreak: Number(receipt.noImprovementStreak ?? 0),
+          selectedInterventionFamily:
+            typeof receipt.selectedInterventionFamily === "string"
+              ? receipt.selectedInterventionFamily
+              : null,
+          allowedInterventionFamilies: Array.isArray(
+            receipt.allowedInterventionFamilies,
+          )
+            ? receipt.allowedInterventionFamilies.filter((value) => typeof value === "string")
+            : [],
+          decision:
+            receipt.decision && typeof receipt.decision === "object"
+              ? {
+                  kind: receipt.decision.kind ?? "continue",
+                  reason: receipt.decision.reason ?? "",
+                }
+              : { kind: "continue", reason: "" },
+          weakestTarget:
+            receipt.weakestTarget && typeof receipt.weakestTarget === "object"
+              ? {
+                  id: receipt.weakestTarget.id ?? null,
+                  label: receipt.weakestTarget.label ?? null,
+                  summary: receipt.weakestTarget.summary ?? null,
+                  family: receipt.weakestTarget.family ?? null,
+                  caseIds: Array.isArray(receipt.weakestTarget.caseIds)
+                    ? receipt.weakestTarget.caseIds.filter(
+                        (value) => typeof value === "string",
+                      )
+                    : [],
+                }
+              : null,
+          relevantCaseIds: Array.isArray(receipt.relevantCaseIds)
+            ? receipt.relevantCaseIds.filter((value) => typeof value === "string")
+            : [],
+          requiredReceipts: Array.isArray(receipt.requiredReceipts)
+            ? receipt.requiredReceipts.filter((value) => typeof value === "string")
+            : [],
+          comparison:
+            receipt.comparison && typeof receipt.comparison === "object"
+              ? {
+                  improvedMetrics: Array.isArray(receipt.comparison.improvedMetrics)
+                    ? receipt.comparison.improvedMetrics.filter(
+                        (value) => typeof value === "string",
+                      )
+                    : [],
+                  regressedMetrics: Array.isArray(receipt.comparison.regressedMetrics)
+                    ? receipt.comparison.regressedMetrics.filter(
+                        (value) => typeof value === "string",
+                      )
+                    : [],
+                  unchangedMetrics: Array.isArray(receipt.comparison.unchangedMetrics)
+                    ? receipt.comparison.unchangedMetrics.filter(
+                        (value) => typeof value === "string",
+                      )
+                    : [],
+                }
+              : null,
+        }
+      : null;
+
+  return {
+    status: view.status,
+    receiptCount: Number(view.receiptCount ?? 0),
+    summaryPath: toDisplayPath(view.summaryPath),
+    summaryHref: toFileHref(view.summaryPath),
+    ledgerPath: toDisplayPath(view.ledgerPath),
+    ledgerHref: toFileHref(view.ledgerPath),
+    latestReceipt: summarizeReceipt(view.latestReceipt),
+    currentPlan: summarizeReceipt(view.currentPlan),
+  };
+}
+
+function collectStudioArtifactDistillation() {
+  const view = collectStudioArtifactDistillationView({ repoRoot });
+  if (!view) {
+    return null;
+  }
+
+  return {
+    status: view.status,
+    ledgerPath: toDisplayPath(view.ledgerPath),
+    ledgerHref: toFileHref(view.ledgerPath),
+    proposalCount: Number(view.proposalCount ?? 0),
+    appliedCount: Number(view.appliedCount ?? 0),
+    measuredGain:
+      typeof view.measuredGain === "number" ? view.measuredGain : null,
+    topProposals: Array.isArray(view.topProposals)
+      ? view.topProposals.map((proposal) => ({
+          proposalId: proposal.proposalId ?? null,
+          sourceKind: proposal.sourceKind ?? null,
+          benchmarkId: proposal.benchmarkId ?? null,
+          benchmarkTitle: proposal.benchmarkTitle ?? null,
+          targetUpgrades: Array.isArray(proposal.targetUpgrades)
+            ? proposal.targetUpgrades.filter((value) => typeof value === "string")
+            : [],
+          typedReasons: Array.isArray(proposal.typedReasons)
+            ? proposal.typedReasons.filter((value) => typeof value === "string")
+            : [],
+          before: proposal.before ?? null,
+          after: proposal.after ?? null,
+          structuralChanges: proposal.structuralChanges ?? null,
+          generalization: proposal.generalization ?? null,
+          status: proposal.status ?? "proposed",
+        }))
+      : [],
+  };
+}
+
+function collectStudioArtifactArena(corpusSummary = null) {
+  const { ledgerPath } = writeStudioArtifactArenaLedger({
+    repoRoot,
+    corpusSummary: corpusSummary ?? undefined,
+  });
+  const view = collectStudioArtifactArenaView({ repoRoot, ledgerPath });
+  if (!view) {
+    return null;
+  }
+
+  return {
+    status: view.status,
+    ledgerPath: toDisplayPath(view.ledgerPath),
+    ledgerHref: toFileHref(view.ledgerPath),
+    benchmarkCount: Number(view.benchmarkCount ?? 0),
+    executedBenchmarkCount: Number(view.executedBenchmarkCount ?? 0),
+    comparativeBenchmarkCount: Number(view.comparativeBenchmarkCount ?? 0),
+    benchmarksWithBlindWinnerCount: Number(view.benchmarksWithBlindWinnerCount ?? 0),
+    internalExecutionCount: Number(view.internalExecutionCount ?? 0),
+    internalParticipantCount: Number(view.internalParticipantCount ?? 0),
+    externalReferenceCount: Number(view.externalReferenceCount ?? 0),
+    pairwiseMatchCount: Number(view.pairwiseMatchCount ?? 0),
+    blindMatchCount: Number(view.blindMatchCount ?? 0),
+    pendingBlindMatchCount: Number(view.pendingBlindMatchCount ?? 0),
+    topCompositeRatings: Array.isArray(view.topCompositeRatings)
+      ? view.topCompositeRatings.map((rating) => ({
+          participant: rating.participant ?? null,
+          label: rating.label ?? null,
+          rating:
+            typeof rating.rating === "number" ? rating.rating : null,
+          matches: Number(rating.matches ?? 0),
+          wins: Number(rating.wins ?? 0),
+          losses: Number(rating.losses ?? 0),
+          draws: Number(rating.draws ?? 0),
+        }))
+      : [],
+    benchmarkLeaders: Array.isArray(view.benchmarkLeaders)
+      ? view.benchmarkLeaders.map((leader) => ({
+          benchmarkId: leader.benchmarkId ?? null,
+          title: leader.title ?? null,
+          pairwiseMatchCount: Number(leader.pairwiseMatchCount ?? 0),
+          pendingBlindMatchCount: Number(leader.pendingBlindMatchCount ?? 0),
+          provisionalLeader: leader.provisionalLeader ?? null,
+          blindWinner: leader.blindWinner ?? null,
+        }))
+      : [],
+    pendingBlindMatches: Array.isArray(view.pendingBlindMatches)
+      ? view.pendingBlindMatches.map((match) => ({
+          matchId: match.matchId ?? null,
+          benchmarkId: match.benchmarkId ?? null,
+          benchmarkTitle: match.benchmarkTitle ?? null,
+          leftLabel: match.leftLabel ?? null,
+          rightLabel: match.rightLabel ?? null,
+          rationale: match.rationale ?? null,
+        }))
+      : [],
+  };
+}
+
+function collectStudioArtifactReleaseGates(corpusSummary = null) {
+  const { reportPath } = writeStudioArtifactReleaseGates({
+    repoRoot,
+    corpusSummary: corpusSummary ?? undefined,
+  });
+  const view = collectStudioArtifactReleaseGatesView({ repoRoot, reportPath });
+  if (!view) {
+    return null;
+  }
+
+  return {
+    status: view.status,
+    passing: view.passing === true,
+    reportPath: toDisplayPath(view.reportPath),
+    reportHref: toFileHref(view.reportPath),
+    gateCount: Number(view.gateCount ?? 0),
+    passCount: Number(view.passCount ?? 0),
+    failCount: Number(view.failCount ?? 0),
+    pendingCount: Number(view.pendingCount ?? 0),
+    blockingGateIds: Array.isArray(view.blockingGateIds)
+      ? view.blockingGateIds.filter((value) => typeof value === "string")
+      : [],
+    ratchetCandidateIds: Array.isArray(view.ratchetCandidateIds)
+      ? view.ratchetCandidateIds.filter((value) => typeof value === "string")
+      : [],
+    topGates: Array.isArray(view.topGates)
+      ? view.topGates.map((gate) => ({
+          id: gate.id ?? null,
+          label: gate.label ?? null,
+          status: gate.status ?? null,
+          operator: gate.operator ?? null,
+          shipThreshold:
+            typeof gate.shipThreshold === "number" ? gate.shipThreshold : null,
+          reading: gate.reading ?? null,
+          ratchet: gate.ratchet ?? null,
+        }))
+      : [],
+    ratchetCandidates: Array.isArray(view.ratchetCandidates)
+      ? view.ratchetCandidates.map((gate) => ({
+          id: gate.id ?? null,
+          label: gate.label ?? null,
+          operator: gate.operator ?? null,
+          currentValue:
+            typeof gate.currentValue === "number" ? gate.currentValue : null,
+          currentFloor:
+            typeof gate.currentFloor === "number" ? gate.currentFloor : null,
+          candidateFloor:
+            typeof gate.candidateFloor === "number" ? gate.candidateFloor : null,
+        }))
+      : [],
+  };
+}
+
 function generate() {
-  const latestCases = collectLatestCaseDiagnostics();
+  const studioArtifactCorpus = collectStudioArtifactCorpusIndex({ repoRoot });
+  const studioArtifactArena = collectStudioArtifactArena(studioArtifactCorpus);
+  const studioArtifactReleaseGates =
+    collectStudioArtifactReleaseGates(studioArtifactCorpus);
+  const studioArtifactDistillation = collectStudioArtifactDistillation();
+  const studioArtifactParityLoop = collectStudioArtifactParityLoop();
+  const agentModelMatrix = buildAgentModelMatrixView({ repoRoot });
+  const latestCases = [
+    ...collectLatestCaseDiagnostics(),
+    ...collectStudioArtifactCases(studioArtifactCorpus),
+  ].sort((left, right) => (right.runSort ?? 0) - (left.runSort ?? 0));
   const liveRuns = collectLiveRunsFromStore();
 
   const payload = {
@@ -1384,6 +2048,12 @@ function generate() {
     suiteSummaries: buildSuiteSummaries(latestCases, liveRuns),
     liveRuns,
     latestCases,
+    studioArtifactBenchmarkSuite: studioArtifactCorpus.benchmarkSuite ?? null,
+    studioArtifactArena,
+    studioArtifactReleaseGates,
+    studioArtifactDistillation,
+    studioArtifactParityLoop,
+    agentModelMatrix,
   };
 
   writeOutputFiles(payload);

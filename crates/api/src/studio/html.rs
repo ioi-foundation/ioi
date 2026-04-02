@@ -3064,6 +3064,76 @@ pub(super) fn html_contains_rollover_detail_behavior(html_lower: &str) -> bool {
         && html_contains_state_mutation_behavior(html_lower)
 }
 
+fn html_open_tag_name(open_tag_lower: &str) -> Option<&str> {
+    let trimmed = open_tag_lower.trim_start();
+    let stripped = trimmed.strip_prefix('<')?;
+    let end = stripped
+        .find(|ch: char| ch.is_whitespace() || ch == '>' || ch == '/')
+        .unwrap_or(stripped.len());
+    let tag_name = &stripped[..end];
+    if tag_name.is_empty() {
+        None
+    } else {
+        Some(tag_name)
+    }
+}
+
+fn html_tag_is_natively_focusable(open_tag_lower: &str, tag_name: &str) -> bool {
+    match tag_name {
+        "button" | "select" | "textarea" | "summary" => true,
+        "a" => open_tag_lower.contains("href="),
+        "input" => {
+            !(open_tag_lower.contains("type=\"hidden\"")
+                || open_tag_lower.contains("type='hidden'"))
+        }
+        _ => false,
+    }
+}
+
+pub(super) fn html_has_unfocusable_rollover_marks(html_lower: &str) -> bool {
+    if !html_lower.contains("data-detail=") {
+        return false;
+    }
+
+    let relies_on_focus_behavior = [
+        "addeventlistener(\"focus\"",
+        "addeventlistener('focus'",
+        "addeventlistener(\"focusin\"",
+        "addeventlistener('focusin'",
+        "onfocus=",
+        "onfocusin=",
+    ]
+    .iter()
+    .any(|needle| html_lower.contains(needle));
+    if !relies_on_focus_behavior {
+        return false;
+    }
+
+    let mut cursor = 0usize;
+    while let Some(relative_attr_start) = html_lower[cursor..].find("data-detail=") {
+        let attr_start = cursor + relative_attr_start;
+        let Some(open_start) = html_lower[..attr_start].rfind('<') else {
+            cursor = attr_start + "data-detail=".len();
+            continue;
+        };
+        let Some(relative_open_end) = html_lower[open_start..].find('>') else {
+            break;
+        };
+        let open_end = open_start + relative_open_end + 1;
+        let open_tag = &html_lower[open_start..open_end];
+        let Some(tag_name) = html_open_tag_name(open_tag) else {
+            cursor = open_end;
+            continue;
+        };
+        if !html_tag_is_natively_focusable(open_tag, tag_name) && !open_tag.contains("tabindex=") {
+            return true;
+        }
+        cursor = open_end;
+    }
+
+    false
+}
+
 pub(super) fn interaction_requires_view_switching(interaction: &str) -> bool {
     let lower = interaction.to_ascii_lowercase();
     ["click", "navigation", "switch", "toggle", "tab", "view"]
@@ -3426,6 +3496,96 @@ pub(super) fn html_has_visible_populated_mapped_view_panel(html_lower: &str) -> 
     false
 }
 
+pub(super) fn html_has_duplicate_mapped_view_tokens(html_lower: &str) -> bool {
+    let mut seen = HashSet::<String>::new();
+    for token in extract_html_attribute_values(html_lower, "data-view-panel")
+        .into_iter()
+        .filter_map(|value| normalize_html_selector_token(&value))
+    {
+        if !seen.insert(token) {
+            return true;
+        }
+    }
+    false
+}
+
+pub(super) fn html_has_invalid_mapped_view_default_state(html: &str) -> bool {
+    let panels = collect_html_mapped_view_panels(html);
+    if panels.len() < 2 {
+        return false;
+    }
+    panels
+        .iter()
+        .filter(|panel| panel.visible_on_first_paint)
+        .count()
+        != 1
+}
+
+pub(super) fn html_uses_custom_font_family_without_loading(html_lower: &str) -> bool {
+    if !html_lower.contains("font-family") {
+        return false;
+    }
+    if html_lower.contains("fonts.googleapis.com")
+        || html_lower.contains("@font-face")
+        || html_lower.contains("font-face")
+        || html_lower.contains("local(")
+    {
+        return false;
+    }
+
+    let mut cursor = 0usize;
+    while let Some(relative_start) = html_lower[cursor..].find("font-family") {
+        let start = cursor + relative_start;
+        let Some(relative_colon) = html_lower[start..].find(':') else {
+            break;
+        };
+        let value_start = start + relative_colon + 1;
+        let declaration_end = html_lower[value_start..]
+            .find(';')
+            .map(|offset| value_start + offset)
+            .or_else(|| {
+                html_lower[value_start..]
+                    .find('}')
+                    .map(|offset| value_start + offset)
+            })
+            .unwrap_or(html_lower.len());
+        let declaration = html_lower[value_start..declaration_end].trim();
+        if declaration
+            .split(',')
+            .map(|segment| segment.trim().trim_matches('\'').trim_matches('"'))
+            .filter(|segment| !segment.is_empty())
+            .any(|segment| {
+                !matches!(
+                    segment,
+                    "serif"
+                        | "sans-serif"
+                        | "monospace"
+                        | "cursive"
+                        | "fantasy"
+                        | "system-ui"
+                        | "ui-sans-serif"
+                        | "ui-serif"
+                        | "ui-monospace"
+                        | "-apple-system"
+                        | "blinkmacsystemfont"
+                        | "segoe ui"
+                        | "arial"
+                        | "helvetica"
+                        | "roboto"
+                        | "georgia"
+                        | "times new roman"
+                        | "courier new"
+                )
+            })
+        {
+            return true;
+        }
+        cursor = declaration_end;
+    }
+
+    false
+}
+
 pub(super) fn html_uses_external_runtime_dependency(html_lower: &str) -> bool {
     if html_lower.contains("<script src=")
         || html_lower.contains("<script src='")
@@ -3452,4 +3612,16 @@ pub(super) fn html_uses_external_runtime_dependency(html_lower: &str) -> bool {
     .iter()
     .any(|needle| html_lower.contains(needle));
     html_lower.contains("new chart(") && !chart_defined_locally
+}
+
+pub(super) fn count_html_repair_shim_markers(html_lower: &str) -> usize {
+    html_lower.matches("data-studio-normalized=").count()
+        + html_lower
+            .matches("data-studio-view-switch-repair=")
+            .count()
+        + html_lower.matches("data-studio-rollover-repair=").count()
+        + html_lower
+            .matches("data-studio-view-controls-repair=")
+            .count()
+        + html_lower.matches("data-studio-view-panel-repair=").count()
 }

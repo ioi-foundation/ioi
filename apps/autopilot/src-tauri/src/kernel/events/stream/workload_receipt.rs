@@ -556,6 +556,188 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
             } else {
                 None
             };
+            let prep_summary = if playbook.has_prep_summary {
+                Some(playbook.prep_summary.clone())
+            } else {
+                None
+            };
+            let artifact_generation = if playbook.has_artifact_generation {
+                playbook.artifact_generation.as_ref().map(|summary| {
+                    json!({
+                        "status": summary.status,
+                        "produced_file_count": summary.produced_file_count,
+                        "verification_signal_status": summary.verification_signal_status,
+                        "presentation_status": summary.presentation_status,
+                        "notes": if summary.has_notes {
+                            Some(summary.notes.clone())
+                        } else {
+                            None::<String>
+                        },
+                    })
+                })
+            } else {
+                None
+            };
+            let computer_use_perception = if playbook.has_computer_use_perception {
+                playbook.computer_use_perception.as_ref().map(|summary| {
+                    json!({
+                        "surface_status": summary.surface_status,
+                        "ui_state": summary.ui_state,
+                        "target": if summary.has_target {
+                            Some(summary.target.clone())
+                        } else {
+                            None::<String>
+                        },
+                        "approval_risk": summary.approval_risk,
+                        "next_action": if summary.has_next_action {
+                            Some(summary.next_action.clone())
+                        } else {
+                            None::<String>
+                        },
+                        "notes": if summary.has_notes {
+                            Some(summary.notes.clone())
+                        } else {
+                            None::<String>
+                        },
+                    })
+                })
+            } else {
+                None
+            };
+            let research_scorecard = if playbook.has_research_scorecard {
+                playbook.research_scorecard.as_ref().map(|scorecard| {
+                    json!({
+                        "verdict": scorecard.verdict,
+                        "source_count": scorecard.source_count,
+                        "distinct_domain_count": scorecard.distinct_domain_count,
+                        "source_count_floor_met": scorecard.source_count_floor_met,
+                        "source_independence_floor_met": scorecard.source_independence_floor_met,
+                        "freshness_status": scorecard.freshness_status,
+                        "quote_grounding_status": scorecard.quote_grounding_status,
+                        "notes": if scorecard.has_notes {
+                            Some(scorecard.notes.clone())
+                        } else {
+                            None::<String>
+                        },
+                    })
+                })
+            } else {
+                None
+            };
+            let artifact_quality = if playbook.has_artifact_quality {
+                playbook.artifact_quality.as_ref().map(|scorecard| {
+                    json!({
+                        "verdict": scorecard.verdict,
+                        "fidelity_status": scorecard.fidelity_status,
+                        "presentation_status": scorecard.presentation_status,
+                        "repair_status": scorecard.repair_status,
+                        "notes": if scorecard.has_notes {
+                            Some(scorecard.notes.clone())
+                        } else {
+                            None::<String>
+                        },
+                    })
+                })
+            } else {
+                None
+            };
+            let computer_use_verification = if playbook.has_computer_use_verification {
+                playbook
+                    .computer_use_verification
+                    .as_ref()
+                    .map(|scorecard| {
+                        json!({
+                            "verdict": scorecard.verdict,
+                            "postcondition_status": scorecard.postcondition_status,
+                            "approval_state": scorecard.approval_state,
+                            "recovery_status": scorecard.recovery_status,
+                            "observed_postcondition": if scorecard.has_observed_postcondition {
+                                Some(scorecard.observed_postcondition.clone())
+                            } else {
+                                None::<String>
+                            },
+                            "notes": if scorecard.has_notes {
+                                Some(scorecard.notes.clone())
+                            } else {
+                                None::<String>
+                            },
+                        })
+                    })
+            } else {
+                None
+            };
+            let coding_scorecard = if playbook.has_coding_scorecard {
+                playbook.coding_scorecard.as_ref().map(|scorecard| {
+                    json!({
+                        "verdict": scorecard.verdict,
+                        "targeted_command_count": scorecard.targeted_command_count,
+                        "targeted_pass_count": scorecard.targeted_pass_count,
+                        "widening_status": scorecard.widening_status,
+                        "regression_status": scorecard.regression_status,
+                        "notes": if scorecard.has_notes {
+                            Some(scorecard.notes.clone())
+                        } else {
+                            None::<String>
+                        },
+                    })
+                })
+            } else {
+                None
+            };
+            let artifact_repair = if playbook.has_artifact_repair {
+                playbook.artifact_repair.as_ref().map(|summary| {
+                    json!({
+                        "status": summary.status,
+                        "reason": if summary.has_reason {
+                            Some(summary.reason.clone())
+                        } else {
+                            None::<String>
+                        },
+                        "next_step": if summary.has_next_step {
+                            Some(summary.next_step.clone())
+                        } else {
+                            None::<String>
+                        },
+                    })
+                })
+            } else {
+                None
+            };
+            let computer_use_recovery = if playbook.has_computer_use_recovery {
+                playbook.computer_use_recovery.as_ref().map(|summary| {
+                    json!({
+                        "status": summary.status,
+                        "reason": if summary.has_reason {
+                            Some(summary.reason.clone())
+                        } else {
+                            None::<String>
+                        },
+                        "next_step": if summary.has_next_step {
+                            Some(summary.next_step.clone())
+                        } else {
+                            None::<String>
+                        },
+                    })
+                })
+            } else {
+                None
+            };
+            let patch_synthesis = if playbook.has_patch_synthesis {
+                playbook.patch_synthesis.as_ref().map(|summary| {
+                    json!({
+                        "status": summary.status,
+                        "touched_file_count": summary.touched_file_count,
+                        "verification_ready": summary.verification_ready,
+                        "notes": if summary.has_notes {
+                            Some(summary.notes.clone())
+                        } else {
+                            None::<String>
+                        },
+                    })
+                })
+            } else {
+                None
+            };
             Some(WorkloadReceiptSummary {
                 kind: "parent_playbook",
                 tool_name: playbook.tool_name.clone(),
@@ -574,6 +756,20 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
                     "phase": playbook.phase,
                     "playbook_id": playbook.playbook_id,
                     "playbook_label": playbook.playbook_label,
+                    "route_family": playbook.route_family,
+                    "topology": playbook.topology,
+                    "verifier_state": playbook.verifier_state,
+                    "selected_skills": playbook.selected_skills,
+                    "prep_summary": prep_summary,
+                    "artifact_generation": artifact_generation,
+                    "computer_use_perception": computer_use_perception,
+                    "research_scorecard": research_scorecard,
+                    "artifact_quality": artifact_quality,
+                    "computer_use_verification": computer_use_verification,
+                    "coding_scorecard": coding_scorecard,
+                    "patch_synthesis": patch_synthesis,
+                    "artifact_repair": artifact_repair,
+                    "computer_use_recovery": computer_use_recovery,
                     "status": playbook.status,
                     "success": playbook.success,
                     "error_class": error_class,
@@ -585,6 +781,20 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
                     "child_session_id": child_session_id,
                     "template_id": template_id,
                     "workflow_id": workflow_id,
+                    "route_family": playbook.route_family,
+                    "topology": playbook.topology,
+                    "verifier_state": playbook.verifier_state,
+                    "selected_skills": playbook.selected_skills,
+                    "prep_summary": prep_summary,
+                    "artifact_generation": artifact_generation,
+                    "computer_use_perception": computer_use_perception,
+                    "research_scorecard": research_scorecard,
+                    "artifact_quality": artifact_quality,
+                    "computer_use_verification": computer_use_verification,
+                    "coding_scorecard": coding_scorecard,
+                    "patch_synthesis": patch_synthesis,
+                    "artifact_repair": artifact_repair,
+                    "computer_use_recovery": computer_use_recovery,
                     "summary": playbook.summary,
                 }),
             })

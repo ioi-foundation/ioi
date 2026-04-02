@@ -1,0 +1,201 @@
+{
+  "presetId": "planner-grade-local-oss",
+  "label": "Planner-grade local OSS",
+  "role": "planner_verifier",
+  "benchmarkTier": "tier1",
+  "experimental": true,
+  "shippedDefault": false,
+  "runtimeModel": "qwen2.5:14b",
+  "artifactAcceptanceModel": "qwen2.5:7b",
+  "availabilityStatus": "ready",
+  "availabilitySummary": "Local runtime is healthy and exposes 'qwen2.5:14b'.",
+  "caseCount": 4,
+  "availableWorkloadCount": 4,
+  "topFindings": [
+    "Artifact download bundle: Artifact benchmark timed out after 120000ms.",
+    "Computer use click-button smoke: Click on the \"Okay\" button.",
+    "Research latest NIST PQC standards: local_failures=web_observation_present, completion_evidence_present",
+    "Coding path normalizer fixture: Error: Invalid transaction: Incident planner output invalid: JSON Syntax Error: expected value at line 1 column 1"
+  ],
+  "scorecards": {
+    "artifactQuality": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 1,
+        "passRate": 0,
+        "averageJudgeScore": null,
+        "verifierPassRate": 0,
+        "averageRepairLoopIterations": 0,
+        "routeMatchRate": 0
+      }
+    },
+    "codingCompletion": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 1,
+        "taskPassRate": 0,
+        "targetedTestPassRate": null,
+        "verifierPassRate": 0,
+        "patchSynthesisReadyRate": 0
+      }
+    },
+    "researchQuality": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 1,
+        "taskPassRate": 0,
+        "citationVerifierPassRate": 0,
+        "sourceIndependenceRate": 0,
+        "sourceCountFloorRate": 0,
+        "synthesisCompleteness": 0,
+        "freshnessPassRate": 0,
+        "quoteGroundingPassRate": 0
+      }
+    },
+    "computerUseCompletion": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 1,
+        "rewardFloorPassRate": 0,
+        "postconditionPassRate": 0,
+        "meanStepCount": 0
+      }
+    },
+    "latencyAndResourcePressure": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "meanWallClockMs": 61732.5,
+        "p95WallClockMs": 120103,
+        "residentModelBytes": 8988124069,
+        "processorKind": "34%/66% CPU/GPU"
+      }
+    },
+    "operationalDiscipline": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "malformedToolCallRate": null,
+        "noOpStallRate": null,
+        "repairLoopIterations": 0,
+        "interruptionRecoveryQuality": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "benchmarkId": "artifact-download-bundle",
+      "title": "Artifact download bundle",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "status": "timed_out",
+      "result": "red",
+      "elapsedMs": 120103,
+      "timedOut": true,
+      "judgeScore": null,
+      "verifierPass": false,
+      "repairLoopIterations": 0,
+      "routeMatched": false,
+      "summary": "Artifact benchmark timed out after 120000ms.",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/artifact-download-bundle/artifact/generation.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/artifact-download-bundle/artifact",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/artifact-download-bundle/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/artifact-download-bundle/command.stderr.log"
+    },
+    {
+      "benchmarkId": "computer-use-click-button-smoke",
+      "title": "Computer use click-button smoke",
+      "workload": "computer_use",
+      "runner": "computer_use_suite",
+      "status": "completed",
+      "result": "red",
+      "elapsedMs": 28788,
+      "timedOut": false,
+      "rewardFloorMet": false,
+      "stepCount": 0,
+      "summary": "Click on the \"Okay\" button.",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/computer-use-click-button-smoke/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/computer-use-click-button-smoke/command.stderr.log"
+    },
+    {
+      "benchmarkId": "research-nist-pqc-briefing",
+      "title": "Research latest NIST PQC standards",
+      "workload": "research",
+      "runner": "capabilities_suite",
+      "caseId": "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+      "status": "completed",
+      "result": "red",
+      "elapsedMs": 28659,
+      "timedOut": false,
+      "taskPassed": false,
+      "localScore": 0,
+      "arbiterPass": false,
+      "playbookId": null,
+      "routeFamily": null,
+      "topology": null,
+      "verifierState": null,
+      "verifierPass": false,
+      "targetedCommandCount": null,
+      "targetedPassCount": null,
+      "targetedTestPassRate": null,
+      "patchSynthesisReady": false,
+      "citationVerifierPass": false,
+      "sourceCount": null,
+      "distinctDomainCount": null,
+      "sourceCountFloorRate": 0,
+      "sourceIndependenceRate": 0,
+      "synthesisCompleteness": 0,
+      "freshnessPassed": false,
+      "quoteGroundingPassed": false,
+      "summary": "local_failures=web_observation_present, completion_evidence_present",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/research-nist-pqc-briefing/retained-result.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/research-nist-pqc-briefing",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/research-nist-pqc-briefing/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/research-nist-pqc-briefing/command.stderr.log"
+    },
+    {
+      "benchmarkId": "coding-path-normalizer-fixture",
+      "title": "Coding path normalizer fixture",
+      "workload": "coding",
+      "runner": "capabilities_suite",
+      "caseId": "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests",
+      "status": "failed",
+      "result": "red",
+      "elapsedMs": 69380,
+      "timedOut": false,
+      "taskPassed": false,
+      "localScore": null,
+      "arbiterPass": false,
+      "playbookId": null,
+      "routeFamily": null,
+      "topology": null,
+      "verifierState": null,
+      "verifierPass": false,
+      "targetedCommandCount": null,
+      "targetedPassCount": null,
+      "targetedTestPassRate": null,
+      "patchSynthesisReady": false,
+      "citationVerifierPass": false,
+      "sourceCount": null,
+      "distinctDomainCount": null,
+      "sourceCountFloorRate": 0,
+      "sourceIndependenceRate": 0,
+      "synthesisCompleteness": null,
+      "freshnessPassed": false,
+      "quoteGroundingPassed": false,
+      "summary": "Error: Invalid transaction: Incident planner output invalid: JSON Syntax Error: expected value at line 1 column 1",
+      "evidencePath": null,
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/coding-path-normalizer-fixture",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/coding-path-normalizer-fixture/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/coding-path-normalizer-fixture/command.stderr.log"
+    }
+  ],
+  "summaryPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/summary.json",
+  "runRootPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss"
+}

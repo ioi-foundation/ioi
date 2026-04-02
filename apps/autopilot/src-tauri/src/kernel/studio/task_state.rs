@@ -1,5 +1,83 @@
 use super::*;
 
+fn studio_repair_pass_count(studio_session: &StudioArtifactSession) -> usize {
+    studio_session
+        .materialization
+        .candidate_summaries
+        .iter()
+        .filter_map(|candidate| candidate.convergence.as_ref())
+        .filter(|trace| trace.pass_kind != "initial")
+        .count()
+}
+
+fn studio_authoritative_step_hint(
+    task: &AgentTask,
+    studio_session: &StudioArtifactSession,
+) -> Option<String> {
+    let candidate_count = studio_session.materialization.candidate_summaries.len();
+    let repair_passes = studio_repair_pass_count(studio_session);
+    let scaffold_family = studio_session
+        .materialization
+        .blueprint
+        .as_ref()
+        .map(|blueprint| blueprint.scaffold_family.as_str());
+
+    match studio_session.lifecycle_state {
+        StudioArtifactLifecycleState::Materializing => scaffold_family.map(|scaffold| {
+            format!("Planning the {scaffold} blueprint and selecting structural guidance.")
+        }),
+        StudioArtifactLifecycleState::Rendering | StudioArtifactLifecycleState::Implementing
+            if candidate_count > 0 =>
+        {
+            Some(format!(
+                "Drafted {candidate_count} candidate(s) and is finalizing the strongest artifact view."
+            ))
+        }
+        StudioArtifactLifecycleState::Verifying => Some(
+            scaffold_family
+                .map(|scaffold| {
+                    format!(
+                        "Running static audits and acceptance verification for the {scaffold} artifact."
+                    )
+                })
+                .unwrap_or_else(|| {
+                    "Running static audits and acceptance verification for the artifact."
+                        .to_string()
+                }),
+        ),
+        StudioArtifactLifecycleState::Ready if candidate_count > 0 => {
+            let winner = studio_session
+                .materialization
+                .winning_candidate_id
+                .as_deref()
+                .unwrap_or("winner");
+            let repair_suffix = if repair_passes > 0 {
+                format!(" and {repair_passes} repair pass(es)")
+            } else {
+                String::new()
+            };
+            Some(format!(
+                "Studio verified {winner} after {candidate_count} candidate(s){repair_suffix}."
+            ))
+        }
+        StudioArtifactLifecycleState::Partial if candidate_count > 0 => Some(format!(
+            "Studio surfaced a provisional artifact after {candidate_count} candidate(s); {}",
+            studio_session.artifact_manifest.verification.summary
+        )),
+        StudioArtifactLifecycleState::Blocked if task.clarification_request.is_none() => {
+            if repair_passes > 0 {
+                Some(format!(
+                    "Studio stopped after {repair_passes} repair pass(es); {}",
+                    studio_session.artifact_manifest.verification.summary
+                ))
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
 pub(super) fn persist_current_task_update(
     state: &State<'_, Mutex<AppState>>,
     app: &AppHandle,
@@ -94,6 +172,9 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
     };
 
     let fallback_step = current_step.clone().unwrap_or_else(|| {
+        if let Some(step) = studio_authoritative_step_hint(task, studio_session) {
+            return step;
+        }
         match studio_session.lifecycle_state {
             StudioArtifactLifecycleState::Draft => {
                 "Studio has created a draft artifact request.".to_string()

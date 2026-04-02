@@ -1,4 +1,6 @@
+use super::revisions::persist_studio_artifact_exemplar;
 use super::*;
+use ioi_api::studio::StudioArtifactExemplar;
 
 fn publish_current_task_progress(
     app: &AppHandle,
@@ -175,6 +177,7 @@ fn maybe_prepare_task_for_studio_with_request(
     let mut candidate_summaries = Vec::<StudioArtifactCandidateSummary>::new();
     let mut winning_candidate_id: Option<String> = None;
     let mut winning_candidate_rationale: Option<String> = None;
+    let mut render_evaluation: Option<ioi_api::studio::StudioArtifactRenderEvaluation> = None;
     let mut judge: Option<StudioArtifactJudgeResult> = None;
     let mut output_origin: Option<StudioArtifactOutputOrigin> = None;
     let mut production_provenance: Option<crate::models::StudioRuntimeProvenance> = None;
@@ -183,6 +186,7 @@ fn maybe_prepare_task_for_studio_with_request(
     let mut ux_lifecycle: Option<StudioArtifactUxLifecycle> = None;
     let mut failure: Option<crate::models::StudioArtifactFailure> = None;
     let mut taste_memory: Option<StudioArtifactTasteMemory> = None;
+    let mut retrieved_exemplars = Vec::<StudioArtifactExemplar>::new();
     let mut selected_targets = Vec::<StudioArtifactSelectionTarget>::new();
     let app_runtime_provenance =
         app_inference_runtime(app).map(|runtime| runtime.studio_runtime_provenance());
@@ -304,7 +308,7 @@ fn maybe_prepare_task_for_studio_with_request(
         .map(build_session_to_renderer_session);
 
     if build_session.is_none() {
-        publish_current_task_progress(app, task, "Drafting artifact candidates...");
+        publish_current_task_progress(app, task, "Planning artifact blueprint...");
         let materialized_artifact = materialize_non_workspace_artifact(
             app,
             &thread_id,
@@ -313,7 +317,18 @@ fn maybe_prepare_task_for_studio_with_request(
             &artifact_request,
             None,
         )?;
-        publish_current_task_progress(app, task, "Verifying artifact output...");
+        publish_current_task_progress(
+            app,
+            task,
+            if let Some(blueprint) = materialized_artifact.blueprint.as_ref() {
+                format!(
+                    "Running static audits and acceptance verification for the {} scaffold...",
+                    blueprint.scaffold_family
+                )
+            } else {
+                "Running static audits and acceptance verification...".to_string()
+            },
+        );
         initial_lifecycle_state = materialized_artifact.lifecycle_state;
         non_workspace_verification_summary =
             Some(materialized_artifact.verification_summary.clone());
@@ -322,6 +337,7 @@ fn maybe_prepare_task_for_studio_with_request(
         candidate_summaries = materialized_artifact.candidate_summaries.clone();
         winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
         winning_candidate_rationale = materialized_artifact.winning_candidate_rationale.clone();
+        render_evaluation = materialized_artifact.render_evaluation.clone();
         judge = materialized_artifact.judge.clone();
         output_origin = Some(materialized_artifact.output_origin);
         production_provenance = materialized_artifact.production_provenance.clone();
@@ -330,6 +346,7 @@ fn maybe_prepare_task_for_studio_with_request(
         ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
         failure = materialized_artifact.failure.clone();
         taste_memory = materialized_artifact.taste_memory.clone();
+        retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
         selected_targets = materialized_artifact.selected_targets.clone();
         attached_artifact_ids.extend(
             materialized_artifact
@@ -347,7 +364,7 @@ fn maybe_prepare_task_for_studio_with_request(
             .notes
             .extend(materialized_artifact.notes.clone());
     } else {
-        publish_current_task_progress(app, task, "Preparing workspace surface...");
+        publish_current_task_progress(app, task, "Selecting workspace scaffold...");
     }
 
     publish_current_task_progress(app, task, "Finalizing artifact session...");
@@ -401,6 +418,7 @@ fn maybe_prepare_task_for_studio_with_request(
     materialization.candidate_summaries = candidate_summaries.clone();
     materialization.winning_candidate_id = winning_candidate_id.clone();
     materialization.winning_candidate_rationale = winning_candidate_rationale.clone();
+    materialization.render_evaluation = render_evaluation;
     materialization.judge = judge.clone();
     materialization.output_origin = output_origin;
     materialization.production_provenance = production_provenance.clone();
@@ -408,6 +426,7 @@ fn maybe_prepare_task_for_studio_with_request(
     materialization.fallback_used = fallback_used;
     materialization.ux_lifecycle = ux_lifecycle;
     materialization.failure = failure.clone();
+    materialization.retrieved_exemplars = retrieved_exemplars.clone();
     materialization.navigator_nodes = navigator_nodes_for_manifest(&artifact_manifest);
     let verified_reply = verified_reply_from_manifest(&title, &artifact_manifest);
 
@@ -442,6 +461,7 @@ fn maybe_prepare_task_for_studio_with_request(
         active_revision_id: None,
         revisions: Vec::new(),
         taste_memory,
+        retrieved_exemplars,
         selected_targets,
         ux_lifecycle,
         created_at: created_at.clone(),
@@ -460,6 +480,33 @@ fn maybe_prepare_task_for_studio_with_request(
     let initial_revision = initial_revision_for_session(&studio_session, intent);
     studio_session.active_revision_id = Some(initial_revision.revision_id.clone());
     studio_session.revisions = vec![initial_revision];
+    if let Some(initial_revision) = studio_session.revisions.first().cloned() {
+        if let Some(memory_runtime) = app
+            .state::<Mutex<AppState>>()
+            .lock()
+            .ok()
+            .and_then(|state| state.memory_runtime.clone())
+        {
+            match persist_studio_artifact_exemplar(
+                &memory_runtime,
+                app_inference_runtime(app),
+                &studio_session,
+                &initial_revision,
+            ) {
+                Ok(Some(exemplar)) => studio_session.materialization.notes.push(format!(
+                    "Archived exemplar {} for {} / {}.",
+                    exemplar.record_id,
+                    renderer_kind_id(exemplar.renderer),
+                    exemplar.scaffold_family
+                )),
+                Ok(None) => {}
+                Err(error) => studio_session
+                    .materialization
+                    .notes
+                    .push(format!("Exemplar archival skipped: {error}")),
+            }
+        }
+    }
     sync_workspace_manifest_file(&studio_session);
 
     let artifact_refs = task

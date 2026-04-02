@@ -1,13 +1,16 @@
 use crate::agentic::desktop::keys::get_state_key;
 use crate::agentic::desktop::service::lifecycle::load_worker_assignment;
+use crate::agentic::desktop::service::step::action::execution_receipt_value;
+use crate::agentic::desktop::service::step::anti_loop::{latest_failure_class, FailureClass};
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
-use crate::agentic::desktop::types::{AgentState, AgentStatus};
+use crate::agentic::desktop::types::{AgentState, AgentStatus, WorkerAssignment};
 use crate::agentic::desktop::utils::persist_agent_state;
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
-use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::{AgentTool, LlmToolDefinition};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct WorkerExecutionResult {
@@ -15,6 +18,506 @@ pub struct WorkerExecutionResult {
     pub output: Option<String>,
     pub error: Option<String>,
     pub attempts: u8,
+}
+
+pub(crate) fn worker_assignment_allows_tool_name(
+    assignment: Option<&WorkerAssignment>,
+    tool_name: &str,
+) -> bool {
+    if tool_name == "system__fail" {
+        return true;
+    }
+    assignment
+        .map(|assignment| {
+            assignment.allowed_tools.is_empty()
+                || assignment
+                    .allowed_tools
+                    .iter()
+                    .any(|allowed| allowed == tool_name)
+        })
+        .unwrap_or(true)
+}
+
+pub(crate) fn worker_assignment_disallowed_tool_error(
+    assignment: &WorkerAssignment,
+    tool_name: &str,
+) -> String {
+    format!(
+        "ERROR_CLASS=PolicyBlocked Worker playbook disallows tool '{}'. Allowed tools: {}.",
+        tool_name,
+        assignment.allowed_tools.join(", ")
+    )
+}
+
+fn worker_assignment_tool_name_suppressed_by_recovery(
+    agent_state: &AgentState,
+    assignment: &WorkerAssignment,
+    last_failure_class: Option<FailureClass>,
+    tool_name: &str,
+) -> bool {
+    if worker_assignment_should_suppress_redundant_change_directory(
+        agent_state,
+        Some(assignment),
+        tool_name,
+    ) {
+        return true;
+    }
+    if worker_assignment_should_suppress_root_probes(Some(assignment), last_failure_class)
+        && matches!(tool_name, "filesystem__list_directory" | "filesystem__stat")
+    {
+        return true;
+    }
+    if (worker_assignment_should_suppress_search_after_no_effect(
+        Some(assignment),
+        last_failure_class,
+    ) || worker_assignment_has_likely_file_context(Some(assignment)))
+        && tool_name == "filesystem__search"
+    {
+        return true;
+    }
+    if worker_assignment_should_suppress_targeted_exec_until_workspace_edit(
+        agent_state,
+        Some(assignment),
+        last_failure_class,
+        tool_name,
+    ) {
+        return true;
+    }
+    worker_assignment_should_suppress_reads_after_no_effect(
+        agent_state,
+        Some(assignment),
+        last_failure_class,
+    ) && tool_name == "filesystem__read_file"
+}
+
+fn worker_assignment_allows_tool_name_for_recovery(
+    agent_state: &AgentState,
+    assignment: Option<&WorkerAssignment>,
+    last_failure_class: Option<FailureClass>,
+    tool_name: &str,
+) -> bool {
+    assignment
+        .map(|assignment| {
+            worker_assignment_allows_tool_name(Some(assignment), tool_name)
+                && !worker_assignment_tool_name_suppressed_by_recovery(
+                    agent_state,
+                    assignment,
+                    last_failure_class,
+                    tool_name,
+                )
+        })
+        .unwrap_or(true)
+}
+
+fn worker_assignment_allowed_tool_names_for_recovery(
+    agent_state: &AgentState,
+    assignment: &WorkerAssignment,
+    last_failure_class: Option<FailureClass>,
+) -> Vec<String> {
+    assignment
+        .allowed_tools
+        .iter()
+        .filter(|tool_name| {
+            worker_assignment_allows_tool_name_for_recovery(
+                agent_state,
+                Some(assignment),
+                last_failure_class,
+                tool_name,
+            )
+        })
+        .cloned()
+        .collect()
+}
+
+fn worker_assignment_recovery_disallowed_tool_error(
+    agent_state: &AgentState,
+    assignment: &WorkerAssignment,
+    last_failure_class: Option<FailureClass>,
+    tool_name: &str,
+) -> String {
+    let allowed = worker_assignment_allowed_tool_names_for_recovery(
+        agent_state,
+        assignment,
+        last_failure_class,
+    );
+    format!(
+        "ERROR_CLASS=PolicyBlocked Worker recovery disallows tool '{}' after {}. Allowed tools now: {}.",
+        tool_name,
+        last_failure_class
+            .map(FailureClass::as_str)
+            .unwrap_or("current state"),
+        allowed.join(", ")
+    )
+}
+
+pub(crate) fn filter_tools_for_worker_assignment(
+    tools: &[LlmToolDefinition],
+    assignment: Option<&WorkerAssignment>,
+) -> Vec<LlmToolDefinition> {
+    let Some(assignment) = assignment else {
+        return tools.to_vec();
+    };
+    if assignment.allowed_tools.is_empty() {
+        return tools.to_vec();
+    }
+
+    tools
+        .iter()
+        .filter(|tool| worker_assignment_allows_tool_name(Some(assignment), &tool.name))
+        .cloned()
+        .collect()
+}
+
+fn split_parent_playbook_context(goal: &str) -> (&str, Option<&str>) {
+    if let Some((head, tail)) = goal.split_once("[PARENT PLAYBOOK CONTEXT]") {
+        (head.trim(), Some(tail.trim()))
+    } else {
+        (goal.trim(), None)
+    }
+}
+
+fn normalize_worker_context_key(key: &str) -> String {
+    key.trim().to_ascii_lowercase().replace([' ', '-'], "_")
+}
+
+fn extract_worker_context_field(text: &str, keys: &[&str]) -> Option<String> {
+    let normalized_keys = keys
+        .iter()
+        .map(|key| normalize_worker_context_key(key))
+        .collect::<Vec<_>>();
+    for line in text.lines() {
+        let trimmed = line
+            .trim()
+            .trim_start_matches('-')
+            .trim_start_matches('*')
+            .trim();
+        let Some((key, value)) = trimmed.split_once(':') else {
+            continue;
+        };
+        if normalized_keys
+            .iter()
+            .any(|candidate| *candidate == normalize_worker_context_key(key))
+        {
+            let value = value.trim();
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn normalize_whitespace(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn looks_like_command_literal(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let lowered = trimmed.to_ascii_lowercase();
+    lowered.contains("python")
+        || lowered.contains("cargo")
+        || lowered.contains("pytest")
+        || lowered.contains("unittest")
+        || lowered.contains("npm")
+        || lowered.contains("pnpm")
+        || lowered.contains("yarn")
+        || lowered.contains("bash")
+        || trimmed.contains(' ')
+}
+
+fn collect_goal_literals(goal: &str) -> Vec<String> {
+    let mut literals = Vec::new();
+    let mut current = String::new();
+    let mut delimiter: Option<char> = None;
+
+    for ch in goal.chars() {
+        if let Some(active) = delimiter {
+            if ch == active {
+                let trimmed = current.trim();
+                if !trimmed.is_empty() {
+                    literals.push(trimmed.to_string());
+                }
+                current.clear();
+                delimiter = None;
+            } else {
+                current.push(ch);
+            }
+            continue;
+        }
+
+        if matches!(ch, '"' | '\'' | '`') {
+            delimiter = Some(ch);
+        }
+    }
+
+    literals
+}
+
+fn normalize_existing_goal_path(candidate: &str) -> Option<PathBuf> {
+    let trimmed = candidate
+        .trim()
+        .trim_matches(|ch: char| matches!(ch, '"' | '\'' | '`' | ',' | ';' | ')'));
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let path = PathBuf::from(trimmed);
+    let metadata = std::fs::metadata(&path).ok()?;
+    if metadata.is_dir() {
+        Some(path)
+    } else {
+        path.parent().map(Path::to_path_buf)
+    }
+}
+
+fn goal_working_directory_matches_agent_state(
+    agent_state: &AgentState,
+    assignment: &WorkerAssignment,
+) -> bool {
+    let current = agent_state.working_directory.trim();
+    if current.is_empty() {
+        return false;
+    }
+
+    collect_goal_literals(&assignment.goal)
+        .into_iter()
+        .filter_map(|literal| normalize_existing_goal_path(&literal))
+        .any(|path| path == PathBuf::from(current))
+}
+
+fn first_goal_command_literal(goal: &str) -> Option<String> {
+    let (_, inherited_context) = split_parent_playbook_context(goal);
+    if let Some(command) = inherited_context
+        .and_then(|text| {
+            extract_worker_context_field(
+                text,
+                &[
+                    "targeted_checks",
+                    "targeted_check",
+                    "verification_plan",
+                    "verification",
+                ],
+            )
+        })
+        .and_then(|value| value.split(';').next().map(str::trim).map(str::to_string))
+        .map(|value| normalize_whitespace(&value))
+        .filter(|value| looks_like_command_literal(value))
+    {
+        return Some(command);
+    }
+
+    collect_goal_literals(goal)
+        .into_iter()
+        .map(|literal| normalize_whitespace(&literal))
+        .find(|literal| looks_like_command_literal(literal))
+}
+
+fn is_patch_build_verify_assignment(assignment: Option<&WorkerAssignment>) -> bool {
+    assignment
+        .and_then(|assignment| assignment.workflow_id.as_deref())
+        .map(str::trim)
+        == Some("patch_build_verify")
+}
+
+fn worker_assignment_has_likely_file_context(assignment: Option<&WorkerAssignment>) -> bool {
+    let Some(assignment) = assignment else {
+        return false;
+    };
+    if !is_patch_build_verify_assignment(Some(assignment)) {
+        return false;
+    }
+
+    let (_, inherited_context) = split_parent_playbook_context(&assignment.goal);
+    let Some(value) =
+        inherited_context.and_then(|text| extract_worker_context_field(text, &["likely_files"]))
+    else {
+        return false;
+    };
+    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    !compact.is_empty() && !compact.to_ascii_lowercase().starts_with("repo root:")
+}
+
+fn worker_assignment_should_suppress_root_probes(
+    assignment: Option<&WorkerAssignment>,
+    last_failure_class: Option<FailureClass>,
+) -> bool {
+    is_patch_build_verify_assignment(assignment)
+        && (worker_assignment_has_likely_file_context(assignment)
+            || matches!(last_failure_class, Some(FailureClass::NoEffectAfterAction)))
+}
+
+fn worker_assignment_should_suppress_search_after_no_effect(
+    assignment: Option<&WorkerAssignment>,
+    last_failure_class: Option<FailureClass>,
+) -> bool {
+    is_patch_build_verify_assignment(assignment)
+        && matches!(last_failure_class, Some(FailureClass::NoEffectAfterAction))
+}
+
+fn worker_assignment_should_suppress_reads_after_no_effect(
+    agent_state: &AgentState,
+    assignment: Option<&WorkerAssignment>,
+    last_failure_class: Option<FailureClass>,
+) -> bool {
+    is_patch_build_verify_assignment(assignment)
+        && matches!(last_failure_class, Some(FailureClass::NoEffectAfterAction))
+        && !patch_miss_refresh_read_ready(agent_state)
+}
+
+fn latest_workspace_patch_miss_step(agent_state: &AgentState) -> Option<u32> {
+    execution_receipt_value(
+        &agent_state.tool_execution_log,
+        "workspace_patch_miss_observed",
+    )
+    .and_then(parse_receipt_step)
+}
+
+fn latest_workspace_read_step_any(agent_state: &AgentState) -> Option<u32> {
+    execution_receipt_value(&agent_state.tool_execution_log, "workspace_read_observed")
+        .and_then(parse_receipt_step)
+}
+
+fn patch_miss_refresh_read_ready(agent_state: &AgentState) -> bool {
+    let Some(patch_miss_step) = latest_workspace_patch_miss_step(agent_state) else {
+        return false;
+    };
+
+    latest_workspace_read_step_any(agent_state)
+        .map(|read_step| patch_miss_step > read_step)
+        .unwrap_or(true)
+}
+
+fn latest_goal_command_step(
+    agent_state: &AgentState,
+    assignment: &WorkerAssignment,
+) -> Option<u32> {
+    let command_literal = first_goal_command_literal(&assignment.goal)?;
+    let target = normalize_whitespace(&command_literal);
+    agent_state
+        .command_history
+        .iter()
+        .rev()
+        .find(|entry| {
+            let observed = normalize_whitespace(&entry.command);
+            observed == target || observed.contains(&target)
+        })
+        .map(|entry| entry.step_index)
+}
+
+fn parse_receipt_step(value: &str) -> Option<u32> {
+    value
+        .split(';')
+        .find_map(|part| part.trim().strip_prefix("step="))
+        .and_then(|step| step.parse::<u32>().ok())
+}
+
+fn latest_workspace_edit_step(agent_state: &AgentState) -> Option<u32> {
+    execution_receipt_value(&agent_state.tool_execution_log, "workspace_edit_applied")
+        .and_then(parse_receipt_step)
+}
+
+fn worker_assignment_should_suppress_targeted_exec_until_workspace_edit(
+    agent_state: &AgentState,
+    assignment: Option<&WorkerAssignment>,
+    last_failure_class: Option<FailureClass>,
+    tool_name: &str,
+) -> bool {
+    if !matches!(tool_name, "sys__exec" | "sys__exec_session") {
+        return false;
+    }
+    if !matches!(
+        last_failure_class,
+        Some(FailureClass::UnexpectedState) | Some(FailureClass::NoEffectAfterAction)
+    ) {
+        return false;
+    }
+    let Some(assignment) = assignment else {
+        return false;
+    };
+    if !is_patch_build_verify_assignment(Some(assignment)) {
+        return false;
+    }
+
+    let Some(command_step) = latest_goal_command_step(agent_state, assignment) else {
+        return false;
+    };
+    let latest_edit_step = latest_workspace_edit_step(agent_state);
+    latest_edit_step.map_or(true, |edit_step| edit_step <= command_step)
+}
+
+fn worker_assignment_should_suppress_redundant_change_directory(
+    agent_state: &AgentState,
+    assignment: Option<&WorkerAssignment>,
+    tool_name: &str,
+) -> bool {
+    if tool_name != "sys__change_directory" {
+        return false;
+    }
+    let Some(assignment) = assignment else {
+        return false;
+    };
+    is_patch_build_verify_assignment(Some(assignment))
+        && goal_working_directory_matches_agent_state(agent_state, assignment)
+}
+
+fn parse_recent_failure_class(entry: &str) -> Option<FailureClass> {
+    let mut parts = entry.split("::");
+    let _scope = parts.next()?;
+    let class = parts.next()?;
+    FailureClass::from_str(class)
+}
+
+pub(crate) fn worker_recovery_failure_class(
+    agent_state: &AgentState,
+    assignment: Option<&WorkerAssignment>,
+) -> Option<FailureClass> {
+    let latest = latest_failure_class(agent_state);
+    if !matches!(latest, Some(FailureClass::UnexpectedState))
+        || !is_patch_build_verify_assignment(assignment)
+    {
+        return latest;
+    }
+
+    if !agent_state.command_history.is_empty() {
+        return latest;
+    }
+
+    let prior_no_effect_boundary = agent_state
+        .recent_actions
+        .iter()
+        .rev()
+        .skip(1)
+        .take(3)
+        .any(|entry| parse_recent_failure_class(entry) == Some(FailureClass::NoEffectAfterAction));
+
+    if prior_no_effect_boundary {
+        Some(FailureClass::NoEffectAfterAction)
+    } else {
+        latest
+    }
+}
+
+pub(crate) fn filter_tools_for_worker_recovery(
+    tools: &[LlmToolDefinition],
+    agent_state: &AgentState,
+    assignment: Option<&WorkerAssignment>,
+    last_failure_class: Option<FailureClass>,
+) -> Vec<LlmToolDefinition> {
+    tools
+        .iter()
+        .filter(|tool| {
+            worker_assignment_allows_tool_name_for_recovery(
+                agent_state,
+                assignment,
+                last_failure_class,
+                &tool.name,
+            )
+        })
+        .cloned()
+        .collect()
 }
 
 pub async fn execute_worker_step(
@@ -45,17 +548,24 @@ pub async fn execute_worker_step(
 
     if let Some(assignment) = worker_assignment.as_ref() {
         let tool_name = tool.name_string();
-        if !assignment.allowed_tools.is_empty()
-            && !assignment
-                .allowed_tools
-                .iter()
-                .any(|allowed| allowed == &tool_name)
-        {
-            let failure = format!(
-                "ERROR_CLASS=PolicyBlocked Worker playbook disallows tool '{}'. Allowed tools: {}.",
-                tool_name,
-                assignment.allowed_tools.join(", ")
-            );
+        let last_failure_class =
+            worker_recovery_failure_class(&worker_state, worker_assignment.as_ref());
+        if !worker_assignment_allows_tool_name_for_recovery(
+            &worker_state,
+            Some(assignment),
+            last_failure_class,
+            &tool_name,
+        ) {
+            let failure = if worker_assignment_allows_tool_name(Some(assignment), &tool_name) {
+                worker_assignment_recovery_disallowed_tool_error(
+                    &worker_state,
+                    assignment,
+                    last_failure_class,
+                    &tool_name,
+                )
+            } else {
+                worker_assignment_disallowed_tool_error(assignment, &tool_name)
+            };
             worker_state.step_count = worker_state.step_count.saturating_add(1);
             worker_state.status = AgentStatus::Failed(failure.clone());
             persist_agent_state(state, &key, &worker_state, service.memory_runtime.as_ref())?;
@@ -137,13 +647,23 @@ pub async fn execute_worker_step(
 
 #[cfg(test)]
 mod tests {
-    use super::execute_worker_step;
+    use super::{
+        execute_worker_step, filter_tools_for_worker_assignment, filter_tools_for_worker_recovery,
+        worker_assignment_allows_tool_name, worker_assignment_allows_tool_name_for_recovery,
+        worker_assignment_disallowed_tool_error, worker_assignment_recovery_disallowed_tool_error,
+        worker_recovery_failure_class,
+    };
     use crate::agentic::desktop::keys::get_state_key;
     use crate::agentic::desktop::service::lifecycle::{
         persist_worker_assignment, resolve_worker_assignment,
     };
+    use crate::agentic::desktop::service::step::action::mark_execution_receipt_with_value;
+    use crate::agentic::desktop::service::step::anti_loop::FailureClass;
     use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
-    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use crate::agentic::desktop::types::{
+        AgentMode, AgentState, AgentStatus, ExecutionTier, WorkerAssignment,
+        WorkerCompletionContract, WorkerMergeMode,
+    };
     use crate::agentic::rules::ActionRules;
     use async_trait::async_trait;
     use image::{ImageBuffer, ImageFormat, Rgba};
@@ -155,6 +675,7 @@ mod tests {
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_state::primitives::hash::HashCommitmentScheme;
     use ioi_state::tree::iavl::IAVLTree;
+    use ioi_types::app::agentic::LlmToolDefinition;
     use ioi_types::app::{AccountId, ChainId, ContextSlice};
     use ioi_types::codec;
     use ioi_types::error::VmError;
@@ -256,6 +777,734 @@ mod tests {
             pending_search_completion: None,
             planner_state: None,
         }
+    }
+
+    fn test_worker_assignment(allowed_tools: Vec<&str>) -> WorkerAssignment {
+        WorkerAssignment {
+            step_key: "delegate:test".to_string(),
+            budget: 24,
+            goal: "Capture a bounded worker handoff.".to_string(),
+            success_criteria: "Return the requested handoff.".to_string(),
+            max_retries: 0,
+            retries_used: 0,
+            assigned_session_id: Some([0x77; 32]),
+            status: "running".to_string(),
+            playbook_id: Some("evidence_audited_patch".to_string()),
+            template_id: Some("context_worker".to_string()),
+            workflow_id: Some("repo_context_brief".to_string()),
+            role: Some("Context Worker".to_string()),
+            allowed_tools: allowed_tools.into_iter().map(str::to_string).collect(),
+            completion_contract: WorkerCompletionContract {
+                success_criteria: "Return the requested handoff.".to_string(),
+                expected_output: "Repo context brief.".to_string(),
+                merge_mode: WorkerMergeMode::AppendAsEvidence,
+                verification_hint: None,
+            },
+        }
+    }
+
+    #[test]
+    fn worker_assignment_tool_filter_keeps_only_allowed_prompt_tools() {
+        let assignment = test_worker_assignment(vec!["filesystem__stat", "agent__complete"]);
+        let tools = vec![
+            LlmToolDefinition {
+                name: "filesystem__stat".to_string(),
+                description: "Stat a path.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "agent__delegate".to_string(),
+                description: "Delegate a child.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "agent__complete".to_string(),
+                description: "Complete the worker.".to_string(),
+                parameters: "{}".to_string(),
+            },
+        ];
+
+        let filtered = filter_tools_for_worker_assignment(&tools, Some(&assignment));
+        let filtered_names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(filtered_names, vec!["filesystem__stat", "agent__complete"]);
+        assert!(worker_assignment_allows_tool_name(
+            Some(&assignment),
+            "filesystem__stat"
+        ));
+        assert!(!worker_assignment_allows_tool_name(
+            Some(&assignment),
+            "agent__delegate"
+        ));
+        assert!(
+            worker_assignment_disallowed_tool_error(&assignment, "agent__delegate")
+                .contains("Worker playbook disallows tool 'agent__delegate'")
+        );
+    }
+
+    #[test]
+    fn worker_assignment_preserves_system_fail_escape_hatch() {
+        let assignment = test_worker_assignment(vec!["filesystem__stat", "agent__complete"]);
+        let tools = vec![
+            LlmToolDefinition {
+                name: "filesystem__stat".to_string(),
+                description: "Stat a path.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "system__fail".to_string(),
+                description: "Fail explicitly.".to_string(),
+                parameters: "{}".to_string(),
+            },
+        ];
+
+        let filtered = filter_tools_for_worker_assignment(&tools, Some(&assignment));
+        let filtered_names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(filtered_names, vec!["filesystem__stat", "system__fail"]);
+        assert!(worker_assignment_allows_tool_name(
+            Some(&assignment),
+            "system__fail"
+        ));
+    }
+
+    #[test]
+    fn patch_build_verify_tool_filter_suppresses_discovery_after_no_effect_failure() {
+        let mut assignment = test_worker_assignment(vec![
+            "filesystem__read_file",
+            "filesystem__write_file",
+            "filesystem__edit_line",
+            "filesystem__search",
+            "filesystem__list_directory",
+            "filesystem__stat",
+            "filesystem__patch",
+            "sys__exec_session",
+            "agent__complete",
+        ]);
+        assignment.template_id = Some("coder".to_string());
+        assignment.workflow_id = Some("patch_build_verify".to_string());
+        assignment.role = Some("Coding Worker".to_string());
+
+        let tools = vec![
+            LlmToolDefinition {
+                name: "filesystem__read_file".to_string(),
+                description: "Read a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__write_file".to_string(),
+                description: "Write a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__edit_line".to_string(),
+                description: "Edit one line.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__search".to_string(),
+                description: "Search files.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__list_directory".to_string(),
+                description: "List a directory.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__stat".to_string(),
+                description: "Stat a path.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__patch".to_string(),
+                description: "Patch a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "sys__exec_session".to_string(),
+                description: "Run a command.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "agent__complete".to_string(),
+                description: "Complete the worker.".to_string(),
+                parameters: "{}".to_string(),
+            },
+        ];
+
+        let filtered = filter_tools_for_worker_recovery(
+            &tools,
+            &build_worker_state([0x31; 32]),
+            Some(&assignment),
+            Some(FailureClass::NoEffectAfterAction),
+        );
+        let filtered_names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            filtered_names,
+            vec![
+                "filesystem__write_file",
+                "filesystem__edit_line",
+                "filesystem__patch",
+                "sys__exec_session",
+                "agent__complete"
+            ]
+        );
+    }
+
+    #[test]
+    fn patch_build_verify_tool_filter_prefers_direct_reads_when_parent_context_has_likely_files() {
+        let mut assignment = test_worker_assignment(vec![
+            "filesystem__read_file",
+            "filesystem__write_file",
+            "filesystem__edit_line",
+            "filesystem__search",
+            "filesystem__list_directory",
+            "filesystem__stat",
+            "filesystem__patch",
+            "sys__exec_session",
+            "agent__complete",
+        ]);
+        assignment.template_id = Some("coder".to_string());
+        assignment.workflow_id = Some("patch_build_verify".to_string());
+        assignment.role = Some("Coding Worker".to_string());
+        assignment.goal = "Implement the parity fix.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v".to_string();
+
+        let tools = vec![
+            LlmToolDefinition {
+                name: "filesystem__read_file".to_string(),
+                description: "Read a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__write_file".to_string(),
+                description: "Write a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__edit_line".to_string(),
+                description: "Edit one line.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__search".to_string(),
+                description: "Search files.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__list_directory".to_string(),
+                description: "List a directory.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__stat".to_string(),
+                description: "Stat a path.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__patch".to_string(),
+                description: "Patch a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "sys__exec_session".to_string(),
+                description: "Run a command.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "agent__complete".to_string(),
+                description: "Complete the worker.".to_string(),
+                parameters: "{}".to_string(),
+            },
+        ];
+
+        let filtered = filter_tools_for_worker_recovery(
+            &tools,
+            &build_worker_state([0x32; 32]),
+            Some(&assignment),
+            None,
+        );
+        let filtered_names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            filtered_names,
+            vec![
+                "filesystem__read_file",
+                "filesystem__write_file",
+                "filesystem__edit_line",
+                "filesystem__patch",
+                "sys__exec_session",
+                "agent__complete"
+            ]
+        );
+    }
+
+    #[test]
+    fn patch_build_verify_tool_filter_suppresses_redundant_change_directory_when_cwd_matches_goal()
+    {
+        let fixture = tempfile::tempdir().expect("fixture tempdir should exist");
+        let fixture_path = fixture.path().to_string_lossy().to_string();
+
+        let mut assignment = test_worker_assignment(vec![
+            "filesystem__read_file",
+            "filesystem__patch",
+            "sys__change_directory",
+            "sys__exec_session",
+            "agent__complete",
+        ]);
+        assignment.template_id = Some("coder".to_string());
+        assignment.workflow_id = Some("patch_build_verify".to_string());
+        assignment.role = Some("Coding Worker".to_string());
+        assignment.goal = format!(
+            "Implement the parity fix in \"{}\" as a narrow workspace patch.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v",
+            fixture_path
+        );
+
+        let tools = vec![
+            LlmToolDefinition {
+                name: "filesystem__read_file".to_string(),
+                description: "Read a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__patch".to_string(),
+                description: "Patch a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "sys__change_directory".to_string(),
+                description: "Change directories.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "sys__exec_session".to_string(),
+                description: "Run a command.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "agent__complete".to_string(),
+                description: "Complete the worker.".to_string(),
+                parameters: "{}".to_string(),
+            },
+        ];
+
+        let mut worker_state = build_worker_state([0x39; 32]);
+        worker_state.working_directory = fixture_path;
+
+        let filtered =
+            filter_tools_for_worker_recovery(&tools, &worker_state, Some(&assignment), None);
+        let filtered_names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            filtered_names,
+            vec![
+                "filesystem__read_file",
+                "filesystem__patch",
+                "sys__exec_session",
+                "agent__complete"
+            ]
+        );
+        assert!(!worker_assignment_allows_tool_name_for_recovery(
+            &worker_state,
+            Some(&assignment),
+            None,
+            "sys__change_directory"
+        ));
+    }
+
+    #[test]
+    fn patch_build_verify_recovery_blocks_repeated_file_reads_at_execution_boundary() {
+        let mut assignment = test_worker_assignment(vec![
+            "filesystem__read_file",
+            "filesystem__write_file",
+            "filesystem__edit_line",
+            "filesystem__search",
+            "filesystem__list_directory",
+            "filesystem__stat",
+            "filesystem__patch",
+            "sys__exec_session",
+            "agent__complete",
+        ]);
+        assignment.template_id = Some("coder".to_string());
+        assignment.workflow_id = Some("patch_build_verify".to_string());
+        assignment.role = Some("Coding Worker".to_string());
+
+        assert!(!worker_assignment_allows_tool_name_for_recovery(
+            &build_worker_state([0x33; 32]),
+            Some(&assignment),
+            Some(FailureClass::NoEffectAfterAction),
+            "filesystem__read_file"
+        ));
+        let failure = worker_assignment_recovery_disallowed_tool_error(
+            &build_worker_state([0x34; 32]),
+            &assignment,
+            Some(FailureClass::NoEffectAfterAction),
+            "filesystem__read_file",
+        );
+        assert!(failure.contains("NoEffectAfterAction"));
+        assert!(failure.contains("filesystem__patch"));
+        assert!(failure.contains("filesystem__edit_line"));
+        assert!(!failure.contains("filesystem__read_file,"));
+    }
+
+    #[test]
+    fn patch_build_verify_recovery_preserves_duplicate_read_boundary_after_invalid_tool_call() {
+        let mut assignment = test_worker_assignment(vec![
+            "filesystem__read_file",
+            "filesystem__write_file",
+            "filesystem__edit_line",
+            "filesystem__search",
+            "filesystem__list_directory",
+            "filesystem__stat",
+            "filesystem__patch",
+            "sys__exec_session",
+            "agent__complete",
+        ]);
+        assignment.template_id = Some("coder".to_string());
+        assignment.workflow_id = Some("patch_build_verify".to_string());
+        assignment.role = Some("Coding Worker".to_string());
+        assignment.goal = "Implement the parity fix.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v".to_string();
+
+        let mut worker_state = build_worker_state([0x44; 32]);
+        worker_state.recent_actions = vec![
+            "attempt::NoEffectAfterAction::first".to_string(),
+            "attempt::UnexpectedState::second".to_string(),
+        ];
+
+        let effective_failure = worker_recovery_failure_class(&worker_state, Some(&assignment));
+        assert_eq!(effective_failure, Some(FailureClass::NoEffectAfterAction));
+
+        let tools = vec![
+            LlmToolDefinition {
+                name: "filesystem__read_file".to_string(),
+                description: "Read a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__write_file".to_string(),
+                description: "Write a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__edit_line".to_string(),
+                description: "Edit one line.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__search".to_string(),
+                description: "Search files.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__list_directory".to_string(),
+                description: "List a directory.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__stat".to_string(),
+                description: "Stat a path.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__patch".to_string(),
+                description: "Patch a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "sys__exec_session".to_string(),
+                description: "Run a command.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "agent__complete".to_string(),
+                description: "Complete the worker.".to_string(),
+                parameters: "{}".to_string(),
+            },
+        ];
+
+        let filtered = filter_tools_for_worker_recovery(
+            &tools,
+            &worker_state,
+            Some(&assignment),
+            effective_failure,
+        );
+        let filtered_names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            filtered_names,
+            vec![
+                "filesystem__write_file",
+                "filesystem__edit_line",
+                "filesystem__patch",
+                "sys__exec_session",
+                "agent__complete"
+            ]
+        );
+    }
+
+    #[test]
+    fn patch_build_verify_recovery_resets_duplicate_read_boundary_after_command_history() {
+        let mut assignment = test_worker_assignment(vec![
+            "filesystem__read_file",
+            "filesystem__write_file",
+            "filesystem__edit_line",
+            "filesystem__search",
+            "filesystem__list_directory",
+            "filesystem__stat",
+            "filesystem__patch",
+            "sys__exec_session",
+            "agent__complete",
+        ]);
+        assignment.template_id = Some("coder".to_string());
+        assignment.workflow_id = Some("patch_build_verify".to_string());
+        assignment.role = Some("Coding Worker".to_string());
+        assignment.goal = "Implement the parity fix.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v".to_string();
+
+        let mut worker_state = build_worker_state([0x55; 32]);
+        worker_state.recent_actions = vec![
+            "attempt::NoEffectAfterAction::first".to_string(),
+            "attempt::UnexpectedState::second".to_string(),
+        ];
+        worker_state
+            .command_history
+            .push_back(crate::agentic::desktop::types::CommandExecution {
+                command: "python3 -m unittest tests.test_path_utils -v".to_string(),
+                exit_code: 1,
+                stdout: "failing test output".to_string(),
+                stderr: String::new(),
+                timestamp_ms: 1,
+                step_index: 3,
+            });
+
+        let effective_failure = worker_recovery_failure_class(&worker_state, Some(&assignment));
+        assert_eq!(effective_failure, Some(FailureClass::UnexpectedState));
+    }
+
+    #[test]
+    fn patch_build_verify_recovery_blocks_targeted_exec_rerun_until_workspace_edit_receipt() {
+        let mut assignment = test_worker_assignment(vec![
+            "filesystem__read_file",
+            "filesystem__write_file",
+            "filesystem__edit_line",
+            "filesystem__search",
+            "filesystem__list_directory",
+            "filesystem__stat",
+            "filesystem__patch",
+            "sys__exec_session",
+            "agent__complete",
+        ]);
+        assignment.template_id = Some("coder".to_string());
+        assignment.workflow_id = Some("patch_build_verify".to_string());
+        assignment.role = Some("Coding Worker".to_string());
+        assignment.goal = "Implement the parity fix.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v".to_string();
+
+        let tools = vec![
+            LlmToolDefinition {
+                name: "filesystem__read_file".to_string(),
+                description: "Read a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__write_file".to_string(),
+                description: "Write a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__edit_line".to_string(),
+                description: "Edit one line.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__search".to_string(),
+                description: "Search files.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__list_directory".to_string(),
+                description: "List a directory.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__stat".to_string(),
+                description: "Stat a path.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__patch".to_string(),
+                description: "Patch a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "sys__exec_session".to_string(),
+                description: "Run a command.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "agent__complete".to_string(),
+                description: "Complete the worker.".to_string(),
+                parameters: "{}".to_string(),
+            },
+        ];
+
+        let mut worker_state = build_worker_state([0x66; 32]);
+        worker_state
+            .command_history
+            .push_back(crate::agentic::desktop::types::CommandExecution {
+                command: "python3 -m unittest tests.test_path_utils -v".to_string(),
+                exit_code: 1,
+                stdout: "failing test output".to_string(),
+                stderr: String::new(),
+                timestamp_ms: 1,
+                step_index: 5,
+            });
+
+        let filtered = filter_tools_for_worker_recovery(
+            &tools,
+            &worker_state,
+            Some(&assignment),
+            Some(FailureClass::UnexpectedState),
+        );
+        let filtered_names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            filtered_names,
+            vec![
+                "filesystem__read_file",
+                "filesystem__write_file",
+                "filesystem__edit_line",
+                "filesystem__patch",
+                "agent__complete"
+            ]
+        );
+    }
+
+    #[test]
+    fn patch_build_verify_recovery_restores_targeted_exec_after_workspace_edit_receipt() {
+        let mut assignment = test_worker_assignment(vec![
+            "filesystem__read_file",
+            "filesystem__write_file",
+            "filesystem__edit_line",
+            "filesystem__search",
+            "filesystem__list_directory",
+            "filesystem__stat",
+            "filesystem__patch",
+            "sys__exec_session",
+            "agent__complete",
+        ]);
+        assignment.template_id = Some("coder".to_string());
+        assignment.workflow_id = Some("patch_build_verify".to_string());
+        assignment.role = Some("Coding Worker".to_string());
+        assignment.goal = "Implement the parity fix.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v".to_string();
+
+        let tools = vec![
+            LlmToolDefinition {
+                name: "filesystem__read_file".to_string(),
+                description: "Read a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__write_file".to_string(),
+                description: "Write a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__edit_line".to_string(),
+                description: "Edit one line.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__search".to_string(),
+                description: "Search files.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__list_directory".to_string(),
+                description: "List a directory.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__stat".to_string(),
+                description: "Stat a path.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "filesystem__patch".to_string(),
+                description: "Patch a file.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "sys__exec_session".to_string(),
+                description: "Run a command.".to_string(),
+                parameters: "{}".to_string(),
+            },
+            LlmToolDefinition {
+                name: "agent__complete".to_string(),
+                description: "Complete the worker.".to_string(),
+                parameters: "{}".to_string(),
+            },
+        ];
+
+        let mut worker_state = build_worker_state([0x67; 32]);
+        worker_state
+            .command_history
+            .push_back(crate::agentic::desktop::types::CommandExecution {
+                command: "python3 -m unittest tests.test_path_utils -v".to_string(),
+                exit_code: 1,
+                stdout: "failing test output".to_string(),
+                stderr: String::new(),
+                timestamp_ms: 1,
+                step_index: 5,
+            });
+        mark_execution_receipt_with_value(
+            &mut worker_state.tool_execution_log,
+            "workspace_edit_applied",
+            "step=6;tool=filesystem__patch;path=path_utils.py".to_string(),
+        );
+
+        let filtered = filter_tools_for_worker_recovery(
+            &tools,
+            &worker_state,
+            Some(&assignment),
+            Some(FailureClass::UnexpectedState),
+        );
+        let filtered_names = filtered
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            filtered_names,
+            vec![
+                "filesystem__read_file",
+                "filesystem__write_file",
+                "filesystem__edit_line",
+                "filesystem__patch",
+                "sys__exec_session",
+                "agent__complete"
+            ]
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]

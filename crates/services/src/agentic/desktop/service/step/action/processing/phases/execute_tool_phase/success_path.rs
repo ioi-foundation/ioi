@@ -1067,6 +1067,98 @@ fn record_browser_marker_postcondition(
     );
 }
 
+fn workspace_edit_receipt_details(tool: &AgentTool, step_index: u32) -> Option<(String, String)> {
+    match tool {
+        AgentTool::FsWrite {
+            path, line_number, ..
+        } => {
+            let tool_name = if line_number.is_some() {
+                "filesystem__edit_line"
+            } else {
+                "filesystem__write_file"
+            };
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some((
+                tool_name.to_string(),
+                format!("step={step_index};tool={tool_name};path={path}"),
+            ))
+        }
+        AgentTool::FsPatch { path, .. } => {
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some((
+                "filesystem__patch".to_string(),
+                format!("step={step_index};tool=filesystem__patch;path={path}"),
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn workspace_read_receipt_details(tool: &AgentTool, step_index: u32) -> Option<String> {
+    let AgentTool::FsRead { path } = tool else {
+        return None;
+    };
+    let path = path.trim();
+    if path.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "step={step_index};tool=filesystem__read_file;path={path}"
+    ))
+}
+
+fn record_workspace_read_receipt(agent_state: &mut AgentState, tool: &AgentTool, step_index: u32) {
+    let Some(evidence) = workspace_read_receipt_details(tool, step_index) else {
+        return;
+    };
+    mark_execution_receipt_with_value(
+        &mut agent_state.tool_execution_log,
+        "workspace_read_observed",
+        evidence,
+    );
+}
+
+fn record_workspace_edit_receipt(
+    service: &DesktopAgentService,
+    agent_state: &mut AgentState,
+    verification_checks: &mut Vec<String>,
+    session_id: [u8; 32],
+    step_index: u32,
+    resolved_intent_id: &str,
+    synthesized_payload_hash: Option<String>,
+    tool: &AgentTool,
+) {
+    let Some((tool_name, evidence)) = workspace_edit_receipt_details(tool, step_index) else {
+        return;
+    };
+
+    mark_execution_receipt_with_value(
+        &mut agent_state.tool_execution_log,
+        "workspace_edit_applied",
+        evidence.clone(),
+    );
+    verification_checks.push(receipt_marker("workspace_edit_applied"));
+    emit_execution_contract_receipt_event(
+        service,
+        session_id,
+        step_index,
+        resolved_intent_id,
+        "execution",
+        "workspace_edit_applied",
+        true,
+        &evidence,
+        None,
+        Some(tool_name),
+        synthesized_payload_hash,
+    );
+}
+
 fn parse_find_text_found(history_entry: Option<&str>) -> Option<bool> {
     let raw = history_entry?;
     let value: serde_json::Value = serde_json::from_str(raw).ok()?;
@@ -1762,6 +1854,7 @@ pub(super) struct ExecutionSuccessContext<'a, 's> {
     pub state: &'s mut dyn StateAccess,
     pub agent_state: &'a mut AgentState,
     pub rules: &'a ActionRules,
+    pub call_context: ServiceCallContext<'a>,
     pub tool: &'a AgentTool,
     pub tool_args: &'a serde_json::Value,
     pub session_id: [u8; 32],
@@ -1794,6 +1887,7 @@ pub(super) async fn handle_execution_success(
         state,
         agent_state,
         rules,
+        call_context,
         tool,
         tool_args,
         session_id,
@@ -1951,6 +2045,7 @@ pub(super) async fn handle_execution_success(
                 agent_state,
                 step_index,
                 block_height,
+                call_context,
                 child_session_id_hex,
             )
             .await
@@ -2106,6 +2201,18 @@ pub(super) async fn handle_execution_success(
     }
 
     if *success {
+        record_workspace_read_receipt(agent_state, tool, step_index);
+        record_workspace_edit_receipt(
+            service,
+            agent_state,
+            verification_checks,
+            session_id,
+            step_index,
+            resolved_intent_id,
+            synthesized_payload_hash.clone(),
+            tool,
+        );
+
         record_browser_success_markers(
             service,
             agent_state,
@@ -2395,8 +2502,10 @@ pub(super) async fn handle_execution_success(
 mod tests {
     use super::{
         compact_tool_history_entry_for_chat, transcript_context_excerpts,
-        TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
+        workspace_edit_receipt_details, TOOL_CHAT_HISTORY_BROWSER_SNAPSHOT_CHAR_LIMIT,
+        TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT,
     };
+    use ioi_types::app::agentic::AgentTool;
     use serde_json::json;
 
     #[test]
@@ -2764,5 +2873,50 @@ mod tests {
             serde_json::Value::String("grp_blue_circle".to_string()),
             "{compact}"
         );
+    }
+
+    #[test]
+    fn workspace_edit_receipt_details_distinguish_write_edit_and_patch_tools() {
+        let write = workspace_edit_receipt_details(
+            &AgentTool::FsWrite {
+                path: "path_utils.py".to_string(),
+                content: "updated".to_string(),
+                line_number: None,
+            },
+            7,
+        )
+        .expect("write receipt details should exist");
+        assert_eq!(write.0, "filesystem__write_file");
+        assert_eq!(
+            write.1,
+            "step=7;tool=filesystem__write_file;path=path_utils.py"
+        );
+
+        let edit = workspace_edit_receipt_details(
+            &AgentTool::FsWrite {
+                path: "path_utils.py".to_string(),
+                content: "return normalized".to_string(),
+                line_number: Some(12),
+            },
+            8,
+        )
+        .expect("edit receipt details should exist");
+        assert_eq!(edit.0, "filesystem__edit_line");
+        assert_eq!(
+            edit.1,
+            "step=8;tool=filesystem__edit_line;path=path_utils.py"
+        );
+
+        let patch = workspace_edit_receipt_details(
+            &AgentTool::FsPatch {
+                path: "path_utils.py".to_string(),
+                search: "old".to_string(),
+                replace: "new".to_string(),
+            },
+            9,
+        )
+        .expect("patch receipt details should exist");
+        assert_eq!(patch.0, "filesystem__patch");
+        assert_eq!(patch.1, "step=9;tool=filesystem__patch;path=path_utils.py");
     }
 }

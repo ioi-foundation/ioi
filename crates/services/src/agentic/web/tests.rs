@@ -10,11 +10,12 @@ use super::parsers::{
     parse_bing_news_sources_from_rss, parse_bing_sources_from_html, parse_brave_sources_from_html,
     parse_ddg_sources_from_html, parse_generic_page_source_from_html,
     parse_google_news_sources_from_rss, parse_json_ld_item_list_sources_from_html,
+    parse_same_host_authority_document_sources_from_html,
     parse_same_host_child_collection_sources_from_html,
 };
 use super::readability::{
-    build_document_text_and_spans, extract_non_html_read_blocks, extract_read_blocks,
-    extract_read_blocks_for_url,
+    build_document_text_and_spans, extract_non_html_read_blocks,
+    extract_pdf_read_blocks_from_bytes, extract_read_blocks, extract_read_blocks_for_url,
 };
 use super::search::{
     aggregated_sources_meet_pre_read_floor, provider_candidate_is_usable,
@@ -955,6 +956,33 @@ fn parses_same_host_child_collection_links() {
 }
 
 #[test]
+fn parses_same_host_authority_document_links() {
+    let html = r#"
+        <html>
+          <head>
+            <title>NIST PQC Status Report</title>
+          </head>
+          <body>
+            <a href="/pubs/fips/203/final">FIPS 203</a>
+            <a href="/pubs/fips/204/final">FIPS 204</a>
+            <a href="/about">About NIST</a>
+          </body>
+        </html>
+        "#;
+
+    let sources = parse_same_host_authority_document_sources_from_html(
+        "https://csrc.nist.gov/pubs/ir/8413/upd1/final",
+        html,
+        10,
+    );
+
+    assert_eq!(sources.len(), 2);
+    assert_eq!(sources[0].url, "https://csrc.nist.gov/pubs/fips/203/final");
+    assert_eq!(sources[0].title.as_deref(), Some("FIPS 203"));
+    assert_eq!(sources[1].url, "https://csrc.nist.gov/pubs/fips/204/final");
+}
+
+#[test]
 fn parses_json_ld_item_list_sources() {
     let html = r#"
         <html>
@@ -1098,6 +1126,63 @@ fn read_extract_builds_quote_spans_with_offsets() {
         &content[spans[0].start_byte as usize..spans[0].end_byte as usize],
         spans[0].quote
     );
+}
+
+fn build_minimal_pdf_bytes(text: &str) -> Vec<u8> {
+    let escaped = text
+        .replace('\\', "\\\\")
+        .replace('(', "\\(")
+        .replace(')', "\\)");
+    let stream = format!("BT\n/F1 18 Tf\n72 720 Td\n({}) Tj\nET", escaped);
+    let objects = vec![
+        "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n".to_string(),
+        "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n".to_string(),
+        "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n".to_string(),
+        format!(
+            "4 0 obj\n<< /Length {} >>\nstream\n{}\nendstream\nendobj\n",
+            stream.len(),
+            stream
+        ),
+        "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n".to_string(),
+    ];
+
+    let mut pdf = b"%PDF-1.4\n".to_vec();
+    let mut offsets = Vec::with_capacity(objects.len() + 1);
+    offsets.push(0usize);
+    for object in &objects {
+        offsets.push(pdf.len());
+        pdf.extend_from_slice(object.as_bytes());
+    }
+
+    let xref_offset = pdf.len();
+    pdf.extend_from_slice(format!("xref\n0 {}\n", objects.len() + 1).as_bytes());
+    pdf.extend_from_slice(b"0000000000 65535 f \n");
+    for offset in offsets.iter().skip(1) {
+        pdf.extend_from_slice(format!("{:010} 00000 n \n", offset).as_bytes());
+    }
+    pdf.extend_from_slice(
+        format!(
+            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{}\n%%EOF\n",
+            objects.len() + 1,
+            xref_offset
+        )
+        .as_bytes(),
+    );
+    pdf
+}
+
+#[test]
+fn read_extracts_searchable_pdf_text_into_blocks() {
+    let pdf = build_minimal_pdf_bytes(
+        "NIST post-quantum cryptography migration guidance calls for inventory, prioritization, and cryptographic agility.",
+    );
+
+    let blocks = extract_pdf_read_blocks_from_bytes(&pdf).expect("pdf text should extract");
+
+    assert!(!blocks.is_empty());
+    assert!(blocks.iter().any(|block| {
+        block.contains("post-quantum cryptography") && block.contains("cryptographic agility")
+    }));
 }
 
 #[test]
@@ -1789,4 +1874,31 @@ fn challenge_detection_flags_cloudflare_interstitial() {
         "Just a moment... Please enable JavaScript and cookies to continue. Cloudflare Ray ID: 123abc",
     );
     assert!(reason.is_some());
+}
+
+#[test]
+fn challenge_detection_ignores_embedded_recaptcha_on_legitimate_page() {
+    let html = r#"
+        <html>
+          <head>
+            <title>Post-Quantum Cryptography | CSRC</title>
+            <style>
+              .grecaptcha-badge { visibility: hidden; }
+            </style>
+          </head>
+          <body>
+            <p>NIST released the principal three PQC standards in 2024.</p>
+            <script src="https://www.google.com/recaptcha/api.js"></script>
+          </body>
+        </html>
+    "#;
+
+    let reason = detect_human_challenge(
+        "https://csrc.nist.gov/projects/post-quantum-cryptography",
+        html,
+    );
+    assert!(
+        reason.is_none(),
+        "embedded reCAPTCHA assets on a legitimate page should not be classified as a human challenge: {reason:?}"
+    );
 }

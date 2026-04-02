@@ -224,6 +224,35 @@ pub fn skill_is_runtime_eligible(record: &SkillRecord) -> bool {
     )
 }
 
+pub fn skill_reliability_score(
+    benchmark: Option<&SkillBenchmarkReport>,
+    stats: Option<&SkillStats>,
+) -> f32 {
+    if let Some(stats) = stats {
+        return stats.reliability().clamp(0.0, 1.0);
+    }
+    if let Some(benchmark) = benchmark {
+        if benchmark.sample_size == 0 {
+            return 0.5;
+        }
+        return (benchmark.success_rate_bps as f32 / 10_000.0).clamp(0.0, 1.0);
+    }
+    0.5
+}
+
+pub fn adjusted_skill_discovery_score(hit_score: f32, reliability: f32) -> f32 {
+    hit_score + (reliability.clamp(0.0, 1.0) * 0.2)
+}
+
+pub fn skill_guidance_markdown(
+    record: &SkillRecord,
+    published_doc: Option<&PublishedSkillDoc>,
+) -> String {
+    published_doc
+        .map(|doc| doc.markdown.clone())
+        .unwrap_or_else(|| render_skill_markdown(record))
+}
+
 pub fn skill_doc_relative_path(record: &SkillRecord) -> String {
     format!("skills/{}/SKILL.md", record.macro_body.definition.name)
 }

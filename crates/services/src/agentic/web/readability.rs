@@ -14,12 +14,14 @@ use super::constants::{
 };
 use super::google_news::{is_google_news_article_wrapper_url, resolve_google_news_article_url};
 use super::parsers::{
-    parse_json_ld_item_list_sources_from_html, parse_same_host_child_collection_sources_from_html,
+    parse_json_ld_item_list_sources_from_html,
+    parse_same_host_authority_document_sources_from_html,
+    parse_same_host_child_collection_sources_from_html,
 };
 use super::transport::{
-    detect_human_challenge, fetch_html_http_fallback_browser_ua,
-    fetch_structured_detail_http_fallback_browser_ua, navigate_browser_retrieval,
-    transport_error_is_timeout_or_hang,
+    detect_human_challenge, fetch_binary_http_fallback_browser_ua_with_final_url,
+    fetch_html_http_fallback_browser_ua, fetch_structured_detail_http_fallback_browser_ua,
+    navigate_browser_retrieval, transport_error_is_timeout_or_hang,
 };
 use super::util::{
     compact_ws, domain_for_url, normalize_url_for_id, now_ms, sha256_hex, source_id_for_url,
@@ -1037,6 +1039,82 @@ pub(crate) fn build_document_text_and_spans(
     (content, spans)
 }
 
+fn url_has_pdf_hint(url: &str) -> bool {
+    url.trim().to_ascii_lowercase().contains(".pdf")
+}
+
+fn response_is_pdf(final_url: &str, content_type: Option<&str>) -> bool {
+    url_has_pdf_hint(final_url)
+        || content_type
+            .map(|value| value.to_ascii_lowercase().contains("application/pdf"))
+            .unwrap_or(false)
+}
+
+fn push_pdf_text_block(blocks: &mut Vec<String>, seen: &mut HashSet<String>, paragraph: &str) {
+    let compact = compact_ws(paragraph);
+    let trimmed = compact.trim();
+    if trimmed.is_empty()
+        || looks_like_executable_script_noise(trimmed)
+        || looks_like_inline_markup_noise(trimmed)
+    {
+        return;
+    }
+
+    let alpha_count = trimmed.chars().filter(|ch| ch.is_alphabetic()).count();
+    let word_count = trimmed.split_whitespace().count();
+    if alpha_count < 16 && word_count < 4 {
+        return;
+    }
+
+    let dedupe_key = trimmed.to_ascii_lowercase();
+    if seen.insert(dedupe_key) {
+        blocks.push(trimmed.to_string());
+    }
+}
+
+pub(crate) fn extract_pdf_read_blocks_from_bytes(buffer: &[u8]) -> Result<Vec<String>> {
+    let pages = pdf_extract::extract_text_from_mem_by_pages(buffer)
+        .or_else(|_| pdf_extract::extract_text_from_mem(buffer).map(|text| vec![text]))
+        .map_err(|error| anyhow!("pdf text extraction failed: {}", error))?;
+
+    let mut blocks = Vec::new();
+    let mut seen = HashSet::new();
+    for page in pages {
+        let normalized = page.replace('\u{000c}', "\n");
+        let mut paragraph = String::new();
+        for line in normalized.lines().map(compact_ws) {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                if !paragraph.is_empty() {
+                    push_pdf_text_block(&mut blocks, &mut seen, &paragraph);
+                    paragraph.clear();
+                }
+                continue;
+            }
+
+            if !paragraph.is_empty() {
+                paragraph.push(' ');
+            }
+            paragraph.push_str(trimmed);
+        }
+        if !paragraph.is_empty() {
+            push_pdf_text_block(&mut blocks, &mut seen, &paragraph);
+        }
+    }
+
+    if blocks.is_empty() {
+        let fallback = pdf_extract::extract_text_from_mem(buffer)
+            .map_err(|error| anyhow!("pdf text extraction returned no usable blocks: {}", error))?;
+        push_pdf_text_block(&mut blocks, &mut seen, &fallback);
+    }
+
+    if blocks.is_empty() {
+        return Err(anyhow!("pdf text extraction returned no usable blocks"));
+    }
+
+    Ok(blocks)
+}
+
 pub async fn edge_web_read(
     browser: &BrowserDriver,
     url: &str,
@@ -1062,6 +1140,52 @@ pub async fn edge_web_read(
         None
     };
     let read_url = resolved_google_news_url.as_deref().unwrap_or(requested_url);
+
+    if url_has_pdf_hint(read_url) {
+        let (final_url, content_type, body_bytes) =
+            fetch_binary_http_fallback_browser_ua_with_final_url(read_url).await?;
+        if response_is_pdf(&final_url, content_type.as_deref()) {
+            let blocks = extract_pdf_read_blocks_from_bytes(&body_bytes).map_err(|error| {
+                anyhow!(
+                    "ERROR_CLASS=LowSignalReadInsufficient PDF extraction failed for {}: {}",
+                    final_url,
+                    error
+                )
+            })?;
+            let max = max_chars.map(|v| v as usize);
+            let (content_text, quote_spans) = build_document_text_and_spans(&blocks, max);
+            let content_hash = sha256_hex(content_text.as_bytes());
+            let source_id = source_id_for_url(&final_url);
+
+            return Ok(WebEvidenceBundle {
+                schema_version: 1,
+                retrieved_at_ms: now_ms(),
+                tool: "web__read".to_string(),
+                backend: "edge:read:http:pdf".to_string(),
+                query: None,
+                url: Some(final_url.clone()),
+                sources: vec![WebSource {
+                    source_id: source_id.clone(),
+                    rank: None,
+                    url: final_url.clone(),
+                    title: None,
+                    snippet: None,
+                    domain: domain_for_url(&final_url),
+                }],
+                source_observations: vec![],
+                documents: vec![WebDocument {
+                    source_id,
+                    url: final_url,
+                    title: None,
+                    content_text,
+                    content_hash,
+                    quote_spans,
+                }],
+                provider_candidates: vec![],
+                retrieval_contract: None,
+            });
+        }
+    }
 
     let mut retrieval_notes: Vec<String> = Vec::new();
     let mut backend = "edge:read:http".to_string();
@@ -1215,6 +1339,16 @@ pub async fn edge_web_read(
         }
     }
     for extracted in parse_same_host_child_collection_sources_from_html(
+        read_url,
+        &resolved_html,
+        READ_BLOCK_SUPPLEMENTAL_MAX,
+    ) {
+        let key = normalize_url_for_id(&extracted.url);
+        if seen_source_urls.insert(key) {
+            sources.push(extracted);
+        }
+    }
+    for extracted in parse_same_host_authority_document_sources_from_html(
         read_url,
         &resolved_html,
         READ_BLOCK_SUPPLEMENTAL_MAX,

@@ -8,6 +8,7 @@ mod draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm
 mod draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it;
 mod find_all_pdf_files_on_my_computer_modified_in_the_last_week;
 mod find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus;
+mod fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests;
 mod monitor_hacker_news_and_notify_me_whenever_a_post_about_web4_or_post_quantum_cryptography_hits_the_front_page;
 mod move_all_png_files_from_downloads_into_a_new_folder_called_images;
 mod multiply_247_by_38;
@@ -44,6 +45,7 @@ pub fn all_cases() -> Vec<QueryCase> {
         send_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_via_gmail::case(),
         create_a_google_calendar_event_for_tomorrows_standup_at_2_pm::case(),
         find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus::case(),
+        fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests::case(),
         compress_the_projects_folder_into_a_zip_file_and_put_it_on_my_desktop::case(),
         create_a_new_folder_on_my_desktop_called_project_some_number::case(),
         download_and_install_vlc_media_player::case(),

@@ -64,6 +64,561 @@ fn serialize_materialization_prompt_json<T: serde::Serialize>(
     }
 }
 
+struct StudioSurfaceContractPromptBundle {
+    design_label: &'static str,
+    design_spine: Option<StudioHtmlPromotedDesignSkillSpine>,
+    scaffold_label: &'static str,
+    scaffold_contract: Option<StudioHtmlScaffoldContract>,
+    component_label: &'static str,
+    component_packs: Vec<StudioHtmlComponentPackContract>,
+    execution_digest: String,
+}
+
+fn studio_surface_contract_prompt_bundle(
+    brief: &StudioArtifactBrief,
+    blueprint: &StudioArtifactBlueprint,
+    artifact_ir: &StudioArtifactIR,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    candidate_seed: u64,
+) -> StudioSurfaceContractPromptBundle {
+    match blueprint.renderer {
+        StudioRendererKind::HtmlIframe => StudioSurfaceContractPromptBundle {
+            design_label: "Studio promoted design skill spine",
+            design_spine: studio_html_promoted_design_skill_spine(
+                brief,
+                blueprint,
+                artifact_ir,
+                selected_skills,
+            ),
+            scaffold_label: "Studio HTML scaffold contract",
+            scaffold_contract: studio_html_scaffold_contract(
+                blueprint,
+                artifact_ir,
+                candidate_seed,
+            ),
+            component_label: "Studio HTML component pack contracts",
+            component_packs: studio_html_component_pack_contracts(blueprint),
+            execution_digest: studio_html_scaffold_execution_digest(
+                brief,
+                blueprint,
+                artifact_ir,
+                selected_skills,
+                candidate_seed,
+            )
+            .unwrap_or_default(),
+        },
+        StudioRendererKind::JsxSandbox => StudioSurfaceContractPromptBundle {
+            design_label: "Studio JSX design skill spine",
+            design_spine: studio_jsx_promoted_design_skill_spine(
+                brief,
+                blueprint,
+                artifact_ir,
+                selected_skills,
+            ),
+            scaffold_label: "Studio JSX scaffold contract",
+            scaffold_contract: studio_jsx_scaffold_contract(blueprint, artifact_ir, candidate_seed),
+            component_label: "Studio JSX component pack contracts",
+            component_packs: studio_jsx_component_pack_contracts(blueprint),
+            execution_digest: studio_jsx_scaffold_execution_digest(
+                brief,
+                blueprint,
+                artifact_ir,
+                selected_skills,
+                candidate_seed,
+            )
+            .unwrap_or_default(),
+        },
+        StudioRendererKind::Svg => StudioSurfaceContractPromptBundle {
+            design_label: "Studio SVG design skill spine",
+            design_spine: studio_svg_promoted_design_skill_spine(
+                brief,
+                blueprint,
+                artifact_ir,
+                selected_skills,
+            ),
+            scaffold_label: "Studio SVG scaffold contract",
+            scaffold_contract: studio_svg_scaffold_contract(blueprint, artifact_ir, candidate_seed),
+            component_label: "Studio SVG component pack contracts",
+            component_packs: studio_svg_component_pack_contracts(blueprint),
+            execution_digest: studio_svg_scaffold_execution_digest(
+                brief,
+                blueprint,
+                artifact_ir,
+                selected_skills,
+                candidate_seed,
+            )
+            .unwrap_or_default(),
+        },
+        StudioRendererKind::PdfEmbed => StudioSurfaceContractPromptBundle {
+            design_label: "Studio PDF design skill spine",
+            design_spine: studio_pdf_promoted_design_skill_spine(
+                brief,
+                blueprint,
+                artifact_ir,
+                selected_skills,
+            ),
+            scaffold_label: "Studio PDF scaffold contract",
+            scaffold_contract: studio_pdf_scaffold_contract(blueprint, artifact_ir, candidate_seed),
+            component_label: "Studio PDF component pack contracts",
+            component_packs: studio_pdf_component_pack_contracts(blueprint),
+            execution_digest: studio_pdf_scaffold_execution_digest(
+                brief,
+                blueprint,
+                artifact_ir,
+                selected_skills,
+                candidate_seed,
+            )
+            .unwrap_or_default(),
+        },
+        _ => StudioSurfaceContractPromptBundle {
+            design_label: "Studio renderer design skill spine",
+            design_spine: None,
+            scaffold_label: "Studio renderer scaffold contract",
+            scaffold_contract: None,
+            component_label: "Studio renderer component pack contracts",
+            component_packs: Vec::new(),
+            execution_digest: String::new(),
+        },
+    }
+}
+
+#[derive(Clone)]
+pub struct StudioArtifactResolvedRuntimePlan {
+    pub policy: StudioArtifactRuntimePolicy,
+    pub planning_runtime: Arc<dyn InferenceRuntime>,
+    pub generation_runtime: Arc<dyn InferenceRuntime>,
+    pub acceptance_runtime: Arc<dyn InferenceRuntime>,
+    pub repair_runtime: Arc<dyn InferenceRuntime>,
+}
+
+fn studio_runtime_available(runtime: &Arc<dyn InferenceRuntime>) -> bool {
+    runtime.studio_runtime_provenance().kind != StudioRuntimeProvenanceKind::InferenceUnavailable
+}
+
+fn studio_runtime_provenance_matches(
+    left: &StudioRuntimeProvenance,
+    right: &StudioRuntimeProvenance,
+) -> bool {
+    left.kind == right.kind
+        && left.label == right.label
+        && left.model == right.model
+        && left.endpoint == right.endpoint
+}
+
+fn generation_runtime_tier(provenance: &StudioRuntimeProvenance) -> StudioArtifactRuntimeTier {
+    match provenance.kind {
+        StudioRuntimeProvenanceKind::RealLocalRuntime => StudioArtifactRuntimeTier::Local,
+        StudioRuntimeProvenanceKind::RealRemoteModelRuntime
+        | StudioRuntimeProvenanceKind::OpaqueRuntime => StudioArtifactRuntimeTier::CostEffective,
+        StudioRuntimeProvenanceKind::DeterministicContinuityFallback
+        | StudioRuntimeProvenanceKind::FixtureRuntime
+        | StudioRuntimeProvenanceKind::MockRuntime
+        | StudioRuntimeProvenanceKind::InferenceUnavailable => {
+            StudioArtifactRuntimeTier::Deterministic
+        }
+    }
+}
+
+fn runtime_step_policies(
+    profile: StudioArtifactRuntimePolicyProfile,
+    renderer: StudioRendererKind,
+) -> Vec<StudioArtifactRuntimeStepPolicy> {
+    let premium_html_planning = matches!(
+        renderer,
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox
+    );
+    vec![
+        StudioArtifactRuntimeStepPolicy {
+            step: StudioArtifactRuntimeStep::OutcomeRouting,
+            preferred_tier: StudioArtifactRuntimeTier::CostEffective,
+            fallback_to_generation_runtime: true,
+            require_distinct_runtime: false,
+        },
+        StudioArtifactRuntimeStepPolicy {
+            step: StudioArtifactRuntimeStep::BlueprintPlanning,
+            preferred_tier: match profile {
+                StudioArtifactRuntimePolicyProfile::PremiumEndToEnd => {
+                    StudioArtifactRuntimeTier::Premium
+                }
+                StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration
+                    if premium_html_planning =>
+                {
+                    StudioArtifactRuntimeTier::Premium
+                }
+                StudioArtifactRuntimePolicyProfile::FullyLocal
+                | StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
+                | StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration => {
+                    StudioArtifactRuntimeTier::Local
+                }
+                StudioArtifactRuntimePolicyProfile::Auto => {
+                    StudioArtifactRuntimeTier::CostEffective
+                }
+            },
+            fallback_to_generation_runtime: true,
+            require_distinct_runtime: false,
+        },
+        StudioArtifactRuntimeStepPolicy {
+            step: StudioArtifactRuntimeStep::CandidateGeneration,
+            preferred_tier: match profile {
+                StudioArtifactRuntimePolicyProfile::PremiumEndToEnd => {
+                    StudioArtifactRuntimeTier::Premium
+                }
+                StudioArtifactRuntimePolicyProfile::FullyLocal
+                | StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
+                | StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration => {
+                    StudioArtifactRuntimeTier::Local
+                }
+                StudioArtifactRuntimePolicyProfile::Auto => {
+                    StudioArtifactRuntimeTier::CostEffective
+                }
+            },
+            fallback_to_generation_runtime: false,
+            require_distinct_runtime: false,
+        },
+        StudioArtifactRuntimeStepPolicy {
+            step: StudioArtifactRuntimeStep::AcceptanceJudge,
+            preferred_tier: match profile {
+                StudioArtifactRuntimePolicyProfile::FullyLocal => StudioArtifactRuntimeTier::Local,
+                _ => StudioArtifactRuntimeTier::Premium,
+            },
+            fallback_to_generation_runtime: true,
+            require_distinct_runtime: matches!(
+                profile,
+                StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
+                    | StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration
+            ),
+        },
+        StudioArtifactRuntimeStepPolicy {
+            step: StudioArtifactRuntimeStep::RepairPlanning,
+            preferred_tier: match profile {
+                StudioArtifactRuntimePolicyProfile::FullyLocal => StudioArtifactRuntimeTier::Local,
+                StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance => {
+                    StudioArtifactRuntimeTier::Premium
+                }
+                StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration
+                    if premium_html_planning =>
+                {
+                    StudioArtifactRuntimeTier::Premium
+                }
+                StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration => {
+                    StudioArtifactRuntimeTier::Local
+                }
+                StudioArtifactRuntimePolicyProfile::PremiumEndToEnd => {
+                    StudioArtifactRuntimeTier::Premium
+                }
+                StudioArtifactRuntimePolicyProfile::Auto => {
+                    StudioArtifactRuntimeTier::CostEffective
+                }
+            },
+            fallback_to_generation_runtime: true,
+            require_distinct_runtime: matches!(
+                profile,
+                StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
+                    | StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration
+            ),
+        },
+        StudioArtifactRuntimeStepPolicy {
+            step: StudioArtifactRuntimeStep::MemoryDistillation,
+            preferred_tier: StudioArtifactRuntimeTier::Deterministic,
+            fallback_to_generation_runtime: true,
+            require_distinct_runtime: false,
+        },
+    ]
+}
+
+fn fallback_reason_for_premium_lane(
+    acceptance_runtime: Option<&Arc<dyn InferenceRuntime>>,
+    generation_provenance: &StudioRuntimeProvenance,
+    require_distinct_runtime: bool,
+) -> Option<String> {
+    let Some(runtime) = acceptance_runtime else {
+        return Some("acceptance_runtime_missing".to_string());
+    };
+    let acceptance_provenance = runtime.studio_runtime_provenance();
+    if acceptance_provenance.kind == StudioRuntimeProvenanceKind::InferenceUnavailable {
+        return Some("acceptance_runtime_unavailable".to_string());
+    }
+    if require_distinct_runtime
+        && studio_runtime_provenance_matches(&acceptance_provenance, generation_provenance)
+    {
+        return Some("acceptance_runtime_not_distinct".to_string());
+    }
+    None
+}
+
+fn build_runtime_binding(
+    step: StudioArtifactRuntimeStep,
+    preferred_tier: StudioArtifactRuntimeTier,
+    selected_tier: StudioArtifactRuntimeTier,
+    runtime: &Arc<dyn InferenceRuntime>,
+    fallback_reason: Option<String>,
+) -> StudioArtifactRuntimeBinding {
+    StudioArtifactRuntimeBinding {
+        step,
+        preferred_tier,
+        selected_tier,
+        fallback_applied: fallback_reason.is_some(),
+        fallback_reason,
+        provenance: runtime.studio_runtime_provenance(),
+    }
+}
+
+pub fn resolve_studio_artifact_runtime_plan(
+    request: &StudioOutcomeArtifactRequest,
+    generation_runtime: Arc<dyn InferenceRuntime>,
+    acceptance_runtime: Option<Arc<dyn InferenceRuntime>>,
+    requested_profile: StudioArtifactRuntimePolicyProfile,
+) -> StudioArtifactResolvedRuntimePlan {
+    let generation_provenance = generation_runtime.studio_runtime_provenance();
+    let acceptance_available = acceptance_runtime
+        .as_ref()
+        .map(studio_runtime_available)
+        .unwrap_or(false);
+    let acceptance_distinct = acceptance_runtime
+        .as_ref()
+        .map(|runtime| {
+            let provenance = runtime.studio_runtime_provenance();
+            acceptance_available
+                && !studio_runtime_provenance_matches(&provenance, &generation_provenance)
+        })
+        .unwrap_or(false);
+    let resolved_profile = match requested_profile {
+        StudioArtifactRuntimePolicyProfile::Auto => {
+            if generation_provenance.kind == StudioRuntimeProvenanceKind::RealRemoteModelRuntime {
+                StudioArtifactRuntimePolicyProfile::PremiumEndToEnd
+            } else if acceptance_distinct {
+                StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
+            } else {
+                StudioArtifactRuntimePolicyProfile::FullyLocal
+            }
+        }
+        other => other,
+    };
+    let step_policies = runtime_step_policies(resolved_profile, request.renderer);
+    let generation_tier = generation_runtime_tier(&generation_provenance);
+    let planning_policy = step_policies
+        .iter()
+        .find(|policy| policy.step == StudioArtifactRuntimeStep::BlueprintPlanning)
+        .cloned()
+        .expect("planning policy");
+    let generation_policy = step_policies
+        .iter()
+        .find(|policy| policy.step == StudioArtifactRuntimeStep::CandidateGeneration)
+        .cloned()
+        .expect("generation policy");
+    let acceptance_policy = step_policies
+        .iter()
+        .find(|policy| policy.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+        .cloned()
+        .expect("acceptance policy");
+    let repair_policy = step_policies
+        .iter()
+        .find(|policy| policy.step == StudioArtifactRuntimeStep::RepairPlanning)
+        .cloned()
+        .expect("repair policy");
+
+    let planning_prefers_premium = matches!(
+        resolved_profile,
+        StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration
+            | StudioArtifactRuntimePolicyProfile::PremiumEndToEnd
+    ) && matches!(
+        request.renderer,
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox
+    );
+    let planning_fallback_reason = if planning_prefers_premium {
+        fallback_reason_for_premium_lane(
+            acceptance_runtime.as_ref(),
+            &generation_provenance,
+            planning_policy.require_distinct_runtime,
+        )
+    } else {
+        None
+    };
+    let (planning_runtime, planning_binding) =
+        if planning_prefers_premium && planning_fallback_reason.is_none() {
+            let runtime = acceptance_runtime
+                .as_ref()
+                .expect("premium planning requires acceptance runtime");
+            (
+                runtime.clone(),
+                build_runtime_binding(
+                    StudioArtifactRuntimeStep::BlueprintPlanning,
+                    planning_policy.preferred_tier,
+                    StudioArtifactRuntimeTier::Premium,
+                    runtime,
+                    None,
+                ),
+            )
+        } else {
+            (
+                generation_runtime.clone(),
+                build_runtime_binding(
+                    StudioArtifactRuntimeStep::BlueprintPlanning,
+                    planning_policy.preferred_tier,
+                    generation_tier,
+                    &generation_runtime,
+                    planning_fallback_reason,
+                ),
+            )
+        };
+
+    let generation_fallback_reason = if matches!(
+        resolved_profile,
+        StudioArtifactRuntimePolicyProfile::PremiumEndToEnd
+    ) {
+        fallback_reason_for_premium_lane(acceptance_runtime.as_ref(), &generation_provenance, false)
+    } else {
+        None
+    };
+    let (resolved_generation_runtime, generation_binding) = if matches!(
+        resolved_profile,
+        StudioArtifactRuntimePolicyProfile::PremiumEndToEnd
+    ) && generation_fallback_reason
+        .is_none()
+    {
+        let runtime = acceptance_runtime
+            .as_ref()
+            .expect("premium end-to-end requires acceptance runtime");
+        (
+            runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::CandidateGeneration,
+                generation_policy.preferred_tier,
+                StudioArtifactRuntimeTier::Premium,
+                runtime,
+                None,
+            ),
+        )
+    } else {
+        (
+            generation_runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::CandidateGeneration,
+                generation_policy.preferred_tier,
+                generation_tier,
+                &generation_runtime,
+                generation_fallback_reason,
+            ),
+        )
+    };
+
+    let acceptance_fallback_reason = if matches!(
+        resolved_profile,
+        StudioArtifactRuntimePolicyProfile::FullyLocal
+    ) {
+        None
+    } else {
+        fallback_reason_for_premium_lane(
+            acceptance_runtime.as_ref(),
+            &generation_provenance,
+            acceptance_policy.require_distinct_runtime,
+        )
+    };
+    let (resolved_acceptance_runtime, acceptance_binding) = if matches!(
+        resolved_profile,
+        StudioArtifactRuntimePolicyProfile::FullyLocal
+    ) || acceptance_fallback_reason
+        .is_some()
+    {
+        (
+            generation_runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::AcceptanceJudge,
+                acceptance_policy.preferred_tier,
+                generation_tier,
+                &generation_runtime,
+                acceptance_fallback_reason,
+            ),
+        )
+    } else {
+        let runtime = acceptance_runtime
+            .as_ref()
+            .expect("premium acceptance requires acceptance runtime");
+        (
+            runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::AcceptanceJudge,
+                acceptance_policy.preferred_tier,
+                StudioArtifactRuntimeTier::Premium,
+                runtime,
+                None,
+            ),
+        )
+    };
+
+    let repair_prefers_premium = match resolved_profile {
+        StudioArtifactRuntimePolicyProfile::FullyLocal => false,
+        StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance => true,
+        StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration => matches!(
+            request.renderer,
+            StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox
+        ),
+        StudioArtifactRuntimePolicyProfile::PremiumEndToEnd => true,
+        StudioArtifactRuntimePolicyProfile::Auto => false,
+    };
+    let repair_fallback_reason = if repair_prefers_premium
+        && !matches!(
+            resolved_profile,
+            StudioArtifactRuntimePolicyProfile::FullyLocal
+        ) {
+        fallback_reason_for_premium_lane(
+            acceptance_runtime.as_ref(),
+            &generation_provenance,
+            repair_policy.require_distinct_runtime,
+        )
+    } else {
+        None
+    };
+    let (repair_runtime, repair_binding) = if repair_prefers_premium
+        && repair_fallback_reason.is_none()
+        && !matches!(
+            resolved_profile,
+            StudioArtifactRuntimePolicyProfile::FullyLocal
+        ) {
+        let runtime = acceptance_runtime
+            .as_ref()
+            .expect("premium repair requires acceptance runtime");
+        (
+            runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::RepairPlanning,
+                repair_policy.preferred_tier,
+                StudioArtifactRuntimeTier::Premium,
+                runtime,
+                None,
+            ),
+        )
+    } else {
+        (
+            generation_runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::RepairPlanning,
+                repair_policy.preferred_tier,
+                generation_tier,
+                &generation_runtime,
+                repair_fallback_reason,
+            ),
+        )
+    };
+
+    StudioArtifactResolvedRuntimePlan {
+        policy: StudioArtifactRuntimePolicy {
+            profile: resolved_profile,
+            step_policies,
+            bindings: vec![
+                planning_binding,
+                generation_binding,
+                acceptance_binding,
+                repair_binding,
+            ],
+        },
+        planning_runtime,
+        generation_runtime: resolved_generation_runtime,
+        acceptance_runtime: resolved_acceptance_runtime,
+        repair_runtime,
+    }
+}
+
 fn materialization_repair_candidate_view(
     raw_output: &str,
     request: &StudioOutcomeArtifactRequest,
@@ -88,6 +643,90 @@ fn merged_candidate_summaries(
     combined
 }
 
+fn derive_planning_context_for_request(
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    blueprint: Option<StudioArtifactBlueprint>,
+    artifact_ir: Option<StudioArtifactIR>,
+    selected_skills: Vec<StudioArtifactSelectedSkill>,
+) -> StudioArtifactPlanningContext {
+    if request.renderer == StudioRendererKind::WorkspaceSurface {
+        return StudioArtifactPlanningContext {
+            brief: brief.clone(),
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills,
+            retrieved_exemplars: Vec::new(),
+        };
+    }
+
+    let resolved_blueprint =
+        blueprint.unwrap_or_else(|| derive_studio_artifact_blueprint(request, brief));
+    let resolved_artifact_ir = artifact_ir
+        .unwrap_or_else(|| compile_studio_artifact_ir(request, brief, &resolved_blueprint));
+    StudioArtifactPlanningContext {
+        brief: brief.clone(),
+        blueprint: Some(resolved_blueprint),
+        artifact_ir: Some(resolved_artifact_ir),
+        selected_skills,
+        retrieved_exemplars: Vec::new(),
+    }
+}
+
+fn studio_artifact_selected_skill_prompt_view(
+    selected_skills: &[StudioArtifactSelectedSkill],
+) -> serde_json::Value {
+    serde_json::Value::Array(
+        selected_skills
+            .iter()
+            .map(|skill| {
+                json!({
+                    "name": skill.name,
+                    "description": skill.description,
+                    "lifecycleState": skill.lifecycle_state,
+                    "sourceType": skill.source_type,
+                    "matchedNeedKinds": skill.matched_need_kinds,
+                    "matchedNeedIds": skill.matched_need_ids,
+                    "matchRationale": skill.match_rationale,
+                    "relativePath": skill.relative_path,
+                    "guidanceMarkdown": skill.guidance_markdown.as_ref().map(|markdown| {
+                        let trimmed = markdown.trim();
+                        let mut clipped = trimmed.chars().take(1800).collect::<String>();
+                        if trimmed.chars().count() > 1800 {
+                            clipped.push_str("...");
+                        }
+                        clipped
+                    }),
+                })
+            })
+            .collect(),
+    )
+}
+
+fn studio_artifact_exemplar_prompt_view(exemplars: &[StudioArtifactExemplar]) -> serde_json::Value {
+    serde_json::Value::Array(
+        exemplars
+            .iter()
+            .map(|exemplar| {
+                json!({
+                    "recordId": exemplar.record_id,
+                    "title": exemplar.title,
+                    "summary": exemplar.summary,
+                    "renderer": exemplar.renderer,
+                    "scaffoldFamily": exemplar.scaffold_family,
+                    "thesis": exemplar.thesis,
+                    "qualityRationale": exemplar.quality_rationale,
+                    "scoreTotal": exemplar.score_total,
+                    "designCues": exemplar.design_cues,
+                    "componentPatterns": exemplar.component_patterns,
+                    "antiPatterns": exemplar.anti_patterns,
+                    "sourceRevisionId": exemplar.source_revision_id,
+                })
+            })
+            .collect(),
+    )
+}
+
 fn blocked_candidate_generation_judge(message: &str) -> StudioArtifactJudgeResult {
     StudioArtifactJudgeResult {
         classification: StudioArtifactJudgeClassification::Blocked,
@@ -102,9 +741,285 @@ fn blocked_candidate_generation_judge(message: &str) -> StudioArtifactJudgeResul
         deserves_primary_artifact_view: false,
         patched_existing_artifact: None,
         continuity_revision_ux: None,
+        issue_classes: vec!["generation_failure".to_string()],
+        repair_hints: vec![
+            "Regenerate a structurally valid candidate before acceptance judging.".to_string(),
+        ],
+        strengths: Vec::new(),
+        blocked_reasons: vec![message.to_string()],
+        file_findings: vec![format!("materialization: {}", message)],
+        aesthetic_verdict: "No valid surfaced artifact exists yet.".to_string(),
+        interaction_verdict: "Interaction quality cannot be judged until materialization succeeds."
+            .to_string(),
+        truthfulness_warnings: vec![
+            "The candidate failed before producing a verifiable artifact.".to_string(),
+        ],
+        recommended_next_pass: Some("structural_repair".to_string()),
         strongest_contradiction: Some(message.to_string()),
         rationale: message.to_string(),
     }
+}
+
+fn failed_render_evaluation(message: &str) -> StudioArtifactRenderEvaluation {
+    StudioArtifactRenderEvaluation {
+        supported: true,
+        first_paint_captured: false,
+        interaction_capture_attempted: false,
+        captures: Vec::new(),
+        layout_density_score: 1,
+        spacing_alignment_score: 1,
+        typography_contrast_score: 1,
+        visual_hierarchy_score: 1,
+        blueprint_consistency_score: 1,
+        overall_score: 1,
+        findings: vec![StudioArtifactRenderFinding {
+            code: "render_eval_failure".to_string(),
+            severity: StudioArtifactRenderFindingSeverity::Blocked,
+            summary: message.to_string(),
+        }],
+        summary: message.to_string(),
+    }
+}
+
+async fn evaluate_candidate_render_with_fallback(
+    render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    edit_intent: Option<&StudioArtifactEditIntent>,
+    candidate: &StudioGeneratedArtifactPayload,
+) -> Option<StudioArtifactRenderEvaluation> {
+    match evaluate_studio_artifact_render_if_configured(
+        render_evaluator,
+        request,
+        brief,
+        blueprint,
+        artifact_ir,
+        edit_intent,
+        candidate,
+    )
+    .await
+    {
+        Ok(render_evaluation) => render_evaluation,
+        Err(error) => Some(failed_render_evaluation(&format!(
+            "Render evaluation failed before Studio could verify the surfaced first paint: {}",
+            error
+        ))),
+    }
+}
+
+async fn judge_candidate_with_runtime_and_render_eval(
+    runtime: Arc<dyn InferenceRuntime>,
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+    title: &str,
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    edit_intent: Option<&StudioArtifactEditIntent>,
+    candidate: &StudioGeneratedArtifactPayload,
+) -> Result<StudioArtifactJudgeResult, String> {
+    let judge = judge_studio_artifact_candidate_with_runtime(
+        runtime,
+        title,
+        request,
+        brief,
+        edit_intent,
+        candidate,
+    )
+    .await?;
+    Ok(merge_studio_artifact_render_evaluation_into_judge(
+        request,
+        judge,
+        render_evaluation,
+    ))
+}
+
+async fn materialize_and_locally_judge_candidate(
+    production_runtime: Arc<dyn InferenceRuntime>,
+    render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    retrieved_exemplars: &[StudioArtifactExemplar],
+    edit_intent: Option<&StudioArtifactEditIntent>,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    candidate_id: &str,
+    seed: u64,
+    temperature: f32,
+    strategy: &str,
+    origin: StudioArtifactOutputOrigin,
+    model: &str,
+    production_provenance: &StudioRuntimeProvenance,
+) -> Result<
+    (
+        StudioArtifactCandidateSummary,
+        StudioGeneratedArtifactPayload,
+    ),
+    StudioArtifactCandidateSummary,
+> {
+    studio_generation_trace(format!(
+        "artifact_generation:candidate_materialize:start id={} seed={}",
+        candidate_id, seed
+    ));
+    let payload = match materialize_studio_artifact_candidate_with_runtime_detailed(
+        production_runtime.clone(),
+        title,
+        intent,
+        request,
+        brief,
+        blueprint,
+        artifact_ir,
+        selected_skills,
+        retrieved_exemplars,
+        edit_intent,
+        refinement,
+        candidate_id,
+        seed,
+        temperature,
+    )
+    .await
+    {
+        Ok(payload) => {
+            studio_generation_trace(format!(
+                "artifact_generation:candidate_materialize:ok id={} files={}",
+                candidate_id,
+                payload.files.len()
+            ));
+            payload
+        }
+        Err(error) => {
+            studio_generation_trace(format!(
+                "artifact_generation:candidate_materialize:error id={} error={}",
+                candidate_id, error.message
+            ));
+            let judge = blocked_candidate_generation_judge(&error.message);
+            return Err(StudioArtifactCandidateSummary {
+                candidate_id: candidate_id.to_string(),
+                seed,
+                model: model.to_string(),
+                temperature,
+                strategy: strategy.to_string(),
+                origin,
+                provenance: Some(production_provenance.clone()),
+                summary: "Candidate failed during materialization.".to_string(),
+                renderable_paths: Vec::new(),
+                selected: false,
+                fallback: false,
+                failure: Some(error.message.clone()),
+                raw_output_preview: error.raw_output_preview.clone(),
+                convergence: Some(initial_candidate_convergence_trace(
+                    candidate_id,
+                    "generation_failure",
+                    judge_total_score(&judge),
+                )),
+                render_evaluation: None,
+                judge,
+            });
+        }
+    };
+
+    studio_generation_trace(format!(
+        "artifact_generation:candidate_judge:start id={}",
+        candidate_id
+    ));
+    let render_evaluation = evaluate_candidate_render_with_fallback(
+        render_evaluator,
+        request,
+        brief,
+        blueprint,
+        artifact_ir,
+        edit_intent,
+        &payload,
+    )
+    .await;
+    let judge = match judge_candidate_with_runtime_and_render_eval(
+        production_runtime,
+        render_evaluation.as_ref(),
+        title,
+        request,
+        brief,
+        edit_intent,
+        &payload,
+    )
+    .await
+    {
+        Ok(judge) => {
+            studio_generation_trace(format!(
+                "artifact_generation:candidate_judge:ok id={} classification={:?}",
+                candidate_id, judge.classification
+            ));
+            judge
+        }
+        Err(error) => {
+            studio_generation_trace(format!(
+                "artifact_generation:candidate_judge:error id={} error={}",
+                candidate_id, error
+            ));
+            let judge = blocked_candidate_generation_judge(&format!("judge failed: {error}"));
+            return Err(StudioArtifactCandidateSummary {
+                candidate_id: candidate_id.to_string(),
+                seed,
+                model: model.to_string(),
+                temperature,
+                strategy: strategy.to_string(),
+                origin,
+                provenance: Some(production_provenance.clone()),
+                summary: payload.summary.clone(),
+                renderable_paths: payload
+                    .files
+                    .iter()
+                    .filter(|file| file.renderable)
+                    .map(|file| file.path.clone())
+                    .collect(),
+                selected: false,
+                fallback: false,
+                failure: Some(format!("judge failed: {error}")),
+                raw_output_preview: None,
+                convergence: Some(initial_candidate_convergence_trace(
+                    candidate_id,
+                    "judge_failure",
+                    judge_total_score(&judge),
+                )),
+                render_evaluation,
+                judge,
+            });
+        }
+    };
+
+    Ok((
+        StudioArtifactCandidateSummary {
+            candidate_id: candidate_id.to_string(),
+            seed,
+            model: model.to_string(),
+            temperature,
+            strategy: strategy.to_string(),
+            origin,
+            provenance: Some(production_provenance.clone()),
+            summary: payload.summary.clone(),
+            renderable_paths: payload
+                .files
+                .iter()
+                .filter(|file| file.renderable)
+                .map(|file| file.path.clone())
+                .collect(),
+            selected: false,
+            fallback: false,
+            failure: None,
+            raw_output_preview: None,
+            convergence: Some(initial_candidate_convergence_trace(
+                candidate_id,
+                "initial_generation",
+                judge_total_score(&judge),
+            )),
+            render_evaluation,
+            judge,
+        },
+        payload,
+    ))
 }
 
 fn local_draft_fast_path_enabled(
@@ -136,12 +1051,500 @@ fn local_draft_pending_acceptance_judge(
 ) -> StudioArtifactJudgeResult {
     let mut draft_judge = judge.clone();
     draft_judge.classification = StudioArtifactJudgeClassification::Repairable;
+    draft_judge.blocked_reasons.clear();
     draft_judge.strongest_contradiction =
         Some("Acceptance judging is still pending for this draft.".to_string());
     draft_judge.rationale =
         "Production surfaced a request-faithful local draft while stronger acceptance judging remains pending."
             .to_string();
+    draft_judge.recommended_next_pass = Some("polish_pass".to_string());
     draft_judge
+}
+
+fn record_adaptive_search_signal(
+    signals: &mut Vec<StudioAdaptiveSearchSignal>,
+    signal: StudioAdaptiveSearchSignal,
+) {
+    if !signals.contains(&signal) {
+        signals.push(signal);
+    }
+}
+
+fn renderer_candidate_cap(
+    renderer: StudioRendererKind,
+    production_kind: StudioRuntimeProvenanceKind,
+) -> usize {
+    match renderer {
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => {
+            if production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+                3
+            } else {
+                4
+            }
+        }
+        StudioRendererKind::Svg => {
+            if production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+                2
+            } else {
+                3
+            }
+        }
+        StudioRendererKind::Markdown
+        | StudioRendererKind::Mermaid
+        | StudioRendererKind::PdfEmbed
+        | StudioRendererKind::DownloadCard
+        | StudioRendererKind::BundleManifest => {
+            if production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+                1
+            } else {
+                2
+            }
+        }
+        StudioRendererKind::WorkspaceSurface => 1,
+    }
+}
+
+fn renderer_shortlist_cap(renderer: StudioRendererKind) -> usize {
+    match renderer {
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => 3,
+        StudioRendererKind::Svg => 2,
+        StudioRendererKind::Markdown
+        | StudioRendererKind::Mermaid
+        | StudioRendererKind::PdfEmbed
+        | StudioRendererKind::DownloadCard
+        | StudioRendererKind::BundleManifest => 2,
+        StudioRendererKind::WorkspaceSurface => 1,
+    }
+}
+
+fn renderer_refinement_cap(
+    renderer: StudioRendererKind,
+    production_kind: StudioRuntimeProvenanceKind,
+) -> usize {
+    match renderer {
+        StudioRendererKind::HtmlIframe => {
+            if production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+                2
+            } else {
+                3
+            }
+        }
+        StudioRendererKind::JsxSandbox | StudioRendererKind::Svg => 2,
+        _ => 0,
+    }
+}
+
+pub(crate) fn derive_studio_adaptive_search_budget(
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    retrieved_exemplars: &[StudioArtifactExemplar],
+    refinement: Option<&StudioArtifactRefinementContext>,
+    production_kind: StudioRuntimeProvenanceKind,
+) -> StudioAdaptiveSearchBudget {
+    let (initial_candidate_count, _, _) =
+        candidate_generation_config(request.renderer, production_kind);
+    let initial_candidate_count = initial_candidate_count.max(1);
+    let baseline_refinement_passes =
+        semantic_refinement_pass_limit(request.renderer, production_kind);
+    let mut max_candidate_count = initial_candidate_count;
+    let mut shortlist_limit = 1usize;
+    let mut max_semantic_refinement_passes = baseline_refinement_passes;
+    let mut plateau_limit = usize::from(baseline_refinement_passes > 0);
+    let min_score_delta = if baseline_refinement_passes > 0 {
+        1
+    } else {
+        i32::MAX
+    };
+    let mut target_judge_score_for_early_stop = match request.renderer {
+        StudioRendererKind::HtmlIframe => 356,
+        StudioRendererKind::JsxSandbox => 348,
+        StudioRendererKind::Svg => 340,
+        StudioRendererKind::Markdown => 312,
+        StudioRendererKind::Mermaid => 308,
+        StudioRendererKind::PdfEmbed => 314,
+        StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest => 306,
+        StudioRendererKind::WorkspaceSurface => 300,
+    };
+    let mut expansion_score_margin = match request.renderer {
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => 18,
+        StudioRendererKind::Svg => 16,
+        StudioRendererKind::Markdown
+        | StudioRendererKind::Mermaid
+        | StudioRendererKind::PdfEmbed => 14,
+        StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest => 12,
+        StudioRendererKind::WorkspaceSurface => 8,
+    };
+    let mut signals = Vec::new();
+
+    if matches!(
+        request.renderer,
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox | StudioRendererKind::Svg
+    ) {
+        record_adaptive_search_signal(&mut signals, StudioAdaptiveSearchSignal::RendererComplexity);
+        max_candidate_count += 1;
+        shortlist_limit = shortlist_limit.max(2);
+    }
+
+    let interaction_load = brief
+        .required_interactions
+        .len()
+        .max(
+            blueprint
+                .map(|value| value.interaction_plan.len())
+                .unwrap_or_default(),
+        )
+        .max(
+            artifact_ir
+                .map(|value| value.interaction_graph.len())
+                .unwrap_or_default(),
+        );
+    if interaction_load >= 3 {
+        record_adaptive_search_signal(
+            &mut signals,
+            StudioAdaptiveSearchSignal::BriefInteractionLoad,
+        );
+        max_candidate_count += 1;
+        shortlist_limit = shortlist_limit.max(2);
+        max_semantic_refinement_passes = max_semantic_refinement_passes.saturating_add(1);
+        plateau_limit = plateau_limit.max(1);
+        target_judge_score_for_early_stop += 6;
+        expansion_score_margin += 4;
+    }
+
+    let concept_load = brief
+        .required_concepts
+        .len()
+        .max(
+            blueprint
+                .map(|value| value.evidence_plan.len())
+                .unwrap_or_default(),
+        )
+        .max(
+            artifact_ir
+                .map(|value| value.evidence_surfaces.len())
+                .unwrap_or_default(),
+        );
+    if concept_load >= 4 {
+        record_adaptive_search_signal(&mut signals, StudioAdaptiveSearchSignal::BriefConceptLoad);
+        max_candidate_count += 1;
+        shortlist_limit = shortlist_limit.max(2);
+        max_semantic_refinement_passes = max_semantic_refinement_passes.saturating_add(1);
+        target_judge_score_for_early_stop += 4;
+    }
+
+    if !selected_skills.is_empty() {
+        record_adaptive_search_signal(&mut signals, StudioAdaptiveSearchSignal::SkillBackedDesign);
+        shortlist_limit = shortlist_limit.max(2);
+        target_judge_score_for_early_stop += 4;
+    }
+
+    if !retrieved_exemplars.is_empty() {
+        record_adaptive_search_signal(&mut signals, StudioAdaptiveSearchSignal::ExemplarSupport);
+        shortlist_limit = shortlist_limit.max(2);
+        expansion_score_margin = (expansion_score_margin - 2).max(10);
+    }
+
+    if refinement.is_some() {
+        record_adaptive_search_signal(&mut signals, StudioAdaptiveSearchSignal::ContinuationEdit);
+        max_candidate_count = max_candidate_count.min(initial_candidate_count.saturating_add(1));
+        shortlist_limit = 1;
+        target_judge_score_for_early_stop += 4;
+    }
+
+    if production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+        record_adaptive_search_signal(
+            &mut signals,
+            StudioAdaptiveSearchSignal::LocalGenerationConstraint,
+        );
+        max_candidate_count = max_candidate_count.min(initial_candidate_count.saturating_add(1));
+    }
+
+    max_candidate_count = max_candidate_count.clamp(
+        initial_candidate_count,
+        renderer_candidate_cap(request.renderer, production_kind),
+    );
+    shortlist_limit = shortlist_limit
+        .max(1)
+        .min(renderer_shortlist_cap(request.renderer))
+        .min(max_candidate_count);
+    max_semantic_refinement_passes = max_semantic_refinement_passes
+        .min(renderer_refinement_cap(request.renderer, production_kind));
+    let plateau_limit = if max_semantic_refinement_passes > 0 {
+        plateau_limit.max(1).min(2)
+    } else {
+        0
+    };
+
+    StudioAdaptiveSearchBudget {
+        initial_candidate_count,
+        max_candidate_count,
+        shortlist_limit,
+        max_semantic_refinement_passes,
+        plateau_limit,
+        min_score_delta,
+        target_judge_score_for_early_stop,
+        expansion_score_margin,
+        signals,
+    }
+}
+
+pub(crate) fn ranked_candidate_indices_by_score(
+    candidate_summaries: &[StudioArtifactCandidateSummary],
+) -> Vec<usize> {
+    let mut ranked = candidate_summaries
+        .iter()
+        .enumerate()
+        .map(|(index, summary)| (index, judge_total_score(&summary.judge)))
+        .collect::<Vec<_>>();
+    ranked.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(&right.0)));
+    ranked.into_iter().map(|(index, _)| index).collect()
+}
+
+fn top_candidate_score_gap(
+    ranked_candidate_indices: &[usize],
+    candidate_summaries: &[StudioArtifactCandidateSummary],
+) -> Option<i32> {
+    let best_index = ranked_candidate_indices.first().copied()?;
+    let best_score = judge_total_score(&candidate_summaries.get(best_index)?.judge);
+    let second_score = ranked_candidate_indices
+        .get(1)
+        .and_then(|index| candidate_summaries.get(*index))
+        .map(|summary| judge_total_score(&summary.judge))
+        .unwrap_or(best_score);
+    Some((best_score - second_score).max(0))
+}
+
+pub(crate) fn target_candidate_count_after_initial_search(
+    adaptive_budget: &mut StudioAdaptiveSearchBudget,
+    ranked_candidate_indices: &[usize],
+    candidate_summaries: &[StudioArtifactCandidateSummary],
+    failed_candidate_count: usize,
+) -> usize {
+    let current_count = candidate_summaries
+        .len()
+        .max(adaptive_budget.initial_candidate_count);
+    if current_count >= adaptive_budget.max_candidate_count {
+        return current_count;
+    }
+
+    let Some(best_index) = ranked_candidate_indices.first().copied() else {
+        return adaptive_budget.max_candidate_count;
+    };
+    let best_score = candidate_summaries
+        .get(best_index)
+        .map(|summary| judge_total_score(&summary.judge))
+        .unwrap_or_default();
+    let score_gap =
+        top_candidate_score_gap(ranked_candidate_indices, candidate_summaries).unwrap_or_default();
+    if score_gap <= adaptive_budget.expansion_score_margin {
+        record_adaptive_search_signal(
+            &mut adaptive_budget.signals,
+            StudioAdaptiveSearchSignal::LowCandidateVariance,
+        );
+    } else {
+        record_adaptive_search_signal(
+            &mut adaptive_budget.signals,
+            StudioAdaptiveSearchSignal::HighCandidateVariance,
+        );
+    }
+
+    let clears_primary_view = ranked_candidate_indices.iter().copied().any(|index| {
+        candidate_summaries
+            .get(index)
+            .map(|summary| judge_clears_primary_view(&summary.judge))
+            .unwrap_or(false)
+    });
+    if !clears_primary_view {
+        record_adaptive_search_signal(
+            &mut adaptive_budget.signals,
+            StudioAdaptiveSearchSignal::NoPrimaryViewCandidate,
+        );
+    }
+    if !clears_primary_view
+        && best_score + adaptive_budget.expansion_score_margin
+            >= adaptive_budget.target_judge_score_for_early_stop
+    {
+        record_adaptive_search_signal(
+            &mut adaptive_budget.signals,
+            StudioAdaptiveSearchSignal::NearMissPrimaryView,
+        );
+    }
+    if failed_candidate_count > 0 {
+        record_adaptive_search_signal(
+            &mut adaptive_budget.signals,
+            StudioAdaptiveSearchSignal::GenerationFailureObserved,
+        );
+    }
+
+    let should_expand = !clears_primary_view
+        && (failed_candidate_count > 0
+            || best_score < adaptive_budget.target_judge_score_for_early_stop
+            || score_gap <= adaptive_budget.expansion_score_margin);
+    if should_expand {
+        adaptive_budget.max_candidate_count
+    } else {
+        current_count
+    }
+}
+
+pub(crate) fn shortlisted_candidate_indices_for_budget(
+    adaptive_budget: &mut StudioAdaptiveSearchBudget,
+    ranked_candidate_indices: &[usize],
+    candidate_summaries: &[StudioArtifactCandidateSummary],
+) -> Vec<usize> {
+    if ranked_candidate_indices.is_empty() {
+        return Vec::new();
+    }
+
+    if let Some(score_gap) = top_candidate_score_gap(ranked_candidate_indices, candidate_summaries)
+    {
+        if score_gap <= adaptive_budget.expansion_score_margin {
+            record_adaptive_search_signal(
+                &mut adaptive_budget.signals,
+                StudioAdaptiveSearchSignal::LowCandidateVariance,
+            );
+            adaptive_budget.shortlist_limit = adaptive_budget.shortlist_limit.max(2);
+        } else {
+            record_adaptive_search_signal(
+                &mut adaptive_budget.signals,
+                StudioAdaptiveSearchSignal::HighCandidateVariance,
+            );
+        }
+    }
+
+    adaptive_budget.shortlist_limit = adaptive_budget
+        .shortlist_limit
+        .max(1)
+        .min(ranked_candidate_indices.len())
+        .min(adaptive_budget.max_candidate_count);
+
+    let mut shortlisted = ranked_candidate_indices
+        .iter()
+        .copied()
+        .filter(|index| {
+            candidate_summaries
+                .get(*index)
+                .map(|summary| judge_clears_primary_view(&summary.judge))
+                .unwrap_or(false)
+        })
+        .take(adaptive_budget.shortlist_limit)
+        .collect::<Vec<_>>();
+    if shortlisted.is_empty() {
+        shortlisted = ranked_candidate_indices
+            .iter()
+            .take(adaptive_budget.shortlist_limit)
+            .copied()
+            .collect();
+    }
+    shortlisted
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SemanticConvergenceBudget {
+    max_passes: usize,
+    plateau_limit: usize,
+    min_score_delta: i32,
+}
+
+fn semantic_convergence_budget(
+    adaptive_budget: &StudioAdaptiveSearchBudget,
+) -> SemanticConvergenceBudget {
+    SemanticConvergenceBudget {
+        max_passes: adaptive_budget.max_semantic_refinement_passes,
+        plateau_limit: adaptive_budget.plateau_limit,
+        min_score_delta: adaptive_budget.min_score_delta,
+    }
+}
+
+fn requested_follow_up_pass(judge: &StudioArtifactJudgeResult) -> Option<&'static str> {
+    match judge.recommended_next_pass.as_deref() {
+        Some("structural_repair") => Some("structural_repair"),
+        Some("polish_pass") => Some("polish_pass"),
+        Some("accept") | Some("hold_block") => None,
+        _ => match judge.classification {
+            StudioArtifactJudgeClassification::Pass
+                if !judge_clears_primary_view(judge)
+                    && (judge.visual_hierarchy < 5 || judge.layout_coherence < 5) =>
+            {
+                Some("polish_pass")
+            }
+            StudioArtifactJudgeClassification::Repairable => Some("structural_repair"),
+            _ => None,
+        },
+    }
+}
+
+fn refinement_temperature_for_pass(pass_kind: &str) -> f32 {
+    match pass_kind {
+        "polish_pass" => 0.1,
+        "structural_repair" => 0.18,
+        _ => 0.18,
+    }
+}
+
+fn initial_candidate_convergence_trace(
+    candidate_id: &str,
+    pass_kind: &str,
+    score_total: i32,
+) -> StudioArtifactCandidateConvergenceTrace {
+    StudioArtifactCandidateConvergenceTrace {
+        lineage_root_id: refined_candidate_root(candidate_id).to_string(),
+        parent_candidate_id: None,
+        pass_kind: pass_kind.to_string(),
+        pass_index: 0,
+        score_total,
+        score_delta_from_parent: None,
+        terminated_reason: None,
+    }
+}
+
+fn refined_candidate_convergence_trace(
+    source_summary: &StudioArtifactCandidateSummary,
+    pass_kind: &str,
+    score_total: i32,
+    score_delta_from_parent: i32,
+) -> StudioArtifactCandidateConvergenceTrace {
+    let (lineage_root_id, pass_index) = source_summary
+        .convergence
+        .as_ref()
+        .map(|trace| (trace.lineage_root_id.clone(), trace.pass_index + 1))
+        .unwrap_or_else(|| {
+            (
+                refined_candidate_root(&source_summary.candidate_id).to_string(),
+                1,
+            )
+        });
+    StudioArtifactCandidateConvergenceTrace {
+        lineage_root_id,
+        parent_candidate_id: Some(source_summary.candidate_id.clone()),
+        pass_kind: pass_kind.to_string(),
+        pass_index,
+        score_total,
+        score_delta_from_parent: Some(score_delta_from_parent),
+        terminated_reason: None,
+    }
+}
+
+fn update_candidate_summary_judge(
+    summary: &mut StudioArtifactCandidateSummary,
+    judge: StudioArtifactJudgeResult,
+) {
+    summary.judge = judge.clone();
+    if let Some(convergence) = summary.convergence.as_mut() {
+        convergence.score_total = judge_total_score(&judge);
+    }
+}
+
+fn set_candidate_termination_reason(
+    summary: &mut StudioArtifactCandidateSummary,
+    reason: impl Into<String>,
+) {
+    if let Some(convergence) = summary.convergence.as_mut() {
+        convergence.terminated_reason = Some(reason.into());
+    }
 }
 
 struct SemanticRefinementProgress {
@@ -151,18 +1554,24 @@ struct SemanticRefinementProgress {
 }
 
 async fn attempt_semantic_refinement_for_candidate(
-    production_runtime: Arc<dyn InferenceRuntime>,
+    repair_runtime: Arc<dyn InferenceRuntime>,
     acceptance_runtime: Arc<dyn InferenceRuntime>,
+    render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    retrieved_exemplars: &[StudioArtifactExemplar],
     edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     strategy: &str,
     origin: StudioArtifactOutputOrigin,
-    model: &str,
-    production_provenance: &StudioRuntimeProvenance,
+    repair_model: &str,
+    repair_provenance: &StudioRuntimeProvenance,
+    adaptive_search_budget: &StudioAdaptiveSearchBudget,
     source_index: usize,
     candidate_rows: &mut Vec<(
         StudioArtifactCandidateSummary,
@@ -173,13 +1582,18 @@ async fn attempt_semantic_refinement_for_candidate(
     mut best_acceptance_index: Option<usize>,
     mut best_acceptance_score: i32,
 ) -> Result<SemanticRefinementProgress, StudioArtifactGenerationError> {
+    let budget = semantic_convergence_budget(adaptive_search_budget);
     let mut refinement_source_index = source_index;
+    let mut plateau_count = 0usize;
     let refinement_root = candidate_summaries
         .get(refinement_source_index)
         .map(|summary| refined_candidate_root(&summary.candidate_id).to_string())
         .ok_or_else(|| StudioArtifactGenerationError {
             message: "Studio best candidate summary is missing for refinement.".to_string(),
             brief: Some(brief.clone()),
+            blueprint: blueprint.cloned(),
+            artifact_ir: artifact_ir.cloned(),
+            selected_skills: selected_skills.to_vec(),
             edit_intent: edit_intent.cloned(),
             candidate_summaries: candidate_summaries.clone(),
         })?;
@@ -191,24 +1605,34 @@ async fn attempt_semantic_refinement_for_candidate(
         });
     }
 
-    for refinement_pass in
-        0..semantic_refinement_pass_limit(request.renderer, production_provenance.kind)
-    {
+    for refinement_pass in 0..budget.max_passes {
         let source_summary = candidate_summaries
             .get(refinement_source_index)
             .cloned()
             .ok_or_else(|| StudioArtifactGenerationError {
                 message: "Studio best candidate summary is missing for refinement.".to_string(),
                 brief: Some(brief.clone()),
+                blueprint: blueprint.cloned(),
+                artifact_ir: artifact_ir.cloned(),
+                selected_skills: selected_skills.to_vec(),
                 edit_intent: edit_intent.cloned(),
                 candidate_summaries: candidate_summaries.clone(),
             })?;
+        let Some(pass_kind) = requested_follow_up_pass(&source_summary.judge) else {
+            if let Some(summary) = candidate_summaries.get_mut(refinement_source_index) {
+                set_candidate_termination_reason(summary, "judge_requested_stop");
+            }
+            break;
+        };
         let source_payload = candidate_rows
             .get(refinement_source_index)
             .map(|(_, payload)| payload.clone())
             .ok_or_else(|| StudioArtifactGenerationError {
                 message: "Studio best candidate payload is missing for refinement.".to_string(),
                 brief: Some(brief.clone()),
+                blueprint: blueprint.cloned(),
+                artifact_ir: artifact_ir.cloned(),
+                selected_skills: selected_skills.to_vec(),
                 edit_intent: edit_intent.cloned(),
                 candidate_summaries: candidate_summaries.clone(),
             })?;
@@ -222,22 +1646,33 @@ async fn attempt_semantic_refinement_for_candidate(
             refined_candidate_id, source_summary.candidate_id
         ));
         let refined_payload = match refine_studio_artifact_candidate_with_runtime(
-            production_runtime.clone(),
+            repair_runtime.clone(),
             title,
             intent,
             request,
             brief,
+            blueprint,
+            artifact_ir,
+            selected_skills,
+            retrieved_exemplars,
             edit_intent,
             refinement,
             &source_payload,
             &source_summary.judge,
             &refined_candidate_id,
             source_summary.seed,
+            refinement_temperature_for_pass(pass_kind),
         )
         .await
         {
             Ok(payload) => payload,
             Err(error) => {
+                if let Some(summary) = candidate_summaries.get_mut(refinement_source_index) {
+                    set_candidate_termination_reason(
+                        summary,
+                        format!("refinement_failed: {}", error),
+                    );
+                }
                 studio_generation_trace(format!(
                     "artifact_generation:refine:error id={} error={}",
                     refined_candidate_id, error
@@ -254,8 +1689,19 @@ async fn attempt_semantic_refinement_for_candidate(
             "artifact_generation:refine_acceptance:start id={}",
             refined_candidate_id
         ));
-        let refined_acceptance_judge = judge_studio_artifact_candidate_with_runtime(
+        let refined_render_evaluation = evaluate_candidate_render_with_fallback(
+            render_evaluator,
+            request,
+            brief,
+            blueprint,
+            artifact_ir,
+            edit_intent,
+            &refined_payload,
+        )
+        .await;
+        let refined_acceptance_judge = judge_candidate_with_runtime_and_render_eval(
             acceptance_runtime.clone(),
+            refined_render_evaluation.as_ref(),
             title,
             request,
             brief,
@@ -266,6 +1712,9 @@ async fn attempt_semantic_refinement_for_candidate(
         .map_err(|message| StudioArtifactGenerationError {
             message,
             brief: Some(brief.clone()),
+            blueprint: blueprint.cloned(),
+            artifact_ir: artifact_ir.cloned(),
+            selected_skills: selected_skills.to_vec(),
             edit_intent: edit_intent.cloned(),
             candidate_summaries: candidate_summaries.clone(),
         })?;
@@ -275,14 +1724,15 @@ async fn attempt_semantic_refinement_for_candidate(
         ));
         let refined_score = judge_total_score(&refined_acceptance_judge);
         let source_score = judge_total_score(&source_summary.judge);
+        let score_delta_from_parent = refined_score - source_score;
         let refined_summary = StudioArtifactCandidateSummary {
             candidate_id: refined_candidate_id,
             seed: source_summary.seed,
-            model: model.to_string(),
-            temperature: 0.18,
-            strategy: format!("{strategy}.refinement"),
+            model: repair_model.to_string(),
+            temperature: refinement_temperature_for_pass(pass_kind),
+            strategy: format!("{strategy}.{pass_kind}"),
             origin,
-            provenance: Some(production_provenance.clone()),
+            provenance: Some(repair_provenance.clone()),
             summary: refined_payload.summary.clone(),
             renderable_paths: refined_payload
                 .files
@@ -294,6 +1744,13 @@ async fn attempt_semantic_refinement_for_candidate(
             fallback: false,
             failure: None,
             raw_output_preview: None,
+            convergence: Some(refined_candidate_convergence_trace(
+                &source_summary,
+                pass_kind,
+                refined_score,
+                score_delta_from_parent,
+            )),
+            render_evaluation: refined_render_evaluation,
             judge: refined_acceptance_judge.clone(),
         };
         let refined_index = candidate_rows.len();
@@ -304,17 +1761,44 @@ async fn attempt_semantic_refinement_for_candidate(
             best_acceptance_index = Some(refined_index);
         }
         if judge_clears_primary_view(&refined_acceptance_judge) {
+            if let Some(summary) = candidate_summaries.get_mut(refined_index) {
+                set_candidate_termination_reason(summary, "cleared_primary_view");
+            }
             return Ok(SemanticRefinementProgress {
                 selected_winner_index: Some(refined_index),
                 best_acceptance_index,
                 best_acceptance_score,
             });
         }
-        if refined_score > source_score {
+        if score_delta_from_parent >= budget.min_score_delta {
+            plateau_count = 0;
             refinement_source_index = refined_index;
             continue;
         }
-        break;
+        plateau_count += 1;
+        if let Some(summary) = candidate_summaries.get_mut(refined_index) {
+            let termination = if score_delta_from_parent < 0 {
+                "regressed_after_rejudge"
+            } else {
+                "plateau_after_rejudge"
+            };
+            set_candidate_termination_reason(summary, termination);
+        }
+        if plateau_count >= budget.plateau_limit.max(1) {
+            break;
+        }
+        refinement_source_index = refined_index;
+    }
+
+    if let Some(summary) = candidate_summaries.get_mut(refinement_source_index) {
+        if summary
+            .convergence
+            .as_ref()
+            .and_then(|trace| trace.terminated_reason.as_ref())
+            .is_none()
+        {
+            set_candidate_termination_reason(summary, "repair_budget_exhausted");
+        }
     }
 
     Ok(SemanticRefinementProgress {
@@ -331,13 +1815,19 @@ pub async fn generate_studio_artifact_bundle_with_runtime(
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
 ) -> Result<StudioArtifactGenerationBundle, StudioArtifactGenerationError> {
-    generate_studio_artifact_bundle_with_runtimes(
-        runtime.clone(),
+    let runtime_plan = resolve_studio_artifact_runtime_plan(
+        request,
         runtime,
+        None,
+        StudioArtifactRuntimePolicyProfile::FullyLocal,
+    );
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context(
+        runtime_plan,
         title,
         intent,
         request,
         refinement,
+        None,
     )
     .await
 }
@@ -350,37 +1840,159 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
 ) -> Result<StudioArtifactGenerationBundle, StudioArtifactGenerationError> {
-    let production_provenance = production_runtime.studio_runtime_provenance();
-    let final_acceptance_runtime = acceptance_runtime.clone();
-    let acceptance_provenance = acceptance_runtime.studio_runtime_provenance();
-    let origin = output_origin_from_provenance(&production_provenance);
-    let model = runtime_model_label(&production_runtime);
-    studio_generation_trace(format!(
-        "artifact_generation:start renderer={:?} production_model={:?} acceptance_model={:?} refinement={}",
-        request.renderer,
-        production_provenance.model,
-        acceptance_provenance.model,
-        refinement.is_some()
-    ));
-    let brief = plan_studio_artifact_brief_with_runtime(
-        production_runtime.clone(),
+    let runtime_plan = resolve_studio_artifact_runtime_plan(
+        request,
+        production_runtime,
+        Some(acceptance_runtime),
+        StudioArtifactRuntimePolicyProfile::Auto,
+    );
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context(
+        runtime_plan,
         title,
         intent,
         request,
         refinement,
+        None,
     )
     .await
-    .map_err(|message| StudioArtifactGenerationError {
-        message,
-        brief: None,
-        edit_intent: None,
-        candidate_summaries: Vec::new(),
-    })?;
+}
+
+pub async fn generate_studio_artifact_bundle_with_runtimes_and_planning_context(
+    production_runtime: Arc<dyn InferenceRuntime>,
+    acceptance_runtime: Option<Arc<dyn InferenceRuntime>>,
+    runtime_profile: StudioArtifactRuntimePolicyProfile,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    planning_context: Option<&StudioArtifactPlanningContext>,
+) -> Result<StudioArtifactGenerationBundle, StudioArtifactGenerationError> {
+    generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
+        production_runtime,
+        acceptance_runtime,
+        runtime_profile,
+        title,
+        intent,
+        request,
+        refinement,
+        planning_context,
+        None,
+    )
+    .await
+}
+
+pub async fn generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
+    production_runtime: Arc<dyn InferenceRuntime>,
+    acceptance_runtime: Option<Arc<dyn InferenceRuntime>>,
+    runtime_profile: StudioArtifactRuntimePolicyProfile,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    planning_context: Option<&StudioArtifactPlanningContext>,
+    render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
+) -> Result<StudioArtifactGenerationBundle, StudioArtifactGenerationError> {
+    let runtime_plan = resolve_studio_artifact_runtime_plan(
+        request,
+        production_runtime,
+        acceptance_runtime,
+        runtime_profile,
+    );
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator(
+        runtime_plan,
+        title,
+        intent,
+        request,
+        refinement,
+        planning_context,
+        render_evaluator,
+    )
+    .await
+}
+
+pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_context(
+    runtime_plan: StudioArtifactResolvedRuntimePlan,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    planning_context: Option<&StudioArtifactPlanningContext>,
+) -> Result<StudioArtifactGenerationBundle, StudioArtifactGenerationError> {
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator(
+        runtime_plan,
+        title,
+        intent,
+        request,
+        refinement,
+        planning_context,
+        None,
+    )
+    .await
+}
+
+pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator(
+    runtime_plan: StudioArtifactResolvedRuntimePlan,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    planning_context: Option<&StudioArtifactPlanningContext>,
+    render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
+) -> Result<StudioArtifactGenerationBundle, StudioArtifactGenerationError> {
+    let planning_runtime = runtime_plan.planning_runtime.clone();
+    let production_runtime = runtime_plan.generation_runtime.clone();
+    let final_acceptance_runtime = runtime_plan.acceptance_runtime.clone();
+    let repair_runtime = runtime_plan.repair_runtime.clone();
+    let runtime_policy = runtime_plan.policy.clone();
+    let production_provenance = production_runtime.studio_runtime_provenance();
+    let acceptance_provenance = final_acceptance_runtime.studio_runtime_provenance();
+    let repair_provenance = repair_runtime.studio_runtime_provenance();
+    let origin = output_origin_from_provenance(&production_provenance);
+    let model = runtime_model_label(&production_runtime);
+    let repair_model = runtime_model_label(&repair_runtime);
+    studio_generation_trace(format!(
+        "artifact_generation:start renderer={:?} profile={:?} planning_model={:?} production_model={:?} acceptance_model={:?} repair_model={:?} refinement={}",
+        request.renderer,
+        runtime_policy.profile,
+        planning_runtime.studio_runtime_provenance().model,
+        production_provenance.model,
+        acceptance_provenance.model,
+        repair_provenance.model,
+        refinement.is_some()
+    ));
+    let planning_context = match planning_context {
+        Some(existing) => existing.clone(),
+        None => {
+            let brief = plan_studio_artifact_brief_with_runtime(
+                planning_runtime.clone(),
+                title,
+                intent,
+                request,
+                refinement,
+            )
+            .await
+            .map_err(|message| StudioArtifactGenerationError {
+                message,
+                brief: None,
+                blueprint: None,
+                artifact_ir: None,
+                selected_skills: Vec::new(),
+                edit_intent: None,
+                candidate_summaries: Vec::new(),
+            })?;
+            derive_planning_context_for_request(request, &brief, None, None, Vec::new())
+        }
+    };
+    let brief = planning_context.brief.clone();
     studio_generation_trace("artifact_generation:brief_ready");
+    let blueprint = planning_context.blueprint.clone();
+    let artifact_ir = planning_context.artifact_ir.clone();
+    let selected_skills = planning_context.selected_skills.clone();
+    let retrieved_exemplars = planning_context.retrieved_exemplars.clone();
     let edit_intent = match refinement {
         Some(refinement) => Some(hydrate_edit_intent_with_refinement_selection(
             plan_studio_artifact_edit_intent_with_runtime(
-                production_runtime.clone(),
+                planning_runtime.clone(),
                 intent,
                 request,
                 &brief,
@@ -390,6 +2002,9 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
             .map_err(|message| StudioArtifactGenerationError {
                 message,
                 brief: Some(brief.clone()),
+                blueprint: blueprint.clone(),
+                artifact_ir: artifact_ir.clone(),
+                selected_skills: selected_skills.clone(),
                 edit_intent: None,
                 candidate_summaries: Vec::new(),
             })?,
@@ -401,11 +2016,26 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
         "artifact_generation:edit_intent_ready present={}",
         edit_intent.is_some()
     ));
-    let (candidate_count, temperature, strategy) =
+    let (_, temperature, strategy) =
         candidate_generation_config(request.renderer, production_provenance.kind);
+    let mut adaptive_search_budget = derive_studio_adaptive_search_budget(
+        request,
+        &brief,
+        blueprint.as_ref(),
+        artifact_ir.as_ref(),
+        &selected_skills,
+        &retrieved_exemplars,
+        refinement,
+        production_provenance.kind,
+    );
     studio_generation_trace(format!(
-        "artifact_generation:candidate_config count={} temperature={} strategy={}",
-        candidate_count, temperature, strategy
+        "artifact_generation:candidate_config initial_count={} max_count={} shortlist_limit={} max_refine={} temperature={} strategy={}",
+        adaptive_search_budget.initial_candidate_count,
+        adaptive_search_budget.max_candidate_count,
+        adaptive_search_budget.shortlist_limit,
+        adaptive_search_budget.max_semantic_refinement_passes,
+        temperature,
+        strategy
     ));
     let mut candidate_rows = Vec::<(
         StudioArtifactCandidateSummary,
@@ -413,188 +2043,109 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
     )>::new();
     let mut failed_candidate_summaries = Vec::<StudioArtifactCandidateSummary>::new();
     let mut candidate_generation_errors = Vec::<String>::new();
-
-    for candidate_index in 0..candidate_count.max(1) {
-        let candidate_id = format!("candidate-{}", candidate_index + 1);
-        let seed = candidate_seed_for(title, intent, candidate_index);
-        studio_generation_trace(format!(
-            "artifact_generation:candidate_materialize:start id={} seed={}",
-            candidate_id, seed
-        ));
-        let payload = match materialize_studio_artifact_candidate_with_runtime_detailed(
-            production_runtime.clone(),
-            title,
-            intent,
-            request,
-            &brief,
-            edit_intent.as_ref(),
-            refinement,
-            &candidate_id,
-            seed,
-            temperature,
-        )
-        .await
-        {
-            Ok(payload) => {
-                studio_generation_trace(format!(
-                    "artifact_generation:candidate_materialize:ok id={} files={}",
-                    candidate_id,
-                    payload.files.len()
-                ));
-                payload
-            }
-            Err(error) => {
-                studio_generation_trace(format!(
-                    "artifact_generation:candidate_materialize:error id={} error={}",
-                    candidate_id, error.message
-                ));
-                candidate_generation_errors.push(format!("{candidate_id}: {}", error.message));
-                failed_candidate_summaries.push(StudioArtifactCandidateSummary {
-                    candidate_id,
-                    seed,
-                    model: model.clone(),
-                    temperature,
-                    strategy: strategy.to_string(),
-                    origin,
-                    provenance: Some(production_provenance.clone()),
-                    summary: "Candidate failed during materialization.".to_string(),
-                    renderable_paths: Vec::new(),
-                    selected: false,
-                    fallback: false,
-                    failure: Some(error.message.clone()),
-                    raw_output_preview: error.raw_output_preview.clone(),
-                    judge: blocked_candidate_generation_judge(&error.message),
-                });
-                continue;
-            }
-        };
-        studio_generation_trace(format!(
-            "artifact_generation:candidate_judge:start id={}",
-            candidate_id
-        ));
-        let judge = match judge_studio_artifact_candidate_with_runtime(
-            production_runtime.clone(),
-            title,
-            request,
-            &brief,
-            edit_intent.as_ref(),
-            &payload,
-        )
-        .await
-        {
-            Ok(judge) => {
-                studio_generation_trace(format!(
-                    "artifact_generation:candidate_judge:ok id={} classification={:?}",
-                    candidate_id, judge.classification
-                ));
-                judge
-            }
-            Err(error) => {
-                studio_generation_trace(format!(
-                    "artifact_generation:candidate_judge:error id={} error={}",
-                    candidate_id, error
-                ));
-                candidate_generation_errors.push(format!("{candidate_id}: judge failed: {error}"));
-                failed_candidate_summaries.push(StudioArtifactCandidateSummary {
-                    candidate_id,
-                    seed,
-                    model: model.clone(),
-                    temperature,
-                    strategy: strategy.to_string(),
-                    origin,
-                    provenance: Some(production_provenance.clone()),
-                    summary: payload.summary.clone(),
-                    renderable_paths: payload
-                        .files
-                        .iter()
-                        .filter(|file| file.renderable)
-                        .map(|file| file.path.clone())
-                        .collect(),
-                    selected: false,
-                    fallback: false,
-                    failure: Some(format!("judge failed: {error}")),
-                    raw_output_preview: None,
-                    judge: blocked_candidate_generation_judge(&format!("judge failed: {error}")),
-                });
-                continue;
-            }
-        };
-        candidate_rows.push((
-            StudioArtifactCandidateSummary {
-                candidate_id,
+    let mut next_candidate_index = 0usize;
+    let mut target_candidate_count = adaptive_search_budget.initial_candidate_count.max(1);
+    let (mut candidate_summaries, ranked_candidate_indices) = loop {
+        while next_candidate_index < target_candidate_count {
+            let candidate_id = format!("candidate-{}", next_candidate_index + 1);
+            let seed = candidate_seed_for(title, intent, next_candidate_index);
+            match materialize_and_locally_judge_candidate(
+                production_runtime.clone(),
+                render_evaluator,
+                title,
+                intent,
+                request,
+                &brief,
+                blueprint.as_ref(),
+                artifact_ir.as_ref(),
+                &selected_skills,
+                &retrieved_exemplars,
+                edit_intent.as_ref(),
+                refinement,
+                &candidate_id,
                 seed,
-                model: model.clone(),
                 temperature,
-                strategy: strategy.to_string(),
+                strategy,
                 origin,
-                provenance: Some(production_provenance.clone()),
-                summary: payload.summary.clone(),
-                renderable_paths: payload
-                    .files
-                    .iter()
-                    .filter(|file| file.renderable)
-                    .map(|file| file.path.clone())
-                    .collect(),
-                selected: false,
-                fallback: false,
-                failure: None,
-                raw_output_preview: None,
-                judge,
-            },
-            payload,
-        ));
-    }
-
-    if candidate_rows.is_empty() {
-        return Err(StudioArtifactGenerationError {
-            message: if candidate_generation_errors.is_empty() {
-                "Studio artifact generation did not produce any candidates.".to_string()
-            } else {
-                format!(
-                    "Studio artifact generation did not produce a valid candidate. {}",
-                    candidate_generation_errors.join(" | ")
-                )
-            },
-            brief: Some(brief),
-            edit_intent,
-            candidate_summaries: failed_candidate_summaries,
-        });
-    }
-
-    let mut candidate_summaries = candidate_rows
-        .iter()
-        .map(|(summary, _)| summary.clone())
-        .collect::<Vec<_>>();
-    let ranked_candidate_indices = {
-        let mut ranked = candidate_rows
-            .iter()
-            .enumerate()
-            .map(|(index, (summary, _))| (index, judge_total_score(&summary.judge)))
-            .collect::<Vec<_>>();
-        ranked.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(&right.0)));
-        ranked
-            .into_iter()
-            .map(|(index, _)| index)
-            .collect::<Vec<_>>()
-    };
-    let mut shortlisted_candidate_indices = ranked_candidate_indices
-        .iter()
-        .copied()
-        .filter(|index| {
-            candidate_summaries
-                .get(*index)
-                .map(|summary| judge_clears_primary_view(&summary.judge))
-                .unwrap_or(false)
-        })
-        .collect::<Vec<_>>();
-    if shortlisted_candidate_indices.is_empty() {
-        if let Some(best_stage_index) = ranked_candidate_indices.first().copied() {
-            shortlisted_candidate_indices.push(best_stage_index);
+                &model,
+                &production_provenance,
+            )
+            .await
+            {
+                Ok((summary, payload)) => candidate_rows.push((summary, payload)),
+                Err(summary) => {
+                    if let Some(failure) = summary.failure.clone() {
+                        candidate_generation_errors
+                            .push(format!("{}: {}", summary.candidate_id, failure));
+                    }
+                    failed_candidate_summaries.push(summary);
+                }
+            }
+            next_candidate_index += 1;
         }
-    }
+
+        if candidate_rows.is_empty() {
+            if target_candidate_count < adaptive_search_budget.max_candidate_count {
+                record_adaptive_search_signal(
+                    &mut adaptive_search_budget.signals,
+                    StudioAdaptiveSearchSignal::GenerationFailureObserved,
+                );
+                target_candidate_count = adaptive_search_budget.max_candidate_count;
+                studio_generation_trace(format!(
+                    "artifact_generation:adaptive_search_expand reason=failures_only target={}",
+                    target_candidate_count
+                ));
+                continue;
+            }
+            return Err(StudioArtifactGenerationError {
+                message: if candidate_generation_errors.is_empty() {
+                    "Studio artifact generation did not produce any candidates.".to_string()
+                } else {
+                    format!(
+                        "Studio artifact generation did not produce a valid candidate. {}",
+                        candidate_generation_errors.join(" | ")
+                    )
+                },
+                brief: Some(brief),
+                blueprint,
+                artifact_ir,
+                selected_skills,
+                edit_intent,
+                candidate_summaries: failed_candidate_summaries,
+            });
+        }
+
+        let candidate_summaries = candidate_rows
+            .iter()
+            .map(|(summary, _)| summary.clone())
+            .collect::<Vec<_>>();
+        let ranked_candidate_indices = ranked_candidate_indices_by_score(&candidate_summaries);
+        let expanded_target = target_candidate_count_after_initial_search(
+            &mut adaptive_search_budget,
+            &ranked_candidate_indices,
+            &candidate_summaries,
+            failed_candidate_summaries.len(),
+        );
+        if expanded_target > target_candidate_count {
+            studio_generation_trace(format!(
+                "artifact_generation:adaptive_search_expand from={} to={} signals={:?}",
+                target_candidate_count, expanded_target, adaptive_search_budget.signals
+            ));
+            target_candidate_count = expanded_target;
+            continue;
+        }
+        break (candidate_summaries, ranked_candidate_indices);
+    };
+    let shortlisted_candidate_indices = shortlisted_candidate_indices_for_budget(
+        &mut adaptive_search_budget,
+        &ranked_candidate_indices,
+        &candidate_summaries,
+    );
     studio_generation_trace(format!(
-        "artifact_generation:shortlist size={}",
-        shortlisted_candidate_indices.len()
+        "artifact_generation:shortlist size={} limit={} signals={:?}",
+        shortlisted_candidate_indices.len(),
+        adaptive_search_budget.shortlist_limit,
+        adaptive_search_budget.signals
     ));
 
     if local_draft_fast_path_enabled(
@@ -615,6 +2166,9 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
                 .ok_or_else(|| StudioArtifactGenerationError {
                     message: "Studio winning draft candidate summary is missing.".to_string(),
                     brief: Some(brief.clone()),
+                    blueprint: blueprint.clone(),
+                    artifact_ir: artifact_ir.clone(),
+                    selected_skills: selected_skills.clone(),
                     edit_intent: edit_intent.clone(),
                     candidate_summaries: merged_candidate_summaries(
                         &candidate_summaries,
@@ -623,26 +2177,34 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
                 })?;
             if let Some(selected) = candidate_summaries.get_mut(winner_index) {
                 selected.selected = true;
-                selected.judge = draft_judge.clone();
+                update_candidate_summary_judge(selected, draft_judge.clone());
+                set_candidate_termination_reason(selected, "draft_surface_pending_acceptance");
             }
-            let winner_summary = candidate_summaries
-                .get(winner_index)
-                .cloned()
-                .ok_or_else(|| StudioArtifactGenerationError {
-                    message: "Studio winning draft candidate summary is missing.".to_string(),
-                    brief: Some(brief.clone()),
-                    edit_intent: edit_intent.clone(),
-                    candidate_summaries: merged_candidate_summaries(
-                        &candidate_summaries,
-                        &failed_candidate_summaries,
-                    ),
-                })?;
+            let winner_summary =
+                candidate_summaries
+                    .get(winner_index)
+                    .cloned()
+                    .ok_or_else(|| StudioArtifactGenerationError {
+                        message: "Studio winning draft candidate summary is missing.".to_string(),
+                        brief: Some(brief.clone()),
+                        blueprint: blueprint.clone(),
+                        artifact_ir: artifact_ir.clone(),
+                        selected_skills: selected_skills.clone(),
+                        edit_intent: edit_intent.clone(),
+                        candidate_summaries: merged_candidate_summaries(
+                            &candidate_summaries,
+                            &failed_candidate_summaries,
+                        ),
+                    })?;
             let winner = candidate_rows
                 .get(winner_index)
                 .map(|(_, payload)| payload.clone())
                 .ok_or_else(|| StudioArtifactGenerationError {
                     message: "Studio winning draft artifact payload is missing.".to_string(),
                     brief: Some(brief.clone()),
+                    blueprint: blueprint.clone(),
+                    artifact_ir: artifact_ir.clone(),
+                    selected_skills: selected_skills.clone(),
                     edit_intent: edit_intent.clone(),
                     candidate_summaries: merged_candidate_summaries(
                         &candidate_summaries,
@@ -658,15 +2220,21 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
 
             return Ok(StudioArtifactGenerationBundle {
                 brief,
+                blueprint,
+                artifact_ir,
+                selected_skills,
                 edit_intent,
                 candidate_summaries: final_candidate_summaries,
                 winning_candidate_id: winner_summary.candidate_id.clone(),
                 winning_candidate_rationale: draft_judge.rationale.clone(),
                 judge: draft_judge,
                 winner,
+                render_evaluation: winner_summary.render_evaluation.clone(),
                 origin,
                 production_provenance,
                 acceptance_provenance,
+                runtime_policy: Some(runtime_policy.clone()),
+                adaptive_search_budget: Some(adaptive_search_budget.clone()),
                 fallback_used: false,
                 ux_lifecycle: StudioArtifactUxLifecycle::Draft,
                 taste_memory: refinement.and_then(|context| context.taste_memory.clone()),
@@ -690,8 +2258,11 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
             "artifact_generation:acceptance:start id={}",
             candidate_id
         ));
-        let acceptance_judge = judge_studio_artifact_candidate_with_runtime(
+        let acceptance_judge = judge_candidate_with_runtime_and_render_eval(
             final_acceptance_runtime.clone(),
+            candidate_summaries
+                .get(candidate_index)
+                .and_then(|summary| summary.render_evaluation.as_ref()),
             title,
             request,
             &brief,
@@ -702,6 +2273,9 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
         .map_err(|message| StudioArtifactGenerationError {
             message,
             brief: Some(brief.clone()),
+            blueprint: blueprint.clone(),
+            artifact_ir: artifact_ir.clone(),
+            selected_skills: selected_skills.clone(),
             edit_intent: edit_intent.clone(),
             candidate_summaries: candidate_summaries.clone(),
         })?;
@@ -711,7 +2285,7 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
         ));
         evaluated_acceptance_indices.insert(candidate_index);
         if let Some(summary) = candidate_summaries.get_mut(candidate_index) {
-            summary.judge = acceptance_judge.clone();
+            update_candidate_summary_judge(summary, acceptance_judge.clone());
         }
         let acceptance_score = judge_total_score(&acceptance_judge);
         if acceptance_score > best_acceptance_score {
@@ -729,18 +2303,24 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
         && best_acceptance_index.is_some()
     {
         let progress = attempt_semantic_refinement_for_candidate(
-            production_runtime.clone(),
+            repair_runtime.clone(),
             final_acceptance_runtime.clone(),
+            render_evaluator,
             title,
             intent,
             request,
             &brief,
+            blueprint.as_ref(),
+            artifact_ir.as_ref(),
+            &selected_skills,
+            &retrieved_exemplars,
             edit_intent.as_ref(),
             refinement,
             strategy,
             origin,
-            &model,
-            &production_provenance,
+            &repair_model,
+            &repair_provenance,
+            &adaptive_search_budget,
             best_acceptance_index.expect("best acceptance index"),
             &mut candidate_rows,
             &mut candidate_summaries,
@@ -767,8 +2347,11 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
                 "artifact_generation:acceptance_fallback:start id={}",
                 candidate_id
             ));
-            let acceptance_judge = judge_studio_artifact_candidate_with_runtime(
+            let acceptance_judge = judge_candidate_with_runtime_and_render_eval(
                 final_acceptance_runtime.clone(),
+                candidate_summaries
+                    .get(candidate_index)
+                    .and_then(|summary| summary.render_evaluation.as_ref()),
                 title,
                 request,
                 &brief,
@@ -779,6 +2362,9 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
             .map_err(|message| StudioArtifactGenerationError {
                 message,
                 brief: Some(brief.clone()),
+                blueprint: blueprint.clone(),
+                artifact_ir: artifact_ir.clone(),
+                selected_skills: selected_skills.clone(),
                 edit_intent: edit_intent.clone(),
                 candidate_summaries: merged_candidate_summaries(
                     &candidate_summaries,
@@ -791,7 +2377,7 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
             ));
             evaluated_acceptance_indices.insert(candidate_index);
             if let Some(summary) = candidate_summaries.get_mut(candidate_index) {
-                summary.judge = acceptance_judge.clone();
+                update_candidate_summary_judge(summary, acceptance_judge.clone());
             }
             let acceptance_score = judge_total_score(&acceptance_judge);
             if acceptance_score > best_acceptance_score {
@@ -804,18 +2390,24 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
             }
             if renderer_supports_semantic_refinement(request.renderer) {
                 let progress = attempt_semantic_refinement_for_candidate(
-                    production_runtime.clone(),
+                    repair_runtime.clone(),
                     final_acceptance_runtime.clone(),
+                    render_evaluator,
                     title,
                     intent,
                     request,
                     &brief,
+                    blueprint.as_ref(),
+                    artifact_ir.as_ref(),
+                    &selected_skills,
+                    &retrieved_exemplars,
                     edit_intent.as_ref(),
                     refinement,
                     strategy,
                     origin,
-                    &model,
-                    &production_provenance,
+                    &repair_model,
+                    &repair_provenance,
+                    &adaptive_search_budget,
                     candidate_index,
                     &mut candidate_rows,
                     &mut candidate_summaries,
@@ -839,6 +2431,9 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
         .ok_or_else(|| StudioArtifactGenerationError {
             message: "Studio winning candidate summary is missing.".to_string(),
             brief: Some(brief.clone()),
+            blueprint: blueprint.clone(),
+            artifact_ir: artifact_ir.clone(),
+            selected_skills: selected_skills.clone(),
             edit_intent: edit_intent.clone(),
             candidate_summaries: merged_candidate_summaries(
                 &candidate_summaries,
@@ -847,6 +2442,12 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
         })?;
     if let Some(selected) = candidate_summaries.get_mut(winner_index) {
         selected.selected = true;
+        let termination = if selected_winner_index == Some(winner_index) {
+            "selected_after_primary_view_clear"
+        } else {
+            "selected_as_best_available_candidate"
+        };
+        set_candidate_termination_reason(selected, termination);
     }
     let winner_summary = candidate_summaries
         .get(winner_index)
@@ -854,6 +2455,9 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
         .ok_or_else(|| StudioArtifactGenerationError {
             message: "Studio winning candidate summary is missing.".to_string(),
             brief: Some(brief.clone()),
+            blueprint: blueprint.clone(),
+            artifact_ir: artifact_ir.clone(),
+            selected_skills: selected_skills.clone(),
             edit_intent: edit_intent.clone(),
             candidate_summaries: merged_candidate_summaries(
                 &candidate_summaries,
@@ -868,6 +2472,9 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
         .ok_or_else(|| StudioArtifactGenerationError {
             message: "Studio winning artifact payload is missing.".to_string(),
             brief: Some(brief.clone()),
+            blueprint: blueprint.clone(),
+            artifact_ir: artifact_ir.clone(),
+            selected_skills: selected_skills.clone(),
             edit_intent: edit_intent.clone(),
             candidate_summaries: merged_candidate_summaries(
                 &candidate_summaries,
@@ -883,15 +2490,21 @@ pub async fn generate_studio_artifact_bundle_with_runtimes(
 
     Ok(StudioArtifactGenerationBundle {
         brief,
+        blueprint,
+        artifact_ir,
+        selected_skills,
         edit_intent,
         candidate_summaries: final_candidate_summaries,
         winning_candidate_id: winner_summary.candidate_id.clone(),
         winning_candidate_rationale: winner_summary.judge.rationale.clone(),
         judge: acceptance_judge,
         winner,
+        render_evaluation: winner_summary.render_evaluation.clone(),
         origin,
         production_provenance,
         acceptance_provenance,
+        runtime_policy: Some(runtime_policy),
+        adaptive_search_budget: Some(adaptive_search_budget),
         fallback_used: false,
         ux_lifecycle: StudioArtifactUxLifecycle::Judged,
         taste_memory: refinement.and_then(|context| context.taste_memory.clone()),
@@ -957,6 +2570,10 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    retrieved_exemplars: &[StudioArtifactExemplar],
     edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate_id: &str,
@@ -983,6 +2600,10 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
         intent,
         request,
         brief,
+        blueprint,
+        artifact_ir,
+        selected_skills,
+        retrieved_exemplars,
         edit_intent,
         refinement,
         candidate_id,
@@ -1054,23 +2675,33 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
                     candidate_id,
                     repair_attempt + 1
                 ));
-                let repair_payload = build_studio_artifact_materialization_repair_prompt_for_runtime(
-                    title,
-                    intent,
-                    request,
-                    brief,
-                    edit_intent,
-                    refinement,
-                    candidate_id,
-                    candidate_seed,
-                    &latest_raw,
-                    &latest_error,
-                    runtime_kind,
-                )
-                .map_err(|message| StudioCandidateMaterializationError {
-                    message,
-                    raw_output_preview: truncate_candidate_failure_preview(&latest_raw, 2000),
-                })?;
+                let repair_payload =
+                    build_studio_artifact_materialization_repair_prompt_for_runtime(
+                        title,
+                        intent,
+                        request,
+                        brief,
+                        blueprint,
+                        artifact_ir,
+                        selected_skills,
+                        retrieved_exemplars,
+                        edit_intent,
+                        refinement,
+                        candidate_id,
+                        candidate_seed,
+                        &latest_raw,
+                        &latest_error,
+                        runtime_kind,
+                    )
+                    .map_err(|message| {
+                        StudioCandidateMaterializationError {
+                            message,
+                            raw_output_preview: truncate_candidate_failure_preview(
+                                &latest_raw,
+                                2000,
+                            ),
+                        }
+                    })?;
                 let repair_input = serde_json::to_vec(&repair_payload).map_err(|error| {
                     StudioCandidateMaterializationError {
                         message: format!(
@@ -1153,6 +2784,10 @@ pub async fn materialize_studio_artifact_candidate_with_runtime(
         intent,
         request,
         brief,
+        None,
+        None,
+        &[],
+        &[],
         edit_intent,
         refinement,
         candidate_id,
@@ -1169,12 +2804,17 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    retrieved_exemplars: &[StudioArtifactExemplar],
     edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate: &StudioGeneratedArtifactPayload,
     judge: &StudioArtifactJudgeResult,
     candidate_id: &str,
     candidate_seed: u64,
+    refinement_temperature: f32,
 ) -> Result<StudioGeneratedArtifactPayload, String> {
     let runtime_kind = runtime.studio_runtime_provenance().kind;
     let parse_candidate = |raw: &str| -> Result<StudioGeneratedArtifactPayload, String> {
@@ -1193,6 +2833,10 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
         intent,
         request,
         brief,
+        blueprint,
+        artifact_ir,
+        selected_skills,
+        retrieved_exemplars,
         edit_intent,
         refinement,
         candidate,
@@ -1208,7 +2852,7 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
             [0u8; 32],
             &input,
             InferenceOptions {
-                temperature: 0.18,
+                temperature: refinement_temperature,
                 json_mode: true,
                 max_tokens: materialization_max_tokens(request.renderer),
                 ..Default::default()
@@ -1230,20 +2874,24 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
             {
                 let repair_payload =
                     build_studio_artifact_candidate_refinement_repair_prompt_for_runtime(
-                    title,
-                    intent,
-                    request,
-                    brief,
-                    edit_intent,
-                    refinement,
-                    candidate,
-                    judge,
-                    candidate_id,
-                    candidate_seed,
-                    &latest_raw,
-                    &latest_error,
-                    runtime_kind,
-                )?;
+                        title,
+                        intent,
+                        request,
+                        brief,
+                        blueprint,
+                        artifact_ir,
+                        selected_skills,
+                        retrieved_exemplars,
+                        edit_intent,
+                        refinement,
+                        candidate,
+                        judge,
+                        candidate_id,
+                        candidate_seed,
+                        &latest_raw,
+                        &latest_error,
+                        runtime_kind,
+                    )?;
                 let repair_input = serde_json::to_vec(&repair_payload).map_err(|error| {
                     format!("Failed to encode Studio artifact refinement repair prompt: {error}")
                 })?;
@@ -1319,6 +2967,10 @@ pub fn build_studio_artifact_materialization_prompt(
         intent,
         request,
         brief,
+        None,
+        None,
+        &[],
+        &[],
         edit_intent,
         refinement,
         candidate_id,
@@ -1332,6 +2984,10 @@ fn build_studio_artifact_materialization_prompt_for_runtime(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    retrieved_exemplars: &[StudioArtifactExemplar],
     edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate_id: &str,
@@ -1339,10 +2995,58 @@ fn build_studio_artifact_materialization_prompt_for_runtime(
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> Result<serde_json::Value, String> {
     let compact_prompt = compact_local_html_materialization_prompt(request.renderer, runtime_kind);
+    let resolved_blueprint = blueprint
+        .cloned()
+        .unwrap_or_else(|| derive_studio_artifact_blueprint(request, brief));
+    let resolved_artifact_ir = artifact_ir
+        .cloned()
+        .unwrap_or_else(|| compile_studio_artifact_ir(request, brief, &resolved_blueprint));
     let request_json =
         serialize_materialization_prompt_json(request, "Studio artifact request", compact_prompt)?;
     let brief_json =
         serialize_materialization_prompt_json(brief, "Studio artifact brief", compact_prompt)?;
+    let blueprint_json = serialize_materialization_prompt_json(
+        &resolved_blueprint,
+        "Studio artifact blueprint",
+        compact_prompt,
+    )?;
+    let artifact_ir_json = serialize_materialization_prompt_json(
+        &resolved_artifact_ir,
+        "Studio artifact IR",
+        compact_prompt,
+    )?;
+    let selected_skills_json = serialize_materialization_prompt_json(
+        &studio_artifact_selected_skill_prompt_view(selected_skills),
+        "Studio selected skill guidance",
+        compact_prompt,
+    )?;
+    let retrieved_exemplars_json = serialize_materialization_prompt_json(
+        &studio_artifact_exemplar_prompt_view(retrieved_exemplars),
+        "Studio retrieved exemplars",
+        compact_prompt,
+    )?;
+    let surface_contracts = studio_surface_contract_prompt_bundle(
+        brief,
+        &resolved_blueprint,
+        &resolved_artifact_ir,
+        selected_skills,
+        candidate_seed,
+    );
+    let promoted_design_spine_json = serialize_materialization_prompt_json(
+        &surface_contracts.design_spine,
+        surface_contracts.design_label,
+        compact_prompt,
+    )?;
+    let scaffold_contract_json = serialize_materialization_prompt_json(
+        &surface_contracts.scaffold_contract,
+        surface_contracts.scaffold_label,
+        compact_prompt,
+    )?;
+    let component_pack_contract_json = serialize_materialization_prompt_json(
+        &surface_contracts.component_packs,
+        surface_contracts.component_label,
+        compact_prompt,
+    )?;
     let edit_intent_json = serialize_materialization_prompt_json(
         &edit_intent,
         "Studio artifact edit intent",
@@ -1364,6 +3068,18 @@ fn build_studio_artifact_materialization_prompt_for_runtime(
         candidate_seed,
         runtime_kind,
     );
+    let design_label = format!("{} JSON", surface_contracts.design_label);
+    let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
+    let component_label = format!("{} JSON", surface_contracts.component_label);
+    let scaffold_execution_digest = surface_contracts.execution_digest;
+    let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\nScaffold execution digest:\n{}",
+            scaffold_execution_digest
+        )
+    };
     let refinement_wrapper_directive = if refinement.is_some() {
         "\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object."
     } else {
@@ -1379,17 +3095,28 @@ fn build_studio_artifact_materialization_prompt_for_runtime(
         {
             "role": "user",
             "content": format!(
-                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nArtifact blueprint JSON:\n{}\n\nArtifact IR JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nRetrieved exemplar JSON:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n{}{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
                 title,
                 intent,
                 request_json,
                 brief_json,
+                blueprint_json,
+                artifact_ir_json,
+                selected_skills_json,
+                retrieved_exemplars_json,
+                design_label,
+                promoted_design_spine_json,
+                scaffold_label,
+                scaffold_contract_json,
+                component_label,
+                component_pack_contract_json,
                 interaction_contract_json,
                 edit_intent_json,
                 refinement_json,
                 candidate_id,
                 candidate_seed,
                 refinement_wrapper_directive,
+                scaffold_execution_block,
                 renderer_guidance,
                 schema_contract,
             )
@@ -1423,16 +3150,10 @@ fn studio_artifact_renderer_authoring_guidance_for_runtime(
             1 => "dashboard-led metrics rail with mapped evidence panels",
             _ => "editorial explainer with a stepper-style control row",
         };
-        let concept_focus = summarized_guidance_terms(
-            &brief.required_concepts,
-            "the typed request concepts",
-            4,
-        );
-        let interaction_focus = summarized_guidance_terms(
-            &brief.required_interactions,
-            "the required interactions",
-            3,
-        );
+        let concept_focus =
+            summarized_guidance_terms(&brief.required_concepts, "the typed request concepts", 4);
+        let interaction_focus =
+            summarized_guidance_terms(&brief.required_interactions, "the required interactions", 3);
         let sequence_browsing_directive = if super::brief_requires_sequence_browsing(brief) {
             " Include a visible previous/next control, stepper, scrubber, or evidence rail for sequence browsing."
         } else {
@@ -1739,6 +3460,10 @@ pub fn build_studio_artifact_materialization_repair_prompt(
         intent,
         request,
         brief,
+        None,
+        None,
+        &[],
+        &[],
         edit_intent,
         refinement,
         candidate_id,
@@ -1754,6 +3479,10 @@ fn build_studio_artifact_materialization_repair_prompt_for_runtime(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    retrieved_exemplars: &[StudioArtifactExemplar],
     edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate_id: &str,
@@ -1763,10 +3492,58 @@ fn build_studio_artifact_materialization_repair_prompt_for_runtime(
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> Result<serde_json::Value, String> {
     let compact_prompt = compact_local_html_materialization_prompt(request.renderer, runtime_kind);
+    let resolved_blueprint = blueprint
+        .cloned()
+        .unwrap_or_else(|| derive_studio_artifact_blueprint(request, brief));
+    let resolved_artifact_ir = artifact_ir
+        .cloned()
+        .unwrap_or_else(|| compile_studio_artifact_ir(request, brief, &resolved_blueprint));
     let request_json =
         serialize_materialization_prompt_json(request, "Studio artifact request", compact_prompt)?;
     let brief_json =
         serialize_materialization_prompt_json(brief, "Studio artifact brief", compact_prompt)?;
+    let blueprint_json = serialize_materialization_prompt_json(
+        &resolved_blueprint,
+        "Studio artifact blueprint",
+        compact_prompt,
+    )?;
+    let artifact_ir_json = serialize_materialization_prompt_json(
+        &resolved_artifact_ir,
+        "Studio artifact IR",
+        compact_prompt,
+    )?;
+    let selected_skills_json = serialize_materialization_prompt_json(
+        &studio_artifact_selected_skill_prompt_view(selected_skills),
+        "Studio selected skill guidance",
+        compact_prompt,
+    )?;
+    let retrieved_exemplars_json = serialize_materialization_prompt_json(
+        &studio_artifact_exemplar_prompt_view(retrieved_exemplars),
+        "Studio retrieved exemplars",
+        compact_prompt,
+    )?;
+    let surface_contracts = studio_surface_contract_prompt_bundle(
+        brief,
+        &resolved_blueprint,
+        &resolved_artifact_ir,
+        selected_skills,
+        candidate_seed,
+    );
+    let promoted_design_spine_json = serialize_materialization_prompt_json(
+        &surface_contracts.design_spine,
+        surface_contracts.design_label,
+        compact_prompt,
+    )?;
+    let scaffold_contract_json = serialize_materialization_prompt_json(
+        &surface_contracts.scaffold_contract,
+        surface_contracts.scaffold_label,
+        compact_prompt,
+    )?;
+    let component_pack_contract_json = serialize_materialization_prompt_json(
+        &surface_contracts.component_packs,
+        surface_contracts.component_label,
+        compact_prompt,
+    )?;
     let edit_intent_json = serialize_materialization_prompt_json(
         &edit_intent,
         "Studio artifact edit intent",
@@ -1790,6 +3567,18 @@ fn build_studio_artifact_materialization_repair_prompt_for_runtime(
         candidate_seed,
         runtime_kind,
     );
+    let design_label = format!("{} JSON", surface_contracts.design_label);
+    let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
+    let component_label = format!("{} JSON", surface_contracts.component_label);
+    let scaffold_execution_digest = surface_contracts.execution_digest;
+    let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\nScaffold execution digest:\n{}",
+            scaffold_execution_digest
+        )
+    };
     let failure_directives =
         super::studio_artifact_materialization_failure_directives(request, brief, failure);
     let schema_contract =
@@ -1802,11 +3591,21 @@ fn build_studio_artifact_materialization_repair_prompt_for_runtime(
         {
             "role": "user",
             "content": format!(
-                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nThe previous artifact payload was rejected.\nFailure:\n{}\n\nPrevious candidate view JSON:\n{}\n\nPrevious raw output excerpt:\n{}\n\nRenderer-native authoring guidance:\n{}\n\nFailure-specific repair directives:\n{}\n\nRepair the payload so it is fully schema-valid and request-faithful. Preserve the strongest valid content from the previous attempt when possible.\n\n{}",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nArtifact blueprint JSON:\n{}\n\nArtifact IR JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nRetrieved exemplar JSON:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nThe previous artifact payload was rejected.\nFailure:\n{}\n\nPrevious candidate view JSON:\n{}\n\nPrevious raw output excerpt:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\nFailure-specific repair directives:\n{}\n\nRepair the payload so it is fully schema-valid and request-faithful. Preserve the strongest valid content from the previous attempt when possible.\n\n{}",
                 title,
                 intent,
                 request_json,
                 brief_json,
+                blueprint_json,
+                artifact_ir_json,
+                selected_skills_json,
+                retrieved_exemplars_json,
+                design_label,
+                promoted_design_spine_json,
+                scaffold_label,
+                scaffold_contract_json,
+                component_label,
+                component_pack_contract_json,
                 edit_intent_json,
                 refinement_json,
                 candidate_id,
@@ -1814,6 +3613,7 @@ fn build_studio_artifact_materialization_repair_prompt_for_runtime(
                 failure,
                 previous_candidate_json,
                 raw_output_preview,
+                scaffold_execution_block,
                 renderer_guidance,
                 failure_directives,
                 schema_contract,
@@ -1839,6 +3639,10 @@ pub fn build_studio_artifact_candidate_refinement_prompt(
         intent,
         request,
         brief,
+        None,
+        None,
+        &[],
+        &[],
         edit_intent,
         refinement,
         candidate,
@@ -1854,6 +3658,10 @@ fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    retrieved_exemplars: &[StudioArtifactExemplar],
     edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate: &StudioGeneratedArtifactPayload,
@@ -1863,10 +3671,58 @@ fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> Result<serde_json::Value, String> {
     let compact_prompt = compact_local_html_materialization_prompt(request.renderer, runtime_kind);
+    let resolved_blueprint = blueprint
+        .cloned()
+        .unwrap_or_else(|| derive_studio_artifact_blueprint(request, brief));
+    let resolved_artifact_ir = artifact_ir
+        .cloned()
+        .unwrap_or_else(|| compile_studio_artifact_ir(request, brief, &resolved_blueprint));
     let request_json =
         serialize_materialization_prompt_json(request, "Studio artifact request", compact_prompt)?;
     let brief_json =
         serialize_materialization_prompt_json(brief, "Studio artifact brief", compact_prompt)?;
+    let blueprint_json = serialize_materialization_prompt_json(
+        &resolved_blueprint,
+        "Studio artifact blueprint",
+        compact_prompt,
+    )?;
+    let artifact_ir_json = serialize_materialization_prompt_json(
+        &resolved_artifact_ir,
+        "Studio artifact IR",
+        compact_prompt,
+    )?;
+    let selected_skills_json = serialize_materialization_prompt_json(
+        &studio_artifact_selected_skill_prompt_view(selected_skills),
+        "Studio selected skill guidance",
+        compact_prompt,
+    )?;
+    let retrieved_exemplars_json = serialize_materialization_prompt_json(
+        &studio_artifact_exemplar_prompt_view(retrieved_exemplars),
+        "Studio retrieved exemplars",
+        compact_prompt,
+    )?;
+    let surface_contracts = studio_surface_contract_prompt_bundle(
+        brief,
+        &resolved_blueprint,
+        &resolved_artifact_ir,
+        selected_skills,
+        candidate_seed,
+    );
+    let promoted_design_spine_json = serialize_materialization_prompt_json(
+        &surface_contracts.design_spine,
+        surface_contracts.design_label,
+        compact_prompt,
+    )?;
+    let scaffold_contract_json = serialize_materialization_prompt_json(
+        &surface_contracts.scaffold_contract,
+        surface_contracts.scaffold_label,
+        compact_prompt,
+    )?;
+    let component_pack_contract_json = serialize_materialization_prompt_json(
+        &surface_contracts.component_packs,
+        surface_contracts.component_label,
+        compact_prompt,
+    )?;
     let interaction_contract_json = serialize_materialization_prompt_json(
         &super::studio_artifact_interaction_contract(brief),
         "Studio interaction contract",
@@ -1898,6 +3754,18 @@ fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
         candidate_seed,
         runtime_kind,
     );
+    let design_label = format!("{} JSON", surface_contracts.design_label);
+    let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
+    let component_label = format!("{} JSON", surface_contracts.component_label);
+    let scaffold_execution_digest = surface_contracts.execution_digest;
+    let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\nScaffold execution digest:\n{}",
+            scaffold_execution_digest
+        )
+    };
     let refinement_directives =
         super::studio_artifact_candidate_refinement_directives(request, brief, judge);
     let schema_contract =
@@ -1910,11 +3778,21 @@ fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
         {
             "role": "user",
             "content": format!(
-                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate JSON:\n{}\n\nAcceptance judgment JSON:\n{}\n\nPatch the current candidate so it keeps the strongest working structure, but fixes the cited request-faithfulness, interaction, hierarchy, and completeness gaps. Preserve file paths unless they are actively wrong.\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object.\n\nRefinement directives:\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nArtifact blueprint JSON:\n{}\n\nArtifact IR JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nRetrieved exemplar JSON:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate JSON:\n{}\n\nAcceptance judgment JSON:\n{}\n\nPatch the current candidate so it keeps the strongest working structure, but fixes the cited request-faithfulness, interaction, hierarchy, and completeness gaps. Preserve file paths unless they are actively wrong.\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object.\n\nRefinement directives:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
                 title,
                 intent,
                 request_json,
                 brief_json,
+                blueprint_json,
+                artifact_ir_json,
+                selected_skills_json,
+                retrieved_exemplars_json,
+                design_label,
+                promoted_design_spine_json,
+                scaffold_label,
+                scaffold_contract_json,
+                component_label,
+                component_pack_contract_json,
                 interaction_contract_json,
                 edit_intent_json,
                 refinement_json,
@@ -1923,6 +3801,7 @@ fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
                 candidate_json,
                 judge_json,
                 refinement_directives,
+                scaffold_execution_block,
                 renderer_guidance,
                 schema_contract,
             )
@@ -1949,6 +3828,10 @@ pub fn build_studio_artifact_candidate_refinement_repair_prompt(
         intent,
         request,
         brief,
+        None,
+        None,
+        &[],
+        &[],
         edit_intent,
         refinement,
         candidate,
@@ -1966,6 +3849,10 @@ fn build_studio_artifact_candidate_refinement_repair_prompt_for_runtime(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    retrieved_exemplars: &[StudioArtifactExemplar],
     edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate: &StudioGeneratedArtifactPayload,
@@ -1977,10 +3864,58 @@ fn build_studio_artifact_candidate_refinement_repair_prompt_for_runtime(
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> Result<serde_json::Value, String> {
     let compact_prompt = compact_local_html_materialization_prompt(request.renderer, runtime_kind);
+    let resolved_blueprint = blueprint
+        .cloned()
+        .unwrap_or_else(|| derive_studio_artifact_blueprint(request, brief));
+    let resolved_artifact_ir = artifact_ir
+        .cloned()
+        .unwrap_or_else(|| compile_studio_artifact_ir(request, brief, &resolved_blueprint));
     let request_json =
         serialize_materialization_prompt_json(request, "Studio artifact request", compact_prompt)?;
     let brief_json =
         serialize_materialization_prompt_json(brief, "Studio artifact brief", compact_prompt)?;
+    let blueprint_json = serialize_materialization_prompt_json(
+        &resolved_blueprint,
+        "Studio artifact blueprint",
+        compact_prompt,
+    )?;
+    let artifact_ir_json = serialize_materialization_prompt_json(
+        &resolved_artifact_ir,
+        "Studio artifact IR",
+        compact_prompt,
+    )?;
+    let selected_skills_json = serialize_materialization_prompt_json(
+        &studio_artifact_selected_skill_prompt_view(selected_skills),
+        "Studio selected skill guidance",
+        compact_prompt,
+    )?;
+    let retrieved_exemplars_json = serialize_materialization_prompt_json(
+        &studio_artifact_exemplar_prompt_view(retrieved_exemplars),
+        "Studio retrieved exemplars",
+        compact_prompt,
+    )?;
+    let surface_contracts = studio_surface_contract_prompt_bundle(
+        brief,
+        &resolved_blueprint,
+        &resolved_artifact_ir,
+        selected_skills,
+        candidate_seed,
+    );
+    let promoted_design_spine_json = serialize_materialization_prompt_json(
+        &surface_contracts.design_spine,
+        surface_contracts.design_label,
+        compact_prompt,
+    )?;
+    let scaffold_contract_json = serialize_materialization_prompt_json(
+        &surface_contracts.scaffold_contract,
+        surface_contracts.scaffold_label,
+        compact_prompt,
+    )?;
+    let component_pack_contract_json = serialize_materialization_prompt_json(
+        &surface_contracts.component_packs,
+        surface_contracts.component_label,
+        compact_prompt,
+    )?;
     let interaction_contract_json = serialize_materialization_prompt_json(
         &super::studio_artifact_interaction_contract(brief),
         "Studio interaction contract",
@@ -2012,6 +3947,18 @@ fn build_studio_artifact_candidate_refinement_repair_prompt_for_runtime(
         candidate_seed,
         runtime_kind,
     );
+    let design_label = format!("{} JSON", surface_contracts.design_label);
+    let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
+    let component_label = format!("{} JSON", surface_contracts.component_label);
+    let scaffold_execution_digest = surface_contracts.execution_digest;
+    let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\nScaffold execution digest:\n{}",
+            scaffold_execution_digest
+        )
+    };
     let failure_directives =
         super::studio_artifact_materialization_failure_directives(request, brief, failure);
     let schema_contract =
@@ -2024,11 +3971,21 @@ fn build_studio_artifact_candidate_refinement_repair_prompt_for_runtime(
         {
             "role": "user",
             "content": format!(
-                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate JSON:\n{}\n\nAcceptance judgment JSON:\n{}\n\nThe previous refinement payload was rejected.\nFailure:\n{}\n\nPrevious raw refinement output:\n{}\n\nRenderer-native authoring guidance:\n{}\n\nFailure-specific repair directives:\n{}\n\nRepair the refinement payload so it stays request-faithful, preserves working structure, and fully validates.\n\n{}",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nArtifact blueprint JSON:\n{}\n\nArtifact IR JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nRetrieved exemplar JSON:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate JSON:\n{}\n\nAcceptance judgment JSON:\n{}\n\nThe previous refinement payload was rejected.\nFailure:\n{}\n\nPrevious raw refinement output:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\nFailure-specific repair directives:\n{}\n\nRepair the refinement payload so it stays request-faithful, preserves working structure, and fully validates.\n\n{}",
                 title,
                 intent,
                 request_json,
                 brief_json,
+                blueprint_json,
+                artifact_ir_json,
+                selected_skills_json,
+                retrieved_exemplars_json,
+                design_label,
+                promoted_design_spine_json,
+                scaffold_label,
+                scaffold_contract_json,
+                component_label,
+                component_pack_contract_json,
                 interaction_contract_json,
                 edit_intent_json,
                 refinement_json,
@@ -2038,6 +3995,7 @@ fn build_studio_artifact_candidate_refinement_repair_prompt_for_runtime(
                 judge_json,
                 failure,
                 raw_output,
+                scaffold_execution_block,
                 renderer_guidance,
                 failure_directives,
                 schema_contract,

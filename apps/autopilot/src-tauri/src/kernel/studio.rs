@@ -9,6 +9,7 @@ mod presentation;
 mod proof;
 mod revisions;
 mod selection;
+mod skills;
 mod task_state;
 mod workspace_build;
 mod workspace_scaffold;
@@ -78,15 +79,14 @@ use crate::models::{
 use crate::orchestrator;
 #[cfg(test)]
 use ioi_api::studio::pdf_artifact_bytes;
-use ioi_api::studio::{
-    generate_studio_artifact_bundle_with_runtimes, plan_studio_outcome_with_runtime,
-    StudioArtifactBrief, StudioArtifactCandidateSummary, StudioArtifactEditIntent,
-    StudioArtifactEditMode, StudioArtifactJudgeResult, StudioArtifactOutputOrigin,
-    StudioArtifactRefinementContext, StudioArtifactSelectionTarget, StudioArtifactTasteMemory,
-    StudioArtifactUxLifecycle,
-};
 #[cfg(test)]
 use ioi_api::studio::{materialize_studio_artifact_with_runtime, StudioGeneratedArtifactPayload};
+use ioi_api::studio::{
+    plan_studio_outcome_with_runtime, StudioArtifactBrief, StudioArtifactCandidateSummary,
+    StudioArtifactEditIntent, StudioArtifactEditMode, StudioArtifactJudgeResult,
+    StudioArtifactOutputOrigin, StudioArtifactPlanningContext, StudioArtifactRefinementContext,
+    StudioArtifactSelectionTarget, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_memory::MemoryRuntime;
 use serde_json::json;

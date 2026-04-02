@@ -54,6 +54,7 @@ fn pre_read_url_has_allowed_affordance(
 }
 
 fn pre_read_candidate_url_allowed_for_query(
+    retrieval_contract: Option<&WebRetrievalContract>,
     query_contract: &str,
     min_sources: u32,
     source_hints: &[PendingSearchReadSummary],
@@ -68,7 +69,8 @@ fn pre_read_candidate_url_allowed_for_query(
         source_hints,
         locality_hint,
     );
-    projection_candidate_url_allowed_with_projection(
+    crate::agentic::desktop::service::step::queue::support::projection_candidate_url_allowed_with_contract_and_projection(
+        retrieval_contract,
         query_contract,
         &projection,
         url,
@@ -122,16 +124,33 @@ fn pre_read_source_has_primary_authority(
     )
 }
 
+fn pre_read_primary_authority_family_key(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> String {
+    crate::agentic::desktop::service::step::queue::support::source_document_authority_family_key(
+        query_contract,
+        url,
+        title,
+        excerpt,
+    )
+    .unwrap_or_else(|| crate::agentic::web::normalize_url_for_id(url))
+}
+
 fn required_primary_authority_selection_floor(
-    authority_source_required: bool,
-    payload_primary_authority_sources: usize,
+    retrieval_contract: Option<&WebRetrievalContract>,
+    query_contract: &str,
+    payload_primary_authority_families: usize,
     expected_count: usize,
 ) -> usize {
-    if !authority_source_required {
-        0
-    } else {
-        payload_primary_authority_sources.min(expected_count)
-    }
+    let authority_slot_cap = crate::agentic::desktop::service::step::queue::support::retrieval_contract_primary_authority_source_slot_cap(
+        retrieval_contract,
+        query_contract,
+        expected_count,
+    );
+    payload_primary_authority_families.min(authority_slot_cap)
 }
 
 fn payload_allows_external_article_url(
@@ -166,6 +185,7 @@ fn payload_allows_external_article_url(
     let title = matched_hint.title.as_deref().unwrap_or_default();
     let excerpt = matched_hint.excerpt.as_str();
     pre_read_candidate_url_allowed_for_query(
+        retrieval_contract,
         query_contract,
         required_url_count as u32,
         &source_hints,
@@ -395,8 +415,8 @@ fn lint_pre_read_payload_urls(
     };
     let mut distinct_targets = std::collections::BTreeSet::new();
     let mut distinct_domains = std::collections::BTreeSet::new();
-    let mut selected_primary_authority_sources = 0usize;
-    let payload_primary_authority_sources = source_hints
+    let mut selected_primary_authority_families = std::collections::BTreeSet::new();
+    let payload_primary_authority_families = source_hints
         .iter()
         .filter(|hint| {
             pre_read_url_has_allowed_affordance(
@@ -415,10 +435,54 @@ fn lint_pre_read_payload_urls(
                 &hint.excerpt,
             )
         })
-        .count();
-    let required_primary_authority_sources = required_primary_authority_selection_floor(
-        authority_source_required,
-        payload_primary_authority_sources,
+        .map(|hint| {
+            pre_read_primary_authority_family_key(
+                query_contract,
+                &hint.url,
+                hint.title.as_deref().unwrap_or_default(),
+                &hint.excerpt,
+            )
+        })
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let admissible_distinct_domains = source_hints
+        .iter()
+        .filter_map(|hint| {
+            let trimmed = hint.url.trim();
+            if trimmed.is_empty()
+                || !is_citable_web_url(trimmed)
+                || is_search_hub_url(trimmed)
+                || !pre_read_url_has_allowed_affordance(
+                    retrieval_contract,
+                    query_contract,
+                    required_count,
+                    &source_hints,
+                    locality_hint.as_deref(),
+                    trimmed,
+                    hint.title.as_deref().unwrap_or_default(),
+                    &hint.excerpt,
+                )
+                || !pre_read_candidate_url_allowed_for_query(
+                    retrieval_contract,
+                    query_contract,
+                    required_count as u32,
+                    &source_hints,
+                    locality_hint.as_deref(),
+                    trimmed,
+                    hint.title.as_deref().unwrap_or_default(),
+                    &hint.excerpt,
+                )
+            {
+                return None;
+            }
+            selected_url_domain_key(&source_hints, trimmed)
+        })
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let required_primary_authority_families = required_primary_authority_selection_floor(
+        retrieval_contract,
+        query_contract,
+        payload_primary_authority_families,
         expected_count,
     );
     for url in &normalized {
@@ -432,6 +496,32 @@ fn lint_pre_read_payload_urls(
         if !is_citable_web_url(trimmed) || is_search_hub_url(trimmed) {
             return Err(format!(
                 "selected URL is not a citable source candidate: {}",
+                url
+            ));
+        }
+        let title = matched_hint.title.as_deref().unwrap_or_default();
+        let excerpt = matched_hint.excerpt.as_str();
+        if !pre_read_url_has_allowed_affordance(
+            retrieval_contract,
+            query_contract,
+            required_count,
+            &source_hints,
+            locality_hint.as_deref(),
+            trimmed,
+            title,
+            excerpt,
+        ) || !pre_read_candidate_url_allowed_for_query(
+            retrieval_contract,
+            query_contract,
+            required_count as u32,
+            &source_hints,
+            locality_hint.as_deref(),
+            trimmed,
+            title,
+            excerpt,
+        ) {
+            return Err(format!(
+                "selected URL did not satisfy the typed retrieval contract: {}",
                 url
             ));
         }
@@ -454,15 +544,20 @@ fn lint_pre_read_payload_urls(
         if let Some(domain) = selected_url_domain_key(&source_hints, trimmed) {
             distinct_domains.insert(domain);
         }
-        if pre_read_source_has_primary_authority(
-            query_contract,
-            trimmed,
-            matched_hint.title.as_deref().unwrap_or_default(),
-            &matched_hint.excerpt,
-        ) {
-            selected_primary_authority_sources += 1;
+        if pre_read_source_has_primary_authority(query_contract, trimmed, title, excerpt) {
+            selected_primary_authority_families.insert(pre_read_primary_authority_family_key(
+                query_contract,
+                trimmed,
+                title,
+                excerpt,
+            ));
         }
     }
+
+    let grounded_same_authority_override = authority_source_required
+        && payload_primary_authority_families >= expected_count
+        && selected_primary_authority_families.len() >= expected_count
+        && admissible_distinct_domains < required_domain_floor;
 
     if distinct_targets.len() != normalized.len() {
         return Err(format!(
@@ -475,6 +570,7 @@ fn lint_pre_read_payload_urls(
     if *selection_mode == PreReadSelectionMode::DirectDetail
         && required_domain_floor > 0
         && distinct_domains.len() < required_domain_floor
+        && !grounded_same_authority_override
     {
         return Err(format!(
             "expected at least {} distinct domains but received {}",
@@ -484,12 +580,12 @@ fn lint_pre_read_payload_urls(
     }
     if *selection_mode == PreReadSelectionMode::DirectDetail
         && authority_source_required
-        && required_primary_authority_sources > 0
-        && selected_primary_authority_sources < required_primary_authority_sources
+        && required_primary_authority_families > 0
+        && selected_primary_authority_families.len() < required_primary_authority_families
     {
         return Err(format!(
-            "direct_detail selection must include {} primary authority source(s) when the payload contains {} admissible authority source(s)",
-            required_primary_authority_sources, payload_primary_authority_sources
+            "direct_detail selection must include {} distinct primary authority source family(ies) when the payload contains {} admissible authority family(ies)",
+            required_primary_authority_families, payload_primary_authority_families
         ));
     }
 
@@ -635,7 +731,7 @@ fn build_pre_read_selection_payload(
         })
     {
         constraints.push(
-            "For grounded current document briefings, direct_detail must include primary authority sources first. If the payload contains admissible primary authority sources, include min(required_url_count, admissible_primary_authority_sources)."
+            "For grounded current document briefings, direct_detail must keep primary authority sources first. When distinct-domain corroboration is required, reserve the remaining slots for compatible non-authority sources instead of filling every slot with same-domain authority pages."
                 .to_string(),
         );
     }
@@ -685,6 +781,284 @@ fn pre_read_selection_mode_permitted(
                 )
         }
     }
+}
+
+fn deterministic_pre_read_selection(
+    retrieval_contract: Option<&WebRetrievalContract>,
+    query_contract: &str,
+    required_url_count: usize,
+    discovery_sources: &[WebSource],
+    source_observations: &[WebSourceObservation],
+) -> Result<PreReadSelectionResponse, String> {
+    #[derive(Clone)]
+    struct DeterministicCandidate {
+        url: String,
+        domain_key: Option<String>,
+        primary_authority: bool,
+        authority_family_key: Option<String>,
+        discovery_seed_supported: bool,
+    }
+
+    let expected_count = required_url_count.max(1);
+    let source_hints = discovery_source_hints(discovery_sources);
+    let locality_hint =
+        if retrieval_contract_requires_runtime_locality(retrieval_contract, query_contract) {
+            effective_locality_scope_hint(None)
+        } else {
+            None
+        };
+    let entity_diversity_required =
+        retrieval_contract_entity_diversity_required(retrieval_contract, query_contract);
+    let required_domain_floor = if entity_diversity_required {
+        0
+    } else {
+        retrieval_contract_required_distinct_domain_floor(retrieval_contract, query_contract)
+            .min(expected_count)
+            .max(usize::from(expected_count > 1))
+    };
+
+    let candidates = discovery_sources
+        .iter()
+        .filter_map(|source| {
+            let trimmed = source.url.trim();
+            if trimmed.is_empty()
+                || !is_citable_web_url(trimmed)
+                || is_search_hub_url(trimmed)
+                || !pre_read_url_has_allowed_affordance(
+                    retrieval_contract,
+                    query_contract,
+                    expected_count,
+                    &source_hints,
+                    locality_hint.as_deref(),
+                    trimmed,
+                    source.title.as_deref().unwrap_or_default(),
+                    source.snippet.as_deref().unwrap_or_default(),
+                )
+                || !pre_read_candidate_url_allowed_for_query(
+                    retrieval_contract,
+                    query_contract,
+                    expected_count as u32,
+                    &source_hints,
+                    locality_hint.as_deref(),
+                    trimmed,
+                    source.title.as_deref().unwrap_or_default(),
+                    source.snippet.as_deref().unwrap_or_default(),
+                )
+            {
+                return None;
+            }
+
+            let primary_authority = pre_read_source_has_primary_authority(
+                query_contract,
+                trimmed,
+                source.title.as_deref().unwrap_or_default(),
+                source.snippet.as_deref().unwrap_or_default(),
+            );
+            Some(DeterministicCandidate {
+                url: trimmed.to_string(),
+                domain_key: selected_url_domain_key(&source_hints, trimmed),
+                primary_authority,
+                authority_family_key: primary_authority.then(|| {
+                    pre_read_primary_authority_family_key(
+                        query_contract,
+                        trimmed,
+                        source.title.as_deref().unwrap_or_default(),
+                        source.snippet.as_deref().unwrap_or_default(),
+                    )
+                }),
+                discovery_seed_supported: source_observation_for_url(source_observations, trimmed)
+                    .map(source_observation_supports_discovery_seed)
+                    .unwrap_or(false),
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let payload_primary_authority_families = candidates
+        .iter()
+        .filter(|candidate| candidate.primary_authority)
+        .filter_map(|candidate| candidate.authority_family_key.clone())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let required_primary_authority_families = required_primary_authority_selection_floor(
+        retrieval_contract,
+        query_contract,
+        payload_primary_authority_families,
+        expected_count,
+    );
+
+    let mut selected = Vec::new();
+    let mut selected_domains = std::collections::BTreeSet::new();
+    let mut selected_authority_families = std::collections::BTreeSet::new();
+    fn push_candidate(
+        selected: &mut Vec<String>,
+        selected_domains: &mut std::collections::BTreeSet<String>,
+        selected_authority_families: &mut std::collections::BTreeSet<String>,
+        candidate: &DeterministicCandidate,
+    ) -> bool {
+        if selected.iter().any(|existing: &String| {
+            existing.eq_ignore_ascii_case(&candidate.url)
+                || url_structurally_equivalent(existing, &candidate.url)
+        }) {
+            return false;
+        }
+        if let Some(domain) = candidate.domain_key.as_ref() {
+            selected_domains.insert(domain.clone());
+        }
+        if let Some(family_key) = candidate.authority_family_key.as_ref() {
+            selected_authority_families.insert(family_key.clone());
+        }
+        selected.push(candidate.url.clone());
+        true
+    }
+
+    for candidate in candidates
+        .iter()
+        .filter(|candidate| candidate.primary_authority)
+    {
+        if selected_authority_families.len() >= required_primary_authority_families {
+            break;
+        }
+        let candidate_reuses_domain = candidate
+            .domain_key
+            .as_ref()
+            .map(|domain| selected_domains.contains(domain))
+            .unwrap_or(false);
+        let candidate_reuses_authority_family = candidate
+            .authority_family_key
+            .as_ref()
+            .map(|family| selected_authority_families.contains(family))
+            .unwrap_or(false);
+        let unseen_primary_authority_family_available = required_primary_authority_families > 0
+            && selected_authority_families.len() < required_primary_authority_families
+            && candidate_reuses_authority_family
+            && candidates
+                .iter()
+                .filter(|other| other.primary_authority)
+                .any(|other| {
+                    !selected.iter().any(|existing: &String| {
+                        existing.eq_ignore_ascii_case(&other.url)
+                            || url_structurally_equivalent(existing, &other.url)
+                    }) && other
+                        .authority_family_key
+                        .as_ref()
+                        .map(|family| !selected_authority_families.contains(family))
+                        .unwrap_or(false)
+                });
+        if unseen_primary_authority_family_available {
+            continue;
+        }
+        let unseen_primary_authority_domain_available = required_domain_floor > 0
+            && selected_domains.len() < required_domain_floor
+            && candidate_reuses_domain
+            && candidates
+                .iter()
+                .filter(|other| other.primary_authority)
+                .any(|other| {
+                    !selected.iter().any(|existing: &String| {
+                        existing.eq_ignore_ascii_case(&other.url)
+                            || url_structurally_equivalent(existing, &other.url)
+                    }) && other
+                        .domain_key
+                        .as_ref()
+                        .map(|domain| !selected_domains.contains(domain))
+                        .unwrap_or(false)
+                });
+        if unseen_primary_authority_domain_available {
+            continue;
+        }
+        let _ = push_candidate(
+            &mut selected,
+            &mut selected_domains,
+            &mut selected_authority_families,
+            candidate,
+        );
+    }
+
+    if selected.len() < expected_count
+        && required_domain_floor > 0
+        && selected_domains.len() < required_domain_floor
+    {
+        for candidate in &candidates {
+            if selected.len() >= expected_count {
+                break;
+            }
+            if candidate
+                .domain_key
+                .as_ref()
+                .map(|domain| selected_domains.contains(domain))
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            let _ = push_candidate(
+                &mut selected,
+                &mut selected_domains,
+                &mut selected_authority_families,
+                candidate,
+            );
+        }
+    }
+
+    if selected.len() < expected_count {
+        for candidate in &candidates {
+            if selected.len() >= expected_count {
+                break;
+            }
+            let _ = push_candidate(
+                &mut selected,
+                &mut selected_domains,
+                &mut selected_authority_families,
+                candidate,
+            );
+        }
+    }
+
+    if selected.len() == expected_count {
+        let validated = lint_pre_read_payload_urls(
+            retrieval_contract,
+            query_contract,
+            discovery_sources,
+            source_observations,
+            &PreReadSelectionMode::DirectDetail,
+            &selected,
+            expected_count,
+        )?;
+        return Ok(PreReadSelectionResponse {
+            selection_mode: PreReadSelectionMode::DirectDetail,
+            urls: validated,
+        });
+    }
+
+    if pre_read_selection_mode_permitted(
+        retrieval_contract,
+        query_contract,
+        &PreReadSelectionMode::DiscoverySeed,
+    ) {
+        for candidate in &candidates {
+            if !candidate.discovery_seed_supported {
+                continue;
+            }
+            let seed = vec![candidate.url.clone()];
+            let validated = lint_pre_read_payload_urls(
+                retrieval_contract,
+                query_contract,
+                discovery_sources,
+                source_observations,
+                &PreReadSelectionMode::DiscoverySeed,
+                &seed,
+                expected_count,
+            )?;
+            return Ok(PreReadSelectionResponse {
+                selection_mode: PreReadSelectionMode::DiscoverySeed,
+                urls: validated,
+            });
+        }
+    }
+
+    Err(format!(
+        "deterministic pre-read selection could not satisfy {} typed source(s)",
+        expected_count
+    ))
 }
 
 async fn synthesize_pre_read_selection(
@@ -863,7 +1237,14 @@ async fn synthesize_pre_read_selection(
         }
     }
 
-    Err(last_error)
+    deterministic_pre_read_selection(
+        retrieval_contract,
+        query_contract,
+        required_url_count,
+        discovery_sources,
+        source_observations,
+    )
+    .map_err(|fallback_error| format!("{}; fallback failed: {}", last_error, fallback_error))
 }
 
 fn selected_source_hints_for_urls(
@@ -1125,7 +1506,7 @@ mod pre_read_selection_tests {
     }
 
     #[test]
-    fn lint_requires_all_available_primary_authority_sources_up_to_required_count() {
+    fn lint_reserves_slot_for_independent_corroboration_when_domain_diversity_is_required() {
         let query =
             "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
         let retrieval_contract =
@@ -1158,17 +1539,393 @@ mod pre_read_selection_tests {
                 domain: Some("nist.gov".to_string()),
             },
             WebSource {
-                source_id: "secondary-cyberscoop".to_string(),
+                source_id: "secondary-ibm".to_string(),
                 rank: Some(3),
-                url: "https://cyberscoop.com/why-federal-it-leaders-must-act-now-to-deliver-nists-post-quantum-cryptography-transition-op-ed/".to_string(),
+                url: "https://research.ibm.com/blog/nist-pqc-standards".to_string(),
                 title: Some(
-                    "Why federal IT leaders must act now to deliver NIST's post-quantum cryptography transition".to_string(),
-                ),
-                snippet: Some(
-                    "CyberScoop analysis of NIST post-quantum cryptography transition guidance."
+                    "NIST’s post-quantum cryptography standards are here - IBM Research"
                         .to_string(),
                 ),
-                domain: Some("cyberscoop.com".to_string()),
+                snippet: Some(
+                    "IBM summarized FIPS 203, FIPS 204, and FIPS 205 after NIST released the standards."
+                        .to_string(),
+                ),
+                domain: Some("research.ibm.com".to_string()),
+            },
+        ];
+
+        lint_pre_read_payload_urls(
+            Some(&retrieval_contract),
+            query,
+            &discovery_sources,
+            &[],
+            &PreReadSelectionMode::DirectDetail,
+            &[
+                "https://www.nist.gov/pqc".to_string(),
+                "https://research.ibm.com/blog/nist-pqc-standards".to_string(),
+            ],
+            2,
+        )
+        .expect("one authority source should leave room for independent corroboration");
+    }
+
+    #[test]
+    fn deterministic_pre_read_selection_rejects_generic_authority_neighbor_fill() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "nccoe".to_string(),
+                rank: Some(1),
+                url: "https://www.nccoe.nist.gov/sites/default/files/2023-12/pqc-migration-nist-sp-1800-38c-preliminary-draft.pdf".to_string(),
+                title: Some("Migration to Post-Quantum Cryptography".to_string()),
+                snippet: Some(
+                    "NCCoE migration guidance for post-quantum cryptography at NIST.".to_string(),
+                ),
+                domain: Some("www.nccoe.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "ibm-topic".to_string(),
+                rank: Some(2),
+                url: "https://www.ibm.com/think/topics/nist".to_string(),
+                title: Some("What is the NIST Cybersecurity Framework? - IBM".to_string()),
+                snippet: Some(
+                    "IBM overview of NIST guidance and cybersecurity best practices.".to_string(),
+                ),
+                domain: Some("www.ibm.com".to_string()),
+            },
+            WebSource {
+                source_id: "ibm-insight".to_string(),
+                rank: Some(3),
+                url: "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2"
+                    .to_string(),
+                title: Some("NIST Cybersecurity Framework 2 - IBM".to_string()),
+                snippet: Some(
+                    "IBM insight on NIST Cybersecurity Framework 2 updates.".to_string(),
+                ),
+                domain: Some("www.ibm.com".to_string()),
+            },
+        ];
+
+        let err = deterministic_pre_read_selection(
+            Some(&retrieval_contract),
+            query,
+            2,
+            &discovery_sources,
+            &[],
+        )
+        .expect_err("generic authority-neighbor fill should not satisfy deterministic selection");
+
+        assert!(err.contains("could not satisfy 2 typed source(s)"));
+    }
+
+    #[test]
+    fn deterministic_pre_read_selection_keeps_on_topic_secondary_fill() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "nccoe".to_string(),
+                rank: Some(1),
+                url: "https://www.nccoe.nist.gov/sites/default/files/2023-12/pqc-migration-nist-sp-1800-38c-preliminary-draft.pdf".to_string(),
+                title: Some("Migration to Post-Quantum Cryptography".to_string()),
+                snippet: Some(
+                    "NCCoE migration guidance for post-quantum cryptography at NIST.".to_string(),
+                ),
+                domain: Some("www.nccoe.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "ibm-pqc".to_string(),
+                rank: Some(2),
+                url: "https://www.ibm.com/think/insights/post-quantum-cryptography-transition"
+                    .to_string(),
+                title: Some("Post-quantum cryptography transition guidance".to_string()),
+                snippet: Some(
+                    "March 2026 - IBM explains recent NIST post-quantum cryptography transition planning for enterprises.".to_string(),
+                ),
+                domain: Some("www.ibm.com".to_string()),
+            },
+        ];
+
+        let selection = deterministic_pre_read_selection(
+            Some(&retrieval_contract),
+            query,
+            2,
+            &discovery_sources,
+            &[],
+        )
+        .expect("deterministic selection");
+
+        assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
+        assert_eq!(selection.urls.len(), 2);
+        assert_eq!(
+            selection.urls.first().map(String::as_str),
+            Some(
+                "https://www.nccoe.nist.gov/sites/default/files/2023-12/pqc-migration-nist-sp-1800-38c-preliminary-draft.pdf"
+            )
+        );
+        assert!(selection.urls.iter().any(|url| {
+            url == "https://www.ibm.com/think/insights/post-quantum-cryptography-transition"
+        }));
+    }
+
+    #[test]
+    fn deterministic_pre_read_selection_prefers_grounded_external_publication_artifact_over_same_host_authority_tail(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "official-ir-8413-update".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "The report references FIPS 203, FIPS 204, and FIPS 205 in the NIST post-quantum cryptography standardization process."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-pqc-program".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
+                title: Some("Post-Quantum Cryptography Standardization | CSRC".to_string()),
+                snippet: Some(
+                    "Current CSRC project page for the latest NIST post-quantum cryptography standardization updates."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "external-pqc-readiness-report".to_string(),
+                rank: Some(3),
+                url: "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf".to_string(),
+                title: Some("State of PQC Readiness 2025".to_string()),
+                snippet: Some(
+                    "Independent November 2025 report on post-quantum cryptography readiness after NIST finalized its first post-quantum standards."
+                        .to_string(),
+                ),
+                domain: Some("trustedcomputinggroup.org".to_string()),
+            },
+        ];
+
+        let selection = deterministic_pre_read_selection(
+            Some(&retrieval_contract),
+            query,
+            2,
+            &discovery_sources,
+            &[],
+        )
+        .expect("deterministic selection");
+
+        assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
+        assert_eq!(selection.urls.len(), 2);
+        assert!(selection
+            .urls
+            .iter()
+            .any(|url| url == "https://csrc.nist.gov/pubs/ir/8413/upd1/final"));
+        assert!(selection.urls.iter().any(|url| {
+            url == "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+        }));
+    }
+
+    #[test]
+    fn lint_allows_grounded_same_authority_fill_for_document_briefing() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "official-fips-203".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                title: Some(
+                    "FIPS 203 Module-Lattice-Based Key-Encapsulation Mechanism Standard"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 203 as a post-quantum cryptography standard based on ML-KEM."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-fips-204".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                title: Some(
+                    "FIPS 204 Module-Lattice-Based Digital Signature Standard".to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 204 as a post-quantum cryptography standard based on ML-DSA."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+        ];
+        let left_family = pre_read_primary_authority_family_key(
+            query,
+            &discovery_sources[0].url,
+            discovery_sources[0].title.as_deref().unwrap_or_default(),
+            discovery_sources[0].snippet.as_deref().unwrap_or_default(),
+        );
+        let right_family = pre_read_primary_authority_family_key(
+            query,
+            &discovery_sources[1].url,
+            discovery_sources[1].title.as_deref().unwrap_or_default(),
+            discovery_sources[1].snippet.as_deref().unwrap_or_default(),
+        );
+        let payload_primary_authority_families = discovery_sources
+            .iter()
+            .filter(|source| {
+                pre_read_source_has_primary_authority(
+                    query,
+                    &source.url,
+                    source.title.as_deref().unwrap_or_default(),
+                    source.snippet.as_deref().unwrap_or_default(),
+                )
+            })
+            .map(|source| {
+                pre_read_primary_authority_family_key(
+                    query,
+                    &source.url,
+                    source.title.as_deref().unwrap_or_default(),
+                    source.snippet.as_deref().unwrap_or_default(),
+                )
+            })
+            .collect::<std::collections::BTreeSet<_>>()
+            .len();
+
+        assert!(pre_read_authority_source_required(
+            Some(&retrieval_contract),
+            query
+        ));
+        assert_ne!(left_family, right_family);
+        assert_eq!(payload_primary_authority_families, 2);
+
+        let selected = lint_pre_read_payload_urls(
+            Some(&retrieval_contract),
+            query,
+            &discovery_sources,
+            &[],
+            &PreReadSelectionMode::DirectDetail,
+            &[
+                "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+            ],
+            2,
+        )
+        .expect("grounded same-authority fill should pass");
+
+        assert_eq!(selected.len(), 2);
+    }
+
+    #[test]
+    fn deterministic_pre_read_selection_allows_grounded_same_authority_fill() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "official-fips-203".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                title: Some(
+                    "FIPS 203 Module-Lattice-Based Key-Encapsulation Mechanism Standard"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 203 as a post-quantum cryptography standard based on ML-KEM."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-fips-204".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                title: Some(
+                    "FIPS 204 Module-Lattice-Based Digital Signature Standard".to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 204 as a post-quantum cryptography standard based on ML-DSA."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+        ];
+
+        let selection = deterministic_pre_read_selection(
+            Some(&retrieval_contract),
+            query,
+            2,
+            &discovery_sources,
+            &[],
+        )
+        .expect("grounded same-authority fill should satisfy deterministic selection");
+
+        assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
+        assert_eq!(
+            selection.urls,
+            vec![
+                "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn lint_rejects_duplicate_authority_family_fill_for_document_briefing() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "official-ir-8413-update".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "The report references FIPS 203, FIPS 204, and FIPS 205 in the NIST post-quantum cryptography standardization process."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-ir-8413".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "The report references FIPS 203, FIPS 204, and FIPS 205 in the NIST post-quantum cryptography standardization process."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
             },
         ];
 
@@ -1179,14 +1936,225 @@ mod pre_read_selection_tests {
             &[],
             &PreReadSelectionMode::DirectDetail,
             &[
-                "https://www.nist.gov/pqc".to_string(),
-                "https://cyberscoop.com/why-federal-it-leaders-must-act-now-to-deliver-nists-post-quantum-cryptography-transition-op-ed/".to_string(),
+                "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
             ],
             2,
         )
-        .expect_err("secondary source should not replace available authority source");
+        .expect_err("duplicate authority family fill should fail lint");
 
-        assert!(err.contains("include 2 primary authority source(s)"));
+        assert!(err.contains("distinct domains"));
+    }
+
+    #[test]
+    fn deterministic_pre_read_selection_avoids_duplicate_authority_family_fill() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "official-ir-8413-update".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "The report references FIPS 203, FIPS 204, and FIPS 205 in the NIST post-quantum cryptography standardization process."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-ir-8413".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "The report references FIPS 203, FIPS 204, and FIPS 205 in the NIST post-quantum cryptography standardization process."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-news".to_string(),
+                rank: Some(3),
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST released FIPS 203, FIPS 204, and FIPS 205 as its first three finalized post-quantum cryptography standards."
+                        .to_string(),
+                ),
+                domain: Some("www.nist.gov".to_string()),
+            },
+        ];
+
+        let selection = deterministic_pre_read_selection(
+            Some(&retrieval_contract),
+            query,
+            2,
+            &discovery_sources,
+            &[],
+        )
+        .expect("deterministic selection should avoid duplicate authority-family fill");
+
+        assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
+        assert_eq!(selection.urls.len(), 2);
+        assert!(selection
+            .urls
+            .iter()
+            .any(|url| url.contains("csrc.nist.gov/pubs/ir/8413/")));
+        assert!(selection.urls.iter().any(|url| {
+            url == "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+        }));
+    }
+
+    #[test]
+    fn lint_pre_read_payload_urls_rejects_same_authority_fill_when_cross_domain_option_exists() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "official-fips-203".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                title: Some(
+                    "FIPS 203 Module-Lattice-Based Key-Encapsulation Mechanism Standard"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 203 as a post-quantum cryptography standard based on ML-KEM."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-fips-204".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                title: Some(
+                    "FIPS 204 Module-Lattice-Based Digital Signature Standard".to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 204 as a post-quantum cryptography standard based on ML-DSA."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-news".to_string(),
+                rank: Some(3),
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST released FIPS 203, FIPS 204, and FIPS 205 as its first three finalized post-quantum cryptography standards."
+                        .to_string(),
+                ),
+                domain: Some("www.nist.gov".to_string()),
+            },
+        ];
+
+        let err = lint_pre_read_payload_urls(
+            Some(&retrieval_contract),
+            query,
+            &discovery_sources,
+            &[],
+            &PreReadSelectionMode::DirectDetail,
+            &[
+                "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+            ],
+            2,
+        )
+        .expect_err("same-domain fill should fail when a cross-domain official option exists");
+
+        assert!(err.contains("expected at least 2 distinct domains"));
+    }
+
+    #[test]
+    fn deterministic_pre_read_selection_prefers_cross_domain_authority_fill_when_available() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "official-fips-203".to_string(),
+                rank: Some(1),
+                url: "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                title: Some(
+                    "FIPS 203 Module-Lattice-Based Key-Encapsulation Mechanism Standard"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 203 as a post-quantum cryptography standard based on ML-KEM."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-fips-204".to_string(),
+                rank: Some(2),
+                url: "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                title: Some(
+                    "FIPS 204 Module-Lattice-Based Digital Signature Standard".to_string(),
+                ),
+                snippet: Some(
+                    "NIST finalized FIPS 204 as a post-quantum cryptography standard based on ML-DSA."
+                        .to_string(),
+                ),
+                domain: Some("csrc.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "official-news".to_string(),
+                rank: Some(3),
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "NIST released FIPS 203, FIPS 204, and FIPS 205 as its first three finalized post-quantum cryptography standards."
+                        .to_string(),
+                ),
+                domain: Some("www.nist.gov".to_string()),
+            },
+        ];
+
+        let selection = deterministic_pre_read_selection(
+            Some(&retrieval_contract),
+            query,
+            2,
+            &discovery_sources,
+            &[],
+        )
+        .expect("cross-domain authority fill should satisfy deterministic selection");
+
+        assert_eq!(selection.selection_mode, PreReadSelectionMode::DirectDetail);
+        assert_eq!(selection.urls.len(), 2);
+        assert!(selection
+            .urls
+            .iter()
+            .any(|url| url.contains("csrc.nist.gov/pubs/fips/203/final")));
+        assert!(selection.urls.iter().any(|url| {
+            url.contains("www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards")
+        }));
     }
 }
 

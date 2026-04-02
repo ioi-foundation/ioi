@@ -1,0 +1,10 @@
+{
+  "references": [
+    {
+      "benchmarkId": "html-quantum-explainer",
+      "participant": "reference:external_quantum_explainer_a",
+      "label": "External reference quantum explainer A",
+      "artifactPath": "arena/references/external-quantum-explainer-a/artifact/index.html"
+    }
+  ]
+}

@@ -783,6 +783,105 @@ pub(crate) fn parse_same_host_child_collection_sources_from_html(
     out
 }
 
+fn authority_document_title_signal(title: &str) -> bool {
+    let lower = title.to_ascii_lowercase();
+    [
+        "fips",
+        "federal information processing standard",
+        "special publication",
+        "sp ",
+        "sp-",
+        "ir ",
+        "interagency report",
+        "draft",
+        "final",
+        "standard",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}
+
+fn authority_document_url_signal(url: &Url) -> bool {
+    let path = url.path().to_ascii_lowercase();
+    if !(path.contains("/pubs/") || path.contains("/publications/") || path.contains("/standards/"))
+    {
+        return false;
+    }
+    path.contains("/final")
+        || path.contains("/draft")
+        || path.contains("/fips/")
+        || path.contains("/sp/")
+        || path.contains("/ir/")
+}
+
+pub(crate) fn parse_same_host_authority_document_sources_from_html(
+    page_url: &str,
+    html: &str,
+    limit: usize,
+) -> Vec<WebSource> {
+    let document = Html::parse_document(html);
+    let page_context = page_context_snippet(page_url, html);
+    let Ok(selector) = Selector::parse("a[href]") else {
+        return Vec::new();
+    };
+
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    for anchor in document.select(&selector) {
+        if out.len() >= limit {
+            break;
+        }
+        let href = anchor.value().attr("href").unwrap_or_default();
+        let Some(final_url) = absolute_same_host_url(page_url, href) else {
+            continue;
+        };
+        if final_url == page_url {
+            continue;
+        }
+        let Ok(parsed_url) = Url::parse(&final_url) else {
+            continue;
+        };
+        if !authority_document_url_signal(&parsed_url) {
+            continue;
+        }
+
+        let title_raw = compact_ws(&text_content(anchor));
+        let title = title_raw.trim();
+        if title.is_empty() {
+            continue;
+        }
+        let title_token_count = title
+            .split_whitespace()
+            .filter(|token| !token.trim().is_empty())
+            .count();
+        if title_token_count == 0 || title_token_count > 10 {
+            continue;
+        }
+        if !authority_document_title_signal(title)
+            && !title.chars().any(|ch| ch.is_ascii_digit())
+            && !parsed_url.path().chars().any(|ch| ch.is_ascii_digit())
+        {
+            continue;
+        }
+
+        let url_key = normalize_url_for_id(&final_url);
+        if !seen.insert(url_key) {
+            continue;
+        }
+
+        out.push(WebSource {
+            source_id: source_id_for_url(&final_url),
+            rank: Some(out.len() as u32 + 1),
+            url: final_url.clone(),
+            title: Some(title.to_string()),
+            snippet: page_context.clone(),
+            domain: domain_for_url(&final_url),
+        });
+    }
+
+    out
+}
+
 pub(crate) fn parse_generic_page_source_from_html(page_url: &str, html: &str) -> Option<WebSource> {
     let document = Html::parse_document(html);
     let canonical_url =

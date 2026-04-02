@@ -400,10 +400,18 @@ async function summarizeArtifactCase(
     manifestPath,
     route: evidence.route,
     artifactBrief: evidence.artifactBrief,
+    blueprint: evidence.blueprint ?? null,
+    artifactIr: evidence.artifactIr ?? null,
+    selectedSkills: evidence.selectedSkills ?? [],
+    retrievedExemplars: evidence.retrievedExemplars ?? [],
     editIntent: evidence.editIntent ?? null,
     candidateSetMetadata: evidence.candidateSummaries,
     winningCandidateId: evidence.winningCandidateId,
     winningCandidateRationale: evidence.winningCandidateRationale,
+    renderEvaluation:
+      evidence.renderEvaluation ??
+      evidence.candidateSummaries.find((candidate) => candidate.selected)?.renderEvaluation ??
+      null,
     manifest: evidence.manifest,
     verifiedReply: evidence.verifiedReply,
     rendererOutput: {

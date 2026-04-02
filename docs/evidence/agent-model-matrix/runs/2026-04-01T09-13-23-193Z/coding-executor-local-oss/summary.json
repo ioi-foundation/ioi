@@ -1,0 +1,126 @@
+{
+  "presetId": "coding-executor-local-oss",
+  "label": "Coding executor local OSS",
+  "role": "coding_executor",
+  "benchmarkTier": "tier2",
+  "experimental": true,
+  "shippedDefault": false,
+  "runtimeModel": "qwen2.5:7b",
+  "artifactAcceptanceModel": "qwen2.5:7b",
+  "availabilityStatus": "ready",
+  "availabilitySummary": "Local runtime is healthy and exposes 'qwen2.5:7b'.",
+  "caseCount": 1,
+  "availableWorkloadCount": 1,
+  "topFindings": [
+    "Coding path normalizer fixture: Resources/Retry limit exceeded"
+  ],
+  "scorecards": {
+    "artifactQuality": {
+      "available": false,
+      "reason": "No retained artifact benchmarks were executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "passRate": null,
+        "averageJudgeScore": null,
+        "verifierPassRate": null,
+        "averageRepairLoopIterations": null,
+        "routeMatchRate": null
+      }
+    },
+    "codingCompletion": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 1,
+        "taskPassRate": 0,
+        "targetedTestPassRate": null,
+        "verifierPassRate": 0,
+        "patchSynthesisReadyRate": 0
+      }
+    },
+    "researchQuality": {
+      "available": false,
+      "reason": "No retained research benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "taskPassRate": null,
+        "citationVerifierPassRate": null,
+        "sourceIndependenceRate": null,
+        "sourceCountFloorRate": null,
+        "synthesisCompleteness": null,
+        "freshnessPassRate": null,
+        "quoteGroundingPassRate": null
+      }
+    },
+    "computerUseCompletion": {
+      "available": false,
+      "reason": "No retained computer-use benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "rewardFloorPassRate": null,
+        "postconditionPassRate": null,
+        "meanStepCount": null
+      }
+    },
+    "latencyAndResourcePressure": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "meanWallClockMs": 86218,
+        "p95WallClockMs": 86218,
+        "residentModelBytes": 4683087332,
+        "processorKind": "100% GPU"
+      }
+    },
+    "operationalDiscipline": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "malformedToolCallRate": null,
+        "noOpStallRate": null,
+        "repairLoopIterations": null,
+        "interruptionRecoveryQuality": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "benchmarkId": "coding-path-normalizer-fixture",
+      "title": "Coding path normalizer fixture",
+      "workload": "coding",
+      "runner": "capabilities_suite",
+      "caseId": "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests",
+      "status": "completed",
+      "result": "red",
+      "elapsedMs": 86218,
+      "timedOut": false,
+      "taskPassed": false,
+      "localScore": 0.25,
+      "arbiterPass": false,
+      "playbookId": "evidence_audited_patch",
+      "routeFamily": "coding",
+      "topology": "planner_specialist_verifier",
+      "verifierState": "queued",
+      "verifierPass": false,
+      "targetedCommandCount": null,
+      "targetedPassCount": null,
+      "targetedTestPassRate": null,
+      "patchSynthesisReady": false,
+      "citationVerifierPass": false,
+      "sourceCount": null,
+      "distinctDomainCount": null,
+      "sourceCountFloorRate": 0,
+      "sourceIndependenceRate": 0,
+      "synthesisCompleteness": 0.25,
+      "freshnessPassed": false,
+      "quoteGroundingPassed": false,
+      "summary": "Resources/Retry limit exceeded",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T09-13-23-193Z/coding-executor-local-oss/coding-path-normalizer-fixture/retained-result.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T09-13-23-193Z/coding-executor-local-oss/coding-path-normalizer-fixture",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T09-13-23-193Z/coding-executor-local-oss/coding-path-normalizer-fixture/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T09-13-23-193Z/coding-executor-local-oss/coding-path-normalizer-fixture/command.stderr.log"
+    }
+  ],
+  "summaryPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T09-13-23-193Z/coding-executor-local-oss/summary.json",
+  "runRootPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T09-13-23-193Z/coding-executor-local-oss"
+}

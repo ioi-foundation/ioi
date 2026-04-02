@@ -1,5 +1,8 @@
+use super::evidence::build_artifact_lane_receipts;
 use super::*;
-use ioi_api::studio::StudioArtifactSelectionTarget;
+use ioi_api::studio::{StudioArtifactRuntimePolicyProfile, StudioArtifactSelectionTarget};
+use ioi_drivers::studio_render::BrowserStudioArtifactRenderEvaluator;
+use std::env;
 
 pub(super) async fn run_route(
     prompt: &str,
@@ -177,7 +180,26 @@ fn refinement_context_from_loaded_evidence(
         files: loaded.files.clone(),
         selected_targets: loaded.selected_targets.clone(),
         taste_memory: loaded.taste_memory.clone(),
+        retrieved_exemplars: Vec::new(),
+        blueprint: None,
+        artifact_ir: None,
+        selected_skills: Vec::new(),
     }
+}
+
+fn configured_runtime_profile() -> StudioArtifactRuntimePolicyProfile {
+    [
+        "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
+        "IOI_STUDIO_MODEL_ROUTING_PROFILE",
+    ]
+    .iter()
+    .find_map(|key| {
+        env::var(key)
+            .ok()
+            .as_deref()
+            .and_then(StudioArtifactRuntimePolicyProfile::parse)
+    })
+    .unwrap_or(StudioArtifactRuntimePolicyProfile::Auto)
 }
 
 pub(super) async fn run_generate(
@@ -268,13 +290,17 @@ pub(super) async fn run_generate(
             .await
             .map_err(anyhow::Error::msg)
         } else {
-            generate_studio_artifact_bundle_with_runtimes(
+            let render_evaluator = BrowserStudioArtifactRenderEvaluator::default();
+            generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
                 runtime,
-                acceptance_runtime,
+                Some(acceptance_runtime),
+                configured_runtime_profile(),
                 &title,
                 prompt,
                 &request,
                 refinement_context.as_ref(),
+                None,
+                Some(&render_evaluator),
             )
             .await
             .map_err(anyhow::Error::new)
@@ -327,17 +353,31 @@ pub(super) async fn run_generate(
     )
     .with_context(|| format!("Failed to write '{}'.", manifest_path.display()))?;
     let verified_reply = compose_verified_reply(&manifest);
+    let artifact_lane_receipts = build_artifact_lane_receipts(
+        bundle.blueprint.as_ref(),
+        bundle.selected_skills.as_slice(),
+        bundle.candidate_summaries.as_slice(),
+        &bundle.judge,
+        bundle.ux_lifecycle,
+    );
     let evidence = GeneratedArtifactEvidence {
         prompt: prompt.to_string(),
         title: title.clone(),
         route,
         artifact_brief: Some(bundle.brief),
+        blueprint: bundle.blueprint,
+        artifact_ir: bundle.artifact_ir,
+        selected_skills: bundle.selected_skills,
         edit_intent: bundle.edit_intent,
         candidate_summaries: bundle.candidate_summaries,
         winning_candidate_id: Some(bundle.winning_candidate_id),
         winning_candidate_rationale: Some(bundle.winning_candidate_rationale),
+        render_evaluation: bundle.render_evaluation,
         judge: Some(bundle.judge),
         output_origin: Some(bundle.origin),
+        runtime_policy: bundle.runtime_policy,
+        adaptive_search_budget: bundle.adaptive_search_budget,
+        artifact_lane_receipts,
         production_provenance: Some(bundle.production_provenance),
         acceptance_provenance: Some(bundle.acceptance_provenance),
         fallback_used: bundle.fallback_used,

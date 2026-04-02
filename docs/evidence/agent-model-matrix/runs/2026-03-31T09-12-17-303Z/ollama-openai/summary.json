@@ -1,0 +1,92 @@
+{
+  "presetId": "ollama-openai",
+  "label": "Baseline local smoke",
+  "role": "baseline_local",
+  "benchmarkTier": "tier0",
+  "experimental": false,
+  "shippedDefault": true,
+  "runtimeModel": "llama3.2:3b",
+  "artifactAcceptanceModel": "qwen2.5:14b",
+  "availabilityStatus": "ready",
+  "availabilitySummary": "Local runtime is healthy and exposes 'llama3.2:3b'.",
+  "caseCount": 1,
+  "availableWorkloadCount": 1,
+  "topFindings": [
+    "Computer use click-button smoke: Click on the \"Okay\" button."
+  ],
+  "scorecards": {
+    "artifactQuality": {
+      "available": false,
+      "reason": "No retained artifact benchmarks were executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "passRate": null,
+        "averageJudgeScore": null,
+        "verifierPassRate": null,
+        "averageRepairLoopIterations": null,
+        "routeMatchRate": null
+      }
+    },
+    "codingCompletion": {
+      "available": false,
+      "reason": "Phase 0 defines the coding scorecard here, but the repo does not yet retain a preset-aware coding benchmark harness.",
+      "metrics": {}
+    },
+    "researchQuality": {
+      "available": false,
+      "reason": "Phase 0 defines the research scorecard here, but the repo does not yet retain a preset-aware research benchmark harness.",
+      "metrics": {}
+    },
+    "computerUseCompletion": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 1,
+        "rewardFloorPassRate": 0,
+        "postconditionPassRate": 0,
+        "meanStepCount": 0
+      }
+    },
+    "latencyAndResourcePressure": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "meanWallClockMs": 65111,
+        "p95WallClockMs": 65111,
+        "residentModelBytes": 2019393189,
+        "processorKind": null
+      }
+    },
+    "operationalDiscipline": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "malformedToolCallRate": null,
+        "noOpStallRate": null,
+        "repairLoopIterations": null,
+        "interruptionRecoveryQuality": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "benchmarkId": "computer-use-click-button-smoke",
+      "title": "Computer use click-button smoke",
+      "workload": "computer_use",
+      "runner": "computer_use_suite",
+      "status": "completed",
+      "result": "red",
+      "elapsedMs": 65111,
+      "timedOut": false,
+      "rewardFloorMet": false,
+      "stepCount": 0,
+      "summary": "Click on the \"Okay\" button.",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T09-12-17-303Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T09-12-17-303Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T09-12-17-303Z/ollama-openai/computer-use-click-button-smoke/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T09-12-17-303Z/ollama-openai/computer-use-click-button-smoke/command.stderr.log"
+    }
+  ],
+  "summaryPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T09-12-17-303Z/ollama-openai/summary.json",
+  "runRootPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T09-12-17-303Z/ollama-openai"
+}

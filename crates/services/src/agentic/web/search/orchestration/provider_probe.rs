@@ -34,9 +34,13 @@ impl ObservedSearchProviderCandidate {
 
 fn finalize_provider_sources(
     sources: Vec<WebSource>,
+    included_hosts: &HashSet<String>,
     excluded_hosts: &HashSet<String>,
 ) -> Vec<WebSource> {
     let mut filtered_sources = sources;
+    if !included_hosts.is_empty() {
+        filtered_sources.retain(|source| source_matches_included_host(source, included_hosts));
+    }
     if !excluded_hosts.is_empty() {
         filtered_sources.retain(|source| !source_matches_excluded_host(source, excluded_hosts));
     }
@@ -80,6 +84,7 @@ async fn probe_search_provider(
     headline_lookup_mode: bool,
     provider_result_limit: usize,
     _expansion_surface_preferred: bool,
+    included_hosts: &HashSet<String>,
     excluded_hosts: &HashSet<String>,
 ) -> ObservedSearchProviderCandidate {
     let provider_id = provider_backend_id(descriptor.stage);
@@ -136,7 +141,7 @@ async fn probe_search_provider(
                             .into_iter()
                             .collect::<Vec<_>>();
                     let sources = filter_provider_sources_by_contract(
-                        finalize_provider_sources(sources, excluded_hosts),
+                        finalize_provider_sources(sources, included_hosts, excluded_hosts),
                         query_contract,
                         retrieval_contract,
                     );
@@ -210,6 +215,7 @@ async fn probe_search_provider(
                                 &html,
                                 category_limit,
                             ),
+                            included_hosts,
                             excluded_hosts,
                         ),
                         query_contract,
@@ -259,6 +265,7 @@ async fn probe_search_provider(
                     let sources = filter_provider_sources_by_contract(
                         finalize_provider_sources(
                             parse_brave_sources_from_html(&html, provider_result_limit),
+                            included_hosts,
                             excluded_hosts,
                         ),
                         query_contract,
@@ -306,6 +313,7 @@ async fn probe_search_provider(
                     let sources = filter_provider_sources_by_contract(
                         finalize_provider_sources(
                             parse_ddg_sources_from_html(&html, provider_result_limit),
+                            included_hosts,
                             excluded_hosts,
                         ),
                         query_contract,
@@ -353,6 +361,7 @@ async fn probe_search_provider(
                     let sources = filter_provider_sources_by_contract(
                         finalize_provider_sources(
                             parse_ddg_sources_from_html(&html, provider_result_limit),
+                            included_hosts,
                             excluded_hosts,
                         ),
                         query_contract,
@@ -400,6 +409,7 @@ async fn probe_search_provider(
                     let sources = filter_provider_sources_by_contract(
                         finalize_provider_sources(
                             parse_bing_sources_from_html(&html, provider_result_limit),
+                            included_hosts,
                             excluded_hosts,
                         ),
                         query_contract,
@@ -434,7 +444,7 @@ async fn probe_search_provider(
             match fetch_bing_news_rss_sources(query_for_provider, provider_result_limit).await {
                 Ok(sources) => {
                     let sources = filter_provider_sources_by_contract(
-                        finalize_provider_sources(sources, excluded_hosts),
+                        finalize_provider_sources(sources, included_hosts, excluded_hosts),
                         query_contract,
                         retrieval_contract,
                     );
@@ -467,7 +477,7 @@ async fn probe_search_provider(
             match fetch_bing_search_rss_sources(query_for_provider, provider_result_limit).await {
                 Ok(sources) => {
                     let sources = filter_provider_sources_by_contract(
-                        finalize_provider_sources(sources, excluded_hosts),
+                        finalize_provider_sources(sources, included_hosts, excluded_hosts),
                         query_contract,
                         retrieval_contract,
                     );
@@ -517,6 +527,7 @@ async fn probe_search_provider(
                     let sources = filter_provider_sources_by_contract(
                         finalize_provider_sources(
                             parse_google_sources_from_html(&html, provider_result_limit),
+                            included_hosts,
                             excluded_hosts,
                         ),
                         query_contract,
@@ -551,7 +562,7 @@ async fn probe_search_provider(
             match fetch_google_news_rss_sources(query_for_provider, provider_result_limit).await {
                 Ok(sources) => {
                     let sources = filter_provider_sources_by_contract(
-                        finalize_provider_sources(sources, excluded_hosts),
+                        finalize_provider_sources(sources, included_hosts, excluded_hosts),
                         query_contract,
                         retrieval_contract,
                     );
@@ -584,7 +595,7 @@ async fn probe_search_provider(
             match fetch_google_news_top_stories_rss_sources(provider_result_limit).await {
                 Ok(sources) => {
                     let sources = filter_provider_sources_by_contract(
-                        finalize_provider_sources(sources, excluded_hosts),
+                        finalize_provider_sources(sources, included_hosts, excluded_hosts),
                         query_contract,
                         retrieval_contract,
                     );

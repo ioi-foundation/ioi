@@ -684,20 +684,40 @@ fn rendered_briefing_contract_facts(
         .filter(|token| !is_query_stopword(token))
         .collect::<BTreeSet<_>>();
     let full_surface = compact_whitespace(rendered_summary).to_ascii_lowercase();
-    let observed_identifier_groups =
-        observed_briefing_standard_identifier_groups(query_contract, &full_surface);
-    let standard_identifier_count = observed_identifier_groups.len();
-    let required_standard_identifier_count = observed_identifier_groups
+    let successful_read_observations = pending
+        .successful_reads
         .iter()
-        .filter(|group| group.required)
+        .filter_map(|source| {
+            let trimmed = source.url.trim();
+            let title = source.title.as_deref().unwrap_or_default();
+            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+                url: trimmed.to_string(),
+                surface: preferred_source_briefing_identifier_surface(
+                    query_contract,
+                    &source.url,
+                    title,
+                    &source.excerpt,
+                ),
+                authoritative: source_has_document_authority(
+                    query_contract,
+                    trimmed,
+                    title,
+                    &source.excerpt,
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+    let required_identifier_labels =
+        infer_briefing_required_identifier_labels(query_contract, &successful_read_observations);
+    let observed_identifier_labels =
+        observed_briefing_standard_identifier_labels(query_contract, &full_surface);
+    let standard_identifier_count = observed_identifier_labels.len();
+    let required_standard_identifier_count = observed_identifier_labels
+        .iter()
+        .filter(|label| required_identifier_labels.contains(*label))
         .count();
-    let standard_identifier_group_floor = briefing_standard_identifier_group_floor(query_contract);
+    let standard_identifier_group_floor = required_identifier_labels.len();
     let citation_urls = rendered_summary_citation_urls(rendered_summary, required_sections);
-    let required_identifier_labels = briefing_standard_identifier_groups_for_query(query_contract)
-        .iter()
-        .filter(|group| group.required)
-        .map(|group| group.primary_label.to_string())
-        .collect::<BTreeSet<_>>();
     let successful_citation_sources = citation_urls
         .iter()
         .filter_map(|url| successful_read_for_url(pending, url).map(|source| (url, source)))
@@ -728,9 +748,11 @@ fn rendered_briefing_contract_facts(
     let mut standard_identifier_authority_source_urls = BTreeSet::new();
     for (_, source) in &successful_citation_sources {
         let title = source.title.as_deref().unwrap_or_default();
-        let identifiers = observed_briefing_standard_identifier_labels(
+        let identifiers = source_briefing_standard_identifier_labels(
             query_contract,
-            &format!("{} {} {}", title, source.excerpt, source.url),
+            &source.url,
+            title,
+            &source.excerpt,
         );
         if identifiers.is_empty() {
             continue;
@@ -752,9 +774,11 @@ fn rendered_briefing_contract_facts(
         .filter(|source| {
             let title = source.title.as_deref().unwrap_or_default();
             source_has_document_authority(query_contract, &source.url, title, &source.excerpt)
-                && !observed_briefing_standard_identifier_labels(
+                && !source_briefing_standard_identifier_labels(
                     query_contract,
-                    &format!("{} {} {}", title, source.excerpt, source.url),
+                    &source.url,
+                    title,
+                    &source.excerpt,
                 )
                 .is_empty()
         })
@@ -848,12 +872,19 @@ fn rendered_briefing_contract_facts(
     let authority_standard_identifier_floor_met = standard_identifier_group_floor == 0
         || available_standard_identifier_authority_source_count == 0
         || required_authority_standard_identifiers.len() >= standard_identifier_group_floor;
+    let summary_inventory_authority_only_floor_met = summary_inventory_required_identifier_count
+        == 0
+        && summary_inventory_optional_identifier_count > standard_identifier_group_floor
+        && summary_inventory_authority_identifier_count
+            == summary_inventory_optional_identifier_count
+        && required_authority_standard_identifiers.len() >= standard_identifier_group_floor;
     let summary_inventory_floor_met = standard_identifier_group_floor == 0
         || (summary_inventory_required_identifier_count >= standard_identifier_group_floor
             && summary_inventory_optional_identifier_count == 0
             && (available_standard_identifier_authority_source_count == 0
                 || summary_inventory_authority_identifier_count
-                    >= standard_identifier_group_floor));
+                    >= standard_identifier_group_floor))
+        || summary_inventory_authority_only_floor_met;
     let narrative_aggregation_floor_met = required_narrative_sections == 0
         || qualifying_aggregated_narrative_sections >= required_narrative_sections;
     let evidence_block_floor_met = required_evidence_sections == 0
@@ -1187,7 +1218,13 @@ pub(crate) fn final_web_completion_facts(
             .unwrap_or(false);
     let briefing_required_primary_authority_source_count =
         if briefing_primary_authority_source_floor_applicable {
-            available_primary_authority_source_count.min(required_citations.max(1))
+            available_primary_authority_source_count.min(
+                crate::agentic::desktop::service::step::queue::support::retrieval_contract_primary_authority_source_slot_cap(
+                    retrieval_contract,
+                    &query_contract,
+                    required_citations.max(1),
+                ),
+            )
         } else {
             0
         };

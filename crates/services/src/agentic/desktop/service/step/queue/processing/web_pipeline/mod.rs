@@ -50,6 +50,7 @@ use super::super::support::{
 };
 use super::completion::complete_with_summary;
 use super::routing::is_web_research_scope;
+use crate::agentic::desktop::service::step::action::command_contract::execution_contract_violation_error;
 use crate::agentic::desktop::service::step::action::{
     emit_completion_gate_status_event, emit_execution_contract_receipt_event_with_observation,
     resolved_intent_id,
@@ -246,6 +247,66 @@ fn append_summary_selection_checks(
     }
 }
 
+fn web_pipeline_completion_reason_label(reason: WebPipelineCompletionReason) -> &'static str {
+    match reason {
+        WebPipelineCompletionReason::MinSourcesReached => "min_sources_reached",
+        WebPipelineCompletionReason::ExhaustedCandidates => "exhausted_candidates",
+        WebPipelineCompletionReason::DeadlineReached => "deadline_reached",
+    }
+}
+
+fn terminalized_web_pipeline_contract_error(
+    pending: &PendingSearchCompletion,
+    reason: WebPipelineCompletionReason,
+    summary: &str,
+) -> String {
+    let summary_excerpt = compact_whitespace(summary);
+    let summary_excerpt = if summary_excerpt.chars().count() > 280 {
+        let mut truncated = summary_excerpt.chars().take(280).collect::<String>();
+        truncated.push_str("...");
+        truncated
+    } else {
+        summary_excerpt
+    };
+
+    format!(
+        "{} cause_error_class=LowSignalReadInsufficient web_pipeline_reason={} successful_reads={} remaining_candidates={} summary_excerpt={}",
+        execution_contract_violation_error("receipt::final_output_contract_ready=true"),
+        web_pipeline_completion_reason_label(reason),
+        pending.successful_reads.len(),
+        remaining_pending_web_candidates(pending),
+        summary_excerpt
+    )
+}
+
+fn terminalize_failed_web_pipeline_completion(
+    agent_state: &mut AgentState,
+    pending: PendingSearchCompletion,
+    reason: WebPipelineCompletionReason,
+    summary: String,
+    success: &mut bool,
+    out: &mut Option<String>,
+    err: &mut Option<String>,
+    completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+) {
+    let error = terminalized_web_pipeline_contract_error(&pending, reason, &summary);
+    *success = false;
+    *out = Some(summary);
+    *err = Some(error);
+    *completion_summary = None;
+    verification_checks.push("web_pipeline_terminalized_on_contract_failure=true".to_string());
+    verification_checks.push(format!(
+        "web_pipeline_terminal_failure_reason={}",
+        web_pipeline_completion_reason_label(reason)
+    ));
+    verification_checks.push("web_pipeline_active=false".to_string());
+    verification_checks.push("terminal_chat_reply_ready=false".to_string());
+    agent_state.pending_search_completion = Some(pending);
+    agent_state.execution_queue.clear();
+    agent_state.recent_actions.clear();
+}
+
 fn normalized_domain_key(url: &str) -> Option<String> {
     source_host(url).map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
 }
@@ -286,20 +347,55 @@ fn payload_derived_source_hosts(
 }
 
 fn discovery_source_hints(discovery_sources: &[WebSource]) -> Vec<PendingSearchReadSummary> {
-    let bundle = WebEvidenceBundle {
-        schema_version: 1,
-        retrieved_at_ms: 0,
-        tool: "web__search".to_string(),
-        backend: "web_pipeline_pre_read_selection".to_string(),
-        query: None,
-        url: None,
-        sources: discovery_sources.to_vec(),
-        source_observations: vec![],
-        documents: vec![],
-        provider_candidates: vec![],
-        retrieval_contract: None,
-    };
-    candidate_source_hints_from_bundle(&bundle)
+    let mut hints = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+
+    for source in discovery_sources {
+        let url = source.url.trim();
+        if url.is_empty() {
+            continue;
+        }
+        let base_url_allowed = is_citable_web_url(url)
+            && !is_search_hub_url(url)
+            && !is_multi_item_listing_url(url)
+            && !crate::agentic::web::is_google_news_article_wrapper_url(url);
+        let resolved_url = if base_url_allowed {
+            url.to_string()
+        } else {
+            source
+                .snippet
+                .as_deref()
+                .and_then(source_url_from_metadata_excerpt)
+                .filter(|candidate| {
+                    let trimmed = candidate.trim();
+                    is_citable_web_url(trimmed)
+                        && !is_search_hub_url(trimmed)
+                        && !is_multi_item_listing_url(trimmed)
+                })
+                .unwrap_or_else(|| url.to_string())
+        };
+        let dedup_key = crate::agentic::web::normalize_url_for_id(&resolved_url);
+        if !seen.insert(dedup_key) {
+            continue;
+        }
+        hints.push(PendingSearchReadSummary {
+            url: resolved_url,
+            title: source
+                .title
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(|value| value.to_string()),
+            excerpt: source
+                .snippet
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or_default()
+                .to_string(),
+        });
+    }
+
+    hints
 }
 
 fn discovery_source_affordances(
@@ -638,6 +734,152 @@ mod tests {
     }
 
     #[test]
+    fn terminalized_web_pipeline_contract_error_keeps_low_signal_cause_but_not_bare_success() {
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract:
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                    .to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(
+                    "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+                    None,
+                )
+                .expect("retrieval contract"),
+            ),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1,
+            deadline_ms: 2,
+            candidate_urls: vec!["https://research.ibm.com/blog/nist-pqc-standards".to_string()],
+            candidate_source_hints: vec![],
+            attempted_urls: vec![],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "NIST IR 8413 Update 1 documents the post-quantum cryptography standardization process."
+                        .to_string(),
+            }],
+            min_sources: 2,
+        };
+
+        let error = terminalized_web_pipeline_contract_error(
+            &pending,
+            WebPipelineCompletionReason::DeadlineReached,
+            "Standards briefing\n\nSummary inventory\n- FIPS 203",
+        );
+
+        assert!(
+            error.contains("ERROR_CLASS=ExecutionContractViolation"),
+            "{error}"
+        );
+        assert!(
+            error.contains("cause_error_class=LowSignalReadInsufficient"),
+            "{error}"
+        );
+        assert!(
+            error.contains("web_pipeline_reason=deadline_reached"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn terminalize_failed_web_pipeline_completion_marks_agent_for_terminal_contract_failure() {
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract:
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                    .to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(
+                    "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+                    None,
+                )
+                .expect("retrieval contract"),
+            ),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1,
+            deadline_ms: 2,
+            candidate_urls: vec![],
+            candidate_source_hints: vec![],
+            attempted_urls: vec![],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "NIST IR 8413 Update 1 documents the post-quantum cryptography standardization process."
+                        .to_string(),
+            }],
+            min_sources: 2,
+        };
+        let mut agent_state = test_agent_state();
+        agent_state.execution_queue.push(ActionRequest {
+            target: ActionTarget::WebRetrieve,
+            params: serde_jcs::to_vec(&serde_json::json!({
+                "url": "https://csrc.nist.gov/pubs/ir/8413/upd1/final"
+            }))
+            .expect("params"),
+            context: ActionContext {
+                agent_id: "desktop_agent".to_string(),
+                session_id: Some(agent_state.session_id),
+                window_id: None,
+            },
+            nonce: 1,
+        });
+        let mut success = true;
+        let mut out = None;
+        let mut err = None;
+        let mut completion_summary = None;
+        let mut verification_checks = Vec::new();
+
+        terminalize_failed_web_pipeline_completion(
+            &mut agent_state,
+            pending.clone(),
+            WebPipelineCompletionReason::ExhaustedCandidates,
+            "Standards briefing\n\nSummary inventory\n- FIPS 203".to_string(),
+            &mut success,
+            &mut out,
+            &mut err,
+            &mut completion_summary,
+            &mut verification_checks,
+        );
+
+        assert!(!success);
+        assert_eq!(completion_summary, None);
+        assert!(out
+            .as_deref()
+            .unwrap_or_default()
+            .contains("Standards briefing"));
+        assert!(err
+            .as_deref()
+            .unwrap_or_default()
+            .contains("ERROR_CLASS=ExecutionContractViolation"));
+        assert!(agent_state.execution_queue.is_empty());
+        assert_eq!(
+            agent_state
+                .pending_search_completion
+                .as_ref()
+                .map(|value| value.query.as_str()),
+            Some(pending.query.as_str())
+        );
+        assert!(verification_checks
+            .iter()
+            .any(|check| { check == "web_pipeline_terminalized_on_contract_failure=true" }));
+    }
+
+    #[test]
     fn payload_rejects_external_article_deep_links_without_discovery_receipts() {
         assert!(!payload_allows_external_article_url(
             None,
@@ -687,6 +929,29 @@ mod tests {
             constraint.contains("official menu pages")
                 || constraint.contains("business-detail pages")
         }));
+    }
+
+    #[test]
+    fn discovery_source_hints_preserve_late_grounding_context_for_authority_expansion_sources() {
+        let discovery_sources = vec![WebSource {
+            source_id: "fips-203".to_string(),
+            rank: Some(1),
+            url: "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+            title: Some("Module-Lattice-Based Key-Encapsulation Mechanism Standard".to_string()),
+            snippet: Some(format!(
+                "{} post-quantum cryptography standards migration guidance from the NIST PQC program.",
+                "context ".repeat(24)
+            )),
+            domain: Some("csrc.nist.gov".to_string()),
+        }];
+
+        let hints = discovery_source_hints(&discovery_sources);
+
+        assert_eq!(hints.len(), 1);
+        assert!(hints[0]
+            .excerpt
+            .contains("post-quantum cryptography standards"));
+        assert!(hints[0].excerpt.len() > 180);
     }
 
     #[test]

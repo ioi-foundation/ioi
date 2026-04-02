@@ -1,13 +1,17 @@
 // Path: crates/services/src/agentic/desktop/service/step/perception.rs
 
+use crate::agentic::desktop::service::lifecycle::load_worker_assignment;
 use crate::agentic::desktop::service::step::anti_loop::latest_failure_class;
 use crate::agentic::desktop::service::step::signals::{
     is_browser_surface, is_mail_connector_tool_name,
 };
 use crate::agentic::desktop::service::step::visual::hamming_distance;
+use crate::agentic::desktop::service::step::worker::{
+    filter_tools_for_worker_recovery, worker_recovery_failure_class,
+};
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::tools::discover_tools;
-use crate::agentic::desktop::types::{AgentState, ExecutionTier};
+use crate::agentic::desktop::types::{AgentState, ExecutionTier, WorkerAssignment};
 use crate::agentic::desktop::utils::compute_phash;
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::os::WindowInfo;
@@ -36,6 +40,7 @@ pub struct PerceptionContext {
     pub memory_pointers: String,
     pub available_tools: Vec<LlmToolDefinition>,
     pub tool_desc: String,
+    pub worker_assignment: Option<WorkerAssignment>,
     pub visual_verification_note: Option<String>,
     pub last_failure_reason: Option<String>,
     pub consecutive_failures: u8,
@@ -343,6 +348,23 @@ pub async fn gather_context(
         agent_state.resolved_intent.as_ref(),
     )
     .await;
+    let worker_assignment = match load_worker_assignment(state, agent_state.session_id) {
+        Ok(assignment) => assignment,
+        Err(error) => {
+            log::warn!(
+                "Failed to load worker assignment for tool filtering session={}: {}",
+                hex::encode(agent_state.session_id),
+                error
+            );
+            None
+        }
+    };
+    let tools = filter_tools_for_worker_recovery(
+        &tools,
+        agent_state,
+        worker_assignment.as_ref(),
+        worker_recovery_failure_class(agent_state, worker_assignment.as_ref()),
+    );
 
     // 3. Passive Context Injection
     let omit_passive_workspace_context = should_omit_passive_workspace_context(
@@ -445,6 +467,7 @@ pub async fn gather_context(
         memory_pointers,
         available_tools: tools,
         tool_desc,
+        worker_assignment,
         visual_verification_note,
         last_failure_reason,
         consecutive_failures: agent_state.consecutive_failures,

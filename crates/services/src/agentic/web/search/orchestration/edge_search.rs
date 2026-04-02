@@ -65,6 +65,7 @@ pub async fn edge_web_search(
         && retrieval_contract.entity_cardinality_min > 1
         && !retrieval_contract.link_collection_preferred
         && !crate::agentic::web::contract_requires_geo_scoped_entity_expansion(retrieval_contract);
+    let included_hosts = included_hosts_from_query(&query_for_provider);
     let excluded_hosts = excluded_hosts_from_query(&query_for_provider);
     let search_started_at_ms = now_ms();
     let mut candidate_observations = Vec::<ObservedSearchProviderCandidate>::new();
@@ -108,6 +109,7 @@ pub async fn edge_web_search(
             headline_lookup_mode,
             discovery_inventory_limit,
             expansion_surface_preferred,
+            &included_hosts,
             &excluded_hosts,
         )
         .await;

@@ -18,8 +18,9 @@ pub mod worker;
 
 use super::{DesktopAgentService, ServiceCallContext};
 // [FIX] Import actions module from parent service directory
+use crate::agentic::desktop::agent_playbooks::builtin_agent_playbook;
 use crate::agentic::desktop::keys::{
-    get_mutation_receipt_ptr_key, get_state_key, AGENT_POLICY_PREFIX,
+    get_mutation_receipt_ptr_key, get_parent_playbook_run_key, get_state_key, AGENT_POLICY_PREFIX,
 };
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::actions;
@@ -28,14 +29,14 @@ use crate::agentic::desktop::service::step::anti_loop::{
     choose_routing_tier, mutation_receipt_artifact_id, mutation_receipt_pointer_for_artifact_id,
 };
 use crate::agentic::desktop::service::step::helpers::default_safe_policy;
-use crate::agentic::desktop::types::{AgentState, AgentStatus, StepAgentParams};
+use crate::agentic::desktop::types::{AgentState, AgentStatus, ParentPlaybookRun, StepAgentParams};
 use crate::agentic::desktop::utils::persist_agent_state;
 use crate::agentic::rules::ActionRules;
 use hex;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, StepTrace};
+use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, ResolvedIntentState, StepTrace};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -113,6 +114,194 @@ fn pending_tool_is_browser_action(agent_state: &AgentState) -> bool {
 
 fn is_web_research_intent(resolved_scope: IntentScopeProfile) -> bool {
     matches!(resolved_scope, IntentScopeProfile::WebResearch)
+}
+
+fn instruction_contract_slot_value<'a>(
+    resolved: &'a ResolvedIntentState,
+    slot_name: &str,
+) -> Option<&'a str> {
+    resolved
+        .instruction_contract
+        .as_ref()?
+        .slot_bindings
+        .iter()
+        .find(|binding| binding.slot.trim().eq_ignore_ascii_case(slot_name))
+        .and_then(|binding| binding.value.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn root_playbook_run_exists(
+    state: &dyn StateAccess,
+    agent_state: &AgentState,
+    resolved: &ResolvedIntentState,
+) -> bool {
+    let Some(playbook_id) = instruction_contract_slot_value(resolved, "playbook_id") else {
+        return false;
+    };
+    let key = get_parent_playbook_run_key(&agent_state.session_id, playbook_id);
+    state.get(&key).ok().flatten().is_some()
+}
+
+fn latest_root_playbook_child_session_id(
+    state: &dyn StateAccess,
+    agent_state: &AgentState,
+) -> Option<[u8; 32]> {
+    agent_state
+        .child_session_ids
+        .iter()
+        .rev()
+        .copied()
+        .find(|child_session_id| {
+            let key = get_state_key(child_session_id);
+            state
+                .get(&key)
+                .ok()
+                .flatten()
+                .and_then(|bytes| codec::from_bytes_canonical::<AgentState>(&bytes).ok())
+                .map(|child_state| {
+                    child_state.parent_session_id == Some(agent_state.session_id)
+                        && child_state.status == AgentStatus::Running
+                })
+                .unwrap_or(false)
+        })
+}
+
+fn queue_root_playbook_delegate_request(
+    state: &dyn StateAccess,
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+) -> Result<bool, TransactionError> {
+    let Some(resolved) = agent_state.resolved_intent.as_ref() else {
+        return Ok(false);
+    };
+    if resolved
+        .intent_id
+        .trim()
+        .eq_ignore_ascii_case("delegation.task")
+        || agent_state.parent_session_id.is_some()
+    {
+        return Ok(false);
+    }
+
+    let Some(playbook_id) = instruction_contract_slot_value(resolved, "playbook_id") else {
+        return Ok(false);
+    };
+    if builtin_agent_playbook(Some(playbook_id)).is_none()
+        || root_playbook_run_exists(state, agent_state, resolved)
+        || latest_root_playbook_child_session_id(state, agent_state).is_some()
+    {
+        return Ok(false);
+    }
+
+    let params = serde_jcs::to_vec(&json!({
+        "goal": agent_state.goal,
+        "budget": 0,
+        "playbook_id": playbook_id,
+        "template_id": instruction_contract_slot_value(resolved, "template_id"),
+        "workflow_id": instruction_contract_slot_value(resolved, "workflow_id"),
+        "role": serde_json::Value::Null,
+        "success_criteria": serde_json::Value::Null,
+        "merge_mode": serde_json::Value::Null,
+        "expected_output": serde_json::Value::Null,
+    }))
+    .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let request = ActionRequest {
+        target: ActionTarget::Custom("agent__delegate".to_string()),
+        params,
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(session_id),
+            window_id: None,
+        },
+        nonce: agent_state.step_count as u64 + agent_state.execution_queue.len() as u64 + 1,
+    };
+    let duplicate = agent_state
+        .execution_queue
+        .iter()
+        .any(|queued| queued.target == request.target && queued.params == request.params);
+    if duplicate {
+        return Ok(false);
+    }
+
+    agent_state.execution_queue.push(request);
+    Ok(true)
+}
+
+fn active_parent_playbook_child_session_id(
+    state: &dyn StateAccess,
+    agent_state: &AgentState,
+) -> Option<[u8; 32]> {
+    let resolved = agent_state.resolved_intent.as_ref()?;
+    if resolved
+        .intent_id
+        .trim()
+        .eq_ignore_ascii_case("delegation.task")
+    {
+        return None;
+    }
+
+    let playbook_id = instruction_contract_slot_value(resolved, "playbook_id")?;
+    let key = get_parent_playbook_run_key(&agent_state.session_id, playbook_id);
+    state
+        .get(&key)
+        .ok()
+        .flatten()
+        .and_then(|bytes| codec::from_bytes_canonical::<ParentPlaybookRun>(&bytes).ok())
+        .and_then(|run| run.active_child_session_id)
+        .or_else(|| latest_root_playbook_child_session_id(state, agent_state))
+}
+
+fn child_immediate_progress_await_eligible(
+    state: &dyn StateAccess,
+    child_session_id: [u8; 32],
+) -> bool {
+    let key = get_state_key(&child_session_id);
+    state
+        .get(&key)
+        .ok()
+        .flatten()
+        .and_then(|bytes| codec::from_bytes_canonical::<AgentState>(&bytes).ok())
+        .map(|_| true)
+        .unwrap_or(false)
+}
+
+fn queue_parent_playbook_await_request(
+    state: &dyn StateAccess,
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+) -> Result<bool, TransactionError> {
+    let Some(child_session_id) = active_parent_playbook_child_session_id(state, agent_state) else {
+        return Ok(false);
+    };
+    if !child_immediate_progress_await_eligible(state, child_session_id) {
+        return Ok(false);
+    }
+
+    let params = serde_jcs::to_vec(&json!({
+        "child_session_id_hex": hex::encode(child_session_id),
+    }))
+    .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let request = ActionRequest {
+        target: ActionTarget::Custom("agent__await_result".to_string()),
+        params,
+        context: ActionContext {
+            agent_id: "desktop_agent".to_string(),
+            session_id: Some(session_id),
+            window_id: None,
+        },
+        nonce: agent_state.step_count as u64 + agent_state.execution_queue.len() as u64 + 1,
+    };
+    let duplicate = agent_state
+        .execution_queue
+        .iter()
+        .any(|queued| queued.target == request.target && queued.params == request.params);
+    if duplicate {
+        return Ok(false);
+    }
+
+    agent_state.execution_queue.push(request);
+    Ok(true)
 }
 
 fn enqueue_deterministic_screenshot_capture(
@@ -512,6 +701,30 @@ pub async fn handle_step(
     }
 
     if agent_state.execution_queue.is_empty() && agent_state.pending_tool_jcs.is_none() {
+        if queue_root_playbook_delegate_request(state, &mut agent_state, p.session_id)? {
+            return queue::process_queue_item(
+                service,
+                state,
+                &mut agent_state,
+                &p,
+                ctx.block_height,
+                ctx.block_timestamp,
+                call_context,
+            )
+            .await;
+        }
+        if queue_parent_playbook_await_request(state, &mut agent_state, p.session_id)? {
+            return queue::process_queue_item(
+                service,
+                state,
+                &mut agent_state,
+                &p,
+                ctx.block_height,
+                ctx.block_timestamp,
+                call_context,
+            )
+            .await;
+        }
         if planning_disabled {
             // Planning explicitly disabled; continue through legacy direct cognition path.
         } else {
@@ -690,9 +903,24 @@ pub async fn handle_step(
 
 #[cfg(test)]
 mod tests {
-    use super::should_clear_stale_canonical_pending;
-    use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use super::{
+        queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
+        should_clear_stale_canonical_pending,
+    };
+    use crate::agentic::desktop::keys::{get_parent_playbook_run_key, get_state_key};
+    use crate::agentic::desktop::types::{
+        AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, ParentPlaybookStatus,
+    };
+    use ioi_api::state::{StateAccess, StateScanIter};
+    use ioi_types::app::agentic::{
+        ArgumentOrigin, InstructionBindingKind, InstructionContract, InstructionSlotBinding,
+        IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    };
+    use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
+    use ioi_types::codec;
+    use ioi_types::error::StateError;
     use std::collections::BTreeMap;
+    use std::sync::Arc;
 
     fn test_agent_state() -> AgentState {
         AgentState {
@@ -735,6 +963,102 @@ mod tests {
         }
     }
 
+    #[derive(Default)]
+    struct MockState {
+        data: BTreeMap<Vec<u8>, Vec<u8>>,
+    }
+
+    impl StateAccess for MockState {
+        fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
+            Ok(self.data.get(key).cloned())
+        }
+
+        fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), StateError> {
+            self.data.insert(key.to_vec(), value.to_vec());
+            Ok(())
+        }
+
+        fn delete(&mut self, key: &[u8]) -> Result<(), StateError> {
+            self.data.remove(key);
+            Ok(())
+        }
+
+        fn batch_set(&mut self, updates: &[(Vec<u8>, Vec<u8>)]) -> Result<(), StateError> {
+            for (key, value) in updates {
+                self.insert(key, value)?;
+            }
+            Ok(())
+        }
+
+        fn batch_get(&self, keys: &[Vec<u8>]) -> Result<Vec<Option<Vec<u8>>>, StateError> {
+            keys.iter().map(|key| self.get(key)).collect()
+        }
+
+        fn batch_apply(
+            &mut self,
+            inserts: &[(Vec<u8>, Vec<u8>)],
+            deletes: &[Vec<u8>],
+        ) -> Result<(), StateError> {
+            for key in deletes {
+                self.delete(key)?;
+            }
+            for (key, value) in inserts {
+                self.insert(key, value)?;
+            }
+            Ok(())
+        }
+
+        fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+            let rows: Vec<_> = self
+                .data
+                .iter()
+                .filter(|(key, _)| key.starts_with(prefix))
+                .map(|(key, value)| Ok((Arc::from(key.as_slice()), Arc::from(value.as_slice()))))
+                .collect();
+            Ok(Box::new(rows.into_iter()))
+        }
+    }
+
+    fn resolved_web_intent_with_playbook(playbook_id: &str) -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: "web.research".to_string(),
+            scope: IntentScopeProfile::WebResearch,
+            band: IntentConfidenceBand::High,
+            score: 0.99,
+            top_k: vec![],
+            required_capabilities: vec![],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "intent-matrix-test".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "v1".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [1u8; 32],
+            tool_registry_hash: [2u8; 32],
+            capability_ontology_hash: [3u8; 32],
+            query_normalization_version: "intent-query-norm-v1".to_string(),
+            matrix_source_hash: [4u8; 32],
+            receipt_hash: [5u8; 32],
+            provider_selection: None,
+            instruction_contract: Some(InstructionContract {
+                operation: "web.research".to_string(),
+                side_effect_mode: Default::default(),
+                slot_bindings: vec![InstructionSlotBinding {
+                    slot: "playbook_id".to_string(),
+                    binding_kind: InstructionBindingKind::UserLiteral,
+                    value: Some(playbook_id.to_string()),
+                    origin: ArgumentOrigin::default(),
+                    protected_slot_kind: Default::default(),
+                }],
+                negative_constraints: vec![],
+                success_criteria: vec![],
+            }),
+            constrained: false,
+        }
+    }
+
     #[test]
     fn stale_canonical_pending_requires_cleanup_without_approval_or_runtime_retry() {
         let mut state = test_agent_state();
@@ -747,5 +1071,260 @@ mod tests {
         let mut state = test_agent_state();
         state.pending_tool_jcs = Some(vec![1, 2, 3]);
         assert!(!should_clear_stale_canonical_pending(&state, true));
+    }
+
+    #[test]
+    fn root_playbook_delegate_is_queued_without_cognition() {
+        let session_id = [6u8; 32];
+        let playbook_id = "citation_grounded_brief";
+        let mut state = MockState::default();
+        let mut agent_state = test_agent_state();
+        agent_state.session_id = session_id;
+        agent_state.goal = "Research the latest NIST PQC standards.".to_string();
+        agent_state.resolved_intent = Some(resolved_web_intent_with_playbook(playbook_id));
+
+        let queued = queue_root_playbook_delegate_request(&state, &mut agent_state, session_id)
+            .expect("queue delegate request");
+
+        assert!(queued);
+        assert_eq!(agent_state.execution_queue.len(), 1);
+        assert_eq!(
+            agent_state.execution_queue[0].target,
+            ActionTarget::Custom("agent__delegate".to_string())
+        );
+        let args: serde_json::Value =
+            serde_json::from_slice(&agent_state.execution_queue[0].params)
+                .expect("delegate params should decode");
+        assert_eq!(
+            args.get("goal").and_then(|value| value.as_str()),
+            Some("Research the latest NIST PQC standards.")
+        );
+        assert_eq!(
+            args.get("playbook_id").and_then(|value| value.as_str()),
+            Some(playbook_id)
+        );
+
+        let run = ParentPlaybookRun {
+            parent_session_id: session_id,
+            playbook_id: playbook_id.to_string(),
+            playbook_label: "Citation-Grounded Brief".to_string(),
+            topic: "latest NIST PQC standards".to_string(),
+            status: ParentPlaybookStatus::Running,
+            current_step_index: 0,
+            active_child_session_id: Some([9u8; 32]),
+            started_at_ms: 1,
+            updated_at_ms: 1,
+            completed_at_ms: None,
+            steps: vec![],
+        };
+        state
+            .insert(
+                &get_parent_playbook_run_key(&session_id, playbook_id),
+                &codec::to_bytes_canonical(&run).expect("playbook bytes"),
+            )
+            .expect("persist playbook run");
+        agent_state.execution_queue.clear();
+
+        let queued_again =
+            queue_root_playbook_delegate_request(&state, &mut agent_state, session_id)
+                .expect("queue delegate request after kickoff");
+
+        assert!(!queued_again);
+        assert!(agent_state.execution_queue.is_empty());
+        state
+            .delete(&get_parent_playbook_run_key(&session_id, playbook_id))
+            .expect("delete playbook run");
+
+        let child_session_id = [10u8; 32];
+        let mut child_state = test_agent_state();
+        child_state.session_id = child_session_id;
+        child_state.parent_session_id = Some(session_id);
+        state
+            .insert(
+                &get_state_key(&child_session_id),
+                &codec::to_bytes_canonical(&child_state).expect("child bytes"),
+            )
+            .expect("persist child state");
+        agent_state.child_session_ids.push(child_session_id);
+
+        let queued_with_child =
+            queue_root_playbook_delegate_request(&state, &mut agent_state, session_id)
+                .expect("queue delegate request after child spawn");
+
+        assert!(!queued_with_child);
+        assert!(agent_state.execution_queue.is_empty());
+    }
+
+    #[test]
+    fn active_parent_playbook_child_gets_single_startup_await_without_cognition() {
+        let session_id = [7u8; 32];
+        let child_session_id = [8u8; 32];
+        let playbook_id = "citation_grounded_brief";
+        let mut state = MockState::default();
+        let run = ParentPlaybookRun {
+            parent_session_id: session_id,
+            playbook_id: playbook_id.to_string(),
+            playbook_label: "Citation-Grounded Brief".to_string(),
+            topic: "latest NIST PQC standards".to_string(),
+            status: ParentPlaybookStatus::Running,
+            current_step_index: 0,
+            active_child_session_id: Some(child_session_id),
+            started_at_ms: 1,
+            updated_at_ms: 1,
+            completed_at_ms: None,
+            steps: vec![],
+        };
+        state
+            .insert(
+                &get_parent_playbook_run_key(&session_id, playbook_id),
+                &codec::to_bytes_canonical(&run).expect("playbook bytes"),
+            )
+            .expect("persist playbook run");
+
+        let mut agent_state = test_agent_state();
+        agent_state.session_id = session_id;
+        agent_state.resolved_intent = Some(resolved_web_intent_with_playbook(playbook_id));
+        let mut child_state = test_agent_state();
+        child_state.session_id = child_session_id;
+        state
+            .insert(
+                &get_state_key(&child_session_id),
+                &codec::to_bytes_canonical(&child_state).expect("child bytes"),
+            )
+            .expect("persist child state");
+
+        let queued = queue_parent_playbook_await_request(&state, &mut agent_state, session_id)
+            .expect("queue await request");
+
+        assert!(queued);
+        assert_eq!(agent_state.execution_queue.len(), 1);
+        assert_eq!(
+            agent_state.execution_queue[0].target,
+            ActionTarget::Custom("agent__await_result".to_string())
+        );
+        let args: serde_json::Value =
+            serde_json::from_slice(&agent_state.execution_queue[0].params)
+                .expect("await params should decode");
+        assert_eq!(
+            args.get("child_session_id_hex")
+                .and_then(|value| value.as_str()),
+            Some(hex::encode(child_session_id).as_str())
+        );
+
+        child_state.step_count = 1;
+        state
+            .insert(
+                &get_state_key(&child_session_id),
+                &codec::to_bytes_canonical(&child_state).expect("child bytes"),
+            )
+            .expect("persist updated child state");
+        agent_state.execution_queue.clear();
+
+        let queued_again =
+            queue_parent_playbook_await_request(&state, &mut agent_state, session_id)
+                .expect("queue await request after child start");
+
+        assert!(queued_again);
+        assert_eq!(agent_state.execution_queue.len(), 1);
+        agent_state.execution_queue.clear();
+
+        child_state.status = AgentStatus::Completed(Some(
+            "Touched files: path_utils.py\nVerification: python3 -m unittest tests.test_path_utils -v (passed)".to_string(),
+        ));
+        state
+            .insert(
+                &get_state_key(&child_session_id),
+                &codec::to_bytes_canonical(&child_state).expect("child bytes"),
+            )
+            .expect("persist completed child state");
+
+        let queued_terminal =
+            queue_parent_playbook_await_request(&state, &mut agent_state, session_id)
+                .expect("queue await request after child completion");
+
+        assert!(queued_terminal);
+        assert_eq!(agent_state.execution_queue.len(), 1);
+        agent_state.execution_queue.clear();
+        child_state.status = AgentStatus::Running;
+        child_state.pending_tool_call =
+            Some("{\"name\":\"agent__complete\",\"arguments\":{\"result\":\"done\"}}".to_string());
+        state
+            .insert(
+                &get_state_key(&child_session_id),
+                &codec::to_bytes_canonical(&child_state).expect("child bytes"),
+            )
+            .expect("persist pending child state");
+
+        let queued_pending =
+            queue_parent_playbook_await_request(&state, &mut agent_state, session_id)
+                .expect("queue await request after child pending tool");
+
+        assert!(queued_pending);
+        assert_eq!(agent_state.execution_queue.len(), 1);
+        agent_state.execution_queue.clear();
+        child_state.pending_tool_call = None;
+
+        child_state.execution_queue.push(ActionRequest {
+            target: ActionTarget::Custom("web__read".to_string()),
+            params: serde_jcs::to_vec(&serde_json::json!({
+                "url": "https://csrc.nist.gov/projects/post-quantum-cryptography"
+            }))
+            .expect("queued child params"),
+            context: ActionContext {
+                agent_id: "desktop_agent".to_string(),
+                session_id: Some(child_session_id),
+                window_id: None,
+            },
+            nonce: 1,
+        });
+        state
+            .insert(
+                &get_state_key(&child_session_id),
+                &codec::to_bytes_canonical(&child_state).expect("child bytes"),
+            )
+            .expect("persist queued child state");
+
+        let queued_followup =
+            queue_parent_playbook_await_request(&state, &mut agent_state, session_id)
+                .expect("queue await request for queued child follow-up");
+
+        assert!(queued_followup);
+        assert_eq!(agent_state.execution_queue.len(), 1);
+        state
+            .delete(&get_parent_playbook_run_key(&session_id, playbook_id))
+            .expect("delete playbook run");
+
+        let fallback_child_session_id = [9u8; 32];
+        let mut fallback_agent_state = test_agent_state();
+        fallback_agent_state.session_id = session_id;
+        fallback_agent_state.resolved_intent = Some(resolved_web_intent_with_playbook(playbook_id));
+        fallback_agent_state
+            .child_session_ids
+            .push(fallback_child_session_id);
+        let mut fallback_child_state = test_agent_state();
+        fallback_child_state.session_id = fallback_child_session_id;
+        fallback_child_state.parent_session_id = Some(session_id);
+        state
+            .insert(
+                &get_state_key(&fallback_child_session_id),
+                &codec::to_bytes_canonical(&fallback_child_state).expect("fallback child bytes"),
+            )
+            .expect("persist fallback child state");
+
+        let fallback_queued =
+            queue_parent_playbook_await_request(&state, &mut fallback_agent_state, session_id)
+                .expect("queue await request from child fallback");
+
+        assert!(fallback_queued);
+        assert_eq!(fallback_agent_state.execution_queue.len(), 1);
+        let fallback_args: serde_json::Value =
+            serde_json::from_slice(&fallback_agent_state.execution_queue[0].params)
+                .expect("fallback await params should decode");
+        assert_eq!(
+            fallback_args
+                .get("child_session_id_hex")
+                .and_then(|value| value.as_str()),
+            Some(hex::encode(fallback_child_session_id).as_str())
+        );
     }
 }

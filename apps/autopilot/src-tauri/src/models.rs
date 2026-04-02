@@ -1,8 +1,9 @@
 // apps/autopilot/src-tauri/src/models.rs
 use ioi_api::studio::{
-    StudioArtifactBrief, StudioArtifactCandidateSummary, StudioArtifactEditIntent,
-    StudioArtifactJudgeResult, StudioArtifactOutputOrigin, StudioArtifactSelectionTarget,
-    StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactCandidateSummary,
+    StudioArtifactEditIntent, StudioArtifactExemplar, StudioArtifactIR, StudioArtifactJudgeResult,
+    StudioArtifactOutputOrigin, StudioArtifactRenderEvaluation, StudioArtifactSelectedSkill,
+    StudioArtifactSelectionTarget, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
@@ -337,6 +338,8 @@ pub struct LocalEngineAgentPlaybookRecord {
     pub label: String,
     pub summary: String,
     pub goal_template: String,
+    pub route_family: String,
+    pub topology: String,
     #[serde(default)]
     pub trigger_intents: Vec<String>,
     #[serde(default)]
@@ -1151,6 +1154,14 @@ pub struct StudioArtifactMaterializationContract {
     #[serde(default)]
     pub artifact_brief: Option<StudioArtifactBrief>,
     #[serde(default)]
+    pub blueprint: Option<StudioArtifactBlueprint>,
+    #[serde(default)]
+    pub artifact_ir: Option<StudioArtifactIR>,
+    #[serde(default)]
+    pub selected_skills: Vec<StudioArtifactSelectedSkill>,
+    #[serde(default)]
+    pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    #[serde(default)]
     pub edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
     pub candidate_summaries: Vec<StudioArtifactCandidateSummary>,
@@ -1158,6 +1169,8 @@ pub struct StudioArtifactMaterializationContract {
     pub winning_candidate_id: Option<String>,
     #[serde(default)]
     pub winning_candidate_rationale: Option<String>,
+    #[serde(default)]
+    pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
     #[serde(default)]
     pub judge: Option<StudioArtifactJudgeResult>,
     #[serde(default)]
@@ -1203,11 +1216,21 @@ pub struct StudioArtifactRevision {
     #[serde(default)]
     pub artifact_brief: Option<StudioArtifactBrief>,
     #[serde(default)]
+    pub blueprint: Option<StudioArtifactBlueprint>,
+    #[serde(default)]
+    pub artifact_ir: Option<StudioArtifactIR>,
+    #[serde(default)]
+    pub selected_skills: Vec<StudioArtifactSelectedSkill>,
+    #[serde(default)]
+    pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    #[serde(default)]
     pub edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
     pub candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     #[serde(default)]
     pub winning_candidate_id: Option<String>,
+    #[serde(default)]
+    pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
     #[serde(default)]
     pub judge: Option<StudioArtifactJudgeResult>,
     #[serde(default)]
@@ -1220,6 +1243,8 @@ pub struct StudioArtifactRevision {
     pub failure: Option<StudioArtifactFailure>,
     #[serde(default)]
     pub file_writes: Vec<StudioArtifactMaterializationFileWrite>,
+    #[serde(default)]
+    pub taste_memory: Option<StudioArtifactTasteMemory>,
     #[serde(default)]
     pub selected_targets: Vec<StudioArtifactSelectionTarget>,
 }
@@ -1327,6 +1352,8 @@ pub struct StudioArtifactSession {
     pub revisions: Vec<StudioArtifactRevision>,
     #[serde(default)]
     pub taste_memory: Option<StudioArtifactTasteMemory>,
+    #[serde(default)]
+    pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
     #[serde(default)]
     pub selected_targets: Vec<StudioArtifactSelectionTarget>,
     #[serde(default)]

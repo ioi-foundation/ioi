@@ -1,8 +1,8 @@
 use super::{
     apply_patch, copy_path_deterministic, create_directory_deterministic,
-    create_zip_from_directory_deterministic, delete_path_deterministic, fuzzy_find_indices,
-    list_directory_entries, move_path_deterministic, resolve_home_directory, resolve_tool_path,
-    search_files, stat_path_deterministic,
+    create_zip_from_directory_deterministic, delete_path_deterministic, edit_line_content,
+    fuzzy_find_indices, list_directory_entries, move_path_deterministic, resolve_home_directory,
+    resolve_tool_path, search_files, stat_path_deterministic,
 };
 use std::fs;
 use std::io::Read;
@@ -44,6 +44,80 @@ fn fuzzy_match_reports_ambiguity() {
     let search = "key = 1";
     let err = fuzzy_find_indices(source, search).expect_err("fuzzy match should be ambiguous");
     assert!(err.contains("ambiguous"));
+}
+
+#[test]
+fn edit_line_content_recovers_python_return_when_line_number_is_out_of_range() {
+    let original = concat!(
+        "def normalize_fixture_path(raw_path: str) -> str:\n",
+        "    \"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\"\n",
+        "    return raw_path.strip().replace(\"\\\\\", \"/\")\n"
+    );
+
+    let updated = edit_line_content(
+        original,
+        14,
+        "return raw_path.strip().replace(\"\\\\\", \"/\").replace(\"//\", \"/\")",
+    )
+    .expect("structural return replacement should succeed");
+
+    assert!(updated.contains("replace(\"//\", \"/\")"));
+    assert!(!updated.contains("return raw_path.strip().replace(\"\\\\\", \"/\")\n"));
+}
+
+#[test]
+fn apply_patch_recovers_python_function_block_when_search_uses_summarized_view() {
+    let original = concat!(
+        "def normalize_fixture_path(raw_path: str) -> str:\n",
+        "    \"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\"\n",
+        "    return raw_path.strip().replace(\"\\\\\", \"/\")\n"
+    );
+    let summarized_search = concat!(
+        "def normalize_fixture_path(raw_path: str) -> str: ",
+        "\"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\" ",
+        "return raw_path.strip().replace(\"\\\\\", \"/\")"
+    );
+    let replace = concat!(
+        "def normalize_fixture_path(raw_path: str) -> str:\n",
+        " \"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\"\n",
+        " normalized = raw_path.strip().replace(\"\\\\\", \"/\")\n",
+        " while \"//\" in normalized:\n",
+        "  normalized = normalized.replace(\"//\", \"/\")\n",
+        " return normalized\n"
+    );
+
+    let updated =
+        apply_patch(original, summarized_search, replace).expect("structural patch should succeed");
+
+    assert!(updated.contains("while \"//\" in normalized:"));
+    assert!(updated.contains("return normalized"));
+    assert!(!updated.contains("return raw_path.strip().replace(\"\\\\\", \"/\")"));
+}
+
+#[test]
+fn apply_patch_recovers_multiline_python_function_from_single_line_reference() {
+    let original =
+        "def normalize_fixture_path(raw_path: str) -> str: return raw_path.strip().replace(\"\\\\\", \"/\")\n";
+    let summarized_search = concat!(
+        "def normalize_fixture_path(raw_path: str) -> str:\n",
+        "    return raw_path.strip().replace(\"\\\\\", \"/\")"
+    );
+    let replace = concat!(
+        "def normalize_fixture_path(raw_path: str) -> str:\n",
+        "    \"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\"\n",
+        "    normalized = raw_path.strip().replace(\"\\\\\", \"/\")\n",
+        "    while \"//\" in normalized:\n",
+        "        normalized = normalized.replace(\"//\", \"/\")\n",
+        "    return normalized\n"
+    );
+
+    let updated =
+        apply_patch(original, summarized_search, replace).expect("structural patch should succeed");
+
+    assert!(updated.contains("\n    \"\"\"Normalize a repo-relative path"));
+    assert!(updated.contains("while \"//\" in normalized:"));
+    assert!(updated.contains("return normalized"));
+    assert!(!updated.contains(": return raw_path.strip().replace(\"\\\\\", \"/\")"));
 }
 
 #[test]

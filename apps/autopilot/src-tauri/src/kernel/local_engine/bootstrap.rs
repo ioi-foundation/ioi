@@ -32,6 +32,121 @@ pub fn bootstrap_local_engine_dev_support(
     Ok(())
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct LocalGpuDevPresetCatalogDocument {
+    #[serde(default)]
+    default_preset_id: Option<String>,
+    #[serde(default)]
+    presets: Vec<LocalGpuDevPresetCatalogEntry>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct LocalGpuDevPresetCatalogEntry {
+    id: String,
+    #[serde(default)]
+    runtime_kind: Option<String>,
+    #[serde(default)]
+    runtime_url: Option<String>,
+    #[serde(default)]
+    runtime_health_url: Option<String>,
+    #[serde(default)]
+    runtime_model: Option<String>,
+    #[serde(default)]
+    embedding_model: Option<String>,
+    #[serde(default)]
+    backend_source: Option<String>,
+    #[serde(default)]
+    backend_id: Option<String>,
+    #[serde(default)]
+    backend_autostart: Option<bool>,
+}
+
+fn local_gpu_dev_preset_catalog_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("dev")
+        .join("model-matrix-presets.json")
+}
+
+fn load_local_gpu_dev_preset_catalog() -> Option<LocalGpuDevPresetCatalogDocument> {
+    let path = local_gpu_dev_preset_catalog_path();
+    let raw = fs::read_to_string(&path).ok()?;
+    serde_json::from_str::<LocalGpuDevPresetCatalogDocument>(&raw).ok()
+}
+
+fn catalog_default_local_gpu_dev_preset_id() -> String {
+    load_local_gpu_dev_preset_catalog()
+        .and_then(|catalog| catalog.default_preset_id)
+        .map(|value| normalize_text(&value))
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| LOCAL_GPU_DEV_DEFAULT_PRESET.to_string())
+}
+
+fn resolve_catalog_local_gpu_dev_preset_entry(
+    preset_id: &str,
+) -> Option<LocalGpuDevPresetCatalogEntry> {
+    load_local_gpu_dev_preset_catalog()?
+        .presets
+        .into_iter()
+        .find(|entry| normalize_text(&entry.id) == preset_id)
+}
+
+fn resolve_catalog_backend_source(source: Option<String>) -> Option<String> {
+    source.and_then(|value| {
+        let trimmed = normalize_text(&value);
+        if trimmed.is_empty() {
+            return None;
+        }
+        if trimmed.contains("://") {
+            return Some(trimmed);
+        }
+        let candidate = PathBuf::from(&trimmed);
+        if candidate.is_absolute() {
+            return Some(candidate.display().to_string());
+        }
+        Some(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join(trimmed)
+                .display()
+                .to_string(),
+        )
+    })
+}
+
+fn catalog_entry_to_local_gpu_dev_preset(
+    preset_id: String,
+    entry: LocalGpuDevPresetCatalogEntry,
+    local_gpu_dev_enabled: bool,
+    explicit_runtime_url: Option<String>,
+    explicit_health_url: Option<String>,
+    explicit_backend_source: Option<String>,
+    explicit_backend_id: Option<String>,
+) -> LocalGpuDevPreset {
+    LocalGpuDevPreset {
+        preset_id,
+        runtime_url: explicit_runtime_url.or(entry.runtime_url),
+        runtime_health_url: explicit_health_url.or(entry.runtime_health_url),
+        runtime_model: env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+            .or_else(|| env_text("AUTOPILOT_LOCAL_MODEL_ID"))
+            .or_else(|| env_text("OPENAI_MODEL"))
+            .or(entry.runtime_model),
+        embedding_model: env_text("AUTOPILOT_LOCAL_EMBEDDING_MODEL")
+            .or_else(|| env_text("LOCAL_LLM_EMBEDDING_MODEL"))
+            .or_else(|| env_text("OPENAI_EMBEDDING_MODEL"))
+            .or(entry.embedding_model),
+        backend_source: explicit_backend_source.or_else(|| {
+            resolve_catalog_backend_source(entry.backend_source)
+        }),
+        backend_id: explicit_backend_id.or(entry.backend_id),
+        model_cache_dir: env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR")
+            .or_else(|| Some(default_local_gpu_dev_model_cache_dir())),
+        backend_autostart: crate::is_env_var_truthy("AUTOPILOT_LOCAL_BACKEND_AUTOSTART")
+            || entry.backend_autostart.unwrap_or(false)
+            || local_gpu_dev_enabled,
+    }
+}
+
 fn apply_dev_bootstrap_overrides(control_plane: &mut LocalEngineControlPlane) -> bool {
     let local_gpu_preset = resolve_local_gpu_dev_preset();
     if let Some(preset) = local_gpu_preset.as_ref() {
@@ -178,13 +293,63 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
     let explicit_backend_id = env_text("AUTOPILOT_LOCAL_BACKEND_ID");
     let preset_id = env_text("AUTOPILOT_LOCAL_DEV_PRESET").or_else(|| {
         if local_gpu_dev_enabled {
-            Some(LOCAL_GPU_DEV_DEFAULT_PRESET.to_string())
+            Some(catalog_default_local_gpu_dev_preset_id())
         } else {
             None
         }
     })?;
 
     let normalized_preset_id = normalize_text(&preset_id);
+    if let Some(entry) = resolve_catalog_local_gpu_dev_preset_entry(&normalized_preset_id) {
+        if entry.runtime_kind.as_deref() == Some("remote_http") {
+            return None;
+        }
+
+        let catalog_preset = catalog_entry_to_local_gpu_dev_preset(
+            normalized_preset_id.clone(),
+            entry,
+            local_gpu_dev_enabled,
+            explicit_runtime_url.clone(),
+            explicit_health_url.clone(),
+            explicit_backend_source.clone(),
+            explicit_backend_id.clone(),
+        );
+
+        if normalized_preset_id == LOCAL_GPU_DEV_DEFAULT_PRESET {
+            let ollama_available = command_exists("ollama");
+            if !ollama_available
+                && explicit_runtime_url.is_none()
+                && explicit_backend_source.is_none()
+            {
+                println!(
+                    "[Studio] Local GPU preset '{}' is available, but 'ollama' was not found on PATH. Falling back to mock inference until a local runtime is installed or configured.",
+                    LOCAL_GPU_DEV_DEFAULT_PRESET
+                );
+                return Some(LocalGpuDevPreset {
+                    preset_id: catalog_preset.preset_id,
+                    runtime_url: None,
+                    runtime_health_url: catalog_preset.runtime_health_url,
+                    runtime_model: catalog_preset
+                        .runtime_model
+                        .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_MODEL.to_string())),
+                    embedding_model: catalog_preset
+                        .embedding_model
+                        .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_EMBEDDING_MODEL.to_string())),
+                    backend_source: None,
+                    backend_id: catalog_preset
+                        .backend_id
+                        .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_BACKEND_ID.to_string())),
+                    model_cache_dir: catalog_preset
+                        .model_cache_dir
+                        .or_else(|| Some(default_local_gpu_dev_model_cache_dir())),
+                    backend_autostart: false,
+                });
+            }
+        }
+
+        return Some(catalog_preset);
+    }
+
     if normalized_preset_id != LOCAL_GPU_DEV_DEFAULT_PRESET {
         return Some(LocalGpuDevPreset {
             preset_id: normalized_preset_id,
@@ -555,3 +720,108 @@ pub fn tick_local_engine_executor(app: &AppHandle) -> usize {
     advanced
 }
 
+#[cfg(test)]
+mod bootstrap_tests {
+    use super::*;
+
+    static LOCAL_GPU_DEV_TEST_ENV_GUARD: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+    const LOCAL_GPU_ENV_KEYS: &[&str] = &[
+        "AUTOPILOT_LOCAL_GPU_DEV",
+        "AUTOPILOT_LOCAL_DEV_PRESET",
+        "AUTOPILOT_LOCAL_RUNTIME_URL",
+        "AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL",
+        "AUTOPILOT_LOCAL_RUNTIME_MODEL",
+        "AUTOPILOT_LOCAL_MODEL_ID",
+        "AUTOPILOT_LOCAL_EMBEDDING_MODEL",
+        "AUTOPILOT_LOCAL_BACKEND_SOURCE",
+        "AUTOPILOT_LOCAL_BACKEND_ID",
+        "AUTOPILOT_LOCAL_MODEL_CACHE_DIR",
+        "AUTOPILOT_LOCAL_BACKEND_AUTOSTART",
+        "LOCAL_LLM_URL",
+        "LOCAL_LLM_EMBEDDING_MODEL",
+        "OPENAI_MODEL",
+        "OPENAI_EMBEDDING_MODEL",
+    ];
+
+    fn with_local_gpu_env(vars: &[(&str, Option<&str>)], test: impl FnOnce()) {
+        let _guard = LOCAL_GPU_DEV_TEST_ENV_GUARD.lock().unwrap();
+        let saved: Vec<(String, Option<String>)> = LOCAL_GPU_ENV_KEYS
+            .iter()
+            .map(|key| (key.to_string(), std::env::var(key).ok()))
+            .collect();
+
+        for key in LOCAL_GPU_ENV_KEYS {
+            std::env::remove_var(key);
+        }
+        for (key, value) in vars {
+            if let Some(value) = value {
+                std::env::set_var(key, value);
+            }
+        }
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(test));
+
+        for (key, value) in saved {
+            match value {
+                Some(value) => std::env::set_var(key, value),
+                None => std::env::remove_var(key),
+            }
+        }
+
+        result.unwrap();
+    }
+
+    #[test]
+    fn catalog_default_preset_matches_shipped_default() {
+        assert_eq!(
+            catalog_default_local_gpu_dev_preset_id(),
+            LOCAL_GPU_DEV_DEFAULT_PRESET
+        );
+    }
+
+    #[test]
+    fn catalog_backend_source_resolves_relative_paths() {
+        let resolved = resolve_catalog_backend_source(Some(
+            "dev/local-backends/ollama-openai".to_string(),
+        ))
+        .expect("relative backend source should resolve");
+
+        assert!(std::path::PathBuf::from(&resolved).is_absolute());
+        assert!(resolved.ends_with("/dev/local-backends/ollama-openai"));
+    }
+
+    #[test]
+    fn resolve_local_gpu_dev_preset_uses_catalog_for_explicit_local_preset() {
+        with_local_gpu_env(
+            &[("AUTOPILOT_LOCAL_DEV_PRESET", Some("coding-executor-local-oss"))],
+            || {
+                let preset = resolve_local_gpu_dev_preset()
+                    .expect("explicit local catalog preset should resolve");
+
+                assert_eq!(preset.preset_id, "coding-executor-local-oss");
+                assert_eq!(preset.runtime_model.as_deref(), Some("qwen2.5:7b"));
+                assert_eq!(preset.embedding_model.as_deref(), Some("nomic-embed-text"));
+                assert_eq!(preset.runtime_url.as_deref(), Some(LOCAL_GPU_DEV_DEFAULT_RUNTIME_URL));
+                assert_eq!(preset.backend_id.as_deref(), Some("ollama-openai"));
+                assert!(
+                    preset
+                        .backend_source
+                        .as_deref()
+                        .unwrap_or_default()
+                        .ends_with("/dev/local-backends/ollama-openai")
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn resolve_local_gpu_dev_preset_skips_remote_catalog_entries() {
+        with_local_gpu_env(
+            &[("AUTOPILOT_LOCAL_DEV_PRESET", Some("remote-multimodal-lane"))],
+            || {
+                assert!(resolve_local_gpu_dev_preset().is_none());
+            },
+        );
+    }
+}

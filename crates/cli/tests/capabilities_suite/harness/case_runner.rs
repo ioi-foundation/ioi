@@ -154,6 +154,7 @@ fn seeded_required_capabilities(scope: IntentScopeProfile, intent_id: &str) -> V
 fn seed_resolved_intent(
     state: &mut IAVLTree<HashCommitmentScheme>,
     session_id: [u8; 32],
+    query: &str,
     intent_id: &str,
     scope: IntentScopeProfile,
 ) {
@@ -164,13 +165,23 @@ fn seed_resolved_intent(
         .expect("session state should exist");
     let mut agent_state: AgentState =
         codec::from_bytes_canonical(&bytes).expect("agent state should decode");
+    let instruction_contract =
+        ioi_services::agentic::desktop::service::step::intent_resolver::seeded_instruction_contract_for_intent(
+            query,
+            intent_id,
+        );
+    let required_capabilities =
+        ioi_services::agentic::desktop::service::step::intent_resolver::required_capabilities_with_instruction_contract(
+            &seeded_required_capabilities(scope, intent_id),
+            instruction_contract.as_ref(),
+        );
     agent_state.resolved_intent = Some(ResolvedIntentState {
         intent_id: intent_id.to_string(),
         scope,
         band: IntentConfidenceBand::High,
         score: 0.99,
         top_k: vec![],
-        required_capabilities: seeded_required_capabilities(scope, intent_id),
+        required_capabilities,
         required_receipts: vec![],
         required_postconditions: vec![],
         risk_class: "low".to_string(),
@@ -186,7 +197,7 @@ fn seed_resolved_intent(
         matrix_source_hash: [0u8; 32],
         receipt_hash: [0u8; 32],
         provider_selection: None,
-        instruction_contract: None,
+        instruction_contract,
         constrained: false,
     });
     agent_state.awaiting_intent_clarification = false;
@@ -242,6 +253,23 @@ async fn drain_events_until_quiescent(
         }
         tokio::time::sleep(idle_poll).await;
     }
+}
+
+fn remaining_case_budget(deadline: Duration, elapsed: Duration) -> Option<Duration> {
+    deadline.checked_sub(elapsed).filter(|remaining| !remaining.is_zero())
+}
+
+fn case_step_timeout_reason(
+    elapsed: Duration,
+    deadline: Duration,
+    step_budget: Duration,
+) -> String {
+    format!(
+        "case_sla_timeout_waiting_for_step_completion elapsed_ms={} deadline_ms={} step_budget_ms={}",
+        elapsed.as_millis(),
+        deadline.as_millis(),
+        step_budget.as_millis()
+    )
 }
 
 fn requires_human_intervention(reason: &str) -> bool {
@@ -719,6 +747,25 @@ pub async fn run_case(
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
     )?;
+    let coding_path_normalizer_fixture = bootstrap_optional_fixture(
+        should_bootstrap_coding_path_normalizer_fixture(case.id),
+        || bootstrap_coding_path_normalizer_fixture_runtime(&run_unique_num),
+        |fixture| {
+            coding_path_normalizer_fixture_preflight_checks(
+                fixture,
+                &run_unique_num,
+                run_timestamp_ms,
+            )
+        },
+        &mut runtime_setup_verification_checks,
+        &mut runtime_setup_environment_receipts,
+    )?;
+    if let Some(fixture) = coding_path_normalizer_fixture.as_ref() {
+        run_query = run_query.replace(
+            "{CODING_PATH_NORMALIZER_REPO}",
+            &fixture.repo_root.to_string_lossy(),
+        );
+    }
     let mail_provider_driver_override = mail_reply_mock_fixture.as_ref().map(|_| "mock");
     if should_bootstrap_mailbox_runtime(&run_query) {
         extend_environment_evidence_batch(
@@ -761,6 +808,7 @@ pub async fn run_case(
         seed_resolved_intent(
             &mut state,
             session_id,
+            case.query,
             case.seeded_intent_id,
             case.intent_scope,
         );
@@ -836,26 +884,44 @@ pub async fn run_case(
             AgentStatus::Completed(_) | AgentStatus::Failed(_) => {}
         }
 
-        let step_result = service
-            .handle_service_call(
+        let step_budget = remaining_case_budget(deadline, started.elapsed())
+            .unwrap_or_else(|| Duration::from_millis(1));
+        let encoded_step_params = codec::to_bytes_canonical(&StepAgentParams { session_id })
+            .map_err(|e| anyhow!("failed to encode step params: {}", e))?;
+        let step_result = tokio::time::timeout(
+            step_budget,
+            service.handle_service_call(
                 &mut state,
                 "step@v1",
-                &codec::to_bytes_canonical(&StepAgentParams { session_id })
-                    .map_err(|e| anyhow!("failed to encode step params: {}", e))?,
+                &encoded_step_params,
                 &mut ctx,
-            )
-            .await;
-        if let Err(err) = step_result {
-            let err_text = err.to_string();
-            if err_text.contains("Duplicate incident remedy fingerprint")
-                && duplicate_incident_retry_count < MAX_DUPLICATE_INCIDENT_RETRY_COUNT
-            {
-                duplicate_incident_retry_count = duplicate_incident_retry_count.saturating_add(1);
-                continue;
+            ),
+        )
+        .await;
+        match step_result {
+            Ok(Ok(())) => {
+                duplicate_incident_retry_count = 0;
             }
-            return Err(err.into());
+            Ok(Err(err)) => {
+                let err_text = err.to_string();
+                if err_text.contains("Duplicate incident remedy fingerprint")
+                    && duplicate_incident_retry_count < MAX_DUPLICATE_INCIDENT_RETRY_COUNT
+                {
+                    duplicate_incident_retry_count =
+                        duplicate_incident_retry_count.saturating_add(1);
+                    continue;
+                }
+                return Err(err.into());
+            }
+            Err(_) => {
+                paused_reason = Some(case_step_timeout_reason(
+                    started.elapsed(),
+                    deadline,
+                    step_budget,
+                ));
+                break;
+            }
         }
-        duplicate_incident_retry_count = 0;
     }
 
     let terminal_state = read_agent_state(&state, session_id);
@@ -888,6 +954,7 @@ pub async fn run_case(
     let mut verification_checks = BTreeSet::new();
     let mut action_evidence = Vec::new();
     let mut action_error_classes = BTreeSet::new();
+    let mut parent_playbook_receipts = Vec::<ParentPlaybookObservation>::new();
     let mut command_history_evidence = Vec::new();
     let mut command_history_keys = BTreeSet::new();
     let mut exec_workload_evidence = BTreeMap::<(u32, String), ExecWorkloadEvidence>::new();
@@ -1134,6 +1201,28 @@ pub async fn run_case(
                     if let Some(error_class) = playbook.error_class.as_ref() {
                         action_error_classes.insert(error_class.clone());
                     }
+                    parent_playbook_receipts.push(ParentPlaybookObservation {
+                        tool_name: playbook.tool_name.clone(),
+                        phase: playbook.phase.clone(),
+                        playbook_id: playbook.playbook_id.clone(),
+                        playbook_label: playbook.playbook_label.clone(),
+                        status: playbook.status.clone(),
+                        success: playbook.success,
+                        route_family: playbook.route_family.clone(),
+                        topology: playbook.topology.clone(),
+                        verifier_state: playbook.verifier_state.clone(),
+                        step_id: playbook.step_id.clone(),
+                        step_label: playbook.step_label.clone(),
+                        template_id: playbook.template_id.clone(),
+                        workflow_id: playbook.workflow_id.clone(),
+                        selected_skills: playbook.selected_skills.clone(),
+                        prep_summary: playbook.prep_summary.clone(),
+                        research_scorecard: playbook.research_scorecard.clone(),
+                        coding_scorecard: playbook.coding_scorecard.clone(),
+                        patch_synthesis: playbook.patch_synthesis.clone(),
+                        summary: playbook.summary.clone(),
+                        error_class: playbook.error_class.clone(),
+                    });
                 }
                 WorkloadReceipt::Adapter(adapter) => {
                     workload_tools.insert(adapter.tool_name.clone());
@@ -1431,6 +1520,13 @@ pub async fn run_case(
         latest_nist_pqc_briefing_fixture_post_run_checks,
         Some(latest_nist_pqc_briefing_fixture_cleanup_checks),
     );
+    insert_fixture_evidence(
+        &mut verification_checks,
+        &mut environment_receipts,
+        coding_path_normalizer_fixture.as_ref(),
+        coding_path_normalizer_fixture_post_run_checks,
+        Some(coding_path_normalizer_fixture_cleanup_checks),
+    );
 
     let event_excerpt = captured_events
         .iter()
@@ -1471,6 +1567,7 @@ pub async fn run_case(
         verification_checks,
         verification_facts,
         approval_required_events,
+        parent_playbook_receipts,
         action_evidence,
         action_error_classes: action_error_classes.into_iter().collect(),
         command_history_evidence,

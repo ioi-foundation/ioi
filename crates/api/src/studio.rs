@@ -15,30 +15,40 @@ use std::sync::Arc;
 
 mod generation;
 mod html;
+mod html_registry;
 mod judging;
 mod payload;
 mod pdf;
 mod planning;
+mod render_eval;
 mod types;
 
 use html::*;
+use html_registry::*;
 
 pub use generation::{
     build_studio_artifact_candidate_refinement_prompt,
     build_studio_artifact_candidate_refinement_repair_prompt,
     build_studio_artifact_materialization_prompt,
     build_studio_artifact_materialization_repair_prompt,
-    generate_studio_artifact_bundle_with_runtime, generate_studio_artifact_bundle_with_runtimes,
+    generate_studio_artifact_bundle_with_runtime,
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context,
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator,
+    generate_studio_artifact_bundle_with_runtimes,
+    generate_studio_artifact_bundle_with_runtimes_and_planning_context,
+    generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
     materialize_studio_artifact_candidate_with_runtime, materialize_studio_artifact_with_runtime,
+    resolve_studio_artifact_runtime_plan, StudioArtifactResolvedRuntimePlan,
 };
 pub use judging::{
     build_studio_artifact_judge_prompt, build_studio_artifact_judge_repair_prompt,
     judge_studio_artifact_candidate_with_runtime, parse_studio_artifact_judge_result,
 };
+#[cfg(test)]
+pub(crate) use payload::validate_generated_artifact_payload_against_brief;
 pub(crate) use payload::{
     enforce_renderer_judge_contract, enrich_generated_artifact_payload, extract_first_json_object,
     normalize_generated_artifact_payload, parse_and_validate_generated_artifact_payload,
-    validate_generated_artifact_payload_against_brief,
     validate_generated_artifact_payload_against_brief_with_edit_intent,
 };
 pub use payload::{parse_studio_generated_artifact_payload, validate_generated_artifact_payload};
@@ -46,10 +56,15 @@ pub use pdf::{count_pdf_structural_sections, extract_searchable_pdf_text, pdf_ar
 pub use planning::{
     build_studio_artifact_brief_prompt, build_studio_artifact_brief_repair_prompt,
     build_studio_artifact_edit_intent_prompt, build_studio_artifact_edit_intent_repair_prompt,
-    build_studio_outcome_router_prompt, parse_studio_artifact_brief,
+    build_studio_artifact_exemplar_query, build_studio_outcome_router_prompt,
+    compile_studio_artifact_ir, derive_studio_artifact_blueprint, parse_studio_artifact_brief,
     parse_studio_artifact_edit_intent, parse_studio_outcome_planning_payload,
     plan_studio_artifact_brief_with_runtime, plan_studio_artifact_edit_intent_with_runtime,
     plan_studio_outcome_with_runtime,
+};
+pub use render_eval::{
+    evaluate_studio_artifact_render_if_configured,
+    merge_studio_artifact_render_evaluation_into_judge, StudioArtifactRenderEvaluator,
 };
 pub use types::*;
 

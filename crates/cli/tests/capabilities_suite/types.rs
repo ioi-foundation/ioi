@@ -1,5 +1,8 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 use ioi_types::app::agentic::{WebRetrievalAffordance, WebRetrievalContract};
+use ioi_types::app::{
+    CodingVerificationScorecard, PatchSynthesisSummary, ResearchVerificationScorecard,
+};
 use serde::Serialize;
 
 use super::judge::ArbiterVerdict;
@@ -91,6 +94,30 @@ pub struct EnvironmentReceiptObservation {
 pub struct VerificationFact {
     pub key: String,
     pub value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ParentPlaybookObservation {
+    pub tool_name: String,
+    pub phase: String,
+    pub playbook_id: String,
+    pub playbook_label: String,
+    pub status: String,
+    pub success: bool,
+    pub route_family: String,
+    pub topology: String,
+    pub verifier_state: String,
+    pub step_id: Option<String>,
+    pub step_label: Option<String>,
+    pub template_id: Option<String>,
+    pub workflow_id: Option<String>,
+    pub selected_skills: Vec<String>,
+    pub prep_summary: Option<String>,
+    pub research_scorecard: Option<ResearchVerificationScorecard>,
+    pub coding_scorecard: Option<CodingVerificationScorecard>,
+    pub patch_synthesis: Option<PatchSynthesisSummary>,
+    pub summary: String,
+    pub error_class: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -259,6 +286,7 @@ pub struct RunObservation {
     pub verification_checks: Vec<String>,
     pub verification_facts: Vec<VerificationFact>,
     pub approval_required_events: usize,
+    pub parent_playbook_receipts: Vec<ParentPlaybookObservation>,
     pub action_evidence: Vec<ActionEvidence>,
     pub action_error_classes: Vec<String>,
     pub command_history_evidence: Vec<CommandHistoryEvidence>,
@@ -452,6 +480,28 @@ pub fn observation_has_tool_namespace(
     has_tool_namespace(&observation.action_tools, expected)
         || has_tool_namespace(&observation.routing_tools, expected)
         || has_tool_namespace(&observation.workload_tools, expected)
+}
+
+pub fn latest_parent_playbook_for_route<'a>(
+    observation: &'a RunObservation,
+    route_family: &str,
+) -> Option<&'a ParentPlaybookObservation> {
+    observation
+        .parent_playbook_receipts
+        .iter()
+        .rev()
+        .find(|receipt| receipt.route_family.eq_ignore_ascii_case(route_family))
+}
+
+pub fn latest_parent_playbook_by_id<'a>(
+    observation: &'a RunObservation,
+    playbook_id: &str,
+) -> Option<&'a ParentPlaybookObservation> {
+    observation
+        .parent_playbook_receipts
+        .iter()
+        .rev()
+        .find(|receipt| receipt.playbook_id.eq_ignore_ascii_case(playbook_id))
 }
 
 pub fn has_tool_with_token(tools: &[String], token: &str) -> bool {
@@ -951,6 +1001,7 @@ mod tests {
             verification_checks: Vec::new(),
             verification_facts: Vec::new(),
             approval_required_events: 0,
+            parent_playbook_receipts: Vec::new(),
             action_evidence: Vec::new(),
             action_error_classes: Vec::new(),
             command_history_evidence: Vec::new(),

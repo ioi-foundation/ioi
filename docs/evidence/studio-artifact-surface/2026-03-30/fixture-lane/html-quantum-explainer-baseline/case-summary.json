@@ -1,0 +1,312 @@
+{
+  "id": "html-quantum-explainer-baseline",
+  "prompt": "Create an interactive HTML artifact that explains quantum computers",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/artifact/artifact-manifest.json",
+  "route": {
+    "requestId": "fixture-quantum-explainer-baseline",
+    "rawPrompt": "Create an interactive HTML artifact that explains quantum computers",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 1,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "Curious general audience looking for a first-pass explainer",
+    "jobToBeDone": "Understand the basic ideas behind quantum computers through a persistent interactive artifact",
+    "subjectDomain": "Quantum computing fundamentals",
+    "artifactThesis": "Explain qubits, superposition, entanglement, and real-world applications in a single interactive HTML surface",
+    "requiredConcepts": [
+      "qubits",
+      "superposition",
+      "entanglement",
+      "quantum gates"
+    ],
+    "requiredInteractions": [
+      "view switching between sections",
+      "detail panel updates from selectable evidence"
+    ],
+    "visualTone": [
+      "educational"
+    ],
+    "factualAnchors": [
+      "core quantum computing concepts"
+    ],
+    "styleDirectives": [
+      "clear hierarchy"
+    ],
+    "referenceHints": []
+  },
+  "editIntent": null,
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 1,
+      "model": "preserved-user-surface",
+      "temperature": 0,
+      "strategy": "fixture_regression_capture",
+      "origin": "fixture_runtime",
+      "summary": "Weak quantum explainer baseline preserved from the current surfaced output.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "judge": {
+        "classification": "repairable",
+        "requestFaithfulness": 3,
+        "conceptCoverage": 2,
+        "interactionRelevance": 2,
+        "layoutCoherence": 2,
+        "visualHierarchy": 1,
+        "completeness": 2,
+        "genericShellDetected": true,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": false,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": "Relies on Studio normalization repair shims and does not deliver a credible interactive quantum explainer.",
+        "rationale": "The artifact acknowledges the topic, but the structure is fragile, the styling is generic, and the interaction model does not clear the parity bar."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "Weak quantum explainer baseline preserved from the current surfaced output.",
+  "manifest": {
+    "artifactId": "fixture-quantum-explainer-baseline",
+    "title": "Create an interactive HTML artifact that explains quantum computers",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "files": [
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "fixture-quantum-explainer-baseline",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "partial",
+      "lifecycleState": "partial",
+      "summary": "Fixture baseline preserved a weak shim-dependent quantum explainer so the parity gap remains measurable.",
+      "productionProvenance": {
+        "kind": "fixture_runtime",
+        "label": "fixture baseline",
+        "model": "preserved-user-surface",
+        "endpoint": null
+      },
+      "acceptanceProvenance": {
+        "kind": "fixture_runtime",
+        "label": "fixture baseline",
+        "model": "preserved-user-surface",
+        "endpoint": null
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "shared_artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "partial",
+    "lifecycleState": "partial",
+    "title": "Studio outcome: Create an interactive HTML artifact that explains quantum computers",
+    "summary": "Fixture baseline preserved a weak shim-dependent quantum explainer so the parity gap remains measurable.",
+    "evidence": [
+      "index.html"
+    ],
+    "productionProvenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture baseline",
+      "model": "preserved-user-surface",
+      "endpoint": null
+    },
+    "acceptanceProvenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture baseline",
+      "model": "preserved-user-surface",
+      "endpoint": null
+    },
+    "failure": null
+  },
+  "rendererOutput": {
+    "primaryFile": "index.html",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/captures/render-capture.html"
+    ]
+  },
+  "materializedFiles": [
+    "index.html"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "fixture-quantum-explainer-baseline",
+      "title": "Create an interactive HTML artifact that explains quantum computers",
+      "artifact_class": "interactive_single_file",
+      "renderer": "html_iframe",
+      "verification_status": "partial",
+      "lifecycle_state": "partial",
+      "verification_summary": "Fixture baseline preserved a weak shim-dependent quantum explainer so the parity gap remains measurable.",
+      "primary_tab": "render",
+      "tab_count": 3,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 0,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render",
+      "production_provenance": {
+        "kind": "fixture_runtime",
+        "label": "fixture baseline",
+        "model": "preserved-user-surface",
+        "endpoint": null
+      },
+      "acceptance_provenance": {
+        "kind": "fixture_runtime",
+        "label": "fixture baseline",
+        "model": "preserved-user-surface",
+        "endpoint": null
+      },
+      "failure": null
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'Create an interactive HTML artifact that explains quantum computers' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'Create an interactive HTML artifact that explains quantum computers' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-30/fixture-lane/html-quantum-explainer-baseline/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "partial",
+    "lifecycleState": "partial",
+    "title": "Studio outcome: Create an interactive HTML artifact that explains quantum computers",
+    "summary": "Fixture baseline preserved a weak shim-dependent quantum explainer so the parity gap remains measurable.",
+    "evidence": [
+      "index.html"
+    ],
+    "productionProvenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture baseline",
+      "model": "preserved-user-surface",
+      "endpoint": null
+    },
+    "acceptanceProvenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture baseline",
+      "model": "preserved-user-surface",
+      "endpoint": null
+    },
+    "failure": null
+  },
+  "judge": {
+    "classification": "repairable",
+    "requestFaithfulness": 3,
+    "conceptCoverage": 2,
+    "interactionRelevance": 2,
+    "layoutCoherence": 2,
+    "visualHierarchy": 1,
+    "completeness": 2,
+    "genericShellDetected": true,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": false,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "Relies on Studio normalization repair shims and does not deliver a credible interactive quantum explainer.",
+    "rationale": "The artifact acknowledges the topic, but the structure is fragile, the styling is generic, and the interaction model does not clear the parity bar."
+  },
+  "rubric": {
+    "classification": "repairable",
+    "requestFaithfulness": 3,
+    "conceptCoverage": 2,
+    "interactionRelevance": 2,
+    "layoutCoherence": 2,
+    "visualHierarchy": 1,
+    "completeness": 2,
+    "genericShellDetected": true,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": false,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": "Relies on Studio normalization repair shims and does not deliver a credible interactive quantum explainer.",
+    "rationale": "The artifact acknowledges the topic, but the structure is fragile, the styling is generic, and the interaction model does not clear the parity bar."
+  },
+  "classification": "repairable",
+  "strongestContradiction": "Relies on Studio normalization repair shims and does not deliver a credible interactive quantum explainer.",
+  "outputOrigin": "fixture_runtime",
+  "productionProvenance": {
+    "kind": "fixture_runtime",
+    "label": "fixture baseline",
+    "model": "preserved-user-surface",
+    "endpoint": null
+  },
+  "acceptanceProvenance": {
+    "kind": "fixture_runtime",
+    "label": "fixture baseline",
+    "model": "preserved-user-surface",
+    "endpoint": null
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "notes": [
+    "Fixture baseline preserves a real low-quality artifact so the parity gap stays measurable.",
+    "Shim-dependent HTML remained visible after normalization."
+  ],
+  "proofPath": "contract_path",
+  "fullStudioPath": false
+}

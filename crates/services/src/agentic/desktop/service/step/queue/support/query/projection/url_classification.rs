@@ -29,12 +29,28 @@ pub(crate) fn is_search_hub_url(url: &str) -> bool {
             || path.starts_with("/home")
             || path.starts_with("/news")
             || path.starts_with("/rss/"));
+    let is_publication_listing_hub = matches!(
+        path.as_str(),
+        "/publications/final-pubs"
+            | "/publications/draft-pubs"
+            | "/publications/drafts-open-for-comment"
+            | "/publications/fips"
+            | "/publications/sp"
+            | "/publications/ir"
+            | "/publications/cswp"
+            | "/publications/itl-bulletin"
+            | "/publications/project-description"
+            | "/publications/journal-article"
+            | "/publications/conference-paper"
+            | "/publications/book"
+    );
     let is_generic_query_search_hub = path.contains("/search")
         || path.ends_with("/search")
         || path.starts_with("/find")
         || path.contains("/results");
 
     is_google_news_hub
+        || is_publication_listing_hub
         || ((is_ddg_hub || is_bing_hub || is_google_hub || is_generic_query_search_hub)
             && has_query)
 }
@@ -120,6 +136,38 @@ pub(crate) fn is_multi_item_listing_url(url: &str) -> bool {
                     || segment.ends_with("-stories")
             })
             .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod url_classification_tests {
+    use super::*;
+
+    #[test]
+    fn publication_index_pages_are_search_hubs() {
+        for url in [
+            "https://csrc.nist.gov/publications/final-pubs",
+            "https://csrc.nist.gov/publications/draft-pubs",
+            "https://csrc.nist.gov/publications/drafts-open-for-comment",
+            "https://csrc.nist.gov/publications/fips",
+            "https://csrc.nist.gov/publications/sp",
+            "https://csrc.nist.gov/publications/ir",
+            "https://csrc.nist.gov/publications/cswp",
+            "https://csrc.nist.gov/publications/itl-bulletin",
+            "https://csrc.nist.gov/publications/project-description",
+            "https://csrc.nist.gov/publications/journal-article",
+            "https://csrc.nist.gov/publications/conference-paper",
+            "https://csrc.nist.gov/publications/book",
+        ] {
+            assert!(is_search_hub_url(url), "url={url}");
+        }
+    }
+
+    #[test]
+    fn direct_fips_publication_page_is_not_search_hub() {
+        assert!(!is_search_hub_url(
+            "https://csrc.nist.gov/pubs/fips/203/final"
+        ));
+    }
 }
 
 pub(crate) fn is_citable_web_url(url: &str) -> bool {

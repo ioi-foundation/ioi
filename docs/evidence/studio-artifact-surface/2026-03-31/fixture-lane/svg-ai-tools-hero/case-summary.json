@@ -1,0 +1,407 @@
+{
+  "id": "svg-ai-tools-hero",
+  "prompt": "Create an SVG hero concept for an AI tools brand",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-31/fixture-lane/svg-ai-tools-hero/artifact",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-31/fixture-lane/svg-ai-tools-hero/artifact/artifact-manifest.json",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.88,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "visual",
+      "deliverableShape": "single_file",
+      "renderer": "svg",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": true,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "AI tools brand stakeholders",
+    "jobToBeDone": "Review a bold concept poster for an AI tools surface",
+    "subjectDomain": "AI tools brand storytelling",
+    "artifactThesis": "Show AI tools as an operator-native system with layered evidence and launch rhythm",
+    "requiredConcepts": [
+      "AI tools",
+      "innovation",
+      "collaboration"
+    ],
+    "requiredInteractions": [],
+    "visualTone": [
+      "poster",
+      "technical"
+    ],
+    "factualAnchors": [
+      "operator signals",
+      "proof layers",
+      "release rhythm"
+    ],
+    "styleDirectives": [
+      "layered marks",
+      "supporting labels"
+    ],
+    "referenceHints": [
+      "concept poster"
+    ]
+  },
+  "blueprint": {
+    "renderer": "svg",
+    "scaffoldFamily": "launch_page",
+    "componentPlan": [
+      {
+        "componentFamily": "hero_frame"
+      },
+      {
+        "componentFamily": "metric_card_grid"
+      }
+    ]
+  },
+  "artifactIr": {
+    "designTokens": [
+      {
+        "category": "typography",
+        "value": "poster contrast"
+      }
+    ],
+    "renderEvalChecklist": [
+      "Stable viewBox and labeled supporting marks",
+      "First paint should carry multiple visible evidence layers"
+    ]
+  },
+  "selectedSkills": [
+    {
+      "id": "frontend-skill",
+      "name": "frontend-skill",
+      "matchRationale": "Poster-grade composition and art direction align with the promoted design spine."
+    }
+  ],
+  "retrievedExemplars": [],
+  "editIntent": null,
+  "candidateSetMetadata": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 7,
+      "model": "curated-fixture",
+      "temperature": 0,
+      "strategy": "fixture_surface_capture",
+      "origin": "fixture_runtime",
+      "summary": "Poster-grade SVG concept fixture with layered marks and annotation rails.",
+      "renderablePaths": [
+        "hero-concept.svg"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "renderEvaluation": {
+        "supported": true,
+        "firstPaintCaptured": true,
+        "interactionCaptureAttempted": false,
+        "captures": [
+          {
+            "viewport": "desktop",
+            "width": 1440,
+            "height": 960,
+            "screenshotSha256": "fixture-svg-desktop",
+            "screenshotByteCount": 4520,
+            "visibleElementCount": 22,
+            "visibleTextChars": 412,
+            "interactiveElementCount": 0,
+            "screenshotChangedFromPrevious": true
+          },
+          {
+            "viewport": "mobile",
+            "width": 390,
+            "height": 844,
+            "screenshotSha256": "fixture-svg-mobile",
+            "screenshotByteCount": 3890,
+            "visibleElementCount": 19,
+            "visibleTextChars": 388,
+            "interactiveElementCount": 0,
+            "screenshotChangedFromPrevious": true
+          }
+        ],
+        "layoutDensityScore": 4,
+        "spacingAlignmentScore": 4,
+        "typographyContrastScore": 5,
+        "visualHierarchyScore": 5,
+        "blueprintConsistencyScore": 4,
+        "overallScore": 22,
+        "findings": [],
+        "summary": "Desktop and mobile captures keep the poster hierarchy and supporting labels intact."
+      },
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 4,
+        "conceptCoverage": 4,
+        "interactionRelevance": 4,
+        "layoutCoherence": 4,
+        "visualHierarchy": 5,
+        "completeness": 4,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "strongestContradiction": null,
+        "rationale": "The fixture SVG surface carries the concept without depending on fallback prose or generic shell structure."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "Poster-grade SVG fixture retained as the benchmark binding.",
+  "renderEvaluation": {
+    "supported": true,
+    "firstPaintCaptured": true,
+    "interactionCaptureAttempted": false,
+    "captures": [
+      {
+        "viewport": "desktop",
+        "width": 1440,
+        "height": 960,
+        "screenshotSha256": "fixture-svg-desktop",
+        "screenshotByteCount": 4520,
+        "visibleElementCount": 22,
+        "visibleTextChars": 412,
+        "interactiveElementCount": 0,
+        "screenshotChangedFromPrevious": true
+      },
+      {
+        "viewport": "mobile",
+        "width": 390,
+        "height": 844,
+        "screenshotSha256": "fixture-svg-mobile",
+        "screenshotByteCount": 3890,
+        "visibleElementCount": 19,
+        "visibleTextChars": 388,
+        "interactiveElementCount": 0,
+        "screenshotChangedFromPrevious": true
+      }
+    ],
+    "layoutDensityScore": 4,
+    "spacingAlignmentScore": 4,
+    "typographyContrastScore": 5,
+    "visualHierarchyScore": 5,
+    "blueprintConsistencyScore": 4,
+    "overallScore": 22,
+    "findings": [],
+    "summary": "Desktop and mobile captures keep the poster hierarchy and supporting labels intact."
+  },
+  "manifest": {
+    "artifactId": "fixture-svg-ai-tools-hero",
+    "title": "Create an SVG hero concept for an AI tools brand",
+    "artifactClass": "visual",
+    "renderer": "svg",
+    "primaryTab": "render",
+    "files": [
+      {
+        "path": "hero-concept.svg",
+        "mime": "image/svg+xml",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": false,
+        "artifactId": "fixture-svg-ai-tools-hero",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Fixture SVG concept clears the poster benchmark and retains browser-backed render-eval receipts.",
+      "productionProvenance": {
+        "kind": "fixture_runtime",
+        "label": "fixture svg surface",
+        "model": "curated-fixture",
+        "endpoint": null
+      },
+      "acceptanceProvenance": {
+        "kind": "fixture_runtime",
+        "label": "fixture svg surface",
+        "model": "curated-fixture",
+        "endpoint": null
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "shared_artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create an SVG hero concept for an AI tools brand",
+    "summary": "Fixture SVG concept clears the poster benchmark and retains browser-backed render-eval receipts.",
+    "evidence": [
+      "hero-concept.svg"
+    ],
+    "productionProvenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture svg surface",
+      "model": "curated-fixture",
+      "endpoint": null
+    },
+    "acceptanceProvenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture svg surface",
+      "model": "curated-fixture",
+      "endpoint": null
+    },
+    "failure": null
+  },
+  "rendererOutput": {
+    "primaryFile": "hero-concept.svg",
+    "capturePaths": [
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-31/fixture-lane/svg-ai-tools-hero/captures/render-capture.svg"
+    ]
+  },
+  "materializedFiles": [
+    "hero-concept.svg"
+  ],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "fixture-svg-ai-tools-hero",
+      "title": "Create an SVG hero concept for an AI tools brand",
+      "artifact_class": "visual",
+      "renderer": "svg",
+      "verification_status": "ready",
+      "lifecycle_state": "ready",
+      "verification_summary": "Fixture SVG concept clears the poster benchmark and retains browser-backed render-eval receipts.",
+      "primary_tab": "render",
+      "tab_count": 2,
+      "file_count": 1,
+      "renderable_file_count": 1,
+      "downloadable_file_count": 0,
+      "repo_centric_package": false,
+      "render_surface_available": true,
+      "preferred_stage_mode": "render",
+      "production_provenance": {
+        "kind": "fixture_runtime",
+        "label": "fixture svg surface",
+        "model": "curated-fixture",
+        "endpoint": null
+      },
+      "acceptance_provenance": {
+        "kind": "fixture_runtime",
+        "label": "fixture svg surface",
+        "model": "curated-fixture",
+        "endpoint": null
+      },
+      "failure": null
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate"
+    ],
+    "status": 0,
+    "stdout": "ok",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize"
+    ],
+    "status": 0,
+    "stdout": "ok",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: Create an SVG hero concept for an AI tools brand",
+    "summary": "Fixture SVG concept clears the poster benchmark and retains browser-backed render-eval receipts.",
+    "evidence": [
+      "hero-concept.svg"
+    ],
+    "productionProvenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture svg surface",
+      "model": "curated-fixture",
+      "endpoint": null
+    },
+    "acceptanceProvenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture svg surface",
+      "model": "curated-fixture",
+      "endpoint": null
+    },
+    "failure": null
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 4,
+    "conceptCoverage": 4,
+    "interactionRelevance": 4,
+    "layoutCoherence": 4,
+    "visualHierarchy": 5,
+    "completeness": 4,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The fixture SVG surface carries the concept without depending on fallback prose or generic shell structure."
+  },
+  "rubric": {
+    "classification": "pass",
+    "requestFaithfulness": 4,
+    "conceptCoverage": 4,
+    "interactionRelevance": 4,
+    "layoutCoherence": 4,
+    "visualHierarchy": 5,
+    "completeness": 4,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "strongestContradiction": null,
+    "rationale": "The fixture SVG surface carries the concept without depending on fallback prose or generic shell structure."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "outputOrigin": "fixture_runtime",
+  "productionProvenance": {
+    "kind": "fixture_runtime",
+    "label": "fixture svg surface",
+    "model": "curated-fixture",
+    "endpoint": null
+  },
+  "acceptanceProvenance": {
+    "kind": "fixture_runtime",
+    "label": "fixture svg surface",
+    "model": "curated-fixture",
+    "endpoint": null
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "notes": [
+    "Curated fixture retained to exercise SVG render-eval plumbing and keep the benchmark suite honest about first-paint capture."
+  ],
+  "proofPath": "contract_path",
+  "fullStudioPath": false
+}

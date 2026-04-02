@@ -1,0 +1,30 @@
+{
+  "outcomeKind": "artifact",
+  "confidence": 0.999,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "interactive_single_file",
+    "deliverableShape": "single_file",
+    "renderer": "html_iframe",
+    "presentationSurface": "side_panel",
+    "persistence": "shared_artifact_scoped",
+    "executionSubstrate": "client_sandbox",
+    "workspaceRecipeId": null,
+    "presentationVariantId": null,
+    "scope": {
+      "targetProject": null,
+      "createNewWorkspace": false,
+      "mutationBoundary": [
+        "artifact"
+      ]
+    },
+    "verification": {
+      "requireRender": true,
+      "requireBuild": false,
+      "requirePreview": false,
+      "requireExport": false,
+      "requireDiffReview": false
+    }
+  }
+}

@@ -549,37 +549,42 @@ fn load_or_initialize_worker_templates(
 fn default_agent_playbooks() -> Vec<crate::models::LocalEngineAgentPlaybookRecord> {
     builtin_agent_playbooks()
         .into_iter()
-        .map(|playbook| crate::models::LocalEngineAgentPlaybookRecord {
-            playbook_id: playbook.playbook_id,
-            label: playbook.label,
-            summary: playbook.summary,
-            goal_template: playbook.goal_template,
-            trigger_intents: playbook.trigger_intents,
-            recommended_for: playbook.recommended_for,
-            default_budget: playbook.default_budget,
-            completion_contract: crate::models::LocalEngineWorkerCompletionContract {
-                success_criteria: playbook.completion_contract.success_criteria,
-                expected_output: playbook.completion_contract.expected_output,
-                merge_mode: playbook
-                    .completion_contract
-                    .merge_mode
-                    .as_label()
-                    .to_string(),
-                verification_hint: playbook.completion_contract.verification_hint,
-            },
-            steps: playbook
-                .steps
-                .into_iter()
-                .map(|step| crate::models::LocalEngineAgentPlaybookStepRecord {
-                    step_id: step.step_id,
-                    label: step.label,
-                    summary: step.summary,
-                    worker_template_id: step.worker_template_id,
-                    worker_workflow_id: step.worker_workflow_id,
-                    goal_template: step.goal_template,
-                    depends_on: step.depends_on,
-                })
-                .collect(),
+        .map(|playbook| {
+            let route_contract = playbook_route_contract(&playbook.playbook_id);
+            crate::models::LocalEngineAgentPlaybookRecord {
+                playbook_id: playbook.playbook_id,
+                label: playbook.label,
+                summary: playbook.summary,
+                goal_template: playbook.goal_template,
+                route_family: route_contract.route_family.to_string(),
+                topology: route_contract.topology.to_string(),
+                trigger_intents: playbook.trigger_intents,
+                recommended_for: playbook.recommended_for,
+                default_budget: playbook.default_budget,
+                completion_contract: crate::models::LocalEngineWorkerCompletionContract {
+                    success_criteria: playbook.completion_contract.success_criteria,
+                    expected_output: playbook.completion_contract.expected_output,
+                    merge_mode: playbook
+                        .completion_contract
+                        .merge_mode
+                        .as_label()
+                        .to_string(),
+                    verification_hint: playbook.completion_contract.verification_hint,
+                },
+                steps: playbook
+                    .steps
+                    .into_iter()
+                    .map(|step| crate::models::LocalEngineAgentPlaybookStepRecord {
+                        step_id: step.step_id,
+                        label: step.label,
+                        summary: step.summary,
+                        worker_template_id: step.worker_template_id,
+                        worker_workflow_id: step.worker_workflow_id,
+                        goal_template: step.goal_template,
+                        depends_on: step.depends_on,
+                    })
+                    .collect(),
+            }
         })
         .collect()
 }
@@ -912,4 +917,3 @@ fn json_string(value: &Value, key: &str) -> Option<String> {
         .filter(|entry| !entry.is_empty())
         .map(str::to_string)
 }
-

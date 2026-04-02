@@ -823,6 +823,7 @@ mod tests {
             verification_checks: Vec::new(),
             verification_facts: Vec::new(),
             approval_required_events: 1,
+            parent_playbook_receipts: Vec::new(),
             action_evidence: Vec::new(),
             action_error_classes: Vec::new(),
             command_history_evidence: Vec::new(),

@@ -18,6 +18,7 @@ pub use report::{
     infer_report_sections, report_section_aliases, report_section_key, report_section_label,
     ReportSectionKind,
 };
+pub(crate) use source::strip_low_priority_leading_marker;
 pub use source::{analyze_source_record_signals, analyze_source_text_signals, SourceSignalProfile};
 pub use surface::{is_browser_surface, is_system_surface};
 

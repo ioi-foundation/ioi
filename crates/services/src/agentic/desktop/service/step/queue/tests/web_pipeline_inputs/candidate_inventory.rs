@@ -650,6 +650,8 @@ fn web_pipeline_pre_read_does_not_learn_facets_from_incompatible_candidates() {
 fn web_pipeline_pre_read_prioritizes_direct_authoritative_sources_for_document_briefings() {
     let query =
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+    let retrieval_contract =
+        crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).expect("contract");
     let bundle = WebEvidenceBundle {
         schema_version: 1,
         retrieved_at_ms: 0,
@@ -724,10 +726,17 @@ fn web_pipeline_pre_read_prioritizes_direct_authoritative_sources_for_document_b
         source_observations: vec![],
         documents: vec![],
         provider_candidates: vec![],
-        retrieval_contract: None,
+        retrieval_contract: Some(retrieval_contract.clone()),
     };
 
-    let plan = pre_read_candidate_plan_from_bundle(query, 2, &bundle);
+    let plan =
+        crate::agentic::desktop::service::step::queue::web_pipeline::pre_read_candidate_plan_from_bundle_with_contract_and_locality_hint(
+            Some(&retrieval_contract),
+            query,
+            2,
+            &bundle,
+            None,
+        );
     assert!(
         plan.candidate_urls.len() >= 2,
         "expected at least two pre-read candidates: {:?}",
@@ -742,16 +751,16 @@ fn web_pipeline_pre_read_prioritizes_direct_authoritative_sources_for_document_b
         plan.candidate_urls
             .iter()
             .take(2)
-            .any(|url| url.contains("research.ibm.com/blog/nist-pqc-standards")),
-        "expected IBM Research standards coverage in the first two direct reads: {:?}",
+            .all(|url: &String| url.contains("nist.gov/")),
+        "expected direct NIST sources to outrank wrappers/commentary: {:?}",
         plan.candidate_urls
     );
     assert!(
-        plan.candidate_urls
-            .iter()
-            .take(2)
-            .all(|url| !url.contains("news.google.com/rss/articles/")
-                && !url.contains("cyberscoop.com")),
+        plan.candidate_urls.iter().take(2).all(|url: &String| {
+            !url.contains("news.google.com/rss/articles/")
+                && !url.contains("cyberscoop.com")
+                && !url.contains("research.ibm.com/blog/nist-pqc-standards")
+        }),
         "expected direct authoritative sources to outrank wrappers/commentary: {:?}",
         plan.candidate_urls
     );

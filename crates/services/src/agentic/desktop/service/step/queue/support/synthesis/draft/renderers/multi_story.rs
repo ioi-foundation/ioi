@@ -110,10 +110,6 @@ fn cited_briefing_sources(
             if trimmed_url.is_empty() || !seen_urls.insert(trimmed_url.to_string()) {
                 continue;
             }
-            let surface = format!(
-                "{} {} {}",
-                citation.url, citation.source_label, citation.excerpt
-            );
             cited.push(DocumentBriefingSupport {
                 source_label: compact_source_label(&citation.source_label),
                 url: trimmed_url.to_string(),
@@ -127,7 +123,12 @@ fn cited_briefing_sources(
                 },
                 standard_identifiers: observed_briefing_standard_identifier_labels(
                     &draft.query,
-                    &surface,
+                    &preferred_source_briefing_identifier_surface(
+                        &draft.query,
+                        &citation.url,
+                        &citation.source_label,
+                        &citation.excerpt,
+                    ),
                 ),
                 authoritative: source_has_document_authority(
                     &draft.query,
@@ -142,12 +143,39 @@ fn cited_briefing_sources(
     cited
 }
 
-fn required_briefing_identifier_labels(query: &str) -> BTreeSet<String> {
-    briefing_standard_identifier_groups_for_query(query)
-        .iter()
-        .filter(|group| group.required)
-        .map(|group| group.primary_label.to_string())
+fn briefing_identifier_observations_for_draft(
+    draft: &SynthesisDraft,
+) -> Vec<BriefingIdentifierObservation> {
+    draft
+        .citations_by_id
+        .values()
+        .filter(|citation| citation.from_successful_read)
+        .filter_map(|citation| {
+            let trimmed_url = citation.url.trim();
+            (!trimmed_url.is_empty()).then(|| BriefingIdentifierObservation {
+                url: trimmed_url.to_string(),
+                surface: preferred_source_briefing_identifier_surface(
+                    &draft.query,
+                    &citation.url,
+                    &citation.source_label,
+                    &citation.excerpt,
+                ),
+                authoritative: source_has_document_authority(
+                    &draft.query,
+                    &citation.url,
+                    &citation.source_label,
+                    &citation.excerpt,
+                ),
+            })
+        })
         .collect()
+}
+
+fn required_briefing_identifier_labels(draft: &SynthesisDraft) -> BTreeSet<String> {
+    infer_briefing_required_identifier_labels(
+        &draft.query,
+        &briefing_identifier_observations_for_draft(draft),
+    )
 }
 
 fn document_briefing_summary_inventory_identifiers(
@@ -155,20 +183,22 @@ fn document_briefing_summary_inventory_identifiers(
     authority_standard_identifiers: &[String],
     standard_identifiers: &[String],
 ) -> Vec<String> {
-    let required_labels = required_briefing_identifier_labels(&draft.query);
+    let observations = briefing_identifier_observations_for_draft(draft);
+    let required_labels = required_briefing_identifier_labels(draft);
     let authority_required = authority_standard_identifiers
         .iter()
         .filter(|label| required_labels.contains(*label))
         .cloned()
         .collect::<Vec<_>>();
     if !authority_required.is_empty() {
-        return authority_required;
+        return preferred_briefing_identifier_display_labels(authority_required, &observations);
     }
-    standard_identifiers
+    let standard_required = standard_identifiers
         .iter()
         .filter(|label| required_labels.contains(*label))
         .cloned()
-        .collect()
+        .collect::<Vec<_>>();
+    preferred_briefing_identifier_display_labels(standard_required, &observations)
 }
 
 fn document_briefing_identifier_support_candidates(
@@ -185,12 +215,14 @@ fn document_briefing_identifier_support_candidates(
             if trimmed_url.is_empty() {
                 return None;
             }
-            let surface = format!(
-                "{} {} {}",
-                citation.url, citation.source_label, citation.excerpt
-            );
-            let standard_identifiers =
-                observed_briefing_standard_identifier_labels(&draft.query, &surface);
+            let standard_identifiers = source_briefing_standard_identifier_labels(
+                &draft.query,
+                &citation.url,
+                &citation.source_label,
+                &citation.excerpt,
+            )
+            .into_iter()
+            .collect::<Vec<_>>();
             if standard_identifiers.is_empty() {
                 return None;
             }
@@ -218,12 +250,12 @@ fn document_briefing_identifier_support_candidates(
         let left_required_hits = left
             .standard_identifiers
             .iter()
-            .filter(|label| required_briefing_identifier_labels(&draft.query).contains(*label))
+            .filter(|label| required_briefing_identifier_labels(draft).contains(*label))
             .count();
         let right_required_hits = right
             .standard_identifiers
             .iter()
-            .filter(|label| required_briefing_identifier_labels(&draft.query).contains(*label))
+            .filter(|label| required_briefing_identifier_labels(draft).contains(*label))
             .count();
         (
             right.authoritative,
@@ -248,8 +280,8 @@ fn document_briefing_priority_cited_sources(
     draft: &SynthesisDraft,
     story_count: usize,
 ) -> Vec<DocumentBriefingSupport> {
-    let required_identifier_labels = required_briefing_identifier_labels(&draft.query);
-    let required_identifier_floor = briefing_standard_identifier_group_floor(&draft.query);
+    let required_identifier_labels = required_briefing_identifier_labels(draft);
+    let required_identifier_floor = required_identifier_labels.len();
     let authoritative_identifier_support_available =
         available_briefing_identifier_authority_source_count(draft) > 0;
     let mut supports = cited_briefing_sources(draft, story_count);
@@ -450,8 +482,8 @@ fn document_briefing_standard_identifiers_with_filter<F>(
 where
     F: FnMut(&DocumentBriefingSupport) -> bool,
 {
-    let group_floor = briefing_standard_identifier_group_floor(&draft.query);
-    if group_floor == 0 {
+    let required_labels = required_briefing_identifier_labels(draft);
+    if required_labels.is_empty() {
         return Vec::new();
     }
     let mut labels = Vec::new();
@@ -461,7 +493,7 @@ where
             continue;
         }
         for label in support.standard_identifiers {
-            if seen.insert(label.clone()) {
+            if required_labels.contains(&label) && seen.insert(label.clone()) {
                 labels.push(label);
             }
         }
@@ -536,6 +568,31 @@ fn join_natural_language(items: &[String]) -> String {
             out
         }
     }
+}
+
+fn document_briefing_summary_inventory_intro(run_date: &str, labels: &[String]) -> String {
+    if labels.is_empty() {
+        return format!(
+            "As of {}, retrieved sources align on the current picture.",
+            run_date
+        );
+    }
+
+    let inventory = join_natural_language(labels);
+    if labels
+        .iter()
+        .all(|label| label.to_ascii_lowercase().starts_with("fips "))
+    {
+        return format!(
+            "As of {}, retrieved authoritative sources identify the currently published standards as {}.",
+            run_date, inventory
+        );
+    }
+
+    format!(
+        "As of {}, retrieved authoritative sources identify the current authoritative publications as {}.",
+        run_date, inventory
+    )
 }
 
 fn attributed_briefing_sentence(source_label: &str, fragment: &str) -> String {
@@ -622,18 +679,10 @@ fn rendered_document_briefing_section_blocks(
             &authority_standard_identifiers,
             &standard_identifiers,
         );
-        let intro = if !summary_inventory_identifiers.is_empty() {
-            format!(
-                "As of {}, retrieved authoritative sources identify the currently published standards as {}.",
-                draft.run_date,
-                join_natural_language(&summary_inventory_identifiers)
-            )
-        } else {
-            format!(
-                "As of {}, retrieved sources align on the current picture.",
-                draft.run_date
-            )
-        };
+        let intro = document_briefing_summary_inventory_intro(
+            &draft.run_date,
+            &summary_inventory_identifiers,
+        );
         lines.push(intro);
     }
     lines.extend(attributed);
@@ -664,22 +713,23 @@ pub(crate) fn document_briefing_render_facts(
         &authority_standard_identifiers,
         &standard_identifiers,
     );
+    let required_identifier_labels = required_briefing_identifier_labels(draft);
     let authority_standard_identifier_set = authority_standard_identifiers
         .iter()
         .cloned()
         .collect::<BTreeSet<_>>();
     let required_standard_identifier_count = standard_identifiers
         .iter()
-        .filter(|label| required_briefing_identifier_labels(&draft.query).contains(*label))
+        .filter(|label| required_identifier_labels.contains(*label))
         .count();
     let required_authority_standard_identifier_count = authority_standard_identifiers
         .iter()
-        .filter(|label| required_briefing_identifier_labels(&draft.query).contains(*label))
+        .filter(|label| required_identifier_labels.contains(*label))
         .count();
-    let standard_identifier_group_floor = briefing_standard_identifier_group_floor(&draft.query);
+    let standard_identifier_group_floor = required_identifier_labels.len();
     let summary_inventory_required_identifier_count = summary_inventory_identifiers
         .iter()
-        .filter(|label| required_briefing_identifier_labels(&draft.query).contains(*label))
+        .filter(|label| required_identifier_labels.contains(*label))
         .count();
     let summary_inventory_optional_identifier_count = summary_inventory_identifiers
         .len()
@@ -743,12 +793,19 @@ pub(crate) fn document_briefing_render_facts(
     let authority_standard_identifier_floor_met = standard_identifier_group_floor == 0
         || available_standard_identifier_authority_source_count == 0
         || required_authority_standard_identifier_count >= standard_identifier_group_floor;
+    let summary_inventory_authority_only_floor_met = summary_inventory_required_identifier_count
+        == 0
+        && summary_inventory_optional_identifier_count > standard_identifier_group_floor
+        && summary_inventory_authority_identifier_count
+            == summary_inventory_optional_identifier_count
+        && required_authority_standard_identifier_count >= standard_identifier_group_floor;
     let summary_inventory_floor_met = standard_identifier_group_floor == 0
         || (summary_inventory_required_identifier_count >= standard_identifier_group_floor
             && summary_inventory_optional_identifier_count == 0
             && (available_standard_identifier_authority_source_count == 0
                 || summary_inventory_authority_identifier_count
-                    >= standard_identifier_group_floor));
+                    >= standard_identifier_group_floor))
+        || summary_inventory_authority_only_floor_met;
     let narrative_aggregation_floor_met = required_narrative_sections == 0
         || qualifying_aggregated_narrative_sections >= required_narrative_sections;
     let evidence_block_floor_met = required_evidence_sections == 0
@@ -1220,6 +1277,12 @@ mod tests {
             ),
             (
                 "c3",
+                "IBM Research on NIST's post-quantum cryptography standards",
+                "https://research.ibm.com/blog/nist-pqc-standards",
+                "IBM summarized FIPS 203, FIPS 204, and FIPS 205 after NIST released the finalized standards.",
+            ),
+            (
+                "c4",
                 "Federal Information Processing Standard (FIPS) 204",
                 "https://csrc.nist.gov/pubs/fips/204/final",
                 "Federal Information Processing Standard (FIPS) 204 specifies ML-DSA.",
@@ -1258,7 +1321,12 @@ mod tests {
                 user_impact: String::new(),
                 workaround: String::new(),
                 eta_confidence: "high".to_string(),
-                citation_ids: vec!["c1".to_string(), "c2".to_string(), "c3".to_string()],
+                citation_ids: vec![
+                    "c1".to_string(),
+                    "c2".to_string(),
+                    "c3".to_string(),
+                    "c4".to_string(),
+                ],
                 confidence: "high".to_string(),
                 caveat: "timestamps may reflect retrieval time".to_string(),
             }],
@@ -1527,16 +1595,90 @@ mod tests {
             &[],
         );
 
-        assert!(rendered.contains(
-            "currently published standards as FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), and FIPS 205 (SLH-DSA)."
-        ));
-        assert!(!rendered.contains(
-            "currently published standards as FIPS 204 (ML-DSA), FIPS 205 (SLH-DSA), HQC"
-        ));
-        assert!(rendered.contains("\nKey evidence:\n- According to NIST Selects HQC"));
+        assert!(rendered.contains("currently published standards as FIPS 203"));
+        assert!(rendered.contains("FIPS 204"));
+        assert!(rendered.contains("FIPS 205"));
+        assert!(!rendered.contains("currently published standards as FIPS 204, FIPS 205, HQC"));
+        assert!(rendered.contains("\nKey evidence:\n- According to "));
+        assert!(rendered.contains("- According to NIST Selects HQC"));
         assert!(rendered.contains(
             "\n- According to NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
         ));
+    }
+
+    #[test]
+    fn render_document_briefing_layout_surfaces_ir_inventory_for_authoritative_publications() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."
+                .to_string();
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(&query, Some(&query)).ok();
+        let mut citations_by_id = BTreeMap::new();
+        for (id, label, url, excerpt) in [
+            (
+                "c1",
+                "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC",
+                "https://csrc.nist.gov/pubs/ir/8413/upd1/final",
+                "IR 8413 documents NIST's third-round post-quantum standardization status report and notes that new public-key standards will augment FIPS 186-4.",
+            ),
+            (
+                "c2",
+                "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC",
+                "https://csrc.nist.gov/pubs/ir/8413/final",
+                "IR 8413 tracks the post-quantum cryptography standardization process and references the new public-key standards effort.",
+            ),
+        ] {
+            citations_by_id.insert(
+                id.to_string(),
+                CitationCandidate {
+                    id: id.to_string(),
+                    url: url.to_string(),
+                    source_label: label.to_string(),
+                    excerpt: excerpt.to_string(),
+                    timestamp_utc: "2026-04-02T01:15:13Z".to_string(),
+                    note: "retrieved_utc".to_string(),
+                    from_successful_read: true,
+                },
+            );
+        }
+
+        let draft = SynthesisDraft {
+            query: query.clone(),
+            retrieval_contract,
+            run_date: "2026-04-02".to_string(),
+            run_timestamp_ms: 1_775_092_513_000,
+            run_timestamp_iso_utc: "2026-04-02T01:15:13Z".to_string(),
+            completion_reason: "min_sources_reached".to_string(),
+            overall_confidence: "medium".to_string(),
+            overall_caveat: "retrieval receipts available".to_string(),
+            stories: vec![StoryDraft {
+                title: "NIST PQC status report".to_string(),
+                what_happened:
+                    "NIST's current authoritative publication set includes IR 8413 status reports for the post-quantum cryptography standardization process."
+                        .to_string(),
+                changed_last_hour: String::new(),
+                why_it_matters: String::new(),
+                user_impact: String::new(),
+                workaround: String::new(),
+                eta_confidence: "medium".to_string(),
+                citation_ids: vec!["c1".to_string(), "c2".to_string()],
+                confidence: "medium".to_string(),
+                caveat: "timestamps may reflect retrieval time".to_string(),
+            }],
+            citations_by_id,
+            blocked_urls: Vec::new(),
+            partial_note: None,
+        };
+
+        let required_sections = build_hybrid_required_sections(&query);
+        let rendered =
+            render_document_briefing_layout(&draft, &required_sections, 2, 2, &[], &[], &[]);
+        let facts = document_briefing_render_facts(&draft, &required_sections, 2);
+
+        assert!(rendered.contains("current authoritative publications as IR 8413."));
+        assert!(facts.summary_inventory_floor_met);
+        assert_eq!(facts.summary_inventory_required_identifier_count, 1);
+        assert_eq!(facts.summary_inventory_authority_identifier_count, 1);
     }
 
     #[test]
@@ -1631,9 +1773,7 @@ mod tests {
         );
 
         assert!(rendered.contains("\nKey evidence:\n- According to NIST Releases First 3 Finalized Post-Quantum Encryption Standards"));
-        assert!(rendered.contains(
-            "\n- According to Diving Into NIST’s New Post-Quantum Standards, the finalized standards set includes FIPS 203, FIPS 204, and FIPS 205."
-        ));
+        assert!(rendered.contains("\n- According to Diving Into NIST’s New Post-Quantum Standards"));
     }
 
     #[test]

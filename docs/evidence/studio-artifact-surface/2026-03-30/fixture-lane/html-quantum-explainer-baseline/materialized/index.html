@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quantum Computers</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .control-bar { display: flex; justify-content: space-between; padding: 10px; background-color: #f4f4f4; }
+        .chart-container { width: 50%; float: left; margin-right: 20px; }
+        .detail-panel { width: 40%; float: right; height: 300px; padding: 10px; background-color: #fff; border-left: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <header class="control-bar">
+        <button type="button" data-view="quantum-mechanics-principles" aria-controls="quantum-mechanics-principles-panel">Quantum Mechanics Principles</button>
+        <button type="button" data-view="real-world-applications-of-quantum" aria-controls="real-world-applications-of-quantum-panel">Real World Applications of Quantum
+    </header>
+    <main>
+        <section id="quantum-mechanics-principles-panel" data-view-panel="quantum-mechanics-principles">
+            <h2>Quantum Mechanics Principles</h2>
+            <p>Introduction to the principles of quantum mechanics, including superposition and entanglement.</p>
+        </section>
+        <section id="real-world-applications-of-quantum-panel" data-view-panel="real-world-applications-of-quantum">
+            <h2>Real World Applications of Quantum Computing</h2>
+            <ul>
+                <li>Cryptography</li>
+                <li>Drug Discovery</li>
+                <li>Optimization Problems</li>
+            </ul>
+        </section>
+        <section class="chart-container" id="qubits-panel">
+            <h2>Qubit States Visualization</h2>
+            <svg width="400" height="300" viewBox="-1 -1 2 2" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="0.5" cy="0.5" r="0.4" fill="#8AC007" stroke="black" stroke-width="1" tabindex="0" data-detail="Quantum Mechanics Principles"></circle>
+                <circle cx="-0.5" cy="-0.5" r="0.4" fill="#FF6347" stroke="black" stroke-width="1" tabindex="0" data-detail="Real World Applications of Quantum Computing"></circle>
+            </svg>
+        </section>
+        <aside class="detail-panel">
+            <h2>Interactive Quantum Gates</h2>
+            <p>Drag to visualize changes in qubit states.</p>
+        </aside>
+    <aside data-studio-normalized="true" data-studio-shared-detail="true"><h2>Detail</h2><p id="detail-copy">Quantum Mechanics Principles is selected by default.</p></aside><section data-studio-normalized="true" data-studio-rollover-chip-rail="true"><h2>Evidence highlights</h2><div class="studio-rollover-chip-rail"><button type="button" class="studio-rollover-chip" data-detail="real-world applications of quantum">real-world applications of quantum</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>
+</body>
+</html>

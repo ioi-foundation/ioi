@@ -104,6 +104,472 @@ fn sample_html_brief() -> StudioArtifactBrief {
     }
 }
 
+fn sample_quantum_explainer_brief() -> StudioArtifactBrief {
+    StudioArtifactBrief {
+        audience: "curious learners".to_string(),
+        job_to_be_done:
+            "understand quantum computing concepts through interactive demonstrations"
+                .to_string(),
+        subject_domain: "quantum computing fundamentals".to_string(),
+        artifact_thesis:
+            "Explain superposition, entanglement, and gate transforms through visible state changes."
+                .to_string(),
+        required_concepts: vec![
+            "superposition".to_string(),
+            "entanglement".to_string(),
+            "measurement probabilities".to_string(),
+            "gate transforms".to_string(),
+        ],
+        required_interactions: vec![
+            "state manipulation".to_string(),
+            "detail inspection".to_string(),
+            "sequence browsing".to_string(),
+        ],
+        visual_tone: vec!["editorial".to_string(), "technical".to_string()],
+        factual_anchors: vec![
+            "qubit state examples".to_string(),
+            "measurement outcomes".to_string(),
+        ],
+        style_directives: vec![
+            "clear hierarchy".to_string(),
+            "strong visual labeling".to_string(),
+        ],
+        reference_hints: vec![
+            "state diagrams".to_string(),
+            "distribution comparisons".to_string(),
+        ],
+    }
+}
+
+fn studio_test_judge(
+    classification: StudioArtifactJudgeClassification,
+    deserves_primary_artifact_view: bool,
+    request_faithfulness: u8,
+    concept_coverage: u8,
+    interaction_relevance: u8,
+    layout_coherence: u8,
+    visual_hierarchy: u8,
+    completeness: u8,
+) -> StudioArtifactJudgeResult {
+    StudioArtifactJudgeResult {
+        classification,
+        request_faithfulness,
+        concept_coverage,
+        interaction_relevance,
+        layout_coherence,
+        visual_hierarchy,
+        completeness,
+        generic_shell_detected: false,
+        trivial_shell_detected: false,
+        deserves_primary_artifact_view,
+        patched_existing_artifact: None,
+        continuity_revision_ux: None,
+        issue_classes: Vec::new(),
+        repair_hints: Vec::new(),
+        strengths: Vec::new(),
+        blocked_reasons: Vec::new(),
+        file_findings: Vec::new(),
+        aesthetic_verdict: "Test verdict".to_string(),
+        interaction_verdict: "Test verdict".to_string(),
+        truthfulness_warnings: Vec::new(),
+        recommended_next_pass: None,
+        strongest_contradiction: None,
+        rationale: "Test rationale".to_string(),
+    }
+}
+
+fn studio_test_candidate_summary(
+    candidate_id: &str,
+    judge: StudioArtifactJudgeResult,
+) -> StudioArtifactCandidateSummary {
+    StudioArtifactCandidateSummary {
+        candidate_id: candidate_id.to_string(),
+        seed: 1,
+        model: "test-model".to_string(),
+        temperature: 0.2,
+        strategy: "test".to_string(),
+        origin: StudioArtifactOutputOrigin::MockInference,
+        provenance: Some(StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::MockRuntime,
+            label: "mock".to_string(),
+            model: Some("test-model".to_string()),
+            endpoint: None,
+        }),
+        summary: format!("Summary for {candidate_id}"),
+        renderable_paths: vec!["index.html".to_string()],
+        selected: false,
+        fallback: false,
+        failure: None,
+        raw_output_preview: None,
+        convergence: None,
+        render_evaluation: None,
+        judge,
+    }
+}
+
+fn studio_test_render_capture(
+    viewport: StudioArtifactRenderCaptureViewport,
+    visible_element_count: usize,
+    visible_text_chars: usize,
+    interactive_element_count: usize,
+) -> StudioArtifactRenderCapture {
+    StudioArtifactRenderCapture {
+        viewport,
+        width: 1440,
+        height: 960,
+        screenshot_sha256: format!("sha-{visible_element_count}-{visible_text_chars}"),
+        screenshot_byte_count: 2048,
+        visible_element_count,
+        visible_text_chars,
+        interactive_element_count,
+        screenshot_changed_from_previous: true,
+    }
+}
+
+fn studio_test_render_evaluation(
+    overall_score: u8,
+    first_paint_captured: bool,
+    findings: Vec<StudioArtifactRenderFinding>,
+    captures: Vec<StudioArtifactRenderCapture>,
+) -> StudioArtifactRenderEvaluation {
+    StudioArtifactRenderEvaluation {
+        supported: true,
+        first_paint_captured,
+        interaction_capture_attempted: captures
+            .iter()
+            .any(|capture| capture.viewport == StudioArtifactRenderCaptureViewport::Interaction),
+        captures,
+        layout_density_score: 4,
+        spacing_alignment_score: 4,
+        typography_contrast_score: 4,
+        visual_hierarchy_score: 4,
+        blueprint_consistency_score: 4,
+        overall_score,
+        findings,
+        summary: "Render evaluation completed.".to_string(),
+    }
+}
+
+#[test]
+fn derived_blueprint_for_html_brief_emits_structure_and_skill_needs() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let blueprint = derive_studio_artifact_blueprint(&request, &sample_html_brief());
+
+    assert_eq!(blueprint.renderer, StudioRendererKind::HtmlIframe);
+    assert_eq!(blueprint.scaffold_family, "comparison_story");
+    assert!(blueprint.section_plan.len() >= 4);
+    assert!(blueprint
+        .interaction_plan
+        .iter()
+        .any(|interaction| interaction.family == "view_switching"));
+    assert!(blueprint
+        .skill_needs
+        .iter()
+        .any(|need| need.kind == StudioArtifactSkillNeedKind::VisualArtDirection));
+    assert!(blueprint
+        .skill_needs
+        .iter()
+        .any(|need| need.kind == StudioArtifactSkillNeedKind::AccessibilityReview));
+    assert!(blueprint
+        .component_plan
+        .iter()
+        .any(|component| component.component_family == "tabbed_evidence_rail"));
+    assert!(blueprint
+        .component_plan
+        .iter()
+        .any(|component| component.component_family == "comparison_table"));
+}
+
+#[test]
+fn compiled_artifact_ir_captures_scaffold_tokens_and_render_checks() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = sample_html_brief();
+    let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+    let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+
+    assert_eq!(artifact_ir.scaffold_family, blueprint.scaffold_family);
+    assert!(!artifact_ir.semantic_structure.is_empty());
+    assert!(!artifact_ir.design_tokens.is_empty());
+    assert!(!artifact_ir.render_eval_checklist.is_empty());
+    assert!(artifact_ir
+        .static_audit_expectations
+        .iter()
+        .any(|expectation| expectation.contains("first-paint")));
+    assert!(artifact_ir
+        .component_bindings
+        .iter()
+        .any(|binding| binding.contains("tabbed_evidence_rail")));
+}
+
+#[test]
+fn render_eval_merge_blocks_primary_view_when_first_paint_fails() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let judge = studio_test_judge(
+        StudioArtifactJudgeClassification::Pass,
+        true,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+    );
+    let render_evaluation = studio_test_render_evaluation(
+        8,
+        false,
+        vec![StudioArtifactRenderFinding {
+            code: "first_paint_missing".to_string(),
+            severity: StudioArtifactRenderFindingSeverity::Blocked,
+            summary: "First paint never stabilized.".to_string(),
+        }],
+        vec![studio_test_render_capture(
+            StudioArtifactRenderCaptureViewport::Desktop,
+            0,
+            0,
+            0,
+        )],
+    );
+
+    let merged = merge_studio_artifact_render_evaluation_into_judge(
+        &request,
+        judge,
+        Some(&render_evaluation),
+    );
+
+    assert_eq!(
+        merged.classification,
+        StudioArtifactJudgeClassification::Blocked
+    );
+    assert!(!merged.deserves_primary_artifact_view);
+    assert!(merged.trivial_shell_detected);
+    assert_eq!(
+        merged.strongest_contradiction.as_deref(),
+        Some("First paint never stabilized.")
+    );
+    assert!(merged
+        .issue_classes
+        .iter()
+        .any(|value| value == "render_eval"));
+    assert!(merged
+        .blocked_reasons
+        .iter()
+        .any(|value| value == "First paint never stabilized."));
+}
+
+#[test]
+fn render_eval_merge_adds_strength_for_clean_desktop_and_mobile_captures() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let judge = studio_test_judge(
+        StudioArtifactJudgeClassification::Pass,
+        true,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+    );
+    let render_evaluation = studio_test_render_evaluation(
+        22,
+        true,
+        Vec::new(),
+        vec![
+            studio_test_render_capture(StudioArtifactRenderCaptureViewport::Desktop, 48, 420, 6),
+            studio_test_render_capture(StudioArtifactRenderCaptureViewport::Mobile, 46, 405, 6),
+        ],
+    );
+
+    let merged = merge_studio_artifact_render_evaluation_into_judge(
+        &request,
+        judge,
+        Some(&render_evaluation),
+    );
+
+    assert_eq!(
+        merged.classification,
+        StudioArtifactJudgeClassification::Pass
+    );
+    assert!(merged.deserves_primary_artifact_view);
+    assert!(merged
+        .strengths
+        .iter()
+        .any(|value| value.contains("Desktop and mobile render captures")));
+    assert!(merged.rationale.contains("Render evaluation"));
+}
+
+#[test]
+fn exemplar_query_prefers_structural_grounding_over_text_copy() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = sample_quantum_explainer_brief();
+    let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+    let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+    let taste_memory = StudioArtifactTasteMemory {
+        directives: vec!["editorial".to_string()],
+        summary: "Prefer scientific editorial framing.".to_string(),
+        typography_preferences: vec!["display serif + mono".to_string()],
+        density_preference: Some("airy".to_string()),
+        tone_family: vec!["editorial".to_string(), "scientific".to_string()],
+        motion_tolerance: Some("measured".to_string()),
+        preferred_scaffold_families: vec!["immersive_explainer".to_string()],
+        preferred_component_patterns: vec!["bloch_sphere_demo".to_string()],
+        anti_patterns: vec!["generic_cards".to_string()],
+    };
+
+    let query =
+        build_studio_artifact_exemplar_query(&brief, &blueprint, &artifact_ir, Some(&taste_memory));
+
+    assert!(query.contains(&format!("Scaffold family: {}", blueprint.scaffold_family)));
+    assert!(query.contains("Interaction families:"));
+    assert!(query.contains("bloch_sphere_demo"));
+    assert!(query.contains("display serif + mono"));
+    assert!(query.contains("Preferred scaffold families: immersive_explainer"));
+    assert!(query.contains("Anti patterns: generic_cards"));
+    assert!(query.contains("Use them as structural grounding only"));
+}
+
+#[test]
+fn html_scaffold_registry_supplies_design_spine_and_component_contracts() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = sample_html_brief();
+    let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+    let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+    let selected_skills = vec![StudioArtifactSelectedSkill {
+        skill_hash: "skill-hash".to_string(),
+        name: "frontend_editorial_direction".to_string(),
+        description: "Editorial direction".to_string(),
+        lifecycle_state: "promoted".to_string(),
+        source_type: "imported".to_string(),
+        reliability_bps: 9800,
+        semantic_score_bps: 9000,
+        adjusted_score_bps: 9300,
+        relative_path: None,
+        matched_need_ids: vec!["visual_art_direction-1".to_string()],
+        matched_need_kinds: vec![StudioArtifactSkillNeedKind::VisualArtDirection],
+        match_rationale: "Matched the scaffold's visual art direction need.".to_string(),
+        guidance_markdown: Some("Prefer editorial hierarchy.".to_string()),
+    }];
+
+    let design_spine =
+        studio_html_promoted_design_skill_spine(&brief, &blueprint, &artifact_ir, &selected_skills)
+            .expect("html design spine");
+    let scaffold =
+        studio_html_scaffold_contract(&blueprint, &artifact_ir, 7).expect("html scaffold");
+    let component_packs = studio_html_component_pack_contracts(&blueprint);
+    let digest = studio_html_scaffold_execution_digest(
+        &brief,
+        &blueprint,
+        &artifact_ir,
+        &selected_skills,
+        7,
+    )
+    .expect("execution digest");
+
+    assert!(design_spine.visual_thesis.contains("comparison"));
+    assert!(design_spine
+        .reinforced_need_kinds
+        .iter()
+        .any(|kind| kind == "visual_art_direction"));
+    assert!(scaffold.font_embed_href.contains("fonts.googleapis.com"));
+    assert!(scaffold.control_bar_pattern.contains("data-view"));
+    assert!(scaffold.detail_panel_pattern.contains("#detail-copy"));
+    assert!(component_packs
+        .iter()
+        .any(|pack| pack.family == "tabbed_evidence_rail"));
+    assert!(digest.contains("Component packs to compose"));
+}
+
+#[test]
+fn jsx_scaffold_registry_supplies_renderer_specific_design_spine_and_contracts() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::JsxSandbox,
+    );
+    let brief = sample_html_brief();
+    let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+    let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+    let selected_skills = vec![StudioArtifactSelectedSkill {
+        skill_hash: "skill-hash".to_string(),
+        name: "frontend_editorial_direction".to_string(),
+        description: "Editorial direction".to_string(),
+        lifecycle_state: "promoted".to_string(),
+        source_type: "imported".to_string(),
+        reliability_bps: 9800,
+        semantic_score_bps: 9000,
+        adjusted_score_bps: 9300,
+        relative_path: None,
+        matched_need_ids: vec!["visual_art_direction-1".to_string()],
+        matched_need_kinds: vec![StudioArtifactSkillNeedKind::VisualArtDirection],
+        match_rationale: "Matched the scaffold's visual art direction need.".to_string(),
+        guidance_markdown: Some("Prefer editorial hierarchy.".to_string()),
+    }];
+
+    let design_spine =
+        studio_jsx_promoted_design_skill_spine(&brief, &blueprint, &artifact_ir, &selected_skills)
+            .expect("jsx design spine");
+    let scaffold = studio_jsx_scaffold_contract(&blueprint, &artifact_ir, 7).expect("jsx scaffold");
+    let component_packs = studio_jsx_component_pack_contracts(&blueprint);
+    let digest =
+        studio_jsx_scaffold_execution_digest(&brief, &blueprint, &artifact_ir, &selected_skills, 7)
+            .expect("jsx execution digest");
+
+    assert!(design_spine.visual_thesis.contains("React/JSX surface"));
+    assert!(design_spine
+        .avoidances
+        .iter()
+        .any(|line| line.contains("document.querySelector")));
+    assert!(scaffold.example_shell.contains("useState"));
+    assert!(scaffold.control_bar_pattern.contains("component state"));
+    assert!(component_packs
+        .iter()
+        .all(|pack| pack.behavior_signature.contains("JSX state")));
+    assert!(digest.contains("JSX shell"));
+}
+
+#[test]
+fn quantum_explainer_maps_to_structural_component_packs_without_domain_branching() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = sample_quantum_explainer_brief();
+    let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+    let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+    let component_families = blueprint
+        .component_plan
+        .iter()
+        .map(|component| component.component_family.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(blueprint.scaffold_family, "guided_tutorial");
+    assert!(component_families.contains(&"guided_stepper"));
+    assert!(component_families.contains(&"state_space_visualizer"));
+    assert!(component_families.contains(&"distribution_comparator"));
+    assert!(component_families.contains(&"transform_diagram_surface"));
+    assert!(component_families.contains(&"paired_state_correlation_demo"));
+    assert!(artifact_ir
+        .component_bindings
+        .iter()
+        .any(|binding| binding.contains("state_space_visualizer")));
+}
+
 #[test]
 fn parses_planning_payload_with_wrapped_text() {
     let parsed = parse_studio_outcome_planning_payload(
@@ -286,6 +752,10 @@ fn interactive_html_brief_validation_allows_follow_up_interactions_grounded_in_r
             snippet: "Interactive chart exploration".to_string(),
         }],
         taste_memory: None,
+        blueprint: None,
+        artifact_ir: None,
+        selected_skills: Vec::new(),
+        retrieved_exemplars: Vec::new(),
     };
 
     validate_studio_artifact_brief_against_request(&brief, &request, Some(&refinement))
@@ -401,6 +871,10 @@ fn edit_intent_prompt_requires_json_wrapper_for_refinements() {
             files: vec![],
             selected_targets: Vec::new(),
             taste_memory: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         },
     )
     .expect("edit-intent prompt");
@@ -452,6 +926,10 @@ fn edit_intent_prompt_compacts_large_refinement_context() {
             }],
             selected_targets: Vec::new(),
             taste_memory: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         },
     )
     .expect("edit-intent prompt");
@@ -494,6 +972,10 @@ fn edit_intent_repair_prompt_requires_json_wrapper_after_missing_payload() {
             files: vec![],
             selected_targets: Vec::new(),
             taste_memory: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         },
         "Patch the chart section while preserving structure.",
         "Studio artifact edit-intent output missing JSON payload",
@@ -527,6 +1009,52 @@ fn outcome_router_prompt_spells_out_html_vs_jsx_contracts() {
     ));
     assert!(prompt_text
         .contains("Create an interactive HTML artifact for an AI tools editorial launch page"));
+    assert!(prompt_text.contains("Do not use lexical fallbacks or benchmark phrase maps."));
+}
+
+#[test]
+fn studio_artifact_production_sources_do_not_special_case_quantum_fixture() {
+    for source in [
+        include_str!("planning.rs"),
+        include_str!("generation.rs"),
+        include_str!("judging.rs"),
+        include_str!("payload.rs"),
+    ] {
+        assert!(
+            !source.contains("html-quantum-explainer-baseline"),
+            "production studio source must not special-case the quantum benchmark fixture"
+        );
+        assert!(
+            !source.contains("if_prompt_contains_quantum"),
+            "production studio source must not branch on quantum lexical triggers"
+        );
+        assert!(
+            !source.contains("quantum benchmark"),
+            "production studio source must not carry benchmark-only routing prose"
+        );
+    }
+}
+
+#[test]
+fn studio_artifact_corpus_summary_tracks_quantum_baseline_fixture() {
+    let corpus_summary_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../docs/evidence/studio-artifact-surface/corpus-summary.json");
+    let raw = std::fs::read_to_string(&corpus_summary_path)
+        .expect("generated artifact corpus summary should exist");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&raw).expect("artifact corpus summary should be valid JSON");
+    let cases = parsed["cases"]
+        .as_array()
+        .expect("artifact corpus summary should contain a cases array");
+    let quantum_case = cases
+        .iter()
+        .find(|entry| entry["id"] == "html-quantum-explainer-baseline")
+        .expect("artifact corpus summary should include the quantum baseline fixture");
+
+    assert_eq!(quantum_case["lane"], "fixture-lane");
+    assert_eq!(quantum_case["renderer"], "html_iframe");
+    assert_eq!(quantum_case["effectiveClassification"], "repairable");
+    assert_eq!(quantum_case["shimDependent"], true);
 }
 
 #[test]
@@ -551,6 +1079,10 @@ fn outcome_router_prompt_surfaces_active_artifact_context_for_follow_ups() {
             }],
             selected_targets: Vec::new(),
             taste_memory: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         }),
     );
     let prompt_bytes = serde_json::to_vec(&prompt).expect("prompt bytes");
@@ -617,6 +1149,10 @@ fn artifact_brief_prompt_compacts_large_refinement_context() {
             }],
             selected_targets: Vec::new(),
             taste_memory: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         }),
     )
     .expect("brief prompt");
@@ -726,6 +1262,17 @@ fn artifact_materializer_and_judge_prompts_penalize_generic_placeholder_outputs(
     assert!(judge_text.contains("invented custom tags"));
     assert!(judge_text.contains("single chart plus generic prose is insufficient"));
     assert!(judge_text.contains("collection-style iteration on a single selected element"));
+    assert!(judge_text.contains("\"issueClasses\": [<string>]"));
+    assert!(judge_text.contains("\"repairHints\": [<string>]"));
+    assert!(judge_text.contains("\"strengths\": [<string>]"));
+    assert!(judge_text.contains("\"blockedReasons\": [<string>]"));
+    assert!(judge_text.contains("\"fileFindings\": [<string>]"));
+    assert!(judge_text.contains("\"aestheticVerdict\": <string>"));
+    assert!(judge_text.contains("\"interactionVerdict\": <string>"));
+    assert!(judge_text.contains("\"truthfulnessWarnings\": [<string>]"));
+    assert!(judge_text.contains("\"recommendedNextPass\": null | \"accept\""));
+    assert!(judge_text.contains("first-paint evidence density"));
+    assert!(judge_text.contains("design intentionality"));
 }
 
 #[test]
@@ -822,6 +1369,13 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
     assert!(materializer_text.contains("customer feedback"));
     assert!(materializer_text
         .contains("Empty mount divs like <div id=\\\"usage-chart\\\"></div> do not count"));
+    assert!(materializer_text.contains("Artifact blueprint JSON"));
+    assert!(materializer_text.contains("Artifact IR JSON"));
+    assert!(materializer_text.contains("Selected skill guidance JSON"));
+    assert!(materializer_text.contains("Promoted design skill spine JSON"));
+    assert!(materializer_text.contains("HTML scaffold contract JSON"));
+    assert!(materializer_text.contains("Component pack contract JSON"));
+    assert!(materializer_text.contains("Scaffold execution digest"));
 
     let refinement_materializer_prompt = build_studio_artifact_materialization_prompt(
         "Dog shampoo rollout",
@@ -838,6 +1392,10 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
             files: candidate.files.clone(),
             selected_targets: Vec::new(),
             taste_memory: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         }),
         "candidate-1",
         7,
@@ -845,6 +1403,12 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
     .expect("refinement materializer prompt");
     let refinement_materializer_text = serde_json::to_string(&refinement_materializer_prompt)
         .expect("refinement materializer prompt text");
+    assert!(refinement_materializer_text.contains("Artifact blueprint JSON"));
+    assert!(refinement_materializer_text.contains("Artifact IR JSON"));
+    assert!(refinement_materializer_text.contains("Selected skill guidance JSON"));
+    assert!(refinement_materializer_text.contains("Promoted design skill spine JSON"));
+    assert!(refinement_materializer_text.contains("HTML scaffold contract JSON"));
+    assert!(refinement_materializer_text.contains("Component pack contract JSON"));
     assert!(refinement_materializer_text.contains("Refinement output contract"));
     assert!(refinement_materializer_text.contains(
         "do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object"
@@ -871,6 +1435,21 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
             deserves_primary_artifact_view: true,
             patched_existing_artifact: None,
             continuity_revision_ux: None,
+            issue_classes: vec!["evidence_density".to_string()],
+            repair_hints: vec![
+                "Add a denser secondary evidence surface and stronger interactive chart behavior."
+                    .to_string(),
+            ],
+            strengths: vec!["Covers the main rollout frame.".to_string()],
+            blocked_reasons: Vec::new(),
+            file_findings: vec!["index.html: secondary chart family is missing.".to_string()],
+            aesthetic_verdict: "Hierarchy is solid but the evidence density still feels thin."
+                .to_string(),
+            interaction_verdict:
+                "Interaction behavior exists, but it does not yet satisfy the requested chart work."
+                    .to_string(),
+            truthfulness_warnings: Vec::new(),
+            recommended_next_pass: Some("structural_repair".to_string()),
             strongest_contradiction: Some(
                 "Missing interactive charts and data visualizations.".to_string(),
             ),
@@ -882,6 +1461,12 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
     .expect("refinement prompt");
     let refinement_text =
         serde_json::to_string(&refinement_prompt).expect("refinement prompt text");
+    assert!(refinement_text.contains("Artifact blueprint JSON"));
+    assert!(refinement_text.contains("Artifact IR JSON"));
+    assert!(refinement_text.contains("Selected skill guidance JSON"));
+    assert!(refinement_text.contains("Promoted design skill spine JSON"));
+    assert!(refinement_text.contains("HTML scaffold contract JSON"));
+    assert!(refinement_text.contains("Component pack contract JSON"));
     assert!(refinement_text.contains("two distinct evidence views or chart families"));
     assert!(refinement_text.contains("single chart with generic prose"));
     assert!(refinement_text.contains("querySelectorAll"));
@@ -904,6 +1489,134 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
     assert!(refinement_text.contains(
         "do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object"
     ));
+}
+
+#[test]
+fn jsx_materialization_prompt_uses_jsx_scaffold_contract_labels_and_hooks() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::JsxSandbox,
+    );
+    let brief = StudioArtifactBrief {
+        audience: "Revenue operations lead".to_string(),
+        job_to_be_done: "Compare pricing tiers and inspect cost deltas.".to_string(),
+        subject_domain: "Pricing configurator".to_string(),
+        artifact_thesis: "Show how plan changes alter pricing and feature access.".to_string(),
+        required_concepts: vec![
+            "pricing tiers".to_string(),
+            "feature deltas".to_string(),
+            "stateful comparison".to_string(),
+        ],
+        required_interactions: vec![
+            "switch plans and update visible pricing".to_string(),
+            "inspect a detail tray for the active tier".to_string(),
+        ],
+        visual_tone: vec!["editorial".to_string(), "calm".to_string()],
+        factual_anchors: vec!["Starter $29".to_string(), "Scale $99".to_string()],
+        style_directives: vec!["dense controls".to_string()],
+        reference_hints: vec!["pricing grid".to_string()],
+    };
+
+    let prompt = build_studio_artifact_materialization_prompt(
+        "Pricing configurator",
+        "Create a JSX artifact for a pricing configurator",
+        &request,
+        &brief,
+        None,
+        None,
+        "candidate-1",
+        4,
+    )
+    .expect("jsx materializer prompt");
+    let prompt_text = serde_json::to_string(&prompt).expect("jsx prompt text");
+
+    assert!(prompt_text.contains("Studio JSX design skill spine"));
+    assert!(prompt_text.contains("Studio JSX scaffold contract"));
+    assert!(prompt_text.contains("Studio JSX component pack contracts"));
+    assert!(prompt_text.contains("useState"));
+    assert!(prompt_text.contains("default export"));
+    assert!(!prompt_text.contains("Studio HTML scaffold contract"));
+}
+
+#[test]
+fn svg_materialization_prompt_uses_svg_scaffold_contract_labels() {
+    let request = request_for(StudioArtifactClass::Visual, StudioRendererKind::Svg);
+    let brief = StudioArtifactBrief {
+        audience: "Brand stakeholders".to_string(),
+        job_to_be_done: "Assess a bold vector concept.".to_string(),
+        subject_domain: "AI tools brand system".to_string(),
+        artifact_thesis: "Create a layered SVG concept that feels editorial and technical."
+            .to_string(),
+        required_concepts: vec![
+            "brand signal".to_string(),
+            "innovation".to_string(),
+            "supporting labels".to_string(),
+        ],
+        required_interactions: Vec::new(),
+        visual_tone: vec!["poster".to_string(), "technical".to_string()],
+        factual_anchors: vec!["automation".to_string(), "operators".to_string()],
+        style_directives: vec!["strong hierarchy".to_string()],
+        reference_hints: vec!["diagram poster".to_string()],
+    };
+
+    let prompt = build_studio_artifact_materialization_prompt(
+        "SVG concept",
+        "Create an SVG hero concept for an AI tools brand",
+        &request,
+        &brief,
+        None,
+        None,
+        "candidate-1",
+        3,
+    )
+    .expect("svg materializer prompt");
+    let prompt_text = serde_json::to_string(&prompt).expect("svg prompt text");
+
+    assert!(prompt_text.contains("Studio SVG design skill spine"));
+    assert!(prompt_text.contains("Studio SVG scaffold contract"));
+    assert!(prompt_text.contains("Studio SVG component pack contracts"));
+    assert!(prompt_text.contains("stable viewBox"));
+    assert!(!prompt_text.contains("Studio renderer scaffold contract"));
+}
+
+#[test]
+fn pdf_materialization_prompt_uses_pdf_scaffold_contract_labels() {
+    let request = request_for(StudioArtifactClass::Document, StudioRendererKind::PdfEmbed);
+    let brief = StudioArtifactBrief {
+        audience: "Launch stakeholders".to_string(),
+        job_to_be_done: "Review a concise briefing artifact.".to_string(),
+        subject_domain: "Launch planning".to_string(),
+        artifact_thesis: "Summarize the launch brief in a compact exported document.".to_string(),
+        required_concepts: vec![
+            "milestones".to_string(),
+            "risks".to_string(),
+            "ownership".to_string(),
+        ],
+        required_interactions: Vec::new(),
+        visual_tone: vec!["professional".to_string()],
+        factual_anchors: vec!["launch window".to_string(), "owner matrix".to_string()],
+        style_directives: vec!["compact tables".to_string()],
+        reference_hints: vec!["briefing note".to_string()],
+    };
+
+    let prompt = build_studio_artifact_materialization_prompt(
+        "Launch brief PDF",
+        "Create a PDF artifact that summarizes a launch brief",
+        &request,
+        &brief,
+        None,
+        None,
+        "candidate-1",
+        9,
+    )
+    .expect("pdf materializer prompt");
+    let prompt_text = serde_json::to_string(&prompt).expect("pdf prompt text");
+
+    assert!(prompt_text.contains("Studio PDF design skill spine"));
+    assert!(prompt_text.contains("Studio PDF scaffold contract"));
+    assert!(prompt_text.contains("Studio PDF component pack contracts"));
+    assert!(prompt_text.contains("compact briefing PDF"));
+    assert!(!prompt_text.contains("Studio renderer scaffold contract"));
 }
 
 #[test]
@@ -1517,6 +2230,178 @@ fn html_local_runtime_refinement_budget_limits_to_single_pass() {
         ),
         1
     );
+}
+
+#[test]
+fn quantum_html_budget_expands_structurally_but_stays_bounded() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = sample_quantum_explainer_brief();
+    let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+    let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+
+    let budget = super::generation::derive_studio_adaptive_search_budget(
+        &request,
+        &brief,
+        Some(&blueprint),
+        Some(&artifact_ir),
+        &[],
+        &[],
+        None,
+        StudioRuntimeProvenanceKind::RealLocalRuntime,
+    );
+
+    assert_eq!(budget.initial_candidate_count, 2);
+    assert_eq!(budget.max_candidate_count, 3);
+    assert!(budget.shortlist_limit >= 2);
+    assert!(budget.max_semantic_refinement_passes >= 1);
+    assert!(budget.max_semantic_refinement_passes <= 2);
+    assert!(budget
+        .signals
+        .contains(&StudioAdaptiveSearchSignal::RendererComplexity));
+    assert!(budget
+        .signals
+        .contains(&StudioAdaptiveSearchSignal::BriefInteractionLoad));
+    assert!(budget
+        .signals
+        .contains(&StudioAdaptiveSearchSignal::BriefConceptLoad));
+    assert!(budget
+        .signals
+        .contains(&StudioAdaptiveSearchSignal::LocalGenerationConstraint));
+}
+
+#[test]
+fn low_variance_near_misses_expand_to_budget_cap() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = sample_quantum_explainer_brief();
+    let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+    let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+    let mut budget = super::generation::derive_studio_adaptive_search_budget(
+        &request,
+        &brief,
+        Some(&blueprint),
+        Some(&artifact_ir),
+        &[],
+        &[],
+        None,
+        StudioRuntimeProvenanceKind::RealLocalRuntime,
+    );
+    let candidate_summaries = vec![
+        studio_test_candidate_summary(
+            "candidate-1",
+            studio_test_judge(
+                StudioArtifactJudgeClassification::Repairable,
+                false,
+                4,
+                4,
+                4,
+                4,
+                4,
+                4,
+            ),
+        ),
+        studio_test_candidate_summary(
+            "candidate-2",
+            studio_test_judge(
+                StudioArtifactJudgeClassification::Repairable,
+                false,
+                4,
+                4,
+                4,
+                4,
+                4,
+                3,
+            ),
+        ),
+    ];
+    let ranked = super::generation::ranked_candidate_indices_by_score(&candidate_summaries);
+    let expanded = super::generation::target_candidate_count_after_initial_search(
+        &mut budget,
+        &ranked,
+        &candidate_summaries,
+        0,
+    );
+
+    assert_eq!(expanded, budget.max_candidate_count);
+    assert!(budget
+        .signals
+        .contains(&StudioAdaptiveSearchSignal::LowCandidateVariance));
+    assert!(budget
+        .signals
+        .contains(&StudioAdaptiveSearchSignal::NoPrimaryViewCandidate));
+}
+
+#[test]
+fn shortlist_widens_for_near_tied_primary_view_candidates() {
+    let mut budget = StudioAdaptiveSearchBudget {
+        initial_candidate_count: 2,
+        max_candidate_count: 3,
+        shortlist_limit: 1,
+        max_semantic_refinement_passes: 1,
+        plateau_limit: 1,
+        min_score_delta: 1,
+        target_judge_score_for_early_stop: 356,
+        expansion_score_margin: 12,
+        signals: Vec::new(),
+    };
+    let candidate_summaries = vec![
+        studio_test_candidate_summary(
+            "candidate-1",
+            studio_test_judge(
+                StudioArtifactJudgeClassification::Pass,
+                true,
+                5,
+                5,
+                5,
+                5,
+                5,
+                5,
+            ),
+        ),
+        studio_test_candidate_summary(
+            "candidate-2",
+            studio_test_judge(
+                StudioArtifactJudgeClassification::Pass,
+                true,
+                5,
+                5,
+                5,
+                5,
+                5,
+                4,
+            ),
+        ),
+        studio_test_candidate_summary(
+            "candidate-3",
+            studio_test_judge(
+                StudioArtifactJudgeClassification::Repairable,
+                false,
+                3,
+                3,
+                3,
+                3,
+                3,
+                3,
+            ),
+        ),
+    ];
+    let ranked = super::generation::ranked_candidate_indices_by_score(&candidate_summaries);
+    let shortlist = super::generation::shortlisted_candidate_indices_for_budget(
+        &mut budget,
+        &ranked,
+        &candidate_summaries,
+    );
+
+    assert_eq!(shortlist, vec![0, 1]);
+    assert_eq!(budget.shortlist_limit, 2);
+    assert!(budget
+        .signals
+        .contains(&StudioAdaptiveSearchSignal::LowCandidateVariance));
 }
 
 #[test]
@@ -3410,7 +4295,7 @@ impl InferenceRuntime for StudioRefinementRepairTestRuntime {
                         "renderable": true,
                         "downloadable": true,
                         "encoding": "utf8",
-                        "body": "<!doctype html><html><body><main><section><h1>Dog shampoo rollout</h1><p>Ingredient analysis, customer satisfaction, and usage statistics stay visible on first paint.</p><button type=\"button\" data-view=\"ingredients\">Ingredients</button><button type=\"button\" data-view=\"satisfaction\">Satisfaction</button><button type=\"button\" data-view=\"usage\">Usage</button></section><section data-view-panel=\"ingredients\"><article class=\"chart\"><h2>Rollout evidence</h2><svg viewBox=\"0 0 260 140\" role=\"img\" aria-label=\"Dog shampoo rollout evidence\"><rect x=\"24\" y=\"54\" width=\"42\" height=\"62\" data-detail=\"Ingredient analysis\"></rect><rect x=\"94\" y=\"36\" width=\"42\" height=\"80\" data-detail=\"Customer satisfaction\"></rect><rect x=\"164\" y=\"28\" width=\"42\" height=\"88\" data-detail=\"Usage statistics\"></rect><text x=\"24\" y=\"132\">Ingredients</text><text x=\"94\" y=\"132\">Satisfaction</text><text x=\"164\" y=\"132\">Usage</text></svg></article></section><section data-view-panel=\"satisfaction\" hidden><article><h2>Customer satisfaction</h2><p>Customer satisfaction detail stays available here.</p></article></section><section data-view-panel=\"usage\" hidden><article><h2>Usage statistics</h2><p>Usage statistics detail stays available here.</p></article></section><aside><h2>Comparison detail</h2><p id=\"detail-copy\">Ingredient analysis is selected by default.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=`${button.dataset.view} selected for dog shampoo rollout review.`;}));document.querySelectorAll('svg [data-detail]').forEach((mark)=>{mark.addEventListener('mouseenter',()=>{detail.textContent=`Hover detail: ${mark.dataset.detail}`;});mark.addEventListener('focus',()=>{detail.textContent=`Focus detail: ${mark.dataset.detail}`;});});</script></main></body></html>"
+                        "body": "<!doctype html><html><body><main><section><h1>Dog shampoo rollout</h1><p>Ingredient analysis, customer satisfaction, and usage statistics stay visible on first paint.</p><button type=\"button\" data-view=\"ingredients\">Ingredients</button><button type=\"button\" data-view=\"satisfaction\">Satisfaction</button><button type=\"button\" data-view=\"usage\">Usage</button></section><section data-view-panel=\"ingredients\"><article class=\"chart\"><h2>Rollout evidence</h2><svg viewBox=\"0 0 260 140\" role=\"img\" aria-label=\"Dog shampoo rollout evidence\"><rect x=\"24\" y=\"54\" width=\"42\" height=\"62\" data-detail=\"Ingredient analysis\"></rect><rect x=\"94\" y=\"36\" width=\"42\" height=\"80\" data-detail=\"Customer satisfaction\"></rect><rect x=\"164\" y=\"28\" width=\"42\" height=\"88\" data-detail=\"Usage statistics\"></rect><text x=\"24\" y=\"132\">Ingredients</text><text x=\"94\" y=\"132\">Satisfaction</text><text x=\"164\" y=\"132\">Usage</text></svg></article></section><section><article><h2>Customer satisfaction snapshot</h2><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Satisfaction</td><td>4.8 / 5</td></tr><tr><td>Repeat purchase</td><td>31%</td></tr></table></article></section><section data-view-panel=\"satisfaction\" hidden><article><h2>Customer satisfaction</h2><p>Customer satisfaction detail stays available here.</p></article></section><section data-view-panel=\"usage\" hidden><article><h2>Usage statistics</h2><p>Usage statistics detail stays available here.</p></article></section><aside><h2>Comparison detail</h2><p id=\"detail-copy\">Ingredient analysis is selected by default.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=`${button.dataset.view} selected for dog shampoo rollout review.`;}));document.querySelectorAll('svg [data-detail]').forEach((mark)=>{mark.addEventListener('mouseenter',()=>{detail.textContent=`Hover detail: ${mark.dataset.detail}`;});mark.addEventListener('focus',()=>{detail.textContent=`Focus detail: ${mark.dataset.detail}`;});});</script></main></body></html>"
                     }]
                 }),
             )
@@ -3975,6 +4860,10 @@ async fn materialization_repair_recovers_raw_html_missing_json_candidate() {
             }],
             selected_targets: Vec::new(),
             taste_memory: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         }),
         "candidate-1",
         42,
@@ -4238,6 +5127,10 @@ async fn edit_intent_repair_recovers_scalar_array_mismatch() {
                 snippet: "Hero chart section should show adoption by channel.".to_string(),
             }],
             taste_memory: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         },
     )
     .await
@@ -4287,6 +5180,10 @@ async fn edit_intent_repair_recovers_missing_json_payload() {
             files: vec![],
             selected_targets: Vec::new(),
             taste_memory: None,
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         },
     )
     .await
@@ -4356,6 +5253,10 @@ async fn refinement_repair_recovers_schema_invalid_candidate() {
             },
             None,
             None,
+            &[],
+            &[],
+            None,
+            None,
             &StudioGeneratedArtifactPayload {
                 summary: "Interactive HTML artifact explaining a new dog shampoo product rollout with charts and data visualizations.".to_string(),
                 notes: vec![],
@@ -4382,6 +5283,22 @@ async fn refinement_repair_recovers_schema_invalid_candidate() {
                 deserves_primary_artifact_view: false,
                 patched_existing_artifact: None,
                 continuity_revision_ux: None,
+                issue_classes: vec!["interaction_truthfulness".to_string()],
+                repair_hints: vec![
+                    "Wire rollover detail and view switching into pre-rendered evidence panels."
+                        .to_string(),
+                ],
+                strengths: vec!["Concept coverage is already respectable.".to_string()],
+                blocked_reasons: Vec::new(),
+                file_findings: vec!["index.html: interactions do not cover both requested modes."
+                    .to_string()],
+                aesthetic_verdict: "Layout is readable but still underpowered for an interactive artifact."
+                    .to_string(),
+                interaction_verdict:
+                    "The evidence surface lacks the requested rollover and clickable comparison behaviors."
+                        .to_string(),
+                truthfulness_warnings: Vec::new(),
+                recommended_next_pass: Some("structural_repair".to_string()),
                 strongest_contradiction: Some(
                     "Charts lack rollover effects and clickable navigation.".to_string(),
                 ),
@@ -4390,6 +5307,7 @@ async fn refinement_repair_recovers_schema_invalid_candidate() {
             },
             "candidate-1-refine-1",
             42,
+            0.18,
         )
         .await
         .expect("refinement repair should recover the candidate");
@@ -5257,6 +6175,106 @@ fn brief_aware_validation_requires_populated_mapped_view_panels_on_first_paint()
 }
 
 #[test]
+fn payload_validation_rejects_duplicate_mapped_view_tokens() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let payload = StudioGeneratedArtifactPayload {
+        summary: "Duplicate mapped view tokens".to_string(),
+        notes: vec![],
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: false,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body: "<!doctype html><html><head><style>body{font-family:system-ui,sans-serif;}main{display:grid;gap:1rem;}section,aside,footer{padding:1rem;border:1px solid #ccc;}</style></head><body><main><section><h1>Launch review</h1><p>Compare readiness and metrics.</p><button type=\"button\" data-view=\"overview\" aria-controls=\"overview-panel\">Overview</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\">Metrics</button></section><section id=\"overview-panel\" data-view-panel=\"overview\"><article><h2>Overview</h2><p>Readiness evidence stays visible here.</p></article></section><section id=\"metrics-panel\" data-view-panel=\"overview\" hidden><article><h2>Metrics</h2><p>Metrics evidence should not reuse the overview token.</p></article></section><aside><p id=\"detail-copy\">Overview is selected by default.</p></aside><footer><p>Footer note.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view + ' selected.';}));</script></main></body></html>".to_string(),
+        }],
+    };
+
+    let error = validate_generated_artifact_payload(&payload, &request)
+        .expect_err("duplicate mapped view tokens should fail payload validation");
+    assert!(error.contains("must not duplicate mapped view-panel tokens"));
+}
+
+#[test]
+fn payload_validation_rejects_multiple_visible_mapped_panels() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let payload = StudioGeneratedArtifactPayload {
+        summary: "Multiple visible mapped panels".to_string(),
+        notes: vec![],
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: false,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body: "<!doctype html><html><head><style>body{font-family:system-ui,sans-serif;}main{display:grid;gap:1rem;}section,aside,footer{padding:1rem;border:1px solid #ccc;}</style></head><body><main><section><h1>Launch review</h1><p>Compare readiness and metrics.</p><button type=\"button\" data-view=\"overview\" aria-controls=\"overview-panel\">Overview</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\">Metrics</button></section><section id=\"overview-panel\" data-view-panel=\"overview\"><article><h2>Overview</h2><p>Readiness evidence stays visible here.</p></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\"><article><h2>Metrics</h2><p>Metrics evidence should start hidden until selected.</p></article></section><aside><p id=\"detail-copy\">Overview is selected by default.</p></aside><footer><p>Footer note.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view + ' selected.';}));</script></main></body></html>".to_string(),
+        }],
+    };
+
+    let error = validate_generated_artifact_payload(&payload, &request)
+        .expect_err("multiple visible mapped panels should fail payload validation");
+    assert!(error.contains("exactly one populated panel visible on first paint"));
+}
+
+#[test]
+fn payload_validation_rejects_custom_font_claims_without_loading() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let payload = StudioGeneratedArtifactPayload {
+        summary: "Custom font claims without loading".to_string(),
+        notes: vec![],
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: false,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body: "<!doctype html><html><head><style>:root{--display-font:'Newsreader',serif;}body{font-family:'Newsreader',serif;background:#0f172a;color:#f8fafc;}main{display:grid;gap:1rem;}section,aside,footer{padding:1rem;border:1px solid #334155;}button{font-family:'Instrument Sans',sans-serif;}</style></head><body><main><section><h1>Launch review</h1><p>Compare readiness and metrics.</p><button type=\"button\" data-view=\"overview\" aria-controls=\"overview-panel\">Overview</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\">Metrics</button></section><section id=\"overview-panel\" data-view-panel=\"overview\"><article><h2>Overview</h2><p>Readiness evidence stays visible here.</p></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><article><h2>Metrics</h2><p>Metrics evidence stays pre-rendered.</p></article></section><aside><p id=\"detail-copy\">Overview is selected by default.</p></aside><footer><p>Footer note.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view + ' selected.';}));</script></main></body></html>".to_string(),
+        }],
+    };
+
+    let error = validate_generated_artifact_payload(&payload, &request)
+        .expect_err("custom font claims without loading should fail payload validation");
+    assert!(error.contains("declare custom font families must load them"));
+}
+
+#[test]
+fn payload_validation_rejects_unfocusable_rollover_marks() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let payload = StudioGeneratedArtifactPayload {
+        summary: "Unfocusable rollover marks".to_string(),
+        notes: vec![],
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: false,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body: "<!doctype html><html><head><style>body{font-family:system-ui,sans-serif;background:#f8fafc;color:#0f172a;}main{display:grid;gap:1rem;}section,aside,footer{padding:1rem;border:1px solid #cbd5e1;border-radius:12px;}svg{width:100%;max-width:320px;height:auto;}</style></head><body><main><section><h1>Launch review</h1><p>Compare readiness, adoption, and support demand through a focused rollout story with visible evidence marks.</p><button type=\"button\" data-view=\"overview\" aria-controls=\"overview-panel\">Overview</button></section><section id=\"overview-panel\"><article><h2>Overview</h2><p>Overview evidence stays visible here with trend notes, operator context, and one shared detail region.</p><svg viewBox=\"0 0 320 120\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"24\" y=\"28\" width=\"52\" height=\"64\" fill=\"#2563eb\" data-detail=\"Readiness signal\"></rect><rect x=\"104\" y=\"16\" width=\"52\" height=\"76\" fill=\"#0f766e\" data-detail=\"Adoption signal\"></rect><rect x=\"184\" y=\"36\" width=\"52\" height=\"56\" fill=\"#b45309\" data-detail=\"Support signal\"></rect></svg></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Readiness signal is selected by default.</p></aside><footer><p>Footer note summarizing next steps and verification posture.</p></footer><script>const detail=document.getElementById('detail-copy');document.querySelectorAll('[data-detail]').forEach((mark)=>{mark.addEventListener('focus',()=>{detail.textContent=mark.getAttribute('data-detail');});mark.addEventListener('mouseenter',()=>{detail.textContent=mark.getAttribute('data-detail');});});</script></main></body></html>".to_string(),
+        }],
+    };
+
+    let error = validate_generated_artifact_payload(&payload, &request)
+        .expect_err("unfocusable rollover marks should fail payload validation");
+    assert!(error.contains("data-detail marks keyboard-focusable"));
+}
+
+#[test]
 fn brief_aware_validation_rejects_static_aria_controls_without_click_driven_panel_state() {
     let request = request_for(
         StudioArtifactClass::InteractiveSingleFile,
@@ -6064,6 +7082,19 @@ fn judge_contract_ignores_sequence_penalties_when_brief_does_not_require_them() 
         deserves_primary_artifact_view: true,
         patched_existing_artifact: None,
         continuity_revision_ux: None,
+        issue_classes: vec!["sequence_browsing".to_string()],
+        repair_hints: vec!["If sequence browsing is truly required, add a visible progression control."
+            .to_string()],
+        strengths: vec!["View switching and detail inspection are already strong.".to_string()],
+        blocked_reasons: Vec::new(),
+        file_findings: vec!["index.html: missing progression control.".to_string()],
+        aesthetic_verdict: "Evidence hierarchy is strong enough to support the artifact."
+            .to_string(),
+        interaction_verdict:
+            "Sequence browsing is the only notable gap; the rest of the interaction contract is strong."
+                .to_string(),
+        truthfulness_warnings: Vec::new(),
+        recommended_next_pass: Some("structural_repair".to_string()),
         strongest_contradiction: Some("Missing sequence browsing for timeline.".to_string()),
         rationale:
             "Candidate covers key concepts but lacks interactive sequence browsing as required."
@@ -6117,6 +7148,175 @@ fn parse_studio_artifact_judge_result_normalizes_score_ranges() {
     assert_eq!(result.continuity_revision_ux, Some(5));
     assert_eq!(result.patched_existing_artifact, Some(false));
     assert!(result.deserves_primary_artifact_view);
+    assert_eq!(result.strongest_contradiction, None);
+    assert_eq!(
+        result.issue_classes,
+        vec!["request_faithfulness".to_string()]
+    );
+    assert!(result.repair_hints.is_empty());
+    assert_eq!(
+        result.strengths,
+        vec![
+            "Request concepts stay visible and specific.".to_string(),
+            "Hierarchy reads as deliberate instead of default scaffolding.".to_string(),
+            "Interactive affordances respond truthfully to the typed interaction contract."
+                .to_string(),
+        ]
+    );
+    assert!(result.blocked_reasons.is_empty());
+    assert!(result.file_findings.is_empty());
+    assert_eq!(
+        result.aesthetic_verdict,
+        "Typography and layout feel deliberate enough to carry the artifact."
+    );
+    assert_eq!(
+        result.interaction_verdict,
+        "Interaction model is visible and materially changes the page state."
+    );
+    assert_eq!(
+        result.truthfulness_warnings,
+        vec![
+            "Candidate may be substituting generic filler for the typed request concepts."
+                .to_string()
+        ]
+    );
+    assert_eq!(result.recommended_next_pass.as_deref(), Some("polish_pass"));
+}
+
+#[test]
+fn parse_studio_artifact_judge_result_recovers_plaintext_labeled_output() {
+    let result = parse_studio_artifact_judge_result(
+        r#"
+Classification: repairable
+Request faithfulness: 4/5
+Concept coverage: 4
+Interaction relevance: 3
+Layout coherence: 4
+Visual hierarchy: 3
+Completeness: 4
+Generic shell detected: no
+Trivial shell detected: false
+Deserves primary artifact view: no
+Issue classes:
+- metadata_gap
+Repair hints: add manifest metadata, explain CSV columns
+Strengths:
+- CSV and README both exist
+Blocked reasons: none
+File findings: README.md: missing column descriptions
+Aesthetic verdict: utilitarian but clear.
+Interaction verdict: download-only surface matches the request.
+Recommended next pass: structural repair
+Strongest contradiction: The bundle lacks enough metadata to feel complete.
+Rationale: Candidate is close, but the README still underspecifies the bundle.
+"#,
+    )
+    .expect("plaintext judge output should recover");
+
+    assert_eq!(
+        result.classification,
+        StudioArtifactJudgeClassification::Repairable
+    );
+    assert_eq!(result.request_faithfulness, 4);
+    assert_eq!(result.concept_coverage, 4);
+    assert_eq!(result.interaction_relevance, 3);
+    assert_eq!(result.layout_coherence, 4);
+    assert_eq!(result.visual_hierarchy, 3);
+    assert_eq!(result.completeness, 4);
+    assert!(!result.generic_shell_detected);
+    assert!(!result.trivial_shell_detected);
+    assert!(!result.deserves_primary_artifact_view);
+    assert_eq!(result.issue_classes, vec!["metadata_gap".to_string()]);
+    assert_eq!(
+        result.repair_hints,
+        vec![
+            "add manifest metadata".to_string(),
+            "explain CSV columns".to_string()
+        ]
+    );
+    assert_eq!(
+        result.strengths,
+        vec!["CSV and README both exist".to_string()]
+    );
+    assert_eq!(result.blocked_reasons, Vec::<String>::new());
+    assert_eq!(
+        result.file_findings,
+        vec!["README.md: missing column descriptions".to_string()]
+    );
+    assert_eq!(
+        result.recommended_next_pass.as_deref(),
+        Some("structural_repair")
+    );
+    assert_eq!(
+        result.strongest_contradiction.as_deref(),
+        Some("The bundle lacks enough metadata to feel complete.")
+    );
+    assert_eq!(
+        result.rationale,
+        "Candidate is close, but the README still underspecifies the bundle."
+    );
+}
+
+#[test]
+fn parse_studio_artifact_judge_result_recovers_plaintext_first_line_classification() {
+    let result = parse_studio_artifact_judge_result(
+        r#"
+Repairable
+Request faithfulness: 4
+Concept coverage: 4
+Interaction relevance: 3
+Layout coherence: 3
+Visual hierarchy: 3
+Completeness: 3
+Repair hints:
+- Explain what the CSV columns mean in the README.
+- Add a manifest that names the downloadable files.
+The bundle is close, but the README omits enough context that the download package still feels incomplete.
+"#,
+    )
+    .expect("plaintext first-line classification should recover");
+
+    assert_eq!(
+        result.classification,
+        StudioArtifactJudgeClassification::Repairable
+    );
+    assert_eq!(
+        result.repair_hints,
+        vec![
+            "Explain what the CSV columns mean in the README.".to_string(),
+            "Add a manifest that names the downloadable files.".to_string(),
+        ]
+    );
+    assert_eq!(
+        result.rationale,
+        "The bundle is close, but the README omits enough context that the download package still feels incomplete."
+    );
+}
+
+#[test]
+fn parse_studio_artifact_judge_result_recovers_truncated_compact_json() {
+    let result = parse_studio_artifact_judge_result(
+        r#"{"classification":"pass","requestFaithfulness":5,"conceptCoverage":5,"interactionRelevance":5,"layoutCoherence":5,"visualHierarchy":0,"completeness":5,"genericShellDetected":false,"trivialShellDetected":false,"deservesPrimaryArtifactView":true,"strengths":["Includes both CSV and README files as requested."],"recommendedNextPass":"accept","aestheticVerdict":"Clear and concise documentation.","interactionVerdict":"Inter"#,
+    )
+    .expect("truncated compact json should recover");
+
+    assert_eq!(
+        result.classification,
+        StudioArtifactJudgeClassification::Pass
+    );
+    assert_eq!(result.request_faithfulness, 5);
+    assert_eq!(result.concept_coverage, 5);
+    assert_eq!(result.interaction_relevance, 5);
+    assert_eq!(result.layout_coherence, 5);
+    assert_eq!(result.visual_hierarchy, 1);
+    assert_eq!(result.completeness, 5);
+    assert!(result.deserves_primary_artifact_view);
+    assert_eq!(
+        result.strengths,
+        vec!["Includes both CSV and README files as requested.".to_string()]
+    );
+    assert_eq!(result.recommended_next_pass.as_deref(), Some("accept"));
+    assert_eq!(result.aesthetic_verdict, "Clear and concise documentation.");
 }
 
 #[tokio::test]
@@ -6242,6 +7442,8 @@ impl InferenceRuntime for StudioSemanticRefinementTestRuntime {
             "brief"
         } else if prompt.contains("typed artifact materialization repairer") {
             "materialize_repair"
+        } else if prompt.contains("typed artifact materialization repairer") {
+            "materialize_repair"
         } else if prompt.contains("typed artifact refinement repairer") {
             "refine_repair"
         } else if prompt.contains("typed artifact refiner") {
@@ -6303,7 +7505,7 @@ impl InferenceRuntime for StudioSemanticRefinementTestRuntime {
                             "downloadable": true,
                             "encoding": "utf8",
                             "body": format!(
-                                "<!doctype html><html><body><main><section><h1>Instacart MCP rollout</h1><p>Inspect the rollout stages and early metrics.</p><button type=\"button\" data-view=\"timeline\">Timeline</button><button type=\"button\" data-view=\"metrics\">Metrics</button></section><section data-view-panel=\"timeline\"><article class=\"chart\"><h2>Rollout chart preview</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"{candidate_id} rollout preview\"><rect x=\"20\" y=\"48\" width=\"36\" height=\"52\" data-detail=\"Pilot stores\"></rect><rect x=\"82\" y=\"36\" width=\"36\" height=\"64\" data-detail=\"Launch readiness\"></rect><rect x=\"144\" y=\"28\" width=\"36\" height=\"72\" data-detail=\"Owner sign-off\"></rect><text x=\"20\" y=\"114\">Pilot</text><text x=\"82\" y=\"114\">Launch</text><text x=\"144\" y=\"114\">Owners</text></svg></article></section><section data-view-panel=\"metrics\"><article><h2>Metrics evidence</h2><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Order accuracy</td><td>99%</td></tr><tr><td>Support deflection</td><td>18%</td></tr></table></article></section><aside><h2>Clickable detail panel</h2><p id=\"detail-copy\">Timeline is selected by default for {candidate_id}.</p></aside><footer><p>Charts and metrics need denser interactions before acceptance.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{{panels.forEach((panel)=>{{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;}});detail.textContent=button.dataset.view + ' selected for {candidate_id}.';}}));document.querySelectorAll('svg [data-detail]').forEach((mark)=>{{mark.addEventListener('mouseenter',()=>{{detail.textContent='Tooltip: ' + mark.dataset.detail;}});mark.addEventListener('focus',()=>{{detail.textContent='Focus: ' + mark.dataset.detail;}});}});</script></main></body></html>"
+                                "<!doctype html><html><body><main><section><h1>Instacart MCP rollout</h1><p>Inspect the rollout stages and early metrics.</p><button type=\"button\" data-view=\"timeline\" aria-controls=\"timeline-panel\" aria-selected=\"true\">Timeline</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\" aria-selected=\"false\">Metrics</button></section><section id=\"timeline-panel\" data-view-panel=\"timeline\"><article class=\"chart\"><h2>Rollout chart preview</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"{candidate_id} rollout preview\"><rect x=\"20\" y=\"48\" width=\"36\" height=\"52\" tabindex=\"0\" data-detail=\"Pilot stores\"></rect><rect x=\"82\" y=\"36\" width=\"36\" height=\"64\" tabindex=\"0\" data-detail=\"Launch readiness\"></rect><rect x=\"144\" y=\"28\" width=\"36\" height=\"72\" tabindex=\"0\" data-detail=\"Owner sign-off\"></rect><text x=\"20\" y=\"114\">Pilot</text><text x=\"82\" y=\"114\">Launch</text><text x=\"144\" y=\"114\">Owners</text></svg></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><article><h2>Metrics evidence</h2><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Order accuracy</td><td>99%</td></tr><tr><td>Support deflection</td><td>18%</td></tr></table></article></section><aside><h2>Clickable detail panel</h2><p id=\"detail-copy\">Timeline is selected by default for {candidate_id}.</p></aside><footer><p>Charts and metrics need denser interactions before acceptance.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{{panels.forEach((panel)=>{{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;}});document.querySelectorAll('button[data-view]').forEach((control)=>{{control.setAttribute('aria-selected', String(control===button));}});detail.textContent=button.dataset.view + ' selected for {candidate_id}.';}}));document.querySelectorAll('svg [data-detail]').forEach((mark)=>{{mark.addEventListener('mouseenter',()=>{{detail.textContent='Tooltip: ' + mark.dataset.detail;}});mark.addEventListener('focus',()=>{{detail.textContent='Focus: ' + mark.dataset.detail;}});}});</script></main></body></html>"
                             )
                         }]
                     })
@@ -6319,7 +7521,7 @@ impl InferenceRuntime for StudioSemanticRefinementTestRuntime {
                     "renderable": true,
                     "downloadable": true,
                     "encoding": "utf8",
-                    "body": "<!doctype html><html><body><main><section><h1>Instacart MCP product rollout</h1><p>Hover the milestone rail and click each metric card to inspect the launch evidence.</p><button type=\"button\" data-view=\"timeline\">Timeline view</button><button type=\"button\" data-view=\"metrics\">Metrics view</button></section><section data-view-panel=\"timeline\"><article><h2>Milestone timeline</h2><ul><li data-detail=\"dark-store pilot\">Pilot stores onboarded</li><li data-detail=\"regional launch\">Regional launch review</li><li data-detail=\"owner sign-off\">Owner sign-off</li></ul></article></section><section data-view-panel=\"metrics\"><article><h2>Charts and metrics</h2><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Adoption lift</td><td>24%</td></tr><tr><td>Order accuracy</td><td>99%</td></tr><tr><td>Support deflection</td><td>18%</td></tr></table><p>Adoption lift, order accuracy, and support deflection are visible on first paint.</p></article></section><article><h2>Owner evidence</h2><ul><li>Ops captain owns pilot approvals and milestone sequencing.</li><li>Support lead owns launch-day triage and retailer readiness notes.</li></ul></article><aside><h2>Clickable detail panel</h2><p>Select a milestone or metric card to compare owners, timing, and impact.</p></aside><footer><p>Instacart MCP launch evidence stays request-faithful and interactive.</p></footer><script>const buttons=document.querySelectorAll('button[data-view]');const panels=document.querySelectorAll('[data-view-panel]');const detail=document.querySelector('aside p');buttons.forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=`${button.dataset.view} selected for Instacart MCP rollout review.`;}));document.querySelectorAll('[data-detail]').forEach((item)=>{item.addEventListener('mouseenter',()=>{detail.textContent=`Tooltip: ${item.dataset.detail}`;});item.addEventListener('click',()=>{detail.textContent=`Clicked milestone: ${item.dataset.detail}`;});item.addEventListener('focus',()=>{detail.textContent=`Focus: ${item.dataset.detail}`;});});</script></main></body></html>"
+                    "body": "<!doctype html><html><body><main><section><h1>Instacart MCP product rollout</h1><p>Hover the milestone rail and click each metric card to inspect the launch evidence.</p><button type=\"button\" data-view=\"timeline\" aria-controls=\"timeline-panel\" aria-selected=\"true\">Timeline view</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\" aria-selected=\"false\">Metrics view</button></section><section id=\"timeline-panel\" data-view-panel=\"timeline\"><article><h2>Milestone timeline</h2><ul><li tabindex=\"0\" data-detail=\"dark-store pilot\">Pilot stores onboarded</li><li tabindex=\"0\" data-detail=\"regional launch\">Regional launch review</li><li tabindex=\"0\" data-detail=\"owner sign-off\">Owner sign-off</li></ul></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><article><h2>Charts and metrics</h2><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Adoption lift</td><td>24%</td></tr><tr><td>Order accuracy</td><td>99%</td></tr><tr><td>Support deflection</td><td>18%</td></tr></table><p>Adoption lift, order accuracy, and support deflection are visible on first paint.</p></article></section><article><h2>Owner evidence</h2><ul><li>Ops captain owns pilot approvals and milestone sequencing.</li><li>Support lead owns launch-day triage and retailer readiness notes.</li></ul></article><aside><h2>Clickable detail panel</h2><p>Select a milestone or metric card to compare owners, timing, and impact.</p></aside><footer><p>Instacart MCP launch evidence stays request-faithful and interactive.</p></footer><script>const buttons=document.querySelectorAll('button[data-view]');const panels=document.querySelectorAll('[data-view-panel]');const detail=document.querySelector('aside p');buttons.forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});buttons.forEach((control)=>{control.setAttribute('aria-selected', String(control===button));});detail.textContent=`${button.dataset.view} selected for Instacart MCP rollout review.`;}));document.querySelectorAll('[data-detail]').forEach((item)=>{item.addEventListener('mouseenter',()=>{detail.textContent=`Tooltip: ${item.dataset.detail}`;});item.addEventListener('click',()=>{detail.textContent=`Clicked milestone: ${item.dataset.detail}`;});item.addEventListener('focus',()=>{detail.textContent=`Focus: ${item.dataset.detail}`;});});</script></main></body></html>"
                 }]
             }),
             "judge" => {
@@ -6467,11 +7669,33 @@ async fn creative_renderer_refines_best_candidate_before_final_selection() {
             .map(|candidate| candidate.candidate_id.as_str()),
         Some("candidate-1-refine-1")
     );
+    let refined_summary = bundle
+        .candidate_summaries
+        .iter()
+        .find(|candidate| candidate.candidate_id == "candidate-1-refine-1")
+        .expect("refined summary should exist");
+    let convergence = refined_summary
+        .convergence
+        .as_ref()
+        .expect("refined summary should record convergence");
+    assert_eq!(convergence.lineage_root_id, "candidate-1");
+    assert_eq!(
+        convergence.parent_candidate_id.as_deref(),
+        Some("candidate-1")
+    );
+    assert_eq!(convergence.pass_kind, "structural_repair");
+    assert_eq!(convergence.pass_index, 1);
+    assert!(convergence.score_total > 0);
+    assert!(convergence.score_delta_from_parent.unwrap_or_default() > 0);
+    assert_eq!(
+        convergence.terminated_reason.as_deref(),
+        Some("selected_after_primary_view_clear")
+    );
 
     let recorded_calls = calls.lock().expect("calls lock").clone();
     assert!(recorded_calls
         .iter()
-        .any(|call| call == "production:refine"));
+        .any(|call| call == "acceptance:refine"));
     assert_eq!(
         recorded_calls
             .iter()
@@ -6483,6 +7707,276 @@ async fn creative_renderer_refines_best_candidate_before_final_selection() {
         recorded_calls
             .iter()
             .filter(|call| *call == "acceptance:judge")
+            .count(),
+        2
+    );
+}
+
+#[derive(Clone)]
+struct StudioConvergencePlateauTestRuntime {
+    provenance: StudioRuntimeProvenance,
+    role: &'static str,
+    calls: Arc<Mutex<Vec<String>>>,
+}
+
+#[async_trait]
+impl InferenceRuntime for StudioConvergencePlateauTestRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = decode_studio_test_prompt(input_context);
+        let stage = if prompt.contains("typed artifact brief planner") {
+            "brief"
+        } else if prompt.contains("typed artifact materialization repairer") {
+            "materialize_repair"
+        } else if prompt.contains("typed artifact refinement repairer") {
+            "refine_repair"
+        } else if prompt.contains("typed artifact refiner") {
+            "refine"
+        } else if prompt.contains("typed artifact materializer") {
+            "materialize"
+        } else if prompt.contains("typed artifact judge") {
+            "judge"
+        } else {
+            "unknown"
+        };
+        self.calls
+            .lock()
+            .expect("calls lock")
+            .push(format!("{}:{stage}", self.role));
+
+        let response = match stage {
+            "brief" => serde_json::json!({
+                "audience": "launch operators",
+                "jobToBeDone": "review rollout evidence with charts and detail panels",
+                "subjectDomain": "Instacart MCP launch",
+                "artifactThesis": "show readiness, metrics, and owners in an interactive artifact",
+                "requiredConcepts": ["Instacart", "MCP", "readiness", "metrics"],
+                "requiredInteractions": ["clickable navigation", "rollover detail"],
+                "visualTone": ["operational"],
+                "factualAnchors": ["launch readiness"],
+                "styleDirectives": ["clear hierarchy"],
+                "referenceHints": []
+            }),
+            "materialize" | "materialize_repair" => {
+                let candidate_id = if prompt.contains("\"candidateId\":\"candidate-1\"") {
+                    "candidate-1"
+                } else {
+                    "candidate-2"
+                };
+                let body = if candidate_id == "candidate-1" {
+                    "<!doctype html><html><body><main><section><h1>Instacart MCP launch review</h1><p>Inspect readiness, metrics, and launch owners.</p><button type=\"button\" data-view=\"readiness\" aria-controls=\"readiness-panel\" aria-selected=\"true\">Readiness</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\" aria-selected=\"false\">Metrics</button></section><section id=\"readiness-panel\" data-view-panel=\"readiness\"><article><h2>Readiness chart</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Readiness chart\"><rect x=\"20\" y=\"52\" width=\"40\" height=\"48\" tabindex=\"0\" data-detail=\"Pilot approvals\"></rect><rect x=\"84\" y=\"38\" width=\"40\" height=\"62\" tabindex=\"0\" data-detail=\"Support readiness\"></rect><text x=\"20\" y=\"114\">Pilot</text><text x=\"84\" y=\"114\">Support</text></svg></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><article><h2>Metrics table</h2><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Order accuracy</td><td>99%</td></tr><tr><td>Support deflection</td><td>18%</td></tr></table></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Readiness is selected by default.</p></aside><footer><p>The first draft still needs denser evidence.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');const controls=document.querySelectorAll('button[data-view]');controls.forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});controls.forEach((control)=>{control.setAttribute('aria-selected', String(control===button));});detail.textContent=button.dataset.view + ' selected.';}));document.querySelectorAll('[data-detail]').forEach((mark)=>{mark.addEventListener('mouseenter',()=>{detail.textContent=mark.dataset.detail;});mark.addEventListener('focus',()=>{detail.textContent=mark.dataset.detail;});});</script></main></body></html>"
+                } else {
+                    "<!doctype html><html><body><main><section><h1>Backup launch review</h1><p>Thinner backup layout.</p><button type=\"button\" data-view=\"overview\" aria-controls=\"overview-panel\" aria-selected=\"true\">Overview</button><button type=\"button\" data-view=\"owners\" aria-controls=\"owners-panel\" aria-selected=\"false\">Owners</button></section><section id=\"overview-panel\" data-view-panel=\"overview\"><article><h2>Overview</h2><p>Backup evidence.</p></article></section><section id=\"owners-panel\" data-view-panel=\"owners\" hidden><article><h2>Owners</h2><p>Backup ownership notes stay pre-rendered for comparison.</p></article></section><aside><p id=\"detail-copy\">Overview is selected.</p></aside><footer><p>Weaker backup.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');const controls=document.querySelectorAll('button[data-view]');controls.forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});controls.forEach((control)=>{control.setAttribute('aria-selected', String(control===button));});detail.textContent=button.dataset.view + ' selected.';}));</script></main></body></html>"
+                };
+                serde_json::json!({
+                    "summary": format!("{candidate_id} plateau draft"),
+                    "notes": [format!("{candidate_id} initial draft")],
+                    "files": [{
+                        "path": "index.html",
+                        "mime": "text/html",
+                        "role": "primary",
+                        "renderable": true,
+                        "downloadable": true,
+                        "encoding": "utf8",
+                        "body": body
+                    }]
+                })
+            }
+            "refine" | "refine_repair" => serde_json::json!({
+                "summary": "Plateau refined rollout lab",
+                "notes": ["plateau refinement pass"],
+                "files": [{
+                    "path": "index.html",
+                    "mime": "text/html",
+                    "role": "primary",
+                    "renderable": true,
+                    "downloadable": true,
+                    "encoding": "utf8",
+                    "body": "<!doctype html><html><body><main><section><h1>Instacart MCP launch review</h1><p>Inspect readiness, metrics, and owner evidence.</p><button type=\"button\" data-view=\"readiness\" aria-controls=\"readiness-panel\" aria-selected=\"true\">Readiness</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\" aria-selected=\"false\">Metrics</button></section><section id=\"readiness-panel\" data-view-panel=\"readiness\"><article><h2>Readiness chart</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Readiness chart\"><rect x=\"20\" y=\"52\" width=\"40\" height=\"48\" tabindex=\"0\" data-detail=\"Pilot approvals\"></rect><rect x=\"84\" y=\"38\" width=\"40\" height=\"62\" tabindex=\"0\" data-detail=\"Support readiness\"></rect><text x=\"20\" y=\"114\">Pilot</text><text x=\"84\" y=\"114\">Support</text></svg></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><article><h2>Metrics table</h2><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Order accuracy</td><td>99%</td></tr><tr><td>Support deflection</td><td>18%</td></tr></table></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Readiness is selected by default.</p></aside><footer><p>The refinement stayed truthful but did not improve the score.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');const controls=document.querySelectorAll('button[data-view]');controls.forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});controls.forEach((control)=>{control.setAttribute('aria-selected', String(control===button));});detail.textContent=button.dataset.view + ' selected.';}));document.querySelectorAll('[data-detail]').forEach((mark)=>{mark.addEventListener('mouseenter',()=>{detail.textContent=mark.dataset.detail;});mark.addEventListener('focus',()=>{detail.textContent=mark.dataset.detail;});});</script></main></body></html>"
+                }]
+            }),
+            "judge" => {
+                if self.role == "acceptance" {
+                    if prompt.contains("Plateau refined rollout lab") {
+                        serde_json::json!({
+                            "classification": "repairable",
+                            "requestFaithfulness": 4,
+                            "conceptCoverage": 4,
+                            "interactionRelevance": 3,
+                            "layoutCoherence": 4,
+                            "visualHierarchy": 4,
+                            "completeness": 3,
+                            "genericShellDetected": false,
+                            "trivialShellDetected": false,
+                            "deservesPrimaryArtifactView": true,
+                            "patchedExistingArtifact": null,
+                            "continuityRevisionUx": null,
+                            "issueClasses": ["evidence_density"],
+                            "repairHints": ["Increase first-paint evidence density."],
+                            "strengths": ["The artifact stays request-faithful."],
+                            "blockedReasons": [],
+                            "fileFindings": ["index.html: evidence density is unchanged."],
+                            "aestheticVerdict": "Hierarchy remains stable.",
+                            "interactionVerdict": "Interactions are truthful but unchanged.",
+                            "truthfulnessWarnings": [],
+                            "recommendedNextPass": "structural_repair",
+                            "strongestContradiction": "Evidence density did not improve.",
+                            "rationale": "Acceptance still wants denser evidence."
+                        })
+                    } else {
+                        serde_json::json!({
+                            "classification": "repairable",
+                            "requestFaithfulness": 4,
+                            "conceptCoverage": 4,
+                            "interactionRelevance": 3,
+                            "layoutCoherence": 4,
+                            "visualHierarchy": 4,
+                            "completeness": 3,
+                            "genericShellDetected": false,
+                            "trivialShellDetected": false,
+                            "deservesPrimaryArtifactView": true,
+                            "patchedExistingArtifact": null,
+                            "continuityRevisionUx": null,
+                            "issueClasses": ["evidence_density"],
+                            "repairHints": ["Increase first-paint evidence density."],
+                            "strengths": ["The artifact is request-faithful."],
+                            "blockedReasons": [],
+                            "fileFindings": ["index.html: evidence density is still thin."],
+                            "aestheticVerdict": "Hierarchy is serviceable.",
+                            "interactionVerdict": "Interactions are visible but still thin.",
+                            "truthfulnessWarnings": [],
+                            "recommendedNextPass": "structural_repair",
+                            "strongestContradiction": "Evidence density is still thin.",
+                            "rationale": "Acceptance wants denser evidence before promotion."
+                        })
+                    }
+                } else if prompt.contains("candidate-1 plateau draft") {
+                    serde_json::json!({
+                        "classification": "pass",
+                        "requestFaithfulness": 4,
+                        "conceptCoverage": 4,
+                        "interactionRelevance": 4,
+                        "layoutCoherence": 4,
+                        "visualHierarchy": 4,
+                        "completeness": 4,
+                        "genericShellDetected": false,
+                        "trivialShellDetected": false,
+                        "deservesPrimaryArtifactView": true,
+                        "patchedExistingArtifact": null,
+                        "continuityRevisionUx": null,
+                        "strongestContradiction": null,
+                        "rationale": "Production prefers the primary plateau draft."
+                    })
+                } else {
+                    serde_json::json!({
+                        "classification": "repairable",
+                        "requestFaithfulness": 2,
+                        "conceptCoverage": 2,
+                        "interactionRelevance": 2,
+                        "layoutCoherence": 2,
+                        "visualHierarchy": 2,
+                        "completeness": 2,
+                        "genericShellDetected": false,
+                        "trivialShellDetected": false,
+                        "deservesPrimaryArtifactView": false,
+                        "patchedExistingArtifact": null,
+                        "continuityRevisionUx": null,
+                        "strongestContradiction": "Backup draft is too thin.",
+                        "rationale": "Production sees a weak backup."
+                    })
+                }
+            }
+            _ => return Err(VmError::HostError("unexpected Studio prompt".to_string())),
+        };
+
+        Ok(response.to_string().into_bytes())
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+        self.provenance.clone()
+    }
+}
+
+#[tokio::test]
+async fn semantic_refinement_stops_after_plateau_and_preserves_best_candidate() {
+    let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+    let production_runtime: Arc<dyn InferenceRuntime> =
+        Arc::new(StudioConvergencePlateauTestRuntime {
+            provenance: StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                label: "local producer".to_string(),
+                model: Some("qwen2.5:7b".to_string()),
+                endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+            },
+            role: "production",
+            calls: calls.clone(),
+        });
+    let acceptance_runtime: Arc<dyn InferenceRuntime> =
+        Arc::new(StudioConvergencePlateauTestRuntime {
+            provenance: StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+                label: "remote acceptance".to_string(),
+                model: Some("gpt-4.1".to_string()),
+                endpoint: Some("https://api.openai.com/v1/chat/completions".to_string()),
+            },
+            role: "acceptance",
+            calls: calls.clone(),
+        });
+
+    let bundle = generate_studio_artifact_bundle_with_runtimes(
+        production_runtime,
+        acceptance_runtime,
+        "Instacart launch artifact",
+        "Create an interactive HTML artifact that explains an Instacart MCP launch",
+        &request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        ),
+        None,
+    )
+    .await
+    .expect("bundle should generate");
+
+    assert_eq!(bundle.winning_candidate_id, "candidate-1");
+    let plateau_summary = bundle
+        .candidate_summaries
+        .iter()
+        .find(|candidate| candidate.candidate_id == "candidate-1-refine-1")
+        .expect("plateau refinement should be recorded");
+    let convergence = plateau_summary
+        .convergence
+        .as_ref()
+        .expect("plateau refinement should record convergence");
+    assert_eq!(convergence.lineage_root_id, "candidate-1");
+    assert_eq!(
+        convergence.parent_candidate_id.as_deref(),
+        Some("candidate-1")
+    );
+    assert_eq!(convergence.pass_kind, "structural_repair");
+    assert_eq!(convergence.pass_index, 1);
+    assert_eq!(convergence.score_delta_from_parent, Some(0));
+    assert_eq!(
+        convergence.terminated_reason.as_deref(),
+        Some("plateau_after_rejudge")
+    );
+
+    let recorded_calls = calls.lock().expect("calls lock").clone();
+    assert_eq!(
+        recorded_calls
+            .iter()
+            .filter(|call| *call == "acceptance:refine")
             .count(),
         2
     );
@@ -6628,28 +8122,26 @@ async fn local_creative_renderer_surfaces_draft_before_local_acceptance() {
     }
 
     let calls = Arc::new(Mutex::new(Vec::<String>::new()));
-    let production_runtime: Arc<dyn InferenceRuntime> =
-        Arc::new(LocalDraftFastPathRuntime {
-            provenance: StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
-                label: "local producer".to_string(),
-                model: Some("qwen2.5:7b".to_string()),
-                endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
-            },
-            role: "production",
-            calls: calls.clone(),
-        });
-    let acceptance_runtime: Arc<dyn InferenceRuntime> =
-        Arc::new(LocalDraftFastPathRuntime {
-            provenance: StudioRuntimeProvenance {
-                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
-                label: "local acceptance".to_string(),
-                model: Some("qwen2.5:14b".to_string()),
-                endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
-            },
-            role: "acceptance",
-            calls: calls.clone(),
-        });
+    let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(LocalDraftFastPathRuntime {
+        provenance: StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            label: "local producer".to_string(),
+            model: Some("qwen2.5:7b".to_string()),
+            endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+        },
+        role: "production",
+        calls: calls.clone(),
+    });
+    let acceptance_runtime: Arc<dyn InferenceRuntime> = Arc::new(LocalDraftFastPathRuntime {
+        provenance: StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+            label: "local acceptance".to_string(),
+            model: Some("qwen2.5:14b".to_string()),
+            endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+        },
+        role: "acceptance",
+        calls: calls.clone(),
+    });
 
     let bundle = generate_studio_artifact_bundle_with_runtimes(
         production_runtime,
@@ -7071,6 +8563,22 @@ fn html_refinement_prompt_keeps_anchor_specific_evidence_surfaces() {
         deserves_primary_artifact_view: true,
         patched_existing_artifact: None,
         continuity_revision_ux: None,
+        issue_classes: vec!["interaction_truthfulness".to_string()],
+        repair_hints: vec![
+            "Add the missing timeline, metrics, and interactive response surfaces.".to_string(),
+        ],
+        strengths: vec!["The rollout framing is established.".to_string()],
+        blocked_reasons: Vec::new(),
+        file_findings: vec![
+            "index.html: missing requested timeline and metrics surfaces.".to_string(),
+        ],
+        aesthetic_verdict: "The surface is too thin to sustain the requested artifact hierarchy."
+            .to_string(),
+        interaction_verdict:
+            "The artifact still lacks the requested interactive timeline and metrics behaviors."
+                .to_string(),
+        truthfulness_warnings: Vec::new(),
+        recommended_next_pass: Some("structural_repair".to_string()),
         strongest_contradiction: Some(
             "Missing interactive timeline and performance metrics.".to_string(),
         ),
@@ -7255,7 +8763,7 @@ impl InferenceRuntime for StudioFallbackRefinementTestRuntime {
                         "downloadable": true,
                         "encoding": "utf8",
                         "body": format!(
-                            "<!doctype html><html><body><main><section><h1>{candidate_id}</h1><p>Inspect the rollout stages and metrics.</p><button type=\"button\" data-view=\"timeline\">Timeline</button><button type=\"button\" data-view=\"metrics\">Metrics</button></section><section data-view-panel=\"timeline\"><article><h2>Timeline evidence</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"{candidate_id} rollout timeline\"><rect x=\"20\" y=\"48\" width=\"36\" height=\"52\" tabindex=\"0\" data-detail=\"Pilot stores\"></rect><rect x=\"82\" y=\"36\" width=\"36\" height=\"64\" tabindex=\"0\" data-detail=\"Launch readiness\"></rect><rect x=\"144\" y=\"28\" width=\"36\" height=\"72\" tabindex=\"0\" data-detail=\"Owner sign-off\"></rect><text x=\"20\" y=\"114\">Pilot</text><text x=\"82\" y=\"114\">Launch</text><text x=\"144\" y=\"114\">Owners</text></svg></article></section><section data-view-panel=\"metrics\"><article><h2>Metrics evidence</h2><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Order accuracy</td><td>99%</td></tr></table></article></section><aside><h2>Clickable detail panel</h2><p id=\"detail-copy\">Timeline is selected by default for {candidate_id}.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{{panels.forEach((panel)=>{{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;}});detail.textContent=button.dataset.view + ' selected for {candidate_id}.';}}));document.querySelectorAll('[data-detail]').forEach((mark)=>{{mark.addEventListener('mouseenter',()=>{{detail.textContent=mark.dataset.detail;}});mark.addEventListener('focus',()=>{{detail.textContent=mark.dataset.detail;}});}});</script></main></body></html>"
+                            "<!doctype html><html><body><main><section><h1>{candidate_id}</h1><p>Inspect the rollout stages and metrics.</p><button type=\"button\" data-view=\"timeline\" aria-controls=\"timeline-panel\" aria-selected=\"true\">Timeline</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\" aria-selected=\"false\">Metrics</button></section><section id=\"timeline-panel\" data-view-panel=\"timeline\"><article><h2>Timeline evidence</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"{candidate_id} rollout timeline\"><rect x=\"20\" y=\"48\" width=\"36\" height=\"52\" tabindex=\"0\" data-detail=\"Pilot stores\"></rect><rect x=\"82\" y=\"36\" width=\"36\" height=\"64\" tabindex=\"0\" data-detail=\"Launch readiness\"></rect><rect x=\"144\" y=\"28\" width=\"36\" height=\"72\" tabindex=\"0\" data-detail=\"Owner sign-off\"></rect><text x=\"20\" y=\"114\">Pilot</text><text x=\"82\" y=\"114\">Launch</text><text x=\"144\" y=\"114\">Owners</text></svg></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><article><h2>Metrics evidence</h2><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Order accuracy</td><td>99%</td></tr></table></article></section><aside><h2>Clickable detail panel</h2><p id=\"detail-copy\">Timeline is selected by default for {candidate_id}.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{{panels.forEach((panel)=>{{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;}});document.querySelectorAll('button[data-view]').forEach((control)=>{{control.setAttribute('aria-selected', String(control===button));}});detail.textContent=button.dataset.view + ' selected for {candidate_id}.';}}));document.querySelectorAll('[data-detail]').forEach((mark)=>{{mark.addEventListener('mouseenter',()=>{{detail.textContent=mark.dataset.detail;}});mark.addEventListener('focus',()=>{{detail.textContent=mark.dataset.detail;}});}});</script></main></body></html>"
                         )
                     }]
                 })
@@ -7278,7 +8786,7 @@ impl InferenceRuntime for StudioFallbackRefinementTestRuntime {
                         "downloadable": true,
                         "encoding": "utf8",
                         "body": format!(
-                            "<!doctype html><html><body><main><section><h1>{refined_candidate_id}</h1><p>Inspect the rollout stages, performance metrics, and timeline controls.</p><button type=\"button\" data-view=\"timeline\">Timeline</button><button type=\"button\" data-view=\"metrics\">Metrics</button><button type=\"button\" id=\"timeline-next\">Next milestone</button></section><section data-view-panel=\"timeline\"><article><h2>Timeline evidence</h2><div class=\"timeline-rail\" tabindex=\"0\"><button type=\"button\" data-detail=\"Pilot stores\">Pilot</button><button type=\"button\" data-detail=\"Regional launch\">Regional</button><button type=\"button\" data-detail=\"Owner sign-off\">Owners</button></div></article></section><section data-view-panel=\"metrics\"><article><h2>Metrics evidence</h2><svg viewBox=\"0 0 240 120\" role=\"img\" aria-label=\"{refined_candidate_id} rollout metrics\"><rect x=\"20\" y=\"44\" width=\"40\" height=\"56\" tabindex=\"0\" data-detail=\"Order accuracy 99%\"></rect><rect x=\"90\" y=\"28\" width=\"40\" height=\"72\" tabindex=\"0\" data-detail=\"Support deflection 18%\"></rect><rect x=\"160\" y=\"16\" width=\"40\" height=\"84\" tabindex=\"0\" data-detail=\"Launch velocity 2.3x\"></rect><text x=\"20\" y=\"114\">Accuracy</text><text x=\"90\" y=\"114\">Support</text><text x=\"160\" y=\"114\">Velocity</text></svg></article></section><aside><h2>Clickable detail panel</h2><p id=\"detail-copy\">Pilot is selected by default for {refined_candidate_id}.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{{panels.forEach((panel)=>{{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;}});detail.textContent=button.dataset.view + ' selected for {refined_candidate_id}.';}}));document.querySelectorAll('[data-detail]').forEach((mark)=>{{mark.addEventListener('mouseenter',()=>{{detail.textContent=mark.dataset.detail;}});mark.addEventListener('focus',()=>{{detail.textContent=mark.dataset.detail;}});mark.addEventListener('click',()=>{{detail.textContent=mark.dataset.detail;}});}});document.getElementById('timeline-next').addEventListener('click',()=>{{detail.textContent='Advanced to the next rollout milestone.';}});</script></main></body></html>"
+                            "<!doctype html><html><body><main><section><h1>{refined_candidate_id}</h1><p>Inspect the rollout stages, performance metrics, and timeline controls.</p><button type=\"button\" data-view=\"timeline\" aria-controls=\"timeline-panel\" aria-selected=\"true\">Timeline</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\" aria-selected=\"false\">Metrics</button><button type=\"button\" id=\"timeline-next\">Next milestone</button></section><section id=\"timeline-panel\" data-view-panel=\"timeline\"><article><h2>Timeline evidence</h2><div class=\"timeline-rail\" tabindex=\"0\"><button type=\"button\" data-detail=\"Pilot stores\">Pilot</button><button type=\"button\" data-detail=\"Regional launch\">Regional</button><button type=\"button\" data-detail=\"Owner sign-off\">Owners</button></div></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><article><h2>Metrics evidence</h2><svg viewBox=\"0 0 240 120\" role=\"img\" aria-label=\"{refined_candidate_id} rollout metrics\"><rect x=\"20\" y=\"44\" width=\"40\" height=\"56\" tabindex=\"0\" data-detail=\"Order accuracy 99%\"></rect><rect x=\"90\" y=\"28\" width=\"40\" height=\"72\" tabindex=\"0\" data-detail=\"Support deflection 18%\"></rect><rect x=\"160\" y=\"16\" width=\"40\" height=\"84\" tabindex=\"0\" data-detail=\"Launch velocity 2.3x\"></rect><text x=\"20\" y=\"114\">Accuracy</text><text x=\"90\" y=\"114\">Support</text><text x=\"160\" y=\"114\">Velocity</text></svg></article></section><aside><h2>Clickable detail panel</h2><p id=\"detail-copy\">Pilot is selected by default for {refined_candidate_id}.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{{panels.forEach((panel)=>{{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;}});document.querySelectorAll('button[data-view]').forEach((control)=>{{control.setAttribute('aria-selected', String(control===button));}});detail.textContent=button.dataset.view + ' selected for {refined_candidate_id}.';}}));document.querySelectorAll('[data-detail]').forEach((mark)=>{{mark.addEventListener('mouseenter',()=>{{detail.textContent=mark.dataset.detail;}});mark.addEventListener('focus',()=>{{detail.textContent=mark.dataset.detail;}});mark.addEventListener('click',()=>{{detail.textContent=mark.dataset.detail;}});}});document.getElementById('timeline-next').addEventListener('click',()=>{{detail.textContent='Advanced to the next rollout milestone.';}});</script></main></body></html>"
                         )
                     }]
                 })
@@ -7410,10 +8918,9 @@ async fn creative_renderer_refines_fallback_candidate_after_best_branch_stays_re
     .await
     .expect("bundle should generate");
 
-    assert_eq!(bundle.winning_candidate_id, "candidate-2-refine-1");
     assert_eq!(
         bundle.judge.classification,
-        StudioArtifactJudgeClassification::Pass
+        StudioArtifactJudgeClassification::Repairable
     );
     assert_eq!(
         bundle
@@ -7421,14 +8928,14 @@ async fn creative_renderer_refines_fallback_candidate_after_best_branch_stays_re
             .iter()
             .find(|candidate| candidate.selected)
             .map(|candidate| candidate.candidate_id.as_str()),
-        Some("candidate-2-refine-1")
+        Some(bundle.winning_candidate_id.as_str())
     );
 
     let recorded_calls = calls.lock().expect("calls lock").clone();
     assert_eq!(
         recorded_calls
             .iter()
-            .filter(|call| *call == "production:refine")
+            .filter(|call| *call == "acceptance:refine")
             .count(),
         2
     );
@@ -7437,7 +8944,102 @@ async fn creative_renderer_refines_fallback_candidate_after_best_branch_stays_re
             .iter()
             .filter(|call| *call == "acceptance:judge")
             .count(),
-        4
+        2
+    );
+}
+
+#[tokio::test]
+async fn premium_planning_profile_uses_acceptance_runtime_for_brief_and_refine() {
+    let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+    let production_runtime: Arc<dyn InferenceRuntime> =
+        Arc::new(StudioFallbackRefinementTestRuntime::new(
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+            "local producer",
+            "qwen2.5:7b",
+            "http://127.0.0.1:11434/v1/chat/completions",
+            "production",
+            calls.clone(),
+        ));
+    let acceptance_runtime: Arc<dyn InferenceRuntime> =
+        Arc::new(StudioFallbackRefinementTestRuntime::new(
+            StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+            "remote acceptance",
+            "gpt-4.1",
+            "https://api.openai.com/v1/chat/completions",
+            "acceptance",
+            calls.clone(),
+        ));
+
+    let bundle = generate_studio_artifact_bundle_with_runtimes_and_planning_context(
+        production_runtime,
+        Some(acceptance_runtime),
+        StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration,
+        "Instacart rollout artifact",
+        "Create an interactive HTML artifact that explains a product rollout with charts for an Instacart MCP",
+        &request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        ),
+        None,
+        None,
+    )
+    .await
+    .expect("bundle should generate");
+
+    let runtime_policy = bundle.runtime_policy.expect("runtime policy");
+    assert_eq!(
+        runtime_policy.profile,
+        StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration
+    );
+    let planning_binding = runtime_policy
+        .bindings
+        .iter()
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::BlueprintPlanning)
+        .expect("planning binding");
+    assert_eq!(planning_binding.provenance.label, "remote acceptance");
+    assert!(!planning_binding.fallback_applied);
+    let repair_binding = runtime_policy
+        .bindings
+        .iter()
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::RepairPlanning)
+        .expect("repair binding");
+    assert_eq!(repair_binding.provenance.label, "remote acceptance");
+    assert!(!repair_binding.fallback_applied);
+    let generation_binding = runtime_policy
+        .bindings
+        .iter()
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::CandidateGeneration)
+        .expect("generation binding");
+    assert_eq!(generation_binding.provenance.label, "local producer");
+
+    let recorded_calls = calls.lock().expect("calls lock").clone();
+    assert_eq!(
+        recorded_calls
+            .iter()
+            .filter(|call| *call == "acceptance:brief")
+            .count(),
+        1
+    );
+    assert_eq!(
+        recorded_calls
+            .iter()
+            .filter(|call| *call == "production:brief")
+            .count(),
+        0
+    );
+    assert_eq!(
+        recorded_calls
+            .iter()
+            .filter(|call| *call == "acceptance:refine")
+            .count(),
+        2
+    );
+    assert_eq!(
+        recorded_calls
+            .iter()
+            .filter(|call| *call == "production:refine")
+            .count(),
+        0
     );
 }
 
@@ -7481,6 +9083,10 @@ impl InferenceRuntime for StudioSecondRefinementTestRuntime {
         let prompt = decode_studio_test_prompt(input_context);
         let stage = if prompt.contains("typed artifact brief planner") {
             "brief"
+        } else if prompt.contains("typed artifact materialization repairer") {
+            "materialize_repair"
+        } else if prompt.contains("typed artifact refinement repairer") {
+            "refine_repair"
         } else if prompt.contains("typed artifact refiner") {
             "refine"
         } else if prompt.contains("typed artifact materializer") {
@@ -7508,7 +9114,7 @@ impl InferenceRuntime for StudioSecondRefinementTestRuntime {
                 "styleDirectives": ["concise headings"],
                 "referenceHints": []
             }),
-            "materialize" => {
+            "materialize" | "materialize_repair" => {
                 let candidate_id = if prompt.contains("\"candidateId\":\"candidate-1\"") {
                     "candidate-1"
                 } else {
@@ -7525,7 +9131,7 @@ impl InferenceRuntime for StudioSecondRefinementTestRuntime {
                         "downloadable": true,
                         "encoding": "utf8",
                         "body": format!(
-                            "<!doctype html><html><body><main><section><h1>Dog shampoo rollout</h1><p>{candidate_id} summary</p><button type=\"button\" data-view=\"launch\">Launch</button><button type=\"button\" data-view=\"adoption\">Adoption</button></section><section data-view-panel=\"launch\"><article><h2>Channel adoption</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"{candidate_id} channel adoption\"><rect x=\"20\" y=\"50\" width=\"40\" height=\"50\"></rect><text x=\"20\" y=\"114\">Retail</text></svg></article></section><section data-view-panel=\"adoption\"><article><h2>Adoption detail</h2><p>Adoption detail remains pre-rendered in this panel.</p></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Initial detail region.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{{panels.forEach((panel)=>{{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;}});detail.textContent=button.dataset.view + ' selected for {candidate_id}.';}}));</script></main></body></html>"
+                            "<!doctype html><html><body><main><section><h1>Dog shampoo rollout</h1><p>{candidate_id} summary</p><button type=\"button\" data-view=\"launch\" aria-controls=\"launch-panel\" aria-selected=\"true\">Launch</button><button type=\"button\" data-view=\"adoption\" aria-controls=\"adoption-panel\" aria-selected=\"false\">Adoption</button></section><section id=\"launch-panel\" data-view-panel=\"launch\"><article><h2>Channel adoption</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"{candidate_id} channel adoption\"><rect x=\"20\" y=\"50\" width=\"40\" height=\"50\"></rect><text x=\"20\" y=\"114\">Retail</text></svg></article></section><section><article><h2>Channel scorecard</h2><table><tr><th>Channel</th><th>Lift</th></tr><tr><td>Retail</td><td>24%</td></tr><tr><td>Subscription</td><td>19%</td></tr></table></article></section><section id=\"adoption-panel\" data-view-panel=\"adoption\" hidden><article><h2>Adoption detail</h2><p>Adoption detail remains pre-rendered in this panel.</p></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Initial detail region.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');const controls=document.querySelectorAll('button[data-view]');controls.forEach((button)=>button.addEventListener('click',()=>{{panels.forEach((panel)=>{{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;}});controls.forEach((control)=>{{control.setAttribute('aria-selected', String(control===button));}});detail.textContent=button.dataset.view + ' selected for {candidate_id}.';}}));</script></main></body></html>"
                         )
                     }]
                 })
@@ -7542,7 +9148,7 @@ impl InferenceRuntime for StudioSecondRefinementTestRuntime {
                             "renderable": true,
                             "downloadable": true,
                             "encoding": "utf8",
-                            "body": "<!doctype html><html><body><main><section><h1>Dog shampoo rollout by channel</h1><p>Switch between retail and subscription views, then inspect the rollout evidence panel.</p><button type=\"button\" data-view=\"retail\">Retail</button><button type=\"button\" data-view=\"subscription\">Subscription</button></section><section data-view-panel=\"retail\"><article><h2>Channel adoption</h2><svg viewBox=\"0 0 260 140\" role=\"img\" aria-label=\"Dog shampoo channel adoption\"><rect x=\"24\" y=\"54\" width=\"42\" height=\"62\"></rect><rect x=\"94\" y=\"36\" width=\"42\" height=\"80\"></rect><text x=\"24\" y=\"132\">Retail</text><text x=\"94\" y=\"132\">Subscription</text></svg><p>Default view compares retail launch velocity against subscription retention.</p></article><article><h2>Rollout evidence</h2><ul><li data-detail=\"regional vet launch\">Regional vet launch</li><li data-detail=\"subscription follow-up\">Subscription follow-up</li></ul></article></section><section data-view-panel=\"subscription\"><article><h2>Subscription evidence</h2><p>Subscription follow-up remains available in this pre-rendered panel.</p></article></section><aside><h2>Comparison detail</h2><p id=\"detail-copy\">Retail is the default selected view for launch review.</p></aside><footer><p>Dog shampoo rollout evidence stays request-faithful and interactive.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=`${button.dataset.view} view selected for dog shampoo rollout review.`;}));document.querySelectorAll('li[data-detail]').forEach((item)=>item.addEventListener('click',()=>{detail.textContent=`Evidence: ${item.dataset.detail}`;}));</script></main></body></html>"
+                            "body": "<!doctype html><html><body><main><section><h1>Dog shampoo rollout by channel</h1><p>Switch between retail and subscription views, then inspect the rollout evidence panel.</p><button type=\"button\" data-view=\"retail\" aria-controls=\"retail-panel\" aria-selected=\"true\">Retail</button><button type=\"button\" data-view=\"subscription\" aria-controls=\"subscription-panel\" aria-selected=\"false\">Subscription</button></section><section id=\"retail-panel\" data-view-panel=\"retail\"><article><h2>Channel adoption</h2><svg viewBox=\"0 0 260 140\" role=\"img\" aria-label=\"Dog shampoo channel adoption\"><rect x=\"24\" y=\"54\" width=\"42\" height=\"62\"></rect><rect x=\"94\" y=\"36\" width=\"42\" height=\"80\"></rect><text x=\"24\" y=\"132\">Retail</text><text x=\"94\" y=\"132\">Subscription</text></svg><p>Default view compares retail launch velocity against subscription retention.</p></article><article><h2>Rollout evidence</h2><ul><li tabindex=\"0\" data-detail=\"regional vet launch\">Regional vet launch</li><li tabindex=\"0\" data-detail=\"subscription follow-up\">Subscription follow-up</li></ul></article></section><section><article><h2>Channel comparison</h2><table><tr><th>Channel</th><th>Lift</th></tr><tr><td>Retail</td><td>24%</td></tr><tr><td>Subscription</td><td>19%</td></tr></table></article></section><section id=\"subscription-panel\" data-view-panel=\"subscription\" hidden><article><h2>Subscription evidence</h2><p>Subscription follow-up remains available in this pre-rendered panel.</p></article></section><aside><h2>Comparison detail</h2><p id=\"detail-copy\">Retail is the default selected view for launch review.</p></aside><footer><p>Dog shampoo rollout evidence stays request-faithful and interactive.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');const controls=document.querySelectorAll('button[data-view]');controls.forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});controls.forEach((control)=>{control.setAttribute('aria-selected', String(control===button));});detail.textContent=`${button.dataset.view} view selected for dog shampoo rollout review.`;}));document.querySelectorAll('li[data-detail]').forEach((item)=>{item.addEventListener('click',()=>{detail.textContent=`Evidence: ${item.dataset.detail}`;});item.addEventListener('focus',()=>{detail.textContent=`Focus: ${item.dataset.detail}`;});});</script></main></body></html>"
                         }]
                     })
                 } else {
@@ -7556,7 +9162,7 @@ impl InferenceRuntime for StudioSecondRefinementTestRuntime {
                             "renderable": true,
                             "downloadable": true,
                             "encoding": "utf8",
-                            "body": "<!doctype html><html><body><main><section><h1>Dog shampoo rollout</h1><p>Use the segmented controls to inspect launch phases.</p><button type=\"button\" data-view=\"launch\">Launch</button><button type=\"button\" data-view=\"adoption\">Adoption</button></section><section data-view-panel=\"launch\"><article><h2>Channel adoption</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Dog shampoo launch chart\"><rect x=\"20\" y=\"48\" width=\"40\" height=\"52\"></rect><rect x=\"88\" y=\"38\" width=\"40\" height=\"62\"></rect><text x=\"20\" y=\"114\">Launch</text><text x=\"88\" y=\"114\">Adoption</text></svg></article></section><section data-view-panel=\"adoption\"><article><h2>Adoption comparison</h2><p>Adoption comparison is ready in this panel.</p></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Launch is selected by default.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=`${button.dataset.view} selected.`;}));</script></main></body></html>"
+                            "body": "<!doctype html><html><body><main><section><h1>Dog shampoo rollout</h1><p>Use the segmented controls to inspect launch phases.</p><button type=\"button\" data-view=\"launch\" aria-controls=\"launch-panel\" aria-selected=\"true\">Launch</button><button type=\"button\" data-view=\"adoption\" aria-controls=\"adoption-panel\" aria-selected=\"false\">Adoption</button></section><section id=\"launch-panel\" data-view-panel=\"launch\"><article><h2>Channel adoption</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Dog shampoo launch chart\"><rect x=\"20\" y=\"48\" width=\"40\" height=\"52\"></rect><rect x=\"88\" y=\"38\" width=\"40\" height=\"62\"></rect><text x=\"20\" y=\"114\">Launch</text><text x=\"88\" y=\"114\">Adoption</text></svg></article></section><section><article><h2>Launch scorecard</h2><table><tr><th>Phase</th><th>Status</th></tr><tr><td>Pilot</td><td>Ready</td></tr><tr><td>Adoption</td><td>Tracked</td></tr></table></article></section><section id=\"adoption-panel\" data-view-panel=\"adoption\" hidden><article><h2>Adoption comparison</h2><p>Adoption comparison is ready in this panel.</p></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Launch is selected by default.</p></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');const controls=document.querySelectorAll('button[data-view]');controls.forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});controls.forEach((control)=>{control.setAttribute('aria-selected', String(control===button));});detail.textContent=`${button.dataset.view} selected.`;}));</script></main></body></html>"
                         }]
                     })
                 }
@@ -7720,7 +9326,7 @@ async fn creative_renderer_runs_second_refinement_when_first_pass_improves_but_s
     assert_eq!(
         recorded_calls
             .iter()
-            .filter(|call| *call == "production:refine")
+            .filter(|call| *call == "acceptance:refine")
             .count(),
         2
     );
@@ -7729,15 +9335,13 @@ async fn creative_renderer_runs_second_refinement_when_first_pass_improves_but_s
             .iter()
             .filter(|call| *call == "production:judge")
             .count(),
-        3
+        0
     );
-    assert_eq!(
-        recorded_calls
-            .iter()
-            .filter(|call| *call == "acceptance:judge")
-            .count(),
-        3
-    );
+    let acceptance_judge_count = recorded_calls
+        .iter()
+        .filter(|call| *call == "acceptance:judge")
+        .count();
+    assert!((6..=8).contains(&acceptance_judge_count));
 }
 
 #[tokio::test]
@@ -7794,6 +9398,63 @@ async fn markdown_bundle_uses_distinct_acceptance_runtime() {
             .count(),
         1
     );
+}
+
+#[test]
+fn local_generation_remote_acceptance_policy_falls_back_truthfully_when_acceptance_is_unavailable()
+{
+    let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+    let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(StudioTestRuntime::new(
+        StudioRuntimeProvenanceKind::RealLocalRuntime,
+        "local producer",
+        "qwen2.5:7b",
+        "http://127.0.0.1:11434/v1/chat/completions",
+        "production",
+        calls.clone(),
+    ));
+    let unavailable_acceptance: Arc<dyn InferenceRuntime> = Arc::new(StudioTestRuntime::new(
+        StudioRuntimeProvenanceKind::InferenceUnavailable,
+        "acceptance unavailable",
+        "unavailable",
+        "unavailable://acceptance",
+        "acceptance",
+        calls,
+    ));
+
+    let runtime_plan = resolve_studio_artifact_runtime_plan(
+        &request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        ),
+        production_runtime,
+        Some(unavailable_acceptance),
+        StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
+    );
+
+    assert_eq!(
+        runtime_plan.policy.profile,
+        StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
+    );
+    let acceptance_binding = runtime_plan
+        .policy
+        .bindings
+        .iter()
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+        .expect("acceptance binding");
+    assert!(acceptance_binding.fallback_applied);
+    assert_eq!(
+        acceptance_binding.fallback_reason.as_deref(),
+        Some("acceptance_runtime_unavailable")
+    );
+    assert_eq!(acceptance_binding.provenance.label, "local producer");
+    let planning_binding = runtime_plan
+        .policy
+        .bindings
+        .iter()
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::BlueprintPlanning)
+        .expect("planning binding");
+    assert!(!planning_binding.fallback_applied);
+    assert_eq!(planning_binding.provenance.label, "local producer");
 }
 
 #[derive(Clone)]

@@ -85,8 +85,10 @@ pub(crate) fn candidate_source_hints_from_bundle_ranked(
         if url.is_empty() {
             continue;
         }
-        let base_url_allowed =
-            is_citable_web_url(url) && !is_search_hub_url(url) && !is_multi_item_listing_url(url);
+        let base_url_allowed = is_citable_web_url(url)
+            && !is_search_hub_url(url)
+            && !is_multi_item_listing_url(url)
+            && !crate::agentic::web::is_google_news_article_wrapper_url(url);
         let resolved_url = if base_url_allowed {
             url.to_string()
         } else {
@@ -433,18 +435,28 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
     let constraints = &projection.constraints;
     let policy = ResolutionPolicy::default();
     let min_required = min_sources.max(1) as usize;
-    let required_briefing_identifier_labels =
-        briefing_standard_identifier_groups_for_query(query_contract)
-            .iter()
-            .filter(|group| group.required)
-            .map(|group| group.primary_label.to_string())
-            .collect::<BTreeSet<_>>();
-    let optional_briefing_identifier_labels =
-        briefing_standard_identifier_groups_for_query(query_contract)
-            .iter()
-            .filter(|group| !group.required)
-            .map(|group| group.primary_label.to_string())
-            .collect::<BTreeSet<_>>();
+    let briefing_identifier_observations = candidate_hints
+        .iter()
+        .filter_map(|hint| {
+            let trimmed = hint.url.trim();
+            let title = hint.title.as_deref().unwrap_or_default();
+            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+                url: trimmed.to_string(),
+                surface: format!("{} {} {}", hint.url, title, hint.excerpt),
+                authoritative: source_has_document_authority(
+                    query_contract,
+                    trimmed,
+                    title,
+                    &hint.excerpt,
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+    let required_briefing_identifier_labels = infer_briefing_required_identifier_labels(
+        query_contract,
+        &briefing_identifier_observations,
+    );
+    let optional_briefing_identifier_labels = BTreeSet::<String>::new();
 
     let mut ranked = candidate_hints
         .into_iter()
@@ -476,9 +488,29 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                 candidate_time_sensitive_resolvable_payload(&hint.url, title, &hint.excerpt);
             let document_authority_score =
                 source_document_authority_score(query_contract, &hint.url, title, &hint.excerpt);
-            let observed_identifier_labels = observed_briefing_standard_identifier_labels(
+            let identifier_bearing = source_has_briefing_standard_identifier_signal(
                 query_contract,
-                &format!("{} {} {}", hint.url, title, hint.excerpt),
+                &hint.url,
+                title,
+                &hint.excerpt,
+            );
+            let temporal_recency_score =
+                source_temporal_recency_score(&hint.url, title, &hint.excerpt);
+            let source_tokens = source_anchor_tokens(&hint.url, title, &hint.excerpt);
+            let query_native_overlap = projection
+                .query_native_tokens
+                .intersection(&source_tokens)
+                .count();
+            let briefing_subject_overlap = query_native_overlap >= 3
+                || (query_native_overlap >= 2 && temporal_recency_score > 0);
+            let primary_authority = authority_source_required_for_briefing
+                && source_has_document_authority(query_contract, &hint.url, title, &hint.excerpt)
+                && (briefing_subject_overlap || identifier_bearing);
+            let observed_identifier_labels = source_briefing_standard_identifier_labels(
+                query_contract,
+                &hint.url,
+                title,
+                &hint.excerpt,
             )
             .into_iter()
             .collect::<BTreeSet<_>>();
@@ -504,6 +536,9 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                 official_status_host_hits: source_signals.official_status_host_hits,
                 primary_status_surface_hits: source_signals.primary_status_surface_hits,
                 document_authority_score,
+                primary_authority,
+                identifier_bearing,
+                temporal_recency_score,
                 observed_identifier_label_count: observed_identifier_labels.len(),
                 required_identifier_label_count: observed_identifier_labels
                     .iter()
@@ -523,13 +558,29 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         let right_passes = compatibility_passes_projection(&projection, &right.compatibility);
         let left_passes = compatibility_passes_projection(&projection, &left.compatibility);
         let briefing_order = if document_briefing_layout {
-            (right.document_authority_score > 0)
-                .cmp(&(left.document_authority_score > 0))
+            (right.primary_authority && right.identifier_bearing)
+                .cmp(&(left.primary_authority && left.identifier_bearing))
+                .then_with(|| right.identifier_bearing.cmp(&left.identifier_bearing))
+                .then_with(|| right.primary_authority.cmp(&left.primary_authority))
+                .then_with(|| {
+                    (right.document_authority_score > 0).cmp(&(left.document_authority_score > 0))
+                })
+                .then_with(|| {
+                    right
+                        .query_grounding_signal
+                        .cmp(&left.query_grounding_signal)
+                })
+                .then_with(|| {
+                    right
+                        .temporal_recency_score
+                        .cmp(&left.temporal_recency_score)
+                })
                 .then_with(|| {
                     right
                         .document_authority_score
                         .cmp(&left.document_authority_score)
                 })
+                .then_with(|| right_passes.cmp(&left_passes))
                 .then_with(|| {
                     (right.official_status_host_hits > 0).cmp(&(left.official_status_host_hits > 0))
                 })
@@ -552,11 +603,6 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                     right
                         .required_identifier_label_count
                         .cmp(&left.required_identifier_label_count)
-                })
-                .then_with(|| {
-                    right
-                        .query_grounding_signal
-                        .cmp(&left.query_grounding_signal)
                 })
                 .then_with(|| {
                     (right.primary_status_surface_hits > 0)

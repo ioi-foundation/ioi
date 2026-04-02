@@ -1,0 +1,27 @@
+{
+  "matches": [
+    {
+      "matchId": "html-rollout-with-charts:blind:2026-03-28-internal",
+      "benchmarkId": "html-rollout-with-charts",
+      "blind": true,
+      "rationale": "Retained blind comparison between the two rollout explainer variants.",
+      "leftParticipant": "stack:local_runtime_unspecified",
+      "rightParticipant": "stack:local_runtime_unspecified",
+      "leftExecutionId": "html-rollout-with-charts:html-dog-shampoo:2026_03_28",
+      "rightExecutionId": "html-rollout-with-charts:html-instacart-mcp:2026_03_28",
+      "winner": "left"
+    },
+    {
+      "matchId": "html-quantum-explainer:blind:2026-03-30-vs-external-reference-a",
+      "benchmarkId": "html-quantum-explainer",
+      "blind": true,
+      "rationale": "Retained blind comparison between the surfaced quantum baseline and a stored external reference artifact.",
+      "leftParticipant": "stack:fixture_unspecified",
+      "rightParticipant": "reference:external_quantum_explainer_a",
+      "leftExecutionId": "html-quantum-explainer:html-quantum-explainer-baseline:2026_03_30",
+      "rightExecutionId": null,
+      "externalReferenceParticipant": "reference:external_quantum_explainer_a",
+      "winner": "right"
+    }
+  ]
+}

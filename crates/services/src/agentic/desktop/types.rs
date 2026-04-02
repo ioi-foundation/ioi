@@ -3,6 +3,11 @@
 use ioi_types::app::action::ApprovalToken;
 use ioi_types::app::agentic::{ResolvedIntentState, WebRetrievalContract};
 use ioi_types::app::ActionRequest;
+use ioi_types::app::{
+    ArtifactGenerationSummary, ArtifactQualityScorecard, ArtifactRepairSummary,
+    CodingVerificationScorecard, ComputerUsePerceptionSummary, ComputerUseRecoverySummary,
+    ComputerUseVerificationScorecard, PatchSynthesisSummary, ResearchVerificationScorecard,
+};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -265,6 +270,28 @@ pub struct ParentPlaybookStepRun {
     pub workflow_id: Option<String>,
     #[serde(default)]
     pub goal: Option<String>,
+    #[serde(default)]
+    pub selected_skills: Vec<String>,
+    #[serde(default)]
+    pub prep_summary: Option<String>,
+    #[serde(default)]
+    pub artifact_generation: Option<ArtifactGenerationSummary>,
+    #[serde(default)]
+    pub computer_use_perception: Option<ComputerUsePerceptionSummary>,
+    #[serde(default)]
+    pub research_scorecard: Option<ResearchVerificationScorecard>,
+    #[serde(default)]
+    pub artifact_quality: Option<ArtifactQualityScorecard>,
+    #[serde(default)]
+    pub computer_use_verification: Option<ComputerUseVerificationScorecard>,
+    #[serde(default)]
+    pub coding_scorecard: Option<CodingVerificationScorecard>,
+    #[serde(default)]
+    pub patch_synthesis: Option<PatchSynthesisSummary>,
+    #[serde(default)]
+    pub artifact_repair: Option<ArtifactRepairSummary>,
+    #[serde(default)]
+    pub computer_use_recovery: Option<ComputerUseRecoverySummary>,
     #[serde(default)]
     pub output_preview: Option<String>,
     #[serde(default)]

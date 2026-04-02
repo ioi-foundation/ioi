@@ -1,0 +1,34 @@
+{
+  "inspection": {
+    "artifact_id": "fixture-svg-ai-tools-hero",
+    "title": "Create an SVG hero concept for an AI tools brand",
+    "artifact_class": "visual",
+    "renderer": "svg",
+    "verification_status": "ready",
+    "lifecycle_state": "ready",
+    "verification_summary": "Fixture SVG concept clears the poster benchmark and retains browser-backed render-eval receipts.",
+    "primary_tab": "render",
+    "tab_count": 2,
+    "file_count": 1,
+    "renderable_file_count": 1,
+    "downloadable_file_count": 0,
+    "repo_centric_package": false,
+    "render_surface_available": true,
+    "preferred_stage_mode": "render",
+    "production_provenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture svg surface",
+      "model": "curated-fixture",
+      "endpoint": null
+    },
+    "acceptance_provenance": {
+      "kind": "fixture_runtime",
+      "label": "fixture svg surface",
+      "model": "curated-fixture",
+      "endpoint": null
+    },
+    "failure": null
+  },
+  "valid": true,
+  "validation_errors": []
+}

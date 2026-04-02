@@ -1,0 +1,9 @@
+
+running 1 test
+--- Building Test Artifacts (one-time setup) ---
+Building component for mock-verifier in "/home/heathledger/Documents/ioi/repos/ioi/crates/cli/tests/fixtures/mock-verifier"
+WARN: `cargo-component` not found. Skipping build of 'mock-verifier'. Tests relying on this artifact may fail.
+--- Test Artifacts built successfully ---
+CAPABILITIES_INFERENCE_MODEL_SELECTED_AGENT=qwen2.5:14b
+CAPABILITIES_INFERENCE_MODEL_SELECTED_ARBITER=qwen2.5:7b
+test capabilities_query_suite_e2e has been running for over 60 seconds

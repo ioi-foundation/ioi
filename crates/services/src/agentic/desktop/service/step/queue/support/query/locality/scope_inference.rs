@@ -556,6 +556,51 @@ pub(crate) fn semantic_retrieval_query_contract_with_locality_hint(
     semantic_retrieval_query_contract_with_contract_and_locality_hint(query, None, locality_hint)
 }
 
+const DOCUMENT_BRIEFING_SEARCH_SCAFFOLD_TOKENS: &[&str] = &[
+    "using",
+    "local",
+    "memory",
+    "web",
+    "utc",
+    "timestamp",
+    "evidence",
+    "return",
+    "then",
+    "cited",
+    "brief",
+    "briefing",
+    "memo",
+    "report",
+    "one",
+    "page",
+    "findings",
+    "finding",
+    "uncertainties",
+    "uncertainty",
+    "next",
+    "check",
+    "checks",
+    "source",
+    "sources",
+    "citation",
+    "citations",
+];
+
+fn semantic_search_structural_tokens(query: &str) -> BTreeSet<String> {
+    let mut structural_tokens = query_structural_directive_tokens(query);
+    if query_prefers_document_briefing_layout(query)
+        && !query_requests_comparison(query)
+        && analyze_query_facets(query).grounded_external_required
+    {
+        structural_tokens.extend(
+            DOCUMENT_BRIEFING_SEARCH_SCAFFOLD_TOKENS
+                .iter()
+                .map(|token| token.to_string()),
+        );
+    }
+    structural_tokens
+}
+
 pub(crate) fn semantic_retrieval_query_contract_with_contract_and_locality_hint(
     query: &str,
     retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
@@ -565,7 +610,7 @@ pub(crate) fn semantic_retrieval_query_contract_with_contract_and_locality_hint(
     if resolved.trim().is_empty() {
         return resolved;
     }
-    if retrieval_contract_is_generic_headline_collection(retrieval_contract, &resolved) {
+    if retrieval_or_query_is_generic_headline_collection(retrieval_contract, &resolved) {
         return generic_headline_search_phrase(&resolved);
     }
 
@@ -578,7 +623,7 @@ pub(crate) fn semantic_retrieval_query_contract_with_contract_and_locality_hint(
         return resolved;
     }
 
-    let structural_tokens = query_structural_directive_tokens(&resolved);
+    let structural_tokens = semantic_search_structural_tokens(&resolved);
     let scope_tokens = scope
         .as_ref()
         .map(|scope| normalized_locality_tokens(scope))
@@ -615,7 +660,7 @@ pub(crate) fn semantic_retrieval_query_contract_with_contract_and_locality_hint(
         return resolved;
     }
 
-    if retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &resolved)
+    if retrieval_or_query_prefers_single_fact_snapshot(retrieval_contract, &resolved)
         && !metric_terms.is_empty()
         && !semantic_subject_tokens.is_empty()
     {

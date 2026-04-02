@@ -908,7 +908,18 @@ fn default_refinement_context() -> StudioArtifactRefinementContext {
         taste_memory: Some(StudioArtifactTasteMemory {
             directives: Vec::new(),
             summary: "No stored preferences.".to_string(),
+            typography_preferences: Vec::new(),
+            density_preference: None,
+            tone_family: Vec::new(),
+            motion_tolerance: None,
+            preferred_scaffold_families: Vec::new(),
+            preferred_component_patterns: Vec::new(),
+            anti_patterns: Vec::new(),
         }),
+        blueprint: None,
+        artifact_ir: None,
+        selected_skills: Vec::new(),
+        retrieved_exemplars: Vec::new(),
     }
 }
 
@@ -2180,6 +2191,70 @@ fn evaluate_candidate(
                 3
             }
         }),
+        issue_classes: if generic_shell_detected {
+            vec!["generic_shell".to_string()]
+        } else if trivial_shell_detected {
+            vec!["first_paint_incomplete".to_string()]
+        } else {
+            Vec::new()
+        },
+        repair_hints: if deserves_primary_artifact_view {
+            Vec::new()
+        } else {
+            vec![
+                "Add more request-specific evidence and strengthen the interaction surface."
+                    .to_string(),
+            ]
+        },
+        strengths: if deserves_primary_artifact_view {
+            vec!["Candidate is strong enough to lead the stage.".to_string()]
+        } else {
+            Vec::new()
+        },
+        blocked_reasons: if classification == StudioArtifactJudgeClassification::Blocked {
+            vec!["The candidate is too thin to serve as the primary artifact surface.".to_string()]
+        } else {
+            Vec::new()
+        },
+        file_findings: candidate
+            .files
+            .iter()
+            .find(|file| file.renderable)
+            .map(|file| {
+                vec![format!(
+                    "{}: {}",
+                    file.path,
+                    if deserves_primary_artifact_view {
+                        "renderable primary surface looks acceptable"
+                    } else {
+                        "renderable primary surface needs another pass"
+                    }
+                )]
+            })
+            .unwrap_or_default(),
+        aesthetic_verdict: if generic_shell_detected {
+            "The artifact still looks like a generic shell.".to_string()
+        } else if trivial_shell_detected {
+            "The surface is too thin to feel intentional.".to_string()
+        } else {
+            "Visual hierarchy is strong enough for the current stage.".to_string()
+        },
+        interaction_verdict: if interaction_relevance >= 4 {
+            "Interactions stay aligned with the typed brief.".to_string()
+        } else {
+            "Interactions need another pass before the artifact can lead.".to_string()
+        },
+        truthfulness_warnings: Vec::new(),
+        recommended_next_pass: Some(
+            if deserves_primary_artifact_view {
+                "accept"
+            } else if classification == StudioArtifactJudgeClassification::Blocked {
+                "hold_block"
+            } else {
+                "structural_repair"
+            }
+            .to_string(),
+        ),
         strongest_contradiction: if generic_shell_detected {
             Some(
                 "The artifact does not foreground the actual subject domain strongly enough."
@@ -2335,7 +2410,18 @@ mod tests {
                     "Make the primary artifact unmistakably about {} while keeping the structure coherent enough to lead the stage.",
                     subject
                 ),
+                typography_preferences: Vec::new(),
+                density_preference: None,
+                tone_family: Vec::new(),
+                motion_tolerance: None,
+                preferred_scaffold_families: Vec::new(),
+                preferred_component_patterns: Vec::new(),
+                anti_patterns: Vec::new(),
             }),
+            blueprint: None,
+            artifact_ir: None,
+            selected_skills: Vec::new(),
+            retrieved_exemplars: Vec::new(),
         }
     }
 

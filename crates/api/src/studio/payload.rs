@@ -82,7 +82,8 @@ pub fn validate_generated_artifact_payload(
         }
         StudioRendererKind::HtmlIframe => {
             validate_exact_primary_file(primary_file, ".html", "text/html", true)?;
-            let lower = primary_file.body.to_ascii_lowercase();
+            let html = primary_file.body.as_str();
+            let lower = html.to_ascii_lowercase();
             if !(lower.contains("<html") || lower.contains("<!doctype html")) {
                 return Err("HTML iframe artifacts must contain an HTML document.".to_string());
             }
@@ -110,6 +111,18 @@ pub fn validate_generated_artifact_payload(
             if html_contains_placeholder_markers(&lower) {
                 return Err(
                     "HTML iframe artifacts must not contain placeholder-grade copy, comments, or TODO markers in the surfaced artifact."
+                        .to_string(),
+                );
+            }
+            if html_has_duplicate_mapped_view_tokens(&lower) {
+                return Err(
+                    "HTML iframe artifacts must not duplicate mapped view-panel tokens across pre-rendered evidence regions."
+                        .to_string(),
+                );
+            }
+            if html_has_invalid_mapped_view_default_state(html) {
+                return Err(
+                    "HTML iframe artifacts with mapped evidence panels must keep exactly one populated panel visible on first paint."
                         .to_string(),
                 );
             }
@@ -146,6 +159,18 @@ pub fn validate_generated_artifact_payload(
             if html_interactions_are_navigation_only(&lower) {
                 return Err(
                     "Interactive HTML iframe artifacts must update on-page state or shared detail, not only scroll, jump, or log."
+                        .to_string(),
+                );
+            }
+            if html_uses_custom_font_family_without_loading(&lower) {
+                return Err(
+                    "HTML iframe artifacts that declare custom font families must load them with a real stylesheet or @font-face rule."
+                        .to_string(),
+                );
+            }
+            if html_has_unfocusable_rollover_marks(&lower) {
+                return Err(
+                    "HTML iframe artifacts that wire focus-based detail behavior must make their data-detail marks keyboard-focusable."
                         .to_string(),
                 );
             }
@@ -243,6 +268,7 @@ pub(crate) fn parse_and_validate_generated_artifact_payload(
     Ok(generated)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn validate_generated_artifact_payload_against_brief(
     payload: &StudioGeneratedArtifactPayload,
     request: &StudioOutcomeArtifactRequest,
@@ -571,6 +597,10 @@ fn renderer_primary_view_contract_failure(
                 Some("HTML chart regions are empty placeholder shells on first paint.")
             } else if html_references_missing_dom_ids(&lower) {
                 Some("HTML interactions target missing DOM ids in the surfaced artifact.")
+            } else if html_has_unfocusable_rollover_marks(&lower) {
+                Some("HTML rollover detail marks are not keyboard-focusable.")
+            } else if count_html_repair_shim_markers(&lower) >= 5 {
+                Some("HTML still depends on too many Studio repair shims to qualify as native output.")
             } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
                 && !brief.required_interactions.is_empty()
                 && count_populated_html_detail_regions(&lower) == 0
@@ -638,6 +668,56 @@ pub(crate) fn enforce_renderer_judge_contract(
     judge.rationale =
         "Renderer contract failures keep the first paint from qualifying as primary output."
             .to_string();
+    if !judge
+        .issue_classes
+        .iter()
+        .any(|value| value == "renderer_contract")
+    {
+        judge.issue_classes.push("renderer_contract".to_string());
+    }
+    if !judge
+        .blocked_reasons
+        .iter()
+        .any(|value| value == contradiction)
+    {
+        judge.blocked_reasons.push(contradiction.to_string());
+    }
+    if !judge
+        .file_findings
+        .iter()
+        .any(|value| value.contains("renderer contract failure"))
+    {
+        let file_path = candidate
+            .files
+            .iter()
+            .find(|file| file.renderable)
+            .map(|file| file.path.clone())
+            .unwrap_or_else(|| "primary-surface".to_string());
+        judge
+            .file_findings
+            .push(format!("{file_path}: renderer contract failure"));
+    }
+    if !judge
+        .repair_hints
+        .iter()
+        .any(|value| value.contains("pre-rendered"))
+    {
+        judge.repair_hints.push(
+            "Repair the first paint with pre-rendered panels, populated evidence surfaces, and a visible default detail state.".to_string(),
+        );
+    }
+    judge.aesthetic_verdict =
+        "Renderer contract failure keeps the surface below the artifact presentation bar."
+            .to_string();
+    judge.interaction_verdict =
+        "Interaction contract does not hold on first paint yet.".to_string();
+    if judge.truthfulness_warnings.is_empty() {
+        judge.truthfulness_warnings.push(
+            "The surfaced artifact is still relying on incomplete or structurally misleading first-paint output."
+                .to_string(),
+        );
+    }
+    judge.recommended_next_pass = Some("structural_repair".to_string());
     judge
 }
 

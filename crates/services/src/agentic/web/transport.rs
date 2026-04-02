@@ -34,21 +34,29 @@ pub(crate) fn record_challenge(
 pub(crate) fn detect_human_challenge(url: &str, content: &str) -> Option<&'static str> {
     let url_lc = url.to_ascii_lowercase();
     let content_lc = content.to_ascii_lowercase();
+    let recaptcha_surface = content_lc.contains("recaptcha") || content_lc.contains("g-recaptcha");
+    let explicit_human_verification_surface = content_lc.contains("i'm not a robot")
+        || content_lc.contains("i am not a robot")
+        || content_lc.contains("verify you are human")
+        || content_lc.contains("human verification")
+        || content_lc.contains("please verify you are a human");
+    let interactive_challenge_surface = content_lc.contains("challenge-form")
+        || content_lc.contains("captcha-form")
+        || content_lc.contains("why did this happen")
+        || content_lc.contains("security check")
+        || content_lc.contains("bot check");
 
     // Generic bot-check markers.
     if url_lc.contains("/sorry/") || content_lc.contains("/sorry/") {
         return Some("challenge redirect (/sorry/) detected");
     }
-    if content_lc.contains("recaptcha") || content_lc.contains("g-recaptcha") {
+    if recaptcha_surface && (explicit_human_verification_surface || interactive_challenge_surface) {
         return Some("reCAPTCHA challenge marker detected");
     }
     if content_lc.contains("i'm not a robot") || content_lc.contains("i am not a robot") {
         return Some("robot-verification checkbox detected");
     }
-    if content_lc.contains("verify you are human")
-        || content_lc.contains("human verification")
-        || content_lc.contains("please verify you are a human")
-    {
+    if explicit_human_verification_surface {
         return Some("human-verification challenge detected");
     }
 
@@ -234,6 +242,51 @@ pub(crate) async fn fetch_structured_detail_http_fallback_browser_ua_with_final_
         STRUCTURED_DETAIL_HTTP_TIMEOUT_SECS,
     )
     .await
+}
+
+pub(crate) async fn fetch_binary_http_fallback_browser_ua_with_final_url(
+    url: &str,
+) -> Result<(String, Option<String>, Vec<u8>)> {
+    if env_flag_enabled("IOI_WEB_TEST_FORCE_HTTP_TIMEOUT") {
+        return Err(anyhow!("HTTP fallback request timed out (forced): {}", url));
+    }
+    if let Ok(html) = std::env::var("IOI_WEB_TEST_HTTP_FALLBACK_HTML") {
+        return Ok((url.to_string(), None, html.into_bytes()));
+    }
+
+    let client = Client::builder()
+        .redirect(redirect::Policy::limited(5))
+        .timeout(Duration::from_secs(HTTP_FALLBACK_TIMEOUT_SECS))
+        .user_agent(STANDARD_WEB_USER_AGENT)
+        .build()
+        .map_err(|e| anyhow!("HTTP fallback client init failed: {}", e))?;
+
+    let response = client
+        .get(url)
+        .header(
+            header::ACCEPT,
+            "application/pdf,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        )
+        .header(header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .header(header::PRAGMA, "no-cache")
+        .header("Upgrade-Insecure-Requests", "1")
+        .send()
+        .await
+        .map_err(|e| anyhow!("HTTP fallback request failed: {}", e))?;
+
+    let final_url = response.url().to_string();
+    let content_type = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+    let body = response
+        .bytes()
+        .await
+        .map_err(|e| anyhow!("HTTP fallback body read failed: {}", e))?;
+
+    Ok((final_url, content_type, body.to_vec()))
 }
 
 #[cfg(test)]

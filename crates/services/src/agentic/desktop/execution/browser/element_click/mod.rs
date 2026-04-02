@@ -28,7 +28,6 @@ const NON_LINK_STABLE_TARGET_MATERIAL_TREE_CHANGE_MIN_DELTA: usize = 8;
 const EXECUTION_PROMPT_OBSERVATION_CACHE_MAX_AGE: Duration = Duration::from_secs(90);
 const RECENT_BROWSER_CLICK_SNAPSHOT_MAX_AGE: Duration = Duration::from_millis(5_000);
 
-
 include!("shared.rs");
 include!("target_lookup.rs");
 include!("dispatch.rs");

@@ -6,6 +6,14 @@ fn studio_judge_trace(message: impl AsRef<str>) {
     }
 }
 
+fn studio_judge_trace_preview(stage: &str, runtime_label: &str, raw: &str) {
+    studio_judge_trace(format!(
+        "{stage} runtime={} preview={}",
+        runtime_label,
+        truncate_studio_judge_text(raw, 1200)
+    ));
+}
+
 fn renderer_uses_document_judge_context(renderer: StudioRendererKind) -> bool {
     matches!(
         renderer,
@@ -120,6 +128,11 @@ pub async fn judge_studio_artifact_candidate_with_runtime(
     ));
     let raw = String::from_utf8(output)
         .map_err(|error| format!("Studio artifact judge utf8 decode failed: {error}"))?;
+    studio_judge_trace_preview(
+        "artifact_judge:raw_preview",
+        &runtime_provenance.label,
+        &raw,
+    );
     match parse_studio_artifact_judge_result(&raw) {
         Ok(result) => {
             studio_judge_trace(format!(
@@ -170,6 +183,11 @@ pub async fn judge_studio_artifact_candidate_with_runtime(
             let repair_raw = String::from_utf8(repair_output).map_err(|error| {
                 format!("{first_error}; judge repair utf8 decode failed: {error}")
             })?;
+            studio_judge_trace_preview(
+                "artifact_judge:repair:raw_preview",
+                &runtime_provenance.label,
+                &repair_raw,
+            );
             parse_studio_artifact_judge_result(&repair_raw)
                 .map(|result| {
                     studio_judge_trace(format!(
@@ -256,10 +274,10 @@ pub fn build_studio_artifact_judge_prompt(
 fn studio_artifact_judge_schema_contract(renderer: StudioRendererKind) -> &'static str {
     match renderer {
         StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => {
-            "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) Penalize generic shells, placeholder output, or request-thin artifacts.\n4) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n5) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n6) Placeholder image URLs, placeholder media, lorem ipsum, fake stock filler, or empty chart regions should set trivialShellDetected=true and classification must not be pass.\n7) html_iframe candidates that rely on a thin div shell, omit semantic sectioning, use invented custom tags instead of standard HTML, fail to realize required interactions, or leave SVG/canvas chart regions empty on first paint must not be pass.\n8) When the brief calls for multiple charts, data visualizations, metrics, or comparisons, a single chart plus generic prose is insufficient and classification must not be pass.\n9) Broken control wiring that targets nonexistent views or uses collection-style iteration on a single selected element should reduce interactionRelevance and completeness.\n10) Apply sequence-browsing penalties only when interactionContract.sequenceBrowsingRequired is true. In that case, a static timeline illustration without a visible progression mechanism such as prev/next controls, a scrubber, or a scrollable evidence rail must reduce interactionRelevance and completeness.\n11) Judge requiredInteractions by the visible response behavior and interactionContract, not by literal widget nouns alone; equivalent truthful inline controls or state changes may satisfy the interaction.\n12) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n13) If the candidate should not lead the stage, classification must not be pass.\n14) Keep strongestContradiction and rationale terse: one sentence each, under 18 words when present."
+            "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"issueClasses\": [<string>],\n  \"repairHints\": [<string>],\n  \"strengths\": [<string>],\n  \"blockedReasons\": [<string>],\n  \"fileFindings\": [<string>],\n  \"aestheticVerdict\": <string>,\n  \"interactionVerdict\": <string>,\n  \"truthfulnessWarnings\": [<string>],\n  \"recommendedNextPass\": null | \"accept\" | \"structural_repair\" | \"polish_pass\" | \"hold_block\",\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) issueClasses, repairHints, strengths, blockedReasons, fileFindings, and truthfulnessWarnings should each contain 0 to 3 terse entries.\n4) Penalize generic shells, placeholder output, or request-thin artifacts.\n5) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n6) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n7) Placeholder image URLs, placeholder media, lorem ipsum, fake stock filler, or empty chart regions should set trivialShellDetected=true and classification must not be pass.\n8) html_iframe candidates that rely on a thin div shell, omit semantic sectioning, use invented custom tags instead of standard HTML, fail to realize required interactions, or leave SVG/canvas chart regions empty on first paint must not be pass.\n9) When the brief calls for multiple charts, data visualizations, metrics, or comparisons, a single chart plus generic prose is insufficient and classification must not be pass.\n10) Broken control wiring that targets nonexistent views or uses collection-style iteration on a single selected element should reduce interactionRelevance and completeness.\n11) Apply sequence-browsing penalties only when interactionContract.sequenceBrowsingRequired is true. In that case, a static timeline illustration without a visible progression mechanism such as prev/next controls, a scrubber, or a scrollable evidence rail must reduce interactionRelevance and completeness.\n12) Judge requiredInteractions by the visible response behavior and interactionContract, not by literal widget nouns alone; equivalent truthful inline controls or state changes may satisfy the interaction.\n13) Explicitly critique typography and design intentionality in aestheticVerdict, first-paint evidence density in issueClasses or repairHints, interaction truthfulness in interactionVerdict, and continuity with refinement context when patchedExistingArtifact is relevant.\n14) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n15) If the candidate should not lead the stage, classification must not be pass.\n16) Keep strongestContradiction, aestheticVerdict, interactionVerdict, and rationale terse: one sentence each."
         }
         _ => {
-            "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) Penalize generic shells, placeholder output, or request-thin artifacts.\n4) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n5) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n6) Empty deliverables, placeholder filler, or obviously incomplete artifacts should set trivialShellDetected=true and classification must not be pass.\n7) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n8) If the candidate should not lead the stage, classification must not be pass.\n9) Keep strongestContradiction and rationale terse: one sentence each, under 18 words when present."
+            "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"issueClasses\": [<string>],\n  \"repairHints\": [<string>],\n  \"strengths\": [<string>],\n  \"blockedReasons\": [<string>],\n  \"fileFindings\": [<string>],\n  \"aestheticVerdict\": <string>,\n  \"interactionVerdict\": <string>,\n  \"truthfulnessWarnings\": [<string>],\n  \"recommendedNextPass\": null | \"accept\" | \"structural_repair\" | \"polish_pass\" | \"hold_block\",\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) issueClasses, repairHints, strengths, blockedReasons, fileFindings, and truthfulnessWarnings should each contain 0 to 3 terse entries.\n4) Penalize generic shells, placeholder output, or request-thin artifacts.\n5) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n6) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n7) Empty deliverables, placeholder filler, or obviously incomplete artifacts should set trivialShellDetected=true and classification must not be pass.\n8) Explicitly record strengths, blockedReasons when blocked, and a recommendedNextPass that tells Studio whether to accept, repair, polish, or hold the block.\n9) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n10) If the candidate should not lead the stage, classification must not be pass.\n11) Keep strongestContradiction, aestheticVerdict, interactionVerdict, and rationale terse: one sentence each."
         }
     }
 }
@@ -356,6 +374,49 @@ fn coerce_judge_string_field(value: &mut serde_json::Value) {
     }
 }
 
+fn coerce_optional_judge_string_field(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::String(_) | serde_json::Value::Null => {}
+        serde_json::Value::Array(items) => {
+            let joined = items
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .collect::<Vec<_>>()
+                .join(", ");
+            *value = serde_json::Value::String(joined);
+        }
+        _ => {}
+    }
+}
+
+fn coerce_judge_string_array_field(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::String(text) => {
+            let trimmed = text.trim();
+            if trimmed.is_empty() {
+                *value = serde_json::Value::Array(Vec::new());
+            } else {
+                *value =
+                    serde_json::Value::Array(vec![serde_json::Value::String(trimmed.to_string())]);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            let normalized = items
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(|value| serde_json::Value::String(value.to_string()))
+                .collect::<Vec<_>>();
+            *value = serde_json::Value::Array(normalized);
+        }
+        serde_json::Value::Null => {
+            *value = serde_json::Value::Array(Vec::new());
+        }
+        _ => {}
+    }
+}
+
 fn coerce_judge_bool_field(value: &mut serde_json::Value) {
     if let serde_json::Value::String(text) = value {
         let normalized = text.trim().to_ascii_lowercase();
@@ -397,9 +458,31 @@ fn normalize_studio_artifact_judge_value(value: &mut serde_json::Value) {
         return;
     };
 
-    for field in ["classification", "rationale", "strongestContradiction"] {
+    for field in ["classification", "rationale"] {
         if let Some(entry) = object.get_mut(field) {
             coerce_judge_string_field(entry);
+        }
+    }
+    for field in ["strongestContradiction", "recommendedNextPass"] {
+        if let Some(entry) = object.get_mut(field) {
+            coerce_optional_judge_string_field(entry);
+        }
+    }
+    for field in ["aestheticVerdict", "interactionVerdict"] {
+        if let Some(entry) = object.get_mut(field) {
+            coerce_judge_string_field(entry);
+        }
+    }
+    for field in [
+        "issueClasses",
+        "repairHints",
+        "strengths",
+        "blockedReasons",
+        "fileFindings",
+        "truthfulnessWarnings",
+    ] {
+        if let Some(entry) = object.get_mut(field) {
+            coerce_judge_string_array_field(entry);
         }
     }
     for field in [
@@ -429,17 +512,768 @@ fn normalize_studio_artifact_judge_value(value: &mut serde_json::Value) {
     }
 }
 
-pub fn parse_studio_artifact_judge_result(raw: &str) -> Result<StudioArtifactJudgeResult, String> {
-    let mut value = serde_json::from_str::<serde_json::Value>(raw)
-        .or_else(|_| {
-            let extracted = super::extract_first_json_object(raw)
-                .ok_or_else(|| "Studio artifact judge output missing JSON payload".to_string())?;
-            serde_json::from_str::<serde_json::Value>(&extracted).map_err(|error| error.to_string())
+fn push_unique_string(values: &mut Vec<String>, value: impl Into<String>) {
+    let normalized = value.into();
+    let trimmed = normalized.trim();
+    if trimmed.is_empty() || values.iter().any(|existing| existing == trimmed) {
+        return;
+    }
+    values.push(trimmed.to_string());
+}
+
+fn hydrate_studio_artifact_judge_result(result: &mut StudioArtifactJudgeResult) {
+    if result.issue_classes.is_empty() {
+        if result.generic_shell_detected {
+            push_unique_string(&mut result.issue_classes, "generic_shell");
+        }
+        if result.trivial_shell_detected {
+            push_unique_string(&mut result.issue_classes, "first_paint_incomplete");
+        }
+        if result.request_faithfulness <= 2 || result.concept_coverage <= 2 {
+            push_unique_string(&mut result.issue_classes, "request_faithfulness");
+        }
+        if result.interaction_relevance <= 2 {
+            push_unique_string(&mut result.issue_classes, "interaction_truthfulness");
+        }
+        if result.visual_hierarchy <= 2 {
+            push_unique_string(&mut result.issue_classes, "art_direction");
+        }
+        if result.continuity_revision_ux.unwrap_or(5) <= 2 {
+            push_unique_string(&mut result.issue_classes, "continuity");
+        }
+    }
+
+    if result.strengths.is_empty() {
+        if result.request_faithfulness >= 4 {
+            push_unique_string(
+                &mut result.strengths,
+                "Request concepts stay visible and specific.",
+            );
+        }
+        if result.visual_hierarchy >= 4 && !result.generic_shell_detected {
+            push_unique_string(
+                &mut result.strengths,
+                "Hierarchy reads as deliberate instead of default scaffolding.",
+            );
+        }
+        if result.interaction_relevance >= 4 {
+            push_unique_string(
+                &mut result.strengths,
+                "Interactive affordances respond truthfully to the typed interaction contract.",
+            );
+        }
+    }
+
+    if result.repair_hints.is_empty()
+        && result.classification != StudioArtifactJudgeClassification::Pass
+    {
+        if result.request_faithfulness <= 3 || result.concept_coverage <= 3 {
+            push_unique_string(
+                &mut result.repair_hints,
+                "Surface the differentiating request concepts in headings, labels, legends, and detail copy.",
+            );
+        }
+        if result.visual_hierarchy <= 3 || result.generic_shell_detected {
+            push_unique_string(
+                &mut result.repair_hints,
+                "Strengthen typography, spacing, and contrast so the page feels intentional rather than default.",
+            );
+        }
+        if result.interaction_relevance <= 3 {
+            push_unique_string(
+                &mut result.repair_hints,
+                "Keep visible first-paint controls wired to pre-rendered panels or detail targets instead of decorative navigation.",
+            );
+        }
+        if result.completeness <= 3 || result.trivial_shell_detected {
+            push_unique_string(
+                &mut result.repair_hints,
+                "Increase first-paint evidence density with populated secondary evidence and default detail state.",
+            );
+        }
+    }
+
+    if result.blocked_reasons.is_empty()
+        && result.classification == StudioArtifactJudgeClassification::Blocked
+    {
+        if let Some(contradiction) = result.strongest_contradiction.clone() {
+            push_unique_string(&mut result.blocked_reasons, contradiction);
+        } else {
+            push_unique_string(&mut result.blocked_reasons, result.rationale.clone());
+        }
+    }
+
+    if result.file_findings.is_empty() {
+        if let Some(contradiction) = result.strongest_contradiction.clone() {
+            push_unique_string(
+                &mut result.file_findings,
+                format!("primary-surface: {}", contradiction),
+            );
+        }
+    }
+
+    if result.aesthetic_verdict.trim().is_empty() {
+        result.aesthetic_verdict = if result.generic_shell_detected {
+            "Visual hierarchy still reads as a generic shell.".to_string()
+        } else if result.visual_hierarchy >= 4 {
+            "Typography and layout feel deliberate enough to carry the artifact.".to_string()
+        } else {
+            "Hierarchy needs stronger typography, spacing, and emphasis cues.".to_string()
+        };
+    }
+
+    if result.interaction_verdict.trim().is_empty() {
+        result.interaction_verdict = if result.interaction_relevance >= 4 {
+            "Interaction model is visible and materially changes the page state.".to_string()
+        } else {
+            "Interaction model needs clearer first-paint controls and truthful state changes."
+                .to_string()
+        };
+    }
+
+    if result.truthfulness_warnings.is_empty()
+        && (result.request_faithfulness <= 2 || result.concept_coverage <= 2)
+    {
+        push_unique_string(
+            &mut result.truthfulness_warnings,
+            "Candidate may be substituting generic filler for the typed request concepts.",
+        );
+    }
+
+    if result.recommended_next_pass.is_none() {
+        result.recommended_next_pass = Some(
+            match result.classification {
+                StudioArtifactJudgeClassification::Pass
+                    if result.visual_hierarchy < 5 || result.layout_coherence < 5 =>
+                {
+                    "polish_pass"
+                }
+                StudioArtifactJudgeClassification::Pass => "accept",
+                StudioArtifactJudgeClassification::Repairable => "structural_repair",
+                StudioArtifactJudgeClassification::Blocked => "hold_block",
+            }
+            .to_string(),
+        );
+    }
+}
+
+fn extract_json_value_prefix(raw: &str) -> Option<String> {
+    let trimmed = raw.trim_start();
+    let first = trimmed.chars().next()?;
+    match first {
+        '"' => {
+            let mut escaped = false;
+            for (index, character) in trimmed.char_indices().skip(1) {
+                if escaped {
+                    escaped = false;
+                    continue;
+                }
+                match character {
+                    '\\' => escaped = true,
+                    '"' => return Some(trimmed[..=index].to_string()),
+                    _ => {}
+                }
+            }
+            None
+        }
+        '[' | '{' => {
+            let mut depth = 0usize;
+            let mut in_string = false;
+            let mut escaped = false;
+            for (index, character) in trimmed.char_indices() {
+                if in_string {
+                    if escaped {
+                        escaped = false;
+                        continue;
+                    }
+                    match character {
+                        '\\' => escaped = true,
+                        '"' => in_string = false,
+                        _ => {}
+                    }
+                    continue;
+                }
+                match character {
+                    '"' => in_string = true,
+                    '[' | '{' => depth += 1,
+                    ']' | '}' => {
+                        depth = depth.saturating_sub(1);
+                        if depth == 0 {
+                            return Some(trimmed[..=index].to_string());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            None
+        }
+        _ => {
+            let end = trimmed.find([',', '}', ']']).unwrap_or(trimmed.len());
+            let candidate = trimmed[..end].trim();
+            if candidate.is_empty() {
+                None
+            } else {
+                Some(candidate.to_string())
+            }
+        }
+    }
+}
+
+fn extract_truncated_json_named_value(raw: &str, field: &str) -> Option<serde_json::Value> {
+    let pattern = format!("\"{field}\"");
+    let start = raw.find(&pattern)?;
+    let remainder = &raw[start + pattern.len()..];
+    let colon_index = remainder.find(':')?;
+    let value = extract_json_value_prefix(&remainder[colon_index + 1..])?;
+    serde_json::from_str::<serde_json::Value>(&value).ok()
+}
+
+fn recover_truncated_studio_artifact_judge_json_value(raw: &str) -> Option<serde_json::Value> {
+    let trimmed = raw.trim();
+    if !trimmed.starts_with('{') {
+        return None;
+    }
+
+    let mut object = serde_json::Map::new();
+    for field in [
+        "classification",
+        "requestFaithfulness",
+        "conceptCoverage",
+        "interactionRelevance",
+        "layoutCoherence",
+        "visualHierarchy",
+        "completeness",
+        "genericShellDetected",
+        "trivialShellDetected",
+        "deservesPrimaryArtifactView",
+        "patchedExistingArtifact",
+        "continuityRevisionUx",
+        "issueClasses",
+        "repairHints",
+        "strengths",
+        "blockedReasons",
+        "fileFindings",
+        "aestheticVerdict",
+        "interactionVerdict",
+        "truthfulnessWarnings",
+        "recommendedNextPass",
+        "strongestContradiction",
+        "rationale",
+    ] {
+        if let Some(value) = extract_truncated_json_named_value(trimmed, field) {
+            object.insert(field.to_string(), value);
+        }
+    }
+
+    let classification = object
+        .get("classification")
+        .and_then(serde_json::Value::as_str)?
+        .to_string();
+    let default_score = default_plaintext_judge_score(&classification);
+    for field in [
+        "requestFaithfulness",
+        "conceptCoverage",
+        "interactionRelevance",
+        "layoutCoherence",
+        "visualHierarchy",
+        "completeness",
+    ] {
+        object
+            .entry(field.to_string())
+            .or_insert_with(|| serde_json::Value::Number(default_score.into()));
+    }
+    object
+        .entry("genericShellDetected".to_string())
+        .or_insert(serde_json::Value::Bool(false));
+    object
+        .entry("trivialShellDetected".to_string())
+        .or_insert(serde_json::Value::Bool(false));
+    object
+        .entry("deservesPrimaryArtifactView".to_string())
+        .or_insert(serde_json::Value::Bool(classification == "pass"));
+    if !object.contains_key("rationale") {
+        object.insert(
+            "rationale".to_string(),
+            serde_json::Value::String(fallback_plaintext_judge_rationale(
+                &classification,
+                &object,
+                &[],
+            )),
+        );
+    }
+
+    Some(serde_json::Value::Object(object))
+}
+
+fn normalize_plaintext_judge_label(label: &str) -> String {
+    label
+        .to_ascii_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                ' '
+            }
         })
-        .map_err(|error| format!("Failed to parse Studio artifact judge result: {error}"))?;
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn strip_plaintext_judge_bullet_prefix(line: &str) -> &str {
+    let trimmed = line.trim();
+    for prefix in ["- ", "* ", "+ "] {
+        if let Some(stripped) = trimmed.strip_prefix(prefix) {
+            return stripped.trim_start();
+        }
+    }
+
+    let bytes = trimmed.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() && bytes[index].is_ascii_digit() {
+        index += 1;
+    }
+    if index > 0
+        && index < bytes.len()
+        && (bytes[index] == b'.' || bytes[index] == b')')
+        && index + 1 < bytes.len()
+        && bytes[index + 1].is_ascii_whitespace()
+    {
+        return trimmed[index + 2..].trim_start();
+    }
+
+    trimmed
+}
+
+fn parse_plaintext_judge_score(value: &str) -> Option<u64> {
+    let mut token = String::new();
+    let mut started = false;
+    for character in value.chars() {
+        if !started {
+            if character.is_ascii_digit() {
+                started = true;
+                token.push(character);
+            }
+            continue;
+        }
+
+        if character.is_ascii_digit() || character == '.' {
+            token.push(character);
+            continue;
+        }
+        break;
+    }
+
+    if token.is_empty() {
+        return None;
+    }
+
+    token
+        .parse::<f64>()
+        .ok()
+        .map(|numeric| numeric.round().clamp(1.0, 5.0) as u64)
+}
+
+fn parse_plaintext_judge_bool(value: &str) -> Option<bool> {
+    let normalized = normalize_plaintext_judge_label(value);
+    match normalized.as_str() {
+        "true" | "yes" | "y" => Some(true),
+        "false" | "no" | "n" => Some(false),
+        _ => None,
+    }
+}
+
+fn parse_plaintext_judge_classification(value: &str) -> Option<&'static str> {
+    let trimmed = value.trim().trim_end_matches(',');
+    if let Some(rest) = trimmed.strip_prefix('"') {
+        if let Some(end_index) = rest.find('"') {
+            return parse_plaintext_judge_classification(&rest[..end_index]);
+        }
+    }
+
+    let normalized = normalize_plaintext_judge_label(value);
+    let leading = normalized
+        .split_whitespace()
+        .take(2)
+        .collect::<Vec<_>>()
+        .join(" ");
+    if matches!(leading.as_str(), "repairable" | "needs repair") {
+        Some("repairable")
+    } else if matches!(leading.as_str(), "blocked" | "block") {
+        Some("blocked")
+    } else if matches!(leading.as_str(), "pass" | "passed" | "accept" | "accepted")
+        || normalized.starts_with("overall pass")
+        || normalized.starts_with("classification pass")
+        || normalized.starts_with("verdict pass")
+    {
+        Some("pass")
+    } else {
+        None
+    }
+}
+
+fn parse_plaintext_judge_next_pass(value: &str) -> Option<&'static str> {
+    let trimmed = value.trim().trim_end_matches(',');
+    if let Some(rest) = trimmed.strip_prefix('"') {
+        if let Some(end_index) = rest.find('"') {
+            return parse_plaintext_judge_next_pass(&rest[..end_index]);
+        }
+    }
+
+    let normalized = normalize_plaintext_judge_label(trimmed);
+    if normalized.contains("structural repair") {
+        Some("structural_repair")
+    } else if normalized.contains("polish pass") || normalized == "polish" {
+        Some("polish_pass")
+    } else if normalized.contains("hold block") || normalized == "hold" {
+        Some("hold_block")
+    } else if normalized.contains("accept") {
+        Some("accept")
+    } else {
+        None
+    }
+}
+
+fn parse_plaintext_judge_list(value: &str) -> Vec<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    let normalized = normalize_plaintext_judge_label(trimmed);
+    if matches!(normalized.as_str(), "none" | "n a" | "na" | "null") {
+        return Vec::new();
+    }
+    if let Ok(parsed) = serde_json::from_str::<Vec<String>>(trimmed) {
+        return parsed
+            .into_iter()
+            .map(|entry| entry.trim().to_string())
+            .filter(|entry| !entry.is_empty())
+            .collect();
+    }
+    trimmed
+        .split([',', ';'])
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn push_plaintext_judge_list_entry(
+    object: &mut serde_json::Map<String, serde_json::Value>,
+    field: &'static str,
+    entry: impl Into<String>,
+) {
+    let entry = entry.into();
+    let trimmed = entry.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+
+    let values = object
+        .entry(field.to_string())
+        .or_insert_with(|| serde_json::Value::Array(Vec::new()));
+    let Some(array) = values.as_array_mut() else {
+        *values = serde_json::Value::Array(Vec::new());
+        return push_plaintext_judge_list_entry(object, field, trimmed.to_string());
+    };
+    if array
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .any(|existing| existing == trimmed)
+    {
+        return;
+    }
+    array.push(serde_json::Value::String(trimmed.to_string()));
+}
+
+fn map_plaintext_judge_field(label: &str) -> Option<(&'static str, bool)> {
+    match normalize_plaintext_judge_label(label).as_str() {
+        "classification" | "overall classification" | "overall verdict" | "verdict" => {
+            Some(("classification", false))
+        }
+        "request faithfulness" => Some(("requestFaithfulness", false)),
+        "concept coverage" => Some(("conceptCoverage", false)),
+        "interaction relevance" => Some(("interactionRelevance", false)),
+        "layout coherence" => Some(("layoutCoherence", false)),
+        "visual hierarchy" => Some(("visualHierarchy", false)),
+        "completeness" => Some(("completeness", false)),
+        "generic shell detected" | "generic shell" => Some(("genericShellDetected", false)),
+        "trivial shell detected" | "trivial shell" => Some(("trivialShellDetected", false)),
+        "deserves primary artifact view" | "deserves primary view" | "primary artifact view" => {
+            Some(("deservesPrimaryArtifactView", false))
+        }
+        "patched existing artifact" => Some(("patchedExistingArtifact", false)),
+        "continuity revision ux" | "continuity ux" => Some(("continuityRevisionUx", false)),
+        "issue classes" | "issues" => Some(("issueClasses", true)),
+        "repair hints" | "repair suggestions" | "repairs" => Some(("repairHints", true)),
+        "strengths" | "strength" => Some(("strengths", true)),
+        "blocked reasons" | "blocked reason" | "blockers" | "reasons blocked" => {
+            Some(("blockedReasons", true))
+        }
+        "file findings" | "file finding" | "findings" => Some(("fileFindings", true)),
+        "aesthetic verdict" | "aesthetic" | "design verdict" => Some(("aestheticVerdict", false)),
+        "interaction verdict" | "interaction assessment" => Some(("interactionVerdict", false)),
+        "truthfulness warnings" | "truthfulness warning" | "warnings" => {
+            Some(("truthfulnessWarnings", true))
+        }
+        "recommended next pass" | "next pass" | "recommended action" => {
+            Some(("recommendedNextPass", false))
+        }
+        "strongest contradiction" | "contradiction" => Some(("strongestContradiction", false)),
+        "rationale" | "reasoning" | "summary" => Some(("rationale", false)),
+        _ => None,
+    }
+}
+
+fn default_plaintext_judge_score(classification: &str) -> u64 {
+    match classification {
+        "pass" => 4,
+        "blocked" => 1,
+        _ => 3,
+    }
+}
+
+fn fallback_plaintext_judge_rationale(
+    classification: &str,
+    object: &serde_json::Map<String, serde_json::Value>,
+    free_text: &[String],
+) -> String {
+    if let Some(line) = free_text
+        .first()
+        .map(String::as_str)
+        .filter(|line| !line.is_empty())
+    {
+        return truncate_studio_judge_text(line, 240);
+    }
+    for field in [
+        "strongestContradiction",
+        "aestheticVerdict",
+        "interactionVerdict",
+    ] {
+        if let Some(text) = object.get(field).and_then(serde_json::Value::as_str) {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                return truncate_studio_judge_text(trimmed, 240);
+            }
+        }
+    }
+    for field in [
+        "blockedReasons",
+        "repairHints",
+        "strengths",
+        "fileFindings",
+        "truthfulnessWarnings",
+    ] {
+        if let Some(text) = object
+            .get(field)
+            .and_then(serde_json::Value::as_array)
+            .and_then(|values| values.first())
+            .and_then(serde_json::Value::as_str)
+        {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                return truncate_studio_judge_text(trimmed, 240);
+            }
+        }
+    }
+
+    match classification {
+        "pass" => "Recovered pass judgment from plaintext output.".to_string(),
+        "blocked" => "Recovered blocked judgment from plaintext output.".to_string(),
+        _ => "Recovered repairable judgment from plaintext output.".to_string(),
+    }
+}
+
+fn recover_plaintext_studio_artifact_judge_value(raw: &str) -> Option<serde_json::Value> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let mut object = serde_json::Map::new();
+    let mut current_list_field = None::<&'static str>;
+    let mut free_text = Vec::new();
+    let mut first_content_line = None::<String>;
+
+    for line in trimmed.lines() {
+        let trimmed_line = line.trim();
+        if trimmed_line.is_empty() {
+            current_list_field = None;
+            continue;
+        }
+        if trimmed_line.starts_with("```") {
+            continue;
+        }
+
+        let content = strip_plaintext_judge_bullet_prefix(trimmed_line);
+        let line_is_list_entry = content.len() != trimmed_line.len();
+        if first_content_line.is_none() && !content.is_empty() {
+            first_content_line = Some(content.to_string());
+        }
+
+        if let Some((label, value)) = content.split_once(':') {
+            if let Some((field, is_list)) = map_plaintext_judge_field(label) {
+                let value = value.trim();
+                current_list_field = if is_list { Some(field) } else { None };
+                match field {
+                    "classification" => {
+                        if let Some(classification) = parse_plaintext_judge_classification(value) {
+                            object.insert(
+                                field.to_string(),
+                                serde_json::Value::String(classification.to_string()),
+                            );
+                        }
+                    }
+                    "recommendedNextPass" => {
+                        if let Some(next_pass) = parse_plaintext_judge_next_pass(value) {
+                            object.insert(
+                                field.to_string(),
+                                serde_json::Value::String(next_pass.to_string()),
+                            );
+                        }
+                    }
+                    "requestFaithfulness"
+                    | "conceptCoverage"
+                    | "interactionRelevance"
+                    | "layoutCoherence"
+                    | "visualHierarchy"
+                    | "completeness"
+                    | "continuityRevisionUx" => {
+                        if let Some(score) = parse_plaintext_judge_score(value) {
+                            object
+                                .insert(field.to_string(), serde_json::Value::Number(score.into()));
+                        }
+                    }
+                    "genericShellDetected"
+                    | "trivialShellDetected"
+                    | "deservesPrimaryArtifactView"
+                    | "patchedExistingArtifact" => {
+                        if let Some(flag) = parse_plaintext_judge_bool(value) {
+                            object.insert(field.to_string(), serde_json::Value::Bool(flag));
+                        }
+                    }
+                    "issueClasses"
+                    | "repairHints"
+                    | "strengths"
+                    | "blockedReasons"
+                    | "fileFindings"
+                    | "truthfulnessWarnings" => {
+                        for entry in parse_plaintext_judge_list(value) {
+                            push_plaintext_judge_list_entry(&mut object, field, entry);
+                        }
+                    }
+                    _ => {
+                        if !value.is_empty() {
+                            object.insert(
+                                field.to_string(),
+                                serde_json::Value::String(value.to_string()),
+                            );
+                        }
+                    }
+                }
+                continue;
+            }
+        }
+
+        if let Some(field) = current_list_field.filter(|_| line_is_list_entry) {
+            push_plaintext_judge_list_entry(&mut object, field, content.to_string());
+            continue;
+        }
+
+        free_text.push(content.to_string());
+    }
+
+    if !object.contains_key("classification") {
+        if let Some(line) = first_content_line
+            .as_deref()
+            .filter(|line| line.chars().count() <= 48)
+        {
+            if let Some(classification) = parse_plaintext_judge_classification(line) {
+                if free_text.first().map(String::as_str) == Some(line) {
+                    free_text.remove(0);
+                }
+                object.insert(
+                    "classification".to_string(),
+                    serde_json::Value::String(classification.to_string()),
+                );
+            }
+        }
+    }
+
+    let classification = object
+        .get("classification")
+        .and_then(serde_json::Value::as_str)?
+        .to_string();
+    let default_score = default_plaintext_judge_score(&classification);
+    for field in [
+        "requestFaithfulness",
+        "conceptCoverage",
+        "interactionRelevance",
+        "layoutCoherence",
+        "visualHierarchy",
+        "completeness",
+    ] {
+        object
+            .entry(field.to_string())
+            .or_insert_with(|| serde_json::Value::Number(default_score.into()));
+    }
+    object
+        .entry("genericShellDetected".to_string())
+        .or_insert(serde_json::Value::Bool(false));
+    object
+        .entry("trivialShellDetected".to_string())
+        .or_insert(serde_json::Value::Bool(false));
+    object
+        .entry("deservesPrimaryArtifactView".to_string())
+        .or_insert(serde_json::Value::Bool(classification == "pass"));
+
+    if !object.contains_key("rationale") {
+        object.insert(
+            "rationale".to_string(),
+            serde_json::Value::String(fallback_plaintext_judge_rationale(
+                &classification,
+                &object,
+                &free_text,
+            )),
+        );
+    }
+
+    Some(serde_json::Value::Object(object))
+}
+
+pub fn parse_studio_artifact_judge_result(raw: &str) -> Result<StudioArtifactJudgeResult, String> {
+    let mut value = match serde_json::from_str::<serde_json::Value>(raw) {
+        Ok(value) => value,
+        Err(initial_error) => {
+            if let Some(extracted) = super::extract_first_json_object(raw) {
+                serde_json::from_str::<serde_json::Value>(&extracted).map_err(|error| {
+                    format!("Failed to parse Studio artifact judge result: {error}")
+                })?
+            } else if let Some(recovered) = recover_truncated_studio_artifact_judge_json_value(raw)
+            {
+                studio_judge_trace("artifact_judge:truncated_json_recovery");
+                recovered
+            } else if let Some(recovered) = recover_plaintext_studio_artifact_judge_value(raw) {
+                studio_judge_trace("artifact_judge:plaintext_recovery");
+                recovered
+            } else {
+                return Err(format!(
+                    "Failed to parse Studio artifact judge result: {}",
+                    if initial_error.is_eof() {
+                        "Studio artifact judge output missing JSON payload".to_string()
+                    } else {
+                        initial_error.to_string()
+                    }
+                ));
+            }
+        }
+    };
     normalize_studio_artifact_judge_value(&mut value);
-    let result = serde_json::from_value::<StudioArtifactJudgeResult>(value)
+    let mut result = serde_json::from_value::<StudioArtifactJudgeResult>(value)
         .map_err(|error| format!("Failed to parse Studio artifact judge result: {error}"))?;
+    hydrate_studio_artifact_judge_result(&mut result);
 
     for score in [
         result.request_faithfulness,
@@ -609,6 +1443,75 @@ pub(crate) fn studio_artifact_refinement_context_view(
             })
             .collect::<Vec<_>>(),
         "tasteMemory": refinement.taste_memory,
+        "retrievedExemplars": refinement
+            .retrieved_exemplars
+            .iter()
+            .map(|exemplar| {
+                json!({
+                    "recordId": exemplar.record_id,
+                    "title": truncate_studio_judge_text(&exemplar.title, 120),
+                    "summary": truncate_studio_judge_text(&exemplar.summary, 200),
+                    "renderer": exemplar.renderer,
+                    "scaffoldFamily": exemplar.scaffold_family,
+                    "scoreTotal": exemplar.score_total,
+                    "designCues": exemplar.design_cues,
+                    "componentPatterns": exemplar.component_patterns,
+                    "antiPatterns": exemplar.anti_patterns,
+                })
+            })
+            .collect::<Vec<_>>(),
+        "blueprint": refinement.blueprint.as_ref().map(|blueprint| {
+            json!({
+                "renderer": blueprint.renderer,
+                "scaffoldFamily": blueprint.scaffold_family,
+                "narrativeArc": truncate_studio_judge_text(&blueprint.narrative_arc, 240),
+                "sectionPlan": blueprint
+                    .section_plan
+                    .iter()
+                    .map(|section| {
+                        json!({
+                            "id": section.id,
+                            "role": section.role,
+                            "visiblePurpose": truncate_studio_judge_text(&section.visible_purpose, 180),
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+                "interactionPlan": blueprint
+                    .interaction_plan
+                    .iter()
+                    .map(|interaction| {
+                        json!({
+                            "id": interaction.id,
+                            "family": interaction.family,
+                            "defaultState": interaction.default_state,
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+                "skillNeeds": blueprint.skill_needs,
+            })
+        }),
+        "artifactIr": refinement.artifact_ir.as_ref().map(|artifact_ir| {
+            json!({
+                "renderer": artifact_ir.renderer,
+                "scaffoldFamily": artifact_ir.scaffold_family,
+                "semanticNodeCount": artifact_ir.semantic_structure.len(),
+                "interactionCount": artifact_ir.interaction_graph.len(),
+                "evidenceSurfaceCount": artifact_ir.evidence_surfaces.len(),
+                "renderEvalChecklist": artifact_ir.render_eval_checklist,
+            })
+        }),
+        "selectedSkills": refinement
+            .selected_skills
+            .iter()
+            .map(|skill| {
+                json!({
+                    "name": skill.name,
+                    "matchedNeedKinds": skill.matched_need_kinds,
+                    "matchRationale": truncate_studio_judge_text(&skill.match_rationale, 180),
+                    "guidanceMarkdown": skill.guidance_markdown.as_ref().map(|markdown| truncate_studio_judge_text(markdown, 240)),
+                })
+            })
+            .collect::<Vec<_>>(),
     })
 }
 
@@ -843,6 +1746,10 @@ pub(crate) fn judge_total_score(judge: &StudioArtifactJudgeResult) -> i32 {
         }
         + if judge.generic_shell_detected { -28 } else { 0 }
         + if judge.trivial_shell_detected { -36 } else { 0 }
+        - (judge.issue_classes.len() as i32) * 4
+        - (judge.truthfulness_warnings.len() as i32) * 6
+        - (judge.blocked_reasons.len() as i32) * 8
+        + (judge.strengths.len() as i32) * 3
         + judge.continuity_revision_ux.unwrap_or(0) as i32
 }
 
@@ -851,6 +1758,7 @@ pub(crate) fn judge_clears_primary_view(judge: &StudioArtifactJudgeResult) -> bo
         && judge.deserves_primary_artifact_view
         && !judge.generic_shell_detected
         && !judge.trivial_shell_detected
+        && judge.truthfulness_warnings.is_empty()
 }
 
 pub(crate) fn renderer_supports_semantic_refinement(renderer: StudioRendererKind) -> bool {

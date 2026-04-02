@@ -48,6 +48,7 @@ dotenvy = "0.15"
 
 # HTML parsing for edge web retrieval (`web__search` / `web__read`).
 scraper = "0.18"
+pdf-extract = "0.10.0"
 symphonia = { version = "0.5.5", default-features = false, features = ["aac", "isomp4", "mp3", "ogg", "vorbis", "mkv", "wav"] }
 whisper-rs = "0.15.1"
 

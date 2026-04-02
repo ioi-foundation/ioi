@@ -1,5 +1,6 @@
 use super::*;
 use crate::agentic::desktop::service::step::queue::support::{
+    merge_url_sequence, pre_read_candidate_plan_with_contract,
     retrieval_contract_is_generic_headline_collection, retrieval_contract_min_sources,
     retrieval_contract_required_distinct_domain_floor,
 };
@@ -14,6 +15,7 @@ include!("search/planning.rs");
 #[cfg(test)]
 mod tests {
     use super::{
+        briefing_authority_link_out_sources_from_html, briefing_authority_seed_admission,
         defer_search_planning_failure_while_recovery_actions_remain,
         deterministic_local_business_expansion_alignment_urls, effective_semantic_alignment_urls,
         planning_bundle_after_surface_filter, pre_read_batch_urls,
@@ -153,6 +155,553 @@ mod tests {
         assert!(verification_checks
             .iter()
             .all(|check| { check != "web_discovery_probe_fallback_to_pre_surface_bundle=true" }));
+    }
+
+    #[test]
+    fn briefing_authority_link_out_sources_surface_public_authority_links_from_external_article() {
+        let html = r#"
+            <html>
+              <head><title>IBM overview of NIST standards</title></head>
+              <body>
+                <article>
+                  <p>IBM summarizes the latest NIST post-quantum cryptography standards.</p>
+                  <a href="https://csrc.nist.gov/pubs/fips/204/final">Federal Information Processing Standard (FIPS) 204</a>
+                  <a href="https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards">NIST releases first 3 finalized post-quantum encryption standards</a>
+                  <a href="https://www.facebook.com/share.php?u=https://www.ibm.com/think/insights/nist-pqc-standards">Share on Facebook</a>
+                  <a href="/think/insights/another-ibm-article">Another IBM article</a>
+                </article>
+              </body>
+            </html>
+        "#;
+
+        let sources = briefing_authority_link_out_sources_from_html(
+            &crate::agentic::web::derive_web_retrieval_contract(
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+                Some("Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."),
+            )
+            .expect("contract"),
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+            "https://www.ibm.com/think/insights/nist-pqc-standards",
+            "https://www.ibm.com/think/insights/nist-pqc-standards",
+            html,
+            2,
+            6,
+        );
+        let urls = sources
+            .iter()
+            .map(|source| source.url.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            urls.iter()
+                .any(|url| url.contains("csrc.nist.gov/pubs/fips/204/final")),
+            "expected CSRC authority link-out, got: {:?}",
+            urls
+        );
+        assert!(
+            urls.iter()
+                .any(|url| url.contains("www.nist.gov/news-events/news/2024/08")),
+            "expected NIST news authority link-out, got: {:?}",
+            urls
+        );
+        assert!(
+            !urls.iter().any(|url| url.contains("facebook.com")),
+            "social share links should not be surfaced as authority expansion candidates: {:?}",
+            urls
+        );
+        assert!(
+            !urls.iter().any(|url| url.contains("another-ibm-article")),
+            "same-host article links should not be treated as authority link-outs: {:?}",
+            urls
+        );
+    }
+
+    #[test]
+    fn briefing_authority_link_expansion_keeps_same_host_deep_authority_documents() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let seed_url = "https://csrc.nist.gov/projects/post-quantum-cryptography";
+        let html = r#"
+            <html>
+              <head>
+                <title>Post-Quantum Cryptography | CSRC</title>
+                <meta
+                  name="description"
+                  content="NIST project page for post-quantum cryptography standards and publications."
+                />
+              </head>
+              <body>
+                <a href="/pubs/fips/203/final">Post-Quantum Cryptography FIPS 203 Final</a>
+                <a href="/projects">Projects</a>
+              </body>
+            </html>
+        "#;
+
+        let sources = briefing_authority_link_out_sources_from_html(
+            &retrieval_contract,
+            query,
+            seed_url,
+            seed_url,
+            html,
+            2,
+            8,
+        );
+        let urls = sources
+            .iter()
+            .map(|source| source.url.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            urls.iter()
+                .any(|url| url == &"https://csrc.nist.gov/pubs/fips/203/final"),
+            "expected same-host authority document, got: {:?}",
+            urls
+        );
+        assert!(
+            !urls.iter().any(|url| url == &"https://csrc.nist.gov/projects"),
+            "shallow project navigation should not be surfaced as an authority expansion candidate: {:?}",
+            urls
+        );
+    }
+
+    #[test]
+    fn briefing_authority_link_expansion_uses_page_context_for_minimal_same_host_titles() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let seed_url = "https://csrc.nist.gov/projects/post-quantum-cryptography";
+        let html = r#"
+            <html>
+              <head>
+                <title>Post-Quantum Cryptography | CSRC</title>
+                <meta
+                  name="description"
+                  content="NIST project page for post-quantum cryptography standards and migration guidance."
+                />
+              </head>
+              <body>
+                <a href="/pubs/fips/203/final">Module-Lattice-Based<br />(ML-KEM)</a>
+              </body>
+            </html>
+        "#;
+
+        let sources = briefing_authority_link_out_sources_from_html(
+            &retrieval_contract,
+            query,
+            seed_url,
+            seed_url,
+            html,
+            2,
+            8,
+        );
+        let urls = sources
+            .iter()
+            .map(|source| source.url.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            urls.iter()
+                .any(|url| url == &"https://csrc.nist.gov/pubs/fips/203/final"),
+            "expected page context to preserve same-host authority document, got: {:?}",
+            urls
+        );
+    }
+
+    #[test]
+    fn briefing_authority_link_expansion_ranks_publication_docs_ahead_of_navigation_links() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let seed_url = "https://csrc.nist.gov/projects/post-quantum-cryptography";
+        let html = r#"
+            <html>
+              <head>
+                <title>Post-Quantum Cryptography | CSRC</title>
+                <meta
+                  name="description"
+                  content="PQC Standards and migration guidance for the latest NIST post-quantum cryptography standards."
+                />
+              </head>
+              <body>
+                <a href="/Groups/Computer-Security-Division/Cryptographic-Technology">Cryptographic Technology</a>
+                <a href="/Projects/post-quantum-cryptography/publications">Publications</a>
+                <a data-csrc-pub-link="true" href="/pubs/fips/203/final">Module-Lattice-Based Key-Encapsulation Mechanism Standard</a>
+                <a data-csrc-pub-link="true" href="/pubs/fips/204/final">Module-Lattice-Based Digital Signature Standard</a>
+                <a data-csrc-pub-link="true" href="/pubs/fips/205/final">Stateless Hash-Based Digital Signature Standard</a>
+              </body>
+            </html>
+        "#;
+
+        let sources = briefing_authority_link_out_sources_from_html(
+            &retrieval_contract,
+            query,
+            seed_url,
+            seed_url,
+            html,
+            2,
+            3,
+        );
+        let urls = sources
+            .iter()
+            .map(|source| source.url.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(sources.len(), 3, "sources={sources:?}");
+        assert!(
+            urls.iter()
+                .any(|url| url == &"https://csrc.nist.gov/pubs/fips/203/final"),
+            "expected FIPS 203 to outrank navigation links, got: {:?}",
+            urls
+        );
+        assert!(
+            urls.iter()
+                .any(|url| url == &"https://csrc.nist.gov/pubs/fips/204/final"),
+            "expected FIPS 204 to outrank navigation links, got: {:?}",
+            urls
+        );
+        assert!(
+            urls.iter()
+                .any(|url| url == &"https://csrc.nist.gov/pubs/fips/205/final"),
+            "expected FIPS 205 to outrank navigation links, got: {:?}",
+            urls
+        );
+        assert!(
+            !urls.iter().any(|url| url.contains("/Groups/")),
+            "generic navigation links should not crowd out publication docs when the limit is tight: {:?}",
+            urls
+        );
+    }
+
+    #[test]
+    fn briefing_authority_link_expansion_preserves_domain_diversity_when_required() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let seed_url = "https://csrc.nist.gov/projects/post-quantum-cryptography";
+        let html = r#"
+            <html>
+              <head>
+                <title>Post-Quantum Cryptography | CSRC</title>
+                <meta
+                  name="description"
+                  content="PQC Standards and migration guidance for the latest NIST post-quantum cryptography standards."
+                />
+              </head>
+              <body>
+                <a data-csrc-pub-link="true" href="/pubs/fips/203/final">Module-Lattice-Based Key-Encapsulation Mechanism Standard</a>
+                <a data-csrc-pub-link="true" href="/pubs/fips/204/final">Module-Lattice-Based Digital Signature Standard</a>
+                <a data-csrc-pub-link="true" href="/pubs/fips/205/final">Stateless Hash-Based Digital Signature Standard</a>
+                <a href="https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards">NIST releases first 3 finalized post-quantum encryption standards</a>
+              </body>
+            </html>
+        "#;
+
+        let sources = briefing_authority_link_out_sources_from_html(
+            &retrieval_contract,
+            query,
+            seed_url,
+            seed_url,
+            html,
+            2,
+            2,
+        );
+        let urls = sources
+            .iter()
+            .map(|source| source.url.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(sources.len(), 2, "sources={sources:?}");
+        assert!(
+            urls.iter()
+                .any(|url| url.contains("csrc.nist.gov/pubs/fips/")),
+            "expected one PQC publication from CSRC, got: {:?}",
+            urls
+        );
+        assert!(
+            urls.iter()
+                .any(|url| url.contains("www.nist.gov/news-events/news/2024/08")),
+            "expected one official NIST news source to preserve domain diversity, got: {:?}",
+            urls
+        );
+    }
+
+    #[test]
+    fn briefing_authority_link_expansion_rejects_external_policy_links_grounded_only_by_page_context(
+    ) {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let seed_url = "https://csrc.nist.gov/pubs/ir/8413/upd1/final";
+        let html = r#"
+            <html>
+              <head>
+                <title>IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC</title>
+                <meta
+                  name="description"
+                  content="Current authoritative publication for the latest NIST post-quantum cryptography standards and migration status."
+                />
+              </head>
+              <body>
+                <a href="https://csrc.nist.gov/pubs/ir/8413/final">IR 8413 Final</a>
+                <a href="https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards">NIST releases first 3 finalized post-quantum encryption standards</a>
+                <a href="https://www.nist.gov/no-fear-act-policy">No Fear Act Policy</a>
+              </body>
+            </html>
+        "#;
+
+        let sources = briefing_authority_link_out_sources_from_html(
+            &retrieval_contract,
+            query,
+            seed_url,
+            seed_url,
+            html,
+            2,
+            4,
+        );
+        let urls = sources
+            .iter()
+            .map(|source| source.url.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            urls.iter()
+                .any(|url| url == &"https://csrc.nist.gov/pubs/ir/8413/final"),
+            "expected IR 8413 final authority document, got: {:?}",
+            urls
+        );
+        assert!(
+            urls.iter().any(|url| {
+                url == &"https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+            }),
+            "expected official NIST news item with local query grounding, got: {:?}",
+            urls
+        );
+        assert!(
+            !urls
+                .iter()
+                .any(|url| url == &"https://www.nist.gov/no-fear-act-policy"),
+            "page-context-only utility policy links should not survive authority expansion: {:?}",
+            urls
+        );
+    }
+
+    #[test]
+    fn briefing_authority_link_expansion_keeps_external_support_snippet_clean_from_low_priority_seed(
+    ) {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let seed_url =
+            "https://www.ciodive.com/spons/building-organizational-readiness-for-post-quantum-cryptography/815308/";
+        let html = r#"
+            <html>
+              <head>
+                <title>Sponsored: Building organizational readiness for post-quantum cryptography</title>
+                <meta
+                  name="description"
+                  content="Sponsored guidance on organizational readiness for post-quantum cryptography."
+                />
+              </head>
+              <body>
+                <a href="https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf">
+                  State of PQC Readiness 2025
+                </a>
+              </body>
+            </html>
+        "#;
+
+        let sources = briefing_authority_link_out_sources_from_html(
+            &retrieval_contract,
+            query,
+            seed_url,
+            seed_url,
+            html,
+            2,
+            4,
+        );
+        let support_source = sources
+            .iter()
+            .find(|source| {
+                source.url
+                    == "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+            })
+            .expect("expected external support candidate");
+        let snippet = support_source
+            .snippet
+            .as_deref()
+            .expect("support snippet should be present");
+
+        assert!(
+            snippet.contains("State of PQC Readiness 2025"),
+            "expected weak external title to remain in snippet: {snippet}"
+        );
+        assert!(
+            snippet
+                .to_ascii_lowercase()
+                .contains("post-quantum cryptography"),
+            "expected cleaned seed context to preserve query-grounding text: {snippet}"
+        );
+        assert!(
+            !snippet.to_ascii_lowercase().contains("sponsored"),
+            "external support snippet should stay clean of low-priority seed rhetoric: {snippet}"
+        );
+    }
+
+    #[test]
+    fn briefing_authority_link_expansion_keeps_same_host_query_grounded_project_seed() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let seed_url = "https://csrc.nist.gov/pubs/ir/8413/upd1/final";
+        let html = r#"
+            <html>
+              <head>
+                <title>IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC</title>
+                <meta
+                  name="description"
+                  content="Current authoritative publication for the latest NIST post-quantum cryptography standards and migration status."
+                />
+              </head>
+              <body>
+                <a href="https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization">PQC Standardization Project</a>
+                <a href="https://csrc.nist.gov/projects">Projects</a>
+                <a href="https://csrc.nist.gov/pubs/ir/8413/final">IR 8413 Final</a>
+              </body>
+            </html>
+        "#;
+
+        let sources = briefing_authority_link_out_sources_from_html(
+            &retrieval_contract,
+            query,
+            seed_url,
+            seed_url,
+            html,
+            2,
+            4,
+        );
+        let urls = sources
+            .iter()
+            .map(|source| source.url.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            urls.iter().any(|url| {
+                url == &"https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
+            }),
+            "expected same-host PQC project seed for authoritative recovery, got: {:?}",
+            urls
+        );
+        assert!(
+            !urls
+                .iter()
+                .any(|url| url == &"https://csrc.nist.gov/projects"),
+            "generic same-host navigation should still be rejected: {:?}",
+            urls
+        );
+    }
+
+    #[test]
+    fn briefing_authority_seed_admission_accepts_authority_seed_without_snippet_grounding() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+
+        let admission = briefing_authority_seed_admission(
+            &retrieval_contract,
+            query,
+            2,
+            "https://csrc.nist.gov/projects/post-quantum-cryptography",
+            "Post-Quantum Cryptography | CSRC",
+            "",
+        );
+
+        assert!(
+            !admission.query_grounded,
+            "empty discovery snippets should not count as grounded"
+        );
+        assert!(
+            !admission.identifier_bearing,
+            "project page should not need synthetic identifier hits to become fetchable"
+        );
+        assert!(
+            admission.document_authority,
+            "authority seed should still be recognized from URL/title/host signals"
+        );
+        assert!(
+            admission.admitted(),
+            "authority seed should be admitted for expansion even when the provider snippet is empty"
+        );
+    }
+
+    #[test]
+    fn briefing_authority_seed_admission_rejects_non_authority_seed() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+
+        let admission = briefing_authority_seed_admission(
+            &retrieval_contract,
+            query,
+            2,
+            "https://example.com/company/blog",
+            "Company blog",
+            "",
+        );
+
+        assert!(!admission.query_grounded);
+        assert!(!admission.identifier_bearing);
+        assert!(!admission.document_authority);
+        assert!(!admission.admitted());
+    }
+
+    #[test]
+    fn briefing_authority_link_out_sources_skip_off_topic_public_authority_links() {
+        let html = r#"
+            <html>
+              <head><title>IBM overview of the NIST Cybersecurity Framework</title></head>
+              <body>
+                <article>
+                  <p>IBM discusses the NIST Cybersecurity Framework in detail.</p>
+                  <a href="https://csrc.nist.gov/pubs/cswp/29/the-nist-cybersecurity-framework-csf-20/final">The NIST Cybersecurity Framework CSF 2.0</a>
+                  <a href="https://www.nist.gov/cyberframework/framework-version-10">Framework Version 1.0</a>
+                </article>
+              </body>
+            </html>
+        "#;
+
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+            Some("Research the latest NIST post-quantum cryptography standards and write me a one-page briefing."),
+        )
+        .expect("contract");
+        let sources = briefing_authority_link_out_sources_from_html(
+            &retrieval_contract,
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+            "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2",
+            "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2",
+            html,
+            2,
+            6,
+        );
+
+        assert!(sources.is_empty(), "sources={sources:?}");
     }
 
     #[test]

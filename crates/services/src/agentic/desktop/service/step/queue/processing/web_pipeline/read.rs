@@ -8,10 +8,76 @@ use crate::agentic::desktop::service::step::queue::support::{
     retrieval_contract_entity_diversity_required,
     retrieval_contract_is_generic_headline_collection, retrieval_contract_required_story_count,
     retrieval_contract_requires_runtime_locality, selected_local_business_target_sources,
+    source_is_grounded_external_publication_support_artifact,
     source_matches_local_business_target_name, story_completion_contract_ready,
     synthesis_query_contract, web_pipeline_completion_terminalization_allowed,
     WEB_PIPELINE_EXCERPT_CHARS,
 };
+use ioi_types::app::agentic::WebSource;
+
+fn selected_source_alignment_urls_from_successful_reads(
+    query_contract: &str,
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    selected_urls: &[String],
+    successful_reads: &[PendingSearchReadSummary],
+) -> Vec<String> {
+    let Some(retrieval_contract) = retrieval_contract else {
+        return Vec::new();
+    };
+    let selected_sources = selected_urls
+        .iter()
+        .filter_map(|selected_url| {
+            successful_reads
+                .iter()
+                .find(|source| {
+                    source.url.eq_ignore_ascii_case(selected_url)
+                        || url_structurally_equivalent(&source.url, selected_url)
+                })
+                .map(|source| WebSource {
+                    source_id: crate::agentic::web::source_id_for_url(&source.url),
+                    rank: None,
+                    url: source.url.clone(),
+                    title: source.title.clone(),
+                    snippet: (!source.excerpt.trim().is_empty()).then(|| source.excerpt.clone()),
+                    domain: source_host(&source.url),
+                })
+        })
+        .collect::<Vec<_>>();
+    crate::agentic::web::query_matching_source_urls(
+        query_contract,
+        retrieval_contract,
+        &selected_sources,
+    )
+    .unwrap_or_default()
+}
+
+fn selected_source_support_artifact_urls_from_successful_reads(
+    query_contract: &str,
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    selected_urls: &[String],
+    successful_reads: &[PendingSearchReadSummary],
+) -> Vec<String> {
+    let mut support_urls = Vec::new();
+    for selected_url in selected_urls {
+        let Some(source) = successful_reads.iter().find(|source| {
+            source.url.eq_ignore_ascii_case(selected_url)
+                || url_structurally_equivalent(&source.url, selected_url)
+        }) else {
+            continue;
+        };
+        let title = source.title.as_deref().unwrap_or_default();
+        if source_is_grounded_external_publication_support_artifact(
+            retrieval_contract,
+            query_contract,
+            &source.url,
+            title,
+            &source.excerpt,
+        ) {
+            support_urls.push(source.url.clone());
+        }
+    }
+    support_urls
+}
 
 pub(in super::super) async fn maybe_handle_web_read(
     service: &DesktopAgentService,
@@ -206,6 +272,62 @@ pub(in super::super) async fn maybe_handle_web_read(
     let selected_source_entity_anchor_mismatched_urls = selected_source_observation
         .entity_anchor_mismatched_urls
         .clone();
+    let semantic_alignment_required = retrieval_contract
+        .map(crate::agentic::web::contract_requires_semantic_source_alignment)
+        .unwrap_or(false);
+    let geo_scoped_entity_expansion = retrieval_contract
+        .map(crate::agentic::web::contract_requires_geo_scoped_entity_expansion)
+        .unwrap_or(false);
+    let selected_source_subject_alignment_urls = if semantic_alignment_required {
+        selected_source_alignment_urls_from_successful_reads(
+            &query_contract,
+            retrieval_contract,
+            &selected_quality_urls,
+            &pending.successful_reads,
+        )
+    } else {
+        Vec::new()
+    };
+    let selected_source_support_artifact_urls = if semantic_alignment_required {
+        selected_source_support_artifact_urls_from_successful_reads(
+            &query_contract,
+            retrieval_contract,
+            &selected_quality_urls,
+            &pending.successful_reads,
+        )
+    } else {
+        Vec::new()
+    };
+    let selected_source_subject_alignment_floor_met = if semantic_alignment_required {
+        if !selected_source_support_artifact_urls.is_empty() {
+            let aligned_urls = selected_source_subject_alignment_urls
+                .iter()
+                .map(|url| url.to_ascii_lowercase())
+                .collect::<BTreeSet<_>>();
+            let support_urls = selected_source_support_artifact_urls
+                .iter()
+                .map(|url| url.to_ascii_lowercase())
+                .collect::<BTreeSet<_>>();
+            let all_selected_accounted_for = selected_quality_urls.iter().all(|url| {
+                let normalized = url.trim().to_ascii_lowercase();
+                aligned_urls.contains(&normalized) || support_urls.contains(&normalized)
+            });
+
+            selected_quality_urls.len() >= min_sources_required
+                && !selected_source_subject_alignment_urls.is_empty()
+                && all_selected_accounted_for
+        } else {
+            let minimum_aligned_selection = if geo_scoped_entity_expansion {
+                1
+            } else {
+                min_sources_required
+            };
+            selected_quality_urls.len() >= minimum_aligned_selection
+                && selected_source_subject_alignment_urls.len() == selected_quality_urls.len()
+        }
+    } else {
+        true
+    };
     let floor_unmet = pending.successful_reads.len() < min_sources_required;
     let source_floor_met = !floor_unmet;
     let completion_contract_ready = story_completion_contract_ready(&pending, required_story_floor);
@@ -518,6 +640,35 @@ pub(in super::super) async fn maybe_handle_web_read(
         pre_state_step_index,
         intent_id.as_str(),
         "verification",
+        "selected_source_subject_alignment_floor",
+        selected_source_subject_alignment_floor_met,
+        "web.pipeline.read.selected_source_subject_alignment.v1",
+        &format!(
+            "required={};selected_sources={};aligned_selected_sources={}",
+            semantic_alignment_required,
+            selected_quality_urls.len(),
+            selected_source_subject_alignment_urls.len()
+        ),
+        "summary",
+        None,
+    );
+    emit_web_string_receipts(
+        service,
+        session_id,
+        pre_state_step_index,
+        intent_id.as_str(),
+        "verification",
+        "selected_source_subject_alignment_url",
+        "web.pipeline.read.selected_source_subject_alignment.v1",
+        "url",
+        &selected_source_subject_alignment_urls,
+    );
+    emit_web_contract_receipt(
+        service,
+        session_id,
+        pre_state_step_index,
+        intent_id.as_str(),
+        "verification",
         "sources_success",
         true,
         "web.pipeline.read.sources_success.v1",
@@ -705,6 +856,16 @@ pub(in super::super) async fn maybe_handle_web_read(
             .map(|source| source.url.clone())
             .collect::<Vec<_>>(),
     );
+    verification_checks.push(format!(
+        "web_selected_source_subject_alignment_floor_met={}",
+        selected_source_subject_alignment_floor_met
+    ));
+    if !selected_source_subject_alignment_urls.is_empty() {
+        verification_checks.push(format!(
+            "web_selected_source_subject_alignment_url_values={}",
+            selected_source_subject_alignment_urls.join(" | ")
+        ));
+    }
 
     if let Some(reason) = completion_reason {
         let selection = synthesize_summary(service, &pending, reason).await;
@@ -739,6 +900,24 @@ pub(in super::super) async fn maybe_handle_web_read(
                 "execution_contract_missing_keys=receipt::final_output_contract_ready=true"
                     .to_string(),
             );
+            if matches!(
+                reason,
+                WebPipelineCompletionReason::ExhaustedCandidates
+                    | WebPipelineCompletionReason::DeadlineReached
+            ) {
+                terminalize_failed_web_pipeline_completion(
+                    agent_state,
+                    pending,
+                    reason,
+                    summary,
+                    success,
+                    out,
+                    err,
+                    completion_summary,
+                    verification_checks,
+                );
+                return Ok(());
+            }
             verification_checks
                 .push("web_pipeline_terminalization_blocked_on_rendered_output=true".to_string());
             verification_checks.push("web_pipeline_active=true".to_string());
@@ -1144,6 +1323,130 @@ mod tests {
         assert!(verification_checks
             .iter()
             .any(|check| { check == "web_gated_read_absorbed_as_blocked_candidate=true" }));
+    }
+
+    #[test]
+    fn document_briefing_selected_source_alignment_uses_final_successful_reads() {
+        let query_contract =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let selected_urls = vec![
+            "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+            "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+            "https://csrc.nist.gov/Projects/post-quantum-cryptography/post-quantum-cryptography-standardization/selected-algorithms".to_string(),
+            "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+            "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
+        ];
+        let successful_reads = vec![
+            PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt: "NIST IR 8413 Update 1 tracks the current post-quantum cryptography standardization process and references FIPS 203, FIPS 204, and FIPS 205.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt: "NIST documents the post-quantum cryptography standards process and the selected algorithms.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/Projects/post-quantum-cryptography/post-quantum-cryptography-standardization/selected-algorithms".to_string(),
+                title: Some("Post-Quantum Cryptography | CSRC".to_string()),
+                excerpt: "The selected algorithms page links the NIST post-quantum cryptography project to FIPS 203, FIPS 204, and FIPS 205.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                title: Some(
+                    "FIPS 204, Module-Lattice-Based Digital Signature Standard | CSRC"
+                        .to_string(),
+                ),
+                excerpt: "NIST finalized FIPS 204 as one of the first post-quantum cryptography standards.".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
+                title: Some(
+                    "FIPS 205, Stateless Hash-Based Digital Signature Standard | CSRC"
+                        .to_string(),
+                ),
+                excerpt: "NIST finalized FIPS 205 as one of the first post-quantum cryptography standards.".to_string(),
+            },
+        ];
+
+        let mut aligned_urls = selected_source_alignment_urls_from_successful_reads(
+            query_contract,
+            Some(&nist_briefing_contract()),
+            &selected_urls,
+            &successful_reads,
+        );
+        let mut expected_urls = selected_urls.clone();
+        aligned_urls.sort();
+        expected_urls.sort();
+
+        assert_eq!(aligned_urls, expected_urls);
+    }
+
+    #[test]
+    fn document_briefing_selected_source_alignment_accepts_grounded_external_pdf_support() {
+        let query_contract =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let selected_urls = vec![
+            "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+            "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+                .to_string(),
+        ];
+        let successful_reads = vec![
+            PendingSearchReadSummary {
+                url: selected_urls[0].clone(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "NIST IR 8413 Update 1 tracks the current post-quantum cryptography standardization process and references FIPS 203, FIPS 204, and FIPS 205."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: selected_urls[1].clone(),
+                title: Some("91% of organizations".to_string()),
+                excerpt:
+                    "Industry readiness report for quantum-safe migration and deployment planning."
+                        .to_string(),
+            },
+        ];
+
+        let aligned_urls = selected_source_alignment_urls_from_successful_reads(
+            query_contract,
+            Some(&nist_briefing_contract()),
+            &selected_urls,
+            &successful_reads,
+        );
+        let support_urls = selected_source_support_artifact_urls_from_successful_reads(
+            query_contract,
+            Some(&nist_briefing_contract()),
+            &selected_urls,
+            &successful_reads,
+        );
+        let aligned_set = aligned_urls
+            .iter()
+            .map(|url| url.to_ascii_lowercase())
+            .collect::<BTreeSet<_>>();
+        let support_set = support_urls
+            .iter()
+            .map(|url| url.to_ascii_lowercase())
+            .collect::<BTreeSet<_>>();
+
+        let floor_met = selected_urls.iter().all(|url| {
+            let normalized = url.to_ascii_lowercase();
+            aligned_set.contains(&normalized) || support_set.contains(&normalized)
+        }) && !aligned_urls.is_empty();
+
+        assert_eq!(support_urls, vec![selected_urls[1].clone()]);
+        assert!(aligned_urls.contains(&selected_urls[0]));
+        assert!(floor_met);
     }
 
     fn test_agent_state() -> AgentState {

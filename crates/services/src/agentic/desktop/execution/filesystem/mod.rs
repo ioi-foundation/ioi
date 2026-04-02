@@ -19,7 +19,7 @@ use patch::fuzzy_find_indices;
 use patch::{apply_patch, edit_line_content};
 #[cfg(test)]
 use path::resolve_home_directory;
-use path::resolve_tool_path;
+pub(crate) use path::resolve_tool_path;
 use search::search_files;
 
 pub use handler::handle;

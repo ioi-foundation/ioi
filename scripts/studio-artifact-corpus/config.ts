@@ -9,6 +9,9 @@ export const repoRoot = path.resolve(
   "..",
   "..",
 );
+const configuredEvidenceDate =
+  process.env.STUDIO_ARTIFACT_EVIDENCE_DATE?.trim() ||
+  new Date().toISOString().slice(0, 10);
 export const cliBinary = path.join(repoRoot, "target", "debug", "cli");
 export const studioProofBinary = path.join(
   repoRoot,
@@ -21,13 +24,19 @@ export const evidenceRoot = path.join(
   "docs",
   "evidence",
   "studio-artifact-surface",
-  "2026-03-28",
+  configuredEvidenceDate,
 );
 export const contractEvidenceRoot = path.join(evidenceRoot, "contract-lane");
 export const liveEvidenceRoot = path.join(evidenceRoot, "live-studio-lane");
 export const npmBinary = process.platform === "win32" ? "npm.cmd" : "npm";
 
 export const corpusCases: CorpusCase[] = [
+  {
+    id: "html-quantum-explainer-baseline",
+    prompt: "Create an interactive HTML artifact that explains quantum computers",
+    expectedRenderer: "html_iframe",
+    expectedKeywords: ["quantum", "qubit", "entanglement"],
+  },
   {
     id: "markdown-release-checklist",
     prompt: "Create a markdown artifact that documents a release checklist",
@@ -54,6 +63,13 @@ export const corpusCases: CorpusCase[] = [
     prompt: "Create an interactive HTML artifact for an AI tools editorial launch page",
     expectedRenderer: "html_iframe",
     expectedKeywords: ["ai tools", "editorial", "launch"],
+  },
+  {
+    id: "html-release-workflow-onboarding",
+    prompt:
+      "Create an interactive HTML artifact that guides a new operator through onboarding for a release workflow",
+    expectedRenderer: "html_iframe",
+    expectedKeywords: ["onboarding", "release workflow", "operator"],
   },
   {
     id: "jsx-pricing-configurator",

@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use ioi_api::studio::{
-    generate_studio_artifact_bundle_with_runtimes, plan_studio_outcome_with_runtime,
-    StudioArtifactRefinementContext,
+    generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
+    plan_studio_outcome_with_runtime, StudioArtifactRefinementContext,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::{

@@ -2,16 +2,23 @@
 
 // Import Graph Types from the shared package
 import type {
-  Node, 
-  Edge, 
-  NodeLogic, 
-  FirewallPolicy, 
-  GraphGlobalConfig, 
-  AgentConfiguration 
+  Node,
+  Edge,
+  NodeLogic,
+  FirewallPolicy,
+  GraphGlobalConfig,
+  AgentConfiguration,
 } from "@ioi/agent-ide";
 
 // Re-export for local consumption if needed, or update imports in Autopilot components
-export type { Node, Edge, NodeLogic, FirewallPolicy, GraphGlobalConfig, AgentConfiguration };
+export type {
+  Node,
+  Edge,
+  NodeLogic,
+  FirewallPolicy,
+  GraphGlobalConfig,
+  AgentConfiguration,
+};
 
 // ============================================
 // OS / Shell Types (Specific to Autopilot)
@@ -19,11 +26,7 @@ export type { Node, Edge, NodeLogic, FirewallPolicy, GraphGlobalConfig, AgentCon
 
 export type ExecutionMode = "local" | "session" | "settlement";
 
-export type LiabilityLevel = 
-  | "none"
-  | "auditable"
-  | "insured"
-  | "proven";
+export type LiabilityLevel = "none" | "auditable" | "insured" | "proven";
 
 export interface ChatMessage {
   role: string;
@@ -84,7 +87,10 @@ export type NotificationSeverity = GeneratedNotificationSeverity;
 export type ObservationTier = GeneratedObservationTier;
 export type SkillCatalogEntry = GeneratedSkillCatalogEntry;
 
-export type AgentEvent = Omit<GeneratedAgentEvent, "event_type" | "digest" | "details"> & {
+export type AgentEvent = Omit<
+  GeneratedAgentEvent,
+  "event_type" | "digest" | "details"
+> & {
   event_type: EventType;
   digest: JsonRecord;
   details: JsonRecord;
@@ -155,7 +161,10 @@ export interface StudioArtifactPipelineStep {
 
 export type StudioArtifactEditMode = "create" | "patch" | "replace" | "branch";
 
-export type StudioArtifactJudgeClassification = "pass" | "repairable" | "blocked";
+export type StudioArtifactJudgeClassification =
+  | "pass"
+  | "repairable"
+  | "blocked";
 
 export type StudioArtifactOutputOrigin =
   | "live_inference"
@@ -193,7 +202,11 @@ export interface StudioArtifactFailure {
   message: string;
 }
 
-export type StudioArtifactUxLifecycle = "draft" | "refining" | "judged" | "locked";
+export type StudioArtifactUxLifecycle =
+  | "draft"
+  | "refining"
+  | "judged"
+  | "locked";
 
 export interface StudioArtifactSelectionTarget {
   sourceSurface: string;
@@ -205,6 +218,28 @@ export interface StudioArtifactSelectionTarget {
 export interface StudioArtifactTasteMemory {
   directives: string[];
   summary: string;
+  typographyPreferences: string[];
+  densityPreference?: string | null;
+  toneFamily: string[];
+  motionTolerance?: string | null;
+  preferredScaffoldFamilies: string[];
+  preferredComponentPatterns: string[];
+  antiPatterns: string[];
+}
+
+export interface StudioArtifactExemplar {
+  recordId: number;
+  title: string;
+  summary: string;
+  renderer: StudioRendererKind;
+  scaffoldFamily: string;
+  thesis: string;
+  qualityRationale: string;
+  scoreTotal: number;
+  designCues: string[];
+  componentPatterns: string[];
+  antiPatterns: string[];
+  sourceRevisionId?: string | null;
 }
 
 export interface StudioArtifactBrief {
@@ -218,6 +253,159 @@ export interface StudioArtifactBrief {
   factualAnchors: string[];
   styleDirectives: string[];
   referenceHints: string[];
+}
+
+export type StudioArtifactSkillNeedKind =
+  | "visual_art_direction"
+  | "editorial_layout"
+  | "motion_hierarchy"
+  | "interaction_copy_discipline"
+  | "accessibility_review"
+  | "data_storytelling";
+
+export type StudioArtifactSkillNeedPriority = "required" | "recommended";
+
+export interface StudioArtifactSkillNeed {
+  kind: StudioArtifactSkillNeedKind;
+  priority: StudioArtifactSkillNeedPriority;
+  rationale: string;
+}
+
+export interface StudioArtifactSectionPlan {
+  id: string;
+  role: string;
+  visiblePurpose: string;
+  contentRequirements: string[];
+  interactionHooks: string[];
+  firstPaintRequirements: string[];
+}
+
+export interface StudioArtifactInteractionPlan {
+  id: string;
+  family: string;
+  sourceControls: string[];
+  targetSurfaces: string[];
+  defaultState: string;
+  requiredFirstPaintAffordances: string[];
+}
+
+export interface StudioArtifactEvidencePlanEntry {
+  id: string;
+  kind: string;
+  purpose: string;
+  conceptBindings: string[];
+  firstPaintElements: string[];
+  detailTargets: string[];
+}
+
+export interface StudioArtifactDesignSystem {
+  colorStrategy: string;
+  typographyStrategy: string;
+  density: string;
+  motionStyle: string;
+  emphasisModes: string[];
+}
+
+export interface StudioArtifactComponentPlanEntry {
+  id: string;
+  componentFamily: string;
+  role: string;
+  sectionIds: string[];
+  interactionIds: string[];
+}
+
+export interface StudioArtifactAccessibilityPlan {
+  obligations: string[];
+  focusOrder: string[];
+  ariaExpectations: string[];
+}
+
+export interface StudioArtifactAcceptanceTargets {
+  minimumSectionCount: number;
+  minimumInteractiveRegions: number;
+  requireFirstPaintEvidence: boolean;
+  requirePersistentDetailRegion: boolean;
+  requireDistinctTypography: boolean;
+  requireKeyboardAffordances: boolean;
+}
+
+export interface StudioArtifactBlueprint {
+  version: number;
+  renderer: StudioRendererKind;
+  narrativeArc: string;
+  sectionPlan: StudioArtifactSectionPlan[];
+  interactionPlan: StudioArtifactInteractionPlan[];
+  evidencePlan: StudioArtifactEvidencePlanEntry[];
+  designSystem: StudioArtifactDesignSystem;
+  componentPlan: StudioArtifactComponentPlanEntry[];
+  accessibilityPlan: StudioArtifactAccessibilityPlan;
+  acceptanceTargets: StudioArtifactAcceptanceTargets;
+  scaffoldFamily: string;
+  variationStrategy: string;
+  skillNeeds: StudioArtifactSkillNeed[];
+}
+
+export interface StudioArtifactIRNode {
+  id: string;
+  kind: string;
+  parentId?: string | null;
+  sectionId?: string | null;
+  label: string;
+  bindings: string[];
+}
+
+export interface StudioArtifactIRInteractionEdge {
+  id: string;
+  family: string;
+  controlNodeIds: string[];
+  targetNodeIds: string[];
+  defaultState: string;
+}
+
+export interface StudioArtifactIREvidenceSurface {
+  id: string;
+  kind: string;
+  sectionId: string;
+  boundConcepts: string[];
+  firstPaintExpectations: string[];
+}
+
+export interface StudioArtifactDesignToken {
+  name: string;
+  category: string;
+  value: string;
+}
+
+export interface StudioArtifactIR {
+  version: number;
+  renderer: StudioRendererKind;
+  scaffoldFamily: string;
+  semanticStructure: StudioArtifactIRNode[];
+  interactionGraph: StudioArtifactIRInteractionEdge[];
+  evidenceSurfaces: StudioArtifactIREvidenceSurface[];
+  designTokens: StudioArtifactDesignToken[];
+  motionPlan: string[];
+  accessibilityObligations: string[];
+  responsiveLayoutRules: string[];
+  componentBindings: string[];
+  staticAuditExpectations: string[];
+  renderEvalChecklist: string[];
+}
+
+export interface StudioArtifactSelectedSkill {
+  skillHash: string;
+  name: string;
+  description: string;
+  lifecycleState: string;
+  sourceType: string;
+  reliabilityBps: number;
+  semanticScoreBps: number;
+  adjustedScoreBps: number;
+  relativePath?: string | null;
+  matchedNeedIds: string[];
+  matchedNeedKinds: StudioArtifactSkillNeedKind[];
+  matchRationale: string;
+  guidanceMarkdown?: string | null;
 }
 
 export interface StudioArtifactEditIntent {
@@ -247,6 +435,15 @@ export interface StudioArtifactJudgeResult {
   deservesPrimaryArtifactView: boolean;
   patchedExistingArtifact?: boolean | null;
   continuityRevisionUx?: number | null;
+  issueClasses: string[];
+  repairHints: string[];
+  strengths: string[];
+  blockedReasons: string[];
+  fileFindings: string[];
+  aestheticVerdict: string;
+  interactionVerdict: string;
+  truthfulnessWarnings: string[];
+  recommendedNextPass?: string | null;
   strongestContradiction?: string | null;
   rationale: string;
 }
@@ -263,7 +460,20 @@ export interface StudioArtifactCandidateSummary {
   renderablePaths: string[];
   selected: boolean;
   fallback: boolean;
+  failure?: string | null;
+  rawOutputPreview?: string | null;
+  convergence?: StudioArtifactCandidateConvergenceTrace | null;
   judge: StudioArtifactJudgeResult;
+}
+
+export interface StudioArtifactCandidateConvergenceTrace {
+  lineageRootId: string;
+  parentCandidateId?: string | null;
+  passKind: string;
+  passIndex: number;
+  scoreTotal: number;
+  scoreDeltaFromParent?: number | null;
+  terminatedReason?: string | null;
 }
 
 export interface StudioArtifactMaterializationContract {
@@ -272,6 +482,10 @@ export interface StudioArtifactMaterializationContract {
   normalizedIntent: string;
   summary: string;
   artifactBrief?: StudioArtifactBrief | null;
+  blueprint?: StudioArtifactBlueprint | null;
+  artifactIr?: StudioArtifactIR | null;
+  selectedSkills: StudioArtifactSelectedSkill[];
+  retrievedExemplars: StudioArtifactExemplar[];
   editIntent?: StudioArtifactEditIntent | null;
   candidateSummaries: StudioArtifactCandidateSummary[];
   winningCandidateId?: string | null;
@@ -534,6 +748,9 @@ export interface StudioArtifactRevision {
   uxLifecycle: StudioArtifactUxLifecycle;
   artifactManifest: StudioArtifactManifest;
   artifactBrief?: StudioArtifactBrief | null;
+  blueprint?: StudioArtifactBlueprint | null;
+  artifactIr?: StudioArtifactIR | null;
+  selectedSkills: StudioArtifactSelectedSkill[];
   editIntent?: StudioArtifactEditIntent | null;
   candidateSummaries: StudioArtifactCandidateSummary[];
   winningCandidateId?: string | null;
@@ -543,6 +760,8 @@ export interface StudioArtifactRevision {
   acceptanceProvenance?: StudioRuntimeProvenance | null;
   failure?: StudioArtifactFailure | null;
   fileWrites: StudioArtifactMaterializationFileWrite[];
+  tasteMemory?: StudioArtifactTasteMemory | null;
+  retrievedExemplars: StudioArtifactExemplar[];
   selectedTargets: StudioArtifactSelectionTarget[];
 }
 
@@ -566,6 +785,7 @@ export interface StudioArtifactSession {
   activeRevisionId?: string | null;
   revisions: StudioArtifactRevision[];
   tasteMemory?: StudioArtifactTasteMemory | null;
+  retrievedExemplars: StudioArtifactExemplar[];
   selectedTargets: StudioArtifactSelectionTarget[];
   uxLifecycle?: StudioArtifactUxLifecycle | null;
   createdAt: string;
@@ -602,7 +822,10 @@ export type AtlasNode = Omit<GeneratedAtlasNode, "metadata"> & {
   metadata: JsonRecord;
 };
 
-export type AtlasNeighborhood = Omit<GeneratedAtlasNeighborhood, "focus_id" | "nodes" | "edges"> & {
+export type AtlasNeighborhood = Omit<
+  GeneratedAtlasNeighborhood,
+  "focus_id" | "nodes" | "edges"
+> & {
   focus_id?: string | null;
   nodes: AtlasNode[];
   edges: AtlasEdge[];
@@ -612,7 +835,13 @@ export interface SkillMacroStepView {
   index: number;
   tool_name: string;
   target: string;
-  params_json: Record<string, unknown> | string | number | boolean | null | Array<unknown>;
+  params_json:
+    | Record<string, unknown>
+    | string
+    | number
+    | boolean
+    | null
+    | Array<unknown>;
 }
 
 export interface SkillBenchmarkView {
@@ -654,7 +883,10 @@ export interface SkillDetailView {
 
 export type SubstrateProofReceipt = GeneratedSubstrateProofReceipt;
 
-export type SubstrateProofView = Omit<GeneratedSubstrateProofView, "neighborhood" | "receipts"> & {
+export type SubstrateProofView = Omit<
+  GeneratedSubstrateProofView,
+  "neighborhood" | "receipts"
+> & {
   neighborhood: AtlasNeighborhood;
   receipts: SubstrateProofReceipt[];
 };
@@ -756,7 +988,10 @@ export type NotificationAction = Omit<GeneratedNotificationAction, "style"> & {
   style?: NotificationActionStyle | null;
 };
 
-export type NotificationDeliveryState = Omit<GeneratedNotificationDeliveryState, "lastToastAtMs"> & {
+export type NotificationDeliveryState = Omit<
+  GeneratedNotificationDeliveryState,
+  "lastToastAtMs"
+> & {
   lastToastAtMs?: number | null;
 };
 
@@ -860,7 +1095,10 @@ export type InterventionRecord = Omit<GeneratedInterventionRecord, "target"> & {
   target?: NotificationTarget | null;
 };
 
-export type AssistantNotificationRecord = Omit<GeneratedAssistantNotificationRecord, "target"> & {
+export type AssistantNotificationRecord = Omit<
+  GeneratedAssistantNotificationRecord,
+  "target"
+> & {
   target?: NotificationTarget | null;
 };
 
@@ -896,15 +1134,15 @@ export interface ArtifactContentPayload {
   content: string;
 }
 
-export type AgentStatus = 
-  | 'requisition'
-  | 'pending'
-  | 'negotiating'
-  | 'running'
-  | 'paused'
-  | 'reviewing'
-  | 'completed'
-  | 'failed';
+export type AgentStatus =
+  | "requisition"
+  | "pending"
+  | "negotiating"
+  | "running"
+  | "paused"
+  | "reviewing"
+  | "completed"
+  | "failed";
 
 export interface GateInfo {
   title: string;
@@ -1532,19 +1770,19 @@ export interface LocalEngineSnapshot {
 }
 
 export interface SessionSummary {
-    session_id: string;
-    title: string;
-    timestamp: number;
+  session_id: string;
+  title: string;
+  timestamp: number;
 }
 
 export interface MutationLogEntry {
-    generation: number;
-    parent_hash: string;
-    child_hash: string;
-    diff_summary: string;
-    rationale: string;
-    score_delta: number;
-    timestamp: number;
+  generation: number;
+  parent_hash: string;
+  child_hash: string;
+  diff_summary: string;
+  rationale: string;
+  score_delta: number;
+  timestamp: number;
 }
 
 export type ActivityKind =
@@ -1658,6 +1896,7 @@ export interface SourceSummary {
 
 export interface ThoughtAgentSummary {
   agentLabel: string;
+  agentRole: string | null;
   stepIndex: number;
   notes: string[];
 }
@@ -1666,10 +1905,162 @@ export interface ThoughtSummary {
   agents: ThoughtAgentSummary[];
 }
 
+export type ExecutionMomentKind =
+  | "branch"
+  | "approval"
+  | "pause"
+  | "verification";
+
+export type ExecutionMomentStatus =
+  | "info"
+  | "pending"
+  | "passed"
+  | "warning"
+  | "blocked";
+
+export interface ExecutionMoment {
+  key: string;
+  kind: ExecutionMomentKind;
+  status: ExecutionMomentStatus;
+  stepIndex: number;
+  title: string;
+  summary: string;
+}
+
+export type PlanRouteFamily =
+  | "general"
+  | "research"
+  | "coding"
+  | "computer_use"
+  | "artifacts";
+
+export type PlanRouteTopology =
+  | "single_agent"
+  | "planner_specialist"
+  | "planner_specialist_verifier";
+
+export type PlanPlannerAuthority = "kernel" | "primary_agent";
+
+export type PlanVerifierState =
+  | "not_engaged"
+  | "queued"
+  | "active"
+  | "passed"
+  | "blocked";
+
+export type PlanVerifierRole =
+  | "verifier"
+  | "citation_verifier"
+  | "test_verifier"
+  | "postcondition_verifier"
+  | "artifact_quality_verifier";
+
+export type PlanVerifierOutcome = "pass" | "warning" | "blocked";
+
+export type PlanApprovalState = "clear" | "pending" | "approved" | "denied";
+
+export interface PlanComputerUsePerceptionSummary {
+  surfaceStatus: string;
+  uiState: string;
+  target: string | null;
+  approvalRisk: string;
+  nextAction: string | null;
+  notes: string | null;
+}
+
+export interface PlanResearchVerificationSummary {
+  verdict: string;
+  sourceCount: number;
+  distinctDomainCount: number;
+  sourceCountFloorMet: boolean;
+  sourceIndependenceFloorMet: boolean;
+  freshnessStatus: string;
+  quoteGroundingStatus: string;
+  notes: string | null;
+}
+
+export interface PlanArtifactGenerationSummary {
+  status: string;
+  producedFileCount: number;
+  verificationSignalStatus: string;
+  presentationStatus: string;
+  notes: string | null;
+}
+
+export interface PlanCodingVerificationSummary {
+  verdict: string;
+  targetedCommandCount: number;
+  targetedPassCount: number;
+  wideningStatus: string;
+  regressionStatus: string;
+  notes: string | null;
+}
+
+export interface PlanArtifactQualitySummary {
+  verdict: string;
+  fidelityStatus: string;
+  presentationStatus: string;
+  repairStatus: string;
+  notes: string | null;
+}
+
+export interface PlanPatchSynthesisSummary {
+  status: string;
+  touchedFileCount: number;
+  verificationReady: boolean;
+  notes: string | null;
+}
+
+export interface PlanComputerUseVerificationSummary {
+  verdict: string;
+  postconditionStatus: string;
+  approvalState: string;
+  recoveryStatus: string;
+  observedPostcondition: string | null;
+  notes: string | null;
+}
+
+export interface PlanComputerUseRecoverySummary {
+  status: string;
+  reason: string | null;
+  nextStep: string | null;
+}
+
+export interface PlanArtifactRepairSummary {
+  status: string;
+  reason: string | null;
+  nextStep: string | null;
+}
+
 export interface PlanSummary {
   selectedRoute: string;
+  routeFamily: PlanRouteFamily;
+  topology: PlanRouteTopology;
+  plannerAuthority: PlanPlannerAuthority;
   status: string;
+  currentStage: string | null;
+  progressSummary: string | null;
+  pauseSummary: string | null;
   workerCount: number;
+  branchCount: number;
+  evidenceCount: number;
+  activeWorkerLabel: string | null;
+  activeWorkerRole: string | null;
+  verifierState: PlanVerifierState;
+  verifierRole: PlanVerifierRole | null;
+  verifierOutcome: PlanVerifierOutcome | null;
+  approvalState: PlanApprovalState;
+  selectedSkills: string[];
+  prepSummary: string | null;
+  artifactGeneration: PlanArtifactGenerationSummary | null;
+  computerUsePerception: PlanComputerUsePerceptionSummary | null;
+  researchVerification: PlanResearchVerificationSummary | null;
+  artifactQuality: PlanArtifactQualitySummary | null;
+  computerUseVerification: PlanComputerUseVerificationSummary | null;
+  codingVerification: PlanCodingVerificationSummary | null;
+  patchSynthesis: PlanPatchSynthesisSummary | null;
+  artifactRepair: PlanArtifactRepairSummary | null;
+  computerUseRecovery: PlanComputerUseRecoverySummary | null;
   policyBindings: string[];
 }
 

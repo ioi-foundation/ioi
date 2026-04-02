@@ -44,7 +44,7 @@ use std::io::Cursor;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tempfile::tempdir;
 use tokio::sync::broadcast;
@@ -57,8 +57,8 @@ use super::types::{
     CecReceiptEvidence, CommandHistoryEvidence, EnvironmentReceiptObservation,
     GoogleCalendarPayloadObservation, GoogleGmailPayloadObservation, GoogleObservation,
     IntentResolutionEvidence, MailObservation, MailReadLatestPayloadObservation,
-    MailReplyPayloadObservation, PlannedToolCallEvidence, QueryCase, RunObservation,
-    ScreenshotObservation, WebObservation,
+    MailReplyPayloadObservation, ParentPlaybookObservation, PlannedToolCallEvidence, QueryCase,
+    RunObservation, ScreenshotObservation, WebObservation,
 };
 
 include!("harness/gui_mock.rs");
@@ -232,6 +232,10 @@ const LATEST_NIST_PQC_BRIEFING_FIXTURE_MODE: &str = "latest_nist_pqc_briefing_fi
 const LATEST_NIST_PQC_BRIEFING_FIXTURE_PROBE_SOURCE: &str =
     "harness.latest_nist_pqc_briefing_fixture";
 const LATEST_NIST_PQC_BRIEFING_FIXTURE_DIR_PREFIX: &str = "ioi_latest_nist_pqc_briefing_";
+const CODING_PATH_NORMALIZER_CASE_ID: &str =
+    "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests";
+const CODING_PATH_NORMALIZER_FIXTURE_MODE: &str = "coding_path_normalizer_fixture_v1";
+const CODING_PATH_NORMALIZER_FIXTURE_PROBE_SOURCE: &str = "harness.coding_path_normalizer_fixture";
 
 include!("harness/mail_runtime.rs");
 
@@ -552,11 +556,16 @@ fn derive_web_observation(observation: &RunObservation) -> Option<WebObservation
     );
     let semantic_subject_alignment_floor_met =
         typed_receipt_state(observation, "discovery", "semantic_subject_alignment_floor");
-    let semantic_subject_alignment_urls = collect_unique_urls(cec_receipt_latest_values(
-        observation,
-        "discovery",
-        "semantic_subject_alignment_url",
-    ));
+    let semantic_subject_alignment_urls = collect_unique_urls(
+        cec_receipt_latest_values(observation, "discovery", "semantic_subject_alignment_url")
+            .into_iter()
+            .chain(cec_receipt_latest_values(
+                observation,
+                "discovery",
+                "semantic_subject_alignment_selection_url",
+            ))
+            .collect(),
+    );
     let min_sources = cec_receipt_usize(observation, "execution", "min_sources_required");
     let sources_success = cec_receipt_usize(observation, "verification", "sources_success");
     let source_floor_met = typed_receipt_state(observation, "verification", "source_floor");
@@ -1529,9 +1538,11 @@ fn insert_fixture_evidence<T>(
 #[cfg(test)]
 mod tests {
     use super::{
-        merge_environment_receipts, parse_mail_read_latest_payload, parse_mail_reply_payload,
+        case_step_timeout_reason, merge_environment_receipts, parse_mail_read_latest_payload,
+        parse_mail_reply_payload, remaining_case_budget,
     };
     use crate::capabilities_suite::types::EnvironmentReceiptObservation;
+    use std::time::Duration;
 
     #[test]
     fn parses_mail_read_latest_payload_into_typed_observation() {
@@ -1622,5 +1633,38 @@ mod tests {
                 "2|firefox-bin|5461|841404".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn remaining_case_budget_respects_deadline_exhaustion() {
+        assert_eq!(
+            remaining_case_budget(Duration::from_secs(120), Duration::from_secs(30)),
+            Some(Duration::from_secs(90))
+        );
+        assert_eq!(
+            remaining_case_budget(Duration::from_secs(120), Duration::from_secs(120)),
+            None
+        );
+        assert_eq!(
+            remaining_case_budget(Duration::from_secs(120), Duration::from_secs(121)),
+            None
+        );
+    }
+
+    #[test]
+    fn case_step_timeout_reason_records_elapsed_and_budget() {
+        let reason = case_step_timeout_reason(
+            Duration::from_millis(120_250),
+            Duration::from_secs(120),
+            Duration::from_millis(250),
+        );
+
+        assert!(
+            reason.contains("case_sla_timeout_waiting_for_step_completion"),
+            "reason={reason}"
+        );
+        assert!(reason.contains("elapsed_ms=120250"), "reason={reason}");
+        assert!(reason.contains("deadline_ms=120000"), "reason={reason}");
+        assert!(reason.contains("step_budget_ms=250"), "reason={reason}");
     }
 }
